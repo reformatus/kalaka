@@ -1,0 +1,7 @@
+title: wp-campmanager
+description: Camp and event registration for WordPress — architecture (working name)
+theme: jekyll-theme-primer
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true

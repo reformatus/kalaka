@@ -1,0 +1,10 @@
+{
+	"name": "wp-campmanager",
+	"private": true,
+	"scripts": {
+		"env": "wp-env"
+	},
+	"devDependencies": {
+		"@wordpress/env": "^12.0.0"
+	}
+}

@@ -1,0 +1,27 @@
+# Everything non-public lives here and is never committed: source sheets and
+# exports (personal data of minors), working drafts, spikes, analysis tools.
+internal/
+
+# Belt and braces: spreadsheet exports anywhere in the tree.
+*.ods
+*.xlsx
+*.xls
+*.csv
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Tooling
+node_modules/
+vendor/
+*.log
+.phpunit.result.cache
+.wp-env.override.json
+
+# GitHub Pages local build output
+docs/_site/
+docs/.jekyll-cache/
