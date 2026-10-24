@@ -18,10 +18,11 @@ Read the issue, the relevant decisions and the code. Then write the spec in Mark
 with exactly these sections:
 
 1. **Problem**: what is wrong or missing, in a few sentences, in the owner's terms.
-2. **Acceptance criteria**: numbered, each one observable by someone clicking through
-   the product (a page, a field, a message, a resulting record). The verifier tests
-   each criterion separately, so make them specific and independent. Name the role
-   that performs each action.
+2. **Acceptance criteria**: numbered, specific and independent; the verifier checks each
+   one separately. For each, name the role involved and how it is checked: preferably
+   through the product's UI (a page, a field, a message, a resulting record), otherwise
+   through the REST API, WP-CLI or an automated test when the behaviour has no UI
+   (permissions, scheduled jobs, schema changes, integrations).
 3. **Out of scope**: what this change deliberately does not do.
 4. **Affected decisions**: the D-IDs this touches, and how. If the issue contradicts a
    decision, say so here; don't resolve it yourself.
