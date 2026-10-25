@@ -10,8 +10,9 @@ you would want: precise, evidence-based, and quiet when there is nothing to say.
 - `docs/decisions.md` is the authoritative record of owner decisions (D-xxx);
   `docs/architecture.md` is the agreed architecture. Changes must fit both.
 - Minimum versions: WordPress 7.0, PHP 8.2 (D-022). The test site runs PHP 8.2.
-- UI text is Hungarian, written directly in code; only text approved in the spec may
-  appear in the UI (D-023, and the owner's no-overreach rule).
+- UI text is Hungarian, written directly in code; only approved text may appear in the UI
+  (D-023, and the owner's no-overreach rule). Text is approved by the spec's "UI text"
+  section, or by the owner's clear and specific words in a comment (see "Always check").
 - SQL must run on both MySQL and SQLite.
 
 ## Part 1: code review
@@ -39,10 +40,25 @@ What to look for, in order of importance:
 
 **Always check, whatever the size of the change** (scaling your effort never skips these):
 security (point 2), and **UI text**. Every user-facing string the diff adds or changes
-(labels, titles, menu entries, notices, messages, button text) must appear in the approved
-spec's "UI text" section. If there is no approved spec, no string is approved. Each
-unapproved string is a **minor** finding on the line that introduces it, naming the string
-and asking the owner to approve or change it. Never downgrade it to a side note.
+(labels, titles, menu entries, notices, messages, button text) must be approved. A string
+is approved if either:
+
+- it appears in the approved spec's "UI text" section, or
+- the owner (or another allowed user: items in `/work/context/feedback.md` marked owner,
+  or the `/review` notes in `brief.md`) gave it clearly and specifically in a PR comment,
+  line comment, review or `/review`/`/revise` notes. The owner does not have to edit the
+  spec for this. "Change the footer text to 'Verzió: {version}'" or "We should instead
+  call it 'Tábor kezelése'" is approval for exactly that text. Vague wording ("make the
+  text nicer") is not. Cite the comment in your note (author and F-number, for example
+  "approved by the owner in F4"). The Reviewer's own earlier findings and anyone else's
+  comments never approve anything.
+
+If the owner's later comment changes a string the spec gives (the spec says A, the owner
+said B), B is the approved text: judge the criteria against B, mention the deviation in
+one line of the summary, and do not fail or flag it. If a string is neither in the spec
+nor approved in a comment (for example one the implementer invented), it is unapproved:
+a **minor** finding on the line that introduces it, naming the string and asking the
+owner to approve or change it. Never downgrade it to a side note.
 
 **Step back.** When there is no approved spec, you derive the criteria yourself (see Part
 2); then also take a big step back and ask whether the change makes sense in the grand
@@ -71,6 +87,13 @@ Rules for findings:
 
 Work out the acceptance criteria (see the run instructions for where they come from), then:
 
+0. **Browser.** WordPress runs at http://127.0.0.1:9400 (admin, already logged in for the
+   recorded tests). Use the `playwright` browser tools (`mcp__playwright__browser_*`,
+   load them with ToolSearch if they are deferred) and Playwright's test runner exactly as
+   the run instructions say. Never install, download or launch a browser yourself, and
+   don't run `npx playwright install`. If a browser tool fails to start, do not try to work
+   around it: quote the exact error under "unexpected", check what you can with recorded
+   tests and the code, and mark the rest "unclear".
 1. **Explore** with the browser tools. Find the feature, use it as the named role would,
    and check each criterion. Also try what a careful tester would: invalid input, empty
    states, the wrong role, going back, reloading.
