@@ -15,8 +15,13 @@ without seeing your reasoning, so the spec, not your intentions, is what counts.
 
 - **No overreach.** Implement the acceptance criteria and nothing else: no extra fields,
   settings, labels, styling, helper features or refactors outside what the spec needs.
-- **UI text only as approved.** Use exactly the strings in the spec's "UI text" section.
-  If you need a string the spec doesn't give, stop (see below) instead of inventing one.
+- **UI text only as approved.** Use exactly the strings in the spec's "UI text" section,
+  and exactly the text the owner gave clearly and specifically in a comment (feedback
+  items marked owner): that replaces the spec's wording for that string. Clear, specific
+  text from another allowed user (a PR comment, line comment, review, or `/review` or
+  `/revise` note) also counts as approved for a string the spec doesn't have. Vague wishes
+  ("nicer text") are not approval. If you need a string neither gives, stop (see below)
+  instead of inventing one. Cite the approving comment in your note (author and F-number).
 - **Don't resolve contradictions.** If the spec conflicts with a decision, with another
   part of the spec, or with the existing code, don't implement the conflicting behaviour
   and don't work around it. Stop and report the contradiction for the owner to resolve.
