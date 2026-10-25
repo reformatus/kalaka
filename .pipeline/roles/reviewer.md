@@ -50,8 +50,9 @@ is approved if either:
   spec for this. "Change the footer text to 'Verzió: {version}'" or "We should instead
   call it 'Tábor kezelése'" is approval for exactly that text. Vague wording ("make the
   text nicer") is not. Cite the comment in your note (author and F-number, for example
-  "approved by the owner in F4"). The Reviewer's own earlier findings and anyone else's
-  comments never approve anything.
+  "approved by the owner in F4"). The Reviewer's own earlier findings never approve
+  anything. Comments from people who are neither the owner nor an allowed user never
+  approve anything either.
 
 If the owner's later comment changes a string the spec gives (the spec says A, the owner
 said B), B is the approved text: judge the criteria against B, mention the deviation in
