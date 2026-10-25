@@ -8,7 +8,8 @@ Status: **decided architecture as of 2026-10-25**, built together with the
 owner. Every decision referenced as D-nnn is in the [decision log](decisions.md).
 The product name is **Kaláka** (D-040); other names of plugins, modules and
 code identifiers are **placeholders**. Items marked *open* are deliberately
-left for later.
+left for later. Items marked **To discuss** are working arrangements or
+proposals the owner has not confirmed yet: they are not decisions.
 
 ---
 
@@ -27,7 +28,7 @@ What this architecture must satisfy, from the decision log:
 | Schema | dbDelta + upgrade steps later; drop-and-recreate + fixtures during development | D-016 |
 | Writes | One transaction per use case; any database error rolls back; effects after commit | D-055 |
 | Deferred work | No job queue: the materializer converges money, a send log delivers mail, one shared trigger | D-057 |
-| Payments | Payments port in core; WooCommerce as our own extension plugin; staff-recorded cash/transfer; pluggable payment methods | D-018, D-034, D-037 |
+| Payments | Payments port in core; WooCommerce as our own extension plugin; organizer-recorded cash/transfer; pluggable payment methods | D-018, D-034, D-037 |
 | API | REST in core conventions, consumed as core-data entities by DataViews/DataForm | D-019 |
 | Forms | Own blocks + Interactivity API, server validation; registration slot; field types, definitions and form fields | D-020, D-054, D-075 |
 | Actions | Admin use cases also registered as abilities | D-021 |
@@ -40,7 +41,11 @@ What this architecture must satisfy, from the decision log:
 
 ## 2. Layers and the use-case runner
 
-Every plugin we ship has the same layers. Dependencies point downward only:
+Every plugin we ship has the same layers. Dependencies point downward only.
+**To discuss:** this rewrite merged the old "Interfaces" layer (repositories, payments,
+mailer, scheduler, clock) into Application and Infrastructure and dropped its
+"infrastructure is swappable behind interfaces" rule; the owner only dropped
+domain purity (D-041).
 
 ```mermaid
 flowchart TB
@@ -86,7 +91,8 @@ flowchart LR
   commit.
 - **Inside a transaction only our own tables are written:** no WordPress
   functions that fire hooks or fill WordPress caches. Changes to
-  WordPress-owned data run after commit, in the same request.
+  WordPress-owned data run after commit, in the same request (*to discuss*,
+  D-055).
 - **Errors** (D-046): use cases throw exceptions carrying a `WP_Error` (code,
   Hungarian message, HTTP status), so REST, abilities and WP-CLI show them
   correctly. Each exception class has its own default Hungarian text; the
@@ -105,6 +111,8 @@ flowchart LR
 - Repositories offer `find(id)` (null when missing), `upsert()` for entities
   (with a version check against concurrent edits) and `insert()` for
   append-only records.
+- **To discuss:** the version check, entities tracking their own changes and list
+  preloading (D-059).
 - Lists and the evaluation runs use separate **query classes** built on
   indexes. Every per-event table has indexes that start with the event ID, and
   a MySQL test checks each per-event query's plan (D-039).
@@ -145,6 +153,10 @@ flowchart LR
   WOO --- WC
 ```
 
+**To discuss:** the module split below is a working arrangement made while rewriting:
+the Foundation module, renaming Lifecycle to Mail, and where each
+responsibility sits. The participant phase tracker (D-072) has no module yet.
+
 | Core module | Responsibility |
 |---|---|
 | Foundation | runner, audit, clock, evaluation trigger, module registry |
@@ -152,7 +164,7 @@ flowchart LR
 | Forms | forms, the registration slot, field types, field definitions, conditions, invitations |
 | Registry | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Rules | fixed price, fee-component framework, date types, materializer |
-| Ledger | lines, balances, staff-recorded payments |
+| Ledger | lines, balances, organizer-recorded payments |
 | Payments | payment interface, payment-method registry |
 | Mail | mails, deliveries, the sender |
 | Portal | registration access by secret link or account, account area |
@@ -174,8 +186,9 @@ flowchart LR
 
   The **WooCommerce integration is its own extension plugin** implementing that
   port (D-018, D-034). Core has no WooCommerce dependency at all. Without a
-  payment plugin, online payment is unavailable and staff-recorded payments
-  (cash, bank transfer) still work.
+  payment plugin, online payment is unavailable and organizer-recorded payments
+  (cash, bank transfer) still work. Other automatic methods (another gateway,
+  bank-statement import, …) are further plugins on the same port (D-037).
 
 ## 4. Events and forms
 
@@ -210,7 +223,7 @@ flowchart LR
   and the slot's date range applies on top of each form's own requirements.
 - **Invitation links:** an admin can create a one-time link for one form and
   one person. It bypasses the form's requirements, the slot's date range and
-  the event's capacity, so the registration lands as `registered`. It is spent
+  the event's capacity and "full" latch, so the registration lands as `registered`. It is spent
   on a successful submit, stored hashed and audited. Admins can also fill in
   any form themselves regardless of its criteria.
 
@@ -225,13 +238,15 @@ flowchart LR
 - Changing a definition never changes forms automatically: admins are offered
   an update per form (a new form version), and registration data is never
   touched.
-- Only definition-linked fields are prefilled from presets. Types may refuse to
+- Only definition-linked fields are prefilled from presets (*to discuss*,
+  D-054). Types may refuse to
   be definitions and may refuse prefill.
 - The contact email (exactly one per form in the registration slot) and the
   display name are explicit markings.
 - Money-relevance is a type capability (supplied by plugins; core ships no
-  money field types): values are stored like any other, locked after submit by
-  default, and changed only through use cases that re-materialize the money.
+  money field types): values are stored like any other and changed only
+  through use cases that re-materialize the money. Locked after submit by
+  default: *to discuss* (D-054).
 - **One condition format** serves form field visibility and mail bodies
   (D-071); forms evaluate it in the browser over form answers only.
 
@@ -244,7 +259,7 @@ erDiagram
   PRESET |o--o{ REGISTRATION : "filled from (optional)"
   EVENT ||--|{ FORM : "has"
   FORM ||--o{ SUBMISSION : "receives"
-  SUBMISSION |o--o| REGISTRATION : "creates (0..1)"
+  SUBMISSION ||--o| REGISTRATION : "creates"
   REGISTRATION ||--o{ SUBMISSION : "additional forms"
   EVENT ||--o{ REGISTRATION : "has"
   REGISTRATION ||--o{ FIELD_VALUE : "current data"
@@ -315,7 +330,8 @@ erDiagram
   `(9·d1 + 5·d2 + 9·L + 9·d4) mod 14 < 5` (5,000 codes per event). Unique
   per event; carried over from the preset's previous registration when free,
   otherwise random, avoiding codes used in previous events where possible.
-  Codes are extended by appending digits when an event runs out. The code
+  Codes are extended by appending digits when an event runs out, and
+  admins get a warning. The code
   grants no access.
 - Registrations are **keyed by event and reference code**, and every per-event
   table refers to a registration by that pair. The code never changes. The
@@ -343,8 +359,7 @@ erDiagram
 - **Amounts use WooCommerce-compatible shapes:**
   - every monetary record carries a currency code (ISO 4217);
   - stored as `DECIMAL(26,8)` like WooCommerce's order tables;
-  - arithmetic uses brick/math, never floats; `Money` normalizes any numeric
-    string the database returns.
+  - arithmetic uses brick/math, never floats (D-044).
 - **Sign convention:** a positive amount increases what the participant owes,
   a negative amount decreases it. Balance = Σ lines; > 0 means due, < 0 means
   overpaid.
@@ -356,7 +371,7 @@ erDiagram
 | `charge` (per fee component: the fixed price; plugin components such as a late fee or staff discount) | ± | materializer |
 | `payment` (online or other automatic method) | − | Payments, from payment-method plugin events |
 | `refund` | + | Payments, from payment-method plugin events |
-| `manual_payment` (bank transfer, cash) | − | staff use case |
+| `manual_payment` (bank transfer, cash) | − | organizer use case |
 | `adjustment` (correction with reason) | ± | admin use case |
 | feature lines (aid award, sponsor support, wallet…) | ± | feature plugins via extension point |
 
@@ -371,7 +386,7 @@ flowchart LR
   R["Fee components<br/>target amount per component"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]
   PM["Payment-method plugin<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
-  ST["Staff<br/>cash, bank transfer"] --> L
+  ST["Organizers<br/>cash, bank transfer"] --> L
   L -. "payment facts" .-> PF
 ```
 
@@ -428,14 +443,16 @@ means inserting a pending **delivery** into the send log, whose unique key
 
 - **One sender delivers everything:** right after commit and on every periodic
   run, with a throttle. It renders the body at send time from current data
-  and records the mail's version and send time, not the content.
+  and records the mail's version and send time, not the content. No archive
+  copy. *To discuss:* the throttle (D-069).
 - **Failures:** a definite failure (`wp_mail` returns false) is retried with
   increasing delays up to a limit, then left for an admin; an unknown outcome
   (a crash, a row stuck in "sending") is left for an admin. The latest error
   stays on the delivery (D-067).
 - **Sending can be paused:** deliveries pile up and can be cleared.
-  Unpublishing an event is a separate action, placed next to it. No archive
-  copy.
+  Unpublishing an event is a separate action, placed next to it. Later, not
+  first version: a manual requeue of action mails that should have been sent
+  but were not.
 - **Configuration:** a **mail** is trigger settings plus a **body**, one to
   one, and belongs to one event; bodies are reused by copying, with
   unsupported values flagged. Action mails are defined in code and switched on
@@ -456,9 +473,11 @@ means inserting a pending **delivery** into the send log, whose unique key
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: core"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section · evaluation participant ·<br/>date type"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section · evaluation participant"]
 ```
 
+- **To discuss:** extensions declare date types (D-073); whether that is a point of
+  this registry, and on which side of the transaction, is undecided.
 - Extension plugins declare core in their `Requires Plugins` header, so
   WordPress refuses to activate them without it.
 - They contribute through a **typed registry** with a closed list of extension
@@ -477,7 +496,7 @@ flowchart LR
 | **Transactions** | One per use case; only our tables inside; any database error rolls back; effects after commit (D-055). |
 | **Deferred work** | No job queue (D-057). One shared trigger runs the evaluation right after commit for the touched registrations, periodically (at least every 30 minutes), when a registration is opened, and manually. A Site Health check recommends a real system cron. |
 | **Bulk changes** | One transaction per item, a result report with links to failed records, retry or skip, and a preview where one exists (D-058). |
-| **Audit** | One entry per use case in `kalaka_audit` (D-056): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subject` lists every record touched. Failed use cases are audited too, without changes or input values; plain validation failures are not (D-067). |
+| **Audit** | One entry per use case in `kalaka_audit` (D-056): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subject` lists every record touched. Failed use cases are audited too; plain validation failures are not (D-067). How the failed entry is written (own transaction, no input values, error-log fallback): *to discuss*. |
 | **Failures** | Kept on the record they concern: the delivery, the refund request, or an "evaluation failed" flag on the registration shown to admins. PHP's error log is the last fallback (D-067). |
 | **Permissions** | Fine-grained capabilities per use case. Roles are bundles of capabilities. Core ships default roles; **the role set is defined with the owner later** (D-004). Abilities use the same capabilities (D-021). |
 | **Secret links** | ≥128-bit random key per registration, stored readable so every email can carry it (D-038); never logged, masked in exports; regenerable by organizers. |
@@ -487,5 +506,5 @@ flowchart LR
 | **Language** | Hungarian strings directly in code; no translation layer (D-023). Code identifiers and comments in English. Prefix `kalaka_` (D-040). |
 | **Personal data** | Personal data only in our tables. WordPress privacy export and erase cover registrations, presets, and audit diffs. IP address and user agent in the audit are declared through WordPress's privacy tools. Retention for guest data and audit: *open*. |
 | **Performance** | Per-event cost does not grow with the number of events; checked by an `EXPLAIN`-based MySQL test (D-039). |
-| **Testing** | The full test suite runs on MySQL; a SQLite run only checks that Playground starts and loads the seed (D-042, D-064). Fixtures: users per role + anonymized data; schema dropped and recreated freely until production (D-016). |
+| **Testing** | Most tests run with WordPress loaded; plain PHPUnit stays where code is naturally free of WordPress (e.g. money arithmetic) (D-041). The full test suite runs on MySQL; a SQLite run only checks that Playground starts and loads the seed (D-042, D-064). Fixtures: users per role + anonymized data; schema dropped and recreated freely until production (D-016). |
 | **Boundaries in CI** | A checker enforces module and plugin boundaries (each module's `Api` namespace) on every push (D-041, D-065). |

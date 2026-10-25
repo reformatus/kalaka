@@ -10,8 +10,8 @@ Other plugin, module and code names are placeholders.*
 Event and camp registration for REFISZ and Ifjúságépítők (IVK), replacing
 today's Google Sheets, Forms and Apps Script setup with WordPress plugins.
 
-**Status (2026-10-25):** core architecture and foundation decided;
-implementation not started.
+**Status (2026-10-25):** core architecture and foundation decided, with
+open points marked in the decision log; implementation not started.
 
 ## Pages
 

@@ -6,7 +6,7 @@ code names are placeholders.*
 Event and camp registration for WordPress, replacing a Google Sheets /
 Forms / Apps Script system used by two organizations (REFISZ and IVK).
 
-**Current phase:** core architecture and foundation decided; implementation not started.
+**Current phase:** core architecture and foundation decided (open points marked in the decision log); implementation not started.
 
 ## Repository map
 
