@@ -2,20 +2,22 @@
 title: Overview
 ---
 
-# wp-campmanager
+# Kaláka
 
-*Working name. All plugin, module and code names are placeholders.*
+*Product name decided in D-040; the repository is still called wp-campmanager.
+Other plugin, module and code names are placeholders.*
 
 Event and camp registration for REFISZ and Ifjúságépítők (IVK), replacing
 today's Google Sheets, Forms and Apps Script setup with WordPress plugins.
 
-**Status (2026-10-23):** core architecture decided; implementation not
-started.
+**Status (2026-10-25):** core architecture and foundation decided;
+implementation not started.
 
 ## Pages
 
-- [Core architecture](architecture.md): layers, packaging, identity, money,
-  extension surface, cross-cutting rules.
+- [Core architecture](architecture.md): layers and the use-case runner,
+  packaging, events and forms, registrations, money, mail, extension surface,
+  cross-cutting rules.
 - [Decision log](decisions.md): every decision with its date and reasoning.
 
 ## Context
@@ -48,7 +50,7 @@ Both websites run the same plugin code; they share no data.
 flowchart LR
   A["Open the event's form"] --> B{"Logged in?"}
   B -- "no" --> C["Register as guest"] --> D["Personal link by email"]
-  B -- "yes" --> E["Pick a person, add one,<br/>or none"] --> F["Register"] --> G["Account lists all<br/>registrations"]
+  B -- "yes" --> E["Prefill from a saved preset,<br/>or fill in fresh"] --> F["Register"] --> G["Account lists all<br/>registrations"]
   D --> H["Status page<br/>progress, balance, payment"]
   G --> H
 ```
@@ -62,15 +64,17 @@ flowchart LR
   separate.
 - **No account needed to register.** Every registration has a personal link
   to its status page. A WordPress account is optional: it collects
-  registrations, can hold several people (family, youth group) and can pay
-  everything at once.
+  registrations, keeps saved data sets (presets) that prefill new
+  registrations, and can pay everything at once.
 - **Money is an append-only ledger.** Every change is a new, explained line.
   Price changes after registration apply only through an explicit,
   previewed re-pricing.
 - **Core plus extensions.** The core plugin covers events, forms,
-  registrations, rules, ledger, status pages and administration. Payments
-  through WooCommerce, financial aid, sponsor support, programs, lodging,
-  check-in, buffet wallet and donations are separate extension plugins.
+  registrations with capacity and waitlist, a fixed price per registration
+  with full payment, the ledger, mail, status pages and administration.
+  Payments through WooCommerce, deposits, the tier ladder, late fees,
+  financial aid, sponsor support, programs, lodging, check-in, buffet wallet
+  and donations are separate extension plugins.
 - **Built on WordPress itself:** its admin components, REST API,
-  permissions, block editor (for forms and mail templates) and interactive
+  permissions, block editor (for forms, field definitions and mails) and interactive
   front end, rather than third-party form or admin plugins.
