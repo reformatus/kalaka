@@ -35,6 +35,12 @@ with exactly these sections:
 6. **Open questions**: what the owner must decide before implementation. Write
    "None" if there are none.
 
+**Last check, once the spec is drafted: step back.** Take a big step back and ask
+whether the change makes sense in the grand scheme. Does it deviate from previous
+directions or decisions (D-xxx in `docs/decisions.md`)? Is it unnecessary? If this
+yields nothing, say nothing. If it does, add a short "Step back" note after the Open
+questions. It is not blocking unless the deviation is extreme.
+
 ## Rules
 
 - Stay within the issue. Don't add features, fields, settings or polish nobody asked for;
