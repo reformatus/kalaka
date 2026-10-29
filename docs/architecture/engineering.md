@@ -31,6 +31,26 @@ title: Engineering
 - **Hungarian sorting by collation:** `utf8mb4_hungarian_ci` on our text
   columns; no PHP-side collation or stored sort keys. WordPress's default
   collation sorts Hungarian wrongly (Öröm before Ottó).
+- **Every table and text column declares `CHARACTER SET utf8mb4` and its
+  collation explicitly.** Defaults differ: 10.3's server default is latin1, and
+  a table without `COLLATE` gets the character set's default collation, not
+  the database's.
+- **The database does not validate values.** WordPress turns off strict mode,
+  so an overflowing `DECIMAL` is clamped and a bad number becomes 0 with only a
+  warning, and MariaDB 10.3 accepts invalid JSON. Values are validated in PHP
+  before they are written.
+- **Indexes are checked after creation:** an over-long index silently becomes
+  a prefix index (or, on 11.8, a hash index for a unique key), so a schema
+  test compares the created indexes with the declared ones.
+- **Not available on 10.3** besides the features named above:
+  `JSON_ARRAYAGG`, `JSON_OBJECTAGG`.
+- **Locking:** the capacity check's `FOR UPDATE` on the event row is the
+  first read of the submit transaction. A plain read before it would let a
+  later count reuse an old snapshot and overbook the event.
+- **Retryable database errors:** deadlock (1213), lock-wait timeout (1205),
+  "record has changed since last read" (1020, 11.8) and a duplicate key on a
+  reference-code collision (1062). The runner always issues an explicit
+  rollback, because some of these leave the transaction open.
 - **Per-event cost is tested:** an integration test seeds many events and
   checks each per-event query's plan with `EXPLAIN`; a query that examines
   rows outside its own event fails the build
@@ -110,7 +130,7 @@ internal/                 git-ignored: drafts, spikes, source material
   (e.g. money arithmetic).
 - **`tests/integration`** runs with WordPress loaded, on MariaDB, in wp-env.
   Most tests are integration tests.
-- **The full suite runs on MariaDB 11.8 and 10.3,** each with PHP 8.3 and the
+- **Integration tests run on MariaDB 11.8 and 10.3,** with PHP 8.3 and the
   latest PHP 8.x.
 - **SQLite is only a smoke test:** Playground starts and loads the seed.
 - **Time** is controlled through a fixed PSR-20 clock.
@@ -132,5 +152,3 @@ internal/                 git-ignored: drafts, spikes, source material
 - **CI on every pull request:** static checks, unit tests, integration tests
   (the database and PHP matrix above), the Playground smoke test, the zips and
   a Playground preview link; the compatibility check joins when alpha ends.
-- Development runs through the owner's AI pipeline (issue → spec → PR →
-  review); its role prompts are in `.pipeline/roles/`.

@@ -17,7 +17,7 @@ removed here.
 | Registration flow when an account is involved (inline or before the form); minimum age for holding an account | building the portal and registration UI |
 | Retention of guest data and of the audit, including failed entries | before the first production deployment (privacy policy) |
 | The role set: which roles core ships and their capabilities | before the admin UI |
-| Which money plugins come first (the price ladder is needed for IVK) | product scope, before the first season on Kaláka |
+| Which money plugins come first (the price ladder is needed for IVK) | product scope with stakeholders, before the first season on Kaláka |
 | The coupon-covered part of a WooCommerce order as a wallet ledger line | designing the WooCommerce and wallet extensions |
 | Where extensions register REST routes | the first extension that needs one |
 | Manual requeue of action mails that should have been sent | after the first version |
@@ -38,7 +38,8 @@ presentations are known to be needed and are approved when their UI is built:
 - the soft notice for a second guest registration with the same email;
 - the admin warning when an event's reference codes run out;
 - the privacy policy text (IP address and user agent in the audit);
-- the admin notice for an extension that is out of range or failed;
+- the admin notice for an extension whose version is out of range;
+- the admin notice for a failed schema upgrade;
 - how prefill is presented on a form;
 - the activation message when late registrants are excluded from a
   scheduled mail.

@@ -35,8 +35,8 @@ title: Events and forms
 - **"Open", "closed" and phases are derived** by comparing the current time
   with the points. They are never stored, and nothing fires at those moments.
   The same holds for every form's date window. Registration therefore opens
-  and closes automatically at its points; to reopen it, an admin edits the
-  date (which does not clear the "full" latch).
+  and closes automatically at its points; to change that, an admin edits the
+  dates (which does not clear the "full" latch).
 - **The participant phase tracker** (today's F1–F5) stays, as a modular
   subsystem in the Events module: core default phases, configurable,
   extensions add phases. Designed later ([Deferred](deferred.md)).
@@ -117,6 +117,8 @@ flowchart TB
   visible fields are accepted.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
+- **Stable field keys** and pickers for conditions; an **embed block** for
+  placing a form on any page.
 - Still to build within forms: spam protection and file upload
   ([Deferred](deferred.md)).
 

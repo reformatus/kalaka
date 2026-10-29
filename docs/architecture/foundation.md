@@ -115,7 +115,7 @@ flowchart LR
   change from the audit.
 - **Query classes** serve lists and the evaluation runs; they are built on
   indexes, not on repositories. **No N+1:** a list loads each related record
-  type in one query.
+  type in one query, enforced by the query classes.
 - **Per-event cost:** every table holding per-event data has indexes that
   start with the event ID, and every per-event list, sort and search query
   filters by event first. A database integration test seeds many events and
@@ -182,9 +182,11 @@ of deferred work gets exactly the guarantee it needs:
   with a unique key; only the sender run sends ([Mail](mail.md)).
 - **One shared trigger** runs the evaluation (registered evaluation
   participants, such as the materializer and mail decisions):
-  - right after commit, for the touched registrations;
-  - **every 5 minutes** (the periodic run), for time-caused work: late fees,
-    scheduled mails, reminders, retries;
+  - right after commit, for the touched registrations (after the response is
+    sent, where the host allows);
+  - **every 5 minutes** (the periodic run, matching today's Google Sheets
+    system), for time-caused work: late fees, scheduled mails, reminders,
+    retries;
   - when a registration is opened in the portal or admin;
   - manually, by an admin or WP-CLI, at any time; this is safe because every
     effect is claim-guarded.
@@ -214,6 +216,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 
 | Concern | Rule |
 |---|---|
+| **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
 | **Time** | Stored in UTC; displayed and computed in Europe/Budapest. A PSR-20 `ClockInterface` (`now(): DateTimeImmutable`) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
 | **Permissions** | Fine-grained capabilities per use case; roles are bundles of capabilities. Core ships default roles; the role set is defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same capabilities |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase cover registrations, presets and audit diffs. Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |

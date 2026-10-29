@@ -17,13 +17,13 @@ Mail is grouped by what causes it. **Deciding that a mail is due always means
 inserting a pending delivery** whose unique key (event, mail, registration,
 occurrence) makes it once-only.
 
-| Kind | Caused by | Decided by | Occurrence |
-|---|---|---|---|
-| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, link regenerated, an extension's act such as a wallet top-up | the use case, inside its own transaction | the act's record |
-| **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration | the mail |
-| **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat | the repeat number |
-| **Manual** | an admin sends to a selection, now or scheduled | the admin's use case | the send batch |
-| **Self-sent** | the registrant asks for it in the portal (e.g. resend my link), addressed to an email address | the portal use case, rate-limited | the request |
+| Kind | Caused by | Decided by |
+|---|---|---|
+| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, link regenerated, an extension's act such as a wallet top-up | the use case, inside its own transaction; keyed by the act's record |
+| **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
+| **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
+| **Manual** | an admin sends to a selection, now or scheduled | the admin's use case; keyed by the send batch |
+| **Self-sent** | the registrant asks for it in the portal (e.g. resend my link), addressed to an email address | the portal use case, rate-limited |
 
 ## Configuration
 
@@ -99,6 +99,9 @@ activated.**
   - from **itself**: when it stops with deliveries left, it nudges itself
     again rather than waiting;
   - on **every periodic run** (every 5 minutes), which also retries.
+- **A delivery is claimed before sending:** the sender moves it from pending
+  to "sending" before calling `wp_mail`, so overlapping sender runs never send
+  the same delivery twice. This claim is what makes mail at most once.
 - **It renders the body at send time from current data** and records the
   mail's version and send time, not the content. The content can be recovered
   by re-rendering, and may be incomplete after a privacy erase. Exact copies

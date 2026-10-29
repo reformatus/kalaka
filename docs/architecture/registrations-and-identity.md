@@ -108,8 +108,9 @@ erDiagram
   acts: withdraw, remove, admit from the waitlist, restore. **A withdrawal
   never automatically admits anyone from the waitlist;** changes to the list
   after it filled up are explicit admin acts.
-- **Only past-capacity and withdrawn or removed registrations are not
-  `registered`.** Deposit or aid status never makes a registration invalid.
+- **Only capacity (waitlisted) and withdrawal or removal keep a registration
+  from being `registered`.** Deposit or aid status never makes a registration
+  invalid.
 - **One capacity per event.** Every form in the registration slot counts
   toward it. The first registration that does not fit sets the event's
   **"full" latch**; from then on new registrations are waitlisted even if a
