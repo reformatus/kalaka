@@ -424,7 +424,7 @@ sequenceDiagram
   W->>C: paid (order ID)
   C->>L: one payment line per registration
   Note over L: each event's budget stays separate
-  C-->>H: payment mail, delivered after commit
+  C-->>H: payment mail, sent by the sender run
 ```
 
 ## 7. Mail (D-068 … D-071)
@@ -441,8 +441,10 @@ means inserting a pending **delivery** into the send log, whose unique key
 | **Manual** | an admin sends to a selection, now or scheduled | the admin's action |
 | **Self-sent** | the registrant asks in the portal (e.g. resend my link) | the portal action, rate-limited |
 
-- **One sender delivers everything:** right after commit and on every periodic
-  run, with a throttle. It renders the body at send time from current data
+- **One sender delivers everything, and no web request sends mail** (D-078),
+  not even an admin's manual mail. A commit that inserted deliveries nudges a
+  one-off sender run; a sender that stops with deliveries left nudges itself;
+  the 5-minute periodic run retries the rest. It sends with a throttle. It renders the body at send time from current data
   and records the mail's version and send time, not the content. No archive
   copy. *To discuss:* the throttle (D-069).
 - **Failures:** a definite failure (`wp_mail` returns false) is retried with
@@ -494,7 +496,7 @@ flowchart LR
 | Concern | Approach |
 |---|---|
 | **Transactions** | One per use case; only our tables inside; any database error rolls back; effects after commit (D-055). |
-| **Deferred work** | No job queue (D-057). One shared trigger runs the evaluation right after commit for the touched registrations, periodically (at least every 30 minutes), when a registration is opened, and manually. A Site Health check recommends a real system cron. |
+| **Deferred work** | No job queue (D-057). One shared trigger runs the evaluation right after commit for the touched registrations, periodically (every 5 minutes, D-078), when a registration is opened, and manually. Mail is never sent in a web request: the sender runs only from a nudge (a one-off WP-Cron event scheduled after commit) or the periodic run (D-078). A Site Health check recommends a real system cron. |
 | **Bulk changes** | One transaction per item, a result report with links to failed records, retry or skip, and a preview where one exists (D-058). |
 | **Audit** | One entry per use case in `kalaka_audit` (D-056): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subject` lists every record touched. Failed use cases are audited too; plain validation failures are not (D-067). How the failed entry is written (own transaction, no input values, error-log fallback): *to discuss*. |
 | **Failures** | Kept on the record they concern: the delivery, the refund request, or an "evaluation failed" flag on the registration shown to admins. PHP's error log is the last fallback (D-067). |
