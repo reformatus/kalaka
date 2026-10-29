@@ -130,8 +130,9 @@ activated.**
 - **Unpublishing an event** is a separate action, placed next to the pause in
   the UI. It stops the event's sending, and no scheduled or reminder
   deliveries are added to the queue while it is unpublished, so republishing
-  does not release outdated mails. Action and self-sent mails are still
-  queued, so none is forgotten; the admin sees the pending count with the
+  does not release outdated mails. Action mails are still queued, so
+  none is forgotten. The portal, including "resend my link", is closed;
+  self-sent mails requested before unpublishing stay queued. The admin sees the pending count with the
   option to clear them ([Events](events-and-forms.md#event-lifecycle)).
 - Later, not in the first version: a manual requeue of action mails that
   should have been sent but were not.

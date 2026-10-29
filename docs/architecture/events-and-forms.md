@@ -18,8 +18,9 @@ title: Events and forms
   - **Unpublished** pauses all of the event's public interfaces: forms, the
     portal, payments. It also stops the event's mail: no delivery is
     sent, and the periodic run adds no scheduled or reminder deliveries for
-    it. Action and self-sent mails are still queued, so none is forgotten;
-    on republishing, the admin sees the pending count and can clear them.
+    it. Action mails are still queued, so none is forgotten.
+    The portal is closed too, including "resend my link"; self-sent mails
+    requested before unpublishing stay queued. On republishing, the admin sees the pending count and can clear them.
     This follows from a sound unpublish; the control stays separate from the global mail pause, which
     only pauses sending ([Mail](mail.md#pausing)).
   - **Archived** is read-only and starts the retention clock.
