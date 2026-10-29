@@ -168,8 +168,16 @@ src/Registrations/
   example, that `Rest/`, `Cli/` and `Blocks/` never touch repositories
   ([Static checks](#static-checks)).
 
-### JavaScript
+### Builds
 
+- **PHP is buildless:** PSR-4 autoloading straight from `src/`. The PHP build
+  only packages, and Strauss touches only bundled libraries.
+- **One JavaScript build for everything:** a single `@wordpress/scripts`
+  build covers all JavaScript, including the Interactivity API `view.js`
+  files (built as script modules). There are no buildless modules alongside
+  built scripts. During development `npm start` runs it in watch mode.
+- **Source maps** are part of the build and ship in the zip, so the shipped
+  JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with
   `--webpack-copy-php`); blocks are registered from `build/`.
 - **The admin app** lives in `src/Admin/app/`, with its own entry in a small
