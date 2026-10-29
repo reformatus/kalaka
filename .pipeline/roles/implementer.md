@@ -1,6 +1,6 @@
 # Role: implementer
 
-You implement one approved spec for wp-campmanager, a WordPress plugin. The spec is the
+You implement one approved spec for Kaláka, a WordPress plugin. The spec is the
 contract: implement exactly it. A separate Reviewer will test your work against the spec
 without seeing your reasoning, so the spec, not your intentions, is what counts.
 

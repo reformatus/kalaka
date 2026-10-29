@@ -6,8 +6,8 @@ title: Core architecture
 
 Status: **decided architecture as of 2026-10-25**, built together with the
 owner. Every decision referenced as D-nnn is in the [decision log](decisions.md).
-The product name is **Kaláka** (D-040); other names of plugins, modules and
-code identifiers are **placeholders**. Items marked *open* are deliberately
+The product name is **Kaláka** (D-040) and code identifiers follow D-079;
+module names are **placeholders**. Items marked *open* are deliberately
 left for later. Items marked **To discuss** are working arrangements or
 proposals the owner has not confirmed yet: they are not decisions.
 
@@ -498,14 +498,14 @@ flowchart LR
 | **Transactions** | One per use case; only our tables inside; any database error rolls back; effects after commit (D-055). |
 | **Deferred work** | No job queue (D-057). One shared trigger runs the evaluation right after commit for the touched registrations, periodically (every 5 minutes, D-078), when a registration is opened, and manually. Mail is never sent in a web request: the sender runs only from a nudge (a one-off WP-Cron event scheduled after commit) or the periodic run (D-078). A Site Health check recommends a real system cron. |
 | **Bulk changes** | One transaction per item, a result report with links to failed records, retry or skip, and a preview where one exists (D-058). |
-| **Audit** | One entry per use case in `kalaka_audit` (D-056): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subject` lists every record touched. Failed use cases are audited too; plain validation failures are not (D-067). How the failed entry is written (own transaction, no input values, error-log fallback): *to discuss*. |
+| **Audit** | One entry per use case in `kalaka_audit_entries` (D-056, D-079): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subjects` lists every record touched. Failed use cases are audited too; plain validation failures are not (D-067). How the failed entry is written (own transaction, no input values, error-log fallback): *to discuss*. |
 | **Failures** | Kept on the record they concern: the delivery, the refund request, or an "evaluation failed" flag on the registration shown to admins. PHP's error log is the last fallback (D-067). |
 | **Permissions** | Fine-grained capabilities per use case. Roles are bundles of capabilities. Core ships default roles; **the role set is defined with the owner later** (D-004). Abilities use the same capabilities (D-021). |
 | **Secret links** | ≥128-bit random key per registration, stored readable so every email can carry it (D-038); never logged, masked in exports; regenerable by organizers. |
 | **Time** | Stored in UTC; displayed and computed in Europe/Budapest. A PSR-20 clock keeps rules testable (D-043). Dates are set through date references (D-073). |
 | **Money** | `DECIMAL(26,8)`, currency code everywhere, brick/math, no floats (D-037, D-044). |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns (D-045). |
-| **Language** | Hungarian strings directly in code; no translation layer (D-023). Code identifiers and comments in English. Prefix `kalaka_` (D-040). |
+| **Language** | Hungarian strings directly in code; no translation layer (D-023). Code identifiers and comments in English. Prefixes and names per D-040 and D-079. |
 | **Personal data** | Personal data only in our tables. WordPress privacy export and erase cover registrations, presets, and audit diffs. IP address and user agent in the audit are declared through WordPress's privacy tools. Retention for guest data and audit: *open*. |
 | **Performance** | Per-event cost does not grow with the number of events; checked by an `EXPLAIN`-based MySQL test (D-039). |
 | **Testing** | Most tests run with WordPress loaded; plain PHPUnit stays where code is naturally free of WordPress (e.g. money arithmetic) (D-041). The full test suite runs on MySQL; a SQLite run only checks that Playground starts and loads the seed (D-042, D-064). Fixtures: users per role + anonymized data; schema dropped and recreated freely until production (D-016). |
