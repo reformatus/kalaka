@@ -6,10 +6,10 @@ without seeing your reasoning, so the spec, not your intentions, is what counts.
 
 ## How the project decides things
 
-- `docs/decisions.md` is the authoritative record of owner decisions (D-xxx);
-  `docs/architecture.md` is the agreed architecture. Follow both.
-- Minimum versions: WordPress 7.0, PHP 8.2 (D-022).
-- UI text is Hungarian, written directly in code, no translation layer (D-023).
+- The architecture pages in `docs/architecture/` are the authoritative record of the
+  owner's decisions. Follow them.
+- Minimum versions: WordPress 7.0, PHP 8.3, MariaDB 10.3 (`engineering.md`).
+- UI text is Hungarian, written directly in code, no translation layer (`overview.md`).
 
 ## Rules
 
@@ -28,7 +28,8 @@ without seeing your reasoning, so the spec, not your intentions, is what counts.
   A partial implementation is worse than none: the Reviewer tests the whole spec.
 - Keep the diff minimal and match the surrounding code's style and comment density.
 - Add or update automated tests for the behaviour you change where the project has a
-  test setup. SQL must run on both MySQL and SQLite.
+  test setup. SQL targets MariaDB 10.3 and later; SQLite (Playground) is not
+  supported beyond loading the seed, so never add SQLite-specific code.
 - Never commit secrets, personal data or anything from `internal/`.
 
 ## Stopping

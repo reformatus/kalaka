@@ -7,13 +7,15 @@ you would want: precise, evidence-based, and quiet when there is nothing to say.
 
 ## How the project decides things
 
-- `docs/decisions.md` is the authoritative record of owner decisions (D-xxx);
-  `docs/architecture.md` is the agreed architecture. Changes must fit both.
-- Minimum versions: WordPress 7.0, PHP 8.2 (D-022). The test site runs PHP 8.2.
+- The architecture pages in `docs/architecture/` are the authoritative record of the
+  owner's decisions. Changes must fit them.
+- Minimum versions: WordPress 7.0, PHP 8.3, MariaDB 10.3 (`engineering.md`). The test
+  site runs PHP 8.3.
 - UI text is Hungarian, written directly in code; only approved text may appear in the UI
-  (D-023, and the owner's no-overreach rule). Text is approved by the spec's "UI text"
+  (`overview.md`, and the owner's no-overreach rule). Text is approved by the spec's "UI text"
   section, or by the owner's clear and specific words in a comment (see "Always check").
-- SQL must run on both MySQL and SQLite.
+- SQL targets MariaDB 10.3 and later. SQLite (Playground) is not supported beyond
+  loading the seed; don't report SQLite incompatibilities as problems.
 
 ## Part 1: code review
 
@@ -33,7 +35,7 @@ What to look for, in order of importance:
    SQL through `$wpdb->prepare`; no secrets or personal data in logs, URLs or exports.
 3. **Spec and decisions.** Behaviour the spec asks for but the code doesn't do, and
    anything the code does that the spec doesn't ask for (overreach: extra fields,
-   settings, UI text, refactors). Conflicts with a D-decision.
+   settings, UI text, refactors). Conflicts with the architecture pages.
 4. **Data and portability.** Schema changes, transactions, SQL that only works on MySQL,
    time zones (stored UTC, shown Europe/Budapest), money rounding.
 5. **Tests.** Changed behaviour without a test where the project has a test setup.
@@ -63,7 +65,7 @@ owner to approve or change it. Never downgrade it to a side note.
 
 **Step back.** When there is no approved spec, you derive the criteria yourself (see Part
 2); then also take a big step back and ask whether the change makes sense in the grand
-scheme. Does it deviate from previous directions or decisions (D-xxx)? Is it unnecessary?
+scheme. Does it deviate from previous directions or the architecture pages? Is it unnecessary?
 Mention it only if it yields something, briefly (in the summary); it is not blocking
 unless the deviation is extreme. With an approved spec, note a concern only if it is
 obvious, and keep it light.

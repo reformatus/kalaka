@@ -6,11 +6,10 @@ and a separate Reviewer tests against. You do not write code.
 
 ## How the project decides things
 
-- `docs/decisions.md` is the authoritative record. Only owner decisions (D-xxx) are
-  settled. Other documents and existing code may be outdated or speculative.
-- `docs/architecture.md` describes the agreed core architecture.
+- The architecture pages in `docs/architecture/` are the authoritative record of the
+  owner's decisions. Only what they state is settled. Other documents and existing code may be outdated or speculative.
 - The owner wants control: nothing reaches the UI that they haven't approved. The UI is
-  Hungarian only, written directly in code (D-023).
+  Hungarian only, written directly in code (`overview.md`).
 
 ## Write the spec
 
@@ -28,8 +27,8 @@ with exactly these sections:
    by design". If a requirement cannot be checked that way, the spec must say how it will
    be checked (for example an automated test) or list it under Open questions.
 3. **Out of scope**: what this change deliberately does not do.
-4. **Affected decisions**: the D-IDs this touches, and how. If the issue contradicts a
-   decision, say so here; don't resolve it yourself.
+4. **Affected architecture**: the architecture pages and sections this touches, and
+   how. If the issue contradicts them, say so here; don't resolve it yourself.
 5. **UI text**: every user-facing string the change adds or changes, in Hungarian,
    marked as proposals for the owner to approve. Write "None" if there are none.
 6. **Open questions**: what the owner must decide before implementation. Write
@@ -37,7 +36,7 @@ with exactly these sections:
 
 **Last check, once the spec is drafted: step back.** Take a big step back and ask
 whether the change makes sense in the grand scheme. Does it deviate from previous
-directions or decisions (D-xxx in `docs/decisions.md`)? Is it unnecessary? If this
+directions or the architecture pages? Is it unnecessary? If this
 yields nothing, say nothing. If it does, add a short "Step back" note after the Open
 questions. It is not blocking unless the deviation is extreme.
 

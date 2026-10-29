@@ -4,21 +4,27 @@ title: Overview
 
 # Kaláka
 
-*Product name decided in D-040; code identifiers in D-079. Module names are
-placeholders.*
-
 Event and camp registration for REFISZ and Ifjúságépítők (IVK), replacing
 today's Google Sheets, Forms and Apps Script setup with WordPress plugins.
 
-**Status (2026-10-25):** core architecture and foundation decided, with
-open points marked in the decision log; implementation not started.
+**Status (2026-10-29):** architecture decided; implementation not started.
 
-## Pages
+## Architecture
 
-- [Core architecture](architecture.md): layers and the use-case runner,
-  packaging, events and forms, registrations, money, mail, extension surface,
-  cross-cutting rules.
-- [Decision log](decisions.md): every decision with its date and reasoning.
+The architecture pages are the authoritative record of the owner's
+decisions; a change is a pull request that edits them.
+
+- [Overview and principles](architecture/overview.md)
+- [Foundation](architecture/foundation.md): layers, the use-case runner,
+  errors, entities, audit, deferred work, cross-cutting rules
+- [Modules and extensions](architecture/modules-and-extensions.md)
+- [Events and forms](architecture/events-and-forms.md)
+- [Registrations and identity](architecture/registrations-and-identity.md)
+- [Money](architecture/money.md)
+- [Mail](architecture/mail.md)
+- [Engineering](architecture/engineering.md): platform, layout, tooling,
+  tests and CI
+- [Deferred](architecture/deferred.md): what is decided later, and when
 
 ## Context
 
@@ -72,7 +78,7 @@ flowchart LR
 - **Core plus extensions.** The core plugin covers events, forms,
   registrations with capacity and waitlist, a fixed price per registration
   with full payment, the ledger, mail, status pages and administration.
-  Payments through WooCommerce, deposits, the tier ladder, late fees,
+  Payments through WooCommerce, deposits, the price ladder, late fees,
   financial aid, sponsor support, programs, lodging, check-in, buffet wallet
   and donations are separate extension plugins.
 - **Built on WordPress itself:** its admin components, REST API,
