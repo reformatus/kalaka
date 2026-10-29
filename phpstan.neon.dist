@@ -1,0 +1,9 @@
+parameters:
+    level: 8
+    paths:
+        - plugins/kalaka/src
+        - plugins/kalaka/kalaka.php
+        - plugins/kalaka/uninstall.php
+    bootstrapFiles:
+        - plugins/kalaka/vendor/autoload.php
+        - phpstan-bootstrap.php

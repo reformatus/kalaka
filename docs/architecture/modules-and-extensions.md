@@ -34,8 +34,8 @@ flowchart LR
     FD["Foundation"]
     EV["Events"]
     FO["Forms"]
-    RE["Registry"]
-    RU["Rules"]
+    RE["Registrations"]
+    RU["Pricing"]
     LE["Ledger"]
     PA["Payments"]
     MA["Mail"]
@@ -53,10 +53,10 @@ flowchart LR
 | Module | Responsibility |
 |---|---|
 | Foundation | runner, audit, clock, evaluation trigger, module registry |
-| Events | events, states, timeline points, capacity and the "full" latch; later the participant phase tracker |
+| Events | events, states, timeline points, date types, capacity and the "full" latch; later the participant phase tracker |
 | Forms | forms, the registration slot, field types, field definitions, conditions, invitations |
-| Registry | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
-| Rules | fixed price, fee-component framework, date types, materializer |
+| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
+| Pricing | fixed price, fee-component framework, materializer |
 | Ledger | lines, balances, organizer-recorded payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
@@ -67,11 +67,51 @@ flowchart LR
 
 - **One `Module` interface for core modules and extension plugins.** A module
   declares its tables, capabilities and extension-point contributions, and
-  wires itself into WordPress in `boot()`.
+  wires itself into WordPress in `boot()`:
+
+  ```php
+  interface Module {
+      public function id(): string;                        // [a-z][a-z0-9_]*
+      public function requiresApi(): string;               // e.g. '>=0.1 <0.2'
+      public function schema(): Schema;                    // Schema::none() without tables
+      public function capabilities(): array;               // list<string>
+      public function contribute(Contributions $to): void; // typed extension points
+      public function boot(): void;                        // add_action etc.
+  }
+  ```
+
+  `AbstractModule` gives the defaults (no schema, capabilities or
+  contributions). Each module's class is `<Module>\Module`, in `Module.php`
+  ([Engineering](engineering.md#inside-a-module-grouped-by-domain)).
+- **`Schema`** is a value object: a version, the `CREATE TABLE` statements for
+  `dbDelta` (table names written as `{prefix}…`), and upgrade steps keyed by
+  the version they upgrade to. The stored version is the option
+  `kalaka_schema_<id>`.
+- **`Contributions` starts empty.** Each typed method (`feeComponent()`,
+  `dateType()`, `paymentMethod()`, …) is added with the first module that
+  needs it.
+- **Boot:** core boots on `plugins_loaded` (priority 10). It adds the core
+  modules in a fixed order, then fires `kalaka_register_modules`, where
+  extensions add theirs; because this runs after every plugin is loaded,
+  plugin load order does not matter. Then for each module: the version check,
+  the schema upgrade, `contribute()` and `boot()`. Schema upgrades run in any
+  request that sees a lower stored version, and on activation, under an
+  WordPress's upgrader lock
+  (`WP_Upgrader::create_lock()`); a module whose upgrade is in progress in
+  another request is not booted in this one. An extension plugin's main file:
+
+  ```php
+  add_action('kalaka_register_modules', static function (Kalaka\Foundation\Api\Modules $modules): void {
+      $modules->add(new Kalaka\WooCommerce\Module());
+  });
+  ```
 - An extension plugin is a module that lives in another plugin, so a core
   module can later move into its own plugin unchanged.
 - Other modules and plugins use only a module's **`Api` namespace**
-  (`Kalaka\<Module>\Api\…`), checked in CI.
+  (`Kalaka\<Module>\Api\…`), checked in CI. It is the PHP contract, not the
+  REST API.
+- **No DI container.** Each module builds its own objects in plain PHP with
+  constructor injection; other modules reach them only through its `Api`.
 
 ## Schema ownership
 
@@ -105,11 +145,15 @@ never our prefix.
 | PHP namespace | `Kalaka\<Module>\…` for core and extensions alike, so a module moves between plugins unchanged |
 | Composer packages | vendor `kalaka`, not tied to a GitHub organization: `kalaka/core`, `kalaka/woocommerce`, … |
 | Tables, options, capabilities, hooks | `kalaka_` prefix; hooks with underscores like WordPress core |
-| Table names | plural like WordPress core, e.g. `kalaka_registrations`, `kalaka_audit_entries` |
+| Table names | plural like WordPress core, e.g. `kalaka_registrations`, `kalaka_audit_entries`; extension tables `kalaka_<module id>_<plural>`, e.g. `kalaka_woocommerce_refund_requests` |
+| Module IDs | `[a-z][a-z0-9_]*`, e.g. `events`, `woocommerce`; schema version option `kalaka_schema_<id>` |
+| Use-case classes | verb + noun: `SubmitRegistration`, `WithdrawRegistration`, `RegenerateSecretLink` |
+| Action names (audit, abilities) | admin `kalaka/<verb-noun>` (also the ability name), portal `kalaka-portal/<verb-noun>` |
 | Blocks, abilities | `kalaka/<name>` |
 | Post types | `kalaka_form`, `kalaka_field`, `kalaka_mail` |
 | REST namespaces | `kalaka-admin/v1`, `kalaka-portal/v1` |
 | Repository | `reformatus/kalaka` |
+| Plugin headers | `Plugin Name: Kaláka` (extensions `Kaláka – <Feature>`), `Plugin URI: https://kalaka.dev`, `Author: Benedek Fodor`, `Update URI: https://kalaka.dev` so WordPress never offers a wordpress.org plugin of the same slug as an update; no Text Domain; extensions add `Requires Plugins: kalaka[, …]` |
 
 Where extensions register REST routes is decided with the first extension that
 needs one.
@@ -149,7 +193,7 @@ flowchart LR
     WordPress hooks.
   - **Outside** (field type, payment method, portal or admin section,
     evaluation participant).
-- **Date types** are an inside point: one immutable context (the
+- **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).
 
@@ -159,8 +203,9 @@ flowchart LR
   a place in the code.
 - **A point is added only when one of our own extensions needs it,** and that
   extension uses it first.
-- **Inputs are immutable value objects:** one context parameter object per
-  point, so adding a field breaks no one. A point never receives repositories,
+- **Inputs are immutable value objects:** one input object per point, named
+  `<Point>Input` (`DateTypeInput`, `FeeComponentInput`, …), so adding a field
+  breaks no one. A point never receives repositories,
   entities, the use-case runner or database access, and returns a defined
   value.
 - **Extensions contribute; they never modify.** No WordPress filter or other
@@ -187,7 +232,7 @@ IVK, and no plugin has been released publicly as open source, the public API
 may change in breaking ways: a change updates every user in the repository in
 the same pull request. During alpha, permanence, additive-only changes and the
 CI compatibility check do not apply; the contract *shape* above (domain
-concepts, immutable context objects, our own extension using a point first)
+concepts, immutable input objects, our own extension using a point first)
 does. **Alpha ends with the first public release of any plugin.** The
 deprecation period and the compatibility-check tool are chosen then.
 
@@ -195,7 +240,9 @@ deprecation period and the compatibility-check tool are chosen then.
 
 - Core's public API carries a version: **the shared release version, under
   semantic versioning.** Each extension module declares the range it
-  supports, e.g. `>=1.4 <2.0`. During 0.x any release may break.
+  supports through `requiresApi()`, e.g. `>=1.4 <2.0`, using only `>=` and
+  `<`, so core parses it without a library. Core modules declare
+  `>=` their own version. During 0.x any release may break.
 - Core boots only extensions in range. One out of range is not booted, and
   admins see a notice instead of a fatal error. This holds for our own
   extensions too: WordPress updates plugins one by one, so a site can run

@@ -3,12 +3,13 @@
 Event and camp registration for WordPress, replacing a Google Sheets /
 Forms / Apps Script system used by two organizations (REFISZ and IVK).
 
-**Current phase:** architecture decided; implementation not started.
+**Current phase:** implementation started: the core plugin skeleton.
 
 ## Repository map
 
 | Path | What it is |
 |---|---|
+| `plugins/kalaka/` | The core plugin; its `README.md` describes the layout |
 | `docs/` | Published documentation (GitHub Pages) |
 | `docs/architecture/` | Architecture pages: the authoritative record of decisions |
 | `.pipeline/roles/` | Role prompts for the AI development pipeline |

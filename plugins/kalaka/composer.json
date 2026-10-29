@@ -1,0 +1,18 @@
+{
+    "name": "kalaka/core",
+    "description": "Kaláka core plugin",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kalaka\\": "src/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}

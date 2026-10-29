@@ -1,0 +1,319 @@
+deptrac:
+  paths:
+    - plugins/kalaka/src
+  layers:
+    - name: Foundation
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Foundation\\(?!Api\\)'
+    - name: Foundation Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Foundation\\Api\\'
+    - name: Events
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Events\\(?!Api\\)'
+    - name: Events Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Events\\Api\\'
+    - name: Forms
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Forms\\(?!Api\\)'
+    - name: Forms Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Forms\\Api\\'
+    - name: Registrations
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Registrations\\(?!Api\\)'
+    - name: Registrations Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Registrations\\Api\\'
+    - name: Pricing
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Pricing\\(?!Api\\)'
+    - name: Pricing Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Pricing\\Api\\'
+    - name: Ledger
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Ledger\\(?!Api\\)'
+    - name: Ledger Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Ledger\\Api\\'
+    - name: Payments
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Payments\\(?!Api\\)'
+    - name: Payments Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Payments\\Api\\'
+    - name: Mail
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Mail\\(?!Api\\)'
+    - name: Mail Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Mail\\Api\\'
+    - name: Portal
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Portal\\(?!Api\\)'
+    - name: Portal Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Portal\\Api\\'
+    - name: Admin
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Admin\\(?!Api\\)'
+    - name: Admin Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Admin\\Api\\'
+    - name: WordPress
+      collectors:
+        - type: classLike
+          value: '^WP_'
+  ruleset:
+    Foundation:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Events:
+      - WordPress
+      - Events Api
+      - Foundation Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Forms:
+      - WordPress
+      - Forms Api
+      - Foundation Api
+      - Events Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Registrations:
+      - WordPress
+      - Registrations Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Pricing:
+      - WordPress
+      - Pricing Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Ledger:
+      - WordPress
+      - Ledger Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Payments:
+      - WordPress
+      - Payments Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Mail:
+      - WordPress
+      - Mail Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Portal Api
+      - Admin Api
+    Portal:
+      - WordPress
+      - Portal Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Admin Api
+    Admin:
+      - WordPress
+      - Admin Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+    Foundation Api:
+      - WordPress
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Events Api:
+      - WordPress
+      - Foundation Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Forms Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Registrations Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Pricing Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Ledger Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Payments Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Mail Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Portal Api
+      - Admin Api
+    Portal Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Admin Api
+    Admin Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api

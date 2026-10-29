@@ -24,6 +24,7 @@ removed here.
 | Year-to-year tracking add-on, built from preset links | later |
 | Public after-save actions for third parties | when a third party needs them; at the earliest when alpha ends |
 | Deprecation period for versioned extension points; the compatibility-check tool | when the alpha phase ends |
+| The license and its `LICENSE` file | when the alpha phase ends (wide release to other organizations) |
 | Spam protection; file upload | building forms |
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
