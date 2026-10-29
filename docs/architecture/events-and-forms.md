@@ -56,7 +56,7 @@ A date type **may differ per registration** (e.g. 14 days after registering or
 a fixed date, whichever is earlier). It is computed only from registration
 facts and absolute points, never from another derived date. Core declares
 **payment due**. Date types are an extension point that runs inside the
-transaction and takes one immutable context; the periodic run computes them
+transaction and takes one immutable input; the periodic run computes them
 in PHP for registrations in published events. If that ever becomes slow, the
 computed date is cached in a column on the registration.
 

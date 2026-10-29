@@ -20,8 +20,12 @@ node_modules/
 vendor/
 *.log
 .phpunit.result.cache
+.deptrac.cache
 .wp-env.override.json
 
 # GitHub Pages local build output
 docs/_site/
 docs/.jekyll-cache/
+
+# Built plugin assets
+plugins/*/build/

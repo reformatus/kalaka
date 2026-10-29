@@ -1,0 +1,14 @@
+parameters:
+    level: 8
+    paths:
+        - plugins/kalaka/src
+        - plugins/kalaka/kalaka.php
+        - plugins/kalaka/uninstall.php
+    bootstrapFiles:
+        - plugins/kalaka/vendor/autoload.php
+        - phpstan-bootstrap.php
+    ignoreErrors:
+        # The WordPress stubs declare add_option() as always returning true.
+        -
+            identifier: booleanNot.alwaysTrue
+            path: plugins/kalaka/src/Foundation/SchemaUpgrader.php

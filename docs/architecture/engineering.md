@@ -90,23 +90,91 @@ title: Engineering
 plugins/
   kalaka/                 core plugin
     kalaka.php
-    composer.json         Kalaka\ → src/
-    src/<Module>/…        Kalaka\<Module>\…, public API in Kalaka\<Module>\Api\…
+    uninstall.php
+    README.md             layout rules, WordPress concept → file map, entry points
+    composer.json         kalaka/core, Kalaka\ → src/
+    build/                git-ignored, shipped in the zip
+    src/<Module>/…        Kalaka\<Module>\…
     tests/unit/
     tests/integration/
   kalaka-woocommerce/     an extension plugin, same shape
+VERSION                   the one version number
 composer.json             development tools only
 package.json              development tools only
+phpstan.neon.dist, phpcs.xml.dist, deptrac.yaml   for all plugins
 docs/                     these pages (GitHub Pages)
 internal/                 git-ignored: drafts, spikes, source material
 ```
 
 - Each plugin has its own `composer.json`; the root `composer.json` and
   `package.json` hold development tools only.
-- **JavaScript:** `@wordpress/scripts` in each plugin, for blocks and the
-  admin app.
 - Bundled PHP libraries are prefixed per plugin with Strauss
   ([Modules](modules-and-extensions.md#bundled-libraries)).
+- No `languages/`, Text Domain or `readme.txt` (Hungarian only, not listed on
+  wordpress.org); no Loader class and no `index.php` placeholder files.
+
+### Inside a module: grouped by domain
+
+Modules are grouped by domain, not by layer (close to GiveWP's domain-first
+layout, without its folders sorted by kind and without a DI container).
+
+```
+src/Registrations/
+  Module.php                    entry point
+  README.md
+  Registration.php              the main noun and its use cases at the root
+  RegistrationList.php
+  RegistrationRepository.php
+  SubmitRegistration.php
+  Api/
+    RegistrationKey.php
+  Preset/                       another noun: its own folder
+    Preset.php
+    PresetRepository.php
+    SavePreset.php
+    Rest/                       an entry point that belongs only to presets
+      PresetsController.php
+  Waitlist/
+    AdmitFromWaitlist.php
+  Rest/
+    RegistrationsController.php
+  Blocks/
+    registration-status/
+```
+
+- **Every module's entry point is `Module.php`** (`final class Module extends
+  AbstractModule`), in core and in extensions alike, and it is the only place
+  a module hooks into WordPress. `Module.php` and `README.md` are the two files
+  to open first in any module.
+- **The module's main noun and its use cases sit at the module root:** the
+  record, its repository, its list query, and the use cases that change it.
+- **Every other noun gets its own folder** with its own record, repository,
+  list and use cases. A use case lives with the noun it changes; if it changes
+  several, it goes with the main one.
+- **The same rules apply inside a noun folder:** it can have its own sub-noun
+  folders, and its own WordPress entry-point folders when those belong only to
+  that noun.
+- **The only folders that are not nouns:**
+  - `Api/`: the PHP contract for other modules and extensions (not the REST
+    API);
+  - WordPress entry points, named as WordPress names them and created only
+    when needed: `Rest/`, `Cli/`, `Blocks/<block-name>/` (`block.json`,
+    `render.php`, `edit.js`, `view.js`, laid out as `create-block` does).
+- Repositories are named `<Entity>Repository`.
+- Extension plugins have the same shape.
+- **Layers are not folders.** deptrac recognizes layers by interface, base
+  class and name (use cases implement `UseCase`, repositories extend the
+  repository base) and fails on uncovered classes, so it can enforce, for
+  example, that `Rest/`, `Cli/` and `Blocks/` never touch repositories
+  ([Static checks](#static-checks)).
+
+### JavaScript
+
+- **`@wordpress/scripts`** scans `src/` for `block.json` (with
+  `--webpack-copy-php`); blocks are registered from `build/`.
+- **The admin app** lives in `src/Admin/app/`, with its own entry in a small
+  custom webpack config. If it grows large it can move to a top-level
+  `client/admin/`.
 
 ## Code style
 
@@ -128,7 +196,11 @@ internal/                 git-ignored: drafts, spikes, source material
 
 - **PHPStan** with WordPress stubs.
 - **deptrac** enforces module and plugin boundaries: a module uses another
-  only through its `Kalaka\<Module>\Api\…` namespace.
+  only through its `Kalaka\<Module>\Api\…` namespace. Layer rules by
+  interface, base class and name join as those classes appear.
+- **Direct database access** (`$wpdb`) outside repositories and query classes
+  is caught by PHPCS's direct-query rule ([Code style](#code-style)); deptrac
+  cannot see a `global $wpdb` cheaply.
 - **Backward-compatibility check** of the public API against the last release,
   from the end of the alpha phase
   ([Modules](modules-and-extensions.md#alpha-phase)); the tool is chosen then
@@ -143,7 +215,8 @@ internal/                 git-ignored: drafts, spikes, source material
 - **Integration tests run on MariaDB 11.8 and 10.3,** with PHP 8.3 and the
   latest PHP 8.x.
 - **SQLite is only a smoke test:** Playground starts and loads the seed.
-- **Time** is controlled through a fixed PSR-20 clock.
+- **Time** is controlled through a fixed clock
+  ([Foundation](foundation.md#cross-cutting-rules)).
 
 ## Fixtures
 
@@ -157,8 +230,9 @@ internal/                 git-ignored: drafts, spikes, source material
 
 - **One build script produces a zip per plugin:** Composer installs without
   development dependencies, Strauss prefixes the libraries, the JavaScript
-  build runs, development files are left out, and the one version is written
-  in one place and copied into every plugin header.
+  build runs, development files are left out, and the one version, kept in
+  the root `VERSION` file, is copied into every plugin header and into
+  `KALAKA_VERSION`. A check fails when they differ.
 - **CI on every pull request:** static checks, unit tests, integration tests
   (the database and PHP matrix above), the Playground smoke test, the zips and
   a Playground preview link; the compatibility check joins when alpha ends.

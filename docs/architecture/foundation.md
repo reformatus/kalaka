@@ -78,6 +78,30 @@ flowchart LR
     A failure is kept on the record it concerns (see [Failures](#failures)).
   - The admin-started WooCommerce refund follows this pattern
     ([Money](money.md#refunds)).
+- **The shapes** (in `Kalaka\Foundation\Api`):
+
+  ```php
+  interface UseCase {
+      public static function name(): string;   // 'kalaka/withdraw-registration'
+      public function inputSchema(): array;    // JSON Schema, WordPress REST/abilities dialect
+      public function execute(array $input, Context $context): mixed;
+  }
+  interface AdminUseCase extends UseCase  { public function capability(): string; }
+  interface PortalUseCase extends UseCase { public function registrations(array $input): array; }
+
+  Runner::run(UseCase $useCase, array $input, Actor $actor): mixed
+  ```
+
+  - Input is an array checked with WordPress's
+    `rest_validate_value_from_schema`, so one schema serves REST, abilities
+    and the runner.
+  - The coarse permission check is the capability on the admin side, and on
+    the portal side access to the registrations the input names.
+  - `Context` is what a running use case gets: `actor()`, `now()`, `run()`
+    for a nested use case, and `afterCommit()` for WordPress-side steps.
+  - **Actors:** admin side `UserActor`, `CliActor` (optional `--user`),
+    `SystemActor`; portal side `SecretLinkActor` (the registration key, never
+    the secret) and `AccountActor`.
 - **No domain events in the initial shape.** Everything our own plugins do in
   response to a change must be consistent with it, so it happens inside the
   use case. Public after-save actions for third parties come later
@@ -91,6 +115,21 @@ flowchart LR
 - Each exception class has its own default Hungarian text, and the place that
   throws can add Hungarian context. There is no result type and no separate
   code-to-text mapping.
+- **The classes:** an abstract `KalakaException` (with `toWpError()`,
+  `status()`, `isRetryable()`, `isAudited()`; the constructor takes optional
+  Hungarian context) and, to start with:
+
+  | Class | Status | Default text |
+  |---|---|---|
+  | `InvalidInput` (not audited) | 400 | Hibás vagy hiányzó adat. |
+  | `PermissionDenied` | 403 | Ehhez nincs jogosultságod. |
+  | `NotFound` | 404 | A keresett elem nem található. |
+  | `VersionConflict` | 409 | Valaki időközben módosította ezeket az adatokat. Töltsd újra az oldalt, és próbáld újra. |
+  | `RuleViolation` | 422 | A művelet nem hajtható végre. |
+  | `SystemFailure` | 500 | Váratlan hiba történt. Próbáld újra később. |
+  | `RetryableFailure` (a `SystemFailure`, retried) | 500 | as `SystemFailure` |
+
+- **The UI addresses everyone with tegezés,** in the admin and the portal.
 
 ## Entities, repositories and queries
 
@@ -217,7 +256,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 | Concern | Rule |
 |---|---|
 | **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
-| **Time** | Stored in UTC; displayed and computed in Europe/Budapest. A PSR-20 `ClockInterface` (`now(): DateTimeImmutable`) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
+| **Time** | Stored in UTC; displayed and computed in Europe/Budapest. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
 | **Permissions** | Fine-grained capabilities per use case; roles are bundles of capabilities. Core ships default roles; the role set is defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same capabilities |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase cover registrations, presets and audit diffs. Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
 | **Secret links** | Treated as secrets: never logged, masked in exports ([Registrations](registrations-and-identity.md#access)) |
