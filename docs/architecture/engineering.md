@@ -200,7 +200,8 @@ src/Registrations/
   interface, base class and name join as those classes appear.
 - **Direct database access** (`$wpdb`) outside repositories and query classes
   is caught by PHPCS's direct-query rule ([Code style](#code-style)); deptrac
-  cannot see a `global $wpdb` cheaply.
+  cannot see a `global $wpdb` cheaply. The rule gets `exclude-pattern`s for
+  repositories and query classes once they exist.
 - **Backward-compatibility check** of the public API against the last release,
   from the end of the alpha phase
   ([Modules](modules-and-extensions.md#alpha-phase)); the tool is chosen then

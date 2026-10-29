@@ -96,7 +96,9 @@ flowchart LR
   plugin load order does not matter. Then for each module: the version check,
   the schema upgrade, `contribute()` and `boot()`. Schema upgrades run in any
   request that sees a lower stored version, and on activation, under an
-  option-based lock. An extension plugin's main file:
+  WordPress's upgrader lock
+  (`WP_Upgrader::create_lock()`); a module whose upgrade is in progress in
+  another request is not booted in this one. An extension plugin's main file:
 
   ```php
   add_action('kalaka_register_modules', static function (Kalaka\Foundation\Api\Modules $modules): void {

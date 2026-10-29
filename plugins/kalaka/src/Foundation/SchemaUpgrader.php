@@ -20,15 +20,10 @@ final class SchemaUpgrader
             return;
         }
 
-        $lock = 'kalaka_schema_lock_' . $id;
-        if (!add_option($lock, time(), '', false)) {
-            if (time() - (int) get_option($lock) <= self::LOCK_TTL) {
-                throw new \RuntimeException('Schema upgrade in progress.');
-            }
-            delete_option($lock);
-            if (!add_option($lock, time(), '', false)) {
-                throw new \RuntimeException('Schema upgrade in progress.');
-            }
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        $lock = 'kalaka_schema_' . $id;
+        if (!\WP_Upgrader::create_lock($lock, self::LOCK_TTL)) {
+            throw new \RuntimeException('Schema upgrade in progress.');
         }
 
         try {
@@ -49,7 +44,7 @@ final class SchemaUpgrader
 
             update_option($option, $schema->version, true);
         } finally {
-            delete_option($lock);
+            \WP_Upgrader::release_lock($lock);
         }
     }
 }

@@ -7,8 +7,3 @@ parameters:
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - phpstan-bootstrap.php
-    ignoreErrors:
-        # The WordPress stubs declare add_option() as always returning true.
-        -
-            identifier: booleanNot.alwaysTrue
-            path: plugins/kalaka/src/Foundation/SchemaUpgrader.php
