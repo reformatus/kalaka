@@ -29,8 +29,18 @@ title: Engineering
 ## Database
 
 - **Hungarian sorting by collation:** `utf8mb4_hungarian_ci` on our text
-  columns; no PHP-side collation or stored sort keys. WordPress's default
-  collation sorts Hungarian wrongly (Öröm before Ottó).
+  columns; no PHP-side collation or stored sort keys. It sorts ö/ő after o and
+  ü/ű after u, which WordPress's default collation gets wrong (Öröm before
+  Ottó). **Known deviations, accepted:** it has no digraphs, so cs, dz, dzs,
+  gy, ly, ny, sz, ty and zs sort as two letters (Csaba before Cukor and
+  Czakó, Zsolt before Zuhany), doubled forms are not expanded (Asszony before
+  Aszalós), and Adam and Ádám tie. Gy, ny, sz and the like mostly come out
+  right because y and z sort late. Every MariaDB collation has these
+  deviations; sorting stays indexable and free.
+- **Accent-insensitive search:** under `utf8mb4_hungarian_ci`, o ≠ ö and
+  u ≠ ü, so search conditions use an accent-blind collation
+  (`utf8mb4_unicode_520_ci`) in the predicate. Searches stay within one event,
+  so their cost is bounded.
 - **Every table and text column declares `CHARACTER SET utf8mb4` and its
   collation explicitly.** Defaults differ: 10.3's server default is latin1, and
   a table without `COLLATE` gets the character set's default collation, not

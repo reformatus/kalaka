@@ -59,8 +59,9 @@ title: Money
   choice, aid, staff status (a fact from an additional form), a passed
   deadline, quota position.
 - **Event configuration edits reach existing registrations only through an
-  explicit re-price** action with a preview, which replaces the snapshot and
-  materializes the difference as new lines. Saving event settings never
+  explicit re-price** action with a preview. It replaces the snapshot, and the
+  materializer writes the difference as `charge` lines; `adjustment` lines
+  stay for manual corrections with a reason. Saving event settings never
   touches existing registrations.
 
 ## Materializer

@@ -16,12 +16,11 @@ title: Events and forms
 
 - **States are admin acts:** draft → published ⇄ unpublished → archived.
   - **Unpublished** pauses all of the event's public interfaces: forms, the
-    portal, payments. It also stops the event's **mail decisions and
-    sending**: the periodic run creates no scheduled or reminder deliveries
-    for it, and no delivery is sent. Action mails from admin acts still pile
-    up; on republishing, the admin sees the pending count and can clear
-    them. This follows from a sound
-    unpublish; the control stays separate from the global mail pause, which
+    portal, payments. It also stops the event's mail: no delivery is
+    sent, and the periodic run adds no scheduled or reminder deliveries for
+    it. Action and self-sent mails are still queued, so none is forgotten;
+    on republishing, the admin sees the pending count and can clear them.
+    This follows from a sound unpublish; the control stays separate from the global mail pause, which
     only pauses sending ([Mail](mail.md#pausing)).
   - **Archived** is read-only and starts the retention clock.
 - **The "full" latch** is the other stored event state
