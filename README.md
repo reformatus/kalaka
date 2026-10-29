@@ -1,7 +1,7 @@
-# Kaláka (wp-campmanager)
+# Kaláka
 
-*Product name Kaláka, code prefix `kalaka_` (D-040). Other plugin, module and
-code names are placeholders.*
+*Product name Kaláka (D-040); code identifiers per D-079. Module names are
+placeholders.*
 
 Event and camp registration for WordPress, replacing a Google Sheets /
 Forms / Apps Script system used by two organizations (REFISZ and IVK).

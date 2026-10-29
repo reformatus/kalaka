@@ -4,8 +4,8 @@ title: Overview
 
 # Kaláka
 
-*Product name decided in D-040; the repository is still called wp-campmanager.
-Other plugin, module and code names are placeholders.*
+*Product name decided in D-040; code identifiers in D-079. Module names are
+placeholders.*
 
 Event and camp registration for REFISZ and Ifjúságépítők (IVK), replacing
 today's Google Sheets, Forms and Apps Script setup with WordPress plugins.

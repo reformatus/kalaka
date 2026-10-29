@@ -1,5 +1,5 @@
 {
-	"name": "wp-campmanager",
+	"name": "kalaka",
 	"private": true,
 	"scripts": {
 		"env": "wp-env"

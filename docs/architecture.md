@@ -6,8 +6,8 @@ title: Core architecture
 
 Status: **decided architecture as of 2026-10-25**, built together with the
 owner. Every decision referenced as D-nnn is in the [decision log](decisions.md).
-The product name is **Kaláka** (D-040); other names of plugins, modules and
-code identifiers are **placeholders**. Items marked *open* are deliberately
+The product name is **Kaláka** (D-040) and code identifiers follow D-079;
+module names are **placeholders**. Items marked *open* are deliberately
 left for later. Items marked **To discuss** are working arrangements or
 proposals the owner has not confirmed yet: they are not decisions.
 
@@ -172,7 +172,8 @@ responsibility sits. The participant phase tracker (D-072) has no module yet.
 
 - **One `Module` interface for core modules and extension plugins** (D-060). A
   module declares its tables, capabilities and extension-point contributions,
-  and wires itself into WordPress in `boot()`. An extension plugin is a module
+  and wires itself into WordPress in `boot()`. It migrates only its own
+  tables, under its own schema version (D-082). An extension plugin is a module
   that lives in another plugin, so a core module can later move into its own
   plugin unchanged.
 - **Core money is minimal** (D-074): a fixed price per registration and full
@@ -469,7 +470,7 @@ means inserting a pending **delivery** into the send log, whose unique key
   if / else-if / else blocks compare values or use an extension's condition.
   *Open:* the inline value syntax.
 
-## 8. Extension surface (D-032, D-062, D-065)
+## 8. Extension surface (D-032, D-062, D-065, D-080 … D-086)
 
 ```mermaid
 flowchart LR
@@ -488,8 +489,29 @@ flowchart LR
   no WordPress hooks.
 - Other modules and plugins use only a module's `Api` namespace, checked in
   CI.
+- **A released point is permanent** (D-080). It is added only when one of
+  our own extensions needs it, and that extension uses it first. It models a
+  domain concept, receives one immutable context object (never repositories,
+  entities, the runner or database access) and returns a defined value.
+  Changes are additive (an abstract base class with defaults, or a separate
+  optional interface); a breaking change is a new `…V2` point running
+  alongside the old one.
+- **Version check at boot** (D-081): extensions declare the core API version
+  range they support; one out of range is not booted and admins get a notice.
+  A contribution outside the transaction that throws is caught and skipped;
+  one inside it rolls back the use case.
+- **Contribute, never modify** (D-083): no filter or open hook changes a money
+  value or decision; portal and admin sections render into their own region,
+  never into markup core produced.
+- **CI compares the public API with the last release** (D-084); an
+  incompatible change fails the build.
+- **Alpha phase** (D-086): until the first public release of any plugin,
+  while all extensions live in this repository for REFISZ and IVK, the API
+  may break; a change updates every user in the same pull request.
+  Permanence, additive-only changes and the CI check start when alpha ends.
 - Public after-save WordPress actions for third-party plugins are a later
-  nice-to-have (D-062).
+  nice-to-have (D-062); when revisited, they are the first point type
+  offered to third parties (D-085).
 
 ## 9. Cross-cutting concerns
 
@@ -498,14 +520,14 @@ flowchart LR
 | **Transactions** | One per use case; only our tables inside; any database error rolls back; effects after commit (D-055). |
 | **Deferred work** | No job queue (D-057). One shared trigger runs the evaluation right after commit for the touched registrations, periodically (every 5 minutes, D-078), when a registration is opened, and manually. Mail is never sent in a web request: the sender runs only from a nudge (a one-off WP-Cron event scheduled after commit) or the periodic run (D-078). A Site Health check recommends a real system cron. |
 | **Bulk changes** | One transaction per item, a result report with links to failed records, retry or skip, and a preview where one exists (D-058). |
-| **Audit** | One entry per use case in `kalaka_audit` (D-056): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subject` lists every record touched. Failed use cases are audited too; plain validation failures are not (D-067). How the failed entry is written (own transaction, no input values, error-log fallback): *to discuss*. |
+| **Audit** | One entry per use case in `kalaka_audit_entries` (D-056, D-079): time, correlation ID, parent, side, actor, action, IP address, user agent, optional reason, changed fields before and after (secrets masked), outcome. `kalaka_audit_subjects` lists every record touched. Failed use cases are audited too; plain validation failures are not (D-067). How the failed entry is written (own transaction, no input values, error-log fallback): *to discuss*. |
 | **Failures** | Kept on the record they concern: the delivery, the refund request, or an "evaluation failed" flag on the registration shown to admins. PHP's error log is the last fallback (D-067). |
 | **Permissions** | Fine-grained capabilities per use case. Roles are bundles of capabilities. Core ships default roles; **the role set is defined with the owner later** (D-004). Abilities use the same capabilities (D-021). |
 | **Secret links** | ≥128-bit random key per registration, stored readable so every email can carry it (D-038); never logged, masked in exports; regenerable by organizers. |
 | **Time** | Stored in UTC; displayed and computed in Europe/Budapest. A PSR-20 clock keeps rules testable (D-043). Dates are set through date references (D-073). |
 | **Money** | `DECIMAL(26,8)`, currency code everywhere, brick/math, no floats (D-037, D-044). |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns (D-045). |
-| **Language** | Hungarian strings directly in code; no translation layer (D-023). Code identifiers and comments in English. Prefix `kalaka_` (D-040). |
+| **Language** | Hungarian strings directly in code; no translation layer (D-023). Code identifiers and comments in English. Prefixes and names per D-040 and D-079. |
 | **Personal data** | Personal data only in our tables. WordPress privacy export and erase cover registrations, presets, and audit diffs. IP address and user agent in the audit are declared through WordPress's privacy tools. Retention for guest data and audit: *open*. |
 | **Performance** | Per-event cost does not grow with the number of events; checked by an `EXPLAIN`-based MySQL test (D-039). |
 | **Testing** | Most tests run with WordPress loaded; plain PHPUnit stays where code is naturally free of WordPress (e.g. money arithmetic) (D-041). The full test suite runs on MySQL; a SQLite run only checks that Playground starts and loads the seed (D-042, D-064). Fixtures: users per role + anonymized data; schema dropped and recreated freely until production (D-016). |
