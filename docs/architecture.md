@@ -172,7 +172,8 @@ responsibility sits. The participant phase tracker (D-072) has no module yet.
 
 - **One `Module` interface for core modules and extension plugins** (D-060). A
   module declares its tables, capabilities and extension-point contributions,
-  and wires itself into WordPress in `boot()`. An extension plugin is a module
+  and wires itself into WordPress in `boot()`. It migrates only its own
+  tables, under its own schema version (D-082). An extension plugin is a module
   that lives in another plugin, so a core module can later move into its own
   plugin unchanged.
 - **Core money is minimal** (D-074): a fixed price per registration and full
@@ -469,7 +470,7 @@ means inserting a pending **delivery** into the send log, whose unique key
   if / else-if / else blocks compare values or use an extension's condition.
   *Open:* the inline value syntax.
 
-## 8. Extension surface (D-032, D-062, D-065)
+## 8. Extension surface (D-032, D-062, D-065, D-080 … D-086)
 
 ```mermaid
 flowchart LR
@@ -488,8 +489,29 @@ flowchart LR
   no WordPress hooks.
 - Other modules and plugins use only a module's `Api` namespace, checked in
   CI.
+- **A released point is permanent** (D-080). It is added only when one of
+  our own extensions needs it, and that extension uses it first. It models a
+  domain concept, receives one immutable context object (never repositories,
+  entities, the runner or database access) and returns a defined value.
+  Changes are additive (an abstract base class with defaults, or a separate
+  optional interface); a breaking change is a new `…V2` point running
+  alongside the old one.
+- **Version check at boot** (D-081): extensions declare the core API version
+  range they support; one out of range is not booted and admins get a notice.
+  A contribution outside the transaction that throws is caught and skipped;
+  one inside it rolls back the use case.
+- **Contribute, never modify** (D-083): no filter or open hook changes a money
+  value or decision; portal and admin sections render into their own region,
+  never into markup core produced.
+- **CI compares the public API with the last release** (D-084); an
+  incompatible change fails the build.
+- **Alpha phase** (D-086): until the first public release of any plugin,
+  while all extensions live in this repository for REFISZ and IVK, the API
+  may break; a change updates every user in the same pull request.
+  Permanence, additive-only changes and the CI check start when alpha ends.
 - Public after-save WordPress actions for third-party plugins are a later
-  nice-to-have (D-062).
+  nice-to-have (D-062); when revisited, they are the first point type
+  offered to third parties (D-085).
 
 ## 9. Cross-cutting concerns
 
