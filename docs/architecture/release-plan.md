@@ -70,6 +70,71 @@ sheets.
 - **SQ-2** (what the bookkeeper's views contain) may follow opening by a few
   days, while payments are still few.
 
-## REFISZ: before Christmas 2026
+## REFISZ: Téli Tali, opening before Christmas 2026
 
-To be agreed.
+REFISZ's winter conference, 2027-02-03 to 02-05, about 200–250 people. It
+works like a summer camp with smaller amounts. Registration opens as early as
+feasible; the date is not fixed. It builds on everything in IVK's release.
+
+### Must exist on opening day
+
+1. **One registration form** for one event.
+2. **Card payment through WooCommerce** on REFISZ's store; it is not
+   sacrificed for REFISZ.
+3. **Money as at the summer camps, with smaller amounts:** the price ladder
+   with its tiers and any tier quotas (places held at registration, reassigned
+   only by staff); the deposit as the confirmation threshold, and a deposit
+   payment request of the threshold minus what has been paid, capped at the
+   remaining balance; a donation and an invoice request.
+4. **Mails as at the summer camps:** application received, waitlisted,
+   confirmed and fully paid. Someone who pays everything at once gets only the
+   fully-paid mail; if that needs real extra logic, both are sent, as today.
+5. **Operations on REFISZ's host:** deployment, staging, a verified system
+   cron, a backup and a restore drill.
+
+### Must exist within about ten days of opening
+
+Payment is due 14 days after registering, and the deposit reminder goes out
+after 11 days, so these must exist before the first registrants reach them:
+
+6. **The deposit reminder,** 11 days after registering while unconfirmed.
+7. **The late fee** when the payment deadline passes while unconfirmed, with
+   the value-date rule. Which tiers and people it spares (at the summer camps:
+   only the Normál and Támogatott tiers, never staff) is confirmed with the
+   amounts.
+8. **The staff form** with its discount bands, before the first deadline,
+   because it decides who is staff.
+9. **Retention on withdrawal:** keep up to the deposit.
+
+### Must exist in January
+
+10. **Extra sign-ups** (choices inside the event) and their mails.
+
+### Must exist before the conference (2027-02-03)
+
+11. **The wallet:** buffet top-ups and spending at the event.
+12. **The desk:** check-in, the arrival mail on any check-in route, cash
+    recorded at the desk.
+13. **Practical-information and post-event mails,** as at the summer camps.
+
+### Nice to have
+
+- **The capacity exemption** for children under 13 who come with a parent.
+- **Support requests decided by staff,** reusing IVK's pending decisions.
+
+### Order of sacrifice for opening day
+
+1. **The invoice request:** requests go to the bookkeeper by e-mail.
+2. **The donation field.**
+
+## REFISZ: summer camps (FF and K)
+
+To be agreed before their registration opens. The starting point: two events,
+each with its own registration form; "register for the other camp too" from
+the thank-you page as a single-use link copying the first registration's
+answers, each camp paid separately; the capacity exemption for children under
+13; the Támogatott tier quotas (FF 13, K 80); a deposit per camp (FF 10 000 Ft,
+K 20 000 Ft); K's extra-support request as a pending decision with the payment
+hold; late fees (FF 5 000 Ft, K 7 000 Ft); direct-pick program sets, groups and
+lodging; file upload and the moral-certificate status; partner views;
+attendance sheets.
