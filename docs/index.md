@@ -24,6 +24,8 @@ decisions; a change is a pull request that edits them.
 - [Mail](architecture/mail.md)
 - [Engineering](architecture/engineering.md): platform, layout, tooling,
   tests and CI
+- [Release plan](architecture/release-plan.md): what each release contains,
+  and what gives way first
 - [Deferred](architecture/deferred.md): what is decided later, and when
 
 ## Context

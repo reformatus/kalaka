@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<ruleset name="Kalaka">
+    <file>plugins/kalaka/src</file>
+    <file>plugins/kalaka/kalaka.php</file>
+    <file>plugins/kalaka/uninstall.php</file>
+    <arg name="extensions" value="php"/>
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/build/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+
+    <config name="minimum_wp_version" value="7.0"/>
+
+    <rule ref="PSR12"/>
+
+    <rule ref="WordPress.Security.EscapeOutput"/>
+    <rule ref="WordPress.Security.ValidatedSanitizedInput"/>
+    <rule ref="WordPress.Security.NonceVerification"/>
+    <rule ref="WordPress.DB.PreparedSQL"/>
+    <rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
+    <rule ref="WordPress.DB.DirectDatabaseQuery"/>
+    <rule ref="WordPress.WP.AlternativeFunctions"/>
+</ruleset>
