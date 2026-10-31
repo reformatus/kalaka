@@ -68,15 +68,21 @@ reached; the grant defines who holds the view.**
     roster, program = ?"), so twelve module leaders need one view.
   - View definitions are copied to the next event, optionally with their
     grants.
-- **A grant** is (WordPress user, event, view, optional bound value). There
-  are no grants across all events. Grants and changes to a view's columns or
-  filter are audited.
+- **A grant** is (WordPress user, event, view, optional bound value, set of
+  actions). A user may hold several grants for the same event. There are no
+  grants across all events. Grants and changes to a view's columns or filter
+  are audited.
+- **A grant never lists registrations.** It covers whatever the view's filter
+  matches when access is checked, so the set grows and shrinks as
+  registrations come and change.
 - **Full access** is one separate site-wide capability: every view, every
   column read-write, every action, every event including future ones. It is
   for the people running the system.
 - **Actions that are not a column** (withdraw, remove, admit, record payment,
-  refund, regenerate link, notes, audit history) are per-event capabilities,
-  usable only on registrations inside a view the user holds.
+  refund, regenerate link, notes, audit history) are carried by the grant,
+  not by WordPress roles. An action is usable only on registrations inside
+  the filter of the same grant's view. Modules declare the actions they
+  offer ([Modules](modules-and-extensions.md#the-module-interface)).
 - Core ships a **minimal WordPress role** that only opens the Kaláka admin
   app, for outside grantees.
 - **Enforced in one place:** on the admin side, registration data is read
@@ -124,7 +130,11 @@ flowchart LR
       public function inputSchema(): array;    // JSON Schema, WordPress REST/abilities dialect
       public function execute(array $input, Context $context): mixed;
   }
-  interface AdminUseCase extends UseCase  { public function capability(): string; }
+  interface AdminUseCase extends UseCase {
+      public function action(): ?string;             // per-event action; null for a field change only
+      public function event(array $input): ?int;     // null for site-level use cases
+      public function targets(array $input): array;  // list<RegistrationKey> this call acts on
+  }
   interface PortalUseCase extends UseCase { public function registrations(array $input): array; }
 
   Runner::run(UseCase $useCase, array $input, Actor $actor): mixed
@@ -133,8 +143,17 @@ flowchart LR
   - Input is an array checked with WordPress's
     `rest_validate_value_from_schema`, so one schema serves REST, abilities
     and the runner.
-  - The coarse permission check is the capability on the admin side, and on
-    the portal side access to the registrations the input names.
+  - **The coarse permission check on the admin side:** full access passes.
+    Otherwise the user needs a grant for the event that carries the action
+    (any grant for a field change), and every target must be inside that
+    grant's view filter as it is now. A site-level use case (events, site
+    settings, views and grants) needs full access. `SystemActor` and
+    `CliActor` without `--user` have full access; with `--user` the CLI is
+    checked as that user.
+  - **The fine check** runs inside `execute`: a field change needs a
+    read-write column of a held view whose filter contains the registration.
+  - On the portal side the coarse check is access to the registrations the
+    input names.
   - `Context` is what a running use case gets: `actor()`, `now()`, `run()`
     for a nested use case, and `afterCommit()` for WordPress-side steps.
   - **Actors:** admin side `UserActor`, `CliActor` (optional `--user`),
@@ -310,7 +329,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 |---|---|
 | **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
 | **Time** | Stored in UTC; displayed and computed in the site's WordPress time zone, never a fixed zone. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
-| **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are per-event capabilities, usable inside a held view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the per-event action capabilities and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
+| **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are carried by the grant, usable inside that grant's view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the list of actions and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase cover registrations, presets and audit diffs. Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
 | **Secret links** | Treated as secrets: never logged, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |

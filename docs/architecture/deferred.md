@@ -16,7 +16,7 @@ removed here.
 | Inline value syntax in mails | building the mail editor |
 | Registration flow when an account is involved (inline or before the form); minimum age for holding an account | building the portal and registration UI |
 | Retention of guest data and of the audit, including failed entries | before the first production deployment (privacy policy) |
-| The per-event action capabilities and their default bundles | before the admin UI |
+| The list of per-event actions and their default bundles | before the admin UI |
 | Which money plugins come first (the price ladder is needed for IVK) | product scope with stakeholders, before the first season on Kaláka |
 | The payment deadline of a registration admitted from the waitlist | with the payment-due date types |
 | The wallet: separate from the fee (a top-up never pays it, a fee debt never enters the wallet); one per registration; no spending below the balance; top-ups by card or cash at the buffet; carry-over between events of the organization for every payer; moving overpayments into wallets in one click; settlement thresholds per event; what the participant sees | by early February 2027 |

@@ -1,5 +1,5 @@
 # Ledger
 
-Lines, balances and organizer-recorded payments.
+Lines, payers, balances, organizer-recorded payments and refunds, and moving payments.
 
 Entry points: none yet.

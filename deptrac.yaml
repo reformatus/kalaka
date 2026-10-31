@@ -26,6 +26,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Forms\\Api\\'
+    - name: Assignments
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Assignments\\(?!Api\\)'
+    - name: Assignments Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Assignments\\Api\\'
     - name: Registrations
       collectors:
         - type: classLike
@@ -92,6 +100,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -104,6 +113,7 @@ deptrac:
       - Events Api
       - Foundation Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -116,6 +126,20 @@ deptrac:
       - Forms Api
       - Foundation Api
       - Events Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Assignments:
+      - WordPress
+      - Assignments Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -129,6 +153,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -141,6 +166,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Ledger Api
       - Payments Api
@@ -153,6 +179,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Payments Api
@@ -165,6 +192,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -177,6 +205,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -189,6 +218,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -201,6 +231,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -211,6 +242,7 @@ deptrac:
       - WordPress
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -222,6 +254,7 @@ deptrac:
       - WordPress
       - Foundation Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -233,6 +266,19 @@ deptrac:
       - WordPress
       - Foundation Api
       - Events Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Assignments Api:
+      - WordPress
+      - Foundation Api
+      - Events Api
+      - Forms Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -245,6 +291,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -256,6 +303,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Ledger Api
       - Payments Api
@@ -267,6 +315,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Payments Api
@@ -278,6 +327,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -289,6 +339,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -300,6 +351,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -311,6 +363,7 @@ deptrac:
       - Foundation Api
       - Events Api
       - Forms Api
+      - Assignments Api
       - Registrations Api
       - Pricing Api
       - Ledger Api

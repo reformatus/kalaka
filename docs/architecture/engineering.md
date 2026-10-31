@@ -210,6 +210,13 @@ src/Registrations/
   is caught by PHPCS's direct-query rule ([Code style](#code-style)); deptrac
   cannot see a `global $wpdb` cheaply. The rule gets `exclude-pattern`s for
   repositories and query classes once they exist.
+- **Admin reads registration data only through the view query**
+  ([Foundation](foundation.md#views-and-grants)). deptrac enforces it: Admin
+  and the admin-side entry points (`Rest/`, `Cli/`, `Blocks/`) may use
+  registration data only through the view-query class, and full-access code
+  paths are a named layer of their own. The rule joins when the view-query
+  class exists; until then PHPCS's direct-query rule keeps reads inside
+  repositories and query classes.
 - **Backward-compatibility check** of the public API against the last release,
   from the end of the alpha phase
   ([Modules](modules-and-extensions.md#alpha-phase)); the tool is chosen then
