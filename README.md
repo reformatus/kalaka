@@ -12,7 +12,8 @@ Forms / Apps Script system used by two organizations (REFISZ and IVK).
 | `plugins/kalaka/` | The core plugin; its `README.md` describes the layout |
 | `docs/` | Published documentation (GitHub Pages) |
 | `docs/architecture/` | Architecture pages: the authoritative record of decisions |
-| `.pipeline/roles/` | Role prompts for the AI development pipeline |
+| `AGENTS.md` | Instructions for AI agents: the binding rule and a topic map into the architecture pages |
+| `.pipeline/` | Project config and notes for the AI pipeline |
 | `.wp-env.json`, `package.json` | Local WordPress + WooCommerce dev environment (`npm run env start`) |
 | `internal/` | Git-ignored: working drafts, spikes, tools, source material. Never pushed |
 
