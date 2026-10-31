@@ -17,7 +17,7 @@ removed here.
 | Registration flow when an account is involved (inline or before the form); minimum age for holding an account | building the portal and registration UI |
 | Retention of guest data and of the audit, including failed entries | before the first production deployment (privacy policy) |
 | The list of per-event actions and their default bundles | before the admin UI |
-| Which money plugins come first (the price ladder is needed for IVK) | product scope with stakeholders, before the first season on Kaláka |
+| Which money plugins come first for REFISZ (IVK's are in the [release plan](release-plan.md)) | REFISZ's release scope, before Christmas 2026 |
 | The payment deadline of a registration admitted from the waitlist | with the payment-due date types |
 | The wallet: separate from the fee (a top-up never pays it, a fee debt never enters the wallet); one per registration; no spending below the balance; top-ups by card or cash at the buffet; carry-over between events of the organization for every payer; moving overpayments into wallets in one click; settlement thresholds per event; what the participant sees | by early February 2027 |
 | Reserved places per partner, e.g. as a per-link quota | after IVK registration opens |

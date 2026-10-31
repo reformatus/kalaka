@@ -18,6 +18,7 @@ approval. Git history keeps the earlier sequential decision log.
 | [Money](money.md) | Ledger and payers, recording payments, confirmation, withdrawal, congregation share, sponsor and church support, tariff snapshot, materializer, payments, refunds |
 | [Mail](mail.md) | Kinds of mail, deliveries, the sender, configuration, content |
 | [Engineering](engineering.md) | Platform, repository layout, tooling, code style, tests and CI |
+| [Release plan](release-plan.md) | What each release contains, and what gives way first |
 | [Deferred](deferred.md) | What is decided later, and when |
 
 ## Purpose
