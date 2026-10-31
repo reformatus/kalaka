@@ -122,7 +122,8 @@ Besides the money plugins:
 - **Module ranking and recommender** (IVK): the ranking field type, the
   ranking proposer, and a public recommender page. The recommender asks a few
   questions, scores the modules of the event's module set with an AI decision
-  model, shows the best three, and links to the form with the ranking and an
+  model (relied on, with no fallback path), shows the best three, and links to
+  the form with the ranking and an
   attribution key prefilled by URL arguments
   ([Forms](events-and-forms.md#prefill-from-a-link)). Its answers carry no
   name or e-mail and stay for statistics after the registration is erased.

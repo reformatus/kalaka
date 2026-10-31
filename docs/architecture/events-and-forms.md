@@ -84,8 +84,10 @@ flowchart TB
   fields and functionality (e.g. exactly one contact email), and the slot's
   date range (registration opens and closes) applies on top of each form's own
   requirements. Otherwise all forms share the same primitives.
-- **Capacity is the event's only** ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
-  There are no registration categories and no per-form capacity.
+- **The event's capacity is the only capacity on registrations**
+  ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+  There are no registration categories and no per-form capacity. Options of
+  an assignment set have their own capacity, which limits only that choice.
 - **Staff work as today:** they register through the normal registration form
   (taking a place), then fill in the staff form, an additional form whose
   answers give the discount. Staff is not a core concept; it is built on

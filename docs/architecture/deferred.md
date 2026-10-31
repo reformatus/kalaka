@@ -21,7 +21,7 @@ removed here.
 | The payment deadline of a registration admitted from the waitlist | with the payment-due date types |
 | The wallet: separate from the fee (a top-up never pays it, a fee debt never enters the wallet); one per registration; no spending below the balance; top-ups by card or cash at the buffet; carry-over between events of the organization for every payer; moving overpayments into wallets in one click; settlement thresholds per event; what the participant sees | by early February 2027 |
 | Reserved places per partner, e.g. as a per-link quota | after IVK registration opens |
-| Staff and volunteer form | after IVK registration opens |
+| IVK's staff and volunteer data form, for staff who are not participants (REFISZ's staff additional form stays as described in Events and forms) | after IVK registration opens |
 | One mailbox per responsibility (finance, invoicing, contact, leadership) | the mail topic |
 | Automatic evaluation of adjudicated-aid requests | later |
 | Talk-group and room proposers | later |
