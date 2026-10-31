@@ -1,0 +1,6 @@
+{
+  "type": "wordpress-plugin",
+  "text": { "languages": ["hu"], "strings": "hard-coded" },
+  "protected_paths": ["docs/architecture/"],
+  "wordpress": { "plugin_slug": "kalaka", "php": "8.3" }
+}
