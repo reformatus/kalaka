@@ -84,27 +84,65 @@ flowchart TB
   fields and functionality (e.g. exactly one contact email), and the slot's
   date range (registration opens and closes) applies on top of each form's own
   requirements. Otherwise all forms share the same primitives.
-- **Capacity is the event's only** ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
-  There are no registration categories and no per-form capacity.
+- **The event's capacity is the only capacity on registrations**
+  ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+  There are no registration categories and no per-form capacity. Options of
+  an assignment set have their own capacity, which limits only that choice.
 - **Staff work as today:** they register through the normal registration form
   (taking a place), then fill in the staff form, an additional form whose
   answers give the discount. Staff is not a core concept; it is built on
   supplementary submissions.
-- Workshops and modules are a later plugin that may reuse the form
-  primitives; they do not shape form requirements.
+- Workshops, modules, groups, rooms and meal turns are **assignment sets**
+  ([Modules](modules-and-extensions.md#assignment-sets)). A choice field in a
+  form writes a set's direct choice or a request; re-choosing later is an
+  edit in the portal while the set's choice window is open, not a resubmitted
+  form.
+- **Form texts read amounts, quotas and deadlines from the event's settings,**
+  so they cannot drift from the rules.
 
-## Invitations and admin submissions
+## Prefill from a link
 
-- **One-time invitation link:** an admin creates it for **one form and one
-  person**. It bypasses the form's requirements, the slot's date range and the
-  event's capacity and "full" latch, so the registration lands as
-  `registered`. It is **spent on a successful submit** (not on opening),
-  stored hashed (shown only once) and audited when created and when used.
-- A late staff member gets one invitation for the registration form and, if
-  needed, a second one for the staff form.
+- **Public prefill** works like Google Forms' pre-filled links: URL arguments
+  name each field's key and its value. The values are untrusted and editable,
+  and never open a section. Only non-personal values belong in such links
+  (e.g. the module recommender's ranking and its attribution key).
+- **Secret prefill** comes from a form link (below): the server sets the values
+  from the link record, and they are locked.
+
+## Form links and admin submissions
+
+**One form-link mechanism replaces the one-time invitation.**
+
+- **A form link has:**
+  - its form;
+  - the field values it sets, locked (read-only or hidden);
+  - uses: unlimited or at most N (a single-use link, max 1, is today's
+    invitation); a use is spent on a successful submit, not on opening;
+  - bypasses, each off by default: the form's requirements, the slot's date
+    range, the event's capacity and "full" latch (an invitation has them all
+    on, so the registration lands as `registered`);
+  - an expiry, and revocation.
+- **Creation, revocation and use are audited.** The link a registration came
+  through is stored on it as a fact.
+- **Link-only fields** can be set only by a link, never by public prefill or
+  the registrant. **Link-only options** are choice options shown only when a
+  link sets them (e.g. an invitation-only track or partner).
+- **Secret sections** are ordinary conditional sections whose condition reads
+  a link-only field. Conditions are re-checked on the server at submit, so
+  answers to a closed section are rejected.
+- **Tokens:** 128 random bits, never logged, masked in exports, sent with
+  no-referrer. Links are stored readable, single-use ones included, so admins
+  can always re-send them.
+- **An association** (e.g. a partner church) is either chosen by the
+  registrant from public options, or set and locked by a partner's link; the
+  stored fact records which. A link-set association is not partner
+  confirmation: that is a separate field, which a link may set secretly, or
+  which the partner sets in its view.
+- A late staff member gets one link for the registration form and, if needed,
+  a second one for the staff form.
 - **Admins can fill in any form themselves** regardless of its criteria; the
   audit records it.
-- Invitations complement password-protected forms.
+- Form links complement password-protected forms.
 
 ## Forms implementation
 
@@ -136,12 +174,17 @@ flowchart TB
   touched.
 - **A definition never changes its type.** Presets store values in the type's
   shape; a different type means a new definition.
-- **Prefill:** only fields linked to a definition are prefilled, because
-  presets store values by definition ID. A copy edited after it was taken
+- **Prefill from a preset:** only fields linked to a definition are
+  prefilled, because presets store values by definition ID. A copy edited after it was taken
   still prefills whenever the preset value is valid for the field's current
   settings (e.g. a removed choice option is not); otherwise it stays empty.
-  How prefill looks is approved with the UI.
+  How prefill looks is approved with the UI. Prefill from a link is
+  separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
+- **Hidden fields** hold values the registrant does not see, such as an
+  attribution key set by public prefill or a value set by a form link.
+- Extensions add field types, e.g. the congregation picker
+  ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins; core ships no

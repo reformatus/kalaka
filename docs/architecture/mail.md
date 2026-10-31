@@ -19,7 +19,7 @@ occurrence) makes it once-only.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, link regenerated, an extension's act such as a wallet top-up | the use case, inside its own transaction; keyed by the act's record |
+| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, confirmed, link regenerated, an extension's act such as a check-in (from any check-in route) or a wallet top-up | the use case, inside its own transaction; keyed by the act's record |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | an admin sends to a selection, now or scheduled | the admin's use case; keyed by the send batch |

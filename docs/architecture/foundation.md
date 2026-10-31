@@ -35,7 +35,9 @@ flowchart TB
 
 ## Two sides, one machinery
 
-- **Admin side:** the actor is a WordPress user, WP-CLI or the system.
+- **Admin side:** the actor is a WordPress user, WP-CLI or the system. A
+  user reaches registration data through the views granted to them
+  ([Views and grants](#views-and-grants)).
 - **Portal side:** the actor is access to a registration. A secret link
   grants that one registration; an account grants every registration it
   owns, plus account-level actions (the combined list, paying all at once,
@@ -46,6 +48,42 @@ evaluation, errors) but have **separate action catalogues, authorization and
 REST namespaces** (`kalaka-admin/v1`, `kalaka-portal/v1`). Use cases never
 read the current user themselves: the delivery layer resolves the actor once
 and passes it in.
+
+## Views and grants
+
+Organizers, module leaders and outside partners (e.g. a church body confirming
+its own people) are all admin-side users. **The view defines which data can be
+reached; the grant defines who holds the view.**
+
+- **A view** belongs to one event: a row filter plus a column set, each column
+  read or read-write. It is the only place where permissions on data are
+  defined.
+  - The master grid is a view with every column and no filter. A read-only
+    variant is simply another view.
+  - Admins define subset views; extensions define special-case views and
+    contribute columns and filterable facts.
+  - Filters use only stored facts and field values, so they stay per-event
+    indexed queries under the `EXPLAIN` test.
+  - A filter may take **one parameter bound at grant time** (e.g. "program
+    roster, program = ?"), so twelve module leaders need one view.
+  - View definitions are copied to the next event, optionally with their
+    grants.
+- **A grant** is (WordPress user, event, view, optional bound value). There
+  are no grants across all events. Grants and changes to a view's columns or
+  filter are audited.
+- **Full access** is one separate site-wide capability: every view, every
+  column read-write, every action, every event including future ones. It is
+  for the people running the system.
+- **Actions that are not a column** (withdraw, remove, admit, record payment,
+  refund, regenerate link, notes, audit history) are per-event capabilities,
+  usable only on registrations inside a view the user holds.
+- Core ships a **minimal WordPress role** that only opens the Kaláka admin
+  app, for outside grantees.
+- **Enforced in one place:** on the admin side, registration data is read
+  only through the view query (grids, detail page, export, search) or through
+  full access, checked in CI like module boundaries. A use case changes a
+  field only if it is a read-write column of a view the user holds, for a
+  registration inside that view's filter.
 
 ## The use-case runner
 
@@ -219,6 +257,7 @@ of deferred work gets exactly the guarantee it needs:
   run, one transaction per registration, under a per-registration lock.
 - **Mail is sent at most once.** Deciding a mail is due inserts a delivery
   with a unique key; only the sender run sends ([Mail](mail.md)).
+- **Derived facts converge** the same way ([Derived facts](#derived-facts)).
 - **One shared trigger** runs the evaluation (registered evaluation
   participants, such as the materializer and mail decisions):
   - right after commit, for the touched registrations (after the response is
@@ -239,6 +278,20 @@ of deferred work gets exactly the guarantee it needs:
 - **A Site Health check** recommends a real system cron. WordPress core has
   only WP-Cron.
 
+## Derived facts
+
+**A derived fact is computed by the evaluation and stored on the
+registration, so views can filter and sort on it.** It is a general mechanism
+that core and extensions use, not a one-off.
+
+- Examples: confirmation ([Money](money.md#confirmation)), a congregation's
+  ancestors in the organization directory, an assignment derived from another
+  set ([Modules](modules-and-extensions.md#assignment-sets)).
+- **Nobody sets a derived fact directly.** Its stored inputs (e.g. the manual
+  confirmation flag) are ordinary audited facts.
+- The evaluation recomputes it whenever it evaluates the registration and
+  writes it only when it changed, so it converges like money.
+
 ## Bulk changes
 
 **A bulk change is never blocked by one broken record:**
@@ -256,8 +309,8 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 | Concern | Rule |
 |---|---|
 | **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
-| **Time** | Stored in UTC; displayed and computed in Europe/Budapest. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
-| **Permissions** | Fine-grained capabilities per use case; roles are bundles of capabilities. Core ships default roles; the role set is defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same capabilities |
+| **Time** | Stored in UTC; displayed and computed in the site's WordPress time zone, never a fixed zone. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
+| **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are per-event capabilities, usable inside a held view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the per-event action capabilities and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase cover registrations, presets and audit diffs. Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
 | **Secret links** | Treated as secrets: never logged, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |

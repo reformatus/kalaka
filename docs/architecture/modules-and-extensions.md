@@ -11,9 +11,12 @@ title: Modules and extensions
   Extensions use only core's public API.
 - **Core itself is internally modular** with strict boundaries.
 - **Core money is minimal:** a fixed price per registration and full payment.
-  Deposits, the price ladder, financial aid, sponsor and church support and
-  late fees are plugins; core keeps full support for extending it in these
-  ways ([Money](money.md#core-money-scope)).
+  Deposits, the price ladder, financial aid, sponsor and church support, the
+  congregation share, late fees and the wallet are plugins; core keeps full
+  support for extending it in these ways ([Money](money.md#core-money-scope)).
+- **Core keeps the base concepts that organizations extend,** such as
+  assignment sets ([Assignment sets](#assignment-sets)), not a general system
+  that could build either organization's logic.
 - **The WooCommerce integration is our own extension plugin** on core's
   payments port. Core has no WooCommerce dependency at all.
 
@@ -27,13 +30,16 @@ flowchart LR
     LF["Late fees"]
     AID["Adjudicated aid"]
     SP["Sponsor / church support"]
-    MORE["Programs · lodging · check-in ·<br/>wallet · donations · settlement"]
+    CS["Congregation share"]
+    REC["Module ranking · recommender"]
+    MORE["Wallet · attendance sheets · check-in ·<br/>donations · settlement"]
   end
   subgraph CORE["Core plugin"]
     direction TB
     FD["Foundation"]
     EV["Events"]
     FO["Forms"]
+    AS["Assignments"]
     RE["Registrations"]
     RU["Pricing"]
     LE["Ledger"]
@@ -54,14 +60,80 @@ flowchart LR
 |---|---|
 | Foundation | runner, audit, clock, evaluation trigger, module registry |
 | Events | events, states, timeline points, date types, capacity and the "full" latch; later the participant phase tracker |
-| Forms | forms, the registration slot, field types, field definitions, conditions, invitations |
-| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
-| Pricing | fixed price, fee-component framework, materializer |
-| Ledger | lines, balances, organizer-recorded payments |
+| Forms | forms, the registration slot, field types, field definitions, conditions, prefill, form links |
+| Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
+| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes, derived facts |
+| Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
+| Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
 | Portal | registration access by secret link or account, the account area |
-| Admin | data grid, detail views, notes, audit, settings |
+| Admin | views and grants, data grid, detail views, notes, audit, settings |
+
+## Assignment sets
+
+Modules, workshops, talk groups, rooms and meal turns share one core concept.
+
+- **A set** belongs to an event: a name, an optional time slot,
+  required or optional, a choice window, an access mode and a **published
+  switch** (unpublished, its portal section is hidden; for a direct set,
+  publishing also opens the choice).
+- **An option** has a capacity, leaders (display text), a place and
+  eligibility conditions on field values (e.g. age, gender).
+- **A registration holds at most one option per set,** stored as an
+  assignment fact with its source and state (proposed or confirmed), audited.
+- **Access modes:**
+  - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
+    field writes a confirmed assignment; capacity and eligibility are checked
+    in the transaction under a lock on the option row; a full option cannot be
+    chosen; the choice can be changed in the portal while the window is open,
+    then only by staff;
+  - **request** (e.g. IVK's modules): the participant writes a request (a
+    field value; the ranking field type comes from an extension), locked at
+    close; staff run the proposer with a preview, then confirm in bulk; the
+    participant sees the result once confirmed and the set is published;
+  - **none** (talk groups, rooms, meal turns): staff place people, or a
+    proposer proposes and staff confirm; shown once published.
+  - Staff can place or override in every mode.
+- **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
+  set filled from another set through an option map, kept in sync and
+  confirmed automatically; eligibility is taking lunch.
+- **Tallies** for every set (count per option, unassigned, missing a required
+  choice) are view columns.
+- **Rosters are views, not generated documents:** each set has one roster view
+  filtered by "assigned option = ?", bound per grant
+  ([Foundation](foundation.md#views-and-grants)). Giving each option's
+  leaders their roster means granting it to them; the option screen shows who
+  has access.
+- **The assignment proposer** is an extension point. The IVK ranking engine
+  is the first: it fills first choices in registration order, then second
+  choices into what is left, then third; staff confirm. Talk-group and room
+  algorithms come later on the same point.
+- Extensions read confirmed assignments through point inputs and keep their
+  own per-option data (e.g. a module's level and the needs it answers).
+- Sets and options are copied to the next event.
+- **Not in core:** ranking capture, placement algorithms, per-option
+  waitlists.
+
+## Extensions in view
+
+Besides the money plugins:
+
+- **Module ranking and recommender** (IVK): the ranking field type, the
+  ranking proposer, and a public recommender page. The recommender asks a few
+  questions, scores the modules of the event's module set with an AI decision
+  model (relied on, with no fallback path), shows the best three, and links to
+  the form with the ranking and an
+  attribution key prefilled by URL arguments
+  ([Forms](events-and-forms.md#prefill-from-a-link)). Its answers carry no
+  name or e-mail and stay for statistics after the registration is erased.
+  A consent notice names the AI provider. Its columns join views by the key.
+- **Attendance sheets** (REFISZ, later): printable sheets participants sign on
+  site, for a supporting body or a grant report. Templates per event (header,
+  columns from field values plus blank columns such as a signature, optional
+  consent text, footer) are bound to a view, which picks the rows and caps the
+  columns; each print is audited as a personal-data export.
+- **The wallet** is designed later ([Deferred](deferred.md)).
 
 ## The Module interface
 
@@ -177,8 +249,9 @@ needs one.
 ```mermaid
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
-  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section · evaluation participant"]
+  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>derived fact · assignment proposer"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section · evaluation participant ·<br/>view · view column · filterable fact"]
+  REG --> DECL["Declarations<br/>payer kind"]
 ```
 
 - **Extensions declare core in their `Requires Plugins` header,** so WordPress
@@ -189,10 +262,12 @@ flowchart LR
   interfaces.
 - **Each point is documented as running inside or outside the transaction:**
   - **Inside** (fee component, payment guard, ledger line source, rule or
-    mail condition, date type): may only touch our tables and fires no
-    WordPress hooks.
+    mail condition, date type, confirmation threshold, retention rule,
+    derived fact, assignment proposer): may only touch our tables and fires
+    no WordPress hooks.
   - **Outside** (field type, payment method, portal or admin section,
-    evaluation participant).
+    evaluation participant, view, view column, filterable fact).
+  - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).
