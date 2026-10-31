@@ -29,13 +29,13 @@ removed here.
 | Portable event definitions: an event serializable with everything that belongs to it | later |
 | AI help for building an event's configuration (e.g. an MCP server) | later |
 | Where extensions register REST routes | the first extension that needs one |
-| Manual requeue of action mails that should have been sent | after the first version |
 | Year-to-year tracking add-on, built from preset links | later |
 | Public after-save actions for third parties | when a third party needs them; at the earliest when alpha ends |
 | Deprecation period for versioned extension points; the compatibility-check tool | when the alpha phase ends |
 | The license and its `LICENSE` file | when the alpha phase ends (wide release to other organizations) |
 | Spam protection, including a rate limit on the module recommender | before IVK registration opens (2026-11-30) |
 | File upload | building forms |
+| Rounding payment requests to the currency's payable unit (whole forints for HUF, below one fillér counts as zero): follow WooCommerce's own method if it has one | at implementation |
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |

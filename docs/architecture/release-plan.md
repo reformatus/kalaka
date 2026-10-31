@@ -14,7 +14,10 @@ short. The architecture pages say how things are built; this page says when.
 1. **Registering:** an event with its dates and capacity; IVK's registration
    form, authored by hand as block markup; submit with capacity, the "full"
    latch and the waitlist; reference codes; the secret-link status page;
-   protection against double submits; spam protection.
+   protection against double submits; spam protection; an optional account
+   created on the form, offered to people aged 16 or over and activated
+   through a set-password mail sent by the queue (the portal itself may only
+   say "Coming soon").
 2. **Money core:** the ledger with payers, the tariff snapshot and the
    materializer; IVK's price tiers, including Nógrád's fixed tier; donation,
    lunch, the invoice request and billing fields, with an "invoiceable" flag
@@ -28,8 +31,9 @@ short. The architecture pages say how things are built; this page says when.
    staff record a partner's confirmation on its behalf, audited with a
    reason.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
-   sender with its throttle, sending window and automatic stop after repeated
-   failures.
+   sender with its throttle and sending window; staff see which deliveries
+   failed and can send a chosen mail to chosen registrations. Mail is never
+   sent during an interactive request.
 6. **Organizer side:** full access; the master view with the grid, the detail
    page, field editing, and exports that write an audit entry.
 7. **Form links:** locked and editable values, single use and expiry. Partner
@@ -40,7 +44,9 @@ short. The architecture pages say how things are built; this page says when.
    go-live: the data-processing agreement and the API key, placed by the
    owner.
 9. **Operations:** deployment to the IVK site and to a staging copy; a real
-   system cron verified on IVK's host; a backup and a restore drill.
+   system cron verified on IVK's host, with WP-Cron as the fallback, a
+   warning when the last run is older than about 15 minutes, and a lock
+   against overlapping runs; a backup and a restore drill.
 
 ### Order of sacrifice
 
@@ -55,8 +61,11 @@ If the date is at risk, these give way, in this order:
 
 ### Not in this release
 
-Accounts and presets; the visual form builder; the allocation proposer (needed
-before IVK's registration closes); the module letter; late fees and
+Presets; the portal beyond "Coming soon", including its editable fields;
+erasure and the other GDPR self-service features (nice to have, may follow);
+the visual form builder; the allocation proposer (needed before IVK's
+registration closes; it runs once, on module choices frozen beforehand); the
+module letter; late fees and
 reminders; starting a WooCommerce refund from Kaláka (refunds made in
 WooCommerce are recorded from day one); substitution; the wallet; attendance
 sheets.
@@ -89,8 +98,7 @@ feasible; the date is not fixed. It builds on everything in IVK's release.
 4. **Mails as at the summer camps:** application received, waitlisted,
    confirmed and fully paid. Someone who pays everything at once gets only the
    fully-paid mail; if that needs real extra logic, both are sent, as today.
-5. **Operations on REFISZ's host:** deployment, staging, a verified system
-   cron, a backup and a restore drill.
+5. **Operations on REFISZ's host:** as for IVK (item 9).
 
 ### Must exist within about ten days of opening
 
@@ -99,9 +107,9 @@ after 11 days, so these must exist before the first registrants reach them:
 
 6. **The deposit reminder,** 11 days after registering while unconfirmed.
 7. **The late fee** when the payment deadline passes while unconfirmed, with
-   the value-date rule. Which tiers and people it spares (at the summer camps:
-   only the Normál and Támogatott tiers, never staff) is confirmed with the
-   amounts.
+   the value-date rule. It is charged only on the normal and discounted
+   tiers: people on a higher tier have paid it in advance, and staff never
+   pay it. Which tiers these are is confirmed with the amounts.
 8. **The staff form** with its discount bands, before the first deadline,
    because it decides who is staff.
 9. **Retention on withdrawal:** keep up to the deposit.
