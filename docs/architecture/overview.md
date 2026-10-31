@@ -11,7 +11,7 @@ approval. Git history keeps the earlier sequential decision log.
 | Page | Contents |
 |---|---|
 | [Overview and principles](overview.md) | Purpose, organizations, fixed inputs, guiding principles |
-| [Foundation](foundation.md) | Layers, views and grants, the use-case runner, errors, entities, audit, deferred work, derived facts, cross-cutting rules |
+| [Foundation](foundation.md) | Layers, views and grants, the use-case runner, errors, entities, audit, deferred work and evaluation, facts, decisions and computed values, cross-cutting rules |
 | [Modules and extensions](modules-and-extensions.md) | Packaging, core modules, assignment sets, extensions in view, schema ownership, identifiers, the extension surface |
 | [Events and forms](events-and-forms.md) | Event lifecycle, dates, the registration slot, capacity, prefill, form links, fields, conditions |
 | [Registrations and identity](registrations-and-identity.md) | Accounts and presets, submissions, status and waitlist, reference codes, access, attribution |

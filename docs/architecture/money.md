@@ -8,6 +8,8 @@ title: Money
 
 - **Core:** a fixed price per registration and full payment, with its
   **payment due** date type. Core ships no money field types.
+- **Payment due** is an anchor date plus N days, capped at a latest date; N
+  and the cap are configured per event (IVK: 7 days).
 - **Plugins:** deposits, payment rungs (the price ladder, with its tier
   quotas), late fees, financial aid, sponsor or church support, the
   congregation share and the wallet. Core keeps full support for extending it
@@ -22,16 +24,8 @@ title: Money
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
 - Price-ladder tier quotas are separate from the event's waitlist. Each
-  tier's quota is configured once, and texts render from it.
-- **Quota positions are derived,** for tiers and support offers alike: a
-  requester's position is their rank among the current `registered`
-  requesters in registration order, and nothing is stored.
-  - A withdrawal or removal frees the place; the next requester moves in at
-    the next evaluation.
-  - Waitlisted requesters hold no place and get no decision until admitted.
-  - A late recipient may end up overpaid, and staff decide on a refund;
-    restoring a withdrawn registration can push the last holder out, and staff
-    adjust.
+  tier's quota is configured once, and texts render from it. Places in
+  tier and support quotas follow [Quota places](#quota-places).
 - **WooCommerce stays the payment engine** for online payment, through our
   own extension plugin ([Payments](#payments)). Without a payment plugin,
   online payment is unavailable, and organizer-recorded payments still work.
@@ -39,9 +33,14 @@ title: Money
 ## Amounts
 
 - **WooCommerce-compatible shapes:** every monetary record carries a currency
-  code (ISO 4217); decimals and rounding follow WooCommerce conventions.
-  Multi-currency is possible but not built.
+  code (ISO 4217). Multi-currency is possible but not built.
 - **Stored as `DECIMAL(26,8)`,** like WooCommerce's order tables.
+- **Payment requests are rounded up** to the currency's payable unit (whole
+  forints for HUF).
+- **Below one fillér counts as zero** in every outstanding check: the
+  confirmation threshold, "nothing due" and fully paid.
+- Rounding follows WooCommerce's own method if it has one; this is checked at
+  implementation.
 - **Arithmetic uses brick/math, never floats** (it uses bcmath or GMP when
   present, pure PHP otherwise).
 - SQLite stores `DECIMAL` inexactly; that is accepted. Tests that fail on
@@ -61,6 +60,8 @@ title: Money
   due, below zero is overpaid.
 - **Lines are append-only.** Every change is a new, explained line with a
   source reference and an idempotency key.
+- **Ledger lines and decision records survive erasure**
+  ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
 
 | Kind | Sign | Written by |
 |---|---|---|
@@ -76,11 +77,9 @@ title: Money
 ## Recording payments by hand
 
 - **One "record payment" use case** serves the bookkeeper and the
-  registration desk. It takes the method, date, amount, an optional bank
-  reference or payer note, the payer, and **one or more registrations, each
-  with its share**. It writes one `manual_payment` line per registration, each
-  in its own ledger, all sharing one payment reference, so one transfer for
-  several people stays traceable.
+  registration desk. One action records **one registration, one payer and one
+  amount**, with the method, the value date and an optional bank reference or
+  payer note (free text). It writes one `manual_payment` line.
 - **"Record refund"** writes a `manual_refund` line for money returned by
   transfer or cash. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
@@ -94,37 +93,85 @@ title: Money
 
 ## Confirmation
 
-- **Confirmation is defined only for `registered` registrations.** It is
-  confirmed when payments reach the event's confirmation threshold, when
-  nothing is due, or when staff set the manual flag.
-- **The threshold** is the full amount in core; the deposit extension lowers
-  it to the deposit through a typed point. Confirmation reads payment facts,
-  never charge lines. A refund that brings payments below the threshold makes
-  the registration unconfirmed again.
-- **The manual flag** ("may come without paying") is the only stored input:
-  set with a reason, audited, carrying its own set time, and kept until staff
-  revoke it.
-- **The result is a derived fact** stored by the evaluation
-  ([Foundation](foundation.md#derived-facts)), so views filter on it; nobody
-  sets it directly. It is not a status
+- **Confirmation is a core decision**
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)), defined
+  only for `registered` registrations. The evaluation writes its transition
+  records; nobody sets it directly. It is not a status
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+- **The threshold** is a target per payer. Each payer with something owed must
+  reach its own target. In core the target is the full amount; the deposit
+  extension lowers it to the deposit through a typed point. The threshold is
+  kept in the [tariff snapshot](#tariff-snapshot-and-re-price). Confirmation
+  reads payment facts, never charge lines.
+- **"The congregation part is required for confirmation"** is a per-event
+  switch, on by default. Off, only the participant's target counts.
+- **The manual flag** ("may come without paying") is a fact: set with a
+  reason, audited, carrying its own set time, and kept until staff revoke it.
+
+| Transition | When |
+|---|---|
+| → confirmed | payments reach the threshold, the manual flag is set, or nothing is due at the moment of the check |
+| → unconfirmed | a refund takes payments below the threshold, unless the manual flag is set |
+| → unconfirmed | the manual flag is revoked while payments are below the threshold |
+
+- **Effective time:** each record carries one. It is the value date of the
+  payment that reached the last required target (the paid time for online
+  payments), or the set time of the manual flag.
+- **A later charge or a higher threshold changes nothing:** the registration
+  stays confirmed. A lower threshold can confirm more registrations at the
+  next evaluation.
+- **Withdrawal or removal closes the sequence.** Restore or admission writes a
+  new record if the registration qualifies; the old one is never revived.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
-- **Late fee** (extension): charged when the payment deadline passes while the
-  registration is unconfirmed. A manual flag set before the deadline prevents
-  it; one set later does not touch the fee, and admins who want to drop it
-  revert the charge with a line.
+
+## Late fee
+
+An extension decision
+([Foundation](foundation.md#facts-decisions-and-computed-values)). It looks
+only at the participant's side.
+
+- **Assessed** when the payment deadline passes and no payment dated before it
+  (by value date, or paid time online) brought the participant's side to its
+  target, and no manual flag was set before it. The materializer writes the
+  charge.
+- **Withdrawn** ("withdrawn" transition) when a payment recorded later turns
+  out to have a value date before the deadline, for example a bank transfer
+  entered days later. The
+  materializer reverses the charge. There is no grace-period setting.
+- **A manual flag set after the deadline** does not remove the fee; admins who
+  want to drop it revert the charge with a line.
+- **Charged only on tiers that have it enabled** (a per-tier setting). At
+  REFISZ the normal and discounted tiers pay it; higher tiers have paid it in
+  advance. It is never charged on staff registrations.
+
+## Quota places
+
+Tier places of the price ladder and support-offer places are extension
+decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+
+- **Held** when the registration becomes `registered` (at submit, admission or
+  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
+  Waitlisted registrations hold no place.
+- **Released** on withdrawal or removal.
+- **Reassigned only by a staff act:** staff give a freed place to a requester
+  from a list in registration order, so nobody's money changes
+  automatically.
+- **A restored registration** gets a place only if one is free.
 
 ## Withdrawal, removal and substitution
 
-- **Retention:** on withdrawal or removal (treated the same), the fee target
-  becomes min(paid, retained amount), reading payment facts only, so nobody
-  owes more after leaving. Core offers "retain nothing" and "retain everything
-  paid"; the deposit extension adds "retain up to the deposit". A surplus
-  shows as an overpayment; refunds are never automatic.
+- **Retention applies per payer:** on withdrawal or removal (treated the
+  same), each payer's fee target becomes min(that payer's own payments, its
+  part of the retained amount), reading payment facts only, so nobody owes
+  more after leaving. Core offers "retain nothing" and "retain everything
+  paid"; the deposit extension adds "retain up to the deposit", which counts
+  against the participant first. A surplus shows as an overpayment; refunds
+  are never automatic.
 - **Move payment** (a substitute takes someone's place): one organizer use
   case, **within one event only**, writes a pair of `transfer` lines with a
-  shared reference (+amount on A, −amount on B), at most what A's payer paid.
+  shared reference (+amount on A, −amount on B), at most A's payer's net
+  payments: payments, minus refunds, minus earlier moves out.
   Only payments move; B's charges and support come from B's own facts. Staff
   choose the target payer, and a remaining difference is an ordinary balance.
 - Money moves between events only through the wallet's carry-over
@@ -143,7 +190,8 @@ price**, never extras such as lunch or a donation.
   price from the tariff snapshot.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
-- Confirmation needs both parts paid; a manual confirmation covers a late
+- Whether the congregation's part is needed for confirmation is a per-event
+  switch ([Confirmation](#confirmation)); a manual confirmation covers a late
   payer.
 
 ## Sponsor and church support
@@ -157,7 +205,8 @@ price**, never extras such as lunch or a donation.
   the congregation directly, which fills in the levels above it, or goes down
   from the top through filtered options, each level with a search. "Not in the
   list" is free text that staff map later.
-- **A node's ancestors are derived facts,** so views filter on any level.
+- **A node's ancestors are looked up in the tree;** a filter on any level
+  expands to its descendants in SQL.
 - **Support offers per event on any node,** the root included, apply to the
   node and everything below it: amount, quota (people and/or budget),
   conditions on facts, "must be requested", and "must be confirmed by the
@@ -165,19 +214,24 @@ price**, never extras such as lunch or a donation.
 - **Stacking:** one flag per offer, "withdrawn if a lower-level support
   applies", on by default (the most specific wins); off, it adds to the lower
   one. Offers are evaluated from the congregation upwards, and a higher offer
-  takes a quota place only if it ends up applying.
+  takes a quota place ([Quota places](#quota-places)) only if it ends up
+  applying.
 - **Each applying offer is one participant-side feature line,** labelled with
   its granting node.
+- **Support is capped at the base price,** all applying offers together, so
+  the fee never goes negative and support never pays for extras such as
+  lunch.
 - **Bodies pay in lump sums after the event,** against a report that groups
   support lines by granting node. It is a view, not a payer, and is separate
   from the congregation share.
 
 ## Tariff snapshot and re-price
 
-- **Each registration keeps the tariff snapshot** it registered under.
+- **Each registration keeps the tariff snapshot** it registered under: the
+  price and the confirmation threshold.
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, aid, staff status (a fact from an additional form), a passed
-  deadline, quota position.
+  deadline.
 - **Event configuration edits reach existing registrations only through an
   explicit re-price** action with a preview. It replaces the snapshot, and the
   materializer writes the difference as `charge` lines; `adjustment` lines
@@ -202,11 +256,12 @@ flowchart LR
 - **It converges:** it writes only the difference between target and
   recorded, per component and payer, so it can run any number of times, with
   line idempotency keys.
-- **Changes caused by an action** are materialized inside that action's
-  transaction. **Changes caused by time passing** (e.g. a late fee) are
-  applied by the periodic run, one transaction per registration, under a
-  per-registration lock. Opening a registration in the portal or admin also
-  re-evaluates it.
+- **Changes caused by an action** are materialized by the evaluation inside
+  that action ([Foundation](foundation.md#evaluation)). **Changes caused by
+  time passing** (e.g. a late fee) are applied by the periodic run, one
+  transaction per registration, under a per-registration lock.
+- **It reconciles only the fee components registered now,** and leaves lines
+  of unknown components untouched.
 - **Rules never read charge lines,** only payment facts. That avoids a
   feedback loop.
 
@@ -229,12 +284,12 @@ flowchart LR
 - **The WooCommerce extension** implements the port:
   - only through WooCommerce's own API, so both of its order-storage modes
     work;
-  - one hidden product line per order, with its name and amount set per
-    order (coupons keep working);
+  - one hidden product line per registration line, with its name and amount
+    set per order (coupons keep working), and metadata giving its payer and
+    the registration as `12:47K3`
+    ([Registrations](registrations-and-identity.md#registrations));
   - WooCommerce payment and refund events write ledger lines **exactly
     once**, keyed by WooCommerce order and refund IDs;
-  - order-line metadata identifies the registration as `12:47K3`
-    ([Registrations](registrations-and-identity.md#registrations));
   - a billing country is a valid ISO code or left out.
 - Wallet top-ups are their own payment requests and never mix with
   registration payments. The wallet is designed later
@@ -267,15 +322,18 @@ sequenceDiagram
 
 An admin-started WooCommerce refund:
 
-1. writes a **refund-request record** inside the use case's transaction (its
-   uniqueness guards against starting the same refund twice);
-2. calls WooCommerce **after commit, in the same request,** so the admin sees
-   the result right away;
-3. on a **definite failure**, keeps the status and error on the record, with a
-   retry button;
-4. on a **timeout or unknown outcome**, leaves the record "in progress" for
+1. writes a **refund-request record** in state `requested` inside the use
+   case's transaction (its uniqueness guards against starting the same refund
+   twice);
+2. **after commit, in the same request,** sets the record to `in progress`
+   just before calling WooCommerce, so the admin sees the result right away;
+3. on a **definite failure**, keeps the error on the record, with a retry
+   button;
+4. on a **timeout or unknown outcome**, leaves the record `in progress` for
    the admin to check in WooCommerce. It is **never retried automatically**,
    which rules out a double refund.
+
+A record left in `requested` (the call never started) gets a retry button.
 
 The refund line itself arrives through WooCommerce's refund event, exactly
 once.

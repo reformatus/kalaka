@@ -54,9 +54,11 @@ title: Engineering
   test compares the created indexes with the declared ones.
 - **Not available on 10.3** besides the features named above:
   `JSON_ARRAYAGG`, `JSON_OBJECTAGG`.
-- **Locking:** the capacity check's `FOR UPDATE` on the event row is the
-  first read of the submit transaction. A plain read before it would let a
-  later count reuse an old snapshot and overbook the event.
+- **Locking:** locks are taken in one fixed order
+  ([Foundation](foundation.md#lock-order)). The capacity check's `FOR UPDATE`
+  on the event row is the first read of the submit transaction. A plain read
+  before it would let a later count reuse an old snapshot and overbook the
+  event.
 - **Retryable database errors:** deadlock (1213), lock-wait timeout (1205),
   "record has changed since last read" (1020, 11.8) and a duplicate key on a
   reference-code collision (1062). The runner always issues an explicit

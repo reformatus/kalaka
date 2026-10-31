@@ -9,20 +9,24 @@ title: Mail
 - A **mail** is one configured message: its trigger settings plus its
   **body**, one to one. There are no "templates".
 - A **delivery** is one row in the send log: one mail to one registration (or
-  address) on one occurrence, pending or sent.
+  address) on one occurrence, pending or sent. **Nothing reads the deliveries
+  table except the sender:** no decision, condition or view depends on
+  whether a mail was sent.
 
 ## Five kinds of mail
 
 Mail is grouped by what causes it. **Deciding that a mail is due always means
 inserting a pending delivery** whose unique key (event, mail, registration,
-occurrence) makes it once-only.
+occurrence) makes it once-only. **Every once-only mail is keyed by the record
+that caused it:** the registration, the payment line, the confirmation
+record, the check-in act, and so on.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, confirmed, link regenerated, an extension's act such as a check-in (from any check-in route) or a wallet top-up | the use case, inside its own transaction; keyed by the act's record |
+| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, confirmed, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so a second confirmation after a refund gets its own mail; every check-in route calls the same check-in use case |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
-| **Manual** | an admin sends to a selection, now or scheduled | the admin's use case; keyed by the send batch |
+| **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
 | **Self-sent** | the registrant asks for it in the portal (e.g. resend my link), addressed to an email address | the portal use case, rate-limited |
 
 ## Configuration
@@ -72,36 +76,33 @@ activated.**
 ## Content
 
 - **Every body is edited in the block editor** and stored as a block document
-  (`kalaka_mail` posts). Blocks are used **only for layouts** (e.g. the payment
-  table).
-- **Dynamic values:** organizers insert them inline in their own text and in
-  custom HTML, following WordPress conventions, and bind them to block
-  attributes through Block Bindings. Both offer **exactly the same choice of
-  values** (one value API). The inline syntax is decided later
-  ([Deferred](deferred.md)).
-- **Context:** actions and reminders expose their own values and layout
-  blocks (e.g. a payment table); general values (secret link, reference code,
-  balance, …) work in any mail and render current data.
-- **Conditional layouts:** if / else-if / else blocks using the shared
-  condition format ([Conditions](events-and-forms.md#conditions)), evaluated
-  on the server over any value. They need not be very user-friendly.
+  (`kalaka_mail` posts). Blocks are used **only for layouts and conditions**.
+- **Values and conditions** follow the shared rules
+  ([Values and conditions](events-and-forms.md#values-and-conditions)). A
+  mail's context is **the recipient and the registration**. Actions and
+  reminders add their own layout blocks (e.g. a payment table).
+- **The server renders the whole mail,** conditions included, at send time
+  ([Sending](#sending)).
 
 ## Sending
 
-- **No web request sends mail.** Neither a frontend nor an admin request calls
-  `wp_mail`, not even a manual mail to a selection: requests only insert
-  pending deliveries, and the send log is the mail queue. Sending after commit
-  in the request could add 1–3 seconds of SMTP time and hit shared hosts'
-  limits.
+- **Mail is never sent during an interactive request.** Neither a frontend
+  nor an admin request calls `wp_mail`, not even a manual mail: requests only
+  insert pending deliveries, and the send log is the mail queue. Sending after
+  commit in the request could add 1–3 seconds of SMTP time and hit shared
+  hosts' limits.
 - **One sender delivers every mail.** It runs:
   - from a **nudge**: after a commit that inserted deliveries, a one-off
     sender run is scheduled for now (`wp_schedule_single_event`);
   - from **itself**: when it stops with deliveries left, it nudges itself
     again rather than waiting;
-  - on **every periodic run** (every 5 minutes), which also retries.
+  - on **every periodic run** (every 5 minutes; a real system cron, with
+    WP-Cron as the fallback: [Foundation](foundation.md#deferred-work)).
 - **A delivery is claimed before sending:** the sender moves it from pending
   to "sending" before calling `wp_mail`, so overlapping sender runs never send
-  the same delivery twice. This claim is what makes mail at most once.
+  the same delivery twice. After the attempt it is **marked sent even if
+  sending failed,** so a mail is never delivered twice. This claim is what
+  makes mail at most once.
 - **It renders the body at send time from current data** and records the
   mail's version and send time, not the content. The content can be recovered
   by re-rendering, and may be incomplete after a privacy erase. Exact copies
@@ -114,14 +115,15 @@ activated.**
 
 ### Failures
 
-- **A definite failure** (`wp_mail` returns false, or `wp_mail_failed` fires)
-  puts the delivery back to failed; it is retried with increasing delays up to
-  a limit, then left for an admin. All definite failures follow the same
-  back-off: `wp_mail` cannot say why it failed, and the hourly budget is what
-  keeps us under a host's cap.
-- **An unknown outcome** (a crash, a delivery stuck in "sending") is left for
-  an admin. It is rare, which is acceptable.
-- The latest error, status and attempt count stay on the delivery.
+- **A failure** (`wp_mail` returns false, or `wp_mail_failed` fires) keeps
+  its error on the delivery, which is marked sent. Nothing is retried and
+  nothing stops automatically; the hourly budget is what keeps us under a
+  host's cap.
+- **A crash** leaves the delivery in "sending". It is rare, which is
+  acceptable.
+- **Staff see which deliveries failed or were left in "sending",** and can
+  send a chosen mail to chosen registrations. This is the ordinary manual
+  mail, not a retry feature.
 
 ## Pausing
 
@@ -134,5 +136,3 @@ activated.**
   none is forgotten. The portal, including "resend my link", is closed;
   self-sent mails requested before unpublishing stay queued. The admin sees the pending count with the
   option to clear them ([Events](events-and-forms.md#event-lifecycle)).
-- Later, not in the first version: a manual requeue of action mails that
-  should have been sent but were not.

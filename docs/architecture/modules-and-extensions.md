@@ -58,11 +58,11 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| Foundation | runner, audit, clock, evaluation trigger, module registry |
+| Foundation | runner, audit, clock, evaluation, module registry |
 | Events | events, states, timeline points, date types, capacity and the "full" latch; later the participant phase tracker |
 | Forms | forms, the registration slot, field types, field definitions, conditions, prefill, form links |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
-| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes, derived facts |
+| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
@@ -81,7 +81,8 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **An option** has a capacity, leaders (display text), a place and
   eligibility conditions on field values (e.g. age, gender).
 - **A registration holds at most one option per set,** stored as an
-  assignment fact with its source and state (proposed or confirmed), audited.
+  assignment fact with its source and state (proposed or confirmed),
+  audited (computed meal turns excepted, below).
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
     field writes a confirmed assignment; capacity and eligibility are checked
@@ -91,13 +92,18 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   - **request** (e.g. IVK's modules): the participant writes a request (a
     field value; the ranking field type comes from an extension), locked at
     close; staff run the proposer with a preview, then confirm in bulk; the
-    participant sees the result once confirmed and the set is published;
+    participant sees the result once confirmed and the set is published.
+    **Bulk confirmation** runs one transaction per item: it locks the option
+    row and re-checks capacity and eligibility; items that no longer fit go
+    into the report;
   - **none** (talk groups, rooms, meal turns): staff place people, or a
     proposer proposes and staff confirm; shown once published.
   - Staff can place or override in every mode.
 - **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
-  set filled from another set through an option map, kept in sync and
-  confirmed automatically; eligibility is taking lunch.
+  set **computed from another set through an option map**, never stored,
+  unless staff placed someone by hand, which is stored as a fact;
+  eligibility is taking lunch
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **Tallies** for every set (count per option, unassigned, missing a required
   choice) are view columns.
 - **Rosters are views, not generated documents:** each set has one roster view
@@ -107,7 +113,9 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   has access.
 - **The assignment proposer** is an extension point. The IVK ranking engine
   is the first: it fills first choices in registration order, then second
-  choices into what is left, then third; staff confirm. Talk-group and room
+  choices into what is left, then third; staff confirm. **It runs once, on
+  module choices frozen beforehand,** and need not handle later changes
+  (editing choices in the portal is a nice-to-have). Talk-group and room
   algorithms come later on the same point.
 - Extensions read confirmed assignments through point inputs and keep their
   own per-option data (e.g. a module's level and the needs it answers).
@@ -123,9 +131,13 @@ Besides the money plugins:
   ranking proposer, and a public recommender page. The recommender asks a few
   questions, scores the modules of the event's module set with an AI decision
   model (relied on, with no fallback path), shows the best three, and links to
-  the form with the ranking and an
-  attribution key prefilled by URL arguments
-  ([Forms](events-and-forms.md#prefill-from-a-link)). Its answers carry no
+  the form through a form link of the same shape staff create with
+  `kalaka/create-form-link`: the attribution key locked, the ranking
+  editable, single use, an expiry, no bypasses
+  ([Forms](events-and-forms.md#form-links-and-admin-submissions)). **On a
+  public page the link is created by a portal or system use case with its
+  own rate limit, never an admin use case;** the same holds for any "register
+  for the other camp too" link on a thank-you page. Its answers carry no
   name or e-mail and stay for statistics after the registration is erased.
   A consent notice names the AI provider. Its columns join views by the key.
 - **Attendance sheets** (REFISZ, later): printable sheets participants sign on
@@ -260,8 +272,8 @@ needs one.
 ```mermaid
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
-  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>derived fact · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section · evaluation participant ·<br/>view · view column · filterable fact"]
+  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact"]
   REG --> DECL["Declarations<br/>payer kind"]
 ```
 
@@ -274,14 +286,23 @@ flowchart LR
 - **Each point is documented as running inside or outside the transaction:**
   - **Inside** (fee component, payment guard, ledger line source, rule or
     mail condition, date type, confirmation threshold, retention rule,
-    derived fact, assignment proposer): may only touch our tables and fires
-    no WordPress hooks.
-  - **Outside** (field type, payment method, portal or admin section,
-    evaluation participant, view, view column, filterable fact).
+    decision, action-mail act, assignment proposer): fires no WordPress
+    hooks.
+  - **Outside** (field type, payment method, portal or admin section, view,
+    view column, filterable fact).
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).
+- **A decision** is an inside point: a transition rule in, a transition
+  record or nothing out; core writes the record. It reads facts and core
+  decisions only, never another extension's decision. Late fee, price-tier
+  place and support place are decisions
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+- **An action-mail act** is an inside point: an extension's act (e.g. a
+  check-in) that can cause an action mail, keyed by the act's record
+  ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in
+  extension.
 
 ### Contracts
 
@@ -342,6 +363,8 @@ deprecation period and the compatibility-check tool are chosen then.
   shown in Site Health and written to PHP's error log.
 - A contribution **inside** the transaction that throws rolls back the use
   case like any error.
+- **No point writes to our tables:** a point returns a value, and core writes
+  it.
 - **If anything fails to load** (an extension out of range or unbooted, a
   missing field type, a failed upgrade, an exception thrown while extensions
   register), **every event is treated as

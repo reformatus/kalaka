@@ -13,9 +13,8 @@ removed here.
 | Item | Settle when |
 |---|---|
 | Participant phase tracker (core default phases, configurable, extensions add phases); participants see one sequence: waitlisted → awaiting payment → confirmed, or withdrawn / removed | designing the portal's status page |
-| Inline value syntax in mails | building the mail editor |
-| Registration flow when an account is involved (inline or before the form); minimum age for holding an account | building the portal and registration UI |
-| Retention of guest data and of the audit, including failed entries | before the first production deployment (privacy policy) |
+| Unactivated accounts (the set-password link never used, or the registration failed after the account was created): whether and when they are removed | building the registration UI |
+| Retention of guest data and of the audit, including failed entries (ledger lines are kept at least 8 years, [Registrations and identity](registrations-and-identity.md#attribution-and-erasure)) | before the first production deployment (privacy policy) |
 | The list of per-event actions and their default bundles | before the admin UI |
 | Which money plugins come first for REFISZ's summer camps (IVK's and Téli Tali's are in the [release plan](release-plan.md)) | before the summer camps' registration opens |
 | The payment deadline of a registration admitted from the waitlist | with the payment-due date types |
@@ -33,9 +32,10 @@ removed here.
 | Public after-save actions for third parties | when a third party needs them; at the earliest when alpha ends |
 | Deprecation period for versioned extension points; the compatibility-check tool | when the alpha phase ends |
 | The license and its `LICENSE` file | when the alpha phase ends (wide release to other organizations) |
-| Spam protection, including a rate limit on the module recommender | before IVK registration opens (2026-11-30) |
+| Spam protection (the recommender's rate limit sits on the use case that creates its form link) | before IVK registration opens (2026-11-30) |
 | File upload | building forms |
-| Rounding payment requests to the currency's payable unit (whole forints for HUF, below one fillér counts as zero): follow WooCommerce's own method if it has one | at implementation |
+| Whether WooCommerce has its own method for rounding payment requests to the payable unit ([Money](money.md#amounts)), and using it if so | at implementation |
+| Fast entry of many manual payments, and how to make it safe | after IVK registration opens |
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |

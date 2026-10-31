@@ -66,9 +66,24 @@ erDiagram
 - **A guest can attach a registration to an account** through its secret link.
   This triggers the same side effects as registering with a new account (e.g.
   creating a preset from that registration).
-- **Default flows are seamless:** guest registration, and "create account →
-  register". Flows with several registrations under one account may ask more
-  of the user, with short explanations.
+- **Default flows are seamless:** guest registration, and registration with
+  an account created on the form
+  ([below](#accounts-on-the-registration-form)). Flows with several
+  registrations under one account may ask more of the user, with short
+  explanations.
+
+## Accounts on the registration form
+
+- **Creating an account is an opt-in on the registration form,** offered
+  only to people aged 16 or over (Hungary's age of digital consent; IVK's
+  participants are all adults).
+- **The form never asks for a password.** The account is activated through
+  a set-password mail sent by the queue, which also verifies the address.
+- **If the person is logged in,** the registration attaches to their account.
+- **If the email already has an account,** the registration attaches when
+  the mail's link is used. The form never reveals whether an account exists.
+- At first the portal may show only a "coming soon" page
+  ([Release plan](release-plan.md)).
 
 ## Presets
 
@@ -102,8 +117,11 @@ erDiagram
 
 ## Status, capacity and waitlist
 
-- **Status is stored, not derived:** `registered`, `waitlisted`, `withdrawn`
-  (by the participant), `removed` (by an admin).
+- **Status and the "full" latch are facts,** stored and changed only by
+  people's acts, never recomputed
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)). Status is
+  `registered`, `waitlisted`, `withdrawn` (by the participant) or `removed`
+  (by an admin).
 - It is **set at registration by capacity**, then changes only by explicit
   acts: withdraw, remove, admit from the waitlist, restore. **A withdrawal
   never automatically admits anyone from the waitlist;** changes to the list
@@ -112,21 +130,27 @@ erDiagram
   from being `registered`.** Deposit or aid status never makes a registration
   invalid.
 - **Confirmation sits beside status, not in it:** it is defined only for
-  `registered` registrations, derived from payments or a manual flag
-  ([Money](money.md#confirmation)). Participants see one phase sequence
-  (waitlisted → awaiting payment → confirmed, or withdrawn / removed) through
-  the phase tracker.
+  `registered` registrations, a system decision recorded from payments or a
+  manual flag ([Money](money.md#confirmation)). Participants see one phase
+  sequence (waitlisted → awaiting payment → confirmed, or withdrawn /
+  removed) through the phase tracker.
 - **Withdrawal and removal have the same effect on money:** the event's
   retention rule ([Money](money.md#withdrawal-removal-and-substitution)).
 - **One capacity per event.** Every form in the registration slot counts
-  toward it, except registrations matching the event's **"not counted"
-  condition** on field values (e.g. children under 13 at the event's own
-  start, who come with a parent): they never use capacity and are never
-  waitlisted. The first registration that does not fit sets the event's
+  toward it, except **"not counted"** registrations (e.g. children under 13
+  at the event's own start, who come with a parent).
+- **"Not counted" is decided once, at registration,** by the event's
+  condition on field values, and stored as a fact; afterwards only staff
+  change it, as an audited act. A "not counted" registration bypasses
+  capacity and the "full" latch: it is never waitlisted and never sets the
+  latch.
+- The first counted registration that does not fit sets the event's
   **"full" latch**; from then on new registrations are waitlisted even if a
   place frees up, until an admin explicitly clears the latch (reopens the
   event). Editing the registration dates does not clear it.
 - **The capacity check locks the event row** inside the submit transaction.
+- **Quota places are held when a registration becomes `registered`**
+  ([Money](money.md#quota-places)).
 - The **sorszám** (order within `registered`, and within `waitlisted`) is
   derived and renumbers; there is no stored serial.
 - A form link can bypass capacity and the latch
@@ -169,8 +193,6 @@ reference and check-in barcode.
   every registration with that address. When a second guest registration with
   the same email is submitted to the same event, the registrant sees a soft
   notice, not a rejection.
-- The registration flow when an account is involved, and the minimum age for
-  holding an account, are decided later ([Deferred](deferred.md)).
 
 ## Attribution and erasure
 
@@ -180,3 +202,9 @@ reference and check-in barcode.
 - **A hidden attribution field** can carry a key from another page, e.g. the
   module recommender's answers. Erasing the registration deletes the field
   value, so those answers stay, unlinked and anonymous, for statistics.
+- **An erasure anonymises** the registration's personal fields and answers.
+  The reference code, ledger lines and decision records are kept. **Ledger
+  lines are kept at least 8 years** (the Hungarian accounting-law period), to
+  be confirmed with the organisations' bookkeepers.
+- Erasure and the other GDPR self-service features are nice to have at launch
+  and may come later ([Release plan](release-plan.md)).

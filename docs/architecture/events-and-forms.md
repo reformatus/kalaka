@@ -55,10 +55,13 @@ be:
 A date type **may differ per registration** (e.g. 14 days after registering or
 a fixed date, whichever is earlier). It is computed only from registration
 facts and absolute points, never from another derived date. Core declares
-**payment due**. Date types are an extension point that runs inside the
+**payment due**: an anchor plus N days, with a cap, both configurable
+([Money](money.md#core-money-scope)). Date types are an extension point that runs inside the
 transaction and takes one immutable input; the periodic run computes them
 in PHP for registrations in published events. If that ever becomes slow, the
 computed date is cached in a column on the registration.
+
+**A deadline ends at midnight in the site time zone** at the end of its day.
 
 ## Forms and the registration slot
 
@@ -98,16 +101,19 @@ flowchart TB
   edit in the portal while the set's choice window is open, not a resubmitted
   form.
 - **Form texts read amounts, quotas and deadlines from the event's settings,**
-  so they cannot drift from the rules.
+  so they cannot drift from the rules
+  ([Values and conditions](#values-and-conditions)).
 
 ## Prefill from a link
 
-- **Public prefill** works like Google Forms' pre-filled links: URL arguments
-  name each field's key and its value. The values are untrusted and editable,
-  and never open a section. Only non-personal values belong in such links
-  (e.g. the module recommender's ranking and its attribution key).
-- **Secret prefill** comes from a form link (below): the server sets the values
-  from the link record, and they are locked.
+- **There is no public prefill:** no URL argument other than the link token
+  affects a form.
+- **A form link prefills from its record** (below): the server sets the
+  values, either locked or as editable prefilled values. Prefill from a
+  preset is separate ([Fields](#fields)).
+- **Form links created from public pages** (e.g. the module recommender, or
+  "register for the other camp too") come from a portal or system use case
+  with its own rate limit.
 
 ## Form links and admin submissions
 
@@ -115,21 +121,21 @@ flowchart TB
 
 - **A form link has:**
   - its form;
-  - the field values it sets, locked (read-only or hidden);
+  - the field values it sets, each either locked (read-only or hidden) or an
+    editable prefilled value;
   - uses: unlimited or at most N (a single-use link, max 1, is today's
     invitation); a use is spent on a successful submit, not on opening;
   - bypasses, each off by default: the form's requirements, the slot's date
     range, the event's capacity and "full" latch (an invitation has them all
     on, so the registration lands as `registered`);
-  - an expiry, and revocation.
+  - an expiry, and revocation. Expired links are cleaned up.
 - **Creation, revocation and use are audited.** The link a registration came
   through is stored on it as a fact.
-- **Link-only fields** can be set only by a link, never by public prefill or
-  the registrant. **Link-only options** are choice options shown only when a
+- **Link-only fields** can be set only by a link, never by the registrant. **Link-only options** are choice options shown only when a
   link sets them (e.g. an invitation-only track or partner).
 - **Secret sections** are ordinary conditional sections whose condition reads
-  a link-only field. Conditions are re-checked on the server at submit, so
-  answers to a closed section are rejected.
+  a link-only field. The server re-checks conditions at submit
+  ([Conditions](#conditions)).
 - **Tokens:** 128 random bits, never logged, masked in exports, sent with
   no-referrer. Links are stored readable, single-use ones included, so admins
   can always re-send them.
@@ -149,8 +155,10 @@ flowchart TB
 - **Our own implementation on WordPress's building blocks; no form plugin.**
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
-- The public page uses WordPress's **Interactivity API** and renders correctly
-  before any script runs.
+- The public page uses WordPress's **Interactivity API**.
+- **Forms need JavaScript.** Conditional sections are hidden by default, and
+  the form shows a warning when JavaScript is off (UI text approved when
+  built).
 - **The server validates against the same form definition:** only declared,
   visible fields are accepted.
 - **Each submission stores the form and its version**
@@ -182,7 +190,8 @@ flowchart TB
   separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
 - **Hidden fields** hold values the registrant does not see, such as an
-  attribution key set by public prefill or a value set by a form link.
+  attribution key. They get their values only from the form link record;
+  values the browser sends for them are rejected.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Explicit markings:** the contact email (exactly one per form in the
@@ -201,11 +210,37 @@ flowchart TB
 - Organizers with the capability can correct any field at any time.
 - The original submission stays unchanged, and every edit is audited.
 
-## Conditions
+## Values and conditions
 
-**One condition format** serves form field visibility and mail bodies. Forms
-evaluate it in the browser over form answers only; mails evaluate it on the
-server over any value.
+**One value API** serves mails, portal pages and forms.
+
+- **Each document kind declares its context,** and pickers offer only that
+  context's keys:
+  - mail: the recipient and the registration;
+  - portal page: the logged-in person and their registration;
+  - form: answers only, for conditions; event values are rendered at page
+    load.
+- **Whole attributes** use Block Bindings with one source, `kalaka/value`,
+  with a `key` argument.
+- **Inline values** are a rich-text format stored as
+  `<span data-kalaka-value="key">Label</span>`. Editors insert one from a
+  toolbar picker, and it shows as a chip. The server replaces it using the
+  HTML API. The same span works in custom HTML.
+- **Storage** is plain block markup in `post_content`. A friendlier editor
+  later changes only the UI.
+- **WordPress 7.0 was checked on 2026-10-31:** no core way to bind part of a
+  text was found, since bindings replace whole attributes. Re-check at
+  implementation, and use a core mechanism if one exists.
+
+### Conditions
+
+- **Container blocks** `kalaka/if`, `kalaka/else-if` and `kalaka/else` hold
+  the branches, using the one condition format below.
+- **The server renders them** in mails and portal pages.
+- **Forms show and hide branches** with the Interactivity API. The server
+  re-checks them at submit and keeps only answers whose conditions hold.
+
+**The condition format:**
 
 - **Operators:** equals, less than, less or equal, greater than, greater or
   equal, contains, empty.
