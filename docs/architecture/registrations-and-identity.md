@@ -111,16 +111,26 @@ erDiagram
 - **Only capacity (waitlisted) and withdrawal or removal keep a registration
   from being `registered`.** Deposit or aid status never makes a registration
   invalid.
+- **Confirmation sits beside status, not in it:** it is defined only for
+  `registered` registrations, derived from payments or a manual flag
+  ([Money](money.md#confirmation)). Participants see one phase sequence
+  (waitlisted → awaiting payment → confirmed, or withdrawn / removed) through
+  the phase tracker.
+- **Withdrawal and removal have the same effect on money:** the event's
+  retention rule ([Money](money.md#withdrawal-removal-and-substitution)).
 - **One capacity per event.** Every form in the registration slot counts
-  toward it. The first registration that does not fit sets the event's
+  toward it, except registrations matching the event's **"not counted"
+  condition** on field values (e.g. children under 13 at the event's own
+  start, who come with a parent): they never use capacity and are never
+  waitlisted. The first registration that does not fit sets the event's
   **"full" latch**; from then on new registrations are waitlisted even if a
   place frees up, until an admin explicitly clears the latch (reopens the
   event). Editing the registration dates does not clear it.
 - **The capacity check locks the event row** inside the submit transaction.
 - The **sorszám** (order within `registered`, and within `waitlisted`) is
   derived and renumbers; there is no stored serial.
-- Invitations bypass capacity and the latch
-  ([Forms](events-and-forms.md#invitations-and-admin-submissions)).
+- A form link can bypass capacity and the latch
+  ([Forms](events-and-forms.md#form-links-and-admin-submissions)).
 
 ## Reference codes
 
@@ -146,7 +156,9 @@ reference and check-in barcode.
 
 - **Access to a registration** is granted by its **secret link** (that one
   registration) or by being logged in as its **owner account** (all owned
-  registrations, plus account-level actions). Organizers use capabilities.
+  registrations, plus account-level actions). Organizers and outside
+  partners are admin-side users who reach registrations through the views
+  granted to them ([Foundation](foundation.md#views-and-grants)).
 - **Secret links:** 128 random bits, URL-safe (22 characters). They are
   **stored readable,** so every email can carry the registrant's link. They
   are treated as secrets: never logged, masked in exports.
@@ -159,3 +171,12 @@ reference and check-in barcode.
   notice, not a rejection.
 - The registration flow when an account is involved, and the minimum age for
   holding an account, are decided later ([Deferred](deferred.md)).
+
+## Attribution and erasure
+
+- **The form link a registration came through is stored as a fact**
+  ([Forms](events-and-forms.md#form-links-and-admin-submissions)), filterable
+  in views.
+- **A hidden attribution field** can carry a key from another page, e.g. the
+  module recommender's answers. Erasing the registration deletes the field
+  value, so those answers stay, unlinked and anonymous, for statistics.

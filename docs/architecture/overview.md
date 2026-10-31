@@ -11,11 +11,11 @@ approval. Git history keeps the earlier sequential decision log.
 | Page | Contents |
 |---|---|
 | [Overview and principles](overview.md) | Purpose, organizations, fixed inputs, guiding principles |
-| [Foundation](foundation.md) | Layers, the use-case runner, errors, entities, audit, deferred work, cross-cutting rules |
-| [Modules and extensions](modules-and-extensions.md) | Packaging, core modules, schema ownership, identifiers, the extension surface |
-| [Events and forms](events-and-forms.md) | Event lifecycle, dates, the registration slot, capacity, invitations, fields, conditions |
-| [Registrations and identity](registrations-and-identity.md) | Accounts and presets, submissions, status and waitlist, reference codes, access |
-| [Money](money.md) | Tariff snapshot, ledger, materializer, payments, refunds |
+| [Foundation](foundation.md) | Layers, views and grants, the use-case runner, errors, entities, audit, deferred work, derived facts, cross-cutting rules |
+| [Modules and extensions](modules-and-extensions.md) | Packaging, core modules, assignment sets, extensions in view, schema ownership, identifiers, the extension surface |
+| [Events and forms](events-and-forms.md) | Event lifecycle, dates, the registration slot, capacity, prefill, form links, fields, conditions |
+| [Registrations and identity](registrations-and-identity.md) | Accounts and presets, submissions, status and waitlist, reference codes, access, attribution |
+| [Money](money.md) | Ledger and payers, recording payments, confirmation, withdrawal, congregation share, sponsor and church support, tariff snapshot, materializer, payments, refunds |
 | [Mail](mail.md) | Kinds of mail, deliveries, the sender, configuration, content |
 | [Engineering](engineering.md) | Platform, repository layout, tooling, code style, tests and CI |
 | [Deferred](deferred.md) | What is decided later, and when |
