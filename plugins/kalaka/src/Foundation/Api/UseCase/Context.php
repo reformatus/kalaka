@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Foundation\Api;
+namespace Kalaka\Foundation\Api\UseCase;
+
+use Kalaka\Foundation\Api\Actor\Actor;
 
 /** What a running use case gets from the runner. Implemented with the runner. */
 final class Context

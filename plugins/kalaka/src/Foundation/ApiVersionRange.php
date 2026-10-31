@@ -22,10 +22,10 @@ final class ApiVersionRange
 
         $constraints = [];
         foreach ($parts as $part) {
-            if (preg_match('/^(>=|<)(\d+\.\d+(?:\.\d+)?)$/', $part, $m) !== 1) {
+            if (preg_match('/^(>=|<)(\d+\.\d+(?:\.\d+)?)(-[0-9A-Za-z.-]+)?$/', $part, $m) !== 1) {
                 throw new \InvalidArgumentException('Invalid API range.');
             }
-            $constraints[] = [$m[1], self::normalize($m[2])];
+            $constraints[] = [$m[1], self::normalize($m[2]) . ($m[3] ?? '')];
         }
 
         return new self($constraints);
@@ -42,6 +42,7 @@ final class ApiVersionRange
         return true;
     }
 
+    /** Adds a missing patch number to the numeric part. */
     private static function normalize(string $version): string
     {
         return substr_count($version, '.') === 1 ? $version . '.0' : $version;

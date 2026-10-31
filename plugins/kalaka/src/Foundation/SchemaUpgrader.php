@@ -8,15 +8,14 @@ final class SchemaUpgrader
 {
     private const LOCK_TTL = 600;
 
-    public function upgrade(Api\Module $module): void
+    public function upgrade(Api\Module\Module $module): void
     {
         global $wpdb;
 
         $id = $module->id();
         $schema = $module->schema();
         $option = 'kalaka_schema_' . $id;
-        $stored = (int) get_option($option, 0);
-        if ($schema->version <= $stored) {
+        if ($schema->version <= (int) get_option($option, 0)) {
             return;
         }
 
@@ -27,10 +26,24 @@ final class SchemaUpgrader
         }
 
         try {
+            // Another request may have finished the upgrade while we waited for the lock.
+            wp_cache_delete($option, 'options');
+            wp_cache_delete('alloptions', 'options');
+            $stored = (int) get_option($option, 0);
+            if ($schema->version <= $stored) {
+                return;
+            }
+
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
             foreach ($schema->tables as $table) {
-                dbDelta(str_replace('{prefix}', $wpdb->prefix, $table));
+                $sql = str_replace('{prefix}', $wpdb->prefix, $table);
+                dbDelta($sql);
+                // dbDelta() reports no errors; a dry run that still finds changes means it failed.
+                $remaining = dbDelta($sql, false);
+                if ($remaining !== []) {
+                    throw new \RuntimeException('Schema not applied: ' . implode(' ', $remaining));
+                }
             }
 
             $keys = array_keys($schema->steps);

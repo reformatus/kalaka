@@ -49,7 +49,7 @@ Kaláka is a WordPress plugin: an integrated registration system for events and 
 An extension plugin has the header line `Requires Plugins: kalaka` and registers its module on the `kalaka_register_modules` action:
 
 ```php
-add_action('kalaka_register_modules', static function (Kalaka\Foundation\Api\Modules $modules): void {
+add_action('kalaka_register_modules', static function (Kalaka\Foundation\Api\Module\Modules $modules): void {
     $modules->add(new Kalaka\WooCommerce\Module());
 });
 ```

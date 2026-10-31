@@ -122,7 +122,8 @@ flowchart LR
     A failure is kept on the record it concerns (see [Failures](#failures)).
   - The admin-started WooCommerce refund follows this pattern
     ([Money](money.md#refunds)).
-- **The shapes** (in `Kalaka\Foundation\Api`):
+- **The shapes** (in `Kalaka\Foundation\Api\UseCase`; actors in
+  `Api\Actor`, errors in `Api\Error`):
 
   ```php
   interface UseCase {

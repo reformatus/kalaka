@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Foundation\Api;
+namespace Kalaka\Foundation\Api\Actor;
 
 interface Actor
 {

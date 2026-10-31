@@ -162,11 +162,12 @@ src/Registrations/
     `render.php`, `edit.js`, `view.js`, laid out as `create-block` does).
 - Repositories are named `<Entity>Repository`.
 - Extension plugins have the same shape.
-- **Layers are not folders.** deptrac recognizes layers by interface, base
-  class and name (use cases implement `UseCase`, repositories extend the
-  repository base) and fails on uncovered classes, so it can enforce, for
-  example, that `Rest/`, `Cli/` and `Blocks/` never touch repositories
-  ([Static checks](#static-checks)).
+- **Layers are not folders.** Today deptrac checks only the boundary between
+  modules: a module uses another only through its `Api` namespace. As use
+  cases and repositories appear, layers by interface, base class and name join
+  (use cases implement `UseCase`, repositories extend the repository base), so
+  it can then enforce, for example, that `Rest/`, `Cli/` and `Blocks/` never
+  touch repositories ([Static checks](#static-checks)).
 
 ### Builds
 
@@ -175,7 +176,8 @@ src/Registrations/
 - **One JavaScript build for everything:** a single `@wordpress/scripts`
   build covers all JavaScript, including the Interactivity API `view.js`
   files (built as script modules). There are no buildless modules alongside
-  built scripts. During development `npm start` runs it in watch mode.
+  built scripts. During development `npm start` will run it in watch mode
+  (planned: the build is added with the first JavaScript).
 - **Source maps** are part of the build and ship in the zip, so the shipped
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with

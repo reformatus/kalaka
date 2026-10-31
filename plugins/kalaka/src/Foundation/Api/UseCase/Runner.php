@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Foundation\Api;
+namespace Kalaka\Foundation\Api\UseCase;
+
+use Kalaka\Foundation\Api\Actor\Actor;
 
 /** Implemented with the runner. */
 final class Runner

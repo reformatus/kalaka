@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin;
 
-use Kalaka\Foundation\Api\AbstractModule;
+use Kalaka\Foundation\Api\Module\AbstractModule;
 
 final class Module extends AbstractModule
 {

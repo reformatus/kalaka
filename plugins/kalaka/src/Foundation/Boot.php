@@ -4,12 +4,19 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation;
 
+use Kalaka\Foundation\Api\LoadFailure;
+use Kalaka\Foundation\Api\LoadState;
+
+/**
+ * Any load failure closes the site for this request (see LoadState):
+ * modules-and-extensions.md, "Failure isolation".
+ */
 final class Boot
 {
     /** @var list<LoadFailure> */
     private array $failures = [];
 
-    /** @param list<Api\Module> $coreModules in boot order */
+    /** @param list<Api\Module\Module> $coreModules in boot order */
     public function __construct(private readonly array $coreModules)
     {
     }
@@ -21,7 +28,11 @@ final class Boot
             $set->add($module);
         }
 
-        do_action('kalaka_register_modules', $set);
+        try {
+            do_action('kalaka_register_modules', $set);
+        } catch (\Throwable $e) {
+            $this->fail('kalaka_register_modules', $e->getMessage());
+        }
 
         $modules = [];
         foreach ($set->all() as $module) {
@@ -41,7 +52,7 @@ final class Boot
             }
         }
 
-        $contributions = new Api\Contributions();
+        $contributions = new Api\Module\Contributions();
         foreach ($upgraded as $module) {
             try {
                 $module->contribute($contributions);
@@ -54,6 +65,8 @@ final class Boot
         foreach ($set->failures() as $failure) {
             $this->fail($failure->moduleId, $failure->reason);
         }
+
+        LoadState::record($this->failures);
     }
 
     /** @return list<LoadFailure> */
@@ -62,7 +75,7 @@ final class Boot
         return $this->failures;
     }
 
-    private function isCompatible(Api\Module $module): bool
+    private function isCompatible(Api\Module\Module $module): bool
     {
         try {
             if (ApiVersionRange::parse($module->requiresApi())->allows(KALAKA_VERSION)) {
