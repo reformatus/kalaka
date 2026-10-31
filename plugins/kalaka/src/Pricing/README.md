@@ -1,5 +1,5 @@
 # Pricing
 
-The fixed price, the fee-component framework and the materializer.
+The fixed price, the fee-component framework, confirmation, retention and the materializer.
 
 Entry points: none yet.

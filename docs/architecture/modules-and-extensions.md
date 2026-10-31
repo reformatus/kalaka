@@ -146,11 +146,18 @@ Besides the money plugins:
       public function id(): string;                        // [a-z][a-z0-9_]*
       public function requiresApi(): string;               // e.g. '>=0.1 <0.2'
       public function schema(): Schema;                    // Schema::none() without tables
-      public function capabilities(): array;               // list<string>
+      public function capabilities(): array;               // list<string>, per-event actions
       public function contribute(Contributions $to): void; // typed extension points
       public function boot(): void;                        // add_action etc.
   }
   ```
+
+  `capabilities()` names the per-event actions the module offers (e.g.
+  `kalaka_withdraw_registration`). Core collects them into one catalogue that
+  grants pick from ([Foundation](foundation.md#views-and-grants)); they are
+  not WordPress capabilities and are never added to roles. Only the
+  full-access capability and the minimal role for outside grantees touch
+  WordPress roles, and both belong to Admin.
 
   `AbstractModule` gives the defaults (no schema, capabilities or
   contributions). Each module's class is `<Module>\Module`, in `Module.php`

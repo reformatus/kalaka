@@ -14,7 +14,11 @@ interface Module
 
     public function schema(): Schema;
 
-    /** @return list<string> */
+    /**
+     * The per-event actions this module offers, picked by grants; not WordPress capabilities.
+     *
+     * @return list<string>
+     */
     public function capabilities(): array;
 
     public function contribute(Contributions $to): void;
