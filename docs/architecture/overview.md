@@ -8,6 +8,10 @@ These pages are the authoritative record of how Kaláka is built. A change to
 the architecture is a pull request that edits them; the owner's merge is the
 approval. Git history keeps the earlier sequential decision log.
 
+An architecture pull request that adds, renames or removes a section updates
+the topic map in the root [`AGENTS.md`](../../AGENTS.md) in the same pull
+request.
+
 | Page | Contents |
 |---|---|
 | [Overview and principles](overview.md) | Purpose, organizations, fixed inputs, guiding principles |
