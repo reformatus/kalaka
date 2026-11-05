@@ -206,6 +206,23 @@ final class RepositoryWriteTest extends RepositoryTestCase
         }
     }
 
+    public function testADuplicateKeyOnAnEntityInsertIsASystemFailureAndNotRetried(): void
+    {
+        $id = $this->seed('kalaka_test_items', 'first');
+        $useCase = new AdminProbe(function (array $input, Context $context) use ($id): void {
+            $this->items->upsert(new TestItem('duplicate', id: $id), $context);
+        });
+
+        try {
+            $this->runner->run($useCase, [], new CliActor(null));
+            self::fail('The run should have failed.');
+        } catch (SystemFailure $caught) {
+            self::assertSame(SystemFailure::class, $caught::class);
+            self::assertSame(1, $useCase->calls);
+        }
+        self::assertSame('first', $this->rowOf('kalaka_test_items', $id)['label'] ?? null);
+    }
+
     public function testAWriteWithAContextKeptAfterItsRunIsRefusedAndWritesNothing(): void
     {
         $id = $this->seed('kalaka_test_items', 'A');

@@ -82,6 +82,22 @@ abstract class Repository
         return LockLevel::Other;
     }
 
+    /** Whether a duplicate key on the insert is a reference-code collision, which the runner retries. */
+    protected function insertsReferenceCode(): bool
+    {
+        return false;
+    }
+
+    /**
+     * The field name an audit change item gets for a column.
+     *
+     * @param TEntity $entity
+     */
+    protected function auditField(string $column, object $entity): string
+    {
+        return $column;
+    }
+
     /**
      * @param TKey $key
      * @return ?TEntity null when there is no such record
@@ -167,7 +183,7 @@ abstract class Repository
 
         $written = $this->quietly(fn (): int|false => $this->wpdb->insert($this->prefixedTable(), $data));
         $insertId = $this->wpdb->insert_id;
-        DatabaseError::check($this->wpdb);
+        DatabaseError::check($this->wpdb, $this->insertsReferenceCode());
         if ($written !== 1) {
             throw self::failure('The insert wrote no row.');
         }
@@ -183,7 +199,13 @@ abstract class Repository
         if ($recordValues) {
             foreach ($row as $column => $value) {
                 if ($column !== 'version' && !in_array($column, $this->keyColumns(), true)) {
-                    $context->change($subject, $column, null, $value, in_array($column, $this->secretColumns(), true));
+                    $context->change(
+                        $subject,
+                        $this->auditField($column, $stored),
+                        null,
+                        $value,
+                        in_array($column, $this->secretColumns(), true)
+                    );
                 }
             }
         } else {
@@ -255,7 +277,7 @@ abstract class Repository
         foreach (array_keys($changed) as $column) {
             $context->change(
                 $subject,
-                $column,
+                $this->auditField($column, $stored),
                 $loaded[$column] ?? null,
                 $row[$column] ?? null,
                 in_array($column, $this->secretColumns(), true)
@@ -305,7 +327,13 @@ abstract class Repository
         $subject = $this->subject($deleted);
         foreach ($loaded as $column => $value) {
             if ($column !== 'version' && !in_array($column, $this->keyColumns(), true)) {
-                $context->change($subject, $column, $value, null, in_array($column, $this->secretColumns(), true));
+                $context->change(
+                    $subject,
+                    $this->auditField($column, $deleted),
+                    $value,
+                    null,
+                    in_array($column, $this->secretColumns(), true)
+                );
             }
         }
         $this->markRegistration($deleted, $context);
