@@ -29,3 +29,6 @@ docs/.jekyll-cache/
 
 # Built plugin assets
 plugins/*/build/
+
+# Built plugin zips
+dist/
