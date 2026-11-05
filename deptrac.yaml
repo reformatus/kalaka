@@ -93,7 +93,7 @@ deptrac:
     - name: WordPress
       collectors:
         - type: classLike
-          value: '^WP_'
+          value: '^(WP_|wpdb$)'
   ruleset:
     Foundation:
       - WordPress
