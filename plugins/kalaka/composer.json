@@ -3,12 +3,38 @@
     "description": "Kaláka core plugin",
     "type": "wordpress-plugin",
     "require": {
-        "php": ">=8.3"
+        "php": ">=8.3",
+        "brick/math": "^1.0"
     },
     "autoload": {
         "psr-4": {
-            "Kalaka\\": "src/"
+            "Kalaka\\": "src/",
+            "Kalaka\\Vendor\\Brick\\Math\\": "vendor-prefixed/brick/math/src/"
         }
+    },
+    "extra": {
+        "strauss": {
+            "namespace_prefix": "Kalaka\\Vendor\\",
+            "classmap_prefix": "Kalaka_Vendor_",
+            "packages": [
+                "brick/math"
+            ],
+            "target_directory": "vendor-prefixed",
+            "delete_vendor_packages": true,
+            "classmap_output": false
+        }
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "@php -r \"unlink('vendor/autoload.php');\"",
+            "@php ../../vendor/bin/strauss",
+            "@composer dump-autoload"
+        ],
+        "post-update-cmd": [
+            "@php -r \"unlink('vendor/autoload.php');\"",
+            "@php ../../vendor/bin/strauss",
+            "@composer dump-autoload"
+        ]
     },
     "config": {
         "platform": {

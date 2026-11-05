@@ -1,6 +1,6 @@
 # Foundation
 
-Foundation is the runner, audit, clock, evaluation and module registry
+Foundation is the runner, audit, clock, Money, evaluation and module registry
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
 
 ## Sections it implements
@@ -13,8 +13,10 @@ Foundation is the runner, audit, clock, evaluation and module registry
   [Audit](../../../../docs/architecture/foundation.md#audit),
   [Failures](../../../../docs/architecture/foundation.md#failures),
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
-  the Time row of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
+  the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
+- money.md: [Amounts](../../../../docs/architecture/money.md#amounts).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
+  [Bundled libraries](../../../../docs/architecture/modules-and-extensions.md#bundled-libraries),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),
   [Version check](../../../../docs/architecture/modules-and-extensions.md#version-check),
   [Failure isolation](../../../../docs/architecture/modules-and-extensions.md#failure-isolation).
@@ -46,3 +48,9 @@ Foundation is the runner, audit, clock, evaluation and module registry
 - `Foundation\Api` depends on nothing else in Foundation (deptrac).
 - Any load failure closes the site (`LoadState`); nothing in Foundation
   reopens it.
+- Amounts are `Money`, never floats or raw strings in arithmetic, and every
+  amount carries its `Currency`.
+- Only `Foundation\Api\Money` uses `Kalaka\Vendor\Brick\Math` (deptrac);
+  `Money`'s public methods never take or return a brick/math type.
+- Every outstanding check (confirmation threshold, "nothing due", fully paid)
+  uses `countsAsZero()`; payment requests use `roundedUpToPayableUnit()`.

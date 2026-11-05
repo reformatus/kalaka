@@ -19,6 +19,21 @@ run_composer() {
     fi
 }
 
+# Runs the root's Strauss with the given directory as working directory; it
+# reads that directory's composer.json (extra.strauss).
+run_strauss() {
+    local dir="$1"
+    if command -v composer > /dev/null; then
+        (cd "$dir" && php "$root/vendor/bin/strauss")
+    else
+        docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/app:z" -w "/app/$dir" \
+            composer:2 php /app/vendor/bin/strauss
+    fi
+}
+
+# Strauss is a development tool of the root composer.json.
+run_composer . install --no-interaction
+
 rm -rf dist
 mkdir -p dist
 
@@ -36,7 +51,14 @@ for plugin in plugins/*/; do
 
     sed -i -E "s/^( \* Version:).*/\1 $version/; s/^(const KALAKA_VERSION = ').*(';)\$/\1$version\2/" "$stage/$slug.php"
 
-    run_composer "$stage" install --no-dev --optimize-autoloader --no-interaction
+    # The stage ends up with vendor/ and vendor-prefixed/ (the Strauss-prefixed
+    # libraries). Strauss loads the first autoloader it finds, so the stage's own
+    # is removed before it runs and written again by dump-autoload.
+    run_composer "$stage" install --no-dev --no-scripts --optimize-autoloader --no-interaction
+    rm -f "$stage/vendor/autoload.php"
+    run_strauss "$stage"
+    rm -f "$stage/vendor/composer/autoload_aliases.php"
+    run_composer "$stage" dump-autoload --no-dev --optimize --no-scripts
     rm "$stage/composer.json" "$stage/composer.lock"
 
     (cd dist/stage && zip -q -r -X -D "../$slug-$version.zip" "$slug")

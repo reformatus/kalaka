@@ -90,6 +90,10 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Admin\\Api\\'
+    - name: Bundled brick/math
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Vendor\\Brick\\Math\\'
     - name: WordPress
       collectors:
         - type: classLike
@@ -240,6 +244,7 @@ deptrac:
       - Portal Api
     Foundation Api:
       - WordPress
+      - Bundled brick/math
       - Events Api
       - Forms Api
       - Assignments Api
