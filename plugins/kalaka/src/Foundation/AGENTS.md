@@ -16,7 +16,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values),
   the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
-- engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks).
+- engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks), [Fixtures](../../../../docs/architecture/engineering.md#fixtures).
 - money.md: [Amounts](../../../../docs/architecture/money.md#amounts).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Bundled libraries](../../../../docs/architecture/modules-and-extensions.md#bundled-libraries),
@@ -69,8 +69,14 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Every outstanding check (confirmation threshold, "nothing due", fully paid)
   uses `countsAsZero()`; payment requests use `roundedUpToPayableUnit()`.
 - `$wpdb` is used only by repositories and query classes on the Foundation
-  bases (besides the runner's transaction statements and the audit writer),
-  exempted from PHPCS by name and checked by a test.
+  bases (besides the runner's transaction statements, the audit writer and
+  the seed's development drop), exempted from PHPCS by name and checked by a
+  test.
+- The seed writes our tables only through use cases run as the `CliActor`
+  without a user, and WordPress data only with WordPress functions outside
+  any use case; the development drop drops only the tables a module declares
+  in its `Schema`; both refuse unless the environment type is `local` or
+  `development`.
 - Repositories write only through `upsert()`, `insert()` and `delete()` with
   the running use case's `Context`; the audit diff and the touched
   registrations come from the base, never from the caller, except that

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Events;
 
+use Kalaka\Events\Cli\EventSeeder;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -46,6 +48,11 @@ SQL;
     public function schema(): Schema
     {
         return new Schema(1, [self::EVENTS]);
+    }
+
+    public function contribute(Contributions $to): void
+    {
+        $to->seeder(new EventSeeder());
     }
 
     public function boot(): void

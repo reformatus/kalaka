@@ -8,4 +8,6 @@ At the root: `EventRecord` (the stored event), `EventRepository`, and the admin 
 
 `Api/` holds `Events` (`find()`), `Event` (a read of an event, with `state()` as seen and `registrationWindowContains()`), `EventPoint`, `EventState`, and `EventCapacity` (`lockForRegistration()`, the first lock of a submit, and `markFull()`, the only way to set the latch).
 
-Entry points: the use cases above; no REST route or screen yet.
+`Cli/EventSeeder` contributes five sample events to `wp kalaka seed`, written through the use cases above.
+
+Entry points: the use cases above and the seeder; no REST route or screen yet.

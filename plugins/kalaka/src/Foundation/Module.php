@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace Kalaka\Foundation;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Cli\SeedCommand;
 use Kalaka\Foundation\Clock\WordPressClock;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Foundation\Seed\Seed;
 
 final class Module extends AbstractModule
 {
+    /** @var list<Api\Module\Module> */
+    private array $modules = [];
+
+    private ?Contributions $contributions = null;
+
     /**
      * foundation.md, "Audit". JSON columns are `longtext`: MariaDB reports `json` as `longtext`,
      * so dbDelta's dry run would see a pending change on every boot.
@@ -107,8 +115,30 @@ SQL;
         return new Schema(2, [self::AUDIT_ENTRIES, self::AUDIT_SUBJECTS, self::DECISIONS, self::EVALUATION_FAILURES]);
     }
 
+    /**
+     * Boot hands over what the seed needs once every module has contributed: the modules that
+     * passed the version check, in boot order, and the contributions.
+     *
+     * @param list<Api\Module\Module> $modules
+     */
+    public function collect(array $modules, Contributions $contributions): void
+    {
+        $this->modules = $modules;
+        $this->contributions = $contributions;
+    }
+
     public function boot(): void
     {
-        Runner::publish(new Runner(new WordPressClock(), evaluation: new Evaluation(new DecisionRules())));
+        $clock = new WordPressClock();
+        Runner::publish(new Runner($clock, evaluation: new Evaluation(new DecisionRules())));
+
+        if (defined('WP_CLI') && WP_CLI) {
+            SeedCommand::register(fn (): Seed => new Seed(
+                $this->modules,
+                $this->contributions ?? new Contributions(),
+                Runner::current(),
+                $clock
+            ));
+        }
     }
 }
