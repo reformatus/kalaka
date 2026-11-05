@@ -1,0 +1,61 @@
+name: Integration
+
+on:
+  workflow_call:
+    inputs:
+      php:
+        type: string
+        required: true
+      mariadb:
+        type: string
+        required: true
+
+jobs:
+  integration:
+    name: Tests
+    runs-on: ubuntu-latest
+    env:
+      WP_ENV_PHP_VERSION: ${{ inputs.php }}
+      WP_ENV_MARIADB_VERSION: ${{ inputs.mariadb }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+      - id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-8.3-${{ hashFiles('**/composer.lock') }}
+      - run: composer install --no-interaction --no-progress
+      - name: Composer install in every plugin, core first
+        run: |
+          composer install --no-interaction --no-progress --working-dir=plugins/kalaka
+          for manifest in plugins/*/composer.json; do
+            dir="$(dirname "$manifest")"
+            if [ "$dir" != plugins/kalaka ]; then
+              composer install --no-interaction --no-progress --working-dir="$dir"
+            fi
+          done
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx wp-env start
+      - name: Show PHP and database versions
+        run: |
+          npx wp-env run tests-cli php -v
+          npx wp-env run tests-cli wp db query "SELECT VERSION() AS database_version"
+      - name: Integration tests of every plugin, core first
+        run: |
+          npx wp-env run tests-cli --env-cwd=wp-content/plugins/kalaka ../../kalaka-dev-vendor/bin/phpunit -c tests/integration/phpunit.xml.dist
+          for config in plugins/*/tests/integration/phpunit.xml.dist; do
+            slug="$(basename "$(dirname "$(dirname "$(dirname "$config")")")")"
+            if [ "$slug" != kalaka ]; then
+              npx wp-env run tests-cli --env-cwd="wp-content/plugins/$slug" ../../kalaka-dev-vendor/bin/phpunit -c tests/integration/phpunit.xml.dist
+            fi
+          done
