@@ -43,6 +43,14 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   actor and passes it in.
 - Errors are `KalakaException`s carrying their Hungarian default text; no
   result type, no code-to-text mapping.
+- Only the runner writes `kalaka_audit_entries` and `kalaka_audit_subjects`:
+  one entry per audited use case, in its transaction before the commit, or,
+  when it failed, after the rollback in a transaction of its own; PHP's error
+  log only when that write fails.
+- A failed entry holds no changes, no input values and no reason; the context
+  a thrower adds to a `KalakaException` names rules and record keys, never a
+  submitted field value, a person's data or a secret; a secret never reaches
+  an entry (masked in the changes) or the error log.
 - The current time comes from the `Clock` (`Context::now()` inside a use case),
   never from `time()`, `current_time()` or `new DateTimeImmutable('now')`.
 - `Foundation\Api` depends on nothing else in Foundation (deptrac).

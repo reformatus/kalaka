@@ -19,6 +19,9 @@ final class RunState
     /** The first error of a nested run (or of a second `Runner::run()`): it decides the outcome. */
     public ?KalakaException $failure = null;
 
+    /** The name of the use case that threw `failure`, when it is a nested one. */
+    public ?string $failedIn = null;
+
     public ?LockLevel $highestLock = null;
 
     /** @var list<array{string, callable(): void}> use case name and step, in registration order */

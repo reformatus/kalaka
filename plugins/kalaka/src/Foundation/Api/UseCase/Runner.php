@@ -7,6 +7,12 @@ namespace Kalaka\Foundation\Api\UseCase;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\Side;
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Audit\AuditEntry;
+use Kalaka\Foundation\Api\Audit\AuditWriter;
+use Kalaka\Foundation\Api\Audit\Correlation;
+use Kalaka\Foundation\Api\Audit\EntryHeader;
+use Kalaka\Foundation\Api\Audit\ErrorRecord;
+use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Clock;
 use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -32,6 +38,8 @@ final class Runner
 
     private readonly CoarsePermission $permission;
 
+    private readonly AuditWriter $audit;
+
     /**
      * @param bool $insideOpenTransaction tests only: the harness already holds a transaction, so the
      *                                    outermost run uses a savepoint instead of its own transaction
@@ -43,6 +51,7 @@ final class Runner
         global $wpdb;
         $this->wpdb = $wpdb;
         $this->permission = new CoarsePermission();
+        $this->audit = new AuditWriter($this->wpdb);
     }
 
     /** The production runner; delivery code uses this. */
@@ -73,13 +82,20 @@ final class Runner
             throw $error;
         }
 
+        $side = null;
+        $declared = [];
+        $trace = new RunTrace();
         try {
             $side = self::sideOf($useCase);
             $input = self::checkedInput($useCase, $input);
+            $declared = self::declaredSubjects($useCase, $input);
             $this->permission->check($useCase, $side, $input, $actor);
-            [$result, $steps] = $this->runWithRetries($useCase, $input, $actor);
+            $header = new EntryHeader($useCase::name(), $side, $actor, self::reasonOf($useCase, $input), $declared);
+            [$result, $steps] = $this->runWithRetries($useCase, $input, $actor, $header, $trace);
         } catch (\Throwable $e) {
             $error = self::asKalaka($e);
+            $header = new EntryHeader($useCase::name(), $side ?? $actor->side(), $actor, null, $declared);
+            $this->auditFailure($useCase, $header, $error, $trace);
             throw $error;
         }
 
@@ -98,11 +114,16 @@ final class Runner
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
      */
-    private function runWithRetries(UseCase $useCase, array $input, Actor $actor): array
-    {
+    private function runWithRetries(
+        UseCase $useCase,
+        array $input,
+        Actor $actor,
+        EntryHeader $header,
+        RunTrace $trace,
+    ): array {
         for ($attempt = 1;; $attempt++) {
             try {
-                return $this->attempt($useCase, $input, $actor);
+                return $this->attempt($useCase, $input, $actor, $header, $trace);
             } catch (KalakaException $e) {
                 if ($attempt >= self::MAX_ATTEMPTS || !self::isRetried($e, $actor)) {
                     throw $e;
@@ -119,31 +140,41 @@ final class Runner
     }
 
     /**
-     * One attempt from scratch: begin, execute, commit; an explicit rollback on any exception.
+     * One attempt from scratch: begin, execute, write the audit entries, commit; an explicit
+     * rollback on any exception.
      *
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
      */
-    private function attempt(UseCase $useCase, array $input, Actor $actor): array
-    {
+    private function attempt(
+        UseCase $useCase,
+        array $input,
+        Actor $actor,
+        EntryHeader $header,
+        RunTrace $trace,
+    ): array {
         $state = new RunState();
         self::$active = $state;
         $begun = false;
 
         try {
             $now = $this->clock->now();
+            $trace->now = $now;
+            $entry = $header->entry($now);
             $begun = true;
             $this->statement($this->insideOpenTransaction ? 'SAVEPOINT kalaka_run' : 'START TRANSACTION');
-            $result = $useCase->execute($input, $this->context($useCase, $actor, $now, $state));
+            $result = $useCase->execute($input, $this->context($useCase, $actor, $now, $state, $entry));
             if ($state->failure !== null) {
                 throw $state->failure;
             }
+            $this->audit->write($entry);
             $this->statement($this->insideOpenTransaction ? 'RELEASE SAVEPOINT kalaka_run' : 'COMMIT');
         } catch (\Throwable $e) {
             if ($begun) {
                 $this->rollback();
             }
             $error = $state->failure ?? self::asKalaka($e);
+            $trace->failedIn = $state->failedIn;
             throw $error;
         } finally {
             $state->open = false;
@@ -151,6 +182,38 @@ final class Runner
         }
 
         return [$result, $state->steps];
+    }
+
+    /**
+     * After the rollback: the failed entry in a transaction of its own (decision D12). If even that
+     * cannot be written, PHP's error log gets one line and the original error is thrown as before.
+     */
+    private function auditFailure(UseCase $useCase, EntryHeader $header, KalakaException $error, RunTrace $trace): void
+    {
+        if (!$error->isAudited()) {
+            return;
+        }
+
+        try {
+            $entry = $header->failed(
+                $trace->now ?? $this->clock->now(),
+                ErrorRecord::json($error, $trace->failedIn ?? $useCase::name()),
+            );
+            $this->statement($this->insideOpenTransaction ? 'SAVEPOINT kalaka_audit' : 'START TRANSACTION');
+            try {
+                $this->audit->write($entry);
+                $this->statement($this->insideOpenTransaction ? 'RELEASE SAVEPOINT kalaka_audit' : 'COMMIT');
+            } catch (\Throwable $writeError) {
+                try {
+                    $this->statement($this->insideOpenTransaction ? 'ROLLBACK TO SAVEPOINT kalaka_audit' : 'ROLLBACK');
+                } catch (\Throwable) {
+                    // The write error is the one that matters.
+                }
+                throw $writeError;
+            }
+        } catch (\Throwable $writeError) {
+            error_log(ErrorRecord::fallbackLine($useCase::name(), $error->errorCode(), Correlation::id(), $writeError));
+        }
     }
 
     private function statement(string $sql): void
@@ -170,12 +233,24 @@ final class Runner
         }
     }
 
-    private function context(UseCase $useCase, Actor $actor, \DateTimeImmutable $now, RunState $state): Context
-    {
+    private function context(
+        UseCase $useCase,
+        Actor $actor,
+        \DateTimeImmutable $now,
+        RunState $state,
+        AuditEntry $entry,
+    ): Context {
         return new Context(
             $actor,
             $now,
-            fn (UseCase $nested, array $input): mixed => $this->runNested($nested, $input, $actor, $now, $state),
+            fn (UseCase $nested, array $input): mixed => $this->runNested(
+                $nested,
+                $input,
+                $actor,
+                $now,
+                $state,
+                $entry,
+            ),
             static function (callable $step) use ($useCase, $state): void {
                 self::assertOpen($state);
                 $state->steps[] = [$useCase::name(), $step];
@@ -191,13 +266,30 @@ final class Runner
                 }
                 $state->highestLock = $level;
             },
+            static function (Subject $subject) use ($state, $entry): void {
+                self::assertOpen($state);
+                $entry->touch($subject);
+            },
+            static function (
+                Subject $subject,
+                string $field,
+                mixed $before,
+                mixed $after,
+                bool $secret,
+            ) use (
+                $state,
+                $entry,
+            ): void {
+                self::assertOpen($state);
+                $entry->change($subject, $field, $before, $after, $secret);
+            },
         );
     }
 
     /**
      * A nested run joins the transaction, uses the parent's actor and skips the coarse check.
      * Its first error ends the whole use case, even if a parent catches it; an InvalidInput
-     * becomes a SystemFailure.
+     * becomes a SystemFailure. It collects an audit entry of its own, linked to its parent's.
      *
      * @param array<string, mixed> $input
      */
@@ -207,20 +299,33 @@ final class Runner
         Actor $actor,
         \DateTimeImmutable $now,
         RunState $state,
+        AuditEntry $parent,
     ): mixed {
         try {
             self::assertOpen($state);
-            self::sideOf($useCase);
+            $side = self::sideOf($useCase);
             $input = self::checkedInput($useCase, $input);
+            $header = new EntryHeader(
+                $useCase::name(),
+                $side,
+                $actor,
+                self::reasonOf($useCase, $input),
+                self::declaredSubjects($useCase, $input),
+            );
+            $entry = $header->entry($now);
+            $parent->addChild($entry);
 
-            return $useCase->execute($input, $this->context($useCase, $actor, $now, $state));
+            return $useCase->execute($input, $this->context($useCase, $actor, $now, $state, $entry));
         } catch (\Throwable $e) {
             $error = self::asKalaka($e);
             if ($error instanceof InvalidInput) {
                 // The parent built this input, so a mismatch is a programming error.
                 $error = new SystemFailure(null, $error);
             }
-            $state->failure ??= $error;
+            if ($state->failure === null) {
+                $state->failure = $error;
+                $state->failedIn = $useCase::name();
+            }
             throw $error;
         }
     }
@@ -280,6 +385,48 @@ final class Runner
 
         /** @var array<string, mixed> $sanitized */
         return $sanitized;
+    }
+
+    /**
+     * The subjects the checked input declares: the event of an admin use case that has one, and
+     * the registrations it acts on (decision D4).
+     *
+     * @param array<string, mixed> $input
+     * @return list<Subject>
+     */
+    private static function declaredSubjects(UseCase $useCase, array $input): array
+    {
+        $subjects = [];
+        if ($useCase instanceof AdminUseCase) {
+            $event = $useCase->event($input);
+            if ($event !== null) {
+                $subjects[] = Subject::event($event);
+            }
+            foreach ($useCase->targets($input) as $key) {
+                $subjects[] = Subject::registration($key);
+            }
+        } elseif ($useCase instanceof PortalUseCase) {
+            foreach ($useCase->registrations($input) as $key) {
+                $subjects[] = Subject::registration($key);
+            }
+        }
+
+        return $subjects;
+    }
+
+    /**
+     * The reason, only when the use case's schema declares a string `reason` property (decision D8).
+     *
+     * @param array<string, mixed> $input the sanitized input
+     */
+    private static function reasonOf(UseCase $useCase, array $input): ?string
+    {
+        $properties = $useCase->inputSchema()['properties'] ?? null;
+        $schema = is_array($properties) ? ($properties['reason'] ?? null) : null;
+        $declared = is_array($schema) && ($schema['type'] ?? null) === 'string';
+        $reason = $declared && is_string($input['reason'] ?? null) ? trim($input['reason']) : '';
+
+        return $reason === '' ? null : $reason;
     }
 
     private static function asKalaka(\Throwable $error): KalakaException

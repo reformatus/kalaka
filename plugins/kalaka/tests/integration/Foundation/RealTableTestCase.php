@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation;
 
+use Kalaka\Foundation\Api\Audit\Correlation;
 use WP_UnitTestCase;
 
 require_once __DIR__ . '/TestClock.php';
@@ -13,7 +14,8 @@ require_once __DIR__ . '/AdminProbe.php';
  * A test that needs a table a second database connection can see: a real table, created
  * and dropped with the harness's temporary-table filters removed. Creating it commits the
  * harness transaction, so these tests make no other writes; the table is dropped after
- * parent::tear_down().
+ * parent::tear_down(), together with the audit rows a real commit left behind (they carry the
+ * request's correlation ID).
  */
 abstract class RealTableTestCase extends WP_UnitTestCase
 {
@@ -45,6 +47,16 @@ abstract class RealTableTestCase extends WP_UnitTestCase
 
         global $wpdb;
         $wpdb->query("DROP TABLE IF EXISTS {$this->table}");
+        $wpdb->query($wpdb->prepare(
+            "DELETE s FROM {$wpdb->prefix}kalaka_audit_subjects s"
+            . " JOIN {$wpdb->prefix}kalaka_audit_entries e ON e.id = s.entry_id WHERE e.correlation_id = %s",
+            Correlation::id()
+        ));
+        $wpdb->query($wpdb->prepare(
+            "DELETE FROM {$wpdb->prefix}kalaka_audit_entries WHERE correlation_id = %s",
+            Correlation::id()
+        ));
+        $wpdb->query('COMMIT');
     }
 
     /** A plain connection to the same database, outside the harness. */

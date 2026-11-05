@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\UseCase;
 
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Audit\Subject;
 
 /** What a running use case gets from the runner. */
 final class Context
@@ -15,6 +16,8 @@ final class Context
      * @param \Closure(UseCase, array<string, mixed>): mixed $nestedRun
      * @param \Closure(callable(): void): void $afterCommit
      * @param \Closure(LockLevel): void $lock
+     * @param \Closure(Subject): void $touch
+     * @param \Closure(Subject, string, mixed, mixed, bool): void $change
      */
     public function __construct(
         private readonly Actor $actor,
@@ -22,6 +25,8 @@ final class Context
         private readonly \Closure $nestedRun,
         private readonly \Closure $afterCommit,
         private readonly \Closure $lock,
+        private readonly \Closure $touch,
+        private readonly \Closure $change,
     ) {
     }
 
@@ -64,5 +69,20 @@ final class Context
     public function lock(LockLevel $level): void
     {
         ($this->lock)($level);
+    }
+
+    /** Records on this run's audit entry that the use case touched a record. */
+    public function touch(Subject $subject): void
+    {
+        ($this->touch)($subject);
+    }
+
+    /**
+     * Records on this run's audit entry that a field of a record changed, and the record with it.
+     * The values must be JSON-encodable; a secret's are never stored.
+     */
+    public function change(Subject $subject, string $field, mixed $before, mixed $after, bool $secret = false): void
+    {
+        ($this->change)($subject, $field, $before, $after, $secret);
     }
 }

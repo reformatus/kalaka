@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /** An admin use case whose work is a closure of the test; counts its `execute` calls. */
 final class AdminProbe implements AdminUseCase
@@ -15,11 +16,13 @@ final class AdminProbe implements AdminUseCase
     /**
      * @param \Closure(array<string, mixed>, Context, int): mixed $body input, context, call number
      * @param array<string, mixed> $schema
+     * @param list<RegistrationKey> $targets
      */
     public function __construct(
         private readonly \Closure $body,
         private readonly array $schema = ['type' => 'object'],
         private readonly ?int $event = null,
+        private readonly array $targets = [],
     ) {
     }
 
@@ -45,7 +48,7 @@ final class AdminProbe implements AdminUseCase
 
     public function targets(array $input): array
     {
-        return [];
+        return $this->targets;
     }
 
     public function execute(array $input, Context $context): mixed
