@@ -7,6 +7,7 @@ namespace Kalaka\Events;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventPoint;
 use Kalaka\Events\Api\EventState;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
  * The stored event. The core points are `YYYY-MM-DD` days, `archivedAt` is `Y-m-d H:i:s` in UTC.
@@ -29,6 +30,26 @@ final class EventRecord
         public int $id = 0,
         public int $version = 0,
     ) {
+    }
+
+    /** @param array<string, ?string> $row a `kalaka_events` row */
+    public static function fromRow(array $row): self
+    {
+        return new self(
+            (string) $row['name'],
+            EventState::from((string) $row['state']),
+            $row['capacity'] === null ? null : (int) $row['capacity'],
+            $row['is_full'] === '1',
+            $row['registration_opens_on'],
+            $row['registration_closes_on'],
+            $row['starts_on'],
+            $row['ends_on'],
+            self::decodePoints((string) $row['points']),
+            (int) $row['next_point_id'],
+            $row['archived_at'],
+            (int) $row['id'],
+            (int) $row['version'],
+        );
     }
 
     public function toEvent(): Event
@@ -62,5 +83,26 @@ final class EventRecord
     private static function startOfOrNull(?string $day): ?\DateTimeImmutable
     {
         return $day === null ? null : self::startOf($day);
+    }
+
+    /** @return list<array{id: int, name: string, date: string}> */
+    private static function decodePoints(string $json): array
+    {
+        $decoded = json_decode($json, true);
+        $points = [];
+        foreach (is_array($decoded) ? $decoded : [] as $point) {
+            if (
+                !is_array($point)
+                || !is_int($point['id'] ?? null)
+                || !is_string($point['name'] ?? null)
+                || !is_string($point['date'] ?? null)
+            ) {
+                $error = new SystemFailure(null, new \UnexpectedValueException('A stored custom point is malformed.'));
+                throw $error;
+            }
+            $points[] = ['id' => $point['id'], 'name' => $point['name'], 'date' => $point['date']];
+        }
+
+        return $points;
     }
 }

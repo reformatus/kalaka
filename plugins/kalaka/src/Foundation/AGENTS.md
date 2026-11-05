@@ -13,9 +13,11 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   [Entities, repositories and queries](../../../../docs/architecture/foundation.md#entities-repositories-and-queries),
   [Audit](../../../../docs/architecture/foundation.md#audit),
   [Failures](../../../../docs/architecture/foundation.md#failures),
+  [Deferred work](../../../../docs/architecture/foundation.md#deferred-work),
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values),
   the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
+- mail.md: the periodic run's part of [Sending](../../../../docs/architecture/mail.md#sending) (no sender run in an interactive request).
 - engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks), [Fixtures](../../../../docs/architecture/engineering.md#fixtures).
 - money.md: [Amounts](../../../../docs/architecture/money.md#amounts).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
@@ -104,3 +106,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   its own, inserts or replaces a row of `kalaka_evaluation_failures`; every
   successful evaluation of the registration, interactive or periodic, deletes
   its row.
+- The periodic run runs only while `LoadState` is open and only under its lock;
+  it sweeps only published events, evaluates each registration in its own
+  transaction through `PeriodicEvaluation`, and writes its last-run time only
+  after a completed run. Its WP-Cron handler lets no exception escape: it logs
+  and returns.
+- WP-Cron timestamps come from the `Clock`, never `time()`; the upgrader lock's
+  own stamp is WordPress's and is not ours to set.

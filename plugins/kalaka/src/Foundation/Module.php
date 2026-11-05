@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Cli\PeriodicRunCommand;
 use Kalaka\Foundation\Cli\SeedCommand;
 use Kalaka\Foundation\Clock\WordPressClock;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
+use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
+use Kalaka\Foundation\Periodic\PeriodicRun;
+use Kalaka\Foundation\Periodic\PeriodicSchedule;
+use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Foundation\Seed\Seed;
 
 final class Module extends AbstractModule
@@ -130,9 +137,20 @@ SQL;
     public function boot(): void
     {
         $clock = new WordPressClock();
-        Runner::publish(new Runner($clock, evaluation: new Evaluation(new DecisionRules())));
+        $runner = new Runner($clock, evaluation: new Evaluation(new DecisionRules()));
+        Runner::publish($runner);
+
+        $periodicRun = new PeriodicRun(
+            $clock,
+            new PeriodicEvaluation($runner),
+            new TimeRules(),
+            new Events(),
+            new EvaluationFailureQuery()
+        );
+        (new PeriodicSchedule($clock))->register(static fn (): mixed => $periodicRun->run());
 
         if (defined('WP_CLI') && WP_CLI) {
+            PeriodicRunCommand::register($periodicRun);
             SeedCommand::register(fn (): Seed => new Seed(
                 $this->modules,
                 $this->contributions ?? new Contributions(),
