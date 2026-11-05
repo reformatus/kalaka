@@ -8,9 +8,12 @@ title: Money
 
 - **Core:** a fixed price per registration and full payment, with its
   **payment due** date type. Core ships no money field types.
-- **Payment due** is an anchor date plus N days, capped at a latest date; N
-  and the cap are configured per event (IVK: 7 days).
-- **Plugins:** deposits, payment rungs (the price ladder, with its tier
+- **Payment due** is N days after the registration last became `registered`
+  (at submit, admission or restore); N is configured per event (IVK: 7
+  days). A registration admitted from the waitlist counts from its
+  admission, and a restore restarts the clock. There are no absolute payment
+  deadlines.
+- **Plugins:** deposits, payment tiers (the price ladder, with its tier
   quotas), late fees, financial aid, sponsor or church support, the
   congregation share and the wallet. Core keeps full support for extending it
   in these ways through typed extension points
@@ -39,8 +42,9 @@ title: Money
   forints for HUF).
 - **Below one fillér counts as zero** in every outstanding check: the
   confirmation threshold, "nothing due" and fully paid.
-- Rounding follows WooCommerce's own method if it has one; this is checked at
-  implementation.
+- **Kaláka rounds payment requests itself.** WooCommerce has no method for
+  rounding to a payable unit; it rounds half-up to the store's price
+  decimals, which leaves a whole-forint amount unchanged.
 - **Arithmetic uses brick/math, never floats** (it uses bcmath or GMP when
   present, pure PHP otherwise).
 - SQLite stores `DECIMAL` inexactly; that is accepted. Tests that fail on
@@ -60,6 +64,9 @@ title: Money
   due, below zero is overpaid.
 - **Lines are append-only.** Every change is a new, explained line with a
   source reference and an idempotency key.
+- **Each fee component declares whether it is invoiceable** (e.g. the fixed
+  price, tiers and lunch are; a donation, support, the share and aid are
+  not). Views sum invoiceable charges per payer.
 - **Ledger lines and decision records survive erasure**
   ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
 
@@ -180,14 +187,17 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 ## Congregation share
 
 An extension: the registrant's congregation pays part or all of the **base
-price**, never extras such as lunch or a donation.
+price** (the chosen tier, or the fixed price without a ladder), never extras
+such as lunch or a donation.
 
-- The share is the amount the registrant declares. A fee component writes a
-  zero-sum pair, participant −X′ and congregation +X′, where
-  X′ = max(0, min(declared share, base price − support)). Support thus reduces
+- **Each tier sets its share mode:** none, declared by the participant, or
+  the whole tier. The share is then zero, the amount the registrant
+  declares, or the tier. A fee component writes a zero-sum pair, participant
+  −X′ and congregation +X′, where
+  X′ = max(0, min(share, tier − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.
-- It reads facts only: the declared share, the support amount and the base
-  price from the tariff snapshot.
+- It reads the share, the tariff snapshot and, at its fixed stage in the
+  [fee sequence](#materializer), the tier after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
 - Whether the congregation's part is needed for confirmation is a per-event
@@ -227,8 +237,11 @@ price**, never extras such as lunch or a donation.
 
 ## Tariff snapshot and re-price
 
-- **Each registration keeps the tariff snapshot** it registered under: the
-  price and the confirmation threshold.
+- **Each registration keeps the tariff snapshot** it registered under, one
+  entry per fee component, keyed by its id. Each component snapshots its own
+  configuration at submit and at re-price and gets its entry back in
+  `FeeComponentInput`. The price and the confirmation threshold are entries
+  like any other.
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, aid, staff status (a fact from an additional form), a passed
   deadline.
@@ -253,6 +266,11 @@ flowchart LR
   L -. "payment facts" .-> PF
 ```
 
+- **Core composes the fee in a fixed sequence of named stages:** tier →
+  support → share → aid → extras. A fee component declares which stage it
+  belongs to, and core composes the stages in order; there are no order
+  numbers. Aid comes out of the participant's part only and never reduces
+  the congregation's share.
 - **It converges:** it writes only the difference between target and
   recorded, per component and payer, so it can run any number of times, with
   line idempotency keys.

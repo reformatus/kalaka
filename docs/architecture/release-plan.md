@@ -19,9 +19,11 @@ short. The architecture pages say how things are built; this page says when.
    through a set-password mail sent by the queue (the portal itself may only
    say "Coming soon").
 2. **Money core:** the ledger with payers, the tariff snapshot and the
-   materializer; IVK's price tiers, including Nógrád's fixed tier; donation,
-   lunch, the invoice request and billing fields, with an "invoiceable" flag
-   on components; the payment-due date with its anchors; confirmation per
+   materializer; IVK's price tiers (examples only: 48 000 Ft with no share,
+   42 000 Ft with a declared share, 32 000 Ft with the whole tier as the
+   share; the 68 000 Ft "Teljes ár" is the 48 000 Ft tier plus a 20 000 Ft
+   donation); donation, lunch, the invoice request and billing fields, with an "invoiceable" flag
+   on components; the payment-due date with its one anchor; confirmation per
    payer; recording a payment by hand.
 3. **Congregation share** ([NR-1](money.md#congregation-share)): the
    organization directory, the congregation picker and the share pair.
@@ -47,6 +49,8 @@ short. The architecture pages say how things are built; this page says when.
    system cron verified on IVK's host, with WP-Cron as the fallback, a
    warning when the last run is older than about 15 minutes, and a lock
    against overlapping runs; a backup and a restore drill.
+10. **Privacy erase:** WordPress's privacy eraser for registrations, which
+    also scrubs audit diffs ([Foundation](foundation.md#audit)).
 
 ### Order of sacrifice
 
@@ -62,7 +66,8 @@ If the date is at risk, these give way, in this order:
 ### Not in this release
 
 Presets; the portal beyond "Coming soon", including its editable fields;
-erasure and the other GDPR self-service features (nice to have, may follow);
+self-service erasure and the other GDPR self-service features (nice to have,
+may follow);
 the visual form builder; the allocation proposer (needed before IVK's
 registration closes; it runs once, on module choices frozen beforehand); the
 module letter; late fees and
@@ -72,12 +77,14 @@ sheets.
 
 ### Gated outside the code
 
-- **SQ-3** (support versus congregation share order) fixes the share formula.
+- **SQ-3** (support versus congregation share order) confirms the share
+  formula.
 - **SQ-4** (which survey questions the recommender replaces) fixes the form.
 - **The scorer:** its evaluation, the data-processing agreement and the API
   key.
 - **SQ-2** (what the bookkeeper's views contain) may follow opening by a few
-  days, while payments are still few.
+  days, while payments are still few. It also settles who is invoiced for
+  the congregation's part.
 
 ## REFISZ: Téli Tali, opening before Christmas 2026
 

@@ -101,6 +101,8 @@ plugins/
     tests/integration/
   kalaka-woocommerce/     an extension plugin, same shape
 VERSION                   the one version number
+bin/                      build, version check, Playground smoke, deptrac helper
+dist/                     git-ignored: the built zips
 composer.json             development tools only
 package.json              development tools only
 phpstan.neon.dist, phpcs.xml.dist, deptrac.yaml   for all plugins

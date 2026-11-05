@@ -24,6 +24,9 @@ title: Events and forms
     This follows from a sound unpublish; the control stays separate from the global mail pause, which
     only pauses sending ([Mail](mail.md#pausing)).
   - **Archived** is read-only and starts the retention clock.
+- **Publishing needs a capacity.** It may be empty only while the event is a
+  draft. 0 is allowed, and then every counted registration is waitlisted.
+  There is no unlimited capacity.
 - **The "full" latch** is the other stored event state
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 - **A failed load treats every event as unpublished** without changing the
@@ -52,11 +55,10 @@ be:
 - an event point (core or custom);
 - a **date type** declared by core or an extension.
 
-A date type **may differ per registration** (e.g. 14 days after registering or
-a fixed date, whichever is earlier). It is computed only from registration
-facts and absolute points, never from another derived date. Core declares
-**payment due**: an anchor plus N days, with a cap, both configurable
-([Money](money.md#core-money-scope)). Date types are an extension point that runs inside the
+A date type **may differ per registration** (e.g. 14 days after
+registering). It is computed only from registration facts and absolute points, never from another derived date. Core declares
+**payment due**: N days, configured per event, after the registration last
+became `registered` ([Money](money.md#core-money-scope)). Date types are an extension point that runs inside the
 transaction and takes one immutable input; the periodic run computes them
 in PHP for registrations in published events. If that ever becomes slow, the
 computed date is cached in a column on the registration.

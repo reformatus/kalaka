@@ -58,9 +58,9 @@ flowchart LR
 
 | Module | Responsibility |
 |---|---|
-| Foundation | runner, audit, clock, evaluation, module registry |
+| Foundation | runner, audit, clock, Money, evaluation, module registry |
 | Events | events, states, timeline points, date types, capacity and the "full" latch; later the participant phase tracker |
-| Forms | forms, the registration slot, field types, field definitions, conditions, prefill, form links |
+| Forms | forms, the registration slot, field types, field definitions, values and conditions, prefill, form links |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
@@ -200,7 +200,8 @@ Besides the money plugins:
   module can later move into its own plugin unchanged.
 - Other modules and plugins use only a module's **`Api` namespace**
   (`Kalaka\<Module>\Api\…`), checked in CI. It is the PHP contract, not the
-  REST API.
+  REST API. A module's own `Api` may use the module's other classes, as their
+  facade.
 - **No DI container.** Each module builds its own objects in plain PHP with
   constructor injection; other modules reach them only through its `Api`.
 
@@ -247,11 +248,9 @@ never our prefix.
 | Blocks, abilities | `kalaka/<name>` |
 | Post types | `kalaka_form`, `kalaka_field`, `kalaka_mail` |
 | REST namespaces | `kalaka-admin/v1`, `kalaka-portal/v1` |
+| Extension REST namespaces | `kalaka-<module id>/v1`, e.g. `kalaka-support/v1`; routes are registered in the module's `boot()`, and every public route checks `LoadState::isOpen()` |
 | Repository | `reformatus/kalaka` |
 | Plugin headers | `Plugin Name: Kaláka` (extensions `Kaláka – <Feature>`), `Plugin URI: https://kalaka.dev`, `Author: Benedek Fodor`, `Update URI: https://kalaka.dev` so WordPress never offers a wordpress.org plugin of the same slug as an update; no Text Domain; extensions add `Requires Plugins: kalaka[, …]` |
-
-Where extensions register REST routes is decided with the first extension that
-needs one.
 
 ## Bundled libraries
 
@@ -318,7 +317,8 @@ flowchart LR
 - **Extensions contribute; they never modify.** No WordPress filter or other
   open hook changes a money value or a money decision: extensions contribute
   lines or decisions through typed points, and core composes and records the
-  result. **UI points are slots:** a portal or admin section renders into a
+  result (fee components in a fixed sequence of stages,
+  [Money](money.md#materializer)). **UI points are slots:** a portal or admin section renders into a
   region it owns; no point lets an extension change markup that core
   produced. (Moodle's renderer overrides and WordPress's HTML filters are the
   most fragile parts of those ecosystems.)
