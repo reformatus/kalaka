@@ -19,6 +19,8 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -42,18 +44,23 @@ final class Runner
 
     private readonly AuditWriter $audit;
 
+    private readonly Evaluation $evaluation;
+
     /**
      * @param bool $insideOpenTransaction tests only: the harness already holds a transaction, so the
      *                                    outermost run uses a savepoint instead of its own transaction
+     * @param ?Evaluation $evaluation what brings the touched registrations up to date; none: no rules
      */
     public function __construct(
         private readonly Clock $clock,
         private readonly bool $insideOpenTransaction = false,
+        ?Evaluation $evaluation = null,
     ) {
         global $wpdb;
         $this->wpdb = $wpdb;
         $this->permission = new CoarsePermission();
         $this->audit = new AuditWriter($this->wpdb);
+        $this->evaluation = $evaluation ?? new Evaluation(new DecisionRules());
     }
 
     /** The production runner; delivery code uses this. */
@@ -142,7 +149,7 @@ final class Runner
     }
 
     /**
-     * One attempt from scratch: begin, execute, write the audit entries, commit; an explicit
+     * One attempt from scratch: begin, execute, evaluate, write the audit entries, commit; an explicit
      * rollback on any exception.
      *
      * @param array<string, mixed> $input
@@ -166,10 +173,12 @@ final class Runner
             $entry = $header->entry($now);
             $begun = true;
             $this->statement($this->insideOpenTransaction ? 'SAVEPOINT kalaka_run' : 'START TRANSACTION');
-            $result = $useCase->execute($input, $this->context($useCase, $actor, $now, $state, $entry));
+            $context = $this->context($useCase, $actor, $now, $state, $entry);
+            $result = $useCase->execute($input, $context);
             if ($state->failure !== null) {
                 throw $state->failure;
             }
+            $this->evaluation->run($context);
             $this->audit->write($entry);
             $this->statement($this->insideOpenTransaction ? 'RELEASE SAVEPOINT kalaka_run' : 'COMMIT');
         } catch (\Throwable $e) {

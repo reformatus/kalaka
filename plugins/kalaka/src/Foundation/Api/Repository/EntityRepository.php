@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api\Repository;
 
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
@@ -45,5 +46,23 @@ abstract class EntityRepository extends Repository
         return $loaded === null
             ? $this->writeInsert($entity, $context, true, true)
             : $this->writeUpdate($entity, $loaded, $context);
+    }
+
+    /**
+     * Deletes the record of a loaded entity if the version is still the one the entity carries.
+     *
+     * @param TEntity $entity
+     * @throws \Kalaka\Foundation\Api\Error\VersionConflict when no row matches the key and version
+     */
+    public function delete(object $entity, Context $context): void
+    {
+        $context->assertOpen();
+        $loaded = $this->loadedCopy($entity);
+        if ($loaded === null) {
+            $error = new SystemFailure(null, new \LogicException('Only a loaded entity can be deleted.'));
+            throw $error;
+        }
+
+        $this->writeDelete($entity, $loaded, $context);
     }
 }

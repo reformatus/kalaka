@@ -267,6 +267,51 @@ abstract class Repository
     }
 
     /**
+     * Deletes the row by key and the carried version, and records every column but the key and
+     * `version` as changed from its as-loaded value to null.
+     *
+     * @param TEntity $entity
+     * @param array<string, ?string> $loaded
+     * @throws VersionConflict
+     */
+    final protected function writeDelete(object $entity, array $loaded, Context $context): void
+    {
+        $current = $this->toRow($entity);
+        if (!isset($current['version'])) {
+            throw self::failure('toRow() gave no version.');
+        }
+
+        $where = [];
+        foreach ($this->keyColumns() as $column) {
+            $where[$column] = $loaded[$column] ?? null;
+        }
+        $where['version'] = (int) $current['version'];
+
+        $written = $this->quietly(fn (): int|false => $this->wpdb->delete($this->prefixedTable(), $where));
+        DatabaseError::check($this->wpdb);
+        if ($written === false) {
+            throw self::failure('The delete wrote no row.');
+        }
+        if ($written === 0) {
+            $error = new VersionConflict();
+            throw $error;
+        }
+
+        $key = $this->keyValues($loaded);
+        ObjectCache::forget($this->table(), $key);
+        unset(self::loaded()[$entity]);
+
+        $deleted = $this->fromRow($loaded);
+        $subject = $this->subject($deleted);
+        foreach ($loaded as $column => $value) {
+            if ($column !== 'version' && !in_array($column, $this->keyColumns(), true)) {
+                $context->change($subject, $column, $value, null, in_array($column, $this->secretColumns(), true));
+            }
+        }
+        $this->markRegistration($deleted, $context);
+    }
+
+    /**
      * @param array<string, int|string|null> $key
      * @return TEntity
      */

@@ -8,6 +8,8 @@ use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Clock\WordPressClock;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\Evaluation\Evaluation;
 
 final class Module extends AbstractModule
 {
@@ -52,6 +54,44 @@ CREATE TABLE {prefix}kalaka_audit_subjects (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * foundation.md, "Facts, decisions and computed values". Times are UTC, with microseconds so
+     * that the latest record of a kind is also the latest in time.
+     */
+    private const DECISIONS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_decisions (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  kind varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  state varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  effective_at datetime(6) NOT NULL,
+  recorded_at datetime(6) NOT NULL,
+  cause_type varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  cause_event_id bigint(20) unsigned DEFAULT NULL,
+  cause_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  actor_type varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  actor_user_id bigint(20) unsigned DEFAULT NULL,
+  actor_event_id bigint(20) unsigned DEFAULT NULL,
+  actor_code varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY event_registration (event_id,code,kind,id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
+    /** foundation.md, "Failures": the "evaluation failed" flag, one row per registration. */
+    private const EVALUATION_FAILURES = <<<'SQL'
+CREATE TABLE {prefix}kalaka_evaluation_failures (
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  version int(10) unsigned NOT NULL,
+  rule varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  error longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  failed_at datetime(6) NOT NULL,
+  PRIMARY KEY  (event_id,code)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'foundation';
@@ -64,11 +104,11 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::AUDIT_ENTRIES, self::AUDIT_SUBJECTS]);
+        return new Schema(2, [self::AUDIT_ENTRIES, self::AUDIT_SUBJECTS, self::DECISIONS, self::EVALUATION_FAILURES]);
     }
 
     public function boot(): void
     {
-        Runner::publish(new Runner(new WordPressClock()));
+        Runner::publish(new Runner(new WordPressClock(), evaluation: new Evaluation(new DecisionRules())));
     }
 }

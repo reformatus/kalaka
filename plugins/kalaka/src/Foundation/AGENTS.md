@@ -14,6 +14,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   [Audit](../../../../docs/architecture/foundation.md#audit),
   [Failures](../../../../docs/architecture/foundation.md#failures),
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
+  [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values),
   the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
 - engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks).
 - money.md: [Amounts](../../../../docs/architecture/money.md#amounts).
@@ -70,9 +71,11 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - `$wpdb` is used only by repositories and query classes on the Foundation
   bases (besides the runner's transaction statements and the audit writer),
   exempted from PHPCS by name and checked by a test.
-- Repositories write only through `upsert()` and `insert()` with the running
-  use case's `Context`; the audit diff and the touched registrations come from
-  the base, never from the caller. Append-only repositories never update.
+- Repositories write only through `upsert()`, `insert()` and `delete()` with
+  the running use case's `Context`; the audit diff and the touched
+  registrations come from the base, never from the caller, except that
+  `EvaluateRegistration` marks the registration it is asked to evaluate.
+  Append-only repositories never update or delete.
 - `upsert()` returns the object to keep: the given object keeps its old
   version, and upserting it again conflicts.
 - The object cache holds rows and is cleared after every rollback and when an
@@ -81,3 +84,17 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   holds loads that record again before writing it.
 - A query class runs one statement per record type per list (no N+1), and
   every per-event query has a per-event cost test.
+- Only the evaluation writes `kalaka_decisions`; its records are append-only
+  and nobody sets a decision directly. The current state of a kind is its
+  latest record.
+- A decision rule returns a transition or nothing and never writes; core
+  writes the record, and only when the state changes. A core rule reads its
+  own kind and the core kinds decided before it; an extension rule reads its
+  own kind and every core kind, never another extension's.
+- The runner evaluates each touched registration once, at the outermost use
+  case, after `execute` and before the audit entry; a rule failure rolls back
+  the whole use case.
+- Only `FlagEvaluationFailure`, run by `PeriodicEvaluation` in a transaction of
+  its own, inserts or replaces a row of `kalaka_evaluation_failures`; every
+  successful evaluation of the registration, interactive or periodic, deletes
+  its row.

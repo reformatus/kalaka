@@ -17,7 +17,7 @@ final class AuditSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_foundation'));
+        self::assertSame(2, (int) get_option('kalaka_schema_foundation'));
         self::assertSame([], LoadState::current()->failures);
 
         $names = [$wpdb->prefix . 'kalaka_audit_entries', $wpdb->prefix . 'kalaka_audit_subjects'];

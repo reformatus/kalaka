@@ -104,7 +104,8 @@ final class Context
     }
 
     /**
-     * @internal Called only by the repository base after it wrote a record mapped to a registration.
+     * @internal Called by the repository base after it wrote a record mapped to a registration, and by
+     * Foundation's `EvaluateRegistration` for the registration it is asked to evaluate.
      *
      * @throws \Kalaka\Foundation\Api\Error\SystemFailure on a context kept past its run
      */

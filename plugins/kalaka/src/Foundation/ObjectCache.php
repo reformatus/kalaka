@@ -34,6 +34,12 @@ final class ObjectCache
         self::$rows[self::identity($table, $key)] = $row;
     }
 
+    /** @param array<string, int|string|null> $key */
+    public static function forget(string $table, array $key): void
+    {
+        unset(self::$rows[self::identity($table, $key)]);
+    }
+
     public static function clear(): void
     {
         self::$rows = [];

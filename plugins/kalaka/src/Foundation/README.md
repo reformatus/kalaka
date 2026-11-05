@@ -6,6 +6,8 @@ Runner, audit, clock, Money, evaluation trigger and module registry.
 
 At its root, beside `Boot` and `SchemaUpgrader`, `ObjectCache` holds the rows the repositories read; the runner clears it.
 
-Tables, created by the schema in `Module.php`: `kalaka_audit_entries` and `kalaka_audit_subjects`; only the runner writes them.
+`Decision/` holds the decision rule shapes (`DecisionRule`, `DecisionInput`, `Decision`, `Transition`), the registry `DecisionRules`, and the `DecisionRecord` entity with its `DecisionRepository` and `DecisionQuery`. `Evaluation/` holds `Evaluation`, the procedure the runner calls after `execute`, with `RuleFailed`, the use cases `EvaluateRegistration` and `FlagEvaluationFailure`, the `EvaluationFailure` entity with its `EvaluationFailureRepository`, and `PeriodicEvaluation`.
+
+Tables, created by the schema in `Module.php`: `kalaka_audit_entries` and `kalaka_audit_subjects`, which only the runner writes; `kalaka_decisions`, which only the evaluation writes; `kalaka_evaluation_failures`, which only `FlagEvaluationFailure` writes and every successful evaluation of the registration clears.
 
 Entry points: `plugins_loaded` boot (`Boot.php`), `kalaka_register_modules`.
