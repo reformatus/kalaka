@@ -14,6 +14,11 @@
         "yoast/phpunit-polyfills": "^4.0",
         "brianhenryie/strauss": "0.31.1"
     },
+    "autoload-dev": {
+        "psr-4": {
+            "KalakaDev\\Deptrac\\": "bin/"
+        }
+    },
     "config": {
         "allow-plugins": {
             "phpstan/extension-installer": true,

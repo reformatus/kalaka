@@ -386,3 +386,8 @@ deptrac:
       - Payments Api
       - Mail Api
       - Portal Api
+# A base class in a module's Api may use its own module (S3's D16).
+services:
+  KalakaDev\Deptrac\DeptracApiInheritanceSubscriber:
+    tags:
+      - kernel.event_subscriber
