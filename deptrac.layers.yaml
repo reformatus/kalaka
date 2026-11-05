@@ -1,0 +1,29 @@
+deptrac:
+  paths:
+    - plugins/kalaka/src
+  layers:
+    - name: Repositories
+      collectors:
+        - type: inherits
+          value: Kalaka\Foundation\Api\Repository\Repository
+    - name: Queries
+      collectors:
+        - type: inherits
+          value: Kalaka\Foundation\Api\Query\Query
+    - name: Use cases
+      collectors:
+        - type: inherits
+          value: Kalaka\Foundation\Api\UseCase\UseCase
+    - name: Entry points
+      collectors:
+        - type: classLike
+          value: '\\(Rest|Cli|Blocks)\\'
+  ruleset:
+    Entry points:
+      - Use cases
+      - Queries
+    Use cases:
+      - Repositories
+      - Queries
+    Repositories: []
+    Queries: []

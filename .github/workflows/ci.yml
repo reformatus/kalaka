@@ -43,6 +43,7 @@ jobs:
       - run: vendor/bin/phpcs
       - run: vendor/bin/phpstan analyse --memory-limit=1G
       - run: vendor/bin/deptrac analyse --fail-on-uncovered
+      - run: vendor/bin/deptrac analyse --config-file=deptrac.layers.yaml
       - run: bin/check-version.sh
 
   unit:

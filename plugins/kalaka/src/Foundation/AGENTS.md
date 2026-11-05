@@ -10,10 +10,12 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   [The use-case runner](../../../../docs/architecture/foundation.md#the-use-case-runner) with
   [Lock order](../../../../docs/architecture/foundation.md#lock-order),
   [Errors](../../../../docs/architecture/foundation.md#errors),
+  [Entities, repositories and queries](../../../../docs/architecture/foundation.md#entities-repositories-and-queries),
   [Audit](../../../../docs/architecture/foundation.md#audit),
   [Failures](../../../../docs/architecture/foundation.md#failures),
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
+- engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks).
 - money.md: [Amounts](../../../../docs/architecture/money.md#amounts).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Bundled libraries](../../../../docs/architecture/modules-and-extensions.md#bundled-libraries),
@@ -53,7 +55,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   an entry (masked in the changes) or the error log.
 - The current time comes from the `Clock` (`Context::now()` inside a use case),
   never from `time()`, `current_time()` or `new DateTimeImmutable('now')`.
-- `Foundation\Api` depends on nothing else in Foundation (deptrac).
+- `Api` is the contract: Foundation's own classes sit at the module root and
+  `Foundation\Api` may use them (deptrac lets each module's `Api` use its own
+  module and never another module's root); a class in an `Api` marked
+  `@internal` is not contract, and no new one is added.
 - Any load failure closes the site (`LoadState`); nothing in Foundation
   reopens it.
 - Amounts are `Money`, never floats or raw strings in arithmetic, and every
@@ -62,3 +67,17 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   `Money`'s public methods never take or return a brick/math type.
 - Every outstanding check (confirmation threshold, "nothing due", fully paid)
   uses `countsAsZero()`; payment requests use `roundedUpToPayableUnit()`.
+- `$wpdb` is used only by repositories and query classes on the Foundation
+  bases (besides the runner's transaction statements and the audit writer),
+  exempted from PHPCS by name and checked by a test.
+- Repositories write only through `upsert()` and `insert()` with the running
+  use case's `Context`; the audit diff and the touched registrations come from
+  the base, never from the caller. Append-only repositories never update.
+- `upsert()` returns the object to keep: the given object keeps its old
+  version, and upserting it again conflicts.
+- The object cache holds rows and is cleared after every rollback and when an
+  outermost attempt begins, so two loaded objects of one row never share
+  changes. A use case that runs a nested use case which writes a record it
+  holds loads that record again before writing it.
+- A query class runs one statement per record type per list (no N+1), and
+  every per-event query has a per-event cost test.

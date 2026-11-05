@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\UseCase;
 
 use Kalaka\Foundation\Api\Error\KalakaException;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * What one attempt of an outermost run collects; a retried attempt starts with a fresh one.
@@ -23,6 +24,9 @@ final class RunState
     public ?string $failedIn = null;
 
     public ?LockLevel $highestLock = null;
+
+    /** @var array<string, RegistrationKey> the registrations the attempt wrote, by identity, in first-touch order */
+    public array $touched = [];
 
     /** @var list<array{string, callable(): void}> use case name and step, in registration order */
     public array $steps = [];

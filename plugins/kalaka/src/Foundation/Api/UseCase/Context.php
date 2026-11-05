@@ -6,6 +6,7 @@ namespace Kalaka\Foundation\Api\UseCase;
 
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /** What a running use case gets from the runner. */
 final class Context
@@ -18,6 +19,9 @@ final class Context
      * @param \Closure(LockLevel): void $lock
      * @param \Closure(Subject): void $touch
      * @param \Closure(Subject, string, mixed, mixed, bool): void $change
+     * @param \Closure(): void $assertOpen
+     * @param \Closure(RegistrationKey): void $markTouched
+     * @param \Closure(): list<RegistrationKey> $touchedRegistrations
      */
     public function __construct(
         private readonly Actor $actor,
@@ -27,6 +31,9 @@ final class Context
         private readonly \Closure $lock,
         private readonly \Closure $touch,
         private readonly \Closure $change,
+        private readonly \Closure $assertOpen,
+        private readonly \Closure $markTouched,
+        private readonly \Closure $touchedRegistrations,
     ) {
     }
 
@@ -84,5 +91,35 @@ final class Context
     public function change(Subject $subject, string $field, mixed $before, mixed $after, bool $secret = false): void
     {
         ($this->change)($subject, $field, $before, $after, $secret);
+    }
+
+    /**
+     * @internal Repositories call it before a write: a context kept past its run is refused.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure
+     */
+    public function assertOpen(): void
+    {
+        ($this->assertOpen)();
+    }
+
+    /**
+     * @internal Called only by the repository base after it wrote a record mapped to a registration.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure on a context kept past its run
+     */
+    public function markTouched(RegistrationKey $key): void
+    {
+        ($this->markTouched)($key);
+    }
+
+    /**
+     * @internal For the evaluation and tests.
+     *
+     * @return list<RegistrationKey> the registrations written in this attempt, nested runs included, each once
+     */
+    public function touchedRegistrations(): array
+    {
+        return ($this->touchedRegistrations)();
     }
 }

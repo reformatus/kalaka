@@ -19,6 +19,8 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\ObjectCache;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * Runs use cases: one transaction each, rollback on any error, retries, nested runs.
@@ -156,6 +158,7 @@ final class Runner
         $state = new RunState();
         self::$active = $state;
         $begun = false;
+        ObjectCache::clear();
 
         try {
             $now = $this->clock->now();
@@ -230,6 +233,8 @@ final class Runner
             $this->statement($this->insideOpenTransaction ? 'ROLLBACK TO SAVEPOINT kalaka_run' : 'ROLLBACK');
         } catch (\Throwable $e) {
             error_log('Kaláka: rollback failed: ' . ($e->getPrevious() ?? $e)->getMessage());
+        } finally {
+            ObjectCache::clear();
         }
     }
 
@@ -283,6 +288,14 @@ final class Runner
                 self::assertOpen($state);
                 $entry->change($subject, $field, $before, $after, $secret);
             },
+            static function () use ($state): void {
+                self::assertOpen($state);
+            },
+            static function (RegistrationKey $key) use ($state): void {
+                self::assertOpen($state);
+                $state->touched[$key->eventId . "\0" . $key->code] ??= $key;
+            },
+            static fn (): array => array_values($state->touched),
         );
     }
 

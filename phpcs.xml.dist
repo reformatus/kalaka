@@ -17,6 +17,12 @@
     <rule ref="WordPress.Security.NonceVerification"/>
     <rule ref="WordPress.DB.PreparedSQL"/>
     <rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
-    <rule ref="WordPress.DB.DirectDatabaseQuery"/>
+    <rule ref="WordPress.DB.DirectDatabaseQuery">
+        <exclude-pattern>*/src/*Repository.php</exclude-pattern>
+        <exclude-pattern>*/src/*List.php</exclude-pattern>
+        <exclude-pattern>*/src/*Query.php</exclude-pattern>
+        <exclude-pattern>*/src/Foundation/Api/Repository/*</exclude-pattern>
+        <exclude-pattern>*/src/Foundation/Api/Query/*</exclude-pattern>
+    </rule>
     <rule ref="WordPress.WP.AlternativeFunctions"/>
 </ruleset>
