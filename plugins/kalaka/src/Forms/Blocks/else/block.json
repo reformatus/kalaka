@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/else",
+  "title": "Különben",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {},
+  "render": "file:./render.php"
+}

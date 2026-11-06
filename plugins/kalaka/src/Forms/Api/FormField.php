@@ -10,11 +10,15 @@ final readonly class FormField
     public const CONTACT_EMAIL_BLOCK = 'kalaka/email-field';
     public const DISPLAY_NAME_BLOCK = 'kalaka/name-field';
 
-    /** @param array<string, mixed> $attributes */
+    /**
+     * @param array<string, mixed> $attributes
+     * @param list<FormBranch> $branches the branches the field sits in, outermost first; none outside any
+     */
     public function __construct(
         public string $key,
         public string $blockName,
         public array $attributes,
+        public array $branches = [],
     ) {
     }
 

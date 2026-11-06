@@ -17,10 +17,18 @@ use Kalaka\Foundation\Api\Module\Contributions;
 final class BlockGate
 {
     /**
-     * Form-only blocks that are not field types: the form's pages and its after-submit section (registered
-     * by the form front end); the condition blocks join with values and conditions.
+     * Form-only blocks that are not field types: the condition blocks, and the form's pages and its
+     * after-submit section (registered by the form front end). Another editor gets them through a
+     * `BlockHost` (e.g. the condition blocks in a mail body). [UNAPPROVED N4] (#53) the condition blocks
+     * gated as form-only.
      */
-    public const FORM_ONLY_BLOCKS = ['kalaka/form-page', 'kalaka/after-submit'];
+    public const FORM_ONLY_BLOCKS = [
+        'kalaka/if',
+        'kalaka/else-if',
+        'kalaka/else',
+        'kalaka/form-page',
+        'kalaka/after-submit',
+    ];
 
     /** The core blocks a form may hold. */
     public const FORM_CORE_BLOCKS = [

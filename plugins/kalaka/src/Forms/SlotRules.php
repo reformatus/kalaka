@@ -10,7 +10,8 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
  * events-and-forms.md, "Forms and the registration slot": a form in the registration slot has
- * exactly one contact email and one display name; an additional form has neither.
+ * exactly one contact email and one display name, neither inside a condition branch; an additional
+ * form has neither.
  */
 final class SlotRules
 {
@@ -32,6 +33,12 @@ final class SlotRules
             return;
         }
 
+        foreach ($fields as $field) {
+            if (($field->isContactEmail() || $field->isDisplayName()) && $field->branches !== []) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+                throw new SystemFailure('marking_in_branch ' . $field->key);
+            }
+        }
         if ($contactEmails !== 1) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('contact_email_count form ' . $formId);

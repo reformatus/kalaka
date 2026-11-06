@@ -15,6 +15,7 @@ use Kalaka\Forms\FieldType\PhoneFieldType;
 use Kalaka\Forms\FieldType\TextFieldType;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Forms\Value\BindingSource;
 
 final class Module extends AbstractModule
 {
@@ -23,6 +24,9 @@ final class Module extends AbstractModule
 
     /** The block category of Kaláka's blocks in the block editor's inserter. */
     public const BLOCK_CATEGORY = 'kalaka';
+
+    /** The condition branch blocks, in `Blocks/`. */
+    private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
     public function id(): string
     {
@@ -60,6 +64,13 @@ final class Module extends AbstractModule
         foreach (self::BLOCKS as $name) {
             register_block_type(__DIR__ . '/Blocks/' . $name . '-field');
         }
+        foreach (self::BRANCH_BLOCKS as $name) {
+            register_block_type(__DIR__ . '/Blocks/' . $name);
+        }
+        register_block_bindings_source(BindingSource::NAME, [
+            'label' => 'Kaláka-érték',
+            'get_value_callback' => [BindingSource::class, 'value'],
+        ]);
 
         // events-and-forms.md, "Forms implementation": a form's version is its latest revision, and
         // revisions of forms are never pruned.
