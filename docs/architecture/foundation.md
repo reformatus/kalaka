@@ -270,8 +270,9 @@ on each other in a circle:
 - **What is audited:** permission refusals, edit conflicts, rule violations
   and system errors. Plain validation failures (a missing or malformed answer,
   shown to the person at once) are not.
-- **Privacy:** IP address and user agent are declared through WordPress's
-  privacy tools; a privacy erase also scrubs audit diffs. Our own audit trail
+- **Privacy:** when the privacy tools come ([Deferred](deferred.md)), IP
+  address and user agent are declared through WordPress's privacy tools, and
+  a privacy erase also scrubs audit diffs. Our own audit trail
   and notes replace WordPress revisions and comments for our data.
 
 ## Failures
@@ -399,7 +400,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 | **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
 | **Time** | Stored in UTC, every stored instant as a `datetime(6)` column; displayed and computed in the site's WordPress time zone, never a fixed zone. A deadline ends at midnight in the site's time zone. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
 | **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are carried by the grant, usable inside that grant's view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the list of actions and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
-| **Personal data** | Kept only in our tables. WordPress privacy export and erase cover registrations, presets and audit diffs. Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
+| **Personal data** | Kept only in our tables. WordPress privacy export and erase, covering registrations, presets and audit diffs, are deferred until a wide release ([Deferred](deferred.md)). Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
 | **Secret links** | Treated as secrets: never logged, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns ([Engineering](engineering.md#database)) |
