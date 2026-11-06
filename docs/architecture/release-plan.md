@@ -48,7 +48,7 @@ short. The architecture pages say how things are built; this page says when.
    owner.
 9. **Operations:** deployment to the IVK site and to a staging copy; a real
    system cron verified on IVK's host, with WP-Cron as the fallback, a
-   warning when the last run is older than about 15 minutes, and a lock
+   warning when the last run is older than 20 minutes, and a lock
    against overlapping runs; a backup and a restore drill.
 10. **Privacy erase:** WordPress's privacy eraser for registrations, which
     also scrubs audit diffs ([Foundation](foundation.md#audit)).

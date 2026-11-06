@@ -51,13 +51,17 @@ for plugin in plugins/*/; do
 
     sed -i -E "s/^( \* Version:).*/\1 $version/; s/^(const KALAKA_VERSION = ').*(';)\$/\1$version\2/" "$stage/$slug.php"
 
-    # The stage ends up with vendor/ and vendor-prefixed/ (the Strauss-prefixed
-    # libraries). Strauss loads the first autoloader it finds, so the stage's own
-    # is removed before it runs and written again by dump-autoload.
+    # A plugin that bundles libraries (extra.strauss) ends up with vendor/ and
+    # vendor-prefixed/ (the Strauss-prefixed libraries). Strauss loads the first
+    # autoloader it finds, so the stage's own is removed before it runs and
+    # written again by dump-autoload. A plugin without them keeps Composer's
+    # autoloader as installed.
     run_composer "$stage" install --no-dev --no-scripts --optimize-autoloader --no-interaction
-    rm -f "$stage/vendor/autoload.php"
-    run_strauss "$stage"
-    rm -f "$stage/vendor/composer/autoload_aliases.php"
+    if grep -q '"strauss"' "$stage/composer.json"; then
+        rm -f "$stage/vendor/autoload.php"
+        run_strauss "$stage"
+        rm -f "$stage/vendor/composer/autoload_aliases.php"
+    fi
     run_composer "$stage" dump-autoload --no-dev --optimize --no-scripts
     rm "$stage/composer.json" "$stage/composer.lock"
 

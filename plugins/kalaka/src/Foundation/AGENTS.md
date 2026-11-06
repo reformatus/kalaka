@@ -113,3 +113,6 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   and returns.
 - WP-Cron timestamps come from the `Clock`, never `time()`; the upgrader lock's
   own stamp is WordPress's and is not ours to set.
+- The periodic run's health check (the admin notice and the Site Health test)
+  only reads `kalaka_periodic_run_last` and compares it with the `Clock`; it writes nothing
+  and never schedules, starts or unlocks a run.

@@ -11,17 +11,32 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * PHPCS exempts files named `*Repository.php`, `*List.php` and `*Query.php` from the direct-query
- * rule, so a name alone must never escape it: every such file outside the two base folders declares
- * a class that extends the base (engineering.md, "Static checks").
+ * rule, so a name alone must never escape it: every such file of every plugin, outside core's two
+ * base folders, declares a class that extends the base (engineering.md, "Static checks").
  */
 final class RepositoryNamesTest extends TestCase
 {
-    public function testEveryRepositoryAndQueryFileUnderSrcExtendsItsBase(): void
+    public function testEveryRepositoryAndQueryFileUnderEveryPluginExtendsItsBase(): void
     {
-        $src = dirname(__DIR__, 3) . '/src';
+        $plugins = dirname(__DIR__, 4);
+        $sources = glob($plugins . '/*/src', GLOB_ONLYDIR);
 
-        self::assertDirectoryExists($src);
-        self::assertSame([], self::violations($src, [$src . '/Foundation/Api/Repository', $src . '/Foundation/Api/Query']));
+        self::assertNotEmpty($sources);
+        foreach ($sources as $src) {
+            $plugin = basename(dirname($src));
+            $autoload = dirname($src) . '/vendor/autoload.php';
+
+            self::assertFileExists(
+                $autoload,
+                'The plugin ' . $plugin . ' has src/ but no vendor/autoload.php; run composer install in plugins/' . $plugin . '.'
+            );
+            require_once $autoload;
+
+            $skipped = $plugin === 'kalaka'
+                ? [$src . '/Foundation/Api/Repository', $src . '/Foundation/Api/Query']
+                : [];
+            self::assertSame([], self::violations($src, $skipped), 'In the plugin ' . $plugin);
+        }
     }
 
     public function testTheCheckRejectsARepositoryThatExtendsNothingAndAcceptsTheBases(): void

@@ -1,6 +1,7 @@
 deptrac:
   paths:
     - plugins/kalaka/src
+    - plugins/kalaka-support/src
   layers:
     - name: Foundation
       collectors:
@@ -90,6 +91,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Admin\\Api\\'
+    - name: Support
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Support\\(?!Api\\)'
+    - name: Support Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Support\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -242,6 +251,20 @@ deptrac:
       - Payments Api
       - Mail Api
       - Portal Api
+    Support:
+      - WordPress
+      - Support Api
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
     Foundation Api:
       - WordPress
       - Foundation
@@ -386,6 +409,20 @@ deptrac:
       - Payments Api
       - Mail Api
       - Portal Api
+    Support Api:
+      - WordPress
+      - Support
+      - Foundation Api
+      - Events Api
+      - Forms Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
 # A base class in a module's Api may use its own module (S3's D16).
 services:
   KalakaDev\Deptrac\DeptracApiInheritanceSubscriber:

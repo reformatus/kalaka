@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Fails, naming each file, unless VERSION, the plugin header Version:, and
-# KALAKA_VERSION in kalaka.php and phpstan-bootstrap.php are all equal.
+# Fails, naming each file, unless VERSION, the header Version: of every
+# plugins/<slug>/<slug>.php, and KALAKA_VERSION in core's kalaka.php and in
+# phpstan-bootstrap.php are all equal.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,12 +21,19 @@ compare() {
     fi
 }
 
+for main in "$root"/plugins/*/*.php; do
+    slug="$(basename "$(dirname "$main")")"
+    [ "$(basename "$main")" = "$slug.php" ] || continue
+    plugin="plugins/$slug/$slug.php"
+    header="$(sed -nE 's/^ \* Version:[[:space:]]*(.*[^[:space:]])[[:space:]]*$/\1/p' "$main" | head -n 1)"
+    compare "$plugin header Version:" "$header"
+done
+
+# Only core defines the constant; extensions define none.
 plugin="plugins/kalaka/kalaka.php"
-header="$(sed -nE 's/^ \* Version:[[:space:]]*(.*[^[:space:]])[[:space:]]*$/\1/p' "$root/$plugin" | head -n 1)"
 constant="$(sed -nE "s/^const KALAKA_VERSION = '([^']*)';.*/\1/p" "$root/$plugin" | head -n 1)"
 bootstrap="$(sed -nE "s/^const KALAKA_VERSION = '([^']*)';.*/\1/p" "$root/phpstan-bootstrap.php" | head -n 1)"
 
-compare "$plugin header Version:" "$header"
 compare "$plugin KALAKA_VERSION" "$constant"
 compare "phpstan-bootstrap.php KALAKA_VERSION" "$bootstrap"
 

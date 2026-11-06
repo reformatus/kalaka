@@ -17,6 +17,7 @@ use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Foundation\Periodic\PeriodicRun;
+use Kalaka\Foundation\Periodic\PeriodicRunHealth;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Foundation\Seed\Seed;
@@ -148,6 +149,7 @@ SQL;
             new EvaluationFailureQuery()
         );
         (new PeriodicSchedule($clock))->register(static fn (): mixed => $periodicRun->run());
+        (new PeriodicRunHealth($clock))->register();
 
         if (defined('WP_CLI') && WP_CLI) {
             PeriodicRunCommand::register($periodicRun);
