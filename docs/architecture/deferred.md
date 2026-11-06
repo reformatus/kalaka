@@ -17,7 +17,6 @@ removed here.
 | Retention of guest data and of the audit, including failed entries (ledger lines are kept at least 8 years, [Registrations and identity](registrations-and-identity.md#attribution-and-erasure)) | before the first production deployment (privacy policy) |
 | The list of per-event actions and their default bundles | before the admin UI |
 | Which money plugins come first for REFISZ's summer camps (IVK's and Téli Tali's are in the [release plan](release-plan.md)) | before the summer camps' registration opens |
-| The payment deadline of a registration admitted from the waitlist | with the payment-due date types |
 | The wallet: separate from the fee (a top-up never pays it, a fee debt never enters the wallet); one per registration; no spending below the balance; top-ups by card or cash at the buffet; carry-over between events of the organization for every payer; moving overpayments into wallets in one click; settlement thresholds per event; what the participant sees | designed in December 2026, built before Téli Tali (2027-02-03, [Release plan](release-plan.md)) |
 | Reserved places per partner, e.g. as a per-link quota | after IVK registration opens |
 | IVK's staff and volunteer data form, for staff who are not participants (REFISZ's staff additional form stays as described in Events and forms) | after IVK registration opens |
@@ -27,18 +26,18 @@ removed here.
 | Attendance-sheet extension | later (REFISZ) |
 | Portable event definitions: an event serializable with everything that belongs to it | later |
 | AI help for building an event's configuration (e.g. an MCP server) | later |
-| Where extensions register REST routes | the first extension that needs one |
 | Year-to-year tracking add-on, built from preset links | later |
 | Public after-save actions for third parties | when a third party needs them; at the earliest when alpha ends |
 | Deprecation period for versioned extension points; the compatibility-check tool | when the alpha phase ends |
 | The license and its `LICENSE` file | when the alpha phase ends (wide release to other organizations) |
 | Spam protection (the recommender's rate limit sits on the use case that creates its form link) | before IVK registration opens (2026-11-30) |
 | File upload | building forms |
-| Whether WooCommerce has its own method for rounding payment requests to the payable unit ([Money](money.md#amounts)), and using it if so | at implementation |
+| Absolute payment deadlines (removed 2026-11-05, [Money](money.md#core-money-scope)): how they interact with late call-ups from the waitlist | if an organization needs one |
 | Fast entry of many manual payments, and how to make it safe | after IVK registration opens |
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |
+| How the form editor edits options, keys, markings and conditions (option rows, condition pickers, value chips) | in the form-editor changes |
 
 ## UI text approved when built
 
@@ -52,6 +51,7 @@ presentations are known to be needed and are approved when their UI is built:
 - the admin notice for an extension whose version is out of range;
 - the admin notice for a failed schema upgrade;
 - how prefill is presented on a form;
+- the form's validation messages and its messages when it is not open;
 - the activation message when late registrants are excluded from a
   scheduled mail;
 - view and grant editing: defining columns, filters and parameters, granting

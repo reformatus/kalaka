@@ -152,7 +152,10 @@ erDiagram
 - **Quota places are held when a registration becomes `registered`**
   ([Money](money.md#quota-places)).
 - The **sorszám** (order within `registered`, and within `waitlisted`) is
-  derived and renumbers; there is no stored serial.
+  derived and renumbers; there is no stored serial. Within `registered` it
+  follows the time the registration last became `registered` (at submit,
+  admission or restore), so someone admitted from the waitlist goes to the
+  end; within `waitlisted` it follows the submit time.
 - A form link can bypass capacity and the latch
   ([Forms](events-and-forms.md#form-links-and-admin-submissions)).
 
@@ -206,5 +209,7 @@ reference and check-in barcode.
   The reference code, ledger lines and decision records are kept. **Ledger
   lines are kept at least 8 years** (the Hungarian accounting-law period), to
   be confirmed with the organisations' bookkeepers.
-- Erasure and the other GDPR self-service features are nice to have at launch
-  and may come later ([Release plan](release-plan.md)).
+- **WordPress's privacy eraser** for registrations, which also scrubs audit
+  diffs, exists before IVK goes live (2026-11-30). Self-service erasure and
+  the other GDPR self-service features are nice to have at launch and may
+  come later ([Release plan](release-plan.md)).

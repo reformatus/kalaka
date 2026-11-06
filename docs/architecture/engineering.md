@@ -82,6 +82,28 @@ title: Engineering
   stays on our own REST API.
 - **Block editor** for forms, field definitions and mail bodies; the
   **Interactivity API** for public forms.
+- **Participant pages have no look of their own: they follow the site's
+  theme.** Kaláka content is authored only in the block editor (forms,
+  field definitions, mails, participant pages); a page builder only places a
+  form, through the shortcode
+  ([Forms](events-and-forms.md#forms-implementation)). Kaláka adds logic and
+  dynamic data through its own blocks, and the block and the shortcode
+  render a form the same way. Markup is
+  semantic (`label`, `fieldset`, `input`, `button`) and uses WordPress's
+  element classes such as `wp-element-button`; blocks declare the standard
+  block supports; Kaláka's CSS is structural only (layout, hidden branches,
+  error state), with no colours or fonts except the error colour.
+- **The error colour** is the theme's where the theme has one, otherwise a
+  fixed red.
+- **Theme adapters** cover themes that style their own components instead of
+  WordPress's: an extension per theme, through the typed theme-adapter point
+  ([Modules](modules-and-extensions.md#the-extension-surface)). Core keeps
+  producing the markup; the adapter supplies classes, a wrapper choice and
+  the error colour. The first is for **Divi 4**, which both organizations
+  run ([Extensions in view](modules-and-extensions.md#extensions-in-view)).
+  It keeps visible labels and the browser's own radio buttons and
+  checkboxes, which Divi's own form hides from the keyboard. Divi 5 and other
+  themes come later.
 - **WordPress primitives are preferred** wherever they fit: `WP_Error`, Site
   Health, the `Requires Plugins` header, the privacy export and erase tools,
   post passwords.
@@ -101,6 +123,8 @@ plugins/
     tests/integration/
   kalaka-woocommerce/     an extension plugin, same shape
 VERSION                   the one version number
+bin/                      build, version check, Playground smoke, deptrac helper
+dist/                     git-ignored: the built zips
 composer.json             development tools only
 package.json              development tools only
 phpstan.neon.dist, phpcs.xml.dist, deptrac.yaml   for all plugins
