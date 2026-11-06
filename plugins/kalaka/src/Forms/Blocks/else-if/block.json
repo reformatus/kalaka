@@ -1,0 +1,10 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/else-if",
+  "attributes": {
+    "condition": {
+      "type": "object"
+    }
+  },
+  "render": "file:./render.php"
+}

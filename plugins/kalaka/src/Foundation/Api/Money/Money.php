@@ -12,7 +12,7 @@ use Kalaka\Vendor\Brick\Math\RoundingMode;
 /**
  * An exact amount of money in one currency, stored as DECIMAL(26,8) text.
  *
- * Only this class uses the bundled brick/math; its API exposes no type of it.
+ * Its API exposes no type of the bundled brick/math.
  */
 final readonly class Money
 {

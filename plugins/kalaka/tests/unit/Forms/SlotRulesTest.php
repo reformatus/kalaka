@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Unit\Forms;
 
+use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\SlotRules;
@@ -57,6 +58,48 @@ final class SlotRulesTest extends TestCase
 
         self::assertStringContainsString('display_name_count', (string) $this->problemOf(FormPlacement::Registration, $none));
         self::assertStringContainsString('display_name_count', (string) $this->problemOf(FormPlacement::Registration, $two));
+    }
+
+    private function inBranch(FormField $field): FormField
+    {
+        return new FormField($field->key, $field->blockName, $field->attributes, [new FormBranch([], null)]);
+    }
+
+    public function testAMarkedFieldInsideABranchIsUnusableAndNamesItsKey(): void
+    {
+        $email = $this->email('email', true);
+        $name = $this->name('name', true);
+
+        $problem = (string) $this->problemOf(FormPlacement::Registration, [$this->inBranch($email), $name]);
+        self::assertStringContainsString('marking_in_branch email', $problem);
+        $problem = (string) $this->problemOf(FormPlacement::Registration, [$email, $this->inBranch($name)]);
+        self::assertStringContainsString('marking_in_branch name', $problem);
+    }
+
+    public function testTheBranchCheckComesBeforeTheCounts(): void
+    {
+        // No contact email outside the branch would also be a count problem; the branch is named first.
+        $problem = (string) $this->problemOf(
+            FormPlacement::Registration,
+            [$this->inBranch($this->email('email', true)), $this->inBranch($this->name('name', true))]
+        );
+
+        self::assertStringContainsString('marking_in_branch email', $problem);
+    }
+
+    public function testAnUnmarkedFieldInsideABranchStaysUsable(): void
+    {
+        $fields = [$this->email('email', true), $this->name('name', true), $this->inBranch($this->email('other', false))];
+
+        self::assertNull($this->problemOf(FormPlacement::Registration, $fields));
+    }
+
+    public function testAnAdditionalFormKeepsItsOwnProblemForAMarkingInABranch(): void
+    {
+        self::assertStringContainsString(
+            'marking_on_additional_form',
+            (string) $this->problemOf(FormPlacement::Additional, [$this->inBranch($this->email('email', true))])
+        );
     }
 
     public function testAnAdditionalFormWithNeitherMarkingIsUsableAndWithEitherIsNot(): void

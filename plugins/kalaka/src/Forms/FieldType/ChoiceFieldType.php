@@ -7,6 +7,8 @@ namespace Kalaka\Forms\FieldType;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\Value;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
 /** One option, or several when `multiple`; the options are a list of `{value, label}`. */
@@ -76,5 +78,35 @@ final class ChoiceFieldType extends AbstractFieldType
         $chosen = array_values(array_intersect($allowed, $sent));
 
         return FieldAnswer::stored($multiple ? (string) wp_json_encode($chosen) : $chosen[0]);
+    }
+
+    public function valueType(): ValueType
+    {
+        return ValueType::Choice;
+    }
+
+    /** The data are the chosen option values; the text is their labels with tags stripped, joined by ", ". */
+    public function value(FieldTypeInput $input): Value
+    {
+        $stored = is_string($input->value) ? $input->value : '';
+        $chosen = ($input->attributes['multiple'] ?? false) === true ? json_decode($stored, true) : [$stored];
+        if (!is_array($chosen) || !array_is_list($chosen)) {
+            $chosen = [];
+        }
+        /** @var list<string> $values */
+        $values = array_values(array_filter($chosen, is_string(...)));
+
+        $labels = [];
+        $options = is_array($input->attributes['options'] ?? null) ? $input->attributes['options'] : [];
+        foreach ($values as $value) {
+            foreach ($options as $option) {
+                if (is_array($option) && ($option['value'] ?? null) === $value) {
+                    $labels[] = wp_strip_all_tags(is_string($option['label'] ?? null) ? $option['label'] : '');
+                    break;
+                }
+            }
+        }
+
+        return Value::choice($values, implode(', ', $labels));
     }
 }
