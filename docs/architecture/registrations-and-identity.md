@@ -97,7 +97,8 @@ erDiagram
   info box that offers to cancel.
 - **Editing a preset never changes existing registrations,** and editing an
   account's profile never changes a registration.
-- Privacy export and erase cover presets.
+- Privacy export and erase will cover presets when the privacy tools come
+  ([Deferred](deferred.md)).
 
 ## Submissions and values
 
@@ -209,7 +210,8 @@ reference and check-in barcode.
   The reference code, ledger lines and decision records are kept. **Ledger
   lines are kept at least 8 years** (the Hungarian accounting-law period), to
   be confirmed with the organisations' bookkeepers.
-- **WordPress's privacy eraser** for registrations, which also scrubs audit
-  diffs, exists before IVK goes live (2026-11-30). Self-service erasure and
-  the other GDPR self-service features are nice to have at launch and may
-  come later ([Release plan](release-plan.md)).
+- **The privacy tools are deferred until a wide release**
+  ([Deferred](deferred.md)): WordPress's privacy export and eraser for
+  registrations and presets, the audit-diff scrub, self-service erasure and
+  the other GDPR features. The rules above still hold, so personal data stays
+  where a later eraser can reach it.

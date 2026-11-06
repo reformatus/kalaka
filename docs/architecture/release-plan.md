@@ -50,8 +50,6 @@ short. The architecture pages say how things are built; this page says when.
    system cron verified on IVK's host, with WP-Cron as the fallback, a
    warning when the last run is older than 20 minutes, and a lock
    against overlapping runs; a backup and a restore drill.
-10. **Privacy erase:** WordPress's privacy eraser for registrations, which
-    also scrubs audit diffs ([Foundation](foundation.md#audit)).
 
 ### Order of sacrifice
 
@@ -67,8 +65,9 @@ If the date is at risk, these give way, in this order:
 ### Not in this release
 
 Presets; the portal beyond "Coming soon", including its editable fields;
-self-service erasure and the other GDPR self-service features (nice to have,
-may follow);
+the privacy tools: WordPress's privacy export and eraser, the audit-diff
+scrub, self-service erasure and the other GDPR features (deferred until a wide
+release, [Deferred](deferred.md));
 the allocation proposer (needed before IVK's
 registration closes; it runs once, on module choices frozen beforehand); the
 module letter; late fees and
