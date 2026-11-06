@@ -61,6 +61,7 @@ final class Boot
                 $this->fail($module->id(), $e->getMessage());
             }
         }
+        Api\Module\Contributions::record($contributions);
 
         foreach ($this->coreModules as $module) {
             if ($module instanceof Module) {

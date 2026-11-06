@@ -1,0 +1,22 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/name-field",
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    },
+    "displayName": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "render": "file:./render.php"
+}

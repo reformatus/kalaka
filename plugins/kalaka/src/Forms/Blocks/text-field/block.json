@@ -1,0 +1,22 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/text-field",
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    },
+    "multiline": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "render": "file:./render.php"
+}
