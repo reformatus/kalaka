@@ -191,13 +191,14 @@ price** (the chosen tier, or the fixed price without a ladder), never extras
 such as lunch or a donation.
 
 - **Each tier sets its share mode:** none, declared by the participant, or
-  the whole tier. The share is then zero, the amount the registrant
-  declares, or the tier. A fee component writes a zero-sum pair, participant
-  −X′ and congregation +X′, where
-  X′ = max(0, min(share, tier − support)). Support thus reduces
+  the whole base price. Without a ladder, the fixed price is the tier and
+  the event sets its share mode. The share is then zero, the amount the
+  registrant declares, or the base price. A fee component writes a zero-sum
+  pair, participant −X′ and congregation +X′, where
+  X′ = max(0, min(share, base price − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.
 - It reads the share, the tariff snapshot and, at its fixed stage in the
-  [fee sequence](#materializer), the tier after support.
+  [fee sequence](#materializer), the base price after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
 - Whether the congregation's part is needed for confirmation is a per-event
