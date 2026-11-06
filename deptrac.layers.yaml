@@ -1,6 +1,7 @@
 deptrac:
   paths:
     - plugins/kalaka/src
+    - plugins/kalaka-support/src
   layers:
     - name: Repositories
       collectors:

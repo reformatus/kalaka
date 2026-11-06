@@ -3,7 +3,8 @@
 	"core": null,
 	"plugins": [
 		"https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip",
-		"./plugins/kalaka"
+		"./plugins/kalaka",
+		"./plugins/kalaka-support"
 	],
 	"mappings": {
 		"wp-content/kalaka-dev-vendor": "./vendor"

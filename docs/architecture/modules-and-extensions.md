@@ -19,6 +19,10 @@ title: Modules and extensions
   that could build either organization's logic.
 - **The WooCommerce integration is our own extension plugin** on core's
   payments port. Core has no WooCommerce dependency at all.
+- **Sponsor and church support is one extension plugin, `kalaka-support`:**
+  the organization directory, the congregation picker and the support offers
+  ([Money](money.md#sponsor-and-church-support)). Core holds no organization
+  data.
 
 ```mermaid
 flowchart LR

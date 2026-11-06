@@ -3,6 +3,9 @@
     <file>plugins/kalaka/src</file>
     <file>plugins/kalaka/kalaka.php</file>
     <file>plugins/kalaka/uninstall.php</file>
+    <file>plugins/kalaka-support/src</file>
+    <file>plugins/kalaka-support/kalaka-support.php</file>
+    <file>plugins/kalaka-support/uninstall.php</file>
     <arg name="extensions" value="php"/>
     <exclude-pattern>*/vendor/*</exclude-pattern>
     <exclude-pattern>*/build/*</exclude-pattern>

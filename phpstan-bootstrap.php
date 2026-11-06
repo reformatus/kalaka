@@ -10,7 +10,7 @@ if (!class_exists('WP_CLI')) {
     final class WP_CLI
     {
         /** @param array<string, mixed> $args */
-        public static function add_command(string $name, object $callable, array $args = []): bool
+        public static function add_command(string $name, string|object $callable, array $args = []): bool
         {
             return true;
         }
@@ -20,6 +20,10 @@ if (!class_exists('WP_CLI')) {
         }
 
         public static function success(string $message): void
+        {
+        }
+
+        public static function warning(string $message): void
         {
         }
 
