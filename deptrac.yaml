@@ -90,10 +90,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Admin\\Api\\'
+    - name: Bundled brick/math
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Vendor\\Brick\\Math\\'
     - name: WordPress
       collectors:
         - type: classLike
-          value: '^WP_'
+          value: '^(WP_|wpdb$)'
   ruleset:
     Foundation:
       - WordPress
@@ -240,6 +244,8 @@ deptrac:
       - Portal Api
     Foundation Api:
       - WordPress
+      - Foundation
+      - Bundled brick/math
       - Events Api
       - Forms Api
       - Assignments Api
@@ -252,6 +258,7 @@ deptrac:
       - Admin Api
     Events Api:
       - WordPress
+      - Events
       - Foundation Api
       - Forms Api
       - Assignments Api
@@ -264,6 +271,7 @@ deptrac:
       - Admin Api
     Forms Api:
       - WordPress
+      - Forms
       - Foundation Api
       - Events Api
       - Assignments Api
@@ -276,6 +284,7 @@ deptrac:
       - Admin Api
     Assignments Api:
       - WordPress
+      - Assignments
       - Foundation Api
       - Events Api
       - Forms Api
@@ -288,6 +297,7 @@ deptrac:
       - Admin Api
     Registrations Api:
       - WordPress
+      - Registrations
       - Foundation Api
       - Events Api
       - Forms Api
@@ -300,6 +310,7 @@ deptrac:
       - Admin Api
     Pricing Api:
       - WordPress
+      - Pricing
       - Foundation Api
       - Events Api
       - Forms Api
@@ -312,6 +323,7 @@ deptrac:
       - Admin Api
     Ledger Api:
       - WordPress
+      - Ledger
       - Foundation Api
       - Events Api
       - Forms Api
@@ -324,6 +336,7 @@ deptrac:
       - Admin Api
     Payments Api:
       - WordPress
+      - Payments
       - Foundation Api
       - Events Api
       - Forms Api
@@ -336,6 +349,7 @@ deptrac:
       - Admin Api
     Mail Api:
       - WordPress
+      - Mail
       - Foundation Api
       - Events Api
       - Forms Api
@@ -348,6 +362,7 @@ deptrac:
       - Admin Api
     Portal Api:
       - WordPress
+      - Portal
       - Foundation Api
       - Events Api
       - Forms Api
@@ -360,6 +375,7 @@ deptrac:
       - Admin Api
     Admin Api:
       - WordPress
+      - Admin
       - Foundation Api
       - Events Api
       - Forms Api
@@ -370,3 +386,8 @@ deptrac:
       - Payments Api
       - Mail Api
       - Portal Api
+# A base class in a module's Api may use its own module (S3's D16).
+services:
+  KalakaDev\Deptrac\DeptracApiInheritanceSubscriber:
+    tags:
+      - kernel.event_subscriber

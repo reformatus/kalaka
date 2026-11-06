@@ -38,3 +38,6 @@ $kalakaBoot = static function (): void {
 
 add_action('plugins_loaded', $kalakaBoot, 10);
 register_activation_hook(__FILE__, $kalakaBoot);
+register_deactivation_hook(__FILE__, static function (): void {
+    \Kalaka\Foundation\Periodic\PeriodicSchedule::clear();
+});

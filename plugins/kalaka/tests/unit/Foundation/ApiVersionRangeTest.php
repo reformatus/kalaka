@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Unit\Foundation;
 
 use Kalaka\Foundation\ApiVersionRange;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ApiVersionRangeTest extends TestCase
@@ -23,7 +22,7 @@ final class ApiVersionRangeTest extends TestCase
         yield 'suffix dots do not count as patch' => ['>=0.2-rc.1', '0.2.0-rc.1', true];
     }
 
-    #[DataProvider('cases')]
+    /** @dataProvider cases */
     public function testAllows(string $range, string $version, bool $expected): void
     {
         self::assertSame($expected, ApiVersionRange::parse($range)->allows($version));
@@ -38,7 +37,7 @@ final class ApiVersionRangeTest extends TestCase
         yield 'not a version' => ['>=abc'];
     }
 
-    #[DataProvider('invalid')]
+    /** @dataProvider invalid */
     public function testRejects(string $range): void
     {
         $this->expectException(\InvalidArgumentException::class);

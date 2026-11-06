@@ -62,6 +62,12 @@ final class Boot
             }
         }
 
+        foreach ($this->coreModules as $module) {
+            if ($module instanceof Module) {
+                $module->collect($modules, $contributions);
+            }
+        }
+
         foreach ($set->failures() as $failure) {
             $this->fail($failure->moduleId, $failure->reason);
         }

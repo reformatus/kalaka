@@ -10,7 +10,14 @@
         "squizlabs/php_codesniffer": "^3.13",
         "wp-coding-standards/wpcs": "^3.2",
         "dealerdirect/phpcodesniffer-composer-installer": "^1.1",
-        "phpunit/phpunit": "^11.5"
+        "phpunit/phpunit": "^9.6",
+        "yoast/phpunit-polyfills": "^4.0",
+        "brianhenryie/strauss": "0.31.1"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "KalakaDev\\Deptrac\\": "bin/"
+        }
     },
     "config": {
         "allow-plugins": {

@@ -4,5 +4,8 @@
 	"plugins": [
 		"https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip",
 		"./plugins/kalaka"
-	]
+	],
+	"mappings": {
+		"wp-content/kalaka-dev-vendor": "./vendor"
+	}
 }

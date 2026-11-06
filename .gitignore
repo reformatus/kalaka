@@ -18,6 +18,7 @@ Thumbs.db
 # Tooling
 node_modules/
 vendor/
+vendor-prefixed/
 *.log
 .phpunit.result.cache
 .deptrac.cache
@@ -29,3 +30,6 @@ docs/.jekyll-cache/
 
 # Built plugin assets
 plugins/*/build/
+
+# Built plugin zips
+dist/
