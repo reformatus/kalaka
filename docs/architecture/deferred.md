@@ -37,6 +37,9 @@ removed here.
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |
+| Whether the form editor (the block editor with Kaláka's blocks) must be ready for IVK's opening day, or IVK's form is still written as block markup ([Release plan](release-plan.md)) | now |
+| How the form editor edits options, keys, markings and conditions (option rows, condition pickers, value chips) | in the form-editor changes |
+| Where theme adapters live (core, or one extension per theme) | with the Divi 4 adapter |
 
 ## UI text approved when built
 
@@ -50,6 +53,7 @@ presentations are known to be needed and are approved when their UI is built:
 - the admin notice for an extension whose version is out of range;
 - the admin notice for a failed schema upgrade;
 - how prefill is presented on a form;
+- the form's validation messages and its messages when it is not open;
 - the activation message when late registrants are excluded from a
   scheduled mail;
 - view and grant editing: defining columns, filters and parameters, granting

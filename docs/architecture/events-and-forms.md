@@ -165,8 +165,21 @@ flowchart TB
   visible fields are accepted.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
-- **Stable field keys** and pickers for conditions; an **embed block** for
-  placing a form on any page.
+- **Stable field keys** and pickers for conditions.
+- **The block editor is the form builder.** Organizers build and edit forms
+  in it directly, with Kaláka's field and condition blocks; there is no
+  separate visual builder. Its experience must be good: no polish, but the
+  basics work.
+- **Placing a form:** an **embed block** for block-editor pages, and a
+  `[kalaka_form id="…"]` **shortcode** for page builders that cannot hold
+  blocks, such as Divi 4's Builder. Both use the same renderer. A form is
+  never edited from the page builder.
+- **After a successful submit** the form is replaced by its **after-submit
+  section**, part of the form document and edited with it (the thank-you
+  message).
+- **Required fields** show a bold asterisk after the field's title, in the
+  error colour. The form's look follows the site's theme
+  ([Engineering](engineering.md#wordpress-surfaces)).
 - Still to build within forms: spam protection and file upload
   ([Deferred](deferred.md)).
 
@@ -196,6 +209,12 @@ flowchart TB
   values the browser sends for them are rejected.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
+- **Keys and option values come from the visible text.** A field's key is
+  derived from its title and a choice option's value from its label: no
+  diacritics, snake_case, and `_1`, `_2`, … on a collision (keys within the
+  form, values within the field). Both are set when the field or option is
+  created and stay the same when the text is renamed later, so stored data
+  keeps its meaning. The editor hides them unless asked.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins; core ships no

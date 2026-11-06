@@ -82,6 +82,23 @@ title: Engineering
   stays on our own REST API.
 - **Block editor** for forms, field definitions and mail bodies; the
   **Interactivity API** for public forms.
+- **Participant pages have no look of their own: they follow the site's
+  theme.** Kaláka content lives only in block-editor posts and pages, and
+  Kaláka adds logic and dynamic data through its own blocks. Markup is
+  semantic (`label`, `fieldset`, `input`, `button`) and uses WordPress's
+  element classes such as `wp-element-button`; blocks declare the standard
+  block supports; Kaláka's CSS is structural only (layout, hidden branches,
+  error state), with no colours or fonts except the error colour.
+- **The error colour** is the theme's where the theme has one, otherwise a
+  fixed red.
+- **Theme adapters** cover themes that style their own components instead of
+  WordPress's: an optional layer on the same markup. The first is for
+  **Divi 4**, which both organizations run. It adds Divi's contact-form
+  classes so Divi's form styles apply, makes Divi load those styles on pages
+  holding a form, and takes Divi's form red as the error colour. It keeps
+  visible labels and the browser's own radio buttons and checkboxes, which
+  Divi's own form hides from the keyboard. Divi 5 and other themes come
+  later.
 - **WordPress primitives are preferred** wherever they fit: `WP_Error`, Site
   Health, the `Requires Plugins` header, the privacy export and erase tools,
   post passwords.

@@ -68,7 +68,7 @@ If the date is at risk, these give way, in this order:
 Presets; the portal beyond "Coming soon", including its editable fields;
 self-service erasure and the other GDPR self-service features (nice to have,
 may follow);
-the visual form builder; the allocation proposer (needed before IVK's
+the allocation proposer (needed before IVK's
 registration closes; it runs once, on module choices frozen beforehand); the
 module letter; late fees and
 reminders; starting a WooCommerce refund from Kaláka (refunds made in
