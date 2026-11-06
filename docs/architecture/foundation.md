@@ -312,8 +312,10 @@ of deferred work gets exactly the guarantee it needs:
   events, and time rules query only what became due since the last run.
 - **A real system cron is required,** with WP-Cron as the fallback.
   WordPress core has only WP-Cron, which fires only when `wp-cron.php` runs.
-  - A warning shows when the last run is older than about 15 minutes (text
-    approved when built).
+  - A warning shows when the last run is older than 20 minutes, or when no
+    run has completed: an admin notice and a critical Site Health test. 20
+    minutes is longer than the lock's 15-minute expiry, so a lock left by a
+    crash is taken over before the warning shows.
   - A lock keeps two runs from overlapping.
 - **No wake-ups per due time.** With a real cron every 5 minutes, or
   visitor-driven WP-Cron, per-time wake-ups would gain nothing over the

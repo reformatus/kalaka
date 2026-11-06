@@ -108,10 +108,13 @@ final class PeriodicRun
     private function lastRun(): ?\DateTimeImmutable
     {
         $stored = get_option(self::LAST_RUN_OPTION);
-        if (!is_string($stored)) {
-            return null;
-        }
 
+        return is_string($stored) ? self::parseLastRun($stored) : null;
+    }
+
+    /** The one place that reads the stored last-run time; null when the value is not in the stored format. */
+    public static function parseLastRun(string $stored): ?\DateTimeImmutable
+    {
         return \DateTimeImmutable::createFromFormat(self::TIME_FORMAT, $stored, new \DateTimeZone('UTC')) ?: null;
     }
 
