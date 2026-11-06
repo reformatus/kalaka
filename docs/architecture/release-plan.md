@@ -12,7 +12,8 @@ short. The architecture pages say how things are built; this page says when.
 ### Must exist on opening day
 
 1. **Registering:** an event with its dates and capacity; IVK's registration
-   form, authored by hand as block markup; submit with capacity, the "full"
+   form, built in the block editor (basic editor support with no polish:
+   only the owner builds forms at first); the Divi 4 theme adapter; submit with capacity, the "full"
    latch and the waitlist; reference codes; the secret-link status page;
    protection against double submits; spam protection; an optional account
    created on the form, offered to people aged 16 or over and activated

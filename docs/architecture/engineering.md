@@ -92,7 +92,8 @@ title: Engineering
 - **The error colour** is the theme's where the theme has one, otherwise a
   fixed red.
 - **Theme adapters** cover themes that style their own components instead of
-  WordPress's: an optional layer on the same markup. The first is for
+  WordPress's: an optional layer on the same markup, shipped as an
+  extension, one per theme. The first is for
   **Divi 4**, which both organizations run. It adds Divi's contact-form
   classes so Divi's form styles apply, makes Divi load those styles on pages
   holding a form, and takes Divi's form red as the error colour. It keeps

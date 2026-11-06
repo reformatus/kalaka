@@ -37,9 +37,7 @@ removed here.
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |
-| Whether the form editor (the block editor with Kaláka's blocks) must be ready for IVK's opening day, or IVK's form is still written as block markup ([Release plan](release-plan.md)) | now |
 | How the form editor edits options, keys, markings and conditions (option rows, condition pickers, value chips) | in the form-editor changes |
-| Where theme adapters live (core, or one extension per theme) | with the Divi 4 adapter |
 
 ## UI text approved when built
 
