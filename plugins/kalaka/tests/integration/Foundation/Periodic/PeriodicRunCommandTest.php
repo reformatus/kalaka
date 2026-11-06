@@ -9,7 +9,7 @@ use Kalaka\Foundation\Cli\PeriodicRunCommand;
 require_once __DIR__ . '/PeriodicTestCase.php';
 require_once __DIR__ . '/../Seed/WpCliDouble.php';
 
-/** AC10: the command's wiring; the real command is run in wp-env. */
+/** AC9: the command's wiring; the real command is run in wp-env. */
 final class PeriodicRunCommandTest extends PeriodicTestCase
 {
     public function set_up(): void
@@ -30,7 +30,7 @@ final class PeriodicRunCommandTest extends PeriodicTestCase
 
         (new PeriodicRunCommand($this->periodicRun()))([], []);
 
-        self::assertSame([['success', 'Evaluated 2 registrations, 0 failed.']], \WP_CLI::$calls);
+        self::assertSame([['success', 'Evaluated 2 registrations, 0 failed; 0 time rule checks failed.']], \WP_CLI::$calls);
     }
 
     public function testAHeldLockIsAnErrorWithExitCodeOneAndNothingIsEvaluated(): void

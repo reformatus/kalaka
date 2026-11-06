@@ -6,6 +6,7 @@ namespace Kalaka\Foundation\Periodic;
 
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Clock;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
@@ -19,6 +20,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
 final class PeriodicRun
 {
     public const LAST_RUN_OPTION = 'kalaka_periodic_run_last';
+
+    /** The windows the run missed: "<rule name>|<event id>" => the window's `since` ('' for none). */
+    public const MISSED_OPTION = 'kalaka_periodic_run_missed';
 
     private const LOCK = 'kalaka_periodic_run';
 
@@ -37,7 +41,8 @@ final class PeriodicRun
 
     /**
      * @return ?PeriodicRunReport null when the run did not happen: the site is closed or another run holds the lock
-     * @throws \Throwable whatever a time rule or a query throws; the run ends and writes no last-run time
+     * @throws \Throwable whatever the event or flag queries throw; the run ends and writes no last-run time.
+     *         A time rule that throws is isolated to its rule and event; its window is kept for the next run.
      */
     public function run(): ?PeriodicRunReport
     {
@@ -65,10 +70,29 @@ final class PeriodicRun
     {
         $events = $this->events->published();
 
+        $kept = $this->missed();
+        $missed = [];
+        $ruleFailures = 0;
         $due = [];
         foreach ($events as $event) {
             foreach ($this->rules->all() as $rule) {
-                foreach ($rule->due(new TimeRuleInput($event, $since, $until)) as $key) {
+                $pair = $rule->name() . '|' . $event->id;
+                $from = $since;
+                if (isset($kept[$pair])) {
+                    $from = $kept[$pair] === '' ? null : (self::parseLastRun($kept[$pair]) ?? $since);
+                }
+                try {
+                    $names = $rule->due(new TimeRuleInput($event, $from, $until));
+                } catch (\Throwable $e) {
+                    $ruleFailures++;
+                    $missed[$pair] = $from?->format(self::TIME_FORMAT) ?? '';
+                    error_log(
+                        'Kaláka: time rule ' . $rule->name() . ' failed for event ' . $event->id . ': '
+                        . $e::class . ', correlation ' . Correlation::id()
+                    );
+                    continue;
+                }
+                foreach ($names as $key) {
                     $due[self::identity($key)] = $key;
                 }
             }
@@ -102,7 +126,28 @@ final class PeriodicRun
             $evaluate($key);
         }
 
-        return new PeriodicRunReport($evaluated, $failed);
+        if ($missed === []) {
+            delete_option(self::MISSED_OPTION);
+        } else {
+            update_option(self::MISSED_OPTION, $missed, false);
+        }
+
+        return new PeriodicRunReport($evaluated, $failed, $ruleFailures);
+    }
+
+    /** @return array<string, string> the kept windows; entries not in the stored shape are ignored */
+    private function missed(): array
+    {
+        $stored = get_option(self::MISSED_OPTION);
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        return array_filter(
+            $stored,
+            static fn ($since, $pair): bool => is_string($since) && is_string($pair),
+            ARRAY_FILTER_USE_BOTH
+        );
     }
 
     private function lastRun(): ?\DateTimeImmutable

@@ -12,7 +12,7 @@ use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
 require_once __DIR__ . '/PeriodicTestCase.php';
 
-/** AC3 to AC8. */
+/** AC3 to AC8 of the periodic run, and the isolation of a failing time rule. */
 final class PeriodicRunTest extends PeriodicTestCase
 {
     private const LOCK = 'kalaka_periodic_run.lock';
@@ -61,7 +61,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         foreach ($this->entriesOf('kalaka/evaluate-registration') as $entry) {
             self::assertSame(['succeeded', 'system'], [$entry['outcome'], $entry['actor_type']]);
         }
-        self::assertEquals(new PeriodicRunReport(6, 0), $report);
+        self::assertEquals(new PeriodicRunReport(6, 0, 0), $report);
     }
 
     public function testTheWindowStartsAtTheLastRunAndTheTimeIsWrittenAfterEachRun(): void
@@ -92,26 +92,158 @@ final class PeriodicRunTest extends PeriodicTestCase
         self::assertSame('2026-11-30 09:05:00.000000', get_option('kalaka_periodic_run_last'));
     }
 
-    public function testATimeRuleThatThrowsEndsTheRunAndLeavesTheLastRunTime(): void
+    /** A rule that throws for the given event only while $failing[0] is true. */
+    private function ruleFailingFor(int $eventId, array &$failing, string $name = 'rule-a'): SpyTimeRule
+    {
+        return new SpyTimeRule(static function (TimeRuleInput $input) use ($eventId, &$failing): array {
+            if ($failing[0] && $input->event->id === $eventId) {
+                throw new \RuntimeException('secret message');
+            }
+
+            return [new RegistrationKey($input->event->id, '00C0')];
+        }, $name);
+    }
+
+    public function testATimeRuleThatThrowsForOneEventDoesNotEndTheRun(): void
+    {
+        $e1 = $this->eventIn('published');
+        $e2 = $this->eventIn('published');
+        $this->seedFlag($e2, '00F0');
+        update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
+        $failing = [true];
+        $a = $this->ruleFailingFor($e1, $failing);
+        $b = SpyTimeRule::naming('00A0');
+        $this->timeRules->add($a);
+        $this->timeRules->add($b);
+
+        $log = $this->capturedErrorLog(function () use (&$report): void {
+            $report = $this->sweep();
+        });
+
+        self::assertSame([$e1, $e2], $a->askedEvents());
+        self::assertSame([$e1, $e2], $b->askedEvents());
+        self::assertSame(["$e1/00A0", "$e2/00A0", "$e2/00C0", "$e2/00F0"], $this->evaluatedKeys());
+        self::assertEquals(new PeriodicRunReport(4, 0, 1), $report);
+        self::assertSame('2026-11-30 09:00:00.000000', get_option('kalaka_periodic_run_last'));
+        self::assertFalse(get_option(self::LOCK));
+        self::assertSame([], $this->flagRows());
+        self::assertSame(1, substr_count($log, 'time rule rule-a failed'));
+        self::assertStringContainsString("time rule rule-a failed for event $e1: RuntimeException, correlation ", $log);
+        self::assertStringNotContainsString('secret message', $log);
+    }
+
+    public function testAMissedWindowIsAskedFromItsSinceInTheNextRunAndThenForgotten(): void
+    {
+        $e1 = $this->eventIn('published');
+        $e2 = $this->eventIn('published');
+        update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
+        $failing = [true];
+        $a = $this->ruleFailingFor($e1, $failing);
+        $this->timeRules->add($a);
+
+        $this->sweep();
+
+        self::assertSame(["rule-a|$e1" => '2026-11-30 08:55:00.000000'], get_option(PeriodicRun::MISSED_OPTION));
+
+        $failing[0] = false;
+        $this->useClock('2026-11-30 10:05:00');
+        $this->sweep();
+
+        $windows = array_map(self::windowOf(...), array_slice($a->inputs, 2));
+        self::assertSame('2026-11-30 08:55:00', $windows[0]['since']);
+        self::assertSame('2026-11-30 09:00:00', $windows[1]['since']);
+        self::assertSame('2026-11-30 09:05:00', $windows[0]['until']);
+        self::assertSame([$e1, $e2], array_slice($a->askedEvents(), 2));
+        self::assertFalse(get_option(PeriodicRun::MISSED_OPTION));
+    }
+
+    public function testAPairThatFailsAgainKeepsTheEarliestSince(): void
+    {
+        $e1 = $this->eventIn('published');
+        update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
+        $failing = [true];
+        $a = $this->ruleFailingFor($e1, $failing);
+        $this->timeRules->add($a);
+
+        $this->sweep();
+        $this->useClock('2026-11-30 10:05:00');
+        $this->sweep();
+
+        self::assertSame(["rule-a|$e1" => '2026-11-30 08:55:00.000000'], get_option(PeriodicRun::MISSED_OPTION));
+
+        $failing[0] = false;
+        $this->useClock('2026-11-30 10:10:00');
+        $this->sweep();
+
+        self::assertSame('2026-11-30 08:55:00', self::windowOf($a->inputs[2])['since']);
+        self::assertFalse(get_option(PeriodicRun::MISSED_OPTION));
+    }
+
+    public function testAMissedWindowWithNoSinceIsKeptAsAnEmptyString(): void
+    {
+        $e1 = $this->eventIn('published');
+        $failing = [true];
+        $a = $this->ruleFailingFor($e1, $failing);
+        $this->timeRules->add($a);
+
+        $this->sweep();
+        $failing[0] = false;
+        $this->useClock('2026-11-30 10:05:00');
+        $this->sweep();
+
+        self::assertNull($a->inputs[2]->since);
+    }
+
+    public function testAMissedWindowOfAnUnpublishedEventOrAnUnknownRuleIsDropped(): void
+    {
+        $e1 = $this->eventIn('published');
+        $gone = $this->eventIn('unpublished');
+        update_option(PeriodicRun::MISSED_OPTION, [
+            "rule-a|$gone" => '2026-11-30 08:00:00.000000',
+            "rule-x|$e1" => '2026-11-30 08:00:00.000000',
+        ], false);
+        $a = SpyTimeRule::naming();
+        $this->timeRules->add(new SpyTimeRule(static fn (): array => [], 'rule-a'));
+        $this->timeRules->add($a);
+
+        $this->sweep();
+
+        self::assertSame([$e1], $a->askedEvents());
+        self::assertNull($a->inputs[0]->since);
+        self::assertFalse(get_option(PeriodicRun::MISSED_OPTION));
+    }
+
+    public function testATimeRuleNameCanBeRegisteredOnlyOnce(): void
+    {
+        $this->timeRules->add(new SpyTimeRule(static fn (): array => [], 'late-fee'));
+
+        $this->expectException(\LogicException::class);
+        $this->timeRules->add(new SpyTimeRule(static fn (): array => [], 'late-fee'));
+    }
+
+    public function testAFailingFlagQueryStillEndsTheRunWithoutTheLastRunTime(): void
     {
         $this->eventIn('published');
         update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
-        $this->timeRules->add(new SpyTimeRule(static function (): array {
-            throw new \RuntimeException('rule failed');
-        }));
-        $later = SpyTimeRule::naming('00A0');
-        $this->timeRules->add($later);
+        $throw = static function (string $sql): string {
+            if (str_contains($sql, 'kalaka_evaluation_failures')) {
+                throw new \RuntimeException('query failed');
+            }
 
+            return $sql;
+        };
+        add_filter('query', $throw);
         try {
             $this->sweep();
             self::fail('The exception should have left run().');
         } catch (\RuntimeException $e) {
-            self::assertSame('rule failed', $e->getMessage());
+            self::assertSame('query failed', $e->getMessage());
+        } finally {
+            remove_filter('query', $throw);
         }
 
-        self::assertSame([], $later->inputs);
-        self::assertSame([], $this->evaluationEntries());
         self::assertSame('2026-11-30 08:55:00.000000', get_option('kalaka_periodic_run_last'));
+        self::assertFalse(get_option(PeriodicRun::MISSED_OPTION));
         self::assertFalse(get_option(self::LOCK));
     }
 
@@ -127,7 +259,7 @@ final class PeriodicRunTest extends PeriodicTestCase
 
         $report = $this->sweep();
 
-        self::assertEquals(new PeriodicRunReport(1, 1), $report);
+        self::assertEquals(new PeriodicRunReport(1, 1, 0), $report);
         self::assertSame(["$event/00A0"], $this->evaluatedKeys('failed'));
         self::assertSame(["$event/00B0"], $this->evaluatedKeys());
         self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));
@@ -142,7 +274,7 @@ final class PeriodicRunTest extends PeriodicTestCase
 
         $report = $this->sweep();
 
-        self::assertEquals(new PeriodicRunReport(1, 0), $report);
+        self::assertEquals(new PeriodicRunReport(1, 0, 0), $report);
         self::assertSame(["$published/00A0"], $this->evaluatedKeys());
         self::assertSame([(string) $unpublished], array_column($this->flagRows(), 'event_id'));
         self::assertSame(['00B0'], array_column($this->flagRows(), 'code'));
@@ -158,7 +290,7 @@ final class PeriodicRunTest extends PeriodicTestCase
 
         $report = $this->sweep();
 
-        self::assertEquals(new PeriodicRunReport(0, 1), $report);
+        self::assertEquals(new PeriodicRunReport(0, 1, 0), $report);
         $rows = $this->flagRows();
         self::assertCount(1, $rows);
         self::assertSame(['decisions/test_state', '2026-11-30 09:00:00.000000'], [$rows[0]['rule'], $rows[0]['failed_at']]);
@@ -172,7 +304,7 @@ final class PeriodicRunTest extends PeriodicTestCase
 
         $report = $this->sweep();
 
-        self::assertEquals(new PeriodicRunReport(1, 0), $report);
+        self::assertEquals(new PeriodicRunReport(1, 0, 0), $report);
         self::assertSame(["$event/00A0"], $this->evaluatedKeys());
         self::assertSame([], $this->flagRows());
     }
@@ -187,7 +319,7 @@ final class PeriodicRunTest extends PeriodicTestCase
 
         $report = $this->sweep();
 
-        self::assertEquals(new PeriodicRunReport(0, 1), $report);
+        self::assertEquals(new PeriodicRunReport(0, 1, 0), $report);
         self::assertSame(["$event/00A0"], $this->evaluatedKeys('failed'));
         self::assertCount(1, $rule->inputs);
     }

@@ -31,6 +31,7 @@ final class PeriodicRunCommand
             \WP_CLI::error('Periodic run not started: another run holds the lock, or Kaláka did not load cleanly.');
         }
 
-        \WP_CLI::success('Evaluated ' . $report->evaluated . ' registrations, ' . $report->failed . ' failed.');
+        \WP_CLI::success('Evaluated ' . $report->evaluated . ' registrations, ' . $report->failed . ' failed; '
+            . $report->timeRulesFailed . ' time rule checks failed.');
     }
 }

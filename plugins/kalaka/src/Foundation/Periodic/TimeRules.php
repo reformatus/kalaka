@@ -10,8 +10,14 @@ final class TimeRules
     /** @var list<TimeRule> */
     private array $rules = [];
 
+    /** @throws \LogicException when a rule with this name is already registered */
     public function add(TimeRule $rule): void
     {
+        foreach ($this->rules as $existing) {
+            if ($existing->name() === $rule->name()) {
+                throw new \LogicException('A time rule named ' . $rule->name() . ' is already registered.');
+            }
+        }
         $this->rules[] = $rule;
     }
 
