@@ -56,6 +56,9 @@ final class BlockGateTest extends WP_UnitTestCase
         self::assertEqualsCanonicalizing(
             [
                 ...self::FIELDS,
+                'kalaka/if',
+                'kalaka/else-if',
+                'kalaka/else',
                 'kalaka/form-page',
                 'kalaka/after-submit',
                 'core/paragraph',

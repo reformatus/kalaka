@@ -1,16 +1,17 @@
 # Forms
 
 Forms is forms, the registration slot, field types, field definitions,
-conditions, prefill and form links
+values and conditions, prefill and form links
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
 
 ## Sections it implements
 
 - events-and-forms.md: [Forms and the registration slot](../../../../docs/architecture/events-and-forms.md#forms-and-the-registration-slot),
   [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
-  [Fields](../../../../docs/architecture/events-and-forms.md#fields);
-  later [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions),
-  [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
+  [Fields](../../../../docs/architecture/events-and-forms.md#fields),
+  [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions)
+  with [Conditions](../../../../docs/architecture/events-and-forms.md#conditions);
+  later [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
   [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
 - modules-and-extensions.md: the field-type and theme-adapter points of
@@ -105,3 +106,15 @@ conditions, prefill and form links
   type writes to a table. Core ships no money-relevant field type.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
+- A condition is evaluated purely, from a value context or a form's answers:
+  no database, hook, current user, request or clock.
+- In a form, a condition reads only answers of fields before its chain. At
+  submit, an answer in a branch that does not hold is dropped: never stored,
+  never required, never an error.
+- Reading a key that a value context does not declare is a failure, never an
+  empty value.
+- A value is plain text, escaped where it renders; inline values are replaced
+  with the HTML API.
+- Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`
+  in the evaluator (deptrac: the `Forms` layer); no `Forms\Api` signature takes
+  or returns a brick/math type.

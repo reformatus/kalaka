@@ -7,6 +7,8 @@ namespace Kalaka\Forms\FieldType;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\Value;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
 /** A calendar day as `YYYY-MM-DD`; no range (an age rule is not the field type's). */
@@ -31,5 +33,20 @@ final class DateFieldType extends AbstractFieldType
         }
 
         return FieldAnswer::stored($date);
+    }
+
+    public function valueType(): ValueType
+    {
+        return ValueType::Date;
+    }
+
+    public function value(FieldTypeInput $input): Value
+    {
+        $stored = is_string($input->value) ? $input->value : '';
+
+        // PLACEHOLDER (events-and-forms.md "Values and conditions", S11 D9): the stored `YYYY-MM-DD` is the
+        // text for now. The first slice that renders a date value (S33 or S16) approves its Hungarian
+        // display and replaces this; until then no document renders a date.
+        return Value::date($stored, $stored);
     }
 }

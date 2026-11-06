@@ -16,6 +16,7 @@ use Kalaka\Forms\FieldType\TextFieldType;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
+use Kalaka\Forms\Value\BindingSource;
 
 final class Module extends AbstractModule
 {
@@ -46,6 +47,8 @@ CREATE TABLE {prefix}kalaka_participant_fields (
   PRIMARY KEY  (event_id,field_key)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
+    /** The condition branch blocks, in `Blocks/`. */
+    private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
     public function id(): string
     {
@@ -89,6 +92,13 @@ SQL;
         foreach (self::BLOCKS as $name) {
             register_block_type(__DIR__ . '/Blocks/' . $name . '-field');
         }
+        foreach (self::BRANCH_BLOCKS as $name) {
+            register_block_type(__DIR__ . '/Blocks/' . $name);
+        }
+        register_block_bindings_source(BindingSource::NAME, [
+            'label' => 'Kaláka-érték',
+            'get_value_callback' => [BindingSource::class, 'value'],
+        ]);
 
         // events-and-forms.md, "Forms implementation": a form's version is its latest revision, and
         // revisions of forms are never pruned.
