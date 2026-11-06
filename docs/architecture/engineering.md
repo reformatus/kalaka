@@ -83,8 +83,12 @@ title: Engineering
 - **Block editor** for forms, field definitions and mail bodies; the
   **Interactivity API** for public forms.
 - **Participant pages have no look of their own: they follow the site's
-  theme.** Kaláka content lives only in block-editor posts and pages, and
-  Kaláka adds logic and dynamic data through its own blocks. Markup is
+  theme.** Kaláka content is authored only in the block editor (forms,
+  field definitions, mails, participant pages); a page builder only places a
+  form, through the shortcode
+  ([Forms](events-and-forms.md#forms-implementation)). Kaláka adds logic and
+  dynamic data through its own blocks, and the block and the shortcode
+  render a form the same way. Markup is
   semantic (`label`, `fieldset`, `input`, `button`) and uses WordPress's
   element classes such as `wp-element-button`; blocks declare the standard
   block supports; Kaláka's CSS is structural only (layout, hidden branches,
@@ -92,14 +96,14 @@ title: Engineering
 - **The error colour** is the theme's where the theme has one, otherwise a
   fixed red.
 - **Theme adapters** cover themes that style their own components instead of
-  WordPress's: an optional layer on the same markup, shipped as an
-  extension, one per theme. The first is for
-  **Divi 4**, which both organizations run. It adds Divi's contact-form
-  classes so Divi's form styles apply, makes Divi load those styles on pages
-  holding a form, and takes Divi's form red as the error colour. It keeps
-  visible labels and the browser's own radio buttons and checkboxes, which
-  Divi's own form hides from the keyboard. Divi 5 and other themes come
-  later.
+  WordPress's: an extension per theme, through the typed theme-adapter point
+  ([Modules](modules-and-extensions.md#the-extension-surface)). Core keeps
+  producing the markup; the adapter supplies classes, a wrapper choice and
+  the error colour. The first is for **Divi 4**, which both organizations
+  run ([Extensions in view](modules-and-extensions.md#extensions-in-view)).
+  It keeps visible labels and the browser's own radio buttons and
+  checkboxes, which Divi's own form hides from the keyboard. Divi 5 and other
+  themes come later.
 - **WordPress primitives are preferred** wherever they fit: `WP_Error`, Site
   Health, the `Requires Plugins` header, the privacy export and erase tools,
   post passwords.

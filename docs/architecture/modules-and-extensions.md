@@ -145,6 +145,13 @@ Besides the money plugins:
   columns from field values plus blank columns such as a signature, optional
   consent text, footer) are bound to a view, which picks the rows and caps the
   columns; each print is audited as a personal-data export.
+- **The Divi 4 theme adapter** (both organizations): Divi's contact-form
+  classes on Kaláka's form markup, `p` wrappers where Divi's form rules need
+  them, Divi's form red as the error colour, and Divi's form styles loaded on
+  pages that hold a form. It keeps visible labels and the browser's own radio
+  buttons and checkboxes ([Engineering](engineering.md#wordpress-surfaces)).
+  Its plugin ID is confirmed with the owner. Divi 5 and other themes come
+  later, each as its own adapter.
 - **The wallet** is designed later ([Deferred](deferred.md)).
 
 ## The Module interface
@@ -272,7 +279,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter"]
   REG --> DECL["Declarations<br/>payer kind"]
 ```
 
@@ -288,7 +295,7 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact).
+    view column, filterable fact, theme adapter).
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
@@ -302,6 +309,19 @@ flowchart LR
   check-in) that can cause an action mail, keyed by the act's record
   ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in
   extension.
+- **A theme adapter** is an outside point that fits participant-side markup
+  to a theme which styles its own components instead of WordPress's
+  ([Engineering](engineering.md#wordpress-surfaces)). It says whether it
+  applies to the active theme, and returns data only:
+  - extra classes for each element role core names (field, text control,
+    choice group, option, submit button, error message, …);
+  - the wrapper element of a single-control field, `div` or `p`;
+  - the error colour.
+
+  Core applies these to the markup it renders, for the block and the
+  shortcode alike, and still produces that markup itself. The adapter loads
+  the theme's own styles where a form appears through the theme's own
+  mechanisms in its `boot()`. At most one adapter applies at a time.
 
 ### Contracts
 
@@ -320,7 +340,8 @@ flowchart LR
   result (fee components in a fixed sequence of stages,
   [Money](money.md#materializer)). **UI points are slots:** a portal or admin section renders into a
   region it owns; no point lets an extension change markup that core
-  produced. (Moodle's renderer overrides and WordPress's HTML filters are the
+  produced. The theme adapter is no exception: it returns classes, a
+  wrapper choice and a colour from closed lists, and core applies them. (Moodle's renderer overrides and WordPress's HTML filters are the
   most fragile parts of those ecosystems.)
 - **After the alpha phase, a released point is permanent.** It is never
   changed incompatibly or removed. Changes are additive only: each point
