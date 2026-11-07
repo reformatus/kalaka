@@ -33,7 +33,7 @@ final readonly class Event
             : $this->storedState;
     }
 
-    /** Whether the event is published and `$now` is from the opening instant (included) to the closing instant (excluded). */
+    /** Whether the event is published and `$now` is from the opening instant (included) to the closing one (excluded). */
     public function registrationWindowContains(\DateTimeImmutable $now): bool
     {
         if (
@@ -44,7 +44,7 @@ final readonly class Event
             return false;
         }
 
-        // [UNAPPROVED D10] the window ends exactly at the closing point, with no added day
+        // the window ends exactly at the closing point, with no added day
         return $this->registrationOpens <= $now && $now < $this->registrationCloses;
     }
 }

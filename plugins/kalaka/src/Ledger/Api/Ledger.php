@@ -85,7 +85,8 @@ final class Ledger
             preg_match('/\A[a-z0-9_:.-]{1,128}\z/', $line->idempotencyKey) !== 1 => 'The key is malformed.',
             ($line->valueDate !== null) !== $line->kind->carriesValueDate()
                 || ($line->paidAt !== null) !== $line->kind->carriesPaidTime() => 'The time does not fit the kind.',
-            $line->valueDate !== null && Instant::startOfDay($line->valueDate) === null => 'The value date is not a day.',
+            $line->valueDate !== null && Instant::startOfDay($line->valueDate) === null
+                => 'The value date is not a day.',
             default => null,
         };
         if ($problem !== null) {

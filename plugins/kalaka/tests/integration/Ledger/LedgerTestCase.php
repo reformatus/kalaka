@@ -31,6 +31,7 @@ abstract class LedgerTestCase extends RegistrationsTestCase
     {
         parent::set_up();
 
+        update_option('timezone_string', 'Europe/Budapest');
         $this->ledger = new Ledger();
         $this->runner = new Runner(new TestClock($this->utc('2026-11-30 08:00:00.123456')), true);
     }

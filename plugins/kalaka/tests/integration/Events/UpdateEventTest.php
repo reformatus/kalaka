@@ -148,8 +148,8 @@ final class UpdateEventTest extends EventsTestCase
         $entry = $this->entriesOf('kalaka/update-event')[1];
         self::assertSame(['points'], $this->changedFields($entry));
         $change = $this->changesOf($entry)[0];
-        self::assertSame('[{"id":1,"name":"Egy","date":"2027-05-01"}]', $change['before']);
-        self::assertSame('[{"id":1,"name":"Egy","date":"2027-05-02"}]', $change['after']);
+        self::assertSame('[{"id":1,"name":"Egy","at":"2027-05-01 08:00:00.000000"}]', $change['before']);
+        self::assertSame('[{"id":1,"name":"Egy","at":"2027-05-02 08:00:00.000000"}]', $change['after']);
     }
 
     public function testPointIdsAreNeverReused(): void
