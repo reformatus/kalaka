@@ -36,8 +36,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Retryable errors are retried from scratch at the outermost run only; a
   nested run never commits, retries or rolls back on its own, and the first
   error in a nested run ends the whole use case.
-- Locks are taken in the lock order; `Context::lock()` refuses a lower level
-  after a higher one.
+- Locks are taken in the lock order; the guard refuses a lower level after a
+  higher one, and a lower key within the event, quota or registration level,
+  for every repository read `FOR UPDATE` and write.
 - The admin-side coarse permission check is Admin's (`Admin\Api\AdminAccess`),
   called by the runner before the transaction; Foundation holds no interface
   or default for it and decides only the side match and the portal side itself.

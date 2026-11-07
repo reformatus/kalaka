@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Foundation\Database\Statements;
+use Kalaka\Foundation\LockKey;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -126,9 +127,19 @@ abstract class Repository
         $rows = $this->statements->select($this->statements->prepare($sql, [$this->prefixedTable(), ...$args]));
 
         $entities = [];
+        $keys = [];
         foreach ($rows as $row) {
             ObjectCache::put($this->table(), $this->keyValues($row), $row);
             $entities[] = $this->hydrate($row);
+            $keys[] = LockKey::normalise($this->keyList($row));
+        }
+        if ($forUpdate !== null && $keys !== []) {
+            // The database locked the rows in whatever order; each new one must not be below a key held before.
+            $table = $this->table();
+            usort($keys, static fn (array $a, array $b): int => LockKey::compare($table, $a, $table, $b));
+            foreach ($keys as $key) {
+                $forUpdate->lockRow($this->lockLevel(), $table, $key);
+            }
         }
 
         return $entities;
@@ -191,12 +202,15 @@ abstract class Repository
             $data['version'] = 1;
         }
 
+        // A new row cannot be held by anyone else, so only its level is checked.
+        $context->lock($this->lockLevel());
         $insertId = $this->statements->insert($this->prefixedTable(), $data, null, $this->insertsReferenceCode());
 
         $key = [];
         foreach ($this->keyColumns() as $column) {
             $key[$column] = $data[$column] ?? ($this->autoIncrement() ? $insertId : null);
         }
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($key), true);
         $stored = $this->readBack($key);
 
         $row = self::loaded()[$stored] ?? [];
@@ -277,6 +291,22 @@ abstract class Repository
         }
 
         return $key;
+    }
+
+    /**
+     * The key values of a row or of a key in key order, for the lock guard.
+     *
+     * @param array<string, mixed> $source
+     * @return list<int|string>
+     */
+    final protected function keyList(array $source): array
+    {
+        $list = [];
+        foreach ($this->keyValues($source) as $value) {
+            $list[] = $value ?? '';
+        }
+
+        return $list;
     }
 
     /**

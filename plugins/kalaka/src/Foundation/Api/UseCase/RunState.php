@@ -25,6 +25,12 @@ final class RunState
 
     public ?LockLevel $highestLock = null;
 
+    /** @var array<string, true> the rows the attempt holds a lock on, by `LockKey::identity()` */
+    public array $heldRows = [];
+
+    /** @var array<int, array{string, list<int|string>}> the highest (table, normalised key) held, by level value */
+    public array $highestKey = [];
+
     /** @var array<string, RegistrationKey> the registrations the attempt wrote, by identity, in first-touch order */
     public array $touched = [];
 

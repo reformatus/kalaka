@@ -285,6 +285,8 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
             static function () use (&$touched): array {
                 return $touched;
             },
+            static function (): void {
+            },
         );
 
         $evaluation->run($context);
