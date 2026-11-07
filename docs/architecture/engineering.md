@@ -37,7 +37,8 @@ title: Engineering
   Czakó, Zsolt before Zuhany), doubled forms are not expanded (Asszony before
   Aszalós), and Adam and Ádám tie. Gy, ny, sz and the like mostly come out
   right because y and z sort late. Every MariaDB collation has these
-  deviations; sorting stays indexable and free.
+  deviations; sorting stays indexable and free. Columns compared exactly
+  (secrets, field keys, currency codes) use `utf8mb4_nopad_bin` instead.
 - **Accent-insensitive search:** under `utf8mb4_hungarian_ci`, o ≠ ö and
   u ≠ ü, so search conditions use an accent-blind collation
   (`utf8mb4_unicode_520_ci`) in the predicate. Searches stay within one event,

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Events\Api;
 
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\Api\Money\Currency;
 
 /** A read of an event. The core points are local 00:00 of their day in the site's time zone. */
 final readonly class Event
@@ -15,6 +16,7 @@ final readonly class Event
         public int $version,
         public string $name,
         private EventState $storedState,
+        public Currency $currency,
         public ?int $capacity,
         public bool $isFull,
         public ?\DateTimeImmutable $registrationOpens,

@@ -13,7 +13,8 @@ final class Module extends AbstractModule
 {
     /**
      * events-and-forms.md, "Events". Points are zone-free `date` columns; the custom points are
-     * JSON in `points`, a `longtext` for the same reason as the audit's JSON columns.
+     * JSON in `points`, a `longtext` for the same reason as the audit's JSON columns. `currency` is the
+     * event's `Currency` code.
      */
     private const EVENTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_events (
@@ -21,6 +22,7 @@ CREATE TABLE {prefix}kalaka_events (
   version int(10) unsigned NOT NULL,
   name varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   state varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  currency char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
   capacity int(10) unsigned DEFAULT NULL,
   is_full tinyint(1) NOT NULL DEFAULT 0,
   registration_opens_on date DEFAULT NULL,

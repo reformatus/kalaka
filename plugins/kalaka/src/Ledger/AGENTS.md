@@ -47,3 +47,4 @@ and moving payments
 - Ledger lines survive erasure and are kept at least 8 years, so a line holds
   no free text and no personal data: a bank reference, payer note or reason
   lives where erasure can reach it.
+- `currency` is `utf8mb4_nopad_bin`: compared exactly.

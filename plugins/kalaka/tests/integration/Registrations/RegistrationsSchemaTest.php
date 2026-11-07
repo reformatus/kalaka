@@ -40,6 +40,12 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         ],
     ];
 
+    /** The columns compared exactly (#42, D1). */
+    private const EXACT = [
+        'kalaka_registrations.secret' => 'utf8mb4_nopad_bin',
+        'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
+    ];
+
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
         global $wpdb;
@@ -70,7 +76,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
                 if ($column['CHARACTER_SET_NAME'] !== null) {
                     self::assertSame('utf8mb4', $column['CHARACTER_SET_NAME'], $table . '.' . $column['COLUMN_NAME']);
                     self::assertSame(
-                        'utf8mb4_hungarian_ci',
+                        self::EXACT[$table . '.' . $column['COLUMN_NAME']] ?? 'utf8mb4_hungarian_ci',
                         $column['COLLATION_NAME'],
                         $table . '.' . $column['COLUMN_NAME']
                     );

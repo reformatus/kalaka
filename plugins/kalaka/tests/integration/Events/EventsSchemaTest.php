@@ -37,7 +37,11 @@ final class EventsSchemaTest extends WP_UnitTestCase
                 . ($column['IS_NULLABLE'] === 'YES' ? ' null' : '');
             if ($column['CHARACTER_SET_NAME'] !== null) {
                 self::assertSame('utf8mb4', $column['CHARACTER_SET_NAME'], $column['COLUMN_NAME']);
-                self::assertSame('utf8mb4_hungarian_ci', $column['COLLATION_NAME'], $column['COLUMN_NAME']);
+                self::assertSame(
+                    $column['COLUMN_NAME'] === 'currency' ? 'utf8mb4_nopad_bin' : 'utf8mb4_hungarian_ci',
+                    $column['COLLATION_NAME'],
+                    $column['COLUMN_NAME']
+                );
             }
         }
 
@@ -47,6 +51,7 @@ final class EventsSchemaTest extends WP_UnitTestCase
                 'version' => 'int(10) unsigned',
                 'name' => 'varchar(191)',
                 'state' => 'varchar(20)',
+                'currency' => 'char(3)',
                 'capacity' => 'int(10) unsigned null',
                 'is_full' => 'tinyint(1)',
                 'registration_opens_on' => 'date null',

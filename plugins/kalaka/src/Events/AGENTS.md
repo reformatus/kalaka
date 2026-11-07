@@ -35,3 +35,4 @@ Events is events, their states, timeline points, date types, capacity and the
   `Events\Api\EventCapacity::lockForRegistration()`, and only that path and
   `kalaka/reopen-event` write the latch.
 - Only a published event takes the full latch.
+- `currency` is `utf8mb4_nopad_bin`: compared exactly.
