@@ -42,7 +42,7 @@ final class AuditFailureTest extends AuditTestCase
     {
         $thrownAt = 0;
         $useCase = new AdminProbe(function (array $input, Context $context) use (&$thrownAt): void {
-            $context->touch($this->registration('00B1'));
+            $context->touch($this->registration('00B3'));
             $this->insertRow('a');
             $thrownAt = __LINE__ + 1;
             throw new \RuntimeException('Teszt Elek részlete');

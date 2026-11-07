@@ -24,14 +24,14 @@ final class RepositoryTouchedTest extends RepositoryTestCase
 
     public function testEveryKindOfWriteMarksItsRegistrationOnceAndNestedRunsCount(): void
     {
-        $this->seedRegistrations(new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A1'));
+        $this->seedRegistrations(new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A2'));
         $touched = null;
         $nested = new NamedProbe(function (array $input, Context $context): void {
-            $this->items->upsert(new TestItem('nested', regEvent: 12, regCode: '00A1'), $context);
+            $this->items->upsert(new TestItem('nested', regEvent: 12, regCode: '00A2'), $context);
         });
 
         $this->inRun(function (array $input, Context $context) use (&$touched, $nested): void {
-            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A1'));
+            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A2'));
             $item = $this->items->upsert(new TestItem('one', regEvent: 12, regCode: '00A0'), $context);
             $item->label = 'two';
             $this->items->upsert($item, $context);
@@ -43,20 +43,20 @@ final class RepositoryTouchedTest extends RepositoryTestCase
         });
 
         self::assertIsArray($touched);
-        self::assertSame(['12/00A0', '12/00A1'], self::codes($touched));
+        self::assertSame(['12/00A0', '12/00A2'], self::codes($touched));
     }
 
     public function testARetriedAttemptStartsWithAnEmptySet(): void
     {
-        $this->seedRegistrations(new RegistrationKey(12, '00A2'), new RegistrationKey(12, '00A3'));
+        $this->seedRegistrations(new RegistrationKey(12, '00A5'), new RegistrationKey(12, '00A8'));
         $touched = null;
         $useCase = new AdminProbe(function (array $input, Context $context, int $call) use (&$touched): void {
-            $this->lockRegistrations($context, new RegistrationKey(12, $call === 1 ? '00A2' : '00A3'));
+            $this->lockRegistrations($context, new RegistrationKey(12, $call === 1 ? '00A5' : '00A8'));
             if ($call === 1) {
-                $this->items->upsert(new TestItem('first attempt', regEvent: 12, regCode: '00A2'), $context);
+                $this->items->upsert(new TestItem('first attempt', regEvent: 12, regCode: '00A5'), $context);
                 throw new RetryableFailure();
             }
-            $this->items->upsert(new TestItem('second attempt', regEvent: 12, regCode: '00A3'), $context);
+            $this->items->upsert(new TestItem('second attempt', regEvent: 12, regCode: '00A8'), $context);
             $touched = $context->touchedRegistrations();
         });
 
@@ -64,7 +64,7 @@ final class RepositoryTouchedTest extends RepositoryTestCase
 
         self::assertSame(2, $useCase->calls);
         self::assertIsArray($touched);
-        self::assertSame(['12/00A3'], self::codes($touched));
+        self::assertSame(['12/00A8'], self::codes($touched));
     }
 
     public function testAContextKeptAfterItsRunRefusesToMarkARegistration(): void

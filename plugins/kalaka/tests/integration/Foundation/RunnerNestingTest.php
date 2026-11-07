@@ -299,7 +299,7 @@ final class RunnerNestingTest extends AuditTestCase
 
     public function testAPortalRunnerMayNestAnAdminUseCase(): void
     {
-        $key = new RegistrationKey(10, 'ABCD');
+        $key = new RegistrationKey(10, '12A3');
         $admin = new AdminProbe(function (): void {
             $this->insertRow('admin');
         });

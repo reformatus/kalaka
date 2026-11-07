@@ -18,7 +18,7 @@ final class LedgerCostTest extends PerEventCostTestCase
 
         $tuples = [];
         $args = [];
-        foreach (['AAAA' => 6, 'BBBB' => 4] as $code => $lines) {
+        foreach (['00A0' => 6, '00B0' => 4] as $code => $lines) {
             for ($number = 1; $number <= $lines; $number++) {
                 $tuples[] = match ($number % 3) {
                     0 => "(%d, %s, 'charge', 'participant', 1000, 'HUF', 'fee_component', NULL, 'fixed_price', %s,"
@@ -49,7 +49,7 @@ final class LedgerCostTest extends PerEventCostTestCase
     {
         $this->assertPerEventCost(
             fn (int $event) => $this->seedEvent($event),
-            fn (int $event) => (new Ledger())->balancesOf(new RegistrationKey($event, 'AAAA'))
+            fn (int $event) => (new Ledger())->balancesOf(new RegistrationKey($event, '00A0'))
         );
     }
 
@@ -58,7 +58,7 @@ final class LedgerCostTest extends PerEventCostTestCase
         wp_timezone(); // WordPress loads its options once; that read is not the ledger's
         $this->assertPerEventCost(
             fn (int $event) => $this->seedEvent($event),
-            fn (int $event) => (new Ledger())->paymentFactsOf(new RegistrationKey($event, 'AAAA'))
+            fn (int $event) => (new Ledger())->paymentFactsOf(new RegistrationKey($event, '00A0'))
         );
     }
 
@@ -66,7 +66,7 @@ final class LedgerCostTest extends PerEventCostTestCase
     {
         $this->assertPerEventCost(
             fn (int $event) => $this->seedEvent($event),
-            fn (int $event) => (new LedgerLineRepository())->findByKey(new RegistrationKey($event, 'AAAA'), 'line:2')
+            fn (int $event) => (new LedgerLineRepository())->findByKey(new RegistrationKey($event, '00A0'), 'line:2')
         );
     }
 
@@ -74,7 +74,7 @@ final class LedgerCostTest extends PerEventCostTestCase
     {
         $this->seedEvent(1);
         $ledger = new Ledger();
-        $registration = new RegistrationKey(1, 'AAAA');
+        $registration = new RegistrationKey(1, '00A0');
 
         wp_timezone(); // WordPress loads its options once; that read is not the ledger's
 

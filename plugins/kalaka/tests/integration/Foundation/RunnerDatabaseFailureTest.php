@@ -171,7 +171,7 @@ final class RunnerDatabaseFailureTest extends RealTableTestCase
                     }),
                     'touch' => fn () => $context->touch($subject),
                     'change' => fn () => $context->change($subject, 'label', 'a', 'b'),
-                    'markTouched' => fn () => $context->markTouched(new RegistrationKey(1, 'ABCD')),
+                    'markTouched' => fn () => $context->markTouched(new RegistrationKey(1, '12A3')),
                     'run' => fn () => $context->run($nested, []),
                     'forUpdate' => fn () => $this->items->findForUpdate($this->rowB, $context),
                     'delete' => fn () => $this->items->delete($this->items->byLabel('B')[0], $context),

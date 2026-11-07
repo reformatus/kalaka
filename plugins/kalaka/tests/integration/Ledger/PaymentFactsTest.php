@@ -127,6 +127,6 @@ final class PaymentFactsTest extends LedgerTestCase
         $this->record($this->line($registration, LineKind::Charge, '1000', 'k1'));
 
         self::assertSame([], $this->ledger->paymentFactsOf($registration));
-        self::assertSame([], $this->ledger->paymentFactsOf(new RegistrationKey(self::EVENT, 'ZZZZ')));
+        self::assertSame([], $this->ledger->paymentFactsOf(new RegistrationKey(self::EVENT, '00Z9')));
     }
 }

@@ -34,7 +34,7 @@ final class AuditEntryTest extends AuditTestCase
         $runner = new Runner($this->clockAt('2026-11-30 10:00:00'), true);
 
         $useCase = new AdminProbe(function (array $input, Context $context): void {
-            $context->touch($this->registration('00B1'));
+            $context->touch($this->registration('00B3'));
             $context->change($this->registration('00A0'), 'tier', 'A', 'B');
         }, event: 12, targets: [new RegistrationKey(12, '00A0')]);
         $runner->run($useCase, [], new UserActor($user));
@@ -66,7 +66,7 @@ final class AuditEntryTest extends AuditTestCase
             $this->decode($entry['changes'])
         );
         self::assertSame(
-            ['event/12/12', 'registration/12/00A0', 'registration/12/00B1'],
+            ['event/12/12', 'registration/12/00A0', 'registration/12/00B3'],
             $this->subjectsOf($entry['id'])
         );
     }
@@ -120,7 +120,7 @@ final class AuditEntryTest extends AuditTestCase
     {
         $schema = ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']]];
         $nested = new NamedProbe(function (array $input, Context $context): void {
-            $context->change($this->registration('00B1'), 'tier', 'C', 'D');
+            $context->change($this->registration('00B3'), 'tier', 'C', 'D');
         }, $schema);
         $outer = new AdminProbe(function (array $input, Context $context) use ($nested): void {
             $context->touch($this->registration('00A0'));
@@ -138,9 +138,9 @@ final class AuditEntryTest extends AuditTestCase
         self::assertSame($first['id'], $second['parent_id']);
         self::assertSame($first['correlation_id'], $second['correlation_id']);
         self::assertSame(['registration/12/00A0'], $this->subjectsOf($first['id']));
-        self::assertSame(['registration/12/00B1'], $this->subjectsOf($second['id']));
+        self::assertSame(['registration/12/00B3'], $this->subjectsOf($second['id']));
         self::assertSame('[]', $first['changes']);
-        self::assertSame('00B1', $this->decode($second['changes'])[0]['key']);
+        self::assertSame('00B3', $this->decode($second['changes'])[0]['key']);
         self::assertSame('Külső ok', $first['reason']);
         self::assertSame('Beágyazott ok', $second['reason']);
     }
@@ -169,7 +169,7 @@ final class AuditEntryTest extends AuditTestCase
             $context->change($a, 'tier', 'B', 'C');
             $context->change($a, 'name', 'N', 'M');
             $context->change($a, 'name', 'M', 'N');
-            $context->change($this->registration('00B1'), 'tier', 'A', 'A');
+            $context->change($this->registration('00B3'), 'tier', 'A', 'A');
         });
         $this->runner->run($useCase, [], new SystemActor());
 
@@ -195,7 +195,7 @@ final class AuditEntryTest extends AuditTestCase
             ],
             $this->decode($entry['changes'])
         );
-        self::assertSame(['registration/12/00A0', 'registration/12/00B1'], $this->subjectsOf($entry['id']));
+        self::assertSame(['registration/12/00A0', 'registration/12/00B3'], $this->subjectsOf($entry['id']));
     }
 
     public function testAFieldRecordedOnceAsSecretStaysMasked(): void
@@ -318,7 +318,7 @@ final class AuditEntryTest extends AuditTestCase
     {
         $useCase = new AdminProbe(function (): void {
             $this->insertRow('a');
-            Subject::registration(new RegistrationKey(12, ''));
+            new Subject('registration', 12, '');
         });
 
         try {
@@ -382,7 +382,7 @@ final class AuditEntryTest extends AuditTestCase
     public function testASuccessfulRetryWritesOneEntryWithTheLastAttemptsSubjects(): void
     {
         $useCase = new AdminProbe(function (array $input, Context $context, int $call): void {
-            $context->touch($this->registration('A00' . $call));
+            $context->touch($this->registration(['00A0', '00A2', '00A5'][$call - 1]));
             if ($call < 3) {
                 throw new \Kalaka\Foundation\Api\Error\RetryableFailure();
             }
@@ -392,6 +392,6 @@ final class AuditEntryTest extends AuditTestCase
 
         $entry = $this->onlyEntry();
         self::assertSame('succeeded', $entry['outcome']);
-        self::assertSame(['registration/12/A003'], $this->subjectsOf($entry['id']));
+        self::assertSame(['registration/12/00A5'], $this->subjectsOf($entry['id']));
     }
 }

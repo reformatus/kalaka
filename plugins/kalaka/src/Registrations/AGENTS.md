@@ -28,6 +28,9 @@ the waitlist and reference codes
 - The generator issues only codes that pass the validity rule; a code is never
   reused within its event. A collision is a retryable error; an existing
   registration never gets another code.
+- A `RegistrationKey` holds only a code valid in canonical form
+  (`ReferenceCode::isValid()`); any other spelling is `InvalidInput`, so none
+  reaches a read, a lock or a write.
 - A duplicate key is retryable only on the registration insert
   (`insertsReferenceCode()`); every other duplicate key is a `SystemFailure`.
 - The reference code grants no access.

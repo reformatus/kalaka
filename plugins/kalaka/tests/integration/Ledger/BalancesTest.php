@@ -164,7 +164,7 @@ final class BalancesTest extends LedgerTestCase
     public function testLinesOfOtherRegistrationsNeverCount(): void
     {
         $mine = $this->registration('12A3');
-        $sameEventOther = $this->registration('12A4');
+        $sameEventOther = $this->registration('12K0');
         $otherEventSameCode = $this->registration('12A3', self::EVENT + 1);
         $this->record(
             $this->line($mine, LineKind::Charge, '1000', 'k1'),

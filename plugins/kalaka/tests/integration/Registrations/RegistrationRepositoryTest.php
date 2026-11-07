@@ -236,8 +236,8 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
     public static function descendingPairs(): array
     {
         return [
-            [new RegistrationKey(5, '2B'), new RegistrationKey(5, '1A')],
-            [new RegistrationKey(6, '1A'), new RegistrationKey(5, '9Z')],
+            [new RegistrationKey(5, '20A0'), new RegistrationKey(5, '10A1')],
+            [new RegistrationKey(6, '10A1'), new RegistrationKey(5, '90A2')],
         ];
     }
 
@@ -263,11 +263,11 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
 
     public function testTheSameRegistrationTwicePasses(): void
     {
-        $this->seedCodes(5, ['1A', '2B']);
+        $this->seedCodes(5, ['10A1', '20A0']);
 
         $this->inRun(function (array $input, Context $context): void {
-            $this->registrations->findForUpdate(new RegistrationKey(5, '2B'), $context);
-            $this->registrations->findForUpdate(new RegistrationKey(5, '2B'), $context);
+            $this->registrations->findForUpdate(new RegistrationKey(5, '20A0'), $context);
+            $this->registrations->findForUpdate(new RegistrationKey(5, '20A0'), $context);
         });
 
         self::addToAssertionCount(1);
@@ -275,11 +275,11 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
 
     public function testInsertingALowerCodeThanAHeldOneIsNotKeyChecked(): void
     {
-        $this->seedCodes(5, ['5E']);
+        $this->seedCodes(5, ['50A0']);
 
         $this->inRun(function (array $input, Context $context): void {
-            $this->registrations->findForUpdate(new RegistrationKey(5, '5E'), $context);
-            $this->registrations->upsert($this->newRegistration(5, '1A'), $context);
+            $this->registrations->findForUpdate(new RegistrationKey(5, '50A0'), $context);
+            $this->registrations->upsert($this->newRegistration(5, '10A1'), $context);
         });
 
         self::assertSame(2, $this->registrationCount());

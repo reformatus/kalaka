@@ -11,7 +11,7 @@ use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 /** The per-event cost test of the query that reads one registration's decisions. */
 final class DecisionQueryCostTest extends PerEventCostTestCase
 {
-    private const CODES = ['00A0', '00A1', '00A2', '00A3'];
+    private const CODES = ['00A0', '00A2', '00A5', '00A8'];
 
     private const ROWS_PER_CODE = 20;
 
@@ -40,7 +40,7 @@ final class DecisionQueryCostTest extends PerEventCostTestCase
                     . implode(', ', $values)
                 );
             },
-            static fn (int $event): array => (new DecisionQuery())->currentOf(new RegistrationKey($event, '00A1'))
+            static fn (int $event): array => (new DecisionQuery())->currentOf(new RegistrationKey($event, '00A2'))
         );
     }
 }

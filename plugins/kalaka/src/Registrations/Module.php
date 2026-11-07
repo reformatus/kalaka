@@ -12,7 +12,7 @@ final class Module extends AbstractModule
     /**
      * registrations-and-identity.md, "Registrations". Keyed by (event ID, reference code); times are
      * UTC `datetime(6)`; `secret` is `utf8mb4_nopad_bin`, compared exactly. `KEY code` serves the site-wide
-     * `SELECT DISTINCT code` of `ReferenceCodeQuery`.
+     * `code IN (…)` of `ReferenceCodeQuery`.
      */
     private const REGISTRATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_registrations (

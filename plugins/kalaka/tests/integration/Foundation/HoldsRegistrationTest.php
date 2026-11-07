@@ -36,7 +36,7 @@ final class HoldsRegistrationTest extends RepositoryTestCase
             self::assertInstanceOf(TestItem::class, $this->held->findForUpdate($id, $context));
             $seen[] = $context->holdsRegistration($key);
             self::assertNull($this->held->findForUpdate($id + 1, $context));
-            $seen[] = $context->holdsRegistration(new RegistrationKey(12, '00A1'));
+            $seen[] = $context->holdsRegistration(new RegistrationKey(12, '00A2'));
 
             return $seen;
         });
@@ -47,14 +47,14 @@ final class HoldsRegistrationTest extends RepositoryTestCase
     public function testAMultiRowReadForUpdateHoldsTheRegistrationOfEveryRow(): void
     {
         $this->seedMapped('kalaka_test_items_other', 12, '00A0', 'pair');
-        $this->seedMapped('kalaka_test_items_other', 12, '00A1', 'pair');
+        $this->seedMapped('kalaka_test_items_other', 12, '00A2', 'pair');
 
         $seen = $this->inRun(function (array $input, Context $context): array {
             self::assertCount(2, $this->held->byLabelForUpdate('pair', $context));
 
             return [
                 $context->holdsRegistration(new RegistrationKey(12, '00A0')),
-                $context->holdsRegistration(new RegistrationKey(12, '00A1')),
+                $context->holdsRegistration(new RegistrationKey(12, '00A2')),
             ];
         });
 
@@ -67,7 +67,7 @@ final class HoldsRegistrationTest extends RepositoryTestCase
         $nestedSaw = null;
         $nested = new NamedProbe(function (array $input, Context $context) use (&$nestedSaw): void {
             $nestedSaw = $context->holdsRegistration(new RegistrationKey(12, '00A0'));
-            $this->held->upsert(new TestItem('nested', regEvent: 12, regCode: '00A1'), $context);
+            $this->held->upsert(new TestItem('nested', regEvent: 12, regCode: '00A2'), $context);
         });
 
         $seen = $this->inRun(function (array $input, Context $context) use ($id, $nested): array {
@@ -80,7 +80,7 @@ final class HoldsRegistrationTest extends RepositoryTestCase
 
             return [
                 $context->holdsRegistration(new RegistrationKey(12, '00A0')),
-                $context->holdsRegistration(new RegistrationKey(12, '00A1')),
+                $context->holdsRegistration(new RegistrationKey(12, '00A2')),
                 $context->holdsRegistration(new RegistrationKey(12, '00B0')),
             ];
         });

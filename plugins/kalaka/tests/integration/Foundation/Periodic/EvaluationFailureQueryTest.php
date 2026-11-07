@@ -13,7 +13,7 @@ final class EvaluationFailureQueryTest extends PeriodicTestCase
     public function testItReturnsTheFlagsOfTheGivenEventsAscendingByEventAndCode(): void
     {
         $this->seedFlag(7, '00B0');
-        $this->seedFlag(3, '00A1');
+        $this->seedFlag(3, '00A2');
         $this->seedFlag(7, '00A0');
         $this->seedFlag(9, '00A0');
         $this->seedFlag(3, '00A0');
@@ -23,7 +23,7 @@ final class EvaluationFailureQueryTest extends PeriodicTestCase
         self::assertEquals(
             [
                 new RegistrationKey(3, '00A0'),
-                new RegistrationKey(3, '00A1'),
+                new RegistrationKey(3, '00A2'),
                 new RegistrationKey(7, '00A0'),
                 new RegistrationKey(7, '00B0'),
             ],

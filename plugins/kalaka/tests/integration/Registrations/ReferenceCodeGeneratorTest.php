@@ -8,8 +8,10 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Registrations\ReferenceCodeGenerator;
 use Kalaka\Registrations\Registration;
+use Random\Engine\Mt19937;
+use Random\Randomizer;
 
-/** AC3 to AC5: the generator. */
+/** AC3 to AC5: the generator, rejection sampling checked in SQL with an exact fallback. */
 final class ReferenceCodeGeneratorTest extends RegistrationsTestCase
 {
     public function testThreeRegistrationsOfOneRunGetThreeDistinctValidCodes(): void
@@ -36,17 +38,19 @@ final class ReferenceCodeGeneratorTest extends RegistrationsTestCase
         self::assertSame(3, $this->registrationCount());
     }
 
-    public function testTheLastCodeNoOtherEventUsesIsTheOneIssued(): void
+    public function testACodeNoOtherEventUsesIsPreferred(): void
     {
         $all = ReferenceCode::fourCharacterCodes();
-        $remaining = $all[1234];
-        $others = array_values(array_diff($all, [$remaining]));
-        $this->seedCodes(2, array_slice($others, 0, 2000));
-        $this->seedCodes(3, array_slice($others, 2000));
+        // Other events use every second code, so a batch of 64 holds a code no event uses all but surely.
+        $used = array_values(array_filter($all, static fn (int $i): bool => $i % 2 === 0, ARRAY_FILTER_USE_KEY));
+        $this->seedCodes(2, array_slice($used, 0, 1000));
+        $this->seedCodes(3, array_slice($used, 1000));
+        $unused = array_flip(array_diff($all, $used));
         $generator = new ReferenceCodeGenerator();
 
-        for ($call = 0; $call < 20; $call++) {
-            self::assertSame($remaining, $generator->generate(1));
+        for ($call = 0; $call < 50; $call++) {
+            $code = $generator->generate(1);
+            self::assertArrayHasKey($code, $unused);
         }
     }
 
@@ -64,6 +68,48 @@ final class ReferenceCodeGeneratorTest extends RegistrationsTestCase
             self::assertTrue(ReferenceCode::isValid($code));
             self::assertNotContains($code, $own);
         }
+    }
+
+    public function testAnEventWithOneCodeLeftGetsThatCode(): void
+    {
+        $all = ReferenceCode::fourCharacterCodes();
+        $remaining = $all[1234];
+        $this->seedCodes(1, array_values(array_diff($all, [$remaining])));
+        // Every other event uses it: the event's own codes decide, not the site's.
+        $this->seedCodes(2, [$remaining]);
+        $generator = new ReferenceCodeGenerator();
+
+        for ($call = 0; $call < 20; $call++) {
+            self::assertSame($remaining, $generator->generate(1));
+        }
+    }
+
+    public function testTheCodesLeftInANearlyFullEventAreIssuedUniformly(): void
+    {
+        $all = ReferenceCode::fourCharacterCodes();
+        $free = [];
+        foreach ([3, 400, 777, 1024, 1500, 2001, 2222, 2600, 3001, 3333, 3700, 4000, 4321, 4600, 4888, 4999] as $i) {
+            $free[$all[$i]] = 0;
+        }
+        $this->seedCodes(1, array_values(array_diff($all, array_keys($free))));
+        // A seeded engine, so the test is deterministic; production uses the default CSPRNG.
+        $generator = new ReferenceCodeGenerator(random: new Randomizer(new Mt19937(20261107)));
+        $draws = 40 * count($free);
+
+        for ($call = 0; $call < $draws; $call++) {
+            $code = $generator->generate(1);
+            self::assertArrayHasKey($code, $free);
+            $free[$code]++;
+        }
+
+        $expected = $draws / count($free);
+        $chiSquare = 0.0;
+        foreach ($free as $seen) {
+            self::assertGreaterThan(0, $seen, 'Every free code is reachable.');
+            $chiSquare += ($seen - $expected) ** 2 / $expected;
+        }
+        // The 99.9th percentile of chi-square with 15 degrees of freedom.
+        self::assertLessThan(37.70, $chiSquare, 'Counts: ' . wp_json_encode($free));
     }
 
     public function testAnEventThatUsesEveryFourCharacterCodeGetsAFiveCharacterOneAndNothingIsStored(): void

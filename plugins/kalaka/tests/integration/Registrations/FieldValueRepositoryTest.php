@@ -95,12 +95,12 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
     public function testTheValuesOfOneRegistrationComeInOneStatementAndOnlyThose(): void
     {
         $key = new RegistrationKey(5, '12A3');
-        $this->seedRegistrations($key, new RegistrationKey(5, '13B4'), new RegistrationKey(6, '12A3'));
+        $this->seedRegistrations($key, new RegistrationKey(5, '13A2'), new RegistrationKey(6, '12A3'));
         $this->inRun(function (array $input, Context $context) use ($key): void {
-            $this->lockRegistrations($context, $key, new RegistrationKey(5, '13B4'), new RegistrationKey(6, '12A3'));
+            $this->lockRegistrations($context, $key, new RegistrationKey(5, '13A2'), new RegistrationKey(6, '12A3'));
             $this->values->upsert(new FieldValue($key, 'name', 'Árvíztűrő Tükörfúrógép'), $context);
             $this->values->upsert(new FieldValue($key, 'email', 'anna@example.test'), $context);
-            $this->values->upsert(new FieldValue(new RegistrationKey(5, '13B4'), 'name', 'Béla'), $context);
+            $this->values->upsert(new FieldValue(new RegistrationKey(5, '13A2'), 'name', 'Béla'), $context);
             $this->values->upsert(new FieldValue(new RegistrationKey(6, '12A3'), 'name', 'Cecil'), $context);
         });
 

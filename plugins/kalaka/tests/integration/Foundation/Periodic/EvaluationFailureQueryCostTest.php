@@ -22,7 +22,7 @@ final class EvaluationFailureQueryCostTest extends PerEventCostTestCase
                     $values[] = $wpdb->prepare(
                         "(%d, %s, 1, 'decisions/test', '{}', '2026-11-29 08:00:00.000000')",
                         $event,
-                        sprintf('00A%02d', $i)
+                        sprintf('00A0%02d', $i)
                     );
                 }
                 $wpdb->query(

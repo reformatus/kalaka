@@ -64,7 +64,7 @@ final class EventCapacityTest extends EventsTestCase
 
         try {
             $this->inRun(function (Context $context, EventCapacity $capacity) use ($id, $registrations): void {
-                $registrations->upsert(self::newRegistration($id, '1A23'), $context);
+                $registrations->upsert(self::newRegistration($id, '12A3'), $context);
                 $capacity->lockForRegistration($context, $id);
             });
             self::fail('The run should have failed.');
@@ -80,12 +80,12 @@ final class EventCapacityTest extends EventsTestCase
 
         $this->inRun(function (Context $context, EventCapacity $capacity) use ($id, $registrations): void {
             $capacity->lockForRegistration($context, $id);
-            $registrations->upsert(self::newRegistration($id, '1A23'), $context);
+            $registrations->upsert(self::newRegistration($id, '12A3'), $context);
             $capacity->markFull($context, $id);
         });
 
         self::assertSame('1', $this->row($id)['is_full']);
-        self::assertSame('1', $this->registrationRow($id, '1A23')['version'] ?? null);
+        self::assertSame('1', $this->registrationRow($id, '12A3')['version'] ?? null);
     }
 
     public function testMarkFullAfterARegistrationLockIsALockOrderFailureAndLeavesTheLatch(): void
@@ -95,14 +95,14 @@ final class EventCapacityTest extends EventsTestCase
 
         try {
             $this->inRun(function (Context $context, EventCapacity $capacity) use ($id, $registrations): void {
-                $registrations->upsert(self::newRegistration($id, '1A23'), $context);
+                $registrations->upsert(self::newRegistration($id, '12A3'), $context);
                 $capacity->markFull($context, $id);
             });
             self::fail('The run should have failed.');
         } catch (SystemFailure $caught) {
             self::assertStringContainsString('Lock order violated', (string) $caught->getPrevious()?->getMessage());
             self::assertSame('0', $this->row($id)['is_full']);
-            self::assertNull($this->registrationRow($id, '1A23'));
+            self::assertNull($this->registrationRow($id, '12A3'));
         }
     }
 

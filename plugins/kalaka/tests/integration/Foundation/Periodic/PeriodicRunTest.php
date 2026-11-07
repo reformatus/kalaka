@@ -42,7 +42,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         $second = new SpyTimeRule(static fn (TimeRuleInput $input): array => [
             new RegistrationKey($input->event->id, '00A0'),
             new RegistrationKey($input->event->id, '00A0'),
-            new RegistrationKey($input->event->id, '00C0'),
+            new RegistrationKey($input->event->id, '00B6'),
         ]);
         $this->timeRules->add($first);
         $this->timeRules->add($second);
@@ -54,7 +54,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         $window = ['since' => null, 'until' => '2026-11-30 09:00:00', 'zone' => 'UTC+'];
         self::assertSame([$window, $window], array_map(self::windowOf(...), $first->inputs));
         self::assertSame(
-            ["$one/00A0", "$one/00B0", "$one/00C0", "$five/00A0", "$five/00B0", "$five/00C0"],
+            ["$one/00A0", "$one/00B0", "$one/00B6", "$five/00A0", "$five/00B0", "$five/00B6"],
             $this->evaluatedKeys()
         );
         foreach ($this->entriesOf('kalaka/evaluate-registration') as $entry) {

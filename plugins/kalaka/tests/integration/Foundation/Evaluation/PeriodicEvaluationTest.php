@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Audit\Correlation;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Evaluation\EvaluateRegistration;
+use Kalaka\Foundation\Evaluation\FlagEvaluationFailure;
 use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Foundation\Evaluation\RuleFailed;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -108,11 +111,11 @@ final class PeriodicEvaluationTest extends EvaluationTestCase
     {
         $this->rules->add(new TestRule('test_state'), true);
         $this->seedFlag(12, '00A0');
-        $this->seedFlag(12, '00A1');
+        $this->seedFlag(12, '00A2');
 
         self::assertTrue($this->periodic()->evaluate($this->key));
 
-        self::assertSame(['00A1'], array_column($this->flagRows(), 'code'));
+        self::assertSame(['00A2'], array_column($this->flagRows(), 'code'));
     }
 
     public function testAnInteractiveUseCaseClearsTheFlagInItsTransaction(): void
@@ -125,17 +128,17 @@ final class PeriodicEvaluationTest extends EvaluationTestCase
         };
         $this->rules->add($rule, true);
         $this->seedFlag(12, '00A0');
-        $this->seedFlag(12, '00A1');
+        $this->seedFlag(12, '00A2');
 
         $this->exec($this->touching($this->key));
-        self::assertSame(['00A1'], array_column($this->flagRows(), 'code'));
+        self::assertSame(['00A2'], array_column($this->flagRows(), 'code'));
 
         $this->seedFlag(12, '00A0');
         try {
             $this->exec($this->touching($this->key, new RegistrationKey(12, '00B0')));
             self::fail('The use case should have failed.');
         } catch (SystemFailure) {
-            self::assertSame(['00A0', '00A1'], array_column($this->flagRows(), 'code'));
+            self::assertSame(['00A0', '00A2'], array_column($this->flagRows(), 'code'));
         }
     }
 
@@ -162,5 +165,47 @@ final class PeriodicEvaluationTest extends EvaluationTestCase
         self::assertStringNotContainsString('secret rule message', $log);
         self::assertStringNotContainsString('Database error', $log);
         self::assertStringNotContainsString('00A0', $log);
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function otherSpellings(): iterable
+    {
+        foreach (['lower case' => '00a0', 'trailing space' => '00A0 ', 'fullwidth' => '００Ａ０'] as $name => $code) {
+            yield "evaluate, $name" => ['evaluate', $code];
+            yield "flag, $name" => ['flag', $code];
+        }
+    }
+
+    /** @dataProvider otherSpellings */
+    public function testAnotherSpellingOfACodeIsInvalidInputBeforeTheTransaction(string $which, string $code): void
+    {
+        $this->seedFlag(12, '00A0');
+        $this->rules->add(new TestRule('test_state'), true);
+        $useCase = $which === 'evaluate' ? new EvaluateRegistration() : new FlagEvaluationFailure();
+        $input = ['event_id' => 12, 'code' => $code];
+        if ($which === 'flag') {
+            $input += ['rule' => 'decisions/test_state', 'error' => '{}'];
+        }
+        $statements = [];
+        $capture = static function (string $query) use (&$statements): string {
+            $statements[] = $query;
+
+            return $query;
+        };
+
+        add_filter('query', $capture);
+        try {
+            $this->exec($useCase, $input);
+            self::fail('The run should have been refused.');
+        } catch (InvalidInput $e) {
+            self::assertSame('Hibás vagy hiányzó adat.', $e->getMessage());
+        } finally {
+            remove_filter('query', $capture);
+        }
+
+        self::assertSame([], $statements);
+        self::assertSame([], $this->entries());
+        self::assertSame([], $this->decisionRows());
+        self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));
     }
 }

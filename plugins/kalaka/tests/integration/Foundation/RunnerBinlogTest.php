@@ -105,7 +105,7 @@ final class RunnerBinlogTest extends AuditTestCase
 
         $this->expectException(PermissionDenied::class);
         try {
-            $this->runnerWithNewCheck()->run($useCase, [], new SecretLinkActor(new RegistrationKey(10, 'ABCD')));
+            $this->runnerWithNewCheck()->run($useCase, [], new SecretLinkActor(new RegistrationKey(10, '12A3')));
         } finally {
             self::assertSame(0, $fake->reads);
             self::assertSame(0, $useCase->calls);

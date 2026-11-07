@@ -247,7 +247,7 @@ final class RecordLineTest extends LedgerTestCase
     public function testTheSameKeyOnAnotherRegistrationOfTheEventIsASecondRow(): void
     {
         $first = $this->registration('12A3');
-        $second = $this->registration('12A4');
+        $second = $this->registration('12K0');
 
         $this->record(
             $this->line($first, LineKind::Charge, '1000', 'k1'),

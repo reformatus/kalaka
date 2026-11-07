@@ -225,18 +225,18 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
     {
         $rule = new TestRule('test_state');
         $this->rules->add($rule, true);
-        $this->seedRegistration(12, '00A0', '00B1');
+        $this->seedRegistration(12, '00A0', '00B3');
         $this->seedRegistration(3, '00Z9');
 
         $this->exec($this->touching(
-            new RegistrationKey(12, '00B1'),
+            new RegistrationKey(12, '00B3'),
             new RegistrationKey(3, '00Z9'),
             new RegistrationKey(12, '00A0'),
-            new RegistrationKey(12, '00B1'),
+            new RegistrationKey(12, '00B3'),
         ));
 
         self::assertSame(
-            ['3/00Z9', '12/00A0', '12/00B1'],
+            ['3/00Z9', '12/00A0', '12/00B3'],
             array_map(
                 static fn ($input): string => $input->registration->eventId . '/' . $input->registration->code,
                 $rule->inputs
@@ -248,9 +248,9 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
     {
         $rule = new TestRule('test_state');
         $this->rules->add($rule, true);
-        $this->seedRegistration(12, '00A2', '00A3');
+        $this->seedRegistration(12, '00A5', '00A8');
         $useCase = new AdminProbe(function (array $input, Context $context, int $call): void {
-            $code = $call === 1 ? '00A2' : '00A3';
+            $code = $call === 1 ? '00A5' : '00A8';
             $this->lockRegistrations($context, new RegistrationKey(12, $code));
             $this->items->upsert(new TestItem('attempt', regEvent: 12, regCode: $code), $context);
             if ($call === 1) {
@@ -261,7 +261,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $this->exec($useCase);
 
         self::assertSame(2, $useCase->calls);
-        self::assertSame(['00A3'], array_map(static fn ($input): string => $input->registration->code, $rule->inputs));
+        self::assertSame(['00A8'], array_map(static fn ($input): string => $input->registration->code, $rule->inputs));
     }
 
     public function testARegistrationFirstTouchedWhileEvaluatingIsEvaluatedToo(): void
@@ -317,19 +317,19 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $rule = new TestRule('test_state');
         $rule->answer = 'on';
         $this->rules->add($rule, true);
-        $this->seedRegistration(12, '00A1');
+        $this->seedRegistration(12, '00A2');
         $this->seedFlag(12, '00A0');
-        $this->seedFlag(12, '00A1');
+        $this->seedFlag(12, '00A2');
 
         // Marked without a write: a write mapped to a key without a row would need a lock the run cannot hold.
         $this->exec(new AdminProbe(static function (array $input, Context $context): void {
             $context->markTouched(new RegistrationKey(12, '00A0'));
-            $context->markTouched(new RegistrationKey(12, '00A1'));
+            $context->markTouched(new RegistrationKey(12, '00A2'));
         }));
 
-        self::assertSame(['00A1'], array_map(static fn ($input): string => $input->registration->code, $rule->inputs));
+        self::assertSame(['00A2'], array_map(static fn ($input): string => $input->registration->code, $rule->inputs));
         self::assertSame(
-            [['12', '00A1', 'test_state', 'on']],
+            [['12', '00A2', 'test_state', 'on']],
             array_map(
                 static fn (array $row): array => [$row['event_id'], $row['code'], $row['kind'], $row['state']],
                 $this->decisionRows()
