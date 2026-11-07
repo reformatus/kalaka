@@ -19,6 +19,7 @@ final class SubmissionRepositoryTest extends RegistrationsTestCase
         $touched = null;
 
         $this->inRun(function (array $input, Context $context) use ($key, $answers, &$touched): void {
+            $this->lockRegistrations($context, $key);
             $this->submissions->insert(
                 new Submission($key, 1, 10, 3, $answers, $this->utc('2026-11-30 08:00:00.250000')),
                 $context
@@ -48,6 +49,7 @@ final class SubmissionRepositoryTest extends RegistrationsTestCase
     public function testNoAnswersAreStoredAsAnEmptyObject(): void
     {
         $this->inRun(function (array $input, Context $context): void {
+            $this->lockRegistrations($context, new RegistrationKey(5, '12A3'));
             $this->submissions->insert(
                 new Submission(new RegistrationKey(5, '12A3'), 1, 10, 1, [], $this->utc('2026-11-30 08:00:00')),
                 $context

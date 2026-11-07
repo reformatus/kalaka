@@ -22,7 +22,8 @@ final class Context
      * @param \Closure(): void $assertOpen
      * @param \Closure(RegistrationKey): void $markTouched
      * @param \Closure(): list<RegistrationKey> $touchedRegistrations
-     * @param \Closure(LockLevel, string, list<int|string>, bool): void $lockRow
+     * @param \Closure(LockLevel, string, list<int|string>, bool, ?RegistrationKey): void $lockRow
+     * @param \Closure(RegistrationKey): bool $holdsRegistration
      */
     public function __construct(
         private readonly Actor $actor,
@@ -36,6 +37,7 @@ final class Context
         private readonly \Closure $markTouched,
         private readonly \Closure $touchedRegistrations,
         private readonly \Closure $lockRow,
+        private readonly \Closure $holdsRegistration,
     ) {
     }
 
@@ -85,14 +87,30 @@ final class Context
      * row's key in key order. A row this attempt already holds is no new lock. A lower level than one
      * already taken, or a lower key than the highest one at the event, quota or registration level, is
      * a programming error. `$recordOnly` records the row as held without that check: only for an inserted
-     * row, which nobody else can hold.
+     * row, which nobody else can hold, and for a row already held. `$registration` is the registration the
+     * row's record maps to, given once the record is known: at the registration level it makes
+     * `holdsRegistration()` true for it.
      *
      * @param list<int|string> $key
      * @throws \Kalaka\Foundation\Api\Error\SystemFailure
      */
-    public function lockRow(LockLevel $level, string $table, array $key, bool $recordOnly = false): void
+    public function lockRow(
+        LockLevel $level,
+        string $table,
+        array $key,
+        bool $recordOnly = false,
+        ?RegistrationKey $registration = null,
+    ): void {
+        ($this->lockRow)($level, $table, $key, $recordOnly, $registration);
+    }
+
+    /**
+     * Whether this attempt, in this run or a nested one, holds the registration's row lock: it read the row
+     * `FOR UPDATE`, inserted it or updated it. A key without a row is never held.
+     */
+    public function holdsRegistration(RegistrationKey $key): bool
     {
-        ($this->lockRow)($level, $table, $key, $recordOnly);
+        return ($this->holdsRegistration)($key);
     }
 
     /** Records on this run's audit entry that the use case touched a record. */

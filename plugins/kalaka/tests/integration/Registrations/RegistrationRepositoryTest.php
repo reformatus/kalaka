@@ -74,9 +74,13 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
     {
         $key = new RegistrationKey(5, '12A3');
         $submission = new Submission($key, 1, 10, 1, ['name' => 'Anna'], $this->utc('2026-11-30 08:00:00'));
-        $this->inRun(fn (array $input, Context $context) => $this->submissions->insert($submission, $context));
+        $this->inRun(function (array $input, Context $context) use ($key, $submission): void {
+            $this->lockRegistrations($context, $key);
+            $this->submissions->insert($submission, $context);
+        });
 
-        $useCase = new AdminProbe(function (array $input, Context $context) use ($submission): void {
+        $useCase = new AdminProbe(function (array $input, Context $context) use ($key, $submission): void {
+            $this->lockRegistrations($context, $key);
             $this->submissions->insert($submission, $context);
         });
         try {

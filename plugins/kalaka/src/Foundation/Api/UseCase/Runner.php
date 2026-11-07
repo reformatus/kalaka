@@ -35,6 +35,9 @@ final class Runner
     /** The first attempt and three retries. */
     private const MAX_ATTEMPTS = 4;
 
+    /** How long an attempt waits for a row lock before MariaDB gives up with error 1205. */
+    private const LOCK_WAIT_SECONDS = 5;
+
     private static ?Runner $current = null;
 
     /** The attempt in progress, in any runner of this request. */
@@ -182,8 +185,9 @@ final class Runner
     /**
      * One attempt from scratch: begin at READ COMMITTED (a savepoint in the harness, where the level cannot
      * change), execute, evaluate, write the audit entries, commit; an explicit rollback on any exception.
-     * The thread id is recorded before the first transaction statement; the check after each statement,
-     * the commit or release included, compares it while the attempt is active.
+     * The thread id is recorded before the attempt's first statement; the check after each statement, the
+     * commit or release included, compares it while the attempt is active. The session's lock-wait timeout
+     * is set to `LOCK_WAIT_SECONDS` before the transaction and restored after it, committed or rolled back.
      *
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
@@ -198,15 +202,20 @@ final class Runner
         $state = new RunState();
         $state->useCase = $useCase::name();
         self::$active = $state;
+        $trace->rollbackFailure = null;
         $begun = false;
+        $previousTimeout = null;
         ObjectCache::clear();
 
         try {
             $now = $this->clock->now();
             $trace->now = $now;
             $entry = $header->entry($now);
-            $begun = true;
             $state->threadId = self::threadId();
+            $timeout = $this->statements->lockWaitTimeout();
+            $this->statements->setLockWaitTimeout(self::LOCK_WAIT_SECONDS);
+            $previousTimeout = $timeout;
+            $begun = true;
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_run');
             } else {
@@ -225,7 +234,7 @@ final class Runner
             }
         } catch (\Throwable $e) {
             if ($begun) {
-                $this->rollback();
+                $this->rollback($trace);
             }
             $error = $state->failure ?? self::asKalaka($e);
             $trace->failedIn = $state->failedIn;
@@ -233,9 +242,25 @@ final class Runner
         } finally {
             $state->open = false;
             self::$active = null;
+            if ($previousTimeout !== null) {
+                $this->restoreLockWaitTimeout($previousTimeout);
+            }
         }
 
         return [$result, $state->steps];
+    }
+
+    /**
+     * Detached from the attempt, so neither a reconnect nor an error is taken for the run's failure: a
+     * committed run stays committed, and a failed one keeps its own error. PHP's error log gets a failure.
+     */
+    private function restoreLockWaitTimeout(int $seconds): void
+    {
+        try {
+            $this->statements->setLockWaitTimeout($seconds);
+        } catch (\Throwable $e) {
+            error_log('Kaláka: lock-wait timeout not restored: ' . ($e->getPrevious() ?? $e)->getMessage());
+        }
     }
 
     /** The connection's thread id, read without a statement; null when there is no connection. */
@@ -250,11 +275,23 @@ final class Runner
 
     /**
      * After the rollback: the failed entry in a transaction of its own (decision D12). If even that
-     * cannot be written, PHP's error log gets one line and the original error is thrown as before.
+     * cannot be written, PHP's error log gets one line and the original error is thrown as before. So it
+     * does when the rollback failed and the failed attempt's work may still be open on the connection:
+     * an entry written then could commit that work.
      */
     private function auditFailure(UseCase $useCase, EntryHeader $header, KalakaException $error, RunTrace $trace): void
     {
         if (!$error->isAudited()) {
+            return;
+        }
+        if ($trace->rollbackFailure !== null) {
+            error_log(ErrorRecord::fallbackLine(
+                $useCase::name(),
+                $error->errorCode(),
+                Correlation::id(),
+                $trace->rollbackFailure,
+            ));
+
             return;
         }
 
@@ -296,8 +333,11 @@ final class Runner
     /**
      * A failing rollback never replaces the original exception; PHP's error log is the last fallback.
      * The attempt is detached first, so the rollback's own error is never recorded as the run's failure.
+     * When `ROLLBACK` fails, the runner closes the connection, which makes the server discard the
+     * transaction, and connects again. When that fails too, or `ROLLBACK TO SAVEPOINT` fails, the
+     * trace keeps the error and no failed entry is written.
      */
-    private function rollback(): void
+    private function rollback(RunTrace $trace): void
     {
         self::$active = null;
         try {
@@ -308,8 +348,20 @@ final class Runner
             }
         } catch (\Throwable $e) {
             error_log('Kaláka: rollback failed: ' . ($e->getPrevious() ?? $e)->getMessage());
+            if ($this->insideOpenTransaction || !$this->reconnect()) {
+                $trace->rollbackFailure = $e;
+            }
         } finally {
             ObjectCache::clear();
+        }
+    }
+
+    private function reconnect(): bool
+    {
+        try {
+            return $this->statements->reconnect();
+        } catch (\Throwable) {
+            return false;
         }
     }
 
@@ -362,13 +414,20 @@ final class Runner
             },
             static function (RegistrationKey $key) use ($state): void {
                 self::assertOpen($state);
-                $state->touched[$key->eventId . "\0" . $key->code] ??= $key;
+                $state->touched[self::registrationId($key)] ??= $key;
             },
             static fn (): array => array_values($state->touched),
-            static function (LockLevel $level, string $table, array $key, bool $recordOnly) use ($state): void {
+            static function (
+                LockLevel $level,
+                string $table,
+                array $key,
+                bool $recordOnly,
+                ?RegistrationKey $registration,
+            ) use ($state): void {
                 self::assertOpen($state);
-                self::lockRow($state, $level, $table, $key, $recordOnly);
+                self::lockRow($state, $level, $table, $key, $recordOnly, $registration);
             },
+            static fn (RegistrationKey $key): bool => isset($state->heldRegistrations[self::registrationId($key)]),
         );
     }
 
@@ -386,7 +445,8 @@ final class Runner
     /**
      * The row guard: a row the attempt already holds is no new lock; otherwise the level, then, at the
      * event, quota and registration levels, the key against the highest one held at that level. An
-     * inserted row is recorded with `$recordOnly`, unchecked.
+     * inserted row is recorded with `$recordOnly`, unchecked. A held row at the registration level with
+     * the registration its record maps to makes `Context::holdsRegistration()` true for that key.
      *
      * @param list<int|string> $key
      */
@@ -396,13 +456,27 @@ final class Runner
         string $table,
         array $key,
         bool $recordOnly,
+        ?RegistrationKey $registration,
     ): void {
         $key = LockKey::normalise($key);
         $id = LockKey::identity($table, $key);
-        if (isset($state->heldRows[$id])) {
-            return;
+        if (!isset($state->heldRows[$id])) {
+            self::holdRow($state, $level, $table, $key, $id, $recordOnly);
         }
+        if ($registration !== null && $level === LockLevel::Registration) {
+            $state->heldRegistrations[self::registrationId($registration)] = true;
+        }
+    }
 
+    /** @param list<int|string> $key normalised */
+    private static function holdRow(
+        RunState $state,
+        LockLevel $level,
+        string $table,
+        array $key,
+        string $id,
+        bool $recordOnly,
+    ): void {
         $highest = $state->highestKey[$level->value] ?? null;
         if (!$recordOnly) {
             self::checkLevel($state, $level);
@@ -427,6 +501,11 @@ final class Runner
         if ($state->highestLock === null || $level->value > $state->highestLock->value) {
             $state->highestLock = $level;
         }
+    }
+
+    private static function registrationId(RegistrationKey $key): string
+    {
+        return $key->eventId . "\0" . $key->code;
     }
 
     /**

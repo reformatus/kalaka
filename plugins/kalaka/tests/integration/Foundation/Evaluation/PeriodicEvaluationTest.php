@@ -21,6 +21,7 @@ final class PeriodicEvaluationTest extends EvaluationTestCase
         parent::set_up();
 
         $this->key = new RegistrationKey(12, '00A0');
+        $this->seedRegistration(12, '00A0', '00B0');
     }
 
     private function periodic(): PeriodicEvaluation

@@ -66,6 +66,37 @@ final class Statements
         $this->run('ROLLBACK TO SAVEPOINT ' . self::savepointName($name));
     }
 
+    /** The session's `innodb_lock_wait_timeout`, in seconds. */
+    public function lockWaitTimeout(): int
+    {
+        $seconds = $this->select('SELECT @@SESSION.innodb_lock_wait_timeout AS seconds')[0]['seconds'] ?? null;
+        if ($seconds === null) {
+            throw self::failure('The lock-wait timeout could not be read.');
+        }
+
+        return (int) $seconds;
+    }
+
+    /** Only the runner sets it, around each outermost attempt. */
+    public function setLockWaitTimeout(int $seconds): void
+    {
+        $this->run($this->prepare('SET SESSION innodb_lock_wait_timeout = %d', [$seconds]));
+    }
+
+    /**
+     * Only the runner reconnects, after a failed rollback: closing the connection makes the server discard
+     * its transaction. No statement, so no check.
+     *
+     * @return bool whether the new connection is up
+     */
+    public function reconnect(): bool
+    {
+        $this->wpdb->close();
+
+        // Without bailing: a failed connect answers false instead of ending the request.
+        return $this->quietly(fn (): bool => $this->wpdb->db_connect(false));
+    }
+
     /**
      * @param literal-string $sql
      * @param list<int|string|null> $args none: `$sql` as it is

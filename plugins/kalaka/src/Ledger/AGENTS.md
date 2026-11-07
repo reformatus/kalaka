@@ -43,6 +43,8 @@ and moving payments
   and `transfer`. A `charge` or `adjustment` carries neither.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
+- `record()` refuses unless the run holds the registration's lock
+  (`Context::holdsRegistration()`).
 - Ledger lines survive erasure and are kept at least 8 years, so a line holds
   no free text and no personal data: a bank reference, payer note or reason
   lives where erasure can reach it.

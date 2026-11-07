@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
 
 /** The base of the audit tests: reads the entries a test wrote, with a runner in savepoint mode. */
 abstract class AuditTestCase extends RunnerTestCase
@@ -32,6 +35,22 @@ abstract class AuditTestCase extends RunnerTestCase
         $_SERVER = $this->server;
 
         parent::tear_down();
+    }
+
+    /**
+     * Locks the registrations in key order, as a use case does before it writes their records: the
+     * evaluation would otherwise lock them after those writes, which the lock order refuses.
+     */
+    protected function lockRegistrations(Context $context, RegistrationKey ...$keys): void
+    {
+        usort(
+            $keys,
+            static fn (RegistrationKey $a, RegistrationKey $b): int => $a->eventId <=> $b->eventId
+                ?: strcmp($a->code, $b->code)
+        );
+        foreach ($keys as $key) {
+            (new Registrations())->lock($key, $context);
+        }
     }
 
     /** @return list<array<string, ?string>> the entries this test wrote, oldest first */

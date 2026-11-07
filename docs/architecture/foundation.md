@@ -114,9 +114,10 @@ flowchart LR
   aborts a transaction on a failed statement.) A rollback also clears the
   per-request object cache.
 - **Isolation:** each run's transaction is READ COMMITTED, set for that
-  transaction only. If the server logs binary with `binlog_format=STATEMENT`,
-  writes under READ COMMITTED fail, so the runner refuses every use case, and
-  Site Health and an admin notice show the problem.
+  transaction only, and waits at most 5 seconds for a row lock. If the
+  server logs binary with `binlog_format=STATEMENT`, writes under READ
+  COMMITTED fail, so the runner refuses every use case, and Site Health and
+  an admin notice show the problem.
 - **Retries:** only errors marked retryable (a reference-code collision, a
   deadlock, a lock-wait timeout, a version conflict hit by a system run, a
   reconnect detected inside a run) are retried, about three times, each
@@ -200,6 +201,8 @@ on each other in a circle:
   registration level, compared by table name and then by key. A row the
   transaction already holds is no new lock, and a newly inserted row is
   checked for its level only.
+- The evaluation locks a touched registration it does not hold yet, and a
+  ledger line is recorded only for a registration the run holds.
 
 ## Errors
 
