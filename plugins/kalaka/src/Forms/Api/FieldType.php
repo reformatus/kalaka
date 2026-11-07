@@ -20,4 +20,10 @@ interface FieldType
      * @throws InvalidInput when the value is not of the JSON type the field type takes
      */
     public function answer(FieldTypeInput $input): FieldAnswer;
+
+    /** The type of the value the field's answer makes: what conditions compare it as. */
+    public function valueType(): ValueType;
+
+    /** The value of a stored answer: `$input->value` is the stored string. */
+    public function value(FieldTypeInput $input): Value;
 }

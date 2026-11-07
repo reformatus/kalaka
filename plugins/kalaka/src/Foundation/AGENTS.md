@@ -66,8 +66,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   reopens it.
 - Amounts are `Money`, never floats or raw strings in arithmetic, and every
   amount carries its `Currency`.
-- Only `Foundation\Api\Money` uses `Kalaka\Vendor\Brick\Math` (deptrac);
-  `Money`'s public methods never take or return a brick/math type.
+- Inside Foundation only `Foundation\Api\Money` uses `Kalaka\Vendor\Brick\Math`
+  (deptrac: the `Foundation Api` layer); `Money`'s public methods never take or
+  return a brick/math type. The library's other user is Forms' condition
+  evaluator (Forms `AGENTS.md`).
 - Every outstanding check (confirmation threshold, "nothing due", fully paid)
   uses `countsAsZero()`; payment requests use `roundedUpToPayableUnit()`.
 - `$wpdb` is used only by repositories and query classes on the Foundation

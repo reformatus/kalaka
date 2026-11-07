@@ -136,6 +136,7 @@ deptrac:
       - Admin Api
     Forms:
       - WordPress
+      - Bundled brick/math
       - Forms Api
       - Foundation Api
       - Events Api

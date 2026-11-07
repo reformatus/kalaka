@@ -226,4 +226,39 @@ final class FormDefinitionTest extends FormsTestCase
             'form'
         );
     }
+
+    private function ifBranch(string $inner): string
+    {
+        $condition = ['match' => 'all', 'items' => [['key' => 'pre', 'operator' => 'empty']]];
+
+        return '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $condition]) . ' -->' . $inner . '<!-- /wp:kalaka/if -->';
+    }
+
+    public function testAContactEmailOrDisplayNameInsideABranchIsAProblemNamingItsKey(): void
+    {
+        $pre = $this->field('text', 'pre');
+        $name = $this->field('name', 'name', ['displayName' => true]);
+        $email = $this->field('email', 'email', ['contactEmail' => true]);
+
+        $this->assertProblem(
+            $this->insertForm($pre . $name . $this->ifBranch($email)),
+            'marking_in_branch',
+            'email'
+        );
+        $this->assertProblem(
+            $this->insertForm($pre . $email . $this->ifBranch($name)),
+            'marking_in_branch',
+            'name'
+        );
+    }
+
+    public function testAnUnmarkedFieldInsideABranchStaysUsable(): void
+    {
+        $content = $this->slotFields() . $this->field('text', 'pre') . $this->ifBranch($this->field('text', 'extra'));
+
+        $definition = $this->definitionOf($this->insertForm($content));
+
+        self::assertSame(['name', 'email', 'pre', 'extra'], $this->keys($definition));
+        self::assertCount(1, $definition->field('extra')?->branches ?? []);
+    }
 }
