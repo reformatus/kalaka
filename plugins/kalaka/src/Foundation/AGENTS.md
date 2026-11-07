@@ -70,10 +70,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   `Money`'s public methods never take or return a brick/math type.
 - Every outstanding check (confirmation threshold, "nothing due", fully paid)
   uses `countsAsZero()`; payment requests use `roundedUpToPayableUnit()`.
-- `$wpdb` is used only by repositories and query classes on the Foundation
-  bases (besides the runner's transaction statements, the audit writer and
-  the seed's development drop), exempted from PHPCS by name and checked by a
-  test.
+- `$wpdb` runs statements only in `Foundation\Database\Statements`; the
+  repository and query bases, the runner, the audit writer and the
+  development drop go through it. PHPCS exempts that one file, and a test
+  refuses any file that silences the direct-query rule.
 - The seed writes our tables only through use cases run as the `CliActor`
   without a user, and WordPress data only with WordPress functions outside
   any use case; the development drop drops only the tables a module declares

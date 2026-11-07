@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Repository;
 
 use Kalaka\Foundation\Api\Audit\Subject;
-use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
+use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -24,12 +24,11 @@ abstract class Repository
     /** @var ?\WeakMap<object, array<string, ?string>> the stored row of every object a repository returned */
     private static ?\WeakMap $loaded = null;
 
-    private readonly \wpdb $wpdb;
+    private readonly Statements $statements;
 
     public function __construct()
     {
-        global $wpdb;
-        $this->wpdb = $wpdb;
+        $this->statements = new Statements();
     }
 
     /** The table name without the WordPress prefix. */
@@ -124,7 +123,7 @@ abstract class Repository
         $forUpdate?->lock($this->lockLevel());
 
         $sql = 'SELECT * FROM %i WHERE ' . $where . ($forUpdate === null ? '' : ' FOR UPDATE');
-        $rows = $this->select($this->prepared($sql, [$this->prefixedTable(), ...$args]));
+        $rows = $this->statements->select($this->statements->prepare($sql, [$this->prefixedTable(), ...$args]));
 
         $entities = [];
         foreach ($rows as $row) {
@@ -152,10 +151,10 @@ abstract class Repository
         return $this->hydrate($row);
     }
 
-    /** The database connection, for the writes of the subclasses in this namespace. */
-    final protected function database(): \wpdb
+    /** The statements, for the writes of the subclasses in this namespace. */
+    final protected function statements(): Statements
     {
-        return $this->wpdb;
+        return $this->statements;
     }
 
     /** Drops the as-loaded copy of an object whose record is gone. */
@@ -192,12 +191,7 @@ abstract class Repository
             $data['version'] = 1;
         }
 
-        $written = $this->quietly(fn (): int|false => $this->wpdb->insert($this->prefixedTable(), $data));
-        $insertId = $this->wpdb->insert_id;
-        DatabaseError::check($this->wpdb, $this->insertsReferenceCode());
-        if ($written !== 1) {
-            throw self::failure('The insert wrote no row.');
-        }
+        $insertId = $this->statements->insert($this->prefixedTable(), $data, null, $this->insertsReferenceCode());
 
         $key = [];
         foreach ($this->keyColumns() as $column) {
@@ -265,54 +259,7 @@ abstract class Repository
         }
         $sql = 'SELECT * FROM %i WHERE ' . implode(' AND ', $conditions) . ($forUpdate ? ' FOR UPDATE' : '');
 
-        return $this->select($this->prepared($sql, $args))[0] ?? null;
-    }
-
-    /**
-     * @param literal-string $sql
-     * @param list<int|string|null> $args
-     */
-    private function prepared(string $sql, array $args): string
-    {
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is a literal string by its type
-        $prepared = $this->wpdb->prepare($sql, ...$args);
-        if (!is_string($prepared)) {
-            throw self::failure('A statement could not be prepared.');
-        }
-
-        return $prepared;
-    }
-
-    /** @return list<array<string, ?string>> */
-    private function select(string $sql): array
-    {
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- prepared by the caller
-        $rows = $this->quietly(fn (): mixed => $this->wpdb->get_results($sql, ARRAY_A));
-        DatabaseError::check($this->wpdb);
-
-        $result = [];
-        foreach ($rows ?? [] as $row) {
-            $result[] = array_map(self::text(...), $row);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Runs a statement without wpdb's error output, which would show the statement's values.
-     *
-     * @template T
-     * @param \Closure(): T $statement
-     * @return T
-     */
-    final protected function quietly(\Closure $statement): mixed
-    {
-        $suppressed = $this->wpdb->suppress_errors(true);
-        try {
-            return $statement();
-        } finally {
-            $this->wpdb->suppress_errors($suppressed);
-        }
+        return $this->statements->select($this->statements->prepare($sql, $args))[0] ?? null;
     }
 
     /**
@@ -346,7 +293,7 @@ abstract class Repository
 
     final protected function prefixedTable(): string
     {
-        return $this->wpdb->prefix . $this->table();
+        return $this->statements->prefixed($this->table());
     }
 
     /** @return \WeakMap<object, array<string, ?string>> */
@@ -359,10 +306,5 @@ abstract class Repository
     final protected static function failure(string $message): SystemFailure
     {
         return new SystemFailure(null, new \LogicException($message));
-    }
-
-    private static function text(mixed $value): ?string
-    {
-        return is_scalar($value) ? (string) $value : null;
     }
 }

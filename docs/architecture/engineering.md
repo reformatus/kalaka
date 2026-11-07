@@ -223,7 +223,8 @@ src/Registrations/
   - sanitizing input;
   - nonce checks;
   - prepared SQL;
-  - no direct database queries outside our repositories and query classes;
+  - no direct database queries outside Foundation's `Statements` class, which
+    the repositories and query classes use;
   - WordPress functions preferred over PHP ones where WordPress has its own
     (e.g. `wp_json_encode`, `wp_remote_get`).
 - PHPCS runs this mixed ruleset.
@@ -234,17 +235,17 @@ src/Registrations/
 - **deptrac** enforces module and plugin boundaries: a module uses another
   only through its `Kalaka\<Module>\Api\…` namespace. Layer rules by
   interface, base class and name join as those classes appear.
-- **Direct database access** (`$wpdb`) outside repositories and query classes
+- **Direct database access** (`$wpdb`) outside Foundation's `Statements` class
   is caught by PHPCS's direct-query rule ([Code style](#code-style)); deptrac
-  cannot see a `global $wpdb` cheaply. The rule gets `exclude-pattern`s for
-  repositories and query classes once they exist.
+  cannot see a `global $wpdb` cheaply. The rule's only `exclude-pattern` is
+  that class, and a test refuses any file that silences the rule.
 - **Admin reads registration data only through the view query**
   ([Foundation](foundation.md#views-and-grants)). deptrac enforces it: Admin
   and the admin-side entry points (`Rest/`, `Cli/`, `Blocks/`) may use
   registration data only through the view-query class, and full-access code
   paths are a named layer of their own. The rule joins when the view-query
-  class exists; until then PHPCS's direct-query rule keeps reads inside
-  repositories and query classes.
+  class exists; until then PHPCS's direct-query rule keeps reads inside the
+  repositories and query classes, which run them through `Statements`.
 - **Backward-compatibility check** of the public API against the last release,
   from the end of the alpha phase
   ([Modules](modules-and-extensions.md#alpha-phase)); the tool is chosen then

@@ -25,11 +25,7 @@
     <rule ref="WordPress.DB.PreparedSQLPlaceholders"/>
     <rule ref="WordPress.DB.DirectDatabaseQuery">
         <exclude-pattern>*/tests/*</exclude-pattern>
-        <exclude-pattern>*/src/*Repository.php</exclude-pattern>
-        <exclude-pattern>*/src/*List.php</exclude-pattern>
-        <exclude-pattern>*/src/*Query.php</exclude-pattern>
-        <exclude-pattern>*/src/Foundation/Api/Repository/*</exclude-pattern>
-        <exclude-pattern>*/src/Foundation/Api/Query/*</exclude-pattern>
+        <exclude-pattern>*/src/Foundation/Database/Statements.php</exclude-pattern>
     </rule>
     <rule ref="WordPress.WP.AlternativeFunctions"/>
 </ruleset>
