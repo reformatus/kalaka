@@ -10,8 +10,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/TestItem.php';
-
 /**
  * A test repository over a table of the test's choosing.
  *
@@ -19,8 +17,10 @@ require_once __DIR__ . '/TestItem.php';
  */
 final class TestItemRepository extends EntityRepository
 {
-    public function __construct(private readonly string $tableName, private readonly LockLevel $level = LockLevel::Other)
-    {
+    public function __construct(
+        private readonly string $tableName,
+        private readonly LockLevel $level = LockLevel::Other
+    ) {
         parent::__construct();
     }
 
@@ -28,6 +28,7 @@ final class TestItemRepository extends EntityRepository
     {
         global $wpdb;
         $wpdb->query(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             "CREATE TABLE {$wpdb->prefix}{$table} (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
             . " label VARCHAR(100) NOT NULL DEFAULT '', note VARCHAR(100) NULL, token VARCHAR(100) NOT NULL DEFAULT '',"
             . ' reg_event INT NULL, reg_code VARCHAR(10) NULL, version INT UNSIGNED NOT NULL) ENGINE=InnoDB'

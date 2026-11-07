@@ -8,8 +8,6 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Events\CreateEvent;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC2. */
 final class CreateEventTest extends EventsTestCase
 {

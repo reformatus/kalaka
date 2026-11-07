@@ -27,7 +27,8 @@ final class EvaluationSchemaTest extends WP_UnitTestCase
         foreach ($expected as $table => $columns) {
             $name = $wpdb->prefix . $table;
             $collation = $wpdb->get_var($wpdb->prepare(
-                'SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+                'SELECT TABLE_COLLATION FROM information_schema.TABLES'
+                . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
                 $name
             ));
             self::assertSame('utf8mb4_hungarian_ci', $collation, $name);
@@ -43,7 +44,11 @@ final class EvaluationSchemaTest extends WP_UnitTestCase
             foreach ($found as $column) {
                 if (in_array($column['DATA_TYPE'], ['varchar', 'text', 'longtext'], true)) {
                     self::assertSame('utf8mb4', $column['CHARACTER_SET_NAME'], $name . '.' . $column['COLUMN_NAME']);
-                    self::assertSame('utf8mb4_hungarian_ci', $column['COLLATION_NAME'], $name . '.' . $column['COLUMN_NAME']);
+                    self::assertSame(
+                        'utf8mb4_hungarian_ci',
+                        $column['COLLATION_NAME'],
+                        $name . '.' . $column['COLUMN_NAME']
+                    );
                 }
                 if (str_ends_with((string) $column['COLUMN_NAME'], '_at')) {
                     self::assertSame('datetime(6)', $column['COLUMN_TYPE'], $name . '.' . $column['COLUMN_NAME']);

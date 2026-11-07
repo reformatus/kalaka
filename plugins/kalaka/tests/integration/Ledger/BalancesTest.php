@@ -9,8 +9,6 @@ use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/LedgerTestCase.php';
-
 /** AC5: balances are the sums of the lines, per payer and in total. */
 final class BalancesTest extends LedgerTestCase
 {
@@ -87,7 +85,16 @@ final class BalancesTest extends LedgerTestCase
         $registration = $this->registration();
         $this->record(
             $this->line($registration, LineKind::Charge, '48000', 'c:1', null, null, Payer::PARTICIPANT, 'fixed_price'),
-            $this->line($registration, LineKind::Charge, '-10000', 'c:2', null, null, Payer::PARTICIPANT, 'staff_discount'),
+            $this->line(
+                $registration,
+                LineKind::Charge,
+                '-10000',
+                'c:2',
+                null,
+                null,
+                Payer::PARTICIPANT,
+                'staff_discount'
+            ),
             $this->line($registration, LineKind::Charge, '-5000', 'c:3', null, null, Payer::PARTICIPANT, 'early_bird'),
             $this->line($registration, LineKind::Charge, '3500', 'c:4', null, null, Payer::PARTICIPANT, 'lunch'),
             $this->line($registration, LineKind::Charge, '2000', 'c:5', null, null, Payer::PARTICIPANT, 'late_fee'),
@@ -157,6 +164,10 @@ final class BalancesTest extends LedgerTestCase
 
         self::assertTrue($this->ledger->balancesOf($mine)->total()->isEqualTo($this->money('1000')));
         self::assertTrue($this->ledger->balancesOf($sameEventOther)->total()->isEqualTo($this->money('200')));
-        self::assertTrue($this->ledger->balancesOf(new RegistrationKey(self::EVENT + 1, '12A3'))->total()->isEqualTo($this->money('30')));
+        self::assertTrue(
+            $this->ledger->balancesOf(new RegistrationKey(self::EVENT + 1, '12A3'))
+                ->total()
+                ->isEqualTo($this->money('30'))
+        );
     }
 }

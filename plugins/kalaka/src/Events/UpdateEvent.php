@@ -39,7 +39,7 @@ final class UpdateEvent implements AdminUseCase
                 'id' => ['type' => 'integer', 'minimum' => 1],
                 'version' => ['type' => 'integer', 'minimum' => 1],
                 'name' => ['type' => 'string'],
-                'capacity' => ['type' => ['integer', 'null'], 'minimum' => 0],
+                'capacity' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 50000],
                 'registration_opens_on' => $day,
                 'registration_closes_on' => $day,
                 'starts_on' => $day,

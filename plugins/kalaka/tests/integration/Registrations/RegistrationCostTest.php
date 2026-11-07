@@ -10,8 +10,6 @@ use Kalaka\Registrations\ReferenceCodeQuery;
 use Kalaka\Registrations\RegistrationList;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
-require_once __DIR__ . '/../Foundation/PerEventCostTestCase.php';
-
 /** AC12: the per-event statements stay inside their event, and the site-wide one stays a loose index scan. */
 final class RegistrationCostTest extends PerEventCostTestCase
 {
@@ -19,6 +17,7 @@ final class RegistrationCostTest extends PerEventCostTestCase
 
     private bool $shadowed = false;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         global $wpdb;
@@ -36,17 +35,26 @@ final class RegistrationCostTest extends PerEventCostTestCase
 
         $values = [];
         foreach (array_slice(ReferenceCode::fourCharacterCodes(), 0, self::CODES_PER_EVENT) as $code) {
-            $values[] = $wpdb->prepare("(%d, %s, 1, 'registered', 'secret', '2026-11-30 08:00:00.000000')", $event, $code);
+            $values[] = $wpdb->prepare(
+                "(%d, %s, 1, 'registered', 'secret', '2026-11-30 08:00:00.000000')",
+                $event,
+                $code
+            );
         }
         $wpdb->query(
-            "INSERT INTO {$wpdb->prefix}kalaka_registrations (event_id, code, version, status, secret, created_at) VALUES "
+            "INSERT INTO {$wpdb->prefix}kalaka_registrations "
+            . "(event_id, code, version, status, secret, created_at) VALUES "
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; table prefix and constants only
             . implode(', ', $values)
         );
     }
 
     public function testTheRegistrationListStaysInsideItsEvent(): void
     {
-        $this->assertPerEventCost(fn (int $event) => $this->seedEvent($event), fn (int $event) => (new RegistrationList())->forEvent($event));
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event) => (new RegistrationList())->forEvent($event)
+        );
     }
 
     public function testTheRegistrationListRunsOneStatement(): void
@@ -59,7 +67,10 @@ final class RegistrationCostTest extends PerEventCostTestCase
 
     public function testTheCodesOfAnEventStayInsideTheirEvent(): void
     {
-        $this->assertPerEventCost(fn (int $event) => $this->seedEvent($event), fn (int $event) => (new ReferenceCodeQuery())->ofEvent($event));
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event) => (new ReferenceCodeQuery())->ofEvent($event)
+        );
     }
 
     public function testTheSiteWideStatementExaminesAtMostOneRowMoreThanTheDistinctCodes(): void
@@ -68,8 +79,11 @@ final class RegistrationCostTest extends PerEventCostTestCase
         // A table of the same name that only this connection sees (the harness makes every CREATE TABLE
         // temporary), so its index statistics can be refreshed without committing the harness's transaction.
         $this->shadowed = true;
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; table prefix and constants only
         self::assertNotFalse($wpdb->query(str_replace('{prefix}', $wpdb->prefix, (new Module())->schema()->tables[0])));
-        for ($event = 1; $event <= 40; $event++) {
+        // 200 rows per code: InnoDB samples the code index's cardinality, and with few rows per code a
+        // sampling miss can make the loose index scan look no cheaper than reading the whole index.
+        for ($event = 1; $event <= 200; $event++) {
             $this->seedEvent($event);
         }
         $wpdb->query("ANALYZE TABLE {$wpdb->prefix}kalaka_registrations");
@@ -79,6 +93,7 @@ final class RegistrationCostTest extends PerEventCostTestCase
         });
         self::assertCount(1, $statements);
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; table prefix and constants only
         $json = $wpdb->get_var('ANALYZE FORMAT=JSON ' . $statements[0]);
         self::assertIsString($json);
         $plan = json_decode($json, true, flags: JSON_THROW_ON_ERROR);

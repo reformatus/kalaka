@@ -18,8 +18,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 use Kalaka\Tests\Integration\Registrations\RegistrationsTestCase;
 
-require_once __DIR__ . '/../Registrations/RegistrationsTestCase.php';
-
 /** The base of the Ledger tests: the Api, a registration to write to and helpers to build and count lines. */
 abstract class LedgerTestCase extends RegistrationsTestCase
 {
@@ -27,6 +25,7 @@ abstract class LedgerTestCase extends RegistrationsTestCase
 
     protected Ledger $ledger;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -57,13 +56,15 @@ abstract class LedgerTestCase extends RegistrationsTestCase
         ?string $paidAt = null,
         string $payer = Payer::PARTICIPANT,
         string $source = 'fixed_price',
+        string $sourceType = 'fee_component',
+        ?int $sourceEvent = null,
     ): NewLine {
         return new NewLine(
             $registration,
             $kind,
             $payer,
             $this->money($amount),
-            new Subject('fee_component', null, $source),
+            new Subject($sourceType, $sourceEvent, $source),
             $key,
             $valueDate,
             $paidAt === null ? null : $this->utc($paidAt),

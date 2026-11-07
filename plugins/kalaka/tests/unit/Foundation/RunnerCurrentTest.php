@@ -20,7 +20,10 @@ final class RunnerCurrentTest extends TestCase
     {
         $values = array_map(static fn (LockLevel $level): int => $level->value, LockLevel::cases());
 
-        self::assertSame(['Event', 'Quota', 'Registration', 'Other'], array_map(static fn (LockLevel $l): string => $l->name, LockLevel::cases()));
+        self::assertSame(
+            ['Event', 'Quota', 'Registration', 'Other'],
+            array_map(static fn (LockLevel $l): string => $l->name, LockLevel::cases())
+        );
         self::assertSame($values, array_values(array_unique($values)));
         $sorted = $values;
         sort($sorted);

@@ -18,8 +18,6 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/AuditTestCase.php';
-
 /** Failed entries: written after the rollback, in a transaction of their own. */
 final class AuditFailureTest extends AuditTestCase
 {
@@ -139,7 +137,9 @@ final class AuditFailureTest extends AuditTestCase
         global $wpdb;
         $everything = $log . "\n" . implode("\n", array_map('strval', $entry))
             . "\n" . implode("\n", $this->subjectsOf($entry['id']))
-            . "\n" . implode("\n", array_map('strval', (array) $wpdb->get_col("SELECT record_key FROM {$wpdb->prefix}kalaka_audit_subjects")));
+            . "\n" . implode("\n", array_map('strval', (array) $wpdb->get_col(
+                "SELECT record_key FROM {$wpdb->prefix}kalaka_audit_subjects"
+            )));
         foreach (['Teszt Elek', 'teszt.elek@example.com', 'Teszt Elek kérte', 'kérte'] as $personal) {
             self::assertStringNotContainsString($personal, $everything);
         }

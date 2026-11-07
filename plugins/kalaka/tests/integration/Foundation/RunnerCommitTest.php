@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
-require_once __DIR__ . '/RealTableTestCase.php';
-
 /** The production runner (no savepoint option) really commits and really rolls back. */
 final class RunnerCommitTest extends RealTableTestCase
 {

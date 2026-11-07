@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation\Seed;
 
-require_once __DIR__ . '/SeedTestCase.php';
-
 /** AC4 (the savepoint-mode part: the seed; the drop is in SchemaDropTest). */
 final class SeedGuardTest extends SeedTestCase
 {

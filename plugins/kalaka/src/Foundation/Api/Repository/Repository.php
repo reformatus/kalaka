@@ -7,7 +7,6 @@ namespace Kalaka\Foundation\Api\Repository;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\SystemFailure;
-use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Foundation\ObjectCache;
@@ -153,6 +152,18 @@ abstract class Repository
         return $this->hydrate($row);
     }
 
+    /** The database connection, for the writes of the subclasses in this namespace. */
+    final protected function database(): \wpdb
+    {
+        return $this->wpdb;
+    }
+
+    /** Drops the as-loaded copy of an object whose record is gone. */
+    final protected function forgetLoaded(object $entity): void
+    {
+        unset(self::loaded()[$entity]);
+    }
+
     /** @return ?array<string, ?string> the stored row the object was loaded or written as */
     final protected function loadedCopy(object $entity): ?array
     {
@@ -217,133 +228,10 @@ abstract class Repository
     }
 
     /**
-     * Writes the columns that differ from the as-loaded copy, if the version is still the one the
-     * entity carries, and returns the stored object.
-     *
-     * @param TEntity $entity
-     * @param array<string, ?string> $loaded
-     * @return TEntity
-     * @throws VersionConflict
-     */
-    final protected function writeUpdate(object $entity, array $loaded, Context $context): object
-    {
-        $current = $this->toRow($entity);
-        $keyColumns = $this->keyColumns();
-
-        $changed = [];
-        foreach ($current as $column => $value) {
-            if ($column === 'version') {
-                continue;
-            }
-            $differs = ($value === null ? null : (string) $value) !== ($loaded[$column] ?? null);
-            if (in_array($column, $keyColumns, true)) {
-                if ($differs) {
-                    throw self::failure('A key column of a loaded record was changed.');
-                }
-                continue;
-            }
-            if ($differs) {
-                $changed[$column] = $value;
-            }
-        }
-        if ($changed === []) {
-            return $entity;
-        }
-
-        if (!isset($current['version'])) {
-            throw self::failure('toRow() gave no version.');
-        }
-        $expected = (int) $current['version'];
-        $where = [];
-        foreach ($keyColumns as $column) {
-            $where[$column] = $loaded[$column] ?? null;
-        }
-        $where['version'] = $expected;
-
-        $values = $changed + ['version' => $expected + 1];
-        $written = $this->quietly(fn (): int|false => $this->wpdb->update($this->prefixedTable(), $values, $where));
-        DatabaseError::check($this->wpdb);
-        if ($written === false) {
-            throw self::failure('The update wrote no row.');
-        }
-        if ($written === 0) {
-            $error = new VersionConflict();
-            throw $error;
-        }
-
-        $stored = $this->readBack($this->keyValues($loaded));
-        $row = self::loaded()[$stored] ?? [];
-        $subject = $this->subject($stored);
-        foreach (array_keys($changed) as $column) {
-            $context->change(
-                $subject,
-                $this->auditField($column, $stored),
-                $loaded[$column] ?? null,
-                $row[$column] ?? null,
-                in_array($column, $this->secretColumns(), true)
-            );
-        }
-        $this->markRegistration($stored, $context);
-
-        return $stored;
-    }
-
-    /**
-     * Deletes the row by key and the carried version, and records every column but the key and
-     * `version` as changed from its as-loaded value to null.
-     *
-     * @param TEntity $entity
-     * @param array<string, ?string> $loaded
-     * @throws VersionConflict
-     */
-    final protected function writeDelete(object $entity, array $loaded, Context $context): void
-    {
-        $current = $this->toRow($entity);
-        if (!isset($current['version'])) {
-            throw self::failure('toRow() gave no version.');
-        }
-
-        $where = [];
-        foreach ($this->keyColumns() as $column) {
-            $where[$column] = $loaded[$column] ?? null;
-        }
-        $where['version'] = (int) $current['version'];
-
-        $written = $this->quietly(fn (): int|false => $this->wpdb->delete($this->prefixedTable(), $where));
-        DatabaseError::check($this->wpdb);
-        if ($written === false) {
-            throw self::failure('The delete wrote no row.');
-        }
-        if ($written === 0) {
-            $error = new VersionConflict();
-            throw $error;
-        }
-
-        $key = $this->keyValues($loaded);
-        ObjectCache::forget($this->table(), $key);
-        unset(self::loaded()[$entity]);
-
-        $deleted = $this->fromRow($loaded);
-        $subject = $this->subject($deleted);
-        foreach ($loaded as $column => $value) {
-            if ($column !== 'version' && !in_array($column, $this->keyColumns(), true)) {
-                $context->change(
-                    $subject,
-                    $this->auditField($column, $deleted),
-                    $value,
-                    null,
-                    in_array($column, $this->secretColumns(), true)
-                );
-            }
-        }
-        $this->markRegistration($deleted, $context);
-    }
-
-    /**
      * @param array<string, int|string|null> $key
      * @return TEntity
      */
-    private function readBack(array $key): object
+    final protected function readBack(array $key): object
     {
         $stored = $this->loadByKey($key, false);
         if ($stored === null) {
@@ -354,7 +242,7 @@ abstract class Repository
     }
 
     /** @param TEntity $stored */
-    private function markRegistration(object $stored, Context $context): void
+    final protected function markRegistration(object $stored, Context $context): void
     {
         $registration = $this->registrationOf($stored);
         if ($registration !== null) {
@@ -417,7 +305,7 @@ abstract class Repository
      * @param \Closure(): T $statement
      * @return T
      */
-    private function quietly(\Closure $statement): mixed
+    final protected function quietly(\Closure $statement): mixed
     {
         $suppressed = $this->wpdb->suppress_errors(true);
         try {
@@ -433,7 +321,7 @@ abstract class Repository
      * @param array<string, mixed> $source
      * @return array<string, int|string|null>
      */
-    private function keyValues(array $source): array
+    final protected function keyValues(array $source): array
     {
         $key = [];
         foreach ($this->keyColumns() as $column) {
@@ -456,7 +344,7 @@ abstract class Repository
         return $entity;
     }
 
-    private function prefixedTable(): string
+    final protected function prefixedTable(): string
     {
         return $this->wpdb->prefix . $this->table();
     }
@@ -468,7 +356,7 @@ abstract class Repository
         return self::$loaded ??= new \WeakMap();
     }
 
-    private static function failure(string $message): SystemFailure
+    final protected static function failure(string $message): SystemFailure
     {
         return new SystemFailure(null, new \LogicException($message));
     }

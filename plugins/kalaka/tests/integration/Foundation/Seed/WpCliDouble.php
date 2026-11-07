@@ -6,6 +6,7 @@ declare(strict_types=1);
 // WP_CLI::error(), does not return. It is defined only when the real class is absent.
 namespace {
     if (!class_exists('WP_CLI', false)) {
+        // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps -- the recording double keeps the real class name WP_CLI
         final class WP_CLI
         {
             public const IS_TEST_DOUBLE = true;
@@ -19,6 +20,7 @@ namespace {
             }
 
             /** @param array<string, mixed> $args */
+            // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
             public static function add_command(string $name, mixed $callable, array $args = []): void
             {
                 self::$calls[] = ['add_command', $name];

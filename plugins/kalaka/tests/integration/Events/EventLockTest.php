@@ -14,13 +14,12 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Foundation\RealTableTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
-require_once __DIR__ . '/../Foundation/RealTableTestCase.php';
-
 /** AC10: a second connection cannot lock the event row while the use case holds it. */
 final class EventLockTest extends RealTableTestCase
 {
     private int $eventId = 0;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         global $wpdb;

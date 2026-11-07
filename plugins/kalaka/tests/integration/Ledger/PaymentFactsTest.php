@@ -8,8 +8,6 @@ use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\PaymentFact;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/LedgerTestCase.php';
-
 /** AC6: the payment facts of a registration. */
 final class PaymentFactsTest extends LedgerTestCase
 {
@@ -41,12 +39,18 @@ final class PaymentFactsTest extends LedgerTestCase
             ['-700.00000000', '-10000.00000000', '300.00000000', '-20000.00000000', '500.00000000'],
             array_map(static fn (PaymentFact $fact): string => $fact->amount->amount(), $facts)
         );
-        self::assertSame(['participant'], array_values(array_unique(array_map(static fn (PaymentFact $fact): string => $fact->payer, $facts))));
+        self::assertSame(
+            ['participant'],
+            array_values(array_unique(array_map(static fn (PaymentFact $fact): string => $fact->payer, $facts)))
+        );
 
         $manual = $facts[3];
         self::assertSame('2026-12-03', $manual->valueDate);
         self::assertNull($manual->paidAt);
-        self::assertSame('2026-12-02 23:00:00', $manual->valueAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
+        self::assertSame(
+            '2026-12-02 23:00:00',
+            $manual->valueAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s')
+        );
         self::assertSame('2026-12-03 00:00', $manual->valueAt()->format('Y-m-d H:i'));
         self::assertSame('Europe/Budapest', $manual->valueAt()->getTimezone()->getName());
 
@@ -83,7 +87,10 @@ final class PaymentFactsTest extends LedgerTestCase
         $inBudapest = $this->ledger->paymentFactsOf($registration)[0]->valueAt();
 
         self::assertSame('2026-12-03 00:00:00', $inUtc->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
-        self::assertSame('2026-12-02 23:00:00', $inBudapest->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
+        self::assertSame(
+            '2026-12-02 23:00:00',
+            $inBudapest->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s')
+        );
     }
 
     public function testARegistrationWithoutPaymentsHasNoFacts(): void

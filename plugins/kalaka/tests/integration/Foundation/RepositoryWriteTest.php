@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 
-require_once __DIR__ . '/RepositoryTestCase.php';
-
 /** Writes: upsert() and insert(), the version check and what the audit entry gets. */
 final class RepositoryWriteTest extends RepositoryTestCase
 {
@@ -30,11 +28,23 @@ final class RepositoryWriteTest extends RepositoryTestCase
         $key = (string) $stored->id;
         self::assertSame(
             [
-                ['type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'label', 'before' => null, 'after' => 'First'],
-                ['type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'note', 'before' => null, 'after' => 'a note'],
+                [
+                    'type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'label',
+                    'before' => null, 'after' => 'First',
+                ],
+                [
+                    'type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'note',
+                    'before' => null, 'after' => 'a note',
+                ],
                 ['type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'token', 'masked' => true],
-                ['type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'reg_event', 'before' => null, 'after' => '12'],
-                ['type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'reg_code', 'before' => null, 'after' => '00A0'],
+                [
+                    'type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'reg_event',
+                    'before' => null, 'after' => '12',
+                ],
+                [
+                    'type' => 'test_item', 'event' => null, 'key' => $key, 'field' => 'reg_code',
+                    'before' => null, 'after' => '00A0',
+                ],
             ],
             $this->decode($entry['changes'])
         );
@@ -58,7 +68,10 @@ final class RepositoryWriteTest extends RepositoryTestCase
         self::assertSame(2, $stored->version);
         self::assertSame('2', $this->rowOf('kalaka_test_items', $id)['version'] ?? null);
         self::assertSame(
-            [['type' => 'test_item', 'event' => null, 'key' => (string) $id, 'field' => 'label', 'before' => 'A', 'after' => 'B']],
+            [[
+                'type' => 'test_item', 'event' => null, 'key' => (string) $id, 'field' => 'label',
+                'before' => 'A', 'after' => 'B',
+            ]],
             $this->decode($this->onlyEntry()['changes'])
         );
     }

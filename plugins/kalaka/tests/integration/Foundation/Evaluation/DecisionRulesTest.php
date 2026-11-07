@@ -7,8 +7,6 @@ namespace Kalaka\Tests\Integration\Foundation\Evaluation;
 use Kalaka\Foundation\Decision\DecisionRules;
 use WP_UnitTestCase;
 
-require_once __DIR__ . '/TestRule.php';
-
 /** The registry of decision rules: what it refuses and the order it keeps. */
 final class DecisionRulesTest extends WP_UnitTestCase
 {
