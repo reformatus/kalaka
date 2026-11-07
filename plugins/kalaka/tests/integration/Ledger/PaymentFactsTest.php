@@ -44,11 +44,11 @@ final class PaymentFactsTest extends LedgerTestCase
         self::assertSame(['participant'], array_values(array_unique(array_map(static fn (PaymentFact $fact): string => $fact->payer, $facts))));
 
         $manual = $facts[3];
-        self::assertSame('2026-12-03', $manual->valueDate);
+        self::assertNotNull($manual->valueDate);
+        self::assertSame('2026-12-02 23:00:00.000000', $manual->valueDate->format('Y-m-d H:i:s.u'));
         self::assertNull($manual->paidAt);
         self::assertSame('2026-12-02 23:00:00', $manual->valueAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
-        self::assertSame('2026-12-03 00:00', $manual->valueAt()->format('Y-m-d H:i'));
-        self::assertSame('Europe/Budapest', $manual->valueAt()->getTimezone()->getName());
+        self::assertEquals($manual->valueDate, $manual->valueAt());
 
         $online = $facts[1];
         self::assertNull($online->valueDate);
@@ -72,7 +72,7 @@ final class PaymentFactsTest extends LedgerTestCase
         self::assertSame([$stored[0]->id, $stored[1]->id, $stored[2]->id], $ids);
     }
 
-    public function testTheInstantOfAValueDateFollowsTheSiteZoneAtReadTime(): void
+    public function testTheInstantOfAValueDateDoesNotFollowTheSiteZoneAfterRecording(): void
     {
         $registration = $this->registration();
         $this->record($this->line($registration, LineKind::ManualPayment, '-1', 'k1', '2026-12-03'));
@@ -82,7 +82,7 @@ final class PaymentFactsTest extends LedgerTestCase
         update_option('timezone_string', 'Europe/Budapest');
         $inBudapest = $this->ledger->paymentFactsOf($registration)[0]->valueAt();
 
-        self::assertSame('2026-12-03 00:00:00', $inUtc->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
+        self::assertSame('2026-12-02 23:00:00', $inUtc->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
         self::assertSame('2026-12-02 23:00:00', $inBudapest->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
     }
 

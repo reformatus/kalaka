@@ -74,12 +74,13 @@ final class RecordLineTest extends LedgerTestCase
         $recorded = $this->record($this->line($registration, LineKind::ManualPayment, '-12500.5', 'pay:1', '2026-12-03'))[0];
 
         self::assertSame('-12500.50000000', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['amount'] ?? null);
-        self::assertSame('2026-12-03', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['value_date'] ?? null);
+        self::assertSame('2026-12-02 23:00:00.000000', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['value_date'] ?? null);
 
         $read = (new LedgerLineRepository())->find($recorded->id);
         self::assertInstanceOf(LedgerLine::class, $read);
         self::assertTrue($read->amount->isEqualTo($this->money('-12500.5')));
-        self::assertSame('2026-12-03', $read->valueDate);
+        self::assertNotNull($read->valueDate);
+        self::assertSame('2026-12-02 23:00:00.000000', $read->valueDate->format('Y-m-d H:i:s.u'));
         self::assertNull($read->paidAt);
     }
 
@@ -279,14 +280,17 @@ final class RecordLineTest extends LedgerTestCase
         self::assertTrue($recorded->amount->isEqualTo($this->money($amount)));
     }
 
-    public function testAValueDateIsStoredAsTheCalendarDayWhateverTheSiteZone(): void
+    public function testAValueDateIsStoredAsMidnightOfItsDayInTheSiteZoneAndKeepsItWhenTheZoneChanges(): void
     {
-        update_option('timezone_string', 'Pacific/Auckland');
+        update_option('timezone_string', 'Europe/Budapest');
         $registration = $this->registration();
 
-        $this->record($this->line($registration, LineKind::ManualPayment, '-1', 'k1', '2026-12-03'));
+        $this->record($this->line($registration, LineKind::ManualPayment, '-1', 'k1', '2026-12-01'));
+        update_option('timezone_string', 'Pacific/Auckland');
 
-        self::assertSame('2026-12-03', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['value_date'] ?? null);
+        self::assertSame('2026-11-30 23:00:00.000000', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['value_date'] ?? null);
+        $fact = $this->ledger->paymentFactsOf($registration)[0];
+        self::assertSame('2026-11-30 23:00:00', $fact->valueAt()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
     }
 
     private function assertRefused(NewLine $line, int $rows = 0): void

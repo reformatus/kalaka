@@ -44,7 +44,7 @@ final class AuditEntryTest extends AuditTestCase
         $entry = $this->onlyEntry();
         self::assertNull($entry['parent_id']);
         self::assertSame(Correlation::id(), $entry['correlation_id']);
-        self::assertSame('2026-11-30 09:00:00', $entry['occurred_at']);
+        self::assertSame('2026-11-30 09:00:00.000000', $entry['occurred_at']);
         self::assertSame('admin', $entry['side']);
         self::assertSame('user', $entry['actor_type']);
         self::assertSame((string) $user, $entry['actor_user_id']);

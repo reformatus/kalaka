@@ -41,7 +41,7 @@ final class PaymentFactQuery extends Query
                     LineKind::from((string) $row['kind']),
                     (string) $row['payer'],
                     Money::of((string) $row['amount'], Currency::from((string) $row['currency'])),
-                    $row['value_date'],
+                    $row['value_date'] === null ? null : new \DateTimeImmutable($row['value_date'], $utc),
                     $row['paid_at'] === null ? null : new \DateTimeImmutable($row['paid_at'], $utc),
                 );
             }

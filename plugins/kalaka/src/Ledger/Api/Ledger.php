@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Ledger\Api;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
 use Kalaka\Ledger\LedgerLineRepository;
@@ -23,17 +24,19 @@ final class Ledger
 
     /**
      * Appends the line, or returns the stored one when the registration already holds the same line
-     * under the key. A writer that can race locks the registration row first.
+     * under the key. A value date, a day, is stored as 00:00 of it in the site time zone at the moment
+     * of recording. A writer that can race locks the registration row first.
      *
      * @throws SystemFailure when the line breaks a rule, the key holds a different line, or the insert fails
      */
     public function record(NewLine $line, Context $context): LedgerLine
     {
         $this->check($line);
+        $valueDate = $line->valueDate === null ? null : Instant::startOfDay($line->valueDate);
 
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
         if ($stored !== null) {
-            if (!self::isSame($stored, $line)) {
+            if (!self::isSame($stored, $line, $valueDate)) {
                 $error = new SystemFailure(null, new \LogicException('The idempotency key holds a different line.'));
                 throw $error;
             }
@@ -50,7 +53,7 @@ final class Ledger
                 $line->amount,
                 $line->source,
                 $line->idempotencyKey,
-                $line->valueDate,
+                $valueDate,
                 $line->paidAt,
                 $context->now(),
             ),
@@ -82,7 +85,8 @@ final class Ledger
             preg_match('/\A[a-z0-9_:.-]{1,128}\z/', $line->idempotencyKey) !== 1 => 'The key is malformed.',
             ($line->valueDate !== null) !== $line->kind->carriesValueDate()
                 || ($line->paidAt !== null) !== $line->kind->carriesPaidTime() => 'The time does not fit the kind.',
-            $line->valueDate !== null && !self::isCalendarDay($line->valueDate) => 'The value date is not a day.',
+            $line->valueDate !== null && Instant::startOfDay($line->valueDate) === null
+                => 'The value date is not a day.',
             default => null,
         };
         if ($problem !== null) {
@@ -91,14 +95,7 @@ final class Ledger
         }
     }
 
-    private static function isCalendarDay(string $day): bool
-    {
-        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, new \DateTimeZone('UTC'));
-
-        return $parsed !== false && $parsed->format('Y-m-d') === $day;
-    }
-
-    private static function isSame(LedgerLine $stored, NewLine $line): bool
+    private static function isSame(LedgerLine $stored, NewLine $line, ?\DateTimeImmutable $valueDate): bool
     {
         return $stored->kind === $line->kind
             && $stored->payer === $line->payer
@@ -106,12 +103,12 @@ final class Ledger
             && $stored->source->type === $line->source->type
             && $stored->source->eventId === $line->source->eventId
             && $stored->source->key === $line->source->key
-            && $stored->valueDate === $line->valueDate
+            && self::instant($stored->valueDate) === self::instant($valueDate)
             && self::instant($stored->paidAt) === self::instant($line->paidAt);
     }
 
     private static function instant(?\DateTimeImmutable $time): ?string
     {
-        return $time?->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+        return $time === null ? null : Instant::toStorage($time);
     }
 }

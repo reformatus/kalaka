@@ -11,7 +11,7 @@ final class Module extends AbstractModule
 {
     /**
      * money.md, "Ledger": append-only lines, keyed by an ID and read per registration (event first).
-     * `amount` is signed, `value_date` a calendar day and `paid_at` and `recorded_at` UTC `datetime(6)`;
+     * `amount` is signed, `value_date`, `paid_at` and `recorded_at` UTC `datetime(6)`;
      * `source_*` is a `Subject`. No text column holds free text: lines survive erasure.
      */
     private const LEDGER_LINES = <<<'SQL'
@@ -27,7 +27,7 @@ CREATE TABLE {prefix}kalaka_ledger_lines (
   source_event_id bigint(20) unsigned DEFAULT NULL,
   source_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   idempotency_key varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  value_date date DEFAULT NULL,
+  value_date datetime(6) DEFAULT NULL,
   paid_at datetime(6) DEFAULT NULL,
   recorded_at datetime(6) NOT NULL,
   PRIMARY KEY  (id),
@@ -47,7 +47,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::LEDGER_LINES]);
+        return new Schema(2, [self::LEDGER_LINES]);
     }
 
     public function boot(): void
