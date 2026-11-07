@@ -28,14 +28,15 @@ final class AuditWriter
      * Writes the entry and, after it, each nested entry, so `parent_id` is known. `Statements`
      * suppresses wpdb's error output, which would log the values; the audit may hold personal data.
      *
+     * @return int the id of the entry, the root of the tree
      * @throws \Throwable the first failed statement, as DatabaseError::check() makes it
      */
-    public function write(AuditEntry $entry): void
+    public function write(AuditEntry $entry): int
     {
-        $this->writeTree($entry, null);
+        return $this->writeTree($entry, null);
     }
 
-    private function writeTree(AuditEntry $entry, ?int $parentId): void
+    private function writeTree(AuditEntry $entry, ?int $parentId): int
     {
         $id = $this->insertEntry($entry, $parentId);
         foreach ($entry->subjects() as $subject) {
@@ -49,6 +50,8 @@ final class AuditWriter
         foreach ($entry->children() as $child) {
             $this->writeTree($child, $id);
         }
+
+        return $id;
     }
 
     private function insertEntry(AuditEntry $entry, ?int $parentId): int

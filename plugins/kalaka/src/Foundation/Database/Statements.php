@@ -157,6 +157,15 @@ final class Statements
         return $this->wpdb->prefix . $name;
     }
 
+    /** The connection's thread id, read without a statement; null when there is no connection. */
+    public function threadId(): ?int
+    {
+        // `dbh` is protected, but wpdb exposes it through __get().
+        $connection = $this->wpdb->__get('dbh');
+
+        return $connection instanceof \mysqli ? $connection->thread_id : null;
+    }
+
     private function run(string $sql): void
     {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- constants, listed savepoint names, or prepared

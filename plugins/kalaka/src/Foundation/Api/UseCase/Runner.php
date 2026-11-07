@@ -87,6 +87,15 @@ final class Runner
     }
 
     /**
+     * @internal `DatabaseError::check()` reads the attempt in progress, if any, to compare its connection
+     * thread id with the current one.
+     */
+    public static function activeRun(): ?RunState
+    {
+        return self::$active;
+    }
+
+    /**
      * Runs a use case as the actor and returns what its `execute` returned.
      *
      * @param array<string, mixed> $input
@@ -161,7 +170,9 @@ final class Runner
 
     /**
      * One attempt from scratch: begin, execute, evaluate, write the audit entries, commit; an explicit
-     * rollback on any exception.
+     * rollback on any exception. The thread id is recorded before the first transaction statement; the
+     * check after each statement, the commit or release included, compares it while the attempt is active.
+     * A reconnect at the commit is no failure when the new connection finds the attempt's audit entry.
      *
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
@@ -174,8 +185,11 @@ final class Runner
         RunTrace $trace,
     ): array {
         $state = new RunState();
+        $state->useCase = $useCase::name();
         self::$active = $state;
         $begun = false;
+        $result = null;
+        $entryId = null;
         ObjectCache::clear();
 
         try {
@@ -183,6 +197,7 @@ final class Runner
             $trace->now = $now;
             $entry = $header->entry($now);
             $begun = true;
+            $state->threadId = $this->statements->threadId();
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_run');
             } else {
@@ -193,13 +208,20 @@ final class Runner
             self::throwRecorded($state);
             $this->evaluation->run($context);
             self::throwRecorded($state);
-            $this->audit->write($entry);
+            $entryId = $this->audit->write($entry);
             if ($this->insideOpenTransaction) {
                 $this->statements->releaseSavepoint('kalaka_run');
             } else {
                 $this->statements->commit();
             }
         } catch (\Throwable $e) {
+            $committed = $entryId !== null
+                && $this->statements->threadId() !== $state->threadId
+                && $this->entryExists($entryId, $useCase::name());
+            if ($committed) {
+                // The server committed before the connection dropped; wpdb re-sent the commit on a new one.
+                return [$result, $state->steps];
+            }
             if ($begun) {
                 $this->rollback();
             }
@@ -212,6 +234,27 @@ final class Runner
         }
 
         return [$result, $state->steps];
+    }
+
+    /**
+     * After a reconnect at the commit: whether the attempt's audit entry is on the new connection, which
+     * proves that its transaction committed. It is matched by id, this request's correlation id and the use
+     * case: after a server restart an id may be handed out again. Detached from the attempt, so the read is
+     * not taken for the reconnect again; a read that fails proves nothing.
+     */
+    private function entryExists(int $entryId, string $action): bool
+    {
+        self::$active = null;
+        try {
+            $sql = $this->statements->prepare(
+                'SELECT id FROM %i WHERE id = %d AND correlation_id = %s AND action = %s',
+                [$this->statements->prefixed('kalaka_audit_entries'), $entryId, Correlation::id(), $action],
+            );
+
+            return $this->statements->select($sql) !== [];
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
