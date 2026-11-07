@@ -2,7 +2,9 @@
 
 - SQL targets MariaDB 10.3 and later.
 - SQLite (Playground) is not supported beyond loading the site. Don't report
-  SQLite incompatibilities, and never add SQLite-specific code.
+  SQLite incompatibilities, and never add SQLite-specific code beyond
+  `Statements`' guard for the isolation and lock-wait statements
+  ([Platform](../docs/architecture/engineering.md#platform)).
 - Times are stored in UTC and shown in the site's WordPress time zone, never a
   fixed zone ([Cross-cutting rules](../docs/architecture/foundation.md#cross-cutting-rules)).
 - Money is rounded as in [Amounts](../docs/architecture/money.md#amounts).

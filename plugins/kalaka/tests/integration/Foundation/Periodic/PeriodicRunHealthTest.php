@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation\Periodic;
 
+use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicRunHealth;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
+use Kalaka\Tests\Integration\Foundation\FakeBinlog;
 
 /** The warning of a stale periodic run (AC2 to AC7 and AC11 of the cron health spec; 20 minutes per the owner's ruling on D1). */
 final class PeriodicRunHealthTest extends PeriodicTestCase
@@ -198,6 +200,29 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
             self::siteHealthResult(self::NEVER_LABEL, 'critical', '<p>' . self::CONSEQUENCE),
             $this->siteHealth()
         );
+    }
+
+    public function testWhileTheDatabaseRefusesWritesTheNoticeNamesThatCauseNotWpCron(): void
+    {
+        remove_all_actions('admin_notices');
+        remove_all_filters('site_status_tests');
+        $fake = FakeBinlog::statementFormat();
+        try {
+            (new PeriodicRunHealth($this->clock, new BinlogCheck()))->register();
+            $notices = $this->notices();
+        } finally {
+            $fake->remove();
+        }
+
+        self::assertStringContainsString('Az időzített események feldolgozása nem működik!', $notices);
+        self::assertStringContainsString(
+            'Amíg a futtatás áll, nem mennek ki a levelek, és késnek az időhöz kötött teendők. A futtatás áll, '
+            . 'mert a webtárhely adatbázisszerverén be van kapcsolva a bináris naplózás binlog_format=STATEMENT '
+            . 'értékkel, és ilyenkor a Kaláka nem ment adatot. A tárhely üzemeltetőjének a binlog_format értékét '
+            . 'MIXED-re vagy ROW-ra kell állítania.',
+            $notices
+        );
+        self::assertStringNotContainsString('wp-cron.php', $notices);
     }
 
     public function testTheSiteHealthTestRunsWithoutAUserForTheWeeklyCronCheck(): void

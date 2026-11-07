@@ -119,6 +119,36 @@ final class RunnerReconnectTest extends RealTableTestCase
         self::assertSame([], $this->failedEntries());
     }
 
+    public function testAReconnectAtTheBeginIsRolledBackRetriedAndLeavesNoTransactionOpen(): void
+    {
+        $useCase = new AdminProbe(function (array $input, Context $context, int $call): string {
+            $this->statements->insert($this->table, ['label' => 'written ' . $call]);
+
+            return 'done';
+        });
+        $this->armed = true;
+
+        $result = null;
+        $log = $this->capturedErrorLog(function () use ($useCase, &$result): void {
+            $this->reconnectingBefore(
+                static fn (string $query): bool => $query === 'START TRANSACTION',
+                function () use ($useCase, &$result): void {
+                    $result = $this->runner->run($useCase, [], new SystemActor());
+                }
+            );
+        });
+
+        self::assertSame('done', $result);
+        self::assertSame(1, $useCase->calls);
+        self::assertSame(1, $this->reconnects);
+        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe (correlation '));
+        global $wpdb;
+        self::assertSame('0', $wpdb->get_var('SELECT @@in_transaction'));
+        $next = new AdminProbe(static fn (): string => 'again');
+        self::assertSame('again', $this->runner->run($next, [], new SystemActor()));
+        self::assertSame(['written 1'], $this->rowsSeenBy($this->secondConnection()));
+    }
+
     public function testACommitTheServerMadeBeforeTheReconnectIsASuccessAndNotRetried(): void
     {
         $steps = 0;

@@ -27,9 +27,17 @@ final class Statements
         $this->wpdb = $wpdb;
     }
 
-    /** Only the runner begins, commits and rolls back. */
-    public function begin(): void
+    /**
+     * Only the runner begins, commits and rolls back.
+     *
+     * @param bool $readCommitted the transaction runs at READ COMMITTED, set for it alone; false: the
+     *                            session's own level
+     */
+    public function begin(bool $readCommitted): void
     {
+        if ($readCommitted && !self::onSqlite()) {
+            $this->run('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        }
         $this->run('START TRANSACTION');
     }
 
@@ -206,5 +214,14 @@ final class Statements
     private static function text(mixed $value): ?string
     {
         return is_scalar($value) ? (string) $value : null;
+    }
+
+    /**
+     * WordPress Playground's SQLite driver, which has no isolation levels or lock waits: the runner sends no
+     * isolation or lock-wait statement there (engineering.md, "Platform").
+     */
+    private static function onSqlite(): bool
+    {
+        return defined('DB_ENGINE') && DB_ENGINE === 'sqlite';
     }
 }

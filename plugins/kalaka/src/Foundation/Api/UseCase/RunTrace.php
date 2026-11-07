@@ -16,4 +16,10 @@ final class RunTrace
 
     /** The name of the use case that threw the error, when it is not the outermost one. */
     public ?string $failedIn = null;
+
+    /**
+     * The attempt could not begin because a transaction someone else began is open on the connection
+     * (MariaDB 1568): it is neither rolled back nor committed, so the failed entry goes to the error log.
+     */
+    public bool $foreignTransaction = false;
 }

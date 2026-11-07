@@ -18,6 +18,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
@@ -34,6 +35,9 @@ final class Runner
     /** The first attempt and three retries. */
     private const MAX_ATTEMPTS = 4;
 
+    /** MariaDB: "Transaction characteristics can't be changed while a transaction is in progress". */
+    private const OPEN_TRANSACTION = 1568;
+
     private static ?Runner $current = null;
 
     /** The attempt in progress, in any runner of this request. */
@@ -47,20 +51,25 @@ final class Runner
 
     private readonly Evaluation $evaluation;
 
+    private readonly BinlogCheck $binlog;
+
     /**
      * @param bool $insideOpenTransaction tests only: the harness already holds a transaction, so the
      *                                    outermost run uses a savepoint instead of its own transaction
      * @param ?Evaluation $evaluation what brings the touched registrations up to date; none: no rules
+     * @param ?BinlogCheck $binlog whether writes under READ COMMITTED would fail; none: a check of its own
      */
     public function __construct(
         private readonly Clock $clock,
         private readonly bool $insideOpenTransaction = false,
         ?Evaluation $evaluation = null,
+        ?BinlogCheck $binlog = null,
     ) {
         $this->statements = new Statements();
         $this->permission = new CoarsePermission();
         $this->audit = new AuditWriter($this->statements);
         $this->evaluation = $evaluation ?? new Evaluation(new DecisionRules());
+        $this->binlog = $binlog ?? new BinlogCheck();
     }
 
     /** The production runner; delivery code uses this. */
@@ -119,6 +128,11 @@ final class Runner
             $input = self::checkedInput($useCase, $input);
             $declared = self::declaredSubjects($useCase, $input);
             $this->permission->check($useCase, $side, $input, $actor);
+            if ($this->binlog->refuses()) {
+                // Before the transaction and outside the retries: every write would fail with 1665.
+                $error = new SystemFailure(BinlogCheck::REFUSAL);
+                throw $error;
+            }
             $header = new EntryHeader($useCase::name(), $side, $actor, self::reasonOf($useCase, $input), $declared);
             [$result, $steps] = $this->runWithRetries($useCase, $input, $actor, $header, $trace);
         } catch (\Throwable $e) {
@@ -169,10 +183,11 @@ final class Runner
     }
 
     /**
-     * One attempt from scratch: begin, execute, evaluate, write the audit entries, commit; an explicit
-     * rollback on any exception. The thread id is recorded before the first transaction statement; the
-     * check after each statement, the commit or release included, compares it while the attempt is active.
-     * A reconnect at the commit is no failure when the new connection finds the attempt's audit entry.
+     * One attempt from scratch: begin at READ COMMITTED (a savepoint in the harness, where the level cannot
+     * change), execute, evaluate, write the audit entries, commit; an explicit rollback on any exception.
+     * The thread id is recorded before the first transaction statement; the check after each statement,
+     * the commit or release included, compares it while the attempt is active. A reconnect at the commit is
+     * no failure when the new connection finds the attempt's audit entry.
      *
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
@@ -187,6 +202,7 @@ final class Runner
         $state = new RunState();
         $state->useCase = $useCase::name();
         self::$active = $state;
+        $beginning = false;
         $begun = false;
         $result = null;
         $entryId = null;
@@ -196,13 +212,15 @@ final class Runner
             $now = $this->clock->now();
             $trace->now = $now;
             $entry = $header->entry($now);
-            $begun = true;
             $state->threadId = $this->statements->threadId();
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_run');
             } else {
-                $this->statements->begin();
+                // From here on a failure rolls back: after a reconnect, wpdb re-sends START TRANSACTION.
+                $beginning = true;
+                $this->statements->begin(true);
             }
+            $begun = true;
             $context = $this->context($useCase, $actor, $now, $state, $entry);
             $result = $useCase->execute($input, $context);
             self::throwRecorded($state);
@@ -222,11 +240,16 @@ final class Runner
                 // The server committed before the connection dropped; wpdb re-sent the commit on a new one.
                 return [$result, $state->steps];
             }
-            if ($begun) {
+            $error = $state->failure ?? self::asKalaka($e);
+            // A transaction someone else left open is neither rolled back nor committed.
+            $foreign = !$begun && self::isOpenTransactionRefusal($error);
+            if (($begun || $beginning) && !$foreign) {
                 $this->rollback();
             }
-            $error = $state->failure ?? self::asKalaka($e);
             $trace->failedIn = $state->failedIn;
+            if ($foreign) {
+                $trace->foreignTransaction = true;
+            }
             throw $error;
         } finally {
             $state->open = false;
@@ -257,6 +280,14 @@ final class Runner
         }
     }
 
+    /** MariaDB's 1568: the isolation level cannot change, because a transaction is already open on the connection. */
+    private static function isOpenTransactionRefusal(KalakaException $error): bool
+    {
+        $cause = $error->getPrevious();
+
+        return $cause instanceof \RuntimeException && $cause->getCode() === self::OPEN_TRANSACTION;
+    }
+
     /**
      * After the rollback: the failed entry in a transaction of its own (decision D12). If even that
      * cannot be written, PHP's error log gets one line and the original error is thrown as before.
@@ -264,6 +295,12 @@ final class Runner
     private function auditFailure(UseCase $useCase, EntryHeader $header, KalakaException $error, RunTrace $trace): void
     {
         if (!$error->isAudited()) {
+            return;
+        }
+        if ($trace->foreignTransaction) {
+            // Beginning the entry's own transaction would commit someone else's open work: the error log only.
+            error_log(ErrorRecord::fallbackLine($useCase::name(), $error->errorCode(), Correlation::id(), $error));
+
             return;
         }
 
@@ -275,7 +312,8 @@ final class Runner
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_audit');
             } else {
-                $this->statements->begin();
+                // It only inserts: the session's own level (decision D6).
+                $this->statements->begin(false);
             }
             try {
                 $this->audit->write($entry);

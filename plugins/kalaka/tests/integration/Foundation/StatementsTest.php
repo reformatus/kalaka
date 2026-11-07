@@ -33,7 +33,7 @@ final class StatementsTest extends RealTableTestCase
 
     public function testBeginAndCommitMakeTheRowsVisibleToAnotherConnection(): void
     {
-        $this->statements->begin();
+        $this->statements->begin(false);
         $this->statements->insert($this->table, ['label' => 'Teszt Elek']);
 
         $second = $this->secondConnection();
@@ -44,9 +44,47 @@ final class StatementsTest extends RealTableTestCase
         self::assertSame(['Teszt Elek'], $this->rowsSeenBy($second));
     }
 
+    public function testBeginSetsReadCommittedForTheTransactionOnlyWhenAskedTo(): void
+    {
+        $sent = [];
+        $capture = static function (string $query) use (&$sent): string {
+            $sent[] = $query;
+
+            return $query;
+        };
+        add_filter('query', $capture);
+        try {
+            $this->statements->begin(true);
+            $this->statements->rollback();
+            $this->statements->begin(false);
+            $this->statements->rollback();
+        } finally {
+            remove_filter('query', $capture);
+        }
+
+        self::assertSame(
+            [
+                'SET TRANSACTION ISOLATION LEVEL READ COMMITTED',
+                'START TRANSACTION',
+                'ROLLBACK',
+                'START TRANSACTION',
+                'ROLLBACK',
+            ],
+            $sent
+        );
+    }
+
+    public function testSettingTheLevelInsideAnOpenTransactionIsASystemFailure(): void
+    {
+        $this->statements->begin(false);
+        $this->statements->insert($this->table, ['label' => 'Teszt Elek']);
+
+        $this->assertFailure(SystemFailure::class, '1568', fn () => $this->statements->begin(true));
+    }
+
     public function testRollbackUndoesTheTransaction(): void
     {
-        $this->statements->begin();
+        $this->statements->begin(false);
         $this->statements->insert($this->table, ['label' => 'Teszt Elek']);
         $this->statements->rollback();
 
@@ -55,7 +93,7 @@ final class StatementsTest extends RealTableTestCase
 
     public function testSavepointsRollBackAndReleaseTheirPart(): void
     {
-        $this->statements->begin();
+        $this->statements->begin(false);
         $this->statements->insert($this->table, ['label' => 'before']);
         $this->statements->savepoint('kalaka_run');
         $this->statements->insert($this->table, ['label' => 'rolled back']);
@@ -87,7 +125,7 @@ final class StatementsTest extends RealTableTestCase
 
     public function testReleasingAMissingSavepointIsASystemFailure(): void
     {
-        $this->statements->begin();
+        $this->statements->begin(false);
 
         $this->assertFailure(SystemFailure::class, '1305', fn () => $this->statements->releaseSavepoint('kalaka_run'));
     }
@@ -149,7 +187,7 @@ final class StatementsTest extends RealTableTestCase
         $wpdb->query('SET SESSION innodb_lock_wait_timeout = 1');
         $wpdb->suppress_errors(false);
         try {
-            $this->statements->begin();
+            $this->statements->begin(false);
             $this->assertFailure(
                 RetryableFailure::class,
                 '1205',
