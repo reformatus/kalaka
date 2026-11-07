@@ -24,12 +24,14 @@ final class RepositoryTouchedTest extends RepositoryTestCase
 
     public function testEveryKindOfWriteMarksItsRegistrationOnceAndNestedRunsCount(): void
     {
+        $this->seedRegistrations(new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A1'));
         $touched = null;
         $nested = new NamedProbe(function (array $input, Context $context): void {
             $this->items->upsert(new TestItem('nested', regEvent: 12, regCode: '00A1'), $context);
         });
 
         $this->inRun(function (array $input, Context $context) use (&$touched, $nested): void {
+            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A1'));
             $item = $this->items->upsert(new TestItem('one', regEvent: 12, regCode: '00A0'), $context);
             $item->label = 'two';
             $this->items->upsert($item, $context);
@@ -46,8 +48,10 @@ final class RepositoryTouchedTest extends RepositoryTestCase
 
     public function testARetriedAttemptStartsWithAnEmptySet(): void
     {
+        $this->seedRegistrations(new RegistrationKey(12, '00A2'), new RegistrationKey(12, '00A3'));
         $touched = null;
         $useCase = new AdminProbe(function (array $input, Context $context, int $call) use (&$touched): void {
+            $this->lockRegistrations($context, new RegistrationKey(12, $call === 1 ? '00A2' : '00A3'));
             if ($call === 1) {
                 $this->items->upsert(new TestItem('first attempt', regEvent: 12, regCode: '00A2'), $context);
                 throw new RetryableFailure();

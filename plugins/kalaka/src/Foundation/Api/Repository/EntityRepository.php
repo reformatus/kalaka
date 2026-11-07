@@ -34,7 +34,7 @@ abstract class EntityRepository extends Repository
 
         $record = $this->loadByKey($columns, true);
         if ($record !== null) {
-            $context->lockRow($this->lockLevel(), $this->table(), $keyList);
+            $context->lockRow($this->lockLevel(), $this->table(), $keyList, false, $this->heldRegistration($record));
         }
 
         return $record;
@@ -78,7 +78,8 @@ abstract class EntityRepository extends Repository
 
     /**
      * Writes the columns that differ from the as-loaded copy, if the version is still the one the
-     * entity carries, and returns the stored object.
+     * entity carries, and returns the stored object. With nothing changed it writes nothing, but a
+     * version other than the loaded one is still a conflict.
      *
      * @param TEntity $entity
      * @param array<string, ?string> $loaded
@@ -106,14 +107,19 @@ abstract class EntityRepository extends Repository
                 $changed[$column] = $value;
             }
         }
-        if ($changed === []) {
-            return $entity;
-        }
-
         if (!isset($current['version'])) {
             throw self::failure('toRow() gave no version.');
         }
         $expected = (int) $current['version'];
+        if ($changed === []) {
+            if ($expected !== (int) ($loaded['version'] ?? 0)) {
+                $error = new VersionConflict();
+                throw $error;
+            }
+
+            return $entity;
+        }
+
         $where = [];
         foreach ($keyColumns as $column) {
             $where[$column] = $loaded[$column] ?? null;
@@ -140,6 +146,7 @@ abstract class EntityRepository extends Repository
                 in_array($column, $this->secretColumns(), true)
             );
         }
+        $this->holdRegistration($stored, $context);
         $this->markRegistration($stored, $context);
 
         return $stored;

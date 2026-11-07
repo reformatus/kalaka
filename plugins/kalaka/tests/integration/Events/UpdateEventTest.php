@@ -185,6 +185,21 @@ final class UpdateEventTest extends EventsTestCase
         $this->update($id, ['points' => [['id' => 2, 'name' => 'Kettő', 'date' => '2027-05-02']]]);
     }
 
+    public function testResendingTheStoredValuesWithAnOldVersionConflictsAndWritesNothing(): void
+    {
+        $id = $this->filled();
+        $before = $this->row($id);
+        self::assertSame('2', $before['version'] ?? null);
+
+        try {
+            $this->exec(new UpdateEvent(), $this->updateInput($id, 1));
+            self::fail('The stale version should have conflicted.');
+        } catch (VersionConflict) {
+            self::assertSame($before, $this->row($id));
+            self::assertCount(1, $this->failedEntries());
+        }
+    }
+
     public function testResendingTheStoredValuesChangesNothingAndRunsNoUpdate(): void
     {
         $id = $this->create();
@@ -205,7 +220,7 @@ final class UpdateEventTest extends EventsTestCase
 
     public function testEditingTheCapacityOrThePointsOfAFullEventKeepsTheLatch(): void
     {
-        $id = $this->filled();
+        $id = $this->published();
         $this->markFull($id);
 
         $this->update($id, ['capacity' => 45]);

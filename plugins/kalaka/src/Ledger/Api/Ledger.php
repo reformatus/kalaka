@@ -23,12 +23,17 @@ final class Ledger
 
     /**
      * Appends the line, or returns the stored one when the registration already holds the same line
-     * under the key. A writer that can race locks the registration row first.
+     * under the key. The run must hold the registration's row lock (`Context::holdsRegistration()`).
      *
-     * @throws SystemFailure when the line breaks a rule, the key holds a different line, or the insert fails
+     * @throws SystemFailure when the run does not hold the registration, the line breaks a rule, the key
+     *                       holds a different line, or the insert fails
      */
     public function record(NewLine $line, Context $context): LedgerLine
     {
+        if (!$context->holdsRegistration($line->registration)) {
+            $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
+            throw $error;
+        }
         $this->check($line);
 
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);

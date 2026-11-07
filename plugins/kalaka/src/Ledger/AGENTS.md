@@ -31,8 +31,7 @@ and moving payments
   collation cannot merge two keys) and is recorded once per registration:
   presenting a stored key with the same line writes nothing; with a different
   line it is an error. A duplicate key on a line is never retried (only the
-  registration insert's is); a writer that can race locks the registration
-  row first.
+  registration insert's is).
 - Balances and totals are computed from the lines and never stored.
 - Payment facts are the lines of kinds `payment`, `refund`, `manual_payment`,
   `manual_refund` and `transfer`; `charge` and `adjustment` lines are not
@@ -43,6 +42,8 @@ and moving payments
   and `transfer`. A `charge` or `adjustment` carries neither.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
+- `record()` refuses unless the run holds the registration's lock
+  (`Context::holdsRegistration()`).
 - Ledger lines survive erasure and are kept at least 8 years, so a line holds
   no free text and no personal data: a bank reference, payer note or reason
   lives where erasure can reach it.

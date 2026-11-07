@@ -34,3 +34,4 @@ Events is events, their states, timeline points, date types, capacity and the
 - The event row is the first lock level; another module locks it only through
   `Events\Api\EventCapacity::lockForRegistration()`, and only that path and
   `kalaka/reopen-event` write the latch.
+- Only a published event takes the full latch.

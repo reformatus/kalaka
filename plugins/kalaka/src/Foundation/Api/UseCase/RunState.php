@@ -44,6 +44,12 @@ final class RunState
     /** @var array<int, array{string, list<int|string>}> the highest (table, normalised key) held, by level value */
     public array $highestKey = [];
 
+    /**
+     * @var array<string, true> the registrations whose row the attempt holds at `LockLevel::Registration`,
+     *                          mapped by the repository's `registrationOf()`, by identity
+     */
+    public array $heldRegistrations = [];
+
     /** @var array<string, RegistrationKey> the registrations the attempt wrote, by identity, in first-touch order */
     public array $touched = [];
 

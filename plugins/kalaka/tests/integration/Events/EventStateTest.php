@@ -102,9 +102,13 @@ final class EventStateTest extends EventsTestCase
     public function testArchivedIsFinalAndReadOnly(): void
     {
         $this->useClock($this->clockAt('2026-12-01 10:30:00'));
-        $id = $this->archived();
-        self::assertSame('2026-12-01 09:30:00', $this->row($id)['archived_at']);
+        // Only a published event takes the latch.
+        $id = $this->published();
         $this->markFull($id);
+        $this->transition(new UnpublishEvent(), $id);
+        $this->transition(new ArchiveEvent(), $id);
+        self::assertSame('2026-12-01 09:30:00', $this->row($id)['archived_at']);
+        self::assertSame('1', $this->row($id)['is_full']);
         $before = $this->row($id);
 
         $attempts = [

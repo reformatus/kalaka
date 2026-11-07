@@ -29,6 +29,7 @@ final class RecordLineTest extends LedgerTestCase
         );
 
         $stored = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
+            $this->lockRegistrations($context, $line->registration);
             $stored = $this->ledger->record($line, $context);
             $touched = $context->touchedRegistrations();
 
@@ -63,6 +64,30 @@ final class RecordLineTest extends LedgerTestCase
         self::assertIsArray($entry);
         self::assertSame(['registration/5/12A3'], $this->subjectsOf($entry['id']));
         self::assertSame('[]', $entry['changes']);
+    }
+
+    public function testALineOfARegistrationTheRunDoesNotHoldIsASystemFailureAndWritesNothing(): void
+    {
+        $registration = $this->registration();
+        $line = $this->line($registration, LineKind::Charge, '1000', 'k1');
+
+        try {
+            $this->inRun(fn (array $input, Context $context): LedgerLine => $this->ledger->record($line, $context));
+            self::fail('The run should have failed.');
+        } catch (SystemFailure $caught) {
+            self::assertSame(SystemFailure::class, $caught::class);
+            self::assertSame('The run does not hold the registration.', $caught->getPrevious()?->getMessage());
+        }
+        self::assertSame(0, $this->lineCount());
+
+        $stored = $this->inRun(function (array $input, Context $context) use ($line): LedgerLine {
+            $this->lockRegistrations($context, $line->registration);
+
+            return $this->ledger->record($line, $context);
+        });
+
+        self::assertInstanceOf(LedgerLine::class, $stored);
+        self::assertSame(1, $this->lineCount());
     }
 
     public function testAManualPaymentKeepsItsFractionAndValueDate(): void
@@ -129,6 +154,7 @@ final class RecordLineTest extends LedgerTestCase
 
         $touched = null;
         $second = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
+            $this->lockRegistrations($context, $line->registration);
             $stored = $this->ledger->record($line, $context);
             $touched = $context->touchedRegistrations();
 

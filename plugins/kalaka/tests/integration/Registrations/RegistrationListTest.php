@@ -89,6 +89,7 @@ final class RegistrationListTest extends RegistrationsTestCase
                 $this->newRegistration(5, $this->codes[$i], RegistrationStatus::Registered, '2026-11-30 08:00:0' . $i)
             );
             $this->inRun(function (array $input, Context $context) use ($i): void {
+                $this->lockRegistrations($context, new RegistrationKey(5, $this->codes[$i]));
                 $this->values->upsert(
                     new FieldValue(new RegistrationKey(5, $this->codes[$i]), 'name', 'Teszt Anna'),
                     $context
