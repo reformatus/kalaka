@@ -17,7 +17,11 @@ final class RunState
     /** False once the attempt has ended: a Context kept past that point is refused. */
     public bool $open = true;
 
-    /** The first error of a nested run (or of a second `Runner::run()`): it decides the outcome. */
+    /**
+     * The first error of a nested run, of a database statement (`DatabaseError::check()`) or of a second
+     * `Runner::run()`: it decides the outcome, and once it is set the context refuses writes, locks and
+     * nested runs by throwing it.
+     */
     public ?KalakaException $failure = null;
 
     /** The name of the use case that threw `failure`, when it is a nested one. */
