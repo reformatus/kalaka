@@ -21,16 +21,16 @@ final readonly class Balances
         return $this->byPayer;
     }
 
-    /** Zero when the payer has no lines. */
-    public function of(string $payer): Money
+    /** Zero in `$currency`, the event's, when the payer has no lines. */
+    public function of(string $payer, Currency $currency): Money
     {
-        return $this->byPayer[$payer] ?? Money::zero(Currency::HUF);
+        return $this->byPayer[$payer] ?? Money::zero($currency);
     }
 
-    /** The sum of all payers; zero HUF without lines. */
-    public function total(): Money
+    /** The sum of all payers; zero in `$currency`, the event's, without lines. */
+    public function total(Currency $currency): Money
     {
-        $total = Money::zero(Currency::HUF);
+        $total = Money::zero($currency);
         foreach ($this->byPayer as $balance) {
             $total = $total->plus($balance);
         }

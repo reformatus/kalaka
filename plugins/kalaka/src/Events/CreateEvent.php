@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Events;
 
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
-/** A new draft event with a name only. Returns its id. */
+/** A new draft event with a name only, in HUF (no input for the currency yet). Returns its id. */
 final class CreateEvent implements AdminUseCase
 {
     public function __construct(private readonly EventRepository $repository = new EventRepository())
@@ -55,6 +56,6 @@ final class CreateEvent implements AdminUseCase
             throw new InvalidInput();
         }
 
-        return $this->repository->upsert(new EventRecord($name), $context)->id;
+        return $this->repository->upsert(new EventRecord($name, currency: Currency::HUF), $context)->id;
     }
 }

@@ -61,6 +61,34 @@ final class PaymentFactsTest extends LedgerTestCase
         self::assertEquals($online->paidAt, $online->valueAt());
     }
 
+    /** #42 AC14: one line of every kind; the facts are every payment-fact kind and no charge or adjustment. */
+    public function testALineOfEveryPaymentFactKindAndNoOtherIsReturned(): void
+    {
+        $registration = $this->registration();
+        $lines = [];
+        foreach (LineKind::cases() as $number => $kind) {
+            $amount = $kind->allows($this->money('100')) ? '100' : '-100';
+            $lines[] = $this->fitted($registration, $kind, $amount, 'kind:' . $number);
+        }
+        $this->record(...$lines);
+
+        $kinds = array_map(
+            static fn (PaymentFact $fact): string => $fact->kind->value,
+            $this->ledger->paymentFactsOf($registration)
+        );
+        sort($kinds);
+        $expected = array_map(
+            static fn (LineKind $kind): string => $kind->value,
+            array_values(array_filter(LineKind::cases(), static fn (LineKind $kind): bool => $kind->isPaymentFact()))
+        );
+        sort($expected);
+
+        self::assertSame(['manual_payment', 'manual_refund', 'payment', 'refund', 'transfer'], $expected);
+        self::assertSame($expected, $kinds);
+        self::assertNotContains(LineKind::Charge->value, $kinds);
+        self::assertNotContains(LineKind::Adjustment->value, $kinds);
+    }
+
     public function testFactsOfTheSameInstantComeInTheOrderOfTheirIds(): void
     {
         update_option('timezone_string', 'Europe/Budapest');

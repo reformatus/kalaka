@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventPoint;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Money\Currency;
 
 /**
  * The stored event. The core points are `YYYY-MM-DD` days, `archivedAt` is `Y-m-d H:i:s` in UTC.
@@ -18,6 +19,7 @@ final class EventRecord
     public function __construct(
         public string $name = '',
         public EventState $state = EventState::Draft,
+        public Currency $currency = Currency::HUF,
         public ?int $capacity = null,
         public bool $isFull = false,
         public ?string $registrationOpensOn = null,
@@ -38,6 +40,7 @@ final class EventRecord
         return new self(
             (string) $row['name'],
             EventState::from((string) $row['state']),
+            Currency::from((string) $row['currency']),
             $row['capacity'] === null ? null : (int) $row['capacity'],
             $row['is_full'] === '1',
             $row['registration_opens_on'],
@@ -64,6 +67,7 @@ final class EventRecord
             $this->version,
             $this->name,
             $this->state,
+            $this->currency,
             $this->capacity,
             $this->isFull,
             self::startOfOrNull($this->registrationOpensOn),
