@@ -222,6 +222,9 @@ on each other in a circle:
   - `find(key)`, which returns null when missing (the caller decides whether
     that is an error; there is no get/find split);
   - `upsert()` for entities;
+  - `delete()` for entities: version-checked like `upsert()`, and audited
+    as a change from the record's values to null. Append-only records are
+    never deleted;
   - `insert()` for append-only records (ledger lines, submissions).
 - **Concurrent edits:** mutable records (registrations, events) carry a
   `version` column, and `upsert()` writes only if the version has not changed.
