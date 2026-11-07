@@ -17,6 +17,15 @@ final class RunState
     /** False once the attempt has ended: a Context kept past that point is refused. */
     public bool $open = true;
 
+    /** The outermost use case's name, for the reconnect line in PHP's error log. */
+    public string $useCase = '';
+
+    /**
+     * The connection's thread id before the attempt's first transaction statement; null: no connection.
+     * `DatabaseError::check()` compares it on every statement: another id means wpdb reconnected.
+     */
+    public ?int $threadId = null;
+
     /**
      * The first error of a nested run, of a database statement (`DatabaseError::check()`) or of a second
      * `Runner::run()`: it decides the outcome, and once it is set the context refuses writes, locks and

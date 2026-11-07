@@ -87,6 +87,15 @@ final class Runner
     }
 
     /**
+     * @internal `DatabaseError::check()` reads the attempt in progress, if any, to compare its connection
+     * thread id with the current one.
+     */
+    public static function activeRun(): ?RunState
+    {
+        return self::$active;
+    }
+
+    /**
      * Runs a use case as the actor and returns what its `execute` returned.
      *
      * @param array<string, mixed> $input
@@ -161,7 +170,8 @@ final class Runner
 
     /**
      * One attempt from scratch: begin, execute, evaluate, write the audit entries, commit; an explicit
-     * rollback on any exception.
+     * rollback on any exception. The thread id is recorded before the first transaction statement; the
+     * check after each statement, the commit or release included, compares it while the attempt is active.
      *
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
@@ -174,6 +184,7 @@ final class Runner
         RunTrace $trace,
     ): array {
         $state = new RunState();
+        $state->useCase = $useCase::name();
         self::$active = $state;
         $begun = false;
         ObjectCache::clear();
@@ -183,6 +194,7 @@ final class Runner
             $trace->now = $now;
             $entry = $header->entry($now);
             $begun = true;
+            $state->threadId = self::threadId();
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_run');
             } else {
@@ -212,6 +224,16 @@ final class Runner
         }
 
         return [$result, $state->steps];
+    }
+
+    /** The connection's thread id, read without a statement; null when there is no connection. */
+    private static function threadId(): ?int
+    {
+        global $wpdb;
+        // `dbh` is protected, but wpdb exposes it through __get().
+        $connection = $wpdb->__get('dbh');
+
+        return $connection instanceof \mysqli ? $connection->thread_id : null;
     }
 
     /**
