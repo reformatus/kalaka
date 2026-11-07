@@ -47,6 +47,7 @@ abstract class PeriodicTestCase extends EvaluationTestCase
         wp_unschedule_hook(PeriodicSchedule::HOOK);
         wp_unschedule_hook(PeriodicSchedule::NOW_HOOK);
         delete_option(PeriodicRun::LAST_RUN_OPTION);
+        delete_option(PeriodicRun::MISSED_OPTION);
     }
 
     public function tear_down(): void
