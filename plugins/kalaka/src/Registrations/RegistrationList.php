@@ -11,8 +11,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 final class RegistrationList extends Query
 {
     /**
-     * Ordered by `created_at`, then `code`. The sorszám counts from 1 within `registered` and within
-     * `waitlisted` in that order; `withdrawn` and `removed` have none.
+     * Ordered by the ordering time (`registered_at` for `registered`, `created_at` for every other status),
+     * then `code`. The sorszám counts from 1 within `registered` and within `waitlisted` in that order;
+     * `withdrawn` and `removed` have none.
      *
      * @return list<array{
      *     code: string, status: RegistrationStatus, created_at: string, registered_at: ?string, serial: ?int
@@ -23,7 +24,8 @@ final class RegistrationList extends Query
         return $this->scope(function () use ($eventId): array {
             $rows = $this->select(
                 'registration',
-                'SELECT code, status, created_at, registered_at FROM %i WHERE event_id = %d ORDER BY created_at, code',
+                "SELECT code, status, created_at, registered_at FROM %i WHERE event_id = %d
+                 ORDER BY CASE WHEN status = 'registered' THEN registered_at ELSE created_at END, code",
                 [$this->table('kalaka_registrations'), $eventId]
             );
 

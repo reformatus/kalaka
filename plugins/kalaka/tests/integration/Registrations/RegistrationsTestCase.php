@@ -87,15 +87,15 @@ abstract class RegistrationsTestCase extends AuditTestCase
         return $stored;
     }
 
-    /** Changes the status of a stored registration in a run of its own. */
-    protected function setStatus(RegistrationKey $key, RegistrationStatus $status): void
+    /** Changes the status of a stored registration in a run of its own; `registered` stamps `$registeredAt` or the clock. */
+    protected function setStatus(RegistrationKey $key, RegistrationStatus $status, ?string $registeredAt = null): void
     {
-        $this->inRun(function (array $input, Context $context) use ($key, $status): void {
+        $this->inRun(function (array $input, Context $context) use ($key, $status, $registeredAt): void {
             $registration = $this->registrations->findForUpdate($key, $context);
             self::assertInstanceOf(Registration::class, $registration);
             $registration->status = $status;
             if ($status === RegistrationStatus::Registered) {
-                $registration->registeredAt = $context->now();
+                $registration->registeredAt = $registeredAt !== null ? $this->utc($registeredAt) : $context->now();
             }
             $this->registrations->upsert($registration, $context);
         });
@@ -113,10 +113,10 @@ abstract class RegistrationsTestCase extends AuditTestCase
         foreach (array_chunk($codes, 1000) as $chunk) {
             $values = [];
             foreach ($chunk as $code) {
-                $values[] = $wpdb->prepare("(%d, %s, 1, 'registered', 'secret', '2026-11-30 08:00:00.000000')", $event, $code);
+                $values[] = $wpdb->prepare("(%d, %s, 1, 'registered', 'secret', '2026-11-30 08:00:00.000000', '2026-11-30 08:00:00.000000')", $event, $code);
             }
             $wpdb->query(
-                "INSERT INTO {$wpdb->prefix}kalaka_registrations (event_id, code, version, status, secret, created_at) VALUES "
+                "INSERT INTO {$wpdb->prefix}kalaka_registrations (event_id, code, version, status, secret, created_at, registered_at) VALUES "
                 . implode(', ', $values)
             );
         }
