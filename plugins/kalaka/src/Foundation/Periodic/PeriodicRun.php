@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Clock;
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -32,16 +33,18 @@ final class PeriodicRun
         private readonly TimeRules $rules,
         private readonly Events $events,
         private readonly EvaluationFailureQuery $failures,
+        private readonly BinlogCheck $binlog = new BinlogCheck(),
     ) {
     }
 
     /**
-     * @return ?PeriodicRunReport null when the run did not happen: the site is closed or another run holds the lock
+     * @return ?PeriodicRunReport null when the run did not happen: the site is closed, the database refuses writes
+     *                            (`BinlogCheck`) or another run holds the lock
      * @throws \Throwable whatever a time rule or a query throws; the run ends and writes no last-run time
      */
     public function run(): ?PeriodicRunReport
     {
-        if (!LoadState::current()->isOpen()) {
+        if (!LoadState::current()->isOpen() || $this->binlog->refuses()) {
             return null;
         }
 

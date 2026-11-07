@@ -113,6 +113,10 @@ flowchart LR
   code that catches it cannot go on writing. (This also matches how SQLite
   aborts a transaction on a failed statement.) A rollback also clears the
   per-request object cache.
+- **Isolation:** each run's transaction is READ COMMITTED, set for that
+  transaction only. If the server logs binary with `binlog_format=STATEMENT`,
+  writes under READ COMMITTED fail, so the runner refuses every use case, and
+  Site Health and an admin notice show the problem.
 - **Retries:** only errors marked retryable (a reference-code collision, a
   deadlock, a lock-wait timeout, a version conflict hit by a system run, a
   reconnect detected inside a run) are retried, about three times, each

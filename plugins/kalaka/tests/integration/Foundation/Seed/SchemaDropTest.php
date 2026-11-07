@@ -38,6 +38,8 @@ final class SchemaDropTest extends RealTableTestCase
         $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}kalaka_test_undeclared");
         $wpdb->query("CREATE TABLE {$wpdb->prefix}kalaka_test_undeclared (id INT PRIMARY KEY) ENGINE=InnoDB");
         $wpdb->query("INSERT INTO {$wpdb->prefix}kalaka_test_undeclared (id) VALUES (1)");
+        // The runner sets READ COMMITTED for its transaction, which MariaDB refuses inside an open one.
+        $wpdb->query('COMMIT');
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case

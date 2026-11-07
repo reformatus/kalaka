@@ -12,6 +12,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Cli\PeriodicRunCommand;
 use Kalaka\Foundation\Cli\SeedCommand;
 use Kalaka\Foundation\Clock\WordPressClock;
+use Kalaka\Foundation\Database\BinlogCheck;
+use Kalaka\Foundation\Database\IsolationHealth;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
@@ -150,7 +152,8 @@ SQL;
     public function boot(): void
     {
         $clock = new WordPressClock();
-        $runner = new Runner($clock, evaluation: new Evaluation(new DecisionRules()));
+        $binlog = new BinlogCheck();
+        $runner = new Runner($clock, evaluation: new Evaluation(new DecisionRules()), binlog: $binlog);
         Runner::publish($runner);
 
         $periodicRun = new PeriodicRun(
@@ -158,10 +161,12 @@ SQL;
             new PeriodicEvaluation($runner),
             new TimeRules(),
             new Events(),
-            new EvaluationFailureQuery()
+            new EvaluationFailureQuery(),
+            $binlog
         );
         (new PeriodicSchedule($clock))->register(static fn (): mixed => $periodicRun->run());
         (new PeriodicRunHealth($clock))->register();
+        (new IsolationHealth($binlog))->register();
 
         if (defined('WP_CLI') && WP_CLI) {
             PeriodicRunCommand::register($periodicRun);

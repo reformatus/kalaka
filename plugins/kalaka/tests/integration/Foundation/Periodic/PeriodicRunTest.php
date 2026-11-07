@@ -8,6 +8,7 @@ use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicRunReport;
 use Kalaka\Foundation\Periodic\TimeRuleInput;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\Foundation\FakeBinlog;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
 /** AC3 to AC8. */
@@ -238,6 +239,30 @@ final class PeriodicRunTest extends PeriodicTestCase
             self::assertNull($this->sweep());
         });
 
+        self::assertSame([], $spy->inputs);
+        self::assertSame([], $this->evaluationEntries());
+        self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));
+        self::assertSame('2026-11-30 08:55:00.000000', get_option('kalaka_periodic_run_last'));
+        self::assertSame(
+            [],
+            array_filter($statements, static fn (string $sql): bool => str_contains($sql, self::LOCK))
+        );
+    }
+
+    public function testWhileTheDatabaseRefusesWritesNothingHappens(): void
+    {
+        $event = $this->eventIn('published');
+        $this->seedFlag($event, '00A0');
+        $spy = SpyTimeRule::naming('00A0');
+        $this->timeRules->add($spy);
+        update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
+        $fake = FakeBinlog::statementFormat();
+
+        $statements = $this->statementsDuring(function (): void {
+            self::assertNull($this->sweep());
+        });
+
+        self::assertSame(1, $fake->reads);
         self::assertSame([], $spy->inputs);
         self::assertSame([], $this->evaluationEntries());
         self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));

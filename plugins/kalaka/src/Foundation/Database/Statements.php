@@ -27,9 +27,17 @@ final class Statements
         $this->wpdb = $wpdb;
     }
 
-    /** Only the runner begins, commits and rolls back. */
-    public function begin(): void
+    /**
+     * Only the runner begins, commits and rolls back.
+     *
+     * @param bool $readCommitted the transaction runs at READ COMMITTED, set for it alone; false: the
+     *                            session's own level
+     */
+    public function begin(bool $readCommitted): void
     {
+        if ($readCommitted) {
+            $this->run('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        }
         $this->run('START TRANSACTION');
     }
 

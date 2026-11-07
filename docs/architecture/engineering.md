@@ -56,9 +56,12 @@ title: Engineering
   `JSON_ARRAYAGG`, `JSON_OBJECTAGG`.
 - **Locking:** locks are taken in one fixed order
   ([Foundation](foundation.md#lock-order)). The capacity check's `FOR UPDATE`
-  on the event row is the first read of the submit transaction. A plain read
-  before it would let a later count reuse an old snapshot and overbook the
-  event.
+  on the event row is the first read of the submit transaction, as the lock
+  order requires.
+- **Isolation:** each run's transaction is READ COMMITTED, so a plain read
+  after a waited lock sees what the other transaction committed. Binary logging
+  with `binlog_format=STATEMENT` is refused
+  ([Foundation](foundation.md#the-use-case-runner)).
 - **Retryable database errors:** deadlock (1213), lock-wait timeout (1205),
   "record has changed since last read" (1020, 11.8) and a duplicate key on a
   reference-code collision (1062). The runner always issues an explicit
