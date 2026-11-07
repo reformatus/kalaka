@@ -15,8 +15,6 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-
 final class RunnerPermissionTest extends RunnerTestCase
 {
     /** @return iterable<string, array{Actor, string, bool}> actor, use case, passes */

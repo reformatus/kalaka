@@ -6,8 +6,6 @@ namespace Kalaka\Tests\Integration\Foundation\Seed;
 
 use Kalaka\Foundation\Seed\SeedUsers;
 
-require_once __DIR__ . '/SeedTestCase.php';
-
 /** AC1. */
 final class SeedUsersTest extends SeedTestCase
 {

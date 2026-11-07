@@ -21,7 +21,9 @@ final class ErrorsTest extends WP_UnitTestCase
     public static function table(): iterable
     {
         yield 'InvalidInput' => [InvalidInput::class, 'kalaka_invalid_input', 400, 'Hibás vagy hiányzó adat.'];
-        yield 'PermissionDenied' => [PermissionDenied::class, 'kalaka_permission_denied', 403, 'Ehhez nincs jogosultságod.'];
+        yield 'PermissionDenied' => [
+            PermissionDenied::class, 'kalaka_permission_denied', 403, 'Ehhez nincs jogosultságod.',
+        ];
         yield 'NotFound' => [NotFound::class, 'kalaka_not_found', 404, 'A keresett elem nem található.'];
         yield 'VersionConflict' => [
             VersionConflict::class,
@@ -30,8 +32,12 @@ final class ErrorsTest extends WP_UnitTestCase
             'Valaki időközben módosította ezeket az adatokat. Töltsd újra az oldalt, és próbáld újra.',
         ];
         yield 'RuleViolation' => [RuleViolation::class, 'kalaka_rule_violation', 422, 'A művelet nem hajtható végre.'];
-        yield 'SystemFailure' => [SystemFailure::class, 'kalaka_system_failure', 500, 'Váratlan hiba történt. Próbáld újra később.'];
-        yield 'RetryableFailure' => [RetryableFailure::class, 'kalaka_retryable_failure', 500, 'Váratlan hiba történt. Próbáld újra később.'];
+        yield 'SystemFailure' => [
+            SystemFailure::class, 'kalaka_system_failure', 500, 'Váratlan hiba történt. Próbáld újra később.',
+        ];
+        yield 'RetryableFailure' => [
+            RetryableFailure::class, 'kalaka_retryable_failure', 500, 'Váratlan hiba történt. Próbáld újra később.',
+        ];
     }
 
     /**

@@ -21,9 +21,6 @@ use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Tests\Integration\Foundation\Evaluation\EvaluationTestCase;
 
-require_once __DIR__ . '/../Evaluation/EvaluationTestCase.php';
-require_once __DIR__ . '/SpyTimeRule.php';
-
 /**
  * The base of the periodic run tests: the clock stands at 2026-11-30 10:00 in Europe/Budapest
  * (09:00 UTC), the run is built over the test runner and a registry the test fills, and the
@@ -36,6 +33,7 @@ abstract class PeriodicTestCase extends EvaluationTestCase
     /** @var list<LoadFailure> */
     private array $loadFailures = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -49,6 +47,7 @@ abstract class PeriodicTestCase extends EvaluationTestCase
         delete_option(PeriodicRun::LAST_RUN_OPTION);
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         LoadState::record($this->loadFailures);

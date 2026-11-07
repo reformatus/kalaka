@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-
 final class RunnerInputTest extends RunnerTestCase
 {
     private const SCHEMA = [

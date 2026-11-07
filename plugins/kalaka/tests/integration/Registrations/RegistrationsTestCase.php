@@ -17,8 +17,6 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Foundation\AuditTestCase;
 
-require_once __DIR__ . '/../Foundation/AuditTestCase.php';
-
 /** The base of the Registrations tests: the repositories, a runner in savepoint mode, helpers to seed rows. */
 abstract class RegistrationsTestCase extends AuditTestCase
 {
@@ -28,6 +26,7 @@ abstract class RegistrationsTestCase extends AuditTestCase
 
     protected SubmissionRepository $submissions;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -38,6 +37,7 @@ abstract class RegistrationsTestCase extends AuditTestCase
         $this->submissions = new SubmissionRepository();
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         ObjectCache::clear();
@@ -81,7 +81,9 @@ abstract class RegistrationsTestCase extends AuditTestCase
             return $this->registrations->upsert($registration, $context);
         }
 
-        $stored = $this->inRun(fn (array $input, Context $run): Registration => $this->registrations->upsert($registration, $run));
+        $stored = $this->inRun(
+            fn (array $input, Context $run): Registration => $this->registrations->upsert($registration, $run)
+        );
         self::assertInstanceOf(Registration::class, $stored);
 
         return $stored;
@@ -113,10 +115,16 @@ abstract class RegistrationsTestCase extends AuditTestCase
         foreach (array_chunk($codes, 1000) as $chunk) {
             $values = [];
             foreach ($chunk as $code) {
-                $values[] = $wpdb->prepare("(%d, %s, 1, 'registered', 'secret', '2026-11-30 08:00:00.000000')", $event, $code);
+                $values[] = $wpdb->prepare(
+                    "(%d, %s, 1, 'registered', 'secret', '2026-11-30 08:00:00.000000')",
+                    $event,
+                    $code
+                );
             }
             $wpdb->query(
-                "INSERT INTO {$wpdb->prefix}kalaka_registrations (event_id, code, version, status, secret, created_at) VALUES "
+                "INSERT INTO {$wpdb->prefix}kalaka_registrations "
+                . "(event_id, code, version, status, secret, created_at) VALUES "
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; table prefix and constants only
                 . implode(', ', $values)
             );
         }
@@ -134,6 +142,7 @@ abstract class RegistrationsTestCase extends AuditTestCase
     {
         global $wpdb;
         $row = $wpdb->get_row(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup; table prefix and constants only
             $wpdb->prepare("SELECT * FROM {$wpdb->prefix}{$table} WHERE event_id = %d AND code = %s", $event, $code),
             ARRAY_A
         );

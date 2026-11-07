@@ -9,8 +9,6 @@ use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Registrations\ReferenceCodeGenerator;
 use Kalaka\Registrations\Registration;
 
-require_once __DIR__ . '/RegistrationsTestCase.php';
-
 /** AC3 to AC5: the generator. */
 final class ReferenceCodeGeneratorTest extends RegistrationsTestCase
 {
@@ -106,6 +104,7 @@ final class ReferenceCodeGeneratorTest extends RegistrationsTestCase
     {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}{$table}");
     }
 }

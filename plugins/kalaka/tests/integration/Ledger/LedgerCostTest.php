@@ -9,8 +9,6 @@ use Kalaka\Ledger\LedgerLineRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
-require_once __DIR__ . '/../Foundation/PerEventCostTestCase.php';
-
 /** AC7: the ledger's statements stay inside their event and run one statement each. */
 final class LedgerCostTest extends PerEventCostTestCase
 {
@@ -18,34 +16,32 @@ final class LedgerCostTest extends PerEventCostTestCase
     {
         global $wpdb;
 
-        $values = [];
+        $tuples = [];
+        $args = [];
         foreach (['AAAA' => 6, 'BBBB' => 4] as $code => $lines) {
             for ($number = 1; $number <= $lines; $number++) {
-                $values[] = match ($number % 3) {
-                    0 => $wpdb->prepare(
-                        "(%d, %s, 'charge', 'participant', 1000, 'HUF', 'fee_component', NULL, 'fixed_price', %s, NULL, NULL, '2026-11-30 08:00:00.000000')",
-                        $event,
-                        $code,
-                        'line:' . $number
-                    ),
-                    1 => $wpdb->prepare(
-                        "(%d, %s, 'manual_payment', 'participant', -1000, 'HUF', 'fee_component', NULL, 'fixed_price', %s, '2026-12-03', NULL, '2026-11-30 08:00:00.000000')",
-                        $event,
-                        $code,
-                        'line:' . $number
-                    ),
-                    default => $wpdb->prepare(
-                        "(%d, %s, 'payment', 'participant', -1000, 'HUF', 'fee_component', NULL, 'fixed_price', %s, NULL, '2026-12-01 10:00:00.000000', '2026-11-30 08:00:00.000000')",
-                        $event,
-                        $code,
-                        'line:' . $number
-                    ),
+                $tuples[] = match ($number % 3) {
+                    0 => "(%d, %s, 'charge', 'participant', 1000, 'HUF', 'fee_component', NULL, 'fixed_price', %s,"
+                        . " NULL, NULL, '2026-11-30 08:00:00.000000')",
+                    1 => "(%d, %s, 'manual_payment', 'participant', -1000, 'HUF', 'fee_component', NULL,"
+                        . " 'fixed_price', %s,"
+                        . " '2026-12-03', NULL, '2026-11-30 08:00:00.000000')",
+                    default => "(%d, %s, 'payment', 'participant', -1000, 'HUF', 'fee_component', NULL,"
+                        . " 'fixed_price', %s,"
+                        . " NULL, '2026-12-01 10:00:00.000000', '2026-11-30 08:00:00.000000')",
                 };
+                array_push($args, $event, $code, 'line:' . $number);
             }
         }
         $wpdb->query(
-            "INSERT INTO {$wpdb->prefix}kalaka_ledger_lines (event_id, code, kind, payer, amount, currency, source_type,"
-            . ' source_event_id, source_key, idempotency_key, value_date, paid_at, recorded_at) VALUES ' . implode(', ', $values)
+            // phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.ReplacementsWrongNumber -- the placeholders are in the joined tuples; PHPCS cannot count the spread arguments
+            $wpdb->prepare(
+                "INSERT INTO %i (event_id, code, kind, payer, amount, currency, source_type, source_event_id,"
+                // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- the joined tuples are constant strings with placeholders
+                . ' source_key, idempotency_key, value_date, paid_at, recorded_at) VALUES ' . implode(', ', $tuples),
+                $wpdb->prefix . 'kalaka_ledger_lines',
+                ...$args
+            )
         );
     }
 

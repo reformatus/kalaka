@@ -7,10 +7,6 @@ namespace Kalaka\Tests\Integration\Foundation;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\ObjectCache;
 
-require_once __DIR__ . '/AuditTestCase.php';
-require_once __DIR__ . '/TestItemRepository.php';
-require_once __DIR__ . '/TestLogRepository.php';
-
 /**
  * The base of the repository tests: test tables, the runner in savepoint mode, a clean object
  * cache. The actor is a CLI actor, since a system run retries a version conflict.
@@ -21,6 +17,7 @@ abstract class RepositoryTestCase extends AuditTestCase
 
     protected TestLogRepository $logs;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -34,10 +31,12 @@ abstract class RepositoryTestCase extends AuditTestCase
         ObjectCache::clear();
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         global $wpdb;
         foreach (['items', 'items_other', 'logs', 'log_keys'] as $table) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}kalaka_test_{$table}");
         }
         ObjectCache::clear();
@@ -83,6 +82,7 @@ abstract class RepositoryTestCase extends AuditTestCase
     protected function rowOf(string $table, int $id): ?array
     {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}{$table} WHERE id = %d", $id), ARRAY_A);
 
         return is_array($row) ? $row : null;
@@ -92,6 +92,7 @@ abstract class RepositoryTestCase extends AuditTestCase
     {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}{$table}");
     }
 }

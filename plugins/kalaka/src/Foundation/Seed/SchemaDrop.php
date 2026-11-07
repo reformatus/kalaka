@@ -52,8 +52,8 @@ final class SchemaDrop
             }
         }
         foreach ($this->modules as $module) {
-            delete_option('kalaka_schema_' . $module->id());
-            \WP_Upgrader::release_lock('kalaka_schema_' . $module->id());
+            delete_option($this->upgrader->versionOption($module));
+            \WP_Upgrader::release_lock($this->upgrader->lockName($module));
         }
 
         foreach ($this->modules as $module) {

@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RepositoryTestCase.php';
-
 /** `EntityRepository::delete()`: a delete by key and version that the audit and the evaluation see. */
 final class RepositoryDeleteTest extends RepositoryTestCase
 {
@@ -107,6 +105,11 @@ final class RepositoryDeleteTest extends RepositoryTestCase
     public function testAnEntityThatWasNotLoadedCannotBeDeleted(): void
     {
         $this->expectException(SystemFailure::class);
-        $this->inRun(fn (array $input, Context $context) => $this->items->delete(new TestItem('new', id: 1, version: 1), $context));
+        $this->inRun(
+            fn (array $input, Context $context) => $this->items->delete(
+                new TestItem('new', id: 1, version: 1),
+                $context
+            )
+        );
     }
 }

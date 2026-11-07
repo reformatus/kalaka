@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Submission\Submission;
 
-require_once __DIR__ . '/RegistrationsTestCase.php';
-
 /** AC10: frozen submissions. */
 final class SubmissionRepositoryTest extends RegistrationsTestCase
 {
@@ -36,7 +34,10 @@ final class SubmissionRepositoryTest extends RegistrationsTestCase
         self::assertSame('2026-11-30 08:00:00.250000', $found->submittedAt->format('Y-m-d H:i:s.u'));
 
         $row = $this->rowOf('kalaka_submissions', 5, '12A3');
-        self::assertSame('{"name":"Árvíztűrő Tükörfúrógép","age":12,"choices":["a","b/c"],"note":null}', $row['answers'] ?? null);
+        self::assertSame(
+            '{"name":"Árvíztűrő Tükörfúrógép","age":12,"choices":["a","b/c"],"note":null}',
+            $row['answers'] ?? null
+        );
         self::assertEquals([$key], $touched);
 
         $entry = $this->onlyEntry();
@@ -75,7 +76,14 @@ final class SubmissionRepositoryTest extends RegistrationsTestCase
         try {
             $this->inRun(function (array $input, Context $context) use ($answers): void {
                 $this->submissions->insert(
-                    new Submission(new RegistrationKey(5, '12A3'), 1, 10, 1, $answers, $this->utc('2026-11-30 08:00:00')),
+                    new Submission(
+                        new RegistrationKey(5, '12A3'),
+                        1,
+                        10,
+                        1,
+                        $answers,
+                        $this->utc('2026-11-30 08:00:00')
+                    ),
                     $context
                 );
             });

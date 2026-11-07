@@ -199,8 +199,12 @@ final class MoneyTest extends TestCase
     public static function outOfRangeResults(): iterable
     {
         yield 'plus above the maximum' => [static fn (): Money => self::huf(self::MAX)->plus(self::huf('0.00000001'))];
-        yield 'plus below the minimum' => [static fn (): Money => self::huf(self::MIN)->plus(self::huf('-0.00000001'))];
-        yield 'minus below the minimum' => [static fn (): Money => self::huf(self::MIN)->minus(self::huf('0.00000001'))];
+        yield 'plus below the minimum' => [
+            static fn (): Money => self::huf(self::MIN)->plus(self::huf('-0.00000001')),
+        ];
+        yield 'minus below the minimum' => [
+            static fn (): Money => self::huf(self::MIN)->minus(self::huf('0.00000001')),
+        ];
         yield 'minus above the maximum' => [static fn (): Money => self::huf(self::MAX)->minus(self::huf('-1'))];
         yield 'rounding up past the maximum' => [static fn (): Money => self::huf(self::MAX)->roundedUpToPayableUnit()];
     }
@@ -221,8 +225,14 @@ final class MoneyTest extends TestCase
 
     public function testTheBoundariesThemselvesAreReachable(): void
     {
-        self::assertSame(self::MAX, self::huf('999999999999999999.99999998')->plus(self::huf('0.00000001'))->amount());
-        self::assertSame(self::MIN, self::huf('-999999999999999999.99999998')->minus(self::huf('0.00000001'))->amount());
+        self::assertSame(
+            self::MAX,
+            self::huf('999999999999999999.99999998')->plus(self::huf('0.00000001'))->amount()
+        );
+        self::assertSame(
+            self::MIN,
+            self::huf('-999999999999999999.99999998')->minus(self::huf('0.00000001'))->amount()
+        );
     }
 
     /** @return iterable<string, array{string, bool}> */

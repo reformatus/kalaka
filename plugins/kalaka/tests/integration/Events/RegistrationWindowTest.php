@@ -8,8 +8,6 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC7, AC8 and AC11: the registration window is computed on every read. */
 final class RegistrationWindowTest extends EventsTestCase
 {

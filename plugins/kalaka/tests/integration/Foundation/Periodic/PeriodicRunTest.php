@@ -10,8 +10,6 @@ use Kalaka\Foundation\Periodic\TimeRuleInput;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
-require_once __DIR__ . '/PeriodicTestCase.php';
-
 /** AC3 to AC8. */
 final class PeriodicRunTest extends PeriodicTestCase
 {
@@ -161,7 +159,10 @@ final class PeriodicRunTest extends PeriodicTestCase
         self::assertEquals(new PeriodicRunReport(0, 1), $report);
         $rows = $this->flagRows();
         self::assertCount(1, $rows);
-        self::assertSame(['decisions/test_state', '2026-11-30 09:00:00.000000'], [$rows[0]['rule'], $rows[0]['failed_at']]);
+        self::assertSame(
+            ['decisions/test_state', '2026-11-30 09:00:00.000000'],
+            [$rows[0]['rule'], $rows[0]['failed_at']]
+        );
     }
 
     public function testAKeyThatIsBothDueAndFlaggedIsEvaluatedOnce(): void
@@ -241,6 +242,9 @@ final class PeriodicRunTest extends PeriodicTestCase
         self::assertSame([], $this->evaluationEntries());
         self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));
         self::assertSame('2026-11-30 08:55:00.000000', get_option('kalaka_periodic_run_last'));
-        self::assertSame([], array_filter($statements, static fn (string $sql): bool => str_contains($sql, self::LOCK)));
+        self::assertSame(
+            [],
+            array_filter($statements, static fn (string $sql): bool => str_contains($sql, self::LOCK))
+        );
     }
 }

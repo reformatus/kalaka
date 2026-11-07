@@ -10,8 +10,6 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 
-require_once __DIR__ . '/RepositoryTestCase.php';
-
 /** Reads: find(), the object cache, findForUpdate() and the finder for a repository's own lookups. */
 final class RepositoryReadTest extends RepositoryTestCase
 {
@@ -117,7 +115,10 @@ final class RepositoryReadTest extends RepositoryTestCase
 
         self::assertSame('new', $seen);
         self::assertNull($missing);
-        $locking = array_values(array_filter($statements, static fn (string $sql): bool => str_ends_with($sql, 'FOR UPDATE')));
+        $locking = array_values(array_filter(
+            $statements,
+            static fn (string $sql): bool => str_ends_with($sql, 'FOR UPDATE')
+        ));
         self::assertCount(2, $locking);
         self::assertStringContainsString('kalaka_test_items', $locking[0]);
     }
@@ -130,7 +131,15 @@ final class RepositoryReadTest extends RepositoryTestCase
         $second = $this->seed('kalaka_test_items_other', 'B');
 
         try {
-            $this->runner->run(new AdminProbe(function (array $input, Context $context) use ($other, $event, $first, $second): void {
+            $this->runner->run(new AdminProbe(function (
+                array $input,
+                Context $context
+            ) use (
+                $other,
+                $event,
+                $first,
+                $second
+            ): void {
                 $this->insertRow('written');
                 $other->findForUpdate($first, $context);
                 $event->findForUpdate($second, $context);
@@ -170,6 +179,9 @@ final class RepositoryReadTest extends RepositoryTestCase
             });
         });
 
-        self::assertNotEmpty(array_filter($statements, static fn (string $sql): bool => str_ends_with($sql, 'FOR UPDATE')));
+        self::assertNotEmpty(array_filter(
+            $statements,
+            static fn (string $sql): bool => str_ends_with($sql, 'FOR UPDATE')
+        ));
     }
 }
