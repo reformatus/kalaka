@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
+use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -15,8 +16,11 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class TestLogRepository extends AppendOnlyRepository
 {
-    public function __construct(private readonly string $tableName, private readonly bool $generated = true)
-    {
+    public function __construct(
+        private readonly string $tableName,
+        private readonly bool $generated = true,
+        private readonly LockLevel $level = LockLevel::Other,
+    ) {
         parent::__construct();
     }
 
@@ -74,6 +78,11 @@ final class TestLogRepository extends AppendOnlyRepository
     protected function subject(object $record): Subject
     {
         return new Subject('test_log', null, (string) $record->id);
+    }
+
+    protected function lockLevel(): LockLevel
+    {
+        return $this->level;
     }
 
     protected function registrationOf(object $record): ?RegistrationKey

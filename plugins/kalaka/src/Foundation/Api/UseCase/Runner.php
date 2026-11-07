@@ -21,6 +21,7 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Foundation\LockKey;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -287,13 +288,7 @@ final class Runner
             },
             static function (LockLevel $level) use ($state): void {
                 self::assertOpen($state);
-                if ($state->highestLock !== null && $level->value < $state->highestLock->value) {
-                    $cause = new \LogicException(
-                        'Lock order violated: ' . $level->name . ' requested after ' . $state->highestLock->name . '.'
-                    );
-                    $error = new SystemFailure(null, $cause);
-                    throw $error;
-                }
+                self::checkLevel($state, $level);
                 $state->highestLock = $level;
             },
             static function (Subject $subject) use ($state, $entry): void {
@@ -321,7 +316,68 @@ final class Runner
                 $state->touched[$key->eventId . "\0" . $key->code] ??= $key;
             },
             static fn (): array => array_values($state->touched),
+            static function (LockLevel $level, string $table, array $key, bool $recordOnly) use ($state): void {
+                self::assertOpen($state);
+                self::lockRow($state, $level, $table, $key, $recordOnly);
+            },
         );
+    }
+
+    private static function checkLevel(RunState $state, LockLevel $level): void
+    {
+        if ($state->highestLock !== null && $level->value < $state->highestLock->value) {
+            $cause = new \LogicException(
+                'Lock order violated: ' . $level->name . ' requested after ' . $state->highestLock->name . '.'
+            );
+            $error = new SystemFailure(null, $cause);
+            throw $error;
+        }
+    }
+
+    /**
+     * The row guard: a row the attempt already holds is no new lock; otherwise the level, then, at the
+     * event, quota and registration levels, the key against the highest one held at that level. An
+     * inserted row is recorded with `$recordOnly`, unchecked.
+     *
+     * @param list<int|string> $key
+     */
+    private static function lockRow(
+        RunState $state,
+        LockLevel $level,
+        string $table,
+        array $key,
+        bool $recordOnly,
+    ): void {
+        $key = LockKey::normalise($key);
+        $id = LockKey::identity($table, $key);
+        if (isset($state->heldRows[$id])) {
+            return;
+        }
+
+        $highest = $state->highestKey[$level->value] ?? null;
+        if (!$recordOnly) {
+            self::checkLevel($state, $level);
+            if (
+                $level !== LockLevel::Other
+                && $highest !== null
+                && LockKey::compare($table, $key, $highest[0], $highest[1]) < 0
+            ) {
+                $cause = new \LogicException(
+                    'Lock order violated: ' . $level->name . ' row ' . $table . ' (' . implode(', ', $key)
+                    . ') requested after ' . $highest[0] . ' (' . implode(', ', $highest[1]) . ').'
+                );
+                $error = new SystemFailure(null, $cause);
+                throw $error;
+            }
+        }
+
+        $state->heldRows[$id] = true;
+        if ($highest === null || LockKey::compare($table, $key, $highest[0], $highest[1]) > 0) {
+            $state->highestKey[$level->value] = [$table, $key];
+        }
+        if ($state->highestLock === null || $level->value > $state->highestLock->value) {
+            $state->highestLock = $level;
+        }
     }
 
     /**
