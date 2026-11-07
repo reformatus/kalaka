@@ -187,6 +187,13 @@ on each other in a circle:
   before it changes any of them.
 - **The registration row is locked `FOR UPDATE` before its payments are
   read,** so the evaluation never decides on payments that change under it.
+- **The runner enforces it.** Every repository read `FOR UPDATE`, insert,
+  update and delete declares its level and key. A lower level after a higher
+  one ends the use case. So does a lower key within the event, quota or
+  registration level, compared by table name and then by key. A row the
+  transaction already holds is no new lock, and a newly inserted row is
+  checked for its level only. An inserted row does not raise the key the next
+  lock is compared with, and a locking read that finds no row holds nothing.
 
 ## Errors
 

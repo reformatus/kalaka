@@ -20,16 +20,24 @@ use Kalaka\Foundation\ObjectCache;
 abstract class EntityRepository extends Repository
 {
     /**
-     * Reads the record `FOR UPDATE`, after declaring the repository's lock level to the run.
+     * Reads the record `FOR UPDATE`, after the run has checked the repository's lock level and the key; the
+     * row is declared as held once it is found, so a key without a row holds nothing.
      *
      * @param TKey $key
      * @return ?TEntity
      */
     public function findForUpdate(mixed $key, Context $context): ?object
     {
-        $context->lock($this->lockLevel());
+        $columns = $this->keyToColumns($key);
+        $keyList = $this->keyList($columns);
+        $context->checkRow($this->lockLevel(), $this->table(), $keyList);
 
-        return $this->loadByKey($this->keyToColumns($key), true);
+        $record = $this->loadByKey($columns, true);
+        if ($record !== null) {
+            $context->lockRow($this->lockLevel(), $this->table(), $keyList);
+        }
+
+        return $record;
     }
 
     /**
@@ -113,6 +121,7 @@ abstract class EntityRepository extends Repository
         $where['version'] = $expected;
 
         $values = $changed + ['version' => $expected + 1];
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($loaded));
         $written = $this->statements()->update($this->prefixedTable(), $values, $where);
         if ($written === 0) {
             $error = new VersionConflict();
@@ -156,6 +165,7 @@ abstract class EntityRepository extends Repository
             $where[$column] = $loaded[$column] ?? null;
         }
         $where['version'] = (int) $current['version'];
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($loaded));
 
         $written = $this->statements()->delete($this->prefixedTable(), $where);
         if ($written === 0) {
