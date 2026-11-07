@@ -7,8 +7,6 @@ namespace Kalaka\Tests\Integration\Support\Directory;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Support\Directory\Cli\DirectoryImport;
 
-require_once __DIR__ . '/SupportTestCase.php';
-
 /**
  * AC20: the import, free of WP-CLI. The files have one column per level and are synthetic; they
  * live in a temporary folder.
@@ -17,19 +15,24 @@ final class DirectoryImportTest extends SupportTestCase
 {
     private string $folder = '';
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
         $this->folder = sys_get_temp_dir() . '/kalaka-import-' . uniqid('', true);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir -- a test fixture on the local temp directory
         mkdir($this->folder);
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         if ($this->folder !== '') {
             foreach (glob($this->folder . '/*') ?: [] as $file) {
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- a test fixture on the local temp directory
                 unlink($file);
             }
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- a test fixture on the local temp directory
             rmdir($this->folder);
         }
         parent::tear_down();
@@ -38,6 +41,7 @@ final class DirectoryImportTest extends SupportTestCase
     private function file(string $content, string $name = 'import.csv'): string
     {
         $path = $this->folder . '/' . $name;
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- a test fixture on the local temp directory
         file_put_contents($path, $content);
 
         return $path;
@@ -123,11 +127,14 @@ final class DirectoryImportTest extends SupportTestCase
 
     public function testOnlyTheChangedRowRunsTheUseCaseAndWritesAnAuditEntry(): void
     {
-        $this->import($this->file("Egyház,Egyházmegye\nTeszt Egyház,\nTeszt Egyház,Teszt Megye A\nTeszt Egyház,Teszt Megye B\n"));
+        $this->import($this->file(
+            "Egyház,Egyházmegye\nTeszt Egyház,\nTeszt Egyház,Teszt Megye A\nTeszt Egyház,Teszt Megye B\n"
+        ));
         $before = $this->auditCount();
 
         $report = $this->import($this->file(
-            "Egyház,Egyházmegye,aliases\nTeszt Egyház,,\nTeszt Egyház,Teszt Megye A,Teszt Álnév\nTeszt Egyház,Teszt Megye B,\n"
+            "Egyház,Egyházmegye,aliases\nTeszt Egyház,,\nTeszt Egyház,Teszt Megye A,Teszt Álnév\n"
+            . "Teszt Egyház,Teszt Megye B,\n"
         ));
 
         self::assertSame(['unchanged', 'updated', 'unchanged'], $this->outcomes($report));
@@ -283,7 +290,9 @@ final class DirectoryImportTest extends SupportTestCase
 
     public function testDerivedIdsChainTheSlugsAndANameWithoutLettersFails(): void
     {
-        $report = $this->import($this->file("Egyház,Egyházkerület\nTeszt Egyház,Szabolcs-Beregi\nTeszt Egyház,Brassó I\n---,\n"));
+        $report = $this->import($this->file(
+            "Egyház,Egyházkerület\nTeszt Egyház,Szabolcs-Beregi\nTeszt Egyház,Brassó I\n---,\n"
+        ));
 
         self::assertSame(['created', 'created', 'created', 'failed'], $this->outcomes($report));
         self::assertSame(
@@ -303,7 +312,12 @@ final class DirectoryImportTest extends SupportTestCase
 
         self::assertSame(['created', 'created', 'created', 'created'], $this->outcomes($report));
         self::assertSame(
-            ['teszt_egyhaz', 'teszt_egyhaz/teszt_gyulekezet_1', 'teszt_egyhaz/teszt_kerulet', 'teszt_egyhaz/teszt_kerulet/teszt_gyulekezet_2'],
+            [
+                'teszt_egyhaz',
+                'teszt_egyhaz/teszt_gyulekezet_1',
+                'teszt_egyhaz/teszt_kerulet',
+                'teszt_egyhaz/teszt_kerulet/teszt_gyulekezet_2',
+            ],
             $this->externalIds($report)
         );
         self::assertSame([true, false, true, false], array_column($report['entries'], 'implied'));
@@ -423,7 +437,10 @@ final class DirectoryImportTest extends SupportTestCase
         ));
 
         self::assertSame(['created', 'failed', 'failed'], $this->outcomes($report));
-        self::assertStringContainsString('teszt_egyhaz/teszt_megye belongs to more than one node, on lines 3, 4', (string) $report['entries'][1]['message']);
+        self::assertStringContainsString(
+            'teszt_egyhaz/teszt_megye belongs to more than one node, on lines 3, 4',
+            (string) $report['entries'][1]['message']
+        );
         self::assertSame($report['entries'][1]['message'], $report['entries'][2]['message']);
         self::assertSame(1, $this->nodeCount());
     }

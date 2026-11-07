@@ -28,12 +28,16 @@ final class MoneyDecimalColumnTest extends WP_UnitTestCase
         global $wpdb;
 
         $table = $wpdb->prefix . 'kalaka_money_probe';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("CREATE TEMPORARY TABLE {$table} (amount DECIMAL(26,8) NOT NULL)");
 
         $original = Money::of($input, Currency::HUF);
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query($wpdb->prepare("INSERT INTO {$table} (amount) VALUES (%s)", $original->amount()));
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $read = $wpdb->get_var("SELECT amount FROM {$table}");
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("DROP TEMPORARY TABLE {$table}");
 
         self::assertIsString($read);

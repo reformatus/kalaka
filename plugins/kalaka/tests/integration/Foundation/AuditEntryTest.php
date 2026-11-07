@@ -17,8 +17,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/AuditTestCase.php';
-
 /** Succeeded entries: what the runner writes before the commit. */
 final class AuditEntryTest extends AuditTestCase
 {
@@ -57,10 +55,20 @@ final class AuditEntryTest extends AuditTestCase
         self::assertSame('succeeded', $entry['outcome']);
         self::assertNull($entry['error']);
         self::assertSame(
-            [['type' => 'registration', 'event' => 12, 'key' => '00A0', 'field' => 'tier', 'before' => 'A', 'after' => 'B']],
+            [[
+                'type' => 'registration',
+                'event' => 12,
+                'key' => '00A0',
+                'field' => 'tier',
+                'before' => 'A',
+                'after' => 'B',
+            ]],
             $this->decode($entry['changes'])
         );
-        self::assertSame(['event/12/12', 'registration/12/00A0', 'registration/12/00B1'], $this->subjectsOf($entry['id']));
+        self::assertSame(
+            ['event/12/12', 'registration/12/00A0', 'registration/12/00B1'],
+            $this->subjectsOf($entry['id'])
+        );
     }
 
     public function testAnEntryWithoutChangesHasAnEmptyList(): void
@@ -168,8 +176,22 @@ final class AuditEntryTest extends AuditTestCase
         $entry = $this->onlyEntry();
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 12, 'key' => '00A0', 'field' => 'tier', 'before' => 'A', 'after' => 'C'],
-                ['type' => 'registration', 'event' => 12, 'key' => '00A0', 'field' => 'note', 'before' => 'x', 'after' => 'y'],
+                [
+                    'type' => 'registration',
+                    'event' => 12,
+                    'key' => '00A0',
+                    'field' => 'tier',
+                    'before' => 'A',
+                    'after' => 'C',
+                ],
+                [
+                    'type' => 'registration',
+                    'event' => 12,
+                    'key' => '00A0',
+                    'field' => 'note',
+                    'before' => 'x',
+                    'after' => 'y',
+                ],
             ],
             $this->decode($entry['changes'])
         );
@@ -213,12 +235,23 @@ final class AuditEntryTest extends AuditTestCase
         yield 'cli with a user' => [new CliActor(0), false, true, null, null];
         yield 'user' => [new UserActor(0), false, true, '192.0.2.10', 'Teszt-Bongeszo/1.0'];
         yield 'account' => [new AccountActor(0), true, true, '192.0.2.10', 'Teszt-Bongeszo/1.0'];
-        yield 'secret link' => [new SecretLinkActor(new RegistrationKey(12, '00A0')), true, false, '192.0.2.10', 'Teszt-Bongeszo/1.0'];
+        yield 'secret link' => [
+            new SecretLinkActor(new RegistrationKey(12, '00A0')),
+            true,
+            false,
+            '192.0.2.10',
+            'Teszt-Bongeszo/1.0',
+        ];
     }
 
     /** @dataProvider actors */
-    public function testActorColumnsIpAndUserAgent(Actor $actor, bool $portal, bool $withUser, ?string $ip, ?string $agent): void
-    {
+    public function testActorColumnsIpAndUserAgent(
+        Actor $actor,
+        bool $portal,
+        bool $withUser,
+        ?string $ip,
+        ?string $agent
+    ): void {
         $_SERVER['REMOTE_ADDR'] = '192.0.2.10';
         $_SERVER['HTTP_USER_AGENT'] = 'Teszt-Bongeszo/1.0';
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.7';
@@ -305,10 +338,12 @@ final class AuditEntryTest extends AuditTestCase
         }), [], new SystemActor());
         self::assertInstanceOf(Context::class, $kept);
 
-        foreach ([
+        foreach (
+            [
             fn () => $kept->touch($this->registration('00A0')),
             fn () => $kept->change($this->registration('00A0'), 'tier', 'A', 'B'),
-        ] as $record) {
+            ] as $record
+        ) {
             try {
                 $record();
                 self::fail('Recording should have been refused.');

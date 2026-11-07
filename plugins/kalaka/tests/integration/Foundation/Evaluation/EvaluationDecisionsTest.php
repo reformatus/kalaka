@@ -13,8 +13,6 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Foundation\NamedProbe;
 use Kalaka\Tests\Integration\Foundation\TestItem;
 
-require_once __DIR__ . '/EvaluationTestCase.php';
-
 /** The decisions phase of the runner's evaluation: foundation.md, "Evaluation". */
 final class EvaluationDecisionsTest extends EvaluationTestCase
 {
@@ -27,7 +25,14 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $nested = new NamedProbe(function (array $input, Context $context): void {
             $this->items->upsert(new TestItem('third', regEvent: 12, regCode: '00A0'), $context);
         });
-        $outer = new AdminProbe(function (array $input, Context $context) use ($rule, $nested, &$askedDuringExecute): void {
+        $outer = new AdminProbe(function (
+            array $input,
+            Context $context
+        ) use (
+            $rule,
+            $nested,
+            &$askedDuringExecute
+        ): void {
             $this->items->upsert(new TestItem('first', regEvent: 12, regCode: '00A0'), $context);
             $this->items->upsert(new TestItem('second', regEvent: 12, regCode: '00A0'), $context);
             $context->run($nested, []);
@@ -40,13 +45,19 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         self::assertCount(1, $rule->inputs);
         $input = $rule->inputs[0];
         self::assertEquals(new RegistrationKey(12, '00A0'), $input->registration);
-        self::assertSame('2026-11-30 09:00:00', $input->now->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
+        self::assertSame(
+            '2026-11-30 09:00:00',
+            $input->now->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s')
+        );
         self::assertSame([], $input->decisions);
 
         $rows = $this->decisionRows();
         self::assertCount(1, $rows);
         $row = $rows[0];
-        self::assertSame(['12', '00A0', 'test_state', 'on'], [$row['event_id'], $row['code'], $row['kind'], $row['state']]);
+        self::assertSame(
+            ['12', '00A0', 'test_state', 'on'],
+            [$row['event_id'], $row['code'], $row['kind'], $row['state']]
+        );
         self::assertSame('2026-11-29 22:59:59.000000', $row['effective_at']);
         self::assertSame('2026-11-30 09:00:00.000000', $row['recorded_at']);
         self::assertSame(['test_record', '12', '7'], [$row['cause_type'], $row['cause_event_id'], $row['cause_key']]);
@@ -170,7 +181,10 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         self::assertSame('kalaka/probe', $error['use_case']);
         self::assertSame(SystemFailure::class, $error['class']);
         $classes = array_column($error['previous'], 'class');
-        self::assertSame($how === 'state' ? [RuleFailed::class] : [RuleFailed::class, \RuntimeException::class], $classes);
+        self::assertSame(
+            $how === 'state' ? [RuleFailed::class] : [RuleFailed::class, \RuntimeException::class],
+            $classes
+        );
         self::assertStringNotContainsString('secret rule message', (string) $entry['error']);
         self::assertStringNotContainsString('decisions/', (string) $entry['error']);
     }
@@ -216,7 +230,10 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
 
         self::assertSame(
             ['3/00Z9', '12/00A0', '12/00B1'],
-            array_map(static fn ($input): string => $input->registration->eventId . '/' . $input->registration->code, $rule->inputs)
+            array_map(
+                static fn ($input): string => $input->registration->eventId . '/' . $input->registration->code,
+                $rule->inputs
+            )
         );
     }
 
@@ -274,7 +291,10 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
 
         self::assertSame(
             ['12/00A0', '3/00Z9'],
-            array_map(static fn ($input): string => $input->registration->eventId . '/' . $input->registration->code, $rule->inputs)
+            array_map(
+                static fn ($input): string => $input->registration->eventId . '/' . $input->registration->code,
+                $rule->inputs
+            )
         );
     }
 

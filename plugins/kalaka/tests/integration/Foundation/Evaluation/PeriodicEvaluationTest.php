@@ -10,13 +10,12 @@ use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Foundation\Evaluation\RuleFailed;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/EvaluationTestCase.php';
-
 /** The periodic path: one registration per transaction, and the "evaluation failed" flag. */
 final class PeriodicEvaluationTest extends EvaluationTestCase
 {
     private RegistrationKey $key;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();

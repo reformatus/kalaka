@@ -32,14 +32,23 @@ final class LedgerLineRepositoryTest extends TestCase
         $named = [];
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
-            if (str_ends_with($file->getPathname(), '.php') && str_contains((string) file_get_contents($file->getPathname()), 'kalaka_ledger_lines')) {
+            if (
+                str_ends_with($file->getPathname(), '.php')
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- test fixture
+                && str_contains((string) file_get_contents($file->getPathname()), 'kalaka_ledger_lines')
+            ) {
                 $named[] = substr($file->getPathname(), strlen($root) + 1);
             }
         }
         sort($named);
 
         self::assertSame(
-            ['Ledger/BalanceQuery.php', 'Ledger/LedgerLineRepository.php', 'Ledger/Module.php', 'Ledger/PaymentFactQuery.php'],
+            [
+                'Ledger/BalanceQuery.php',
+                'Ledger/LedgerLineRepository.php',
+                'Ledger/Module.php',
+                'Ledger/PaymentFactQuery.php',
+            ],
             $named
         );
     }

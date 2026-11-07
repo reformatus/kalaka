@@ -10,8 +10,6 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RepositoryTestCase.php';
-
 /** The registrations a run's writes touch, for the evaluation. */
 final class RepositoryTouchedTest extends RepositoryTestCase
 {

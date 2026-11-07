@@ -11,8 +11,6 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Support\Directory\SaveDirectoryNode;
 
-require_once __DIR__ . '/SupportTestCase.php';
-
 /** AC7 to AC11: saving a node. */
 final class SaveDirectoryNodeTest extends SupportTestCase
 {
@@ -26,7 +24,15 @@ final class SaveDirectoryNodeTest extends SupportTestCase
         $row = $this->row($created['id']);
         self::assertSame(
             ['TEST-1', null, 'Felekezet', 'Teszt Egyház', null, '1', '1'],
-            [$row['external_id'], $row['parent_id'], $row['type'], $row['name'], $row['aliases'], $row['active'], $row['version']]
+            [
+                $row['external_id'],
+                $row['parent_id'],
+                $row['type'],
+                $row['name'],
+                $row['aliases'],
+                $row['active'],
+                $row['version'],
+            ]
         );
 
         $entry = $this->onlyEntry();
@@ -86,7 +92,12 @@ final class SaveDirectoryNodeTest extends SupportTestCase
     {
         $root = $this->save();
 
-        $child = $this->save(['external_id' => 'TEST-2', 'parent_external_id' => 'TEST-1', 'type' => 'Egyházkerület', 'name' => 'Kerület']);
+        $child = $this->save([
+            'external_id' => 'TEST-2',
+            'parent_external_id' => 'TEST-1',
+            'type' => 'Egyházkerület',
+            'name' => 'Kerület',
+        ]);
 
         self::assertSame((string) $root['id'], $this->row($child['id'])['parent_id']);
     }
@@ -97,7 +108,10 @@ final class SaveDirectoryNodeTest extends SupportTestCase
             $this->save(['parent_external_id' => 'NINCS']);
             self::fail('The parent should have been refused.');
         } catch (RuleViolation $e) {
-            self::assertStringContainsString('A megadott felettes szervezet nem szerepel a címtárban.', $e->getMessage());
+            self::assertStringContainsString(
+                'A megadott felettes szervezet nem szerepel a címtárban.',
+                $e->getMessage()
+            );
             self::assertSame(0, $this->nodeCount());
             $entry = $this->onlyEntry();
             self::assertSame('failed', $entry['outcome']);
@@ -273,7 +287,12 @@ final class SaveDirectoryNodeTest extends SupportTestCase
                 continue;
             }
             $checked++;
-            self::assertSame(0, preg_match('/\b(DELETE|TRUNCATE|DROP)\b|->delete\(/', (string) file_get_contents($path)), $path);
+            self::assertSame(
+                0,
+                // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a test fixture on the local temp directory
+                preg_match('/\b(DELETE|TRUNCATE|DROP)\b|->delete\(/', (string) file_get_contents($path)),
+                $path
+            );
         }
         self::assertGreaterThan(5, $checked);
     }

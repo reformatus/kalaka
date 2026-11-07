@@ -18,9 +18,6 @@ use Kalaka\Foundation\Seed\SchemaDrop;
 use Kalaka\Tests\Integration\Foundation\RealTableTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
-require_once __DIR__ . '/../RealTableTestCase.php';
-require_once __DIR__ . '/SeedTestCase.php';
-
 /**
  * AC4 (the drop half), AC5 and the drop half of AC7. The drop is DDL, which commits, so these tests
  * use real tables; the schema is recreated by the drop itself, and the undeclared table is dropped
@@ -31,6 +28,7 @@ final class SchemaDropTest extends RealTableTestCase
     /** @var list<LoadFailure> */
     private array $loadFailures = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -42,6 +40,7 @@ final class SchemaDropTest extends RealTableTestCase
         $wpdb->query("INSERT INTO {$wpdb->prefix}kalaka_test_undeclared (id) VALUES (1)");
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         global $wpdb;
@@ -63,12 +62,23 @@ final class SchemaDropTest extends RealTableTestCase
         self::assertGreaterThan(0, $this->rows('kalaka_events'));
         self::assertGreaterThan(0, $this->rows('kalaka_audit_entries'));
         self::assertGreaterThan(0, $this->rows('kalaka_audit_subjects'));
-        $wpdb->query("INSERT INTO {$wpdb->prefix}kalaka_evaluation_failures (event_id, code, version, rule, error, failed_at) VALUES (1, 'A', 1, 'r', 'e', '2026-11-10 12:00:00')");
+        $wpdb->query(
+            "INSERT INTO {$wpdb->prefix}kalaka_evaluation_failures (event_id, code, version, rule, error, failed_at) "
+            . "VALUES (1, 'A', 1, 'r', 'e', '2026-11-10 12:00:00')"
+        );
         self::assertSame(1, $this->rows('kalaka_evaluation_failures'));
 
         (new SchemaDrop(SeedTestCase::modulesForTests()))->run();
 
-        foreach (['kalaka_events', 'kalaka_audit_entries', 'kalaka_audit_subjects', 'kalaka_decisions', 'kalaka_evaluation_failures'] as $table) {
+        $tables = [
+            'kalaka_events',
+            'kalaka_audit_entries',
+            'kalaka_audit_subjects',
+            'kalaka_decisions',
+            'kalaka_evaluation_failures',
+        ];
+        foreach ($tables as $table) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             self::assertSame($wpdb->prefix . $table, $wpdb->get_var("SHOW TABLES LIKE '{$wpdb->prefix}{$table}'"));
             self::assertSame(0, $this->rows($table));
         }
@@ -92,7 +102,8 @@ final class SchemaDropTest extends RealTableTestCase
                 self::fail('The drop should have been refused.');
             } catch (SeedFailure $e) {
                 self::assertSame(
-                    'Refused: the environment type is "' . $type . '"; the seed runs only on local or development sites.',
+                    'Refused: the environment type is "' . $type
+                        . '"; the seed runs only on local or development sites.',
                     $e->getMessage()
                 );
             }
@@ -128,12 +139,18 @@ final class SchemaDropTest extends RealTableTestCase
     {
         global $wpdb;
         $child = $wpdb->prefix . 'kalaka_test_child';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("DROP TABLE IF EXISTS {$child}");
         $wpdb->query(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             "CREATE TABLE {$child} (id INT PRIMARY KEY, event_id BIGINT(20) UNSIGNED NOT NULL,"
             . " FOREIGN KEY (event_id) REFERENCES {$wpdb->prefix}kalaka_events (id)) ENGINE=InnoDB"
         );
-        $wpdb->query("INSERT INTO {$wpdb->prefix}kalaka_events (version, name, state, points) VALUES (1, 'Tábor', 'draft', '[]')");
+        $wpdb->query(
+            "INSERT INTO {$wpdb->prefix}kalaka_events (version, name, state, points) "
+            . "VALUES (1, 'Tábor', 'draft', '[]')"
+        );
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("INSERT INTO {$child} (id, event_id) VALUES (1, {$wpdb->insert_id})");
 
         $wpdb->suppress_errors(true);
@@ -142,10 +159,14 @@ final class SchemaDropTest extends RealTableTestCase
             });
             self::fail('The failed drop should have stopped the seed.');
         } catch (SeedFailure $e) {
-            self::assertStringStartsWith('Dropping ' . $wpdb->prefix . 'kalaka_events: Database error 1451', $e->getMessage());
+            self::assertStringStartsWith(
+                'Dropping ' . $wpdb->prefix . 'kalaka_events: Database error 1451',
+                $e->getMessage()
+            );
             self::assertInstanceOf(KalakaException::class, $e->getPrevious());
         } finally {
             $wpdb->suppress_errors(false);
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             $wpdb->query("DROP TABLE IF EXISTS {$child}");
             // The statements before the failed one already dropped their tables; recreate the schema.
             (new SchemaDrop(SeedTestCase::modulesForTests()))->run();
@@ -166,6 +187,7 @@ final class SchemaDropTest extends RealTableTestCase
     {
         global $wpdb;
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}{$table}");
     }
 }

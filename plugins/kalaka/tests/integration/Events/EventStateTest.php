@@ -12,8 +12,6 @@ use Kalaka\Events\UpdateEvent;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC5, AC6 and AC9. */
 final class EventStateTest extends EventsTestCase
 {
@@ -138,7 +136,16 @@ final class EventStateTest extends EventsTestCase
         self::assertSame('published', $this->row($id)['state']);
         $entry = $this->entriesOf('kalaka/reopen-event')[0];
         self::assertSame(
-            [['type' => 'event', 'event' => $id, 'key' => (string) $id, 'field' => 'is_full', 'before' => '1', 'after' => '0']],
+            [
+                [
+                    'type' => 'event',
+                    'event' => $id,
+                    'key' => (string) $id,
+                    'field' => 'is_full',
+                    'before' => '1',
+                    'after' => '0',
+                ],
+            ],
             $this->changesOf($entry)
         );
     }

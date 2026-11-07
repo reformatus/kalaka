@@ -17,8 +17,6 @@ use Kalaka\Registrations\Submission\Submission;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Foundation\Api\Actor\CliActor;
 
-require_once __DIR__ . '/RegistrationsTestCase.php';
-
 /** AC6 to AC8: the registration repository. */
 final class RegistrationRepositoryTest extends RegistrationsTestCase
 {
@@ -29,7 +27,14 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
         $failure = null;
         $generator = new ReferenceCodeGenerator();
 
-        $useCase = new AdminProbe(function (array $input, Context $context, int $call) use (&$failure, $generator): void {
+        $useCase = new AdminProbe(function (
+            array $input,
+            Context $context,
+            int $call
+        ) use (
+            &$failure,
+            $generator
+        ): void {
             if ($call === 1) {
                 try {
                     $this->registrations->upsert($this->newRegistration(5, '12A3'), $context);
@@ -109,10 +114,31 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
         self::assertSame(['registration/5/12A3'], $this->subjectsOf($entry['id']));
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'status', 'before' => null, 'after' => 'registered'],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'status',
+                    'before' => null,
+                    'after' => 'registered',
+                ],
                 ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'secret', 'masked' => true],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'created_at', 'before' => null, 'after' => '2026-11-30 08:00:00.000000'],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'registered_at', 'before' => null, 'after' => '2026-11-30 08:00:00.000000'],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'created_at',
+                    'before' => null,
+                    'after' => '2026-11-30 08:00:00.000000',
+                ],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'registered_at',
+                    'before' => null,
+                    'after' => '2026-11-30 08:00:00.000000',
+                ],
             ],
             $this->decode($entry['changes'])
         );
@@ -122,6 +148,7 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
             "SELECT * FROM {$wpdb->prefix}kalaka_audit_subjects WHERE entry_id = " . (int) $entry['id'],
             ARRAY_A
         );
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- a test fixture on the local temp directory
         self::assertStringNotContainsString($registration->secret, (string) json_encode([$entry, $subjects]));
     }
 
@@ -150,8 +177,22 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
         self::assertCount($entriesBefore + 1, $entries);
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'status', 'before' => 'waitlisted', 'after' => 'registered'],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'registered_at', 'before' => null, 'after' => '2026-12-01 09:30:00.123456'],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'status',
+                    'before' => 'waitlisted',
+                    'after' => 'registered',
+                ],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'registered_at',
+                    'before' => null,
+                    'after' => '2026-12-01 09:30:00.123456',
+                ],
             ],
             $this->decode($entries[$entriesBefore]['changes'])
         );

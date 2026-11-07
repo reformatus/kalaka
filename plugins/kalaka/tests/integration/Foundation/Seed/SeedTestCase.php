@@ -14,8 +14,6 @@ use Kalaka\Foundation\Seed\SeedFailure;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
-require_once __DIR__ . '/../../Events/EventsTestCase.php';
-
 /** The base of the seed tests: the runner in savepoint mode, a clock at 2026-11-10 12:00 in Budapest, the core seeders. */
 abstract class SeedTestCase extends EventsTestCase
 {
@@ -26,6 +24,7 @@ abstract class SeedTestCase extends EventsTestCase
     /** @var list<LoadFailure> */
     private array $loadFailures = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -37,6 +36,7 @@ abstract class SeedTestCase extends EventsTestCase
         $this->contributions->seeder(new EventSeeder());
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         LoadState::record($this->loadFailures);

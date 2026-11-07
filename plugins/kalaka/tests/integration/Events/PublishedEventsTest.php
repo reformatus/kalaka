@@ -9,8 +9,6 @@ use Kalaka\Events\ArchiveEvent;
 use Kalaka\Events\PublishEvent;
 use Kalaka\Events\UnpublishEvent;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** D9: `Events::published()`. */
 final class PublishedEventsTest extends EventsTestCase
 {

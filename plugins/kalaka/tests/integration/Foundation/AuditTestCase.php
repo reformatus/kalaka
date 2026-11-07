@@ -6,9 +6,6 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Admin\Api\AdminAccess;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-require_once __DIR__ . '/NamedProbe.php';
-
 /** The base of the audit tests: reads the entries a test wrote, with a runner in savepoint mode. */
 abstract class AuditTestCase extends RunnerTestCase
 {
@@ -17,15 +14,19 @@ abstract class AuditTestCase extends RunnerTestCase
     /** @var array<string, mixed> */
     private array $server = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
 
         global $wpdb;
-        $this->firstEntryId = (int) $wpdb->get_var("SELECT COALESCE(MAX(id), 0) FROM {$wpdb->prefix}kalaka_audit_entries");
+        $this->firstEntryId = (int) $wpdb->get_var(
+            "SELECT COALESCE(MAX(id), 0) FROM {$wpdb->prefix}kalaka_audit_entries"
+        );
         $this->server = $_SERVER;
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         $_SERVER = $this->server;
@@ -38,7 +39,10 @@ abstract class AuditTestCase extends RunnerTestCase
     {
         global $wpdb;
         $rows = $wpdb->get_results(
-            $wpdb->prepare("SELECT * FROM {$wpdb->prefix}kalaka_audit_entries WHERE id > %d ORDER BY id", $this->firstEntryId),
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}kalaka_audit_entries WHERE id > %d ORDER BY id",
+                $this->firstEntryId
+            ),
             ARRAY_A
         );
 
@@ -59,12 +63,16 @@ abstract class AuditTestCase extends RunnerTestCase
     {
         global $wpdb;
         $rows = $wpdb->get_results(
-            $wpdb->prepare("SELECT * FROM {$wpdb->prefix}kalaka_audit_subjects WHERE entry_id = %d ORDER BY id", (int) $entryId),
+            $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}kalaka_audit_subjects WHERE entry_id = %d ORDER BY id",
+                (int) $entryId
+            ),
             ARRAY_A
         );
 
         return array_map(
-            static fn (array $row): string => $row['record_type'] . '/' . ($row['event_id'] ?? '') . '/' . $row['record_key'],
+            static fn (array $row): string => $row['record_type'] . '/' . ($row['event_id'] ?? '')
+                . '/' . $row['record_key'],
             is_array($rows) ? $rows : []
         );
     }

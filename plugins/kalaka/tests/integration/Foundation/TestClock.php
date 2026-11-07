@@ -12,7 +12,10 @@ final class TestClock implements Clock
     public int $calls = 0;
 
     public function __construct(
-        private readonly \DateTimeImmutable $start = new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC')),
+        private readonly \DateTimeImmutable $start = new \DateTimeImmutable(
+            '2026-11-30 08:00:00',
+            new \DateTimeZone('UTC')
+        ),
         private readonly bool $advances = false,
     ) {
     }

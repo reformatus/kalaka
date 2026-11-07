@@ -7,9 +7,6 @@ namespace Kalaka\Tests\Integration\Foundation\Seed;
 use Kalaka\Foundation\Cli\SeedCommand;
 use Kalaka\Foundation\Seed\Seed;
 
-require_once __DIR__ . '/SeedTestCase.php';
-require_once __DIR__ . '/WpCliDouble.php';
-
 /**
  * The command's wiring (D1, D10): the --drop flag reaches the seed, a stop becomes an error with
  * exit code 1, success prints the closing line. The seed under test has no modules, so a drop
@@ -17,8 +14,11 @@ require_once __DIR__ . '/WpCliDouble.php';
  */
 final class SeedCommandTest extends SeedTestCase
 {
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
+        // A recording stand-in for WP-CLI, defined only when the real class is absent.
+        require_once __DIR__ . '/WpCliDouble.php';
         parent::set_up();
 
         if (!defined('WP_CLI::IS_TEST_DOUBLE')) {
@@ -36,7 +36,10 @@ final class SeedCommandTest extends SeedTestCase
         self::assertSame('success', $calls[count($calls) - 1][0]);
         self::assertSame('Seeded.', $calls[count($calls) - 1][1]);
         $lines = array_column(array_filter($calls, static fn (array $call): bool => $call[0] === 'line'), 1);
-        self::assertCount(5, array_filter($lines, static fn (string $line): bool => preg_match('/^(Created|Kept) user /', $line) === 1));
+        self::assertCount(
+            5,
+            array_filter($lines, static fn (string $line): bool => preg_match('/^(Created|Kept) user /', $line) === 1)
+        );
         self::assertCount(1, array_filter($calls, static fn (array $call): bool => $call[0] === 'success'));
         self::assertCount(0, array_filter($calls, static fn (array $call): bool => $call[0] === 'error'));
     }

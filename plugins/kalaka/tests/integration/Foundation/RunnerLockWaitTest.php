@@ -10,8 +10,6 @@ use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
-require_once __DIR__ . '/RealTableTestCase.php';
-
 final class RunnerLockWaitTest extends RealTableTestCase
 {
     public function testALockWaitTimeoutIsRetriedAndTheSecondAttemptSucceeds(): void
@@ -33,6 +31,7 @@ final class RunnerLockWaitTest extends RealTableTestCase
             if ($call === 2) {
                 $second->rollback();
             }
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             $wpdb->get_var("SELECT id FROM {$this->table} WHERE label = 'seed' FOR UPDATE");
             try {
                 DatabaseError::check($wpdb);
@@ -56,6 +55,13 @@ final class RunnerLockWaitTest extends RealTableTestCase
 
         self::assertSame('done', $result);
         self::assertSame(2, $useCase->calls);
-        self::assertSame(['seed', 'written'], array_map('strval', $wpdb->get_col("SELECT label FROM {$this->table} ORDER BY id")));
+        self::assertSame(
+            ['seed', 'written'],
+            array_map(
+                'strval',
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
+                $wpdb->get_col("SELECT label FROM {$this->table} ORDER BY id")
+            )
+        );
     }
 }

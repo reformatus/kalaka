@@ -8,8 +8,6 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/TestLog.php';
-
 /**
  * A test repository of append-only records, with a generated key or a given one.
  *
@@ -26,6 +24,7 @@ final class TestLogRepository extends AppendOnlyRepository
     {
         global $wpdb;
         $wpdb->query(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared,WordPress.DB.PreparedSQL.NotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             "CREATE TABLE {$wpdb->prefix}{$table} (id INT UNSIGNED " . ($generated ? 'AUTO_INCREMENT ' : '')
             . "PRIMARY KEY, label VARCHAR(100) NOT NULL DEFAULT '', reg_event INT NULL, reg_code VARCHAR(10) NULL)"
             . ' ENGINE=InnoDB'
