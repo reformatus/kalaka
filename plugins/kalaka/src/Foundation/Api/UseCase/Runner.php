@@ -18,6 +18,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
@@ -47,20 +48,25 @@ final class Runner
 
     private readonly Evaluation $evaluation;
 
+    private readonly BinlogCheck $binlog;
+
     /**
      * @param bool $insideOpenTransaction tests only: the harness already holds a transaction, so the
      *                                    outermost run uses a savepoint instead of its own transaction
      * @param ?Evaluation $evaluation what brings the touched registrations up to date; none: no rules
+     * @param ?BinlogCheck $binlog whether writes under READ COMMITTED would fail; none: a check of its own
      */
     public function __construct(
         private readonly Clock $clock,
         private readonly bool $insideOpenTransaction = false,
         ?Evaluation $evaluation = null,
+        ?BinlogCheck $binlog = null,
     ) {
         $this->statements = new Statements();
         $this->permission = new CoarsePermission();
         $this->audit = new AuditWriter($this->statements);
         $this->evaluation = $evaluation ?? new Evaluation(new DecisionRules());
+        $this->binlog = $binlog ?? new BinlogCheck();
     }
 
     /** The production runner; delivery code uses this. */
@@ -119,6 +125,11 @@ final class Runner
             $input = self::checkedInput($useCase, $input);
             $declared = self::declaredSubjects($useCase, $input);
             $this->permission->check($useCase, $side, $input, $actor);
+            if ($this->binlog->refuses()) {
+                // Before the transaction and outside the retries: every write would fail with 1665.
+                $error = new SystemFailure(BinlogCheck::REFUSAL);
+                throw $error;
+            }
             $header = new EntryHeader($useCase::name(), $side, $actor, self::reasonOf($useCase, $input), $declared);
             [$result, $steps] = $this->runWithRetries($useCase, $input, $actor, $header, $trace);
         } catch (\Throwable $e) {
@@ -169,9 +180,10 @@ final class Runner
     }
 
     /**
-     * One attempt from scratch: begin, execute, evaluate, write the audit entries, commit; an explicit
-     * rollback on any exception. The thread id is recorded before the first transaction statement; the
-     * check after each statement, the commit or release included, compares it while the attempt is active.
+     * One attempt from scratch: begin at READ COMMITTED (a savepoint in the harness, where the level cannot
+     * change), execute, evaluate, write the audit entries, commit; an explicit rollback on any exception.
+     * The thread id is recorded before the first transaction statement; the check after each statement,
+     * the commit or release included, compares it while the attempt is active.
      *
      * @param array<string, mixed> $input
      * @return array{mixed, list<array{string, callable(): void}>}
@@ -198,7 +210,7 @@ final class Runner
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_run');
             } else {
-                $this->statements->begin();
+                $this->statements->begin(true);
             }
             $context = $this->context($useCase, $actor, $now, $state, $entry);
             $result = $useCase->execute($input, $context);
@@ -254,7 +266,8 @@ final class Runner
             if ($this->insideOpenTransaction) {
                 $this->statements->savepoint('kalaka_audit');
             } else {
-                $this->statements->begin();
+                // It only inserts: the session's own level (decision D6).
+                $this->statements->begin(false);
             }
             try {
                 $this->audit->write($entry);

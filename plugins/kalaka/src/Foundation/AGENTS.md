@@ -40,7 +40,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   run's error is. After it, or after a caught nested error, the context
   refuses writes, locks and nested runs, and the recorded error decides the
   outcome.
-- A reconnect inside a run fails the attempt as retryable.
+- Each outermost attempt's transaction is READ COMMITTED; a reconnect inside
+  a run fails the attempt as retryable; while binary logging runs with
+  `binlog_format=STATEMENT`, every use case is refused before its transaction
+  and the periodic run does not run.
 - Locks are taken in the lock order; the guard refuses a lower level after a
   higher one, and a lower key within the event, quota or registration level,
   for every repository read `FOR UPDATE` and write.
@@ -122,3 +125,5 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - The periodic run's health check (the admin notice and the Site Health test)
   only reads `kalaka_periodic_run_last` and compares it with the `Clock`; it writes nothing
   and never schedules, starts or unlocks a run.
+- The database health check (`IsolationHealth`) only reads `BinlogCheck`; it
+  writes nothing.

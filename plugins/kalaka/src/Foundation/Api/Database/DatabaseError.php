@@ -9,10 +9,12 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Database\BinlogCheck;
 
 /**
  * Turns the database's last error into a Kalaka exception: engineering.md, "Database".
- * The texts stay the classes' defaults; the number and MariaDB's message travel in `previous`.
+ * The texts stay the classes' defaults, except for error 1665, which carries `BinlogCheck::REFUSAL`;
+ * the number and MariaDB's message travel in `previous`.
  */
 final class DatabaseError
 {
@@ -21,6 +23,7 @@ final class DatabaseError
     private const RECORD_CHANGED = 1020;
     private const DUPLICATE_KEY = 1062;
     private const GONE_AWAY = 2006;
+    private const BINLOG_STATEMENT_READ_COMMITTED = 1665;
 
     /**
      * Call right after a `$wpdb` statement; does nothing when the statement succeeded. Inside a use-case
@@ -73,6 +76,11 @@ final class DatabaseError
     public static function exceptionFor(int $number, string $message, bool $referenceCodeInsert): KalakaException
     {
         $previous = new \RuntimeException('Database error ' . $number . ': ' . $message, $number);
+
+        if ($number === self::BINLOG_STATEMENT_READ_COMMITTED) {
+            // Binary logging with binlog_format=STATEMENT refuses writes under READ COMMITTED: not retried.
+            return new SystemFailure(BinlogCheck::REFUSAL, $previous);
+        }
 
         $retryable = match ($number) {
             self::DEADLOCK, self::LOCK_WAIT_TIMEOUT, self::RECORD_CHANGED => true,

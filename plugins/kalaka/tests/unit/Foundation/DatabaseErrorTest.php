@@ -36,4 +36,19 @@ final class DatabaseErrorTest extends TestCase
         self::assertStringContainsString((string) $number, (string) $error->getPrevious()?->getMessage());
         self::assertStringContainsString('MariaDB says no', (string) $error->getPrevious()?->getMessage());
     }
+
+    public function testError1665IsANonRetriedSystemFailureWithTheBinlogText(): void
+    {
+        $error = DatabaseError::exceptionFor(1665, 'Cannot execute statement', true);
+
+        self::assertSame(SystemFailure::class, $error::class);
+        self::assertFalse($error->isRetryable());
+        self::assertSame(
+            'Váratlan hiba történt. Próbáld újra később. A webtárhely adatbázis-beállítása (binlog_format=STATEMENT) '
+            . 'miatt a Kaláka most nem tud adatot menteni. Szólj a webhely üzemeltetőjének.',
+            $error->getMessage()
+        );
+        self::assertSame(1665, $error->getPrevious()?->getCode());
+        self::assertStringContainsString('Cannot execute statement', (string) $error->getPrevious()?->getMessage());
+    }
 }
