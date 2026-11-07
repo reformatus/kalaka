@@ -17,7 +17,7 @@ final class AuditSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(2, (int) get_option('kalaka_schema_foundation'));
+        self::assertSame(3, (int) get_option('kalaka_schema_foundation'));
         self::assertSame([], LoadState::current()->failures);
 
         $names = [$wpdb->prefix . 'kalaka_audit_entries', $wpdb->prefix . 'kalaka_audit_subjects'];
@@ -38,6 +38,16 @@ final class AuditSchemaTest extends WP_UnitTestCase
                 self::assertSame('utf8mb4', $column['CHARACTER_SET_NAME'], $name . '.' . $column['COLUMN_NAME']);
                 self::assertSame('utf8mb4_hungarian_ci', $column['COLLATION_NAME'], $name . '.' . $column['COLUMN_NAME']);
             }
+        }
+    }
+
+    /** AC10 and AC11: every stored instant is a `datetime(6)`; no `date`, `datetime` or `timestamp` without it. */
+    public function testNoTimeColumnLacksMicroseconds(): void
+    {
+        $files = [...(glob(dirname(__DIR__, 3) . '/src/*/Module.php') ?: []), ...(glob(dirname(__DIR__, 4) . '/kalaka-support/src/*/Module.php') ?: [])];
+        self::assertNotEmpty($files);
+        foreach ($files as $file) {
+            self::assertSame(0, preg_match('/^\s+\w+\s+(date|timestamp|datetime(?!\(6\)))\b/mi', (string) file_get_contents($file)), $file);
         }
     }
 

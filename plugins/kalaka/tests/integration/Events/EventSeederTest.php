@@ -37,6 +37,8 @@ final class EventSeederTest extends SeedTestCase
             ],
             array_map(fn (Event $event): array => $this->days($event), $events)
         );
+        self::assertSame('08:00', $events[0]->registrationOpens?->setTimezone(wp_timezone())->format('H:i'));
+        self::assertSame('20:00', $events[0]->registrationCloses?->setTimezone(wp_timezone())->format('H:i'));
         self::assertSame([['Előleg határideje', '2026-12-01']], $this->points($events[0]));
         foreach (array_slice($events, 1) as $event) {
             self::assertSame([], $event->customPoints);
@@ -99,7 +101,7 @@ final class EventSeederTest extends SeedTestCase
     private function days(Event $event): array
     {
         return array_map(
-            static fn (?\DateTimeImmutable $day): ?string => $day?->format('Y-m-d'),
+            static fn (?\DateTimeImmutable $day): ?string => $day?->setTimezone(wp_timezone())->format('Y-m-d'),
             [$event->registrationOpens, $event->registrationCloses, $event->start, $event->end]
         );
     }
@@ -108,7 +110,7 @@ final class EventSeederTest extends SeedTestCase
     private function points(Event $event): array
     {
         return array_map(
-            static fn ($point): array => [$point->name, $point->day->format('Y-m-d')],
+            static fn ($point): array => [$point->name, $point->at->setTimezone(wp_timezone())->format('Y-m-d')],
             $event->customPoints
         );
     }

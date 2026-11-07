@@ -101,7 +101,7 @@ final class SchemaDropTest extends RealTableTestCase
         self::assertSame($events, $this->rows('kalaka_events'));
         self::assertSame($entries, $this->rows('kalaka_audit_entries'));
         self::assertSame(1, $this->rows('kalaka_test_undeclared'));
-        self::assertSame(1, (int) get_option('kalaka_schema_events', 0));
+        self::assertSame(2, (int) get_option('kalaka_schema_events', 0));
     }
 
     public function testADropOnAClosedSiteRecreatesTheSchemaAndSeedsNothing(): void
@@ -118,7 +118,7 @@ final class SchemaDropTest extends RealTableTestCase
         self::assertSame([], $lines);
         self::assertSame(0, $this->rows('kalaka_events'));
         self::assertSame(0, $this->rows('kalaka_audit_entries'));
-        self::assertSame(1, (int) get_option('kalaka_schema_events', 0));
+        self::assertSame(2, (int) get_option('kalaka_schema_events', 0));
         foreach (['administrator', 'editor', 'author', 'contributor', 'subscriber'] as $login) {
             self::assertFalse(get_user_by('login', $login));
         }

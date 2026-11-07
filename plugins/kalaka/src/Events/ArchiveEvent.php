@@ -60,7 +60,7 @@ final class ArchiveEvent implements AdminUseCase
             throw new RuleViolation();
         }
         $record->state = EventState::Archived;
-        $record->archivedAt = $context->now()->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        $record->archivedAt = $context->now()->setTimezone(new \DateTimeZone('UTC'));
 
         $record->version = (int) $input['version'];
         $this->repository->upsert($record, $context);

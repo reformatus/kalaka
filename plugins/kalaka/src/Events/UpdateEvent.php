@@ -9,16 +9,18 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
- * Replaces the whole editable record: name, capacity, the four core points and the custom points.
+ * Replaces the whole editable record: name, capacity, the four core points and the custom points, each a local wall time
+ * `YYYY-MM-DD HH:MM` in the site time zone, stored as a UTC instant.
  * The state, the latch and the archive time are never touched here.
  */
 final class UpdateEvent implements AdminUseCase
 {
-    private const DAY = '^[0-9]{4}-[0-9]{2}-[0-9]{2}$';
+    private const LOCAL_TIME = '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$';
 
     public function __construct(private readonly EventRepository $repository = new EventRepository())
     {
@@ -31,7 +33,7 @@ final class UpdateEvent implements AdminUseCase
 
     public function inputSchema(): array
     {
-        $day = ['type' => ['string', 'null'], 'pattern' => self::DAY];
+        $at = ['type' => ['string', 'null'], 'pattern' => self::LOCAL_TIME];
 
         return [
             'type' => 'object',
@@ -40,10 +42,10 @@ final class UpdateEvent implements AdminUseCase
                 'version' => ['type' => 'integer', 'minimum' => 1],
                 'name' => ['type' => 'string'],
                 'capacity' => ['type' => ['integer', 'null'], 'minimum' => 0],
-                'registration_opens_on' => $day,
-                'registration_closes_on' => $day,
-                'starts_on' => $day,
-                'ends_on' => $day,
+                'registration_opens_at' => $at,
+                'registration_closes_at' => $at,
+                'starts_at' => $at,
+                'ends_at' => $at,
                 'points' => [
                     'type' => 'array',
                     'items' => [
@@ -51,9 +53,9 @@ final class UpdateEvent implements AdminUseCase
                         'properties' => [
                             'id' => ['type' => 'integer', 'minimum' => 1],
                             'name' => ['type' => 'string'],
-                            'date' => ['type' => 'string', 'pattern' => self::DAY],
+                            'at' => ['type' => 'string', 'pattern' => self::LOCAL_TIME],
                         ],
-                        'required' => ['name', 'date'],
+                        'required' => ['name', 'at'],
                         'additionalProperties' => false,
                     ],
                 ],
@@ -63,10 +65,10 @@ final class UpdateEvent implements AdminUseCase
                 'version',
                 'name',
                 'capacity',
-                'registration_opens_on',
-                'registration_closes_on',
-                'starts_on',
-                'ends_on',
+                'registration_opens_at',
+                'registration_closes_at',
+                'starts_at',
+                'ends_at',
                 'points',
             ],
             'additionalProperties' => false,
@@ -103,10 +105,10 @@ final class UpdateEvent implements AdminUseCase
             throw new InvalidInput();
         }
         $capacity = $input['capacity'] === null ? null : (int) $input['capacity'];
-        $opens = self::day($input['registration_opens_on']);
-        $closes = self::day($input['registration_closes_on']);
-        $starts = self::day($input['starts_on']);
-        $ends = self::day($input['ends_on']);
+        $opens = self::at($input['registration_opens_at']);
+        $closes = self::at($input['registration_closes_at']);
+        $starts = self::at($input['starts_at']);
+        $ends = self::at($input['ends_at']);
         if (
             ($opens !== null && $closes !== null && $opens > $closes)
             || ($starts !== null && $ends !== null && $starts > $ends)
@@ -122,10 +124,10 @@ final class UpdateEvent implements AdminUseCase
 
         $record->name = $name;
         $record->capacity = $capacity;
-        $record->registrationOpensOn = $opens;
-        $record->registrationClosesOn = $closes;
-        $record->startsOn = $starts;
-        $record->endsOn = $ends;
+        $record->registrationOpensAt = $opens;
+        $record->registrationClosesAt = $closes;
+        $record->startsAt = $starts;
+        $record->endsAt = $ends;
         $record->points = $points;
         $record->nextPointId = $nextPointId;
         $record->version = (int) $input['version'];
@@ -138,7 +140,7 @@ final class UpdateEvent implements AdminUseCase
      * The custom points as they will be stored: an item with a stored id keeps it, one without gets
      * the next id, a stored point left out is dropped.
      *
-     * @return array{list<array{id: int, name: string, date: string}>, int}
+     * @return array{list<array{id: int, name: string, at: \DateTimeImmutable}>, int}
      * @throws InvalidInput
      */
     private function customPoints(mixed $items, EventRecord $record): array
@@ -155,8 +157,8 @@ final class UpdateEvent implements AdminUseCase
             $name = trim((string) $item['name']);
             $length = mb_strlen($name, 'UTF-8');
             $key = mb_strtolower($name, 'UTF-8');
-            $date = self::day($item['date']);
-            if ($length < 1 || $length > 191 || isset($names[$key]) || $date === null) {
+            $at = self::at($item['at']);
+            if ($length < 1 || $length > 191 || isset($names[$key]) || $at === null) {
                 throw new InvalidInput();
             }
             $names[$key] = true;
@@ -170,25 +172,20 @@ final class UpdateEvent implements AdminUseCase
             } else {
                 $id = $next++;
             }
-            $points[] = ['id' => $id, 'name' => $name, 'date' => $date];
+            $points[] = ['id' => $id, 'name' => $name, 'at' => $at];
         }
         usort($points, static fn (array $a, array $b): int => $a['id'] <=> $b['id']);
 
         return [$points, $next];
     }
 
-    /** @throws InvalidInput when it is not a calendar day */
-    private static function day(mixed $value): ?string
+    /** @throws InvalidInput when it is not an existing local time in the site time zone */
+    private static function at(mixed $value): ?\DateTimeImmutable
     {
         if ($value === null) {
             return null;
         }
-        $day = (string) $value;
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $day, new \DateTimeZone('UTC'));
-        if ($date === false || $date->format('Y-m-d') !== $day) {
-            throw new InvalidInput();
-        }
 
-        return $day;
+        return Instant::fromLocal((string) $value) ?? throw new InvalidInput();
     }
 }

@@ -6,7 +6,7 @@ namespace Kalaka\Events\Api;
 
 use Kalaka\Foundation\Api\LoadState;
 
-/** A read of an event. The core points are local 00:00 of their day in the site's time zone. */
+/** A read of an event. The points are UTC instants. */
 final readonly class Event
 {
     /** @param list<EventPoint> $customPoints */
@@ -33,7 +33,7 @@ final readonly class Event
             : $this->storedState;
     }
 
-    /** Whether the event is published and `$now` is from the opening day's start to the end of the closing day. */
+    /** Whether the event is published and `$now` is from the opening instant (included) to the closing instant (excluded). */
     public function registrationWindowContains(\DateTimeImmutable $now): bool
     {
         if (
@@ -44,6 +44,7 @@ final readonly class Event
             return false;
         }
 
-        return $this->registrationOpens <= $now && $now < $this->registrationCloses->modify('+1 day');
+        // [UNAPPROVED D10] the window ends exactly at the closing point, with no added day
+        return $this->registrationOpens <= $now && $now < $this->registrationCloses;
     }
 }

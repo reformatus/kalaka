@@ -26,7 +26,7 @@ final class LedgerSchemaTest extends WP_UnitTestCase
         'source_event_id' => 'bigint(20) unsigned null',
         'source_key' => 'varchar(64)',
         'idempotency_key' => 'varchar(128)',
-        'value_date' => 'date null',
+        'value_date' => 'datetime(6) null',
         'paid_at' => 'datetime(6) null',
         'recorded_at' => 'datetime(6)',
     ];
@@ -35,7 +35,7 @@ final class LedgerSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_ledger'));
+        self::assertSame(2, (int) get_option('kalaka_schema_ledger'));
         self::assertSame([], LoadState::current()->failures);
 
         $name = $wpdb->prefix . 'kalaka_ledger_lines';

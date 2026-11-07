@@ -77,10 +77,10 @@ final class EventStateTest extends EventsTestCase
     public static function missingForPublishing(): iterable
     {
         yield 'capacity' => ['capacity'];
-        yield 'registration opens' => ['registration_opens_on'];
-        yield 'registration closes' => ['registration_closes_on'];
-        yield 'start' => ['starts_on'];
-        yield 'end' => ['ends_on'];
+        yield 'registration opens' => ['registration_opens_at'];
+        yield 'registration closes' => ['registration_closes_at'];
+        yield 'start' => ['starts_at'];
+        yield 'end' => ['ends_at'];
     }
 
     /** @dataProvider missingForPublishing */
@@ -105,7 +105,7 @@ final class EventStateTest extends EventsTestCase
     {
         $this->useClock($this->clockAt('2026-12-01 10:30:00'));
         $id = $this->archived();
-        self::assertSame('2026-12-01 09:30:00', $this->row($id)['archived_at']);
+        self::assertSame('2026-12-01 09:30:00.000000', $this->row($id)['archived_at']);
         $this->markFull($id);
         $before = $this->row($id);
 
