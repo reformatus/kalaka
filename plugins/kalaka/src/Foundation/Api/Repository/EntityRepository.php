@@ -25,9 +25,10 @@ abstract class EntityRepository extends Repository
      */
     public function findForUpdate(mixed $key, Context $context): ?object
     {
-        $context->lock($this->lockLevel());
+        $columns = $this->keyToColumns($key);
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($columns));
 
-        return $this->loadByKey($this->keyToColumns($key), true);
+        return $this->loadByKey($columns, true);
     }
 
     /**

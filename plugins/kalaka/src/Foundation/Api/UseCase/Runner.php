@@ -271,13 +271,7 @@ final class Runner
             },
             static function (LockLevel $level) use ($state): void {
                 self::assertOpen($state);
-                if ($state->highestLock !== null && $level->value < $state->highestLock->value) {
-                    $cause = new \LogicException(
-                        'Lock order violated: ' . $level->name . ' requested after ' . $state->highestLock->name . '.'
-                    );
-                    $error = new SystemFailure(null, $cause);
-                    throw $error;
-                }
+                self::checkLevel($state, $level);
                 $state->highestLock = $level;
             },
             static function (Subject $subject) use ($state, $entry): void {
@@ -305,7 +299,81 @@ final class Runner
                 $state->touched[$key->eventId . "\0" . $key->code] ??= $key;
             },
             static fn (): array => array_values($state->touched),
+            static function (LockLevel $level, string $table, array $key, bool $recordOnly) use ($state): void {
+                self::assertOpen($state);
+                self::lockRow($state, $level, $table, $key, $recordOnly);
+            },
         );
+    }
+
+    private static function checkLevel(RunState $state, LockLevel $level): void
+    {
+        if ($state->highestLock !== null && $level->value < $state->highestLock->value) {
+            $cause = new \LogicException(
+                'Lock order violated: ' . $level->name . ' requested after ' . $state->highestLock->name . '.'
+            );
+            $error = new SystemFailure(null, $cause);
+            throw $error;
+        }
+    }
+
+    /**
+     * The row guard: a row already held is no new lock; otherwise the level, then (at the key-ordered
+     * levels) the key against the highest one locked at that level, table name first.
+     *
+     * @param list<int|string> $key
+     */
+    private static function lockRow(RunState $state, LockLevel $level, string $table, array $key, bool $recordOnly): void
+    {
+        $id = $table . "\0" . implode("\0", array_map('strval', $key));
+        if (isset($state->heldRows[$id])) {
+            return;
+        }
+
+        $highest = $state->highestKey[$level->value] ?? null;
+        if (!$recordOnly) {
+            self::checkLevel($state, $level);
+            if (
+                $level !== LockLevel::Other
+                && $highest !== null
+                && self::compareKeys($table, $key, $highest[0], $highest[1]) < 0
+            ) {
+                $cause = new \LogicException(
+                    'Lock order violated: ' . $level->name . ' row ' . $table . ' (' . implode(', ', $key)
+                    . ') requested after ' . $highest[0] . ' (' . implode(', ', $highest[1]) . ').'
+                );
+                $error = new SystemFailure(null, $cause);
+                throw $error;
+            }
+        }
+
+        $state->heldRows[$id] = true;
+        if ($highest === null || self::compareKeys($table, $key, $highest[0], $highest[1]) > 0) {
+            $state->highestKey[$level->value] = [$table, $key];
+        }
+        if ($state->highestLock === null || $level->value > $state->highestLock->value) {
+            $state->highestLock = $level;
+        }
+    }
+
+    /**
+     * Table names byte-wise, then the key columns in key order: numbers as numbers, text byte-wise.
+     *
+     * @param list<int|string> $a
+     * @param list<int|string> $b
+     */
+    private static function compareKeys(string $tableA, array $a, string $tableB, array $b): int
+    {
+        $order = strcmp($tableA, $tableB);
+        foreach ($a as $i => $left) {
+            if ($order !== 0) {
+                break;
+            }
+            $right = $b[$i] ?? '';
+            $order = is_int($left) && is_int($right) ? $left <=> $right : strcmp((string) $left, (string) $right);
+        }
+
+        return $order <=> 0;
     }
 
     /**

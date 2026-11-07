@@ -186,4 +186,51 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
             $context->lock(LockLevel::Event);
         });
     }
+
+    /** @return list<array{RegistrationKey, RegistrationKey}> */
+    public static function descendingPairs(): array
+    {
+        return [
+            [new RegistrationKey(5, '2B'), new RegistrationKey(5, '1A')],
+            [new RegistrationKey(6, '1A'), new RegistrationKey(5, '9Z')],
+        ];
+    }
+
+    /** @dataProvider descendingPairs */
+    public function testRegistrationsLockedInDescendingKeyOrderAreASystemFailure(RegistrationKey $first, RegistrationKey $second): void
+    {
+        $this->seedCodes($first->eventId, [$first->code]);
+        $this->seedCodes($second->eventId, [$second->code]);
+
+        $this->expectException(SystemFailure::class);
+        $this->inRun(function (array $input, Context $context) use ($first, $second): void {
+            $this->registrations->findForUpdate($first, $context);
+            $this->registrations->findForUpdate($second, $context);
+        });
+    }
+
+    public function testAscendingKeyOrderAndTheSameRowTwicePass(): void
+    {
+        $this->seedCodes(5, ['1A', '2B']);
+
+        $this->inRun(function (array $input, Context $context): void {
+            $this->registrations->findForUpdate(new RegistrationKey(5, '1A'), $context);
+            $this->registrations->findForUpdate(new RegistrationKey(5, '2B'), $context);
+            $this->registrations->findForUpdate(new RegistrationKey(5, '2B'), $context);
+        });
+
+        self::addToAssertionCount(1);
+    }
+
+    public function testInsertingALowerCodeThanAHeldOneIsNotKeyChecked(): void
+    {
+        $this->seedCodes(5, ['5E']);
+
+        $this->inRun(function (array $input, Context $context): void {
+            $this->registrations->findForUpdate(new RegistrationKey(5, '5E'), $context);
+            $this->registrations->upsert($this->newRegistration(5, '1A'), $context);
+        });
+
+        self::assertSame(2, $this->registrationCount());
+    }
 }

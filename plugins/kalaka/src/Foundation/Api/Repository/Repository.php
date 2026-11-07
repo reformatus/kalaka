@@ -130,7 +130,10 @@ abstract class Repository
         $entities = [];
         foreach ($rows as $row) {
             ObjectCache::put($this->table(), $this->keyValues($row), $row);
-            $entities[] = $this->hydrate($row);
+            $entity = $this->hydrate($row);
+            $entities[] = $entity;
+            // The database holds every row it returned, in whatever order.
+            $forUpdate?->lockRow($this->lockLevel(), $this->table(), $this->keyList($this->toRow($entity)), true);
         }
 
         return $entities;
@@ -181,6 +184,8 @@ abstract class Repository
             $data['version'] = 1;
         }
 
+        // A new row cannot be held by anyone else, so its key order is not checked (D5).
+        $context->lock($this->lockLevel());
         $written = $this->quietly(fn (): int|false => $this->wpdb->insert($this->prefixedTable(), $data));
         $insertId = $this->wpdb->insert_id;
         DatabaseError::check($this->wpdb, $this->insertsReferenceCode());
@@ -192,6 +197,7 @@ abstract class Repository
         foreach ($this->keyColumns() as $column) {
             $key[$column] = $data[$column] ?? ($this->autoIncrement() ? $insertId : null);
         }
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($key), true);
         $stored = $this->readBack($key);
 
         $row = self::loaded()[$stored] ?? [];
@@ -261,6 +267,7 @@ abstract class Repository
         $where['version'] = $expected;
 
         $values = $changed + ['version' => $expected + 1];
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($current));
         $written = $this->quietly(fn (): int|false => $this->wpdb->update($this->prefixedTable(), $values, $where));
         DatabaseError::check($this->wpdb);
         if ($written === false) {
@@ -308,6 +315,7 @@ abstract class Repository
             $where[$column] = $loaded[$column] ?? null;
         }
         $where['version'] = (int) $current['version'];
+        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($current));
 
         $written = $this->quietly(fn (): int|false => $this->wpdb->delete($this->prefixedTable(), $where));
         DatabaseError::check($this->wpdb);
@@ -337,6 +345,22 @@ abstract class Repository
             }
         }
         $this->markRegistration($deleted, $context);
+    }
+
+    /**
+     * The key values of a row in key order, for the lock guard; typed as the repository gives them.
+     *
+     * @param array<string, mixed> $source
+     * @return list<int|string>
+     */
+    final protected function keyList(array $source): array
+    {
+        $list = [];
+        foreach ($this->keyValues($source) as $value) {
+            $list[] = $value ?? '';
+        }
+
+        return $list;
     }
 
     /**

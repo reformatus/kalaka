@@ -22,6 +22,7 @@ final class Context
      * @param \Closure(): void $assertOpen
      * @param \Closure(RegistrationKey): void $markTouched
      * @param \Closure(): list<RegistrationKey> $touchedRegistrations
+     * @param ?\Closure(LockLevel, string, list<int|string>, bool): void $lockRow
      */
     public function __construct(
         private readonly Actor $actor,
@@ -34,6 +35,7 @@ final class Context
         private readonly \Closure $assertOpen,
         private readonly \Closure $markTouched,
         private readonly \Closure $touchedRegistrations,
+        private readonly ?\Closure $lockRow = null,
     ) {
     }
 
@@ -76,6 +78,23 @@ final class Context
     public function lock(LockLevel $level): void
     {
         ($this->lock)($level);
+    }
+
+    /**
+     * @internal Only the repository bases call it: declares the row lock a read or write takes, with the
+     * row's key in key order. A row this run already holds is no new lock. A lower level than one already
+     * taken, or a lower key than the highest one at a key-ordered level, is a programming error.
+     * [UNAPPROVED N1] `$recordOnly` (not in D1's signature) records a row as held without checking its
+     * order: for a row the database has already locked (a `FOR UPDATE` result, an insert).
+     *
+     * @param list<int|string> $key
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure
+     */
+    public function lockRow(LockLevel $level, string $table, array $key, bool $recordOnly = false): void
+    {
+        if ($this->lockRow !== null) {
+            ($this->lockRow)($level, $table, $key, $recordOnly);
+        }
     }
 
     /** Records on this run's audit entry that the use case touched a record. */
