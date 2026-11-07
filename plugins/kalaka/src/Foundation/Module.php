@@ -133,6 +133,18 @@ SQL;
     {
         $this->modules = $modules;
         $this->contributions = $contributions;
+
+        // Registered here, not in boot(): the seed's drop is the recovery when this module's own
+        // upgrade failed, and then boot() never runs. The runner is resolved only when needed.
+        if (defined('WP_CLI') && WP_CLI) {
+            $clock = new WordPressClock();
+            SeedCommand::register(fn (): Seed => new Seed(
+                $this->modules,
+                $this->contributions ?? new Contributions(),
+                static fn (): Runner => Runner::current(),
+                $clock
+            ));
+        }
     }
 
     public function boot(): void
@@ -153,12 +165,6 @@ SQL;
 
         if (defined('WP_CLI') && WP_CLI) {
             PeriodicRunCommand::register($periodicRun);
-            SeedCommand::register(fn (): Seed => new Seed(
-                $this->modules,
-                $this->contributions ?? new Contributions(),
-                Runner::current(),
-                $clock
-            ));
         }
     }
 }

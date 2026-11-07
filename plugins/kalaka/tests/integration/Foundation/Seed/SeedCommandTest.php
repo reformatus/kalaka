@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation\Seed;
 
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Cli\SeedCommand;
 use Kalaka\Foundation\Seed\Seed;
 
@@ -83,8 +84,20 @@ final class SeedCommandTest extends SeedTestCase
         }
     }
 
+    public function testTheDropOnAClosedSiteNeverAsksForTheRunnerThroughTheCommand(): void
+    {
+        $this->closeTheSite();
+        $seed = new Seed([], $this->contributions, static function (): Runner {
+            throw new \LogicException('Foundation never booted.');
+        }, $this->seedClock);
+
+        (new SeedCommand(fn (): Seed => $seed))([], ['drop' => true]);
+
+        self::assertSame([['success', 'Schema recreated; run "wp kalaka seed" again.']], \WP_CLI::$calls);
+    }
+
     private function seedWithoutModules(): Seed
     {
-        return new Seed([], $this->contributions, $this->runner, $this->seedClock);
+        return new Seed([], $this->contributions, fn (): Runner => $this->runner, $this->seedClock);
     }
 }

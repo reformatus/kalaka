@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Module;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Seed\Seed;
 use Kalaka\Foundation\Seed\SeedFailure;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
@@ -46,7 +47,7 @@ abstract class SeedTestCase extends EventsTestCase
 
     protected function seed(): Seed
     {
-        return new Seed(self::modulesForTests(), $this->contributions, $this->runner, $this->seedClock);
+        return new Seed(self::modulesForTests(), $this->contributions, fn (): Runner => $this->runner, $this->seedClock);
     }
 
     /** @return list<string> the lines the seed reported */
