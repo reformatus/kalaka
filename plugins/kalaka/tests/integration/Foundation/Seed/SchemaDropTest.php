@@ -149,8 +149,8 @@ final class SchemaDropTest extends RealTableTestCase
             . " FOREIGN KEY (event_id) REFERENCES {$wpdb->prefix}kalaka_events (id)) ENGINE=InnoDB"
         );
         $wpdb->query(
-            "INSERT INTO {$wpdb->prefix}kalaka_events (version, name, state, points) "
-            . "VALUES (1, 'Tábor', 'draft', '[]')"
+            "INSERT INTO {$wpdb->prefix}kalaka_events (version, name, state, currency, points) "
+            . "VALUES (1, 'Tábor', 'draft', 'HUF', '[]')"
         );
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("INSERT INTO {$child} (id, event_id) VALUES (1, {$wpdb->insert_id})");

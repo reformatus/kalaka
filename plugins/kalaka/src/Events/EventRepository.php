@@ -43,6 +43,7 @@ final class EventRepository extends EntityRepository
             'version' => $entity->version,
             'name' => $entity->name,
             'state' => $entity->state->value,
+            'currency' => $entity->currency->value,
             'capacity' => $entity->capacity,
             'is_full' => $entity->isFull ? 1 : 0,
             'registration_opens_on' => $entity->registrationOpensOn,

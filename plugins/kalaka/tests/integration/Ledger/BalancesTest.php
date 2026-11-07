@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Ledger;
 
 use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -42,9 +43,9 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::ManualPayment, '-35500', Payer::PARTICIPANT],
         ]);
 
-        self::assertTrue($balances->of(Payer::PARTICIPANT)->isEqualTo($this->money('0')));
-        self::assertTrue($balances->total()->isEqualTo($this->money('0')));
-        self::assertTrue($balances->total()->countsAsZero());
+        self::assertTrue($balances->of(Payer::PARTICIPANT, Currency::HUF)->isEqualTo($this->money('0')));
+        self::assertTrue($balances->total(Currency::HUF)->isEqualTo($this->money('0')));
+        self::assertTrue($balances->total(Currency::HUF)->countsAsZero());
     }
 
     public function testAnOverpaymentIsNegative(): void
@@ -54,9 +55,9 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::ManualPayment, '-40000', Payer::PARTICIPANT],
         ]);
 
-        self::assertTrue($balances->of(Payer::PARTICIPANT)->isEqualTo($this->money('-4500')));
-        self::assertTrue($balances->total()->isEqualTo($this->money('-4500')));
-        self::assertTrue($balances->total()->isNegative());
+        self::assertTrue($balances->of(Payer::PARTICIPANT, Currency::HUF)->isEqualTo($this->money('-4500')));
+        self::assertTrue($balances->total(Currency::HUF)->isEqualTo($this->money('-4500')));
+        self::assertTrue($balances->total(Currency::HUF)->isNegative());
     }
 
     public function testAnOnlinePaymentCountsLikeAManualOne(): void
@@ -66,7 +67,7 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::Payment, '-35000', Payer::PARTICIPANT],
         ]);
 
-        self::assertTrue($balances->total()->isEqualTo($this->money('-5000')));
+        self::assertTrue($balances->total(Currency::HUF)->isEqualTo($this->money('-5000')));
     }
 
     public function testManualAndOnlinePaymentsAddUp(): void
@@ -77,7 +78,7 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::Payment, '-36000', Payer::PARTICIPANT],
         ]);
 
-        self::assertTrue($balances->total()->isEqualTo($this->money('0')));
+        self::assertTrue($balances->total(Currency::HUF)->isEqualTo($this->money('0')));
     }
 
     public function testChargesFromSeveralComponentsAddUp(): void
@@ -100,7 +101,9 @@ final class BalancesTest extends LedgerTestCase
             $this->line($registration, LineKind::Charge, '2000', 'c:5', null, null, Payer::PARTICIPANT, 'late_fee'),
         );
 
-        self::assertTrue($this->ledger->balancesOf($registration)->total()->isEqualTo($this->money('38500')));
+        self::assertTrue(
+            $this->ledger->balancesOf($registration)->total(Currency::HUF)->isEqualTo($this->money('38500'))
+        );
     }
 
     public function testChargesAndADiscountAddUp(): void
@@ -111,7 +114,7 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::Charge, '-10000', Payer::PARTICIPANT],
         ]);
 
-        self::assertTrue($balances->total()->isEqualTo($this->money('78000')));
+        self::assertTrue($balances->total(Currency::HUF)->isEqualTo($this->money('78000')));
     }
 
     public function testEachPayerHasItsOwnBalanceAndTheTotalIsTheirSum(): void
@@ -122,11 +125,11 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::Payment, '-9600', 'congregation'],
         ]);
 
-        self::assertTrue($balances->of(Payer::PARTICIPANT)->isEqualTo($this->money('4800')));
-        self::assertTrue($balances->of('congregation')->isEqualTo($this->money('0')));
-        self::assertTrue($balances->total()->isEqualTo($this->money('4800')));
+        self::assertTrue($balances->of(Payer::PARTICIPANT, Currency::HUF)->isEqualTo($this->money('4800')));
+        self::assertTrue($balances->of('congregation', Currency::HUF)->isEqualTo($this->money('0')));
+        self::assertTrue($balances->total(Currency::HUF)->isEqualTo($this->money('4800')));
         self::assertSame(['congregation', 'participant'], array_keys($balances->byPayer()));
-        self::assertTrue($balances->of('sponsor')->isEqualTo($this->money('0')));
+        self::assertTrue($balances->of('sponsor', Currency::HUF)->isEqualTo($this->money('0')));
     }
 
     public function testAFractionBelowAFillerCountsAsZero(): void
@@ -136,19 +139,26 @@ final class BalancesTest extends LedgerTestCase
             [LineKind::ManualPayment, '-1000', Payer::PARTICIPANT],
         ]);
 
-        self::assertTrue($balances->of(Payer::PARTICIPANT)->isEqualTo($this->money('0.004')));
-        self::assertTrue($balances->total()->countsAsZero());
+        self::assertTrue($balances->of(Payer::PARTICIPANT, Currency::HUF)->isEqualTo($this->money('0.004')));
+        self::assertTrue($balances->total(Currency::HUF)->countsAsZero());
     }
 
-    public function testARegistrationWithoutLinesHasNoPayersAndZeroTotal(): void
+    /** #42 AC13: `HUF` is the only `Currency` case, so the test shows the currency passed in comes back. */
+    public function testARegistrationWithoutLinesHasNoPayersAndZeroInTheCurrencyPassedIn(): void
     {
         $registration = $this->registration();
 
         $balances = $this->ledger->balancesOf($registration);
 
         self::assertSame([], $balances->byPayer());
-        self::assertTrue($balances->total()->isEqualTo($this->money('0')));
-        self::assertSame(Currency::HUF, $balances->total()->currency());
+        foreach (Currency::cases() as $currency) {
+            $total = $balances->total($currency);
+            self::assertTrue($total->isEqualTo(Money::zero($currency)));
+            self::assertSame($currency, $total->currency());
+            $ofParticipant = $balances->of(Payer::PARTICIPANT, $currency);
+            self::assertTrue($ofParticipant->isEqualTo(Money::zero($currency)));
+            self::assertSame($currency, $ofParticipant->currency());
+        }
     }
 
     public function testLinesOfOtherRegistrationsNeverCount(): void
@@ -162,11 +172,13 @@ final class BalancesTest extends LedgerTestCase
             $this->line($otherEventSameCode, LineKind::Charge, '30', 'k1'),
         );
 
-        self::assertTrue($this->ledger->balancesOf($mine)->total()->isEqualTo($this->money('1000')));
-        self::assertTrue($this->ledger->balancesOf($sameEventOther)->total()->isEqualTo($this->money('200')));
+        self::assertTrue($this->ledger->balancesOf($mine)->total(Currency::HUF)->isEqualTo($this->money('1000')));
+        self::assertTrue(
+            $this->ledger->balancesOf($sameEventOther)->total(Currency::HUF)->isEqualTo($this->money('200'))
+        );
         self::assertTrue(
             $this->ledger->balancesOf(new RegistrationKey(self::EVENT + 1, '12A3'))
-                ->total()
+                ->total(Currency::HUF)
                 ->isEqualTo($this->money('30'))
         );
     }

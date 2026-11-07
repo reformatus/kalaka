@@ -34,3 +34,8 @@ tests_add_filter('muplugins_loaded', static function (): void {
 });
 
 require $testsDir . '/includes/bootstrap.php';
+
+// Every run starts from a fresh install. WordPress's installer drops only its own tables, and dbDelta adds
+// columns but never changes a collation, so the development drop recreates every declared table.
+(new Kalaka\Foundation\Seed\SchemaDrop(Kalaka\Tests\Integration\Foundation\Seed\SeedTestCase::modulesForTests()))
+    ->run();
