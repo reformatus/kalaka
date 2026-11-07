@@ -7,6 +7,7 @@ namespace Kalaka\Foundation\Api\Database;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * Turns the database's last error into a Kalaka exception: engineering.md, "Database".
@@ -19,7 +20,10 @@ final class DatabaseError
     private const RECORD_CHANGED = 1020;
     private const DUPLICATE_KEY = 1062;
 
-    /** Call right after a `$wpdb` statement; does nothing when the statement succeeded. */
+    /**
+     * Call right after a `$wpdb` statement; does nothing when the statement succeeded. Inside a use-case
+     * attempt the error is recorded as the run's failure before it is thrown.
+     */
     public static function check(\wpdb $wpdb, bool $referenceCodeInsert = false): void
     {
         // `dbh` is protected, but wpdb exposes it through __get().
@@ -30,6 +34,7 @@ final class DatabaseError
         }
 
         $error = self::exceptionFor($number, $wpdb->last_error, $referenceCodeInsert);
+        Runner::databaseFailed($error);
         throw $error;
     }
 

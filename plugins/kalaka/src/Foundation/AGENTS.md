@@ -36,6 +36,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Retryable errors are retried from scratch at the outermost run only; a
   nested run never commits, retries or rolls back on its own, and the first
   error in a nested run ends the whole use case.
+- A database error inside a run is recorded as the run's failure, as a nested
+  run's error is. After it, or after a caught nested error, the context
+  refuses writes, locks and nested runs, and the recorded error decides the
+  outcome.
 - Locks are taken in the lock order; the guard refuses a lower level after a
   higher one, and a lower key within the event, quota or registration level,
   for every repository read `FOR UPDATE` and write.
