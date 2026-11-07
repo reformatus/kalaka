@@ -16,9 +16,6 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Foundation\RepositoryTestCase;
 use Kalaka\Tests\Integration\Foundation\TestItem;
 
-require_once __DIR__ . '/../RepositoryTestCase.php';
-require_once __DIR__ . '/TestRule.php';
-
 /**
  * The base of the evaluation tests: the site zone is Europe/Budapest, the clock stands at
  * 2026-11-30 10:00 there, and the runner evaluates over a registry the test fills.
@@ -29,6 +26,7 @@ abstract class EvaluationTestCase extends RepositoryTestCase
 
     protected UserActor $admin;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -108,6 +106,7 @@ abstract class EvaluationTestCase extends RepositoryTestCase
     private function allRows(string $table, string $order): array
     {
         global $wpdb;
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $rows = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}{$table} ORDER BY {$order}", ARRAY_A);
 
         return array_values(is_array($rows) ? $rows : []);

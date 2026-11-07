@@ -7,8 +7,6 @@ namespace Kalaka\Tests\Integration\Foundation\Periodic;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/PeriodicTestCase.php';
-
 /** D10: `EvaluationFailureQuery::flaggedIn()`. */
 final class EvaluationFailureQueryTest extends PeriodicTestCase
 {
@@ -48,7 +46,9 @@ final class EvaluationFailureQueryTest extends PeriodicTestCase
 
     public function testAnEmptyListIssuesNoStatement(): void
     {
-        $statements = $this->statementsDuring(fn () => self::assertSame([], (new EvaluationFailureQuery())->flaggedIn([])));
+        $statements = $this->statementsDuring(
+            fn () => self::assertSame([], (new EvaluationFailureQuery())->flaggedIn([]))
+        );
 
         self::assertSame([], $statements);
     }

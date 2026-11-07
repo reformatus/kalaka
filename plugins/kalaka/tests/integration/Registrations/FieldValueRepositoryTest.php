@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\FieldValue\FieldValue;
 
-require_once __DIR__ . '/RegistrationsTestCase.php';
-
 /** AC9: field values as items on their registration. */
 final class FieldValueRepositoryTest extends RegistrationsTestCase
 {
@@ -30,8 +28,14 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
         self::assertSame(['registration/5/12A3'], $this->subjectsOf($first['id']));
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:name', 'before' => null, 'after' => 'Árvíztűrő Tükörfúrógép'],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:email', 'before' => null, 'after' => 'anna@example.test'],
+                [
+                    'type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:name',
+                    'before' => null, 'after' => 'Árvíztűrő Tükörfúrógép',
+                ],
+                [
+                    'type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:email',
+                    'before' => null, 'after' => 'anna@example.test',
+                ],
             ],
             $this->decode($first['changes'])
         );
@@ -48,7 +52,10 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
         $entries = $this->entries();
         self::assertCount(2, $entries);
         self::assertSame(
-            [['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:email', 'before' => 'anna@example.test', 'after' => 'anna@example.net']],
+            [[
+                'type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:email',
+                'before' => 'anna@example.test', 'after' => 'anna@example.net',
+            ]],
             $this->decode($entries[1]['changes'])
         );
     }
@@ -56,7 +63,10 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
     public function testDeletingAnAnswerRecordsOneItemNamedAfterItsField(): void
     {
         $this->inRun(function (array $input, Context $context): void {
-            $this->values->upsert(new FieldValue(new RegistrationKey(5, '12A3'), 'email', 'anna@example.test'), $context);
+            $this->values->upsert(
+                new FieldValue(new RegistrationKey(5, '12A3'), 'email', 'anna@example.test'),
+                $context
+            );
         });
 
         $this->inRun(function (array $input, Context $context): void {
@@ -68,7 +78,10 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
         $entries = $this->entries();
         self::assertCount(2, $entries);
         self::assertSame(
-            [['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:email', 'before' => 'anna@example.test', 'after' => null]],
+            [[
+                'type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'field:email',
+                'before' => 'anna@example.test', 'after' => null,
+            ]],
             $this->decode($entries[1]['changes'])
         );
     }

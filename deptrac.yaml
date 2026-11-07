@@ -9,8 +9,17 @@ deptrac:
           value: '^Kalaka\\Foundation\\(?!Api\\)'
     - name: Foundation Api
       collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Kalaka\\Foundation\\Api\\'
+          must_not:
+            - type: classLike
+              value: '^Kalaka\\Foundation\\Api\\Money\\Money$'
+    - name: Foundation Api Money
+      collectors:
         - type: classLike
-          value: '^Kalaka\\Foundation\\Api\\'
+          value: '^Kalaka\\Foundation\\Api\\Money\\Money$'
     - name: Events
       collectors:
         - type: classLike
@@ -111,6 +120,7 @@ deptrac:
     Foundation:
       - WordPress
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -125,6 +135,7 @@ deptrac:
       - WordPress
       - Events Api
       - Foundation Api
+      - Foundation Api Money
       - Forms Api
       - Assignments Api
       - Registrations Api
@@ -138,6 +149,7 @@ deptrac:
       - WordPress
       - Forms Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Assignments Api
       - Registrations Api
@@ -151,6 +163,7 @@ deptrac:
       - WordPress
       - Assignments Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Registrations Api
@@ -164,6 +177,7 @@ deptrac:
       - WordPress
       - Registrations Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -177,6 +191,7 @@ deptrac:
       - WordPress
       - Pricing Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -190,6 +205,7 @@ deptrac:
       - WordPress
       - Ledger Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -203,6 +219,7 @@ deptrac:
       - WordPress
       - Payments Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -216,6 +233,7 @@ deptrac:
       - WordPress
       - Mail Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -229,6 +247,7 @@ deptrac:
       - WordPress
       - Portal Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -242,6 +261,7 @@ deptrac:
       - WordPress
       - Admin Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -255,6 +275,7 @@ deptrac:
       - WordPress
       - Support Api
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -268,7 +289,7 @@ deptrac:
     Foundation Api:
       - WordPress
       - Foundation
-      - Bundled brick/math
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -279,10 +300,16 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+    Foundation Api Money:
+      - WordPress
+      - Foundation
+      - Foundation Api
+      - Bundled brick/math
     Events Api:
       - WordPress
       - Events
       - Foundation Api
+      - Foundation Api Money
       - Forms Api
       - Assignments Api
       - Registrations Api
@@ -296,6 +323,7 @@ deptrac:
       - WordPress
       - Forms
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Assignments Api
       - Registrations Api
@@ -309,6 +337,7 @@ deptrac:
       - WordPress
       - Assignments
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Registrations Api
@@ -322,6 +351,7 @@ deptrac:
       - WordPress
       - Registrations
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -335,6 +365,7 @@ deptrac:
       - WordPress
       - Pricing
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -348,6 +379,7 @@ deptrac:
       - WordPress
       - Ledger
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -361,6 +393,7 @@ deptrac:
       - WordPress
       - Payments
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -374,6 +407,7 @@ deptrac:
       - WordPress
       - Mail
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -387,6 +421,7 @@ deptrac:
       - WordPress
       - Portal
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -400,6 +435,7 @@ deptrac:
       - WordPress
       - Admin
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api
@@ -413,6 +449,7 @@ deptrac:
       - WordPress
       - Support
       - Foundation Api
+      - Foundation Api Money
       - Events Api
       - Forms Api
       - Assignments Api

@@ -7,8 +7,6 @@ namespace Kalaka\Tests\Integration\Foundation\Periodic;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
-require_once __DIR__ . '/../PerEventCostTestCase.php';
-
 /** The per-event cost test of the query that reads the flags of the given events. */
 final class EvaluationFailureQueryCostTest extends PerEventCostTestCase
 {
@@ -29,6 +27,7 @@ final class EvaluationFailureQueryCostTest extends PerEventCostTestCase
                 }
                 $wpdb->query(
                     "INSERT INTO {$wpdb->prefix}kalaka_evaluation_failures (event_id, code, version, rule, error,"
+                    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
                     . ' failed_at) VALUES ' . implode(', ', $values)
                 );
             },

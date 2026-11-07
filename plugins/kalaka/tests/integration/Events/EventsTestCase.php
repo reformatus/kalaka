@@ -22,8 +22,6 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Foundation\AuditTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
-require_once __DIR__ . '/../Foundation/AuditTestCase.php';
-
 /** The base of the Events tests: site zone Europe/Budapest, a full-access admin and helpers to reach a state. */
 abstract class EventsTestCase extends AuditTestCase
 {
@@ -31,6 +29,7 @@ abstract class EventsTestCase extends AuditTestCase
 
     protected Events $events;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -41,6 +40,7 @@ abstract class EventsTestCase extends AuditTestCase
         $this->events = new Events();
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         ObjectCache::clear();
@@ -133,7 +133,9 @@ abstract class EventsTestCase extends AuditTestCase
     protected function markFull(int $id): void
     {
         $this->runner->run(
-            new AdminProbe(fn (array $input, Context $context): mixed => (new EventCapacity())->markFull($context, $id)),
+            new AdminProbe(
+                fn (array $input, Context $context): mixed => (new EventCapacity())->markFull($context, $id)
+            ),
             [],
             new CliActor(null)
         );
@@ -183,13 +185,19 @@ abstract class EventsTestCase extends AuditTestCase
     /** @return list<array<string, ?string>> the entries of one action */
     protected function entriesOf(string $action): array
     {
-        return array_values(array_filter($this->entries(), static fn (array $entry): bool => $entry['action'] === $action));
+        return array_values(array_filter(
+            $this->entries(),
+            static fn (array $entry): bool => $entry['action'] === $action
+        ));
     }
 
     /** @return list<array<string, ?string>> */
     protected function failedEntries(): array
     {
-        return array_values(array_filter($this->entries(), static fn (array $entry): bool => $entry['outcome'] === 'failed'));
+        return array_values(array_filter(
+            $this->entries(),
+            static fn (array $entry): bool => $entry['outcome'] === 'failed'
+        ));
     }
 
     /**

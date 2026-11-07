@@ -13,8 +13,6 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-
 final class RunnerTest extends RunnerTestCase
 {
     public function testRunReturnsTheResultAndCommitsTheRow(): void
@@ -108,6 +106,7 @@ final class RunnerTest extends RunnerTestCase
         $useCase = new AdminProbe(function () use (&$thrown): void {
             $this->insertRow('a');
             $thrown[] = new RetryableFailure();
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a test double; nothing is printed
             throw end($thrown);
         });
 
@@ -169,7 +168,15 @@ final class RunnerTest extends RunnerTestCase
         $nested = new AdminProbe(function (array $input, Context $context) use (&$seen): void {
             $seen[] = ['nested', $context->now()->format('H:i:s')];
         });
-        $useCase = new AdminProbe(function (array $input, Context $context, int $call) use (&$seen, $nested, $actor): void {
+        $useCase = new AdminProbe(function (
+            array $input,
+            Context $context,
+            int $call
+        ) use (
+            &$seen,
+            $nested,
+            $actor
+        ): void {
             self::assertSame($actor, $context->actor());
             $seen[] = ['outer', $context->now()->format('H:i:s')];
             $context->run($nested, []);

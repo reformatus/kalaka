@@ -7,9 +7,6 @@ namespace Kalaka\Tests\Integration\Foundation;
 use Kalaka\Foundation\Api\Audit\Correlation;
 use WP_UnitTestCase;
 
-require_once __DIR__ . '/TestClock.php';
-require_once __DIR__ . '/AdminProbe.php';
-
 /**
  * A test that needs a table a second database connection can see: a real table, created
  * and dropped with the harness's temporary-table filters removed. Creating it commits the
@@ -23,6 +20,7 @@ abstract class RealTableTestCase extends WP_UnitTestCase
 
     protected ?\mysqli $second = null;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -32,12 +30,15 @@ abstract class RealTableTestCase extends WP_UnitTestCase
         remove_filter('query', [$this, '_drop_temporary_tables']);
 
         $this->table = $wpdb->prefix . 'kalaka_test_real';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("DROP TABLE IF EXISTS {$this->table}");
         $wpdb->query(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             "CREATE TABLE {$this->table} (id INT AUTO_INCREMENT PRIMARY KEY, label VARCHAR(100) NOT NULL) ENGINE=InnoDB"
         );
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         $this->second?->close();
@@ -46,6 +47,7 @@ abstract class RealTableTestCase extends WP_UnitTestCase
         parent::tear_down();
 
         global $wpdb;
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("DROP TABLE IF EXISTS {$this->table}");
         $wpdb->query($wpdb->prepare(
             "DELETE s FROM {$wpdb->prefix}kalaka_audit_subjects s"

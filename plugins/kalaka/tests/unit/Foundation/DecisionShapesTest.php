@@ -48,7 +48,15 @@ final class DecisionShapesTest extends TestCase
                 continue;
             }
             self::assertContains($name, self::ALLOWED, $class . '::$' . $property->getName());
-            foreach ([Repository::class, Context::class, Runner::class, 'wpdb', DecisionRecord::class, EvaluationFailure::class] as $forbidden) {
+            $forbiddenTypes = [
+                Repository::class,
+                Context::class,
+                Runner::class,
+                'wpdb',
+                DecisionRecord::class,
+                EvaluationFailure::class,
+            ];
+            foreach ($forbiddenTypes as $forbidden) {
                 self::assertFalse(is_a($name, $forbidden, true), $class . '::$' . $property->getName());
             }
         }

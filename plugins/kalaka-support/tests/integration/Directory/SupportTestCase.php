@@ -12,7 +12,6 @@ use Kalaka\Support\Directory\SaveDirectoryNode;
 use Kalaka\Tests\Integration\Foundation\AuditTestCase;
 
 // Core's test helpers sit next to this plugin under wp-content/plugins/.
-require_once __DIR__ . '/../../../../kalaka/tests/integration/Foundation/AuditTestCase.php';
 
 /**
  * The base of the directory tests: a runner in savepoint mode with a fixed clock, a full-access
@@ -23,6 +22,7 @@ abstract class SupportTestCase extends AuditTestCase
 {
     protected UserActor $admin;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -30,6 +30,7 @@ abstract class SupportTestCase extends AuditTestCase
         $this->admin = new UserActor($this->fullAccessUser());
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         ObjectCache::clear();
@@ -80,7 +81,13 @@ abstract class SupportTestCase extends AuditTestCase
     protected function buildTree(): array
     {
         $ids = [];
-        $add = function (string $externalId, ?string $parent, string $type, string $name, array $aliases = []) use (&$ids): void {
+        $add = function (
+            string $externalId,
+            ?string $parent,
+            string $type,
+            string $name,
+            array $aliases = []
+        ) use (&$ids): void {
             $ids[$externalId] = $this->save([
                 'external_id' => $externalId,
                 'parent_external_id' => $parent,

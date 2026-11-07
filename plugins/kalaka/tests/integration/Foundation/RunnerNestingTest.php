@@ -15,8 +15,6 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-
 final class RunnerNestingTest extends RunnerTestCase
 {
     public function testNestedRunsAreCommittedTogether(): void
@@ -323,12 +321,14 @@ final class RunnerNestingTest extends RunnerTestCase
 
         self::assertSame($actor, $kept->actor());
         self::assertSame($this->clock->now(), $kept->now());
-        foreach ([
+        foreach (
+            [
             fn () => $kept->run($useCase, []),
             fn () => $kept->afterCommit(function (): void {
             }),
             fn () => $kept->lock(LockLevel::Event),
-        ] as $call) {
+            ] as $call
+        ) {
             try {
                 $call();
                 self::fail('The call should have thrown.');

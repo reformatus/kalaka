@@ -12,8 +12,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC10, apart from the second connection's view of the lock. */
 final class EventCapacityTest extends EventsTestCase
 {
@@ -31,7 +29,9 @@ final class EventCapacityTest extends EventsTestCase
     {
         $id = $this->filled();
 
-        $event = $this->inRun(fn (Context $context, EventCapacity $capacity) => $capacity->lockForRegistration($context, $id));
+        $event = $this->inRun(
+            fn (Context $context, EventCapacity $capacity) => $capacity->lockForRegistration($context, $id)
+        );
 
         self::assertNotNull($event);
         self::assertSame($id, $event->id);
@@ -55,7 +55,9 @@ final class EventCapacityTest extends EventsTestCase
         $id = $this->filled();
 
         $this->expectException(NotFound::class);
-        $this->inRun(fn (Context $context, EventCapacity $capacity) => $capacity->lockForRegistration($context, $id + 1000));
+        $this->inRun(
+            fn (Context $context, EventCapacity $capacity) => $capacity->lockForRegistration($context, $id + 1000)
+        );
     }
 
     public function testMarkFullOfAMissingEventIsNotFound(): void
@@ -80,7 +82,16 @@ final class EventCapacityTest extends EventsTestCase
         self::assertSame($version + 1, $this->versionOf($id));
         $entry = $this->entriesOf('kalaka/probe')[0];
         self::assertSame(
-            [['type' => 'event', 'event' => $id, 'key' => (string) $id, 'field' => 'is_full', 'before' => '0', 'after' => '1']],
+            [
+                [
+                    'type' => 'event',
+                    'event' => $id,
+                    'key' => (string) $id,
+                    'field' => 'is_full',
+                    'before' => '0',
+                    'after' => '1',
+                ],
+            ],
             $this->changesOf($entry)
         );
         self::assertSame(["event/{$id}/{$id}"], $this->subjectsOf($entry['id']));

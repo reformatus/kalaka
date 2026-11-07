@@ -9,14 +9,13 @@ use Kalaka\Foundation\Api\LoadState;
 use WP_REST_Request;
 use WP_REST_Response;
 
-require_once __DIR__ . '/SupportTestCase.php';
-
 /** AC14 to AC19: the public route, as a logged-out visitor. */
 final class NodesRouteTest extends SupportTestCase
 {
     /** @var array<string, int> */
     private array $ids = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -26,6 +25,7 @@ final class NodesRouteTest extends SupportTestCase
         $this->get(['search' => 'warmup']);
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         LoadState::record([]);
@@ -103,7 +103,10 @@ final class NodesRouteTest extends SupportTestCase
             ['Teszt Fasor Gyülekezet', 'Teszt Fasori Gyülekezet'],
             $this->names(['search' => 'teszt fasor'])
         );
-        self::assertSame(['Teszt Fasor Gyülekezet', 'Teszt Fasori Gyülekezet'], $this->names(['search' => '  FASOR   teszt ']));
+        self::assertSame(
+            ['Teszt Fasor Gyülekezet', 'Teszt Fasori Gyülekezet'],
+            $this->names(['search' => '  FASOR   teszt '])
+        );
         // "kapolna" occurs only in an alias, "fasori" only in the name
         self::assertSame(['Teszt Fasori Gyülekezet'], $this->names(['search' => 'kapolna fasori']));
     }
@@ -136,6 +139,7 @@ final class NodesRouteTest extends SupportTestCase
         self::assertSame([], $this->names(['search' => 'obuda']));
     }
 
+    // phpcs:ignore Generic.Files.LineLength.TooLong -- descriptive test name
     public function testACongregationUnderADeactivatedDeaneryIsAbsentFromSearchAndChildListingUntilItIsActiveAgain(): void
     {
         $this->deactivate('D1-A', 'D1', 'Egyházmegye', 'Budai Teszt Egyházmegye');

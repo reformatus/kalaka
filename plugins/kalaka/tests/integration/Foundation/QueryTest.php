@@ -6,13 +6,12 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use WP_UnitTestCase;
 
-require_once __DIR__ . '/TestOrderList.php';
-
 /** The query base: one statement per record type per list, and a statement only inside a scope. */
 final class QueryTest extends WP_UnitTestCase
 {
     private TestOrderList $list;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -21,6 +20,7 @@ final class QueryTest extends WP_UnitTestCase
         $this->list = new TestOrderList();
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         global $wpdb;
@@ -93,14 +93,16 @@ final class QueryTest extends WP_UnitTestCase
 
     public function testAScopeEndsEvenWhenItsWorkThrows(): void
     {
+        $this->seed(2);
+
         try {
             $this->list->ordersWithOneLoadEach();
+            self::fail('Two orders with one load each should have thrown.');
         } catch (\LogicException) {
-            // Expected only when there are two orders; with none the scope simply ends.
+            // Expected: the scope must end all the same.
         }
-        $this->seed(1);
 
-        self::assertCount(1, $this->list->orders());
+        self::assertCount(2, $this->list->orders());
     }
 
     public function testTheRelatedLoadOfAPerEventTableCarriesTheEventCondition(): void

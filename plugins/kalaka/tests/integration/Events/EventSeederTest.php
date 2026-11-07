@@ -8,8 +8,6 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Tests\Integration\Foundation\Seed\SeedTestCase;
 
-require_once __DIR__ . '/../Foundation/Seed/SeedTestCase.php';
-
 /** AC2: the seed day is 2026-11-10. */
 final class EventSeederTest extends SeedTestCase
 {
@@ -23,10 +21,19 @@ final class EventSeederTest extends SeedTestCase
             array_map(static fn (Event $event): string => $event->name, $events)
         );
         self::assertSame(
-            [EventState::Published, EventState::Published, EventState::Draft, EventState::Unpublished, EventState::Archived],
+            [
+                EventState::Published,
+                EventState::Published,
+                EventState::Draft,
+                EventState::Unpublished,
+                EventState::Archived,
+            ],
             array_map(static fn (Event $event): EventState => $event->state(), $events)
         );
-        self::assertSame([40, 25, null, 30, 50], array_map(static fn (Event $event): ?int => $event->capacity, $events));
+        self::assertSame(
+            [40, 25, null, 30, 50],
+            array_map(static fn (Event $event): ?int => $event->capacity, $events)
+        );
         self::assertSame(
             [
                 ['2026-10-27', '2026-12-10', '2027-01-09', '2027-01-15'],
@@ -62,7 +69,13 @@ final class EventSeederTest extends SeedTestCase
 
         $entries = $this->entries();
         self::assertCount(16, $entries);
-        $names = ['kalaka/create-event', 'kalaka/update-event', 'kalaka/publish-event', 'kalaka/unpublish-event', 'kalaka/archive-event'];
+        $names = [
+            'kalaka/create-event',
+            'kalaka/update-event',
+            'kalaka/publish-event',
+            'kalaka/unpublish-event',
+            'kalaka/archive-event',
+        ];
         foreach ($entries as $entry) {
             self::assertSame('cli', $entry['actor_type']);
             self::assertNull($entry['actor_user_id']);
