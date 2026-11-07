@@ -14,11 +14,11 @@ use Kalaka\Foundation\Api\Audit\EntryHeader;
 use Kalaka\Foundation\Api\Audit\ErrorRecord;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Clock;
-use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\ObjectCache;
@@ -38,7 +38,7 @@ final class Runner
     /** The attempt in progress, in any runner of this request. */
     private static ?RunState $active = null;
 
-    private readonly \wpdb $wpdb;
+    private readonly Statements $statements;
 
     private readonly CoarsePermission $permission;
 
@@ -56,10 +56,9 @@ final class Runner
         private readonly bool $insideOpenTransaction = false,
         ?Evaluation $evaluation = null,
     ) {
-        global $wpdb;
-        $this->wpdb = $wpdb;
+        $this->statements = new Statements();
         $this->permission = new CoarsePermission();
-        $this->audit = new AuditWriter($this->wpdb);
+        $this->audit = new AuditWriter($this->statements);
         $this->evaluation = $evaluation ?? new Evaluation(new DecisionRules());
     }
 
@@ -172,7 +171,11 @@ final class Runner
             $trace->now = $now;
             $entry = $header->entry($now);
             $begun = true;
-            $this->statement($this->insideOpenTransaction ? 'SAVEPOINT kalaka_run' : 'START TRANSACTION');
+            if ($this->insideOpenTransaction) {
+                $this->statements->savepoint('kalaka_run');
+            } else {
+                $this->statements->begin();
+            }
             $context = $this->context($useCase, $actor, $now, $state, $entry);
             $result = $useCase->execute($input, $context);
             if ($state->failure !== null) {
@@ -180,7 +183,11 @@ final class Runner
             }
             $this->evaluation->run($context);
             $this->audit->write($entry);
-            $this->statement($this->insideOpenTransaction ? 'RELEASE SAVEPOINT kalaka_run' : 'COMMIT');
+            if ($this->insideOpenTransaction) {
+                $this->statements->releaseSavepoint('kalaka_run');
+            } else {
+                $this->statements->commit();
+            }
         } catch (\Throwable $e) {
             if ($begun) {
                 $this->rollback();
@@ -211,13 +218,25 @@ final class Runner
                 $trace->now ?? $this->clock->now(),
                 ErrorRecord::json($error, $trace->failedIn ?? $useCase::name()),
             );
-            $this->statement($this->insideOpenTransaction ? 'SAVEPOINT kalaka_audit' : 'START TRANSACTION');
+            if ($this->insideOpenTransaction) {
+                $this->statements->savepoint('kalaka_audit');
+            } else {
+                $this->statements->begin();
+            }
             try {
                 $this->audit->write($entry);
-                $this->statement($this->insideOpenTransaction ? 'RELEASE SAVEPOINT kalaka_audit' : 'COMMIT');
+                if ($this->insideOpenTransaction) {
+                    $this->statements->releaseSavepoint('kalaka_audit');
+                } else {
+                    $this->statements->commit();
+                }
             } catch (\Throwable $writeError) {
                 try {
-                    $this->statement($this->insideOpenTransaction ? 'ROLLBACK TO SAVEPOINT kalaka_audit' : 'ROLLBACK');
+                    if ($this->insideOpenTransaction) {
+                        $this->statements->rollbackToSavepoint('kalaka_audit');
+                    } else {
+                        $this->statements->rollback();
+                    }
                 } catch (\Throwable) {
                     // The write error is the one that matters.
                 }
@@ -228,18 +247,15 @@ final class Runner
         }
     }
 
-    private function statement(string $sql): void
-    {
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery,WordPress.DB.PreparedSQL.NotPrepared -- the runner owns the transaction; the statements are constants
-        $this->wpdb->query($sql);
-        DatabaseError::check($this->wpdb);
-    }
-
     /** A failing rollback never replaces the original exception; PHP's error log is the last fallback. */
     private function rollback(): void
     {
         try {
-            $this->statement($this->insideOpenTransaction ? 'ROLLBACK TO SAVEPOINT kalaka_run' : 'ROLLBACK');
+            if ($this->insideOpenTransaction) {
+                $this->statements->rollbackToSavepoint('kalaka_run');
+            } else {
+                $this->statements->rollback();
+            }
         } catch (\Throwable $e) {
             error_log('Kaláka: rollback failed: ' . ($e->getPrevious() ?? $e)->getMessage());
         } finally {

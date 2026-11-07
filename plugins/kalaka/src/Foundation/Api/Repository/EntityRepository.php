@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api\Repository;
 
-use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -114,13 +113,7 @@ abstract class EntityRepository extends Repository
         $where['version'] = $expected;
 
         $values = $changed + ['version' => $expected + 1];
-        $written = $this->quietly(
-            fn (): int|false => $this->database()->update($this->prefixedTable(), $values, $where)
-        );
-        DatabaseError::check($this->database());
-        if ($written === false) {
-            throw self::failure('The update wrote no row.');
-        }
+        $written = $this->statements()->update($this->prefixedTable(), $values, $where);
         if ($written === 0) {
             $error = new VersionConflict();
             throw $error;
@@ -164,11 +157,7 @@ abstract class EntityRepository extends Repository
         }
         $where['version'] = (int) $current['version'];
 
-        $written = $this->quietly(fn (): int|false => $this->database()->delete($this->prefixedTable(), $where));
-        DatabaseError::check($this->database());
-        if ($written === false) {
-            throw self::failure('The delete wrote no row.');
-        }
+        $written = $this->statements()->delete($this->prefixedTable(), $where);
         if ($written === 0) {
             $error = new VersionConflict();
             throw $error;
