@@ -109,6 +109,23 @@ jobs:
           path: dist/*.zip
           retention-days: 7
           if-no-files-found: error
+      # The bundle playground-preview.yml publishes as the pull request's
+      # Playground preview. Its name carries the pull request's head SHA, not
+      # the merge commit, because the publish side checks it against the run.
+      - name: Stage the Playground preview bundle
+        if: github.event_name == 'pull_request'
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          mkdir -p preview/zips
+          cp "dist/kalaka-$version.zip" preview/zips/kalaka.zip
+          cp "dist/kalaka-support-$version.zip" preview/zips/kalaka-support.zip
+      - if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: wp-playground-preview-pr${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+          path: preview/
+          retention-days: 7
+          if-no-files-found: error
 
   smoke:
     name: Playground smoke test

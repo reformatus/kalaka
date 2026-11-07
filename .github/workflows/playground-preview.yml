@@ -1,0 +1,75 @@
+name: Playground preview
+
+# Publishes the Playground preview link of a pull request, after CI built and
+# tested its zips. GitHub reads this workflow from main, never from the pull
+# request, and it never checks out pull request code: the zips are opaque data
+# that only Playground runs, in the reviewer's browser.
+#
+# - publish: after a successful CI run on a pull request, WordPress's reusable
+#   workflow copies the run's preview bundle to the public ci-artifacts
+#   prerelease (the two latest commits per pull request) and keeps one comment
+#   with the preview link up to date.
+# - cleanup: when a pull request closes, its zips leave the prerelease.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  pull_request_target:
+    types: [closed]
+
+permissions: {}
+
+jobs:
+  publish:
+    # The reusable workflow also skips a run that did not succeed; the check
+    # here keeps that gate visible in this file.
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.event == 'pull_request'
+      && github.event.workflow_run.conclusion == 'success'
+    permissions:
+      contents: write
+      pull-requests: write
+    # v4.0.0 plus three commits (fixes to default blueprints, unused here).
+    uses: WordPress/action-wp-playground-pr-preview/.github/workflows/preview-publish.yml@6c9250e3acf3cdd454aa9d18f9a3c925a0dad82a
+    with:
+      mode: comment
+      # The same setup as bin/playground-smoke.sh: core first, then the
+      # extension, then the seed, which refuses in the production environment.
+      blueprint: |
+        {
+          "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+          "preferredVersions": { "php": "8.3", "wp": "latest" },
+          "landingPage": "/wp-admin/",
+          "login": true,
+          "steps": [
+            { "step": "defineWpConfigConsts", "consts": { "WP_ENVIRONMENT_TYPE": "development" } },
+            { "step": "installPlugin", "pluginData": { "resource": "url", "url": "{{ARTIFACT_URL:kalaka}}" }, "options": { "activate": true } },
+            { "step": "installPlugin", "pluginData": { "resource": "url", "url": "{{ARTIFACT_URL:kalaka-support}}" }, "options": { "activate": true } },
+            { "step": "wp-cli", "command": "wp kalaka seed" }
+          ]
+        }
+
+  cleanup:
+    if: github.event_name == 'pull_request_target'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the pull request's zips from the ci-artifacts prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if ! gh release view ci-artifacts --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "No ci-artifacts prerelease; nothing to delete."
+            exit 0
+          fi
+          gh release view ci-artifacts --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq ".assets[].name | select(startswith(\"pr-$PR_NUMBER-\"))" |
+          while IFS= read -r asset; do
+            gh release delete-asset ci-artifacts "$asset" --repo "$GITHUB_REPOSITORY" --yes
+            echo "Deleted $asset"
+          done
