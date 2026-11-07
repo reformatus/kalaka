@@ -35,6 +35,7 @@ final class RepositoryDeleteTest extends RepositoryTestCase
         $touched = null;
 
         $this->inRun(function (array $input, Context $context) use ($item, &$touched): void {
+            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'));
             $this->items->delete($item, $context);
             $touched = $context->touchedRegistrations();
         });

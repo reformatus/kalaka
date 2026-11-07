@@ -8,16 +8,18 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /** Writes: upsert() and insert(), the version check and what the audit entry gets. */
 final class RepositoryWriteTest extends RepositoryTestCase
 {
     public function testUpsertOfANewEntityStoresItAndRecordsEveryColumn(): void
     {
-        $stored = $this->inRun(fn (array $input, Context $context): TestItem => $this->items->upsert(
-            new TestItem('First', 'a note', 'hidden', 12, '00A0'),
-            $context
-        ));
+        $stored = $this->inRun(function (array $input, Context $context): TestItem {
+            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'));
+
+            return $this->items->upsert(new TestItem('First', 'a note', 'hidden', 12, '00A0'), $context);
+        });
 
         self::assertInstanceOf(TestItem::class, $stored);
         self::assertGreaterThan(0, $stored->id);
@@ -143,6 +145,45 @@ final class RepositoryWriteTest extends RepositoryTestCase
             self::assertSame('original', $this->rowOf('kalaka_test_items', $id)['label'] ?? null);
             self::assertSame('2', $this->rowOf('kalaka_test_items', $id)['version'] ?? null);
         }
+    }
+
+    public function testAnUnchangedEntityCarryingAnotherVersionThanItWasLoadedWithConflictsAndWritesNothing(): void
+    {
+        $id = $this->seed('kalaka_test_items', 'original', 2);
+        $statements = null;
+
+        try {
+            $this->inRun(function (array $input, Context $context) use ($id, &$statements): void {
+                $item = $this->items->find($id);
+                self::assertInstanceOf(TestItem::class, $item);
+                $item->version = 1;
+                $statements = $this->statementsDuring(fn () => $this->items->upsert($item, $context));
+            });
+            self::fail('The run should have conflicted.');
+        } catch (VersionConflict) {
+            self::assertNull($statements);
+            self::assertSame('original', $this->rowOf('kalaka_test_items', $id)['label'] ?? null);
+            self::assertSame('2', $this->rowOf('kalaka_test_items', $id)['version'] ?? null);
+        }
+    }
+
+    public function testAnUnchangedEntityWithItsLoadedVersionWritesNothingAndRunsNoStatement(): void
+    {
+        $id = $this->seed('kalaka_test_items', 'original', 2);
+
+        $statements = $this->inRun(function (array $input, Context $context) use ($id): array {
+            $item = $this->items->find($id);
+            self::assertInstanceOf(TestItem::class, $item);
+            $statements = $this->statementsDuring(
+                fn () => self::assertSame($item, $this->items->upsert($item, $context))
+            );
+
+            return $statements;
+        });
+
+        self::assertSame([], $statements);
+        self::assertSame('2', $this->rowOf('kalaka_test_items', $id)['version'] ?? null);
+        self::assertSame('[]', $this->onlyEntry()['changes']);
     }
 
     public function testTheGivenObjectKeepsItsOldVersionAndConflictsWhenUpsertedAgain(): void

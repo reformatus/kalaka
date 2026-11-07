@@ -123,6 +123,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         };
         $this->rules->add($rule, true);
         $this->timeRules->add(SpyTimeRule::naming('00A0', '00B0'));
+        $this->seedRegistration($event, '00A0', '00B0');
 
         $report = $this->sweep();
 
@@ -151,6 +152,7 @@ final class PeriodicRunTest extends PeriodicTestCase
     {
         $published = $this->eventIn('published');
         $this->seedFlag($published, '00A0');
+        $this->seedRegistration($published, '00A0');
         $rule = new TestRule('test_state');
         $rule->throws = new \RuntimeException('rule failed');
         $this->rules->add($rule, true);
@@ -186,6 +188,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         $rule->throws = new \RuntimeException('rule failed');
         $this->rules->add($rule, true);
         $this->timeRules->add(SpyTimeRule::naming('00A0'));
+        $this->seedRegistration($event, '00A0');
 
         $report = $this->sweep();
 

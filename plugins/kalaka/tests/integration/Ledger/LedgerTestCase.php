@@ -85,13 +85,16 @@ abstract class LedgerTestCase extends RegistrationsTestCase
     }
 
     /**
-     * Records the lines in one use case.
+     * Records the lines in one use case, which first locks their registrations.
      *
      * @return list<LedgerLine>
      */
     protected function record(NewLine ...$lines): array
     {
         $stored = $this->inRun(function (array $input, Context $context) use ($lines): array {
+            $registrations = array_map(static fn (NewLine $line): RegistrationKey => $line->registration, $lines);
+            $this->lockRegistrations($context, ...$registrations);
+
             return array_map(fn (NewLine $line): LedgerLine => $this->ledger->record($line, $context), $lines);
         });
         self::assertIsArray($stored);

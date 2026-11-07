@@ -25,6 +25,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $nested = new NamedProbe(function (array $input, Context $context): void {
             $this->items->upsert(new TestItem('third', regEvent: 12, regCode: '00A0'), $context);
         });
+        $this->seedRegistration(12, '00A0');
         $outer = new AdminProbe(function (
             array $input,
             Context $context
@@ -33,6 +34,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
             $nested,
             &$askedDuringExecute
         ): void {
+            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'));
             $this->items->upsert(new TestItem('first', regEvent: 12, regCode: '00A0'), $context);
             $this->items->upsert(new TestItem('second', regEvent: 12, regCode: '00A0'), $context);
             $context->run($nested, []);
@@ -80,6 +82,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $rule = new TestRule('test_state');
         $this->rules->add($rule, true);
         $key = new RegistrationKey(12, '00A0');
+        $this->seedRegistration(12, '00A0');
 
         $rule->answer = 'on';
         $this->exec($this->touching($key));
@@ -119,6 +122,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         foreach (['b', 'a', 'y', 'x'] as $kind) {
             $this->seedDecision(12, '00A0', $kind, 'p');
         }
+        $this->seedRegistration(12, '00A0');
 
         $this->exec($this->touching(new RegistrationKey(12, '00A0')));
 
@@ -160,6 +164,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $this->rules->add($earlier, true);
         $this->rules->add($rule, true);
         $this->seedFlag(12, '00A0');
+        $this->seedRegistration(12, '00A0', '00B0');
         $flagsBefore = $this->flagRows();
 
         $caught = null;
@@ -220,6 +225,8 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
     {
         $rule = new TestRule('test_state');
         $this->rules->add($rule, true);
+        $this->seedRegistration(12, '00A0', '00B1');
+        $this->seedRegistration(3, '00Z9');
 
         $this->exec($this->touching(
             new RegistrationKey(12, '00B1'),
@@ -241,8 +248,10 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
     {
         $rule = new TestRule('test_state');
         $this->rules->add($rule, true);
+        $this->seedRegistration(12, '00A2', '00A3');
         $useCase = new AdminProbe(function (array $input, Context $context, int $call): void {
             $code = $call === 1 ? '00A2' : '00A3';
+            $this->lockRegistrations($context, new RegistrationKey(12, $code));
             $this->items->upsert(new TestItem('attempt', regEvent: 12, regCode: $code), $context);
             if ($call === 1) {
                 throw new \Kalaka\Foundation\Api\Error\RetryableFailure();
@@ -287,6 +296,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
             },
             static function (): void {
             },
+            static fn (): bool => true,
         );
 
         $evaluation->run($context);
@@ -298,6 +308,91 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
                 $rule->inputs
             )
         );
+    }
+
+    public function testAKeyWithoutARowGetsNoDecisionAndLosesItsFlagWhileAKeyWithARowIsEvaluated(): void
+    {
+        $rule = new TestRule('test_state');
+        $rule->answer = 'on';
+        $this->rules->add($rule, true);
+        $this->seedRegistration(12, '00A1');
+        $this->seedFlag(12, '00A0');
+        $this->seedFlag(12, '00A1');
+
+        $this->exec($this->touching(new RegistrationKey(12, '00A0'), new RegistrationKey(12, '00A1')));
+
+        self::assertSame(['00A1'], array_map(static fn ($input): string => $input->registration->code, $rule->inputs));
+        self::assertSame(
+            [['12', '00A1', 'test_state', 'on']],
+            array_map(
+                static fn (array $row): array => [$row['event_id'], $row['code'], $row['kind'], $row['state']],
+                $this->decisionRows()
+            )
+        );
+        self::assertSame([], $this->flagRows());
+    }
+
+    public function testTheEvaluationLocksATouchedRegistrationTheRunDoesNotHold(): void
+    {
+        $rule = new TestRule('test_state');
+        $rule->answer = 'on';
+        $this->rules->add($rule, true);
+        $this->seedRegistration(12, '00A0');
+        $key = new RegistrationKey(12, '00A0');
+
+        $statements = $this->statementsDuring(fn () => $this->exec(new AdminProbe(
+            static function (array $input, Context $context) use ($key): void {
+                $context->markTouched($key);
+            }
+        )));
+
+        self::assertCount(1, self::registrationLocks($statements));
+        self::assertCount(1, $rule->inputs);
+        self::assertCount(1, $this->decisionRows());
+    }
+
+    public function testARegistrationTheRunHoldsIsNotLockedAgain(): void
+    {
+        $this->rules->add(new TestRule('test_state'), true);
+        $this->seedRegistration(12, '00A0');
+
+        $statements = $this->statementsDuring(fn () => $this->exec($this->touching(new RegistrationKey(12, '00A0'))));
+
+        self::assertCount(1, self::registrationLocks($statements));
+    }
+
+    public function testATouchedRegistrationTheEvaluationWouldLockAfterAHigherLockFailsTheUseCase(): void
+    {
+        $rule = new TestRule('test_state');
+        $rule->answer = 'on';
+        $this->rules->add($rule, true);
+        $this->seedRegistration(12, '00A0');
+
+        try {
+            $this->exec(new AdminProbe(function (array $input, Context $context): void {
+                $this->items->upsert(new TestItem('unlocked', regEvent: 12, regCode: '00A0'), $context);
+            }));
+            self::fail('The use case should have failed.');
+        } catch (SystemFailure $caught) {
+            self::assertStringContainsString('Lock order violated', (string) $caught->getPrevious()?->getMessage());
+        }
+
+        self::assertSame([], $rule->inputs);
+        self::assertSame(0, $this->countRows('kalaka_test_items'));
+        self::assertSame([], $this->decisionRows());
+    }
+
+    /**
+     * @param list<string> $statements
+     * @return list<string> the `FOR UPDATE` reads of a registration row among them
+     */
+    private static function registrationLocks(array $statements): array
+    {
+        return array_values(array_filter(
+            $statements,
+            static fn (string $sql): bool => str_contains($sql, 'kalaka_registrations')
+                && str_ends_with($sql, 'FOR UPDATE')
+        ));
     }
 
     private function rulesWith(TestRule $rule): DecisionRules

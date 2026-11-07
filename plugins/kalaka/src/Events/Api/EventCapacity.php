@@ -28,13 +28,14 @@ final class EventCapacity
     }
 
     /**
-     * Sets the latch in the calling use case; an event that is already full is left as it is.
+     * Sets the latch in the calling use case, reading the event `FOR UPDATE`: the event row must be the
+     * run's first lock, as `lockForRegistration()` takes it. An event that is already full is left as it is.
      *
      * @throws NotFound
      */
     public function markFull(Context $context, int $eventId): void
     {
-        $record = $this->repository->find($eventId) ?? throw new NotFound();
+        $record = $this->repository->findForUpdate($eventId, $context) ?? throw new NotFound();
         if ($record->isFull) {
             return;
         }

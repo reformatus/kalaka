@@ -127,18 +127,19 @@ abstract class Repository
         $rows = $this->statements->select($this->statements->prepare($sql, [$this->prefixedTable(), ...$args]));
 
         $entities = [];
-        $keys = [];
+        $held = [];
         foreach ($rows as $row) {
             ObjectCache::put($this->table(), $this->keyValues($row), $row);
-            $entities[] = $this->hydrate($row);
-            $keys[] = LockKey::normalise($this->keyList($row));
+            $entity = $this->hydrate($row);
+            $entities[] = $entity;
+            $held[] = [LockKey::normalise($this->keyList($row)), $entity];
         }
-        if ($forUpdate !== null && $keys !== []) {
+        if ($forUpdate !== null && $held !== []) {
             // The database locked the rows in whatever order; each new one must not be below a key held before.
             $table = $this->table();
-            usort($keys, static fn (array $a, array $b): int => LockKey::compare($table, $a, $table, $b));
-            foreach ($keys as $key) {
-                $forUpdate->lockRow($this->lockLevel(), $table, $key);
+            usort($held, static fn (array $a, array $b): int => LockKey::compare($table, $a[0], $table, $b[0]));
+            foreach ($held as [$key, $entity]) {
+                $forUpdate->lockRow($this->lockLevel(), $table, $key, false, $this->heldRegistration($entity));
             }
         }
 
@@ -210,8 +211,14 @@ abstract class Repository
         foreach ($this->keyColumns() as $column) {
             $key[$column] = $data[$column] ?? ($this->autoIncrement() ? $insertId : null);
         }
-        $context->lockRow($this->lockLevel(), $this->table(), $this->keyList($key), true);
         $stored = $this->readBack($key);
+        $context->lockRow(
+            $this->lockLevel(),
+            $this->table(),
+            $this->keyList($key),
+            true,
+            $this->heldRegistration($stored),
+        );
 
         $row = self::loaded()[$stored] ?? [];
         $subject = $this->subject($stored);
@@ -247,6 +254,30 @@ abstract class Repository
         }
 
         return $stored;
+    }
+
+    /**
+     * Tells the run which registration a row it holds maps to, so `Context::holdsRegistration()` knows it.
+     *
+     * @param TEntity $record
+     */
+    final protected function holdRegistration(object $record, Context $context): void
+    {
+        $registration = $this->heldRegistration($record);
+        if ($registration !== null) {
+            $key = $this->keyList($this->toRow($record));
+            $context->lockRow($this->lockLevel(), $this->table(), $key, true, $registration);
+        }
+    }
+
+    /**
+     * The registration a held row's record maps to: only at the registration level.
+     *
+     * @param TEntity $record
+     */
+    private function heldRegistration(object $record): ?RegistrationKey
+    {
+        return $this->lockLevel() === LockLevel::Registration ? $this->registrationOf($record) : null;
     }
 
     /** @param TEntity $stored */

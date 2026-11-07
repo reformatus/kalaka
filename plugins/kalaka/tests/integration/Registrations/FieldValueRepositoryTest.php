@@ -18,6 +18,7 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
         $touched = null;
 
         $this->inRun(function (array $input, Context $context) use ($key, &$touched): void {
+            $this->lockRegistrations($context, $key);
             $this->values->upsert(new FieldValue($key, 'name', 'Árvíztűrő Tükörfúrógép'), $context);
             $this->values->upsert(new FieldValue($key, 'email', 'anna@example.test'), $context);
             $touched = $context->touchedRegistrations();
@@ -43,6 +44,7 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
         $this->inRun(function (array $input, Context $context) use ($key, &$touched): void {
             $email = $this->values->find(['eventId' => 5, 'code' => '12A3', 'fieldKey' => 'email']);
             self::assertInstanceOf(FieldValue::class, $email);
+            $this->lockRegistrations($context, $key);
             $email->value = 'anna@example.net';
             self::assertSame(2, $this->values->upsert($email, $context)->version);
             $touched = $context->touchedRegistrations();
@@ -63,6 +65,7 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
     public function testDeletingAnAnswerRecordsOneItemNamedAfterItsField(): void
     {
         $this->inRun(function (array $input, Context $context): void {
+            $this->lockRegistrations($context, new RegistrationKey(5, '12A3'));
             $this->values->upsert(
                 new FieldValue(new RegistrationKey(5, '12A3'), 'email', 'anna@example.test'),
                 $context
@@ -72,6 +75,7 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
         $this->inRun(function (array $input, Context $context): void {
             $email = $this->values->find(['eventId' => 5, 'code' => '12A3', 'fieldKey' => 'email']);
             self::assertInstanceOf(FieldValue::class, $email);
+            $this->lockRegistrations($context, new RegistrationKey(5, '12A3'));
             $this->values->delete($email, $context);
         });
 
@@ -90,6 +94,7 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
     {
         $key = new RegistrationKey(5, '12A3');
         $this->inRun(function (array $input, Context $context) use ($key): void {
+            $this->lockRegistrations($context, $key, new RegistrationKey(5, '13B4'), new RegistrationKey(6, '12A3'));
             $this->values->upsert(new FieldValue($key, 'name', 'Árvíztűrő Tükörfúrógép'), $context);
             $this->values->upsert(new FieldValue($key, 'email', 'anna@example.test'), $context);
             $this->values->upsert(new FieldValue(new RegistrationKey(5, '13B4'), 'name', 'Béla'), $context);
@@ -138,6 +143,7 @@ final class FieldValueRepositoryTest extends RegistrationsTestCase
     {
         $fieldKey = str_repeat('é', 64);
         $this->inRun(function (array $input, Context $context) use ($fieldKey): void {
+            $this->lockRegistrations($context, new RegistrationKey(5, '12A3'));
             $this->values->upsert(new FieldValue(new RegistrationKey(5, '12A3'), $fieldKey, 'x'), $context);
         });
 

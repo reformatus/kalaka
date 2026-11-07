@@ -14,6 +14,7 @@ use Kalaka\Foundation\Decision\DecisionRepository;
 use Kalaka\Foundation\Decision\DecisionRule;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
 
 /**
  * Brings the touched registrations' decisions up to date with their facts, in the outermost
@@ -26,12 +27,15 @@ final class Evaluation
         private readonly DecisionRepository $decisions = new DecisionRepository(),
         private readonly DecisionQuery $query = new DecisionQuery(),
         private readonly EvaluationFailureRepository $failures = new EvaluationFailureRepository(),
+        private readonly Registrations $registrations = new Registrations(),
     ) {
     }
 
     /**
      * Evaluates each registration the attempt touched once, ascending by event and code, and
-     * those first touched while evaluating after them.
+     * those first touched while evaluating after them. Each round first locks the registrations the
+     * run does not hold yet, in that order, before it writes anything; a key without a row gets no
+     * decision, and its flag goes.
      */
     public function run(Context $context): void
     {
@@ -52,17 +56,24 @@ final class Evaluation
                 static fn (RegistrationKey $a, RegistrationKey $b): int => $a->eventId <=> $b->eventId
                     ?: strcmp($a->code, $b->code)
             );
+            $missing = [];
+            foreach ($pending as $key) {
+                if (!$context->holdsRegistration($key) && !$this->registrations->lock($key, $context)) {
+                    $missing[self::identity($key)] = true;
+                }
+            }
             foreach ($pending as $key) {
                 $evaluated[self::identity($key)] = true;
-                $this->evaluate($key, $context);
+                if (!isset($missing[self::identity($key)])) {
+                    $this->decide($key, $context);
+                }
+                $this->clearFlag($key, $context);
             }
         }
     }
 
-    private function evaluate(RegistrationKey $key, Context $context): void
+    private function clearFlag(RegistrationKey $key, Context $context): void
     {
-        $this->decide($key, $context);
-
         $flag = $this->failures->find($key);
         if ($flag !== null) {
             $this->failures->delete($flag, $context);

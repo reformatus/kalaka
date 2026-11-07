@@ -87,6 +87,24 @@ final class EventCapacityTest extends EventsTestCase
         self::assertSame('1', $this->registrationRow($id, '1A23')['version'] ?? null);
     }
 
+    public function testMarkFullAfterARegistrationLockIsALockOrderFailureAndLeavesTheLatch(): void
+    {
+        $id = $this->filled();
+        $registrations = new RegistrationRepository();
+
+        try {
+            $this->inRun(function (Context $context, EventCapacity $capacity) use ($id, $registrations): void {
+                $registrations->upsert(self::newRegistration($id, '1A23'), $context);
+                $capacity->markFull($context, $id);
+            });
+            self::fail('The run should have failed.');
+        } catch (SystemFailure $caught) {
+            self::assertStringContainsString('Lock order violated', (string) $caught->getPrevious()?->getMessage());
+            self::assertSame('0', $this->row($id)['is_full']);
+            self::assertNull($this->registrationRow($id, '1A23'));
+        }
+    }
+
     private static function newRegistration(int $event, string $code): Registration
     {
         $now = new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
@@ -170,22 +188,31 @@ final class EventCapacityTest extends EventsTestCase
         self::assertSame(["event/{$id}/{$id}"], $this->subjectsOf($entry['id']));
     }
 
-    public function testMarkFullTwiceInOneRunChangesOnceAndRunsNoSecondStatement(): void
+    public function testMarkFullTwiceInOneRunChangesOnceAndTheSecondCallOnlyReadsTheRow(): void
     {
-        global $wpdb;
         $id = $this->filled();
         $version = $this->versionOf($id);
-        $second = null;
+        $second = [];
+        $capture = static function (string $query) use (&$second): string {
+            $second[] = $query;
 
-        $this->inRun(function (Context $context, EventCapacity $capacity) use ($id, $wpdb, &$second): void {
+            return $query;
+        };
+
+        $this->inRun(function (Context $context, EventCapacity $capacity) use ($id, $capture): void {
             $capacity->lockForRegistration($context, $id);
             $capacity->markFull($context, $id);
-            $before = $wpdb->num_queries;
-            $capacity->markFull($context, $id);
-            $second = $wpdb->num_queries - $before;
+            add_filter('query', $capture);
+            try {
+                $capacity->markFull($context, $id);
+            } finally {
+                remove_filter('query', $capture);
+            }
         });
 
-        self::assertSame(0, $second);
+        self::assertCount(1, $second);
+        self::assertStringStartsWith('SELECT', $second[0]);
+        self::assertStringEndsWith('FOR UPDATE', $second[0]);
         self::assertSame($version + 1, $this->versionOf($id));
         self::assertCount(1, $this->changesOf($this->entriesOf('kalaka/probe')[0]));
     }
