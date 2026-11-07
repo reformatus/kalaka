@@ -6,6 +6,8 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Database\DatabaseError;
+use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\RuleViolation;
@@ -15,8 +17,24 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-final class RunnerNestingTest extends RunnerTestCase
+final class RunnerNestingTest extends AuditTestCase
 {
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    public function tear_down(): void
+    {
+        global $wpdb;
+        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}kalaka_test_items");
+
+        parent::tear_down();
+    }
+
+    private function items(): TestItemRepository
+    {
+        TestItemRepository::create('kalaka_test_items');
+
+        return new TestItemRepository('kalaka_test_items');
+    }
+
     public function testNestedRunsAreCommittedTogether(): void
     {
         $nested = new AdminProbe(function (): string {
@@ -78,6 +96,97 @@ final class RunnerNestingTest extends RunnerTestCase
             self::assertSame($error, $caught);
         }
         self::assertSame([], $this->rows());
+    }
+
+    public function testAWriteAfterACaughtNestedErrorIsRefusedWithThatError(): void
+    {
+        $items = $this->items();
+        $nestedError = new RuleViolation('nested');
+        $nested = new AdminProbe(function () use ($nestedError): void {
+            throw $nestedError;
+        });
+        $refused = null;
+        $parent = new AdminProbe(function (array $input, Context $context) use ($nested, $items, &$refused): string {
+            $items->upsert(new TestItem('before'), $context);
+            try {
+                $context->run($nested, []);
+            } catch (RuleViolation) {
+                // The parent carries on and writes again.
+            }
+            try {
+                $items->upsert(new TestItem('after'), $context);
+            } catch (KalakaException $error) {
+                $refused = $error;
+            }
+
+            return 'returned normally';
+        });
+
+        try {
+            $this->runner->run($parent, [], new SystemActor());
+            self::fail('The run should have thrown.');
+        } catch (RuleViolation $caught) {
+            self::assertSame($nestedError, $caught);
+        }
+        self::assertSame($nestedError, $refused);
+        self::assertSame(0, $this->countItems());
+    }
+
+    public function testADatabaseErrorOfANestedRunThatTheParentCatchesIsTheWholeRunsFailure(): void
+    {
+        $items = $this->items();
+        $databaseError = null;
+        $nested = new NamedProbe(static function (): void {
+            global $wpdb;
+            $suppressed = $wpdb->suppress_errors(true);
+            try {
+                $wpdb->query('SELECT 1 FROM kalaka_no_such_table');
+                DatabaseError::check($wpdb);
+            } finally {
+                $wpdb->suppress_errors($suppressed);
+            }
+        });
+        $refused = null;
+        $parent = new AdminProbe(
+            function (array $input, Context $context) use ($nested, $items, &$databaseError, &$refused): string {
+                $items->upsert(new TestItem('before'), $context);
+                try {
+                    $context->run($nested, []);
+                } catch (SystemFailure $error) {
+                    $databaseError = $error;
+                }
+                try {
+                    $items->upsert(new TestItem('after'), $context);
+                } catch (KalakaException $error) {
+                    $refused = $error;
+                }
+
+                return 'returned normally';
+            }
+        );
+
+        try {
+            $this->runner->run($parent, [], new SystemActor());
+            self::fail('The run should have thrown.');
+        } catch (SystemFailure $caught) {
+            self::assertSame($databaseError, $caught);
+        }
+        self::assertInstanceOf(SystemFailure::class, $databaseError);
+        self::assertStringContainsString('1146', (string) $databaseError->getPrevious()?->getMessage());
+        self::assertSame($databaseError, $refused);
+        self::assertSame(0, $this->countItems());
+
+        $entry = $this->onlyEntry();
+        self::assertSame('kalaka/probe', $entry['action']);
+        self::assertSame('failed', $entry['outcome']);
+        self::assertSame('kalaka/named-probe', $this->decode($entry['error'])['use_case']);
+    }
+
+    private function countItems(): int
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_test_items");
     }
 
     public function testAParentThatReplacesTheNestedErrorWithItsOwnStillThrowsTheNestedOne(): void

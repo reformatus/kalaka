@@ -109,8 +109,10 @@ flowchart LR
   [evaluation](#evaluation) of the touched registrations runs in it too,
   before the audit entry.
 - **Any database error rolls back the whole use case;** code never continues
-  after catching one. (This also matches how SQLite aborts a transaction on a
-  failed statement.) A rollback also clears the per-request object cache.
+  after catching one. After one, the context refuses every further write, so
+  code that catches it cannot go on writing. (This also matches how SQLite
+  aborts a transaction on a failed statement.) A rollback also clears the
+  per-request object cache.
 - **Retries:** only errors marked retryable (a reference-code collision, a
   deadlock, a version conflict hit by a system run) are retried, about three
   times, each attempt from scratch.

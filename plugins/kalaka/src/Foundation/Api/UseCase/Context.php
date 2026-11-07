@@ -125,9 +125,10 @@ final class Context
     }
 
     /**
-     * @internal Repositories call it before a write: a context kept past its run is refused.
+     * @internal Repositories call it before a write: a context kept past its run is refused, and after
+     * the run's recorded failure (a database error or a nested run's error) the call throws that failure.
      *
-     * @throws \Kalaka\Foundation\Api\Error\SystemFailure
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
     public function assertOpen(): void
     {

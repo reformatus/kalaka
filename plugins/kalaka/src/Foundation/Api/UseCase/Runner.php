@@ -76,6 +76,17 @@ final class Runner
     }
 
     /**
+     * @internal `DatabaseError::check()` calls it before it throws: inside an attempt the error becomes
+     * the run's failure, unless one is recorded already. Outside any attempt it does nothing.
+     */
+    public static function databaseFailed(KalakaException $error): void
+    {
+        if (self::$active !== null) {
+            self::$active->failure ??= $error;
+        }
+    }
+
+    /**
      * Runs a use case as the actor and returns what its `execute` returned.
      *
      * @param array<string, mixed> $input
@@ -179,10 +190,9 @@ final class Runner
             }
             $context = $this->context($useCase, $actor, $now, $state, $entry);
             $result = $useCase->execute($input, $context);
-            if ($state->failure !== null) {
-                throw $state->failure;
-            }
+            self::throwRecorded($state);
             $this->evaluation->run($context);
+            self::throwRecorded($state);
             $this->audit->write($entry);
             if ($this->insideOpenTransaction) {
                 $this->statements->releaseSavepoint('kalaka_run');
@@ -248,9 +258,13 @@ final class Runner
         }
     }
 
-    /** A failing rollback never replaces the original exception; PHP's error log is the last fallback. */
+    /**
+     * A failing rollback never replaces the original exception; PHP's error log is the last fallback.
+     * The attempt is detached first, so the rollback's own error is never recorded as the run's failure.
+     */
     private function rollback(): void
     {
+        self::$active = null;
         try {
             if ($this->insideOpenTransaction) {
                 $this->statements->rollbackToSavepoint('kalaka_run');
@@ -401,8 +415,9 @@ final class Runner
 
     /**
      * A nested run joins the transaction, uses the parent's actor and skips the coarse check.
-     * Its first error ends the whole use case, even if a parent catches it; an InvalidInput
-     * becomes a SystemFailure. It collects an audit entry of its own, linked to its parent's.
+     * Its first error ends the whole use case, even if a parent catches it: the context then refuses
+     * writes, locks and nested runs. An InvalidInput becomes a SystemFailure. It collects an audit
+     * entry of its own, linked to its parent's.
      *
      * @param array<string, mixed> $input
      */
@@ -414,8 +429,9 @@ final class Runner
         RunState $state,
         AuditEntry $parent,
     ): mixed {
+        // Outside the try: a refusal is the parent's failure, not this use case's.
+        self::assertOpen($state);
         try {
-            self::assertOpen($state);
             $side = self::sideOf($useCase);
             $input = self::checkedInput($useCase, $input);
             $header = new EntryHeader(
@@ -435,20 +451,31 @@ final class Runner
                 // The parent built this input, so a mismatch is a programming error.
                 $error = new SystemFailure(null, $error);
             }
-            if ($state->failure === null) {
-                $state->failure = $error;
+            $state->failure ??= $error;
+            if ($state->failure === $error && $state->failedIn === null) {
+                // Its own error, or a database error recorded inside it.
                 $state->failedIn = $useCase::name();
             }
             throw $error;
         }
     }
 
+    /** Refuses a context kept past its run, and, once a failure is recorded, throws that failure itself. */
     private static function assertOpen(RunState $state): void
     {
         if (!$state->open) {
             $cause = new \LogicException('The context is used after its run has ended.');
             $error = new SystemFailure(null, $cause);
             throw $error;
+        }
+        self::throwRecorded($state);
+    }
+
+    /** The recorded failure decides the outcome, whatever the code since did with it. */
+    private static function throwRecorded(RunState $state): void
+    {
+        if ($state->failure !== null) {
+            throw $state->failure;
         }
     }
 
