@@ -40,6 +40,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   run's error is. After it, or after a caught nested error, the context
   refuses writes, locks and nested runs, and the recorded error decides the
   outcome.
+- A reconnect inside a run fails the attempt as retryable.
 - Locks are taken in the lock order; the guard refuses a lower level after a
   higher one, and a lower key within the event, quota or registration level,
   for every repository read `FOR UPDATE` and write.

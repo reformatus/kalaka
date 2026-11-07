@@ -62,7 +62,9 @@ title: Engineering
 - **Retryable database errors:** deadlock (1213), lock-wait timeout (1205),
   "record has changed since last read" (1020, 11.8) and a duplicate key on a
   reference-code collision (1062). The runner always issues an explicit
-  rollback, because some of these leave the transaction open.
+  rollback, because some of these leave the transaction open. A reconnect
+  detected inside a run (wpdb re-sent a statement after errno 2006) is retried
+  too.
 - **Per-event cost is tested:** an integration test seeds many events and
   checks each per-event query's plan with `EXPLAIN`; a query that examines
   rows outside its own event fails the build

@@ -21,6 +21,7 @@ final class DatabaseErrorTest extends TestCase
         yield 'duplicate key' => [1062, false, false];
         yield 'duplicate key on a reference-code insert' => [1062, true, true];
         yield 'syntax error' => [1064, false, false];
+        yield 'connection lost during a query: wpdb does not reconnect' => [2013, false, false];
         yield 'no number' => [0, true, false];
     }
 

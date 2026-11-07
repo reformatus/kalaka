@@ -114,8 +114,9 @@ flowchart LR
   aborts a transaction on a failed statement.) A rollback also clears the
   per-request object cache.
 - **Retries:** only errors marked retryable (a reference-code collision, a
-  deadlock, a version conflict hit by a system run) are retried, about three
-  times, each attempt from scratch.
+  deadlock, a lock-wait timeout, a version conflict hit by a system run, a
+  reconnect detected inside a run) are retried, about three times, each
+  attempt from scratch.
 - **Nested use cases** join the outer transaction and write their own audit
   entry, linked to the parent. Effects are released after the outermost
   commit.
