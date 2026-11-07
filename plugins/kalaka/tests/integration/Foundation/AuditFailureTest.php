@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Database\DatabaseError;
+use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
@@ -103,6 +104,49 @@ final class AuditFailureTest extends AuditTestCase
             $error['previous']
         );
         self::assertStringNotContainsString('kalaka_no_such_table', (string) $entry['error']);
+    }
+
+    public function testADatabaseErrorThroughStatementsNamesTheCodeThatRanIt(): void
+    {
+        $ranAt = 0;
+        $useCase = new AdminProbe(function () use (&$ranAt): void {
+            $statements = new Statements();
+            $ranAt = __LINE__ + 1;
+            $statements->select('SELECT 1 FROM kalaka_no_such_table');
+        });
+
+        try {
+            $this->runner->run($useCase, [], new SystemActor());
+            self::fail('The run should have thrown.');
+        } catch (SystemFailure) {
+        }
+
+        $error = $this->decode($this->onlyEntry()['error']);
+        $file = 'kalaka/tests/integration/Foundation/AuditFailureTest.php';
+        self::assertSame($file, $error['file']);
+        self::assertSame($ranAt, $error['line']);
+        self::assertSame($file, $error['previous'][0]['file']);
+        self::assertSame($ranAt, $error['previous'][0]['line']);
+    }
+
+    public function testAnErrorStatementsMakesItselfNamesTheCodeThatCalledIt(): void
+    {
+        $calledAt = 0;
+        $useCase = new AdminProbe(function () use (&$calledAt): void {
+            $statements = new Statements();
+            $calledAt = __LINE__ + 1;
+            $statements->savepoint('not_a_runner_savepoint');
+        });
+
+        try {
+            $this->runner->run($useCase, [], new SystemActor());
+            self::fail('The run should have thrown.');
+        } catch (SystemFailure) {
+        }
+
+        $error = $this->decode($this->onlyEntry()['error']);
+        self::assertSame('kalaka/tests/integration/Foundation/AuditFailureTest.php', $error['file']);
+        self::assertSame($calledAt, $error['line']);
     }
 
     public function testPersonalValuesNeverReachAFailedEntryOrTheErrorLog(): void

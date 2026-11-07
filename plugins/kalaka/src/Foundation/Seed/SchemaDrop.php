@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Seed;
 
-use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Module\Module;
+use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\SchemaUpgrader;
 
 /**
@@ -26,25 +26,23 @@ final class SchemaDrop
     /** @throws SeedFailure when a table name cannot be read, a table cannot be dropped or the schema cannot be recreated */
     public function run(): void
     {
-        global $wpdb;
+        $statements = new Statements();
 
         $tables = [];
         foreach ($this->modules as $module) {
             foreach ($module->schema()->tables as $statement) {
-                if (preg_match('/^\s*CREATE\s+TABLE\s+(\{prefix\}[A-Za-z0-9_]+)/i', $statement, $match) !== 1) {
+                if (preg_match('/^\s*CREATE\s+TABLE\s+\{prefix\}([A-Za-z0-9_]+)/i', $statement, $match) !== 1) {
                     $error = new SeedFailure('Schema of ' . $module->id() . ': cannot read a table name.');
                     throw $error;
                 }
-                $tables[] = str_replace('{prefix}', $wpdb->prefix, $match[1]);
+                $tables[] = $statements->prefixed($match[1]);
             }
         }
 
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         foreach ($tables as $table) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.DirectDatabaseQuery.NoCaching -- the development drop issues DDL for the tables the modules declare
-            $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $table));
             try {
-                DatabaseError::check($wpdb);
+                $statements->dropTableIfExists($table);
             } catch (KalakaException $e) {
                 // DatabaseError keeps MariaDB's message in `previous`; the command prints that.
                 $error = new SeedFailure('Dropping ' . $table . ': ' . ($e->getPrevious() ?? $e)->getMessage(), $e);

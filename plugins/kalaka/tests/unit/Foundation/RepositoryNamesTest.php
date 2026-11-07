@@ -10,9 +10,9 @@ use Kalaka\Foundation\Api\Repository\Repository;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PHPCS exempts files named `*Repository.php`, `*List.php` and `*Query.php` from the direct-query
- * rule, so a name alone must never escape it: every such file of every plugin, outside core's two
- * base folders, declares a class that extends the base (engineering.md, "Static checks").
+ * Every file named `*Repository.php`, `*List.php` or `*Query.php` of every plugin, outside core's two
+ * base folders, declares a class that extends its base, so repositories and queries reach the
+ * database only through the bases (foundation.md, "Entities, repositories and queries").
  */
 final class RepositoryNamesTest extends TestCase
 {

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api\Query;
 
-use Kalaka\Foundation\Api\Database\DatabaseError;
+use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Database\Statements;
 
 /**
  * The base of query classes (lists and the evaluation's reads). A query runs statements only
@@ -14,15 +15,14 @@ use Kalaka\Foundation\Api\Database\DatabaseError;
  */
 abstract class Query
 {
-    private readonly \wpdb $wpdb;
+    private readonly Statements $statements;
 
     /** @var ?array<string, true> the labels used in the open scope; null outside a scope */
     private ?array $used = null;
 
     public function __construct()
     {
-        global $wpdb;
-        $this->wpdb = $wpdb;
+        $this->statements = new Statements();
     }
 
     /**
@@ -50,7 +50,7 @@ abstract class Query
     /** A table name with the WordPress prefix. */
     final protected function table(string $name): string
     {
-        return $this->wpdb->prefix . $name;
+        return $this->statements->prefixed($name);
     }
 
     /**
@@ -60,12 +60,13 @@ abstract class Query
      * @param list<int|string|null> $args
      * @return list<array<string, ?string>>
      * @throws \LogicException outside a scope, or when the label was already used in this scope
+     * @throws SystemFailure when the statement cannot be prepared
      */
     final protected function select(string $label, string $sql, array $args = []): array
     {
         $this->use($label);
 
-        return $this->run($this->prepared($sql, $args));
+        return $this->statements->select($this->statements->prepare($sql, $args));
     }
 
     /**
@@ -101,7 +102,7 @@ abstract class Query
         $sql = 'SELECT * FROM %i WHERE ' . ($eventId === null ? '' : 'event_id = %d AND ')
             . '%i IN (' . implode(', ', array_fill(0, count($keys), $placeholder)) . ')';
 
-        return $this->run($this->prepared($sql, $args));
+        return $this->statements->select($this->statements->prepare($sql, $args));
     }
 
     private function use(string $label): void
@@ -114,52 +115,5 @@ abstract class Query
             throw $error;
         }
         $this->used[$label] = true;
-    }
-
-    /**
-     * @param literal-string $sql
-     * @param list<int|string|null> $args
-     */
-    private function prepared(string $sql, array $args): string
-    {
-        if ($args === []) {
-            return $sql;
-        }
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is a literal string by its type
-        $prepared = $this->wpdb->prepare($sql, ...$args);
-        if (!is_string($prepared)) {
-            $error = new \LogicException('A query statement could not be prepared.');
-            throw $error;
-        }
-
-        return $prepared;
-    }
-
-    /**
-     * @return list<array<string, ?string>>
-     */
-    private function run(string $sql): array
-    {
-        // wpdb logs a failed statement with its values; a search may hold personal data.
-        $suppressed = $this->wpdb->suppress_errors(true);
-        try {
-            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- prepared by the caller
-            $rows = $this->wpdb->get_results($sql, ARRAY_A);
-        } finally {
-            $this->wpdb->suppress_errors($suppressed);
-        }
-        DatabaseError::check($this->wpdb);
-
-        $result = [];
-        foreach ($rows ?? [] as $row) {
-            $result[] = array_map(self::text(...), $row);
-        }
-
-        return $result;
-    }
-
-    private static function text(mixed $value): ?string
-    {
-        return is_scalar($value) ? (string) $value : null;
     }
 }
