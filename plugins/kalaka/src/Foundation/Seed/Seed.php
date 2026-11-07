@@ -14,11 +14,14 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 /** `wp kalaka seed`: the users, then every contributed seeder in contribution order. engineering.md, "Fixtures". */
 final class Seed
 {
-    /** @param list<Module> $modules the modules that passed the version check, in boot order */
+    /**
+     * @param list<Module> $modules the modules that passed the version check, in boot order
+     * @param \Closure(): Runner $runner called once, only after the closed-site drop has returned
+     */
     public function __construct(
         private readonly array $modules,
         private readonly Contributions $contributions,
-        private readonly Runner $runner,
+        private readonly \Closure $runner,
         private readonly Clock $clock,
     ) {
     }
@@ -48,7 +51,7 @@ final class Seed
 
         (new SeedUsers())->run($report);
 
-        $seeding = new Seeding($this->runner, $this->clock);
+        $seeding = new Seeding(($this->runner)(), $this->clock);
         foreach ($this->contributions->seeders() as $seeder) {
             $report('Running seeder ' . $seeder::class . '.');
             $seeder->seed($seeding);

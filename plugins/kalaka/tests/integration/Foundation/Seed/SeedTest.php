@@ -6,6 +6,8 @@ namespace Kalaka\Tests\Integration\Foundation\Seed;
 
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\Seed\Seeding;
+use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Seed\Seed;
 use Kalaka\Tests\Integration\Foundation\NamedProbe;
 
 require_once __DIR__ . '/SeedTestCase.php';
@@ -85,6 +87,38 @@ final class SeedTest extends SeedTestCase
         self::assertSame([], $this->seededLogins());
         self::assertSame(0, $this->eventCount());
         self::assertSame([], $this->entries());
+    }
+
+    public function testTheDropOnAClosedSiteNeverAsksForTheRunner(): void
+    {
+        $this->closeTheSite();
+        $asked = 0;
+        $seed = new Seed([], $this->contributions, static function () use (&$asked): Runner {
+            ++$asked;
+            throw new \LogicException('Foundation never booted.');
+        }, $this->seedClock);
+
+        $message = $seed->run(true, 'local', static function (string $line): void {
+        });
+
+        self::assertSame('Schema recreated; run "wp kalaka seed" again.', $message);
+        self::assertSame(0, $asked);
+    }
+
+    public function testARefusalOnAClosedSiteNeverAsksForTheRunner(): void
+    {
+        $this->closeTheSite();
+        $asked = 0;
+        $seed = new Seed([], $this->contributions, static function () use (&$asked): Runner {
+            ++$asked;
+            throw new \LogicException('Foundation never booted.');
+        }, $this->seedClock);
+
+        $message = $this->refusalOf(static fn () => $seed->run(false, 'local', static function (string $line): void {
+        }));
+
+        self::assertSame('Refused: Kaláka did not load cleanly; run "wp kalaka seed --drop".', $message);
+        self::assertSame(0, $asked);
     }
 
     public function testAFailedUseCaseEndsTheSeedNamingIt(): void

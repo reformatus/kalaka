@@ -157,7 +157,7 @@ final class SchemaDropTest extends RealTableTestCase
         return new Seed(
             SeedTestCase::modulesForTests(),
             new Contributions(),
-            new Runner(new TestClock()),
+            static fn (): Runner => new Runner(new TestClock()),
             new TestClock()
         );
     }
