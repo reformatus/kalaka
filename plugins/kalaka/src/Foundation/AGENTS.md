@@ -146,6 +146,13 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   transaction through `PeriodicEvaluation`, and writes its last-run time only
   after a completed run. Its WP-Cron handler lets no exception escape: it logs
   and returns.
+- A time rule that throws is isolated to its rule and event: the run logs it
+  through the error-log writer, counts it and goes on. Its window is kept in
+  `kalaka_periodic_run_missed` until the rule succeeds for that event, or
+  until the event is no longer published or the rule no longer registered.
+- A retryable failure while evaluating a registration sets no "evaluation
+  failed" flag: `PeriodicEvaluation` returns null, the run counts the
+  registration as skipped and keeps its windows for the next run.
 - WP-Cron timestamps come from the `Clock`, never `time()`; the upgrader lock's
   own stamp is WordPress's and is not ours to set.
 - The periodic run's stall warning (a `SiteWarning` with a Site Health test)

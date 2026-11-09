@@ -37,9 +37,10 @@ and moving payments
   `manual_refund` and `transfer`; `charge` and `adjustment` lines are not
   payment facts. Rules never read charge lines: the Ledger `Api` gives them
   payment facts, read from payment lines only.
-- A payment-fact line carries exactly one time: `paid_at`, a UTC instant, on
+- A payment-fact line carries exactly one time, a UTC instant: `paid_at` on
   `payment` and `refund`; `value_date` on `manual_payment`, `manual_refund`
-  and `transfer`. A `charge` or `adjustment` carries neither.
+  and `transfer`, entered as a day and stored as 00:00 of it in the site
+  time zone at recording. A `charge` or `adjustment` carries neither.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - `record()` refuses unless the run holds the registration's lock
