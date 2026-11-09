@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Seed;
 
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Module\Module;
 use Kalaka\Foundation\Boot;
@@ -25,7 +26,7 @@ final class SchemaDrop
     ) {
     }
 
-    /** @throws SeedFailure when a table name cannot be read, a table cannot be dropped or the schema cannot be recreated */
+    /** @throws CommandFailure when a table name cannot be read, a table cannot be dropped or the schema cannot be recreated */
     public function run(): void
     {
         $statements = new Statements();
@@ -34,7 +35,7 @@ final class SchemaDrop
         foreach ($this->modules as $module) {
             foreach ($module->schema()->tables as $statement) {
                 if (preg_match('/^\s*CREATE\s+TABLE\s+\{prefix\}([A-Za-z0-9_]+)/i', $statement, $match) !== 1) {
-                    $error = new SeedFailure('Schema of ' . $module->id() . ': cannot read a table name.');
+                    $error = new CommandFailure('Schema of ' . $module->id() . ': cannot read a table name.');
                     throw $error;
                 }
                 $tables[] = $statements->prefixed($match[1]);
@@ -47,7 +48,7 @@ final class SchemaDrop
                 $statements->dropTableIfExists($table);
             } catch (KalakaException $e) {
                 // DatabaseError keeps MariaDB's message in `previous`; the command prints that.
-                $error = new SeedFailure('Dropping ' . $table . ': ' . ($e->getPrevious() ?? $e)->getMessage(), $e);
+                $error = new CommandFailure('Dropping ' . $table . ': ' . ($e->getPrevious() ?? $e)->getMessage(), $e);
                 throw $error;
             }
         }
@@ -61,7 +62,7 @@ final class SchemaDrop
             try {
                 $this->upgrader->upgrade($module);
             } catch (\Throwable $e) {
-                $error = new SeedFailure('Schema of ' . $module->id() . ': ' . $e->getMessage(), $e);
+                $error = new CommandFailure('Schema of ' . $module->id() . ': ' . $e->getMessage(), $e);
                 throw $error;
             }
         }

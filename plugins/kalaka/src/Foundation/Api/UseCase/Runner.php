@@ -47,6 +47,9 @@ final class Runner
     /** The attempt in progress, in any runner of this request. */
     private static ?RunState $active = null;
 
+    /** @var \WeakMap<KalakaException, true>|null the errors a run threw after recording them */
+    private static ?\WeakMap $recorded = null;
+
     private readonly Statements $statements;
 
     private readonly CoarsePermission $permission;
@@ -100,6 +103,16 @@ final class Runner
     }
 
     /**
+     * Whether a run threw this error after recording it: in a failed audit entry, in the error log
+     * when that entry could not be written, or not at all when it is not audited (InvalidInput). The
+     * error boundary logs only an error that no run recorded.
+     */
+    public static function recorded(KalakaException $error): bool
+    {
+        return isset(self::$recorded[$error]);
+    }
+
+    /**
      * @internal `DatabaseError::check()` reads the attempt in progress, if any, to compare its connection
      * thread id with the current one.
      */
@@ -143,6 +156,8 @@ final class Runner
             $error = self::asKalaka($e);
             $header = new EntryHeader($useCase::name(), $side ?? $actor->side(), $actor, null, $declared);
             $this->auditFailure($useCase, $header, $error, $trace);
+            self::$recorded ??= new \WeakMap();
+            self::$recorded[$error] = true;
             throw $error;
         }
 

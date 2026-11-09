@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Cli;
 
 use Kalaka\Foundation\Seed\Seed;
-use Kalaka\Foundation\Seed\SeedFailure;
+use Kalaka\Foundation\Api\Entry\Boundary;
 
-/** The WP-CLI command `wp kalaka seed [--drop]`: parses the flag, prints, maps a stop to exit code 1. */
+/** The WP-CLI command `wp kalaka seed [--drop]`: parses the flag and prints; the boundary maps a stop to exit code 1. */
 final class SeedCommand
 {
     /** @param \Closure(): Seed $seed */
@@ -37,7 +37,7 @@ final class SeedCommand
      */
     public function __invoke(array $args, array $assocArgs): void
     {
-        try {
+        Boundary::cli(function () use ($assocArgs): void {
             $message = ($this->seed)()->run(
                 !empty($assocArgs['drop']),
                 wp_get_environment_type(),
@@ -45,10 +45,7 @@ final class SeedCommand
                     \WP_CLI::line($line);
                 }
             );
-        } catch (SeedFailure $e) {
-            \WP_CLI::error($e->getMessage());
-        }
-
-        \WP_CLI::success($message);
+            \WP_CLI::success($message);
+        });
     }
 }

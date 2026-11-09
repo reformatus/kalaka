@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation\Seed;
 
 use Kalaka\Events\CreateEvent;
+use Kalaka\Events\Module as EventsModule;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\LoadFailure;
@@ -14,7 +15,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Boot;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Seed\Seed;
-use Kalaka\Foundation\Seed\SeedFailure;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Seed\SchemaDrop;
 use Kalaka\Tests\Integration\Foundation\RealTableTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
@@ -105,7 +106,7 @@ final class SchemaDropTest extends RealTableTestCase
                 $seed->run(true, $type, static function (string $line): void {
                 });
                 self::fail('The drop should have been refused.');
-            } catch (SeedFailure $e) {
+            } catch (CommandFailure $e) {
                 self::assertSame(
                     'Refused: the environment type is "' . $type
                         . '"; the seed runs only on local or development sites.',
@@ -117,7 +118,7 @@ final class SchemaDropTest extends RealTableTestCase
         self::assertSame($events, $this->rows('kalaka_events'));
         self::assertSame($entries, $this->rows('kalaka_audit_entries'));
         self::assertSame(1, $this->rows('kalaka_test_undeclared'));
-        self::assertSame(1, (int) get_option('kalaka_schema_events', 0));
+        self::assertSame((new EventsModule())->schema()->version, (int) get_option('kalaka_schema_events', 0));
     }
 
     public function testADropOnAClosedSiteRecreatesTheSchemaAndSeedsNothing(): void
@@ -134,13 +135,13 @@ final class SchemaDropTest extends RealTableTestCase
         self::assertSame([], $lines);
         self::assertSame(0, $this->rows('kalaka_events'));
         self::assertSame(0, $this->rows('kalaka_audit_entries'));
-        self::assertSame(1, (int) get_option('kalaka_schema_events', 0));
+        self::assertSame((new EventsModule())->schema()->version, (int) get_option('kalaka_schema_events', 0));
         foreach (['administrator', 'editor', 'author', 'contributor', 'subscriber'] as $login) {
             self::assertFalse(get_user_by('login', $login));
         }
     }
 
-    public function testAFailedDropStatementIsASeedFailure(): void
+    public function testAFailedDropStatementIsACommandFailure(): void
     {
         global $wpdb;
         $child = $wpdb->prefix . 'kalaka_test_child';
@@ -163,7 +164,7 @@ final class SchemaDropTest extends RealTableTestCase
             $this->seed()->run(true, 'local', static function (string $line): void {
             });
             self::fail('The failed drop should have stopped the seed.');
-        } catch (SeedFailure $e) {
+        } catch (CommandFailure $e) {
             self::assertStringStartsWith(
                 'Dropping ' . $wpdb->prefix . 'kalaka_events: Database error 1451',
                 $e->getMessage()

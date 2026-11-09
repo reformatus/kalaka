@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -61,7 +62,7 @@ final class RunnerTest extends RunnerTestCase
             self::assertSame($original, $caught->getPrevious());
             $wpError = $caught->toWpError();
             self::assertSame('kalaka_system_failure', $wpError->get_error_code());
-            self::assertSame(['status' => 500], $wpError->get_error_data());
+            self::assertSame(['status' => 500, 'correlation' => Correlation::id()], $wpError->get_error_data());
             self::assertSame('Váratlan hiba történt. Próbáld újra később.', $wpError->get_error_message());
             self::assertStringNotContainsString('secret detail', $caught->getMessage());
         }

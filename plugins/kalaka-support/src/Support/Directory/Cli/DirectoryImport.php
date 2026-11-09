@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Support\Directory\Cli;
 
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Support\Directory\NodeLookup;
@@ -48,7 +49,7 @@ final class DirectoryImport
      * roots that the file does not name.
      *
      * @return array{entries: list<ImportedRow>, unmentioned: list<array{external_id: string, name: string}>}
-     * @throws \InvalidArgumentException with the reason when the file is refused, before any node is saved
+     * @throws CommandFailure with the reason when the file is refused, before any node is saved
      */
     public function run(string $path, string $delimiter, Actor $actor): array
     {
@@ -114,9 +115,9 @@ final class DirectoryImport
         return trim((string) preg_replace('/[^a-z0-9]+/', '_', $plain), '_');
     }
 
-    private static function refused(string $reason): \InvalidArgumentException
+    private static function refused(string $reason): CommandFailure
     {
-        return new \InvalidArgumentException($reason);
+        return new CommandFailure($reason);
     }
 
     /** The file's text without a leading byte order mark. */

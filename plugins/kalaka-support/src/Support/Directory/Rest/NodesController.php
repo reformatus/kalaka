@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Support\Directory\Rest;
 
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\LoadState;
@@ -24,7 +25,7 @@ final class NodesController
 
     public function register(): void
     {
-        register_rest_route(self::NAMESPACE, '/nodes', [
+        Boundary::route(self::NAMESPACE, '/nodes', [
             [
                 'methods' => 'GET',
                 'callback' => $this->get(...),

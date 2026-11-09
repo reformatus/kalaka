@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Seed;
 
+use Kalaka\Foundation\Api\Entry\CommandFailure;
+
 /**
  * One WordPress user per default role, created with WordPress functions outside any use case. Nobody
  * gets a Kaláka capability. A login that exists is kept unchanged.
@@ -20,7 +22,7 @@ final class SeedUsers
 
     /**
      * @param \Closure(string): void $report
-     * @throws SeedFailure when WordPress refuses a user
+     * @throws CommandFailure when WordPress refuses a user
      */
     public function run(\Closure $report): void
     {
@@ -38,7 +40,7 @@ final class SeedUsers
                 'role' => $login,
             ]);
             if (is_wp_error($created)) {
-                $error = new SeedFailure('User ' . $login . ': ' . $created->get_error_message());
+                $error = new CommandFailure('User ' . $login . ': ' . $created->get_error_message());
                 throw $error;
             }
             $report('Created user ' . $login . '.');

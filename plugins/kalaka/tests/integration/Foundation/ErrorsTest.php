@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation;
 
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -48,12 +49,12 @@ final class ErrorsTest extends WP_UnitTestCase
     {
         $plain = (new $class())->toWpError();
         self::assertSame($code, $plain->get_error_code());
-        self::assertSame(['status' => $status], $plain->get_error_data());
+        self::assertSame(['status' => $status, 'correlation' => Correlation::id()], $plain->get_error_data());
         self::assertSame($text, $plain->get_error_message());
 
         $withContext = (new $class('Az esemény nem található.'))->toWpError();
         self::assertSame($code, $withContext->get_error_code());
-        self::assertSame(['status' => $status], $withContext->get_error_data());
+        self::assertSame(['status' => $status, 'correlation' => Correlation::id()], $withContext->get_error_data());
         self::assertSame($text . ' Az esemény nem található.', $withContext->get_error_message());
     }
 

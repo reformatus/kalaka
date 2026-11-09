@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Periodic;
 
 use Kalaka\Foundation\Api\Clock;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\ErrorLog;
 
 /** The WP-Cron wiring of the periodic run: the 5-minute interval, the recurring event and the manual start's hook. */
@@ -35,11 +36,7 @@ final class PeriodicSchedule
         });
 
         $handler = static function () use ($run): void {
-            try {
-                $run();
-            } catch (\Throwable $e) {
-                ErrorLog::failure('periodic run', $e);
-            }
+            Boundary::background('periodic run', $run);
         };
         add_action(self::HOOK, $handler);
         add_action(self::NOW_HOOK, $handler);

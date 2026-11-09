@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Module;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Seed\Seed;
-use Kalaka\Foundation\Seed\SeedFailure;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
@@ -93,7 +93,7 @@ abstract class SeedTestCase extends EventsTestCase
     {
         try {
             $work();
-        } catch (SeedFailure $e) {
+        } catch (CommandFailure $e) {
             return $e->getMessage();
         }
         self::fail('The seed should have refused.');
