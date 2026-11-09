@@ -9,4 +9,7 @@
   fixed zone ([Cross-cutting rules](../docs/architecture/foundation.md#cross-cutting-rules)).
 - Money is rounded as in [Amounts](../docs/architecture/money.md#amounts).
 - Changes must fit the architecture sections that the topic map in `AGENTS.md`
-  lists for the area they touch.
+  lists for the area they touch, or the PR's own change to those sections.
+- A change to `docs/architecture/` or an `AGENTS.md` must follow from the spec,
+  a blessed decision or the owner's words. It must also match the code in the
+  PR, and leave no other section or topic-map entry contradicting it.
