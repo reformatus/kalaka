@@ -13,7 +13,10 @@ final class SubjectTest extends TestCase
     public function testTheFactoriesMakeTheDocumentedSubjects(): void
     {
         $registration = Subject::registration(new RegistrationKey(12, '00A0'));
-        self::assertSame(['registration', 12, '00A0'], [$registration->type, $registration->eventId, $registration->key]);
+        self::assertSame(
+            ['registration', 12, '00A0'],
+            [$registration->type, $registration->eventId, $registration->key]
+        );
 
         $event = Subject::event(12);
         self::assertSame(['event', 12, '12'], [$event->type, $event->eventId, $event->key]);

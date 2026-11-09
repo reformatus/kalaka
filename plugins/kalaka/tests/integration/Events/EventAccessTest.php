@@ -14,8 +14,6 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC12: every Events use case needs full access. */
 final class EventAccessTest extends EventsTestCase
 {

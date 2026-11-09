@@ -8,19 +8,30 @@ final class SchemaUpgrader
 {
     private const LOCK_TTL = 600;
 
+    /** The option that holds the schema version the module is at. */
+    public function versionOption(Api\Module\Module $module): string
+    {
+        return 'kalaka_schema_' . $module->id();
+    }
+
+    /** The name of the lock held while the module's schema is upgraded. */
+    public function lockName(Api\Module\Module $module): string
+    {
+        return 'kalaka_schema_' . $module->id();
+    }
+
     public function upgrade(Api\Module\Module $module): void
     {
         global $wpdb;
 
-        $id = $module->id();
         $schema = $module->schema();
-        $option = 'kalaka_schema_' . $id;
+        $option = $this->versionOption($module);
         if ($schema->version <= (int) get_option($option, 0)) {
             return;
         }
 
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
-        $lock = 'kalaka_schema_' . $id;
+        $lock = $this->lockName($module);
         if (!\WP_Upgrader::create_lock($lock, self::LOCK_TTL)) {
             throw new \RuntimeException('Schema upgrade in progress.');
         }

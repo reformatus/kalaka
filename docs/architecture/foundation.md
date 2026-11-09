@@ -109,11 +109,19 @@ flowchart LR
   [evaluation](#evaluation) of the touched registrations runs in it too,
   before the audit entry.
 - **Any database error rolls back the whole use case;** code never continues
-  after catching one. (This also matches how SQLite aborts a transaction on a
-  failed statement.) A rollback also clears the per-request object cache.
+  after catching one. After one, the context refuses every further write, so
+  code that catches it cannot go on writing. (This also matches how SQLite
+  aborts a transaction on a failed statement.) A rollback also clears the
+  per-request object cache.
+- **Isolation:** each run's transaction is READ COMMITTED, set for that
+  transaction only, and waits at most 5 seconds for a row lock. If the
+  server logs binary with `binlog_format=STATEMENT`, writes under READ
+  COMMITTED fail, so the runner refuses every use case, and Site Health and
+  an admin notice show the problem.
 - **Retries:** only errors marked retryable (a reference-code collision, a
-  deadlock, a version conflict hit by a system run) are retried, about three
-  times, each attempt from scratch.
+  deadlock, a lock-wait timeout, a version conflict hit by a system run, a
+  reconnect detected inside a run) are retried, about three times, each
+  attempt from scratch.
 - **Nested use cases** join the outer transaction and write their own audit
   entry, linked to the parent. Effects are released after the outermost
   commit.
@@ -187,6 +195,15 @@ on each other in a circle:
   before it changes any of them.
 - **The registration row is locked `FOR UPDATE` before its payments are
   read,** so the evaluation never decides on payments that change under it.
+- **The runner enforces it.** Every repository read `FOR UPDATE`, insert,
+  update and delete declares its level and key. A lower level after a higher
+  one ends the use case. So does a lower key within the event, quota or
+  registration level, compared by table name and then by key. A row the
+  transaction already holds is no new lock, and a newly inserted row is
+  checked for its level only. An inserted row does not raise the key the next
+  lock is compared with, and a locking read that finds no row holds nothing.
+- The evaluation locks a touched registration it does not hold yet, and a
+  ledger line is recorded only for a registration the run holds.
 
 ## Errors
 
@@ -268,8 +285,9 @@ on each other in a circle:
   the entry in its own transaction (the main one is gone) with the outcome
   "failed", the action, actor, error and any known record keys, but **no
   changes and no input values**: input may hold personal data that a privacy
-  erase could not later find. If even that write fails, PHP's error log is
-  the fallback.
+  erase could not later find. If even that write fails, or writing it could
+  keep or commit work that is not the use case's own, PHP's error log is the
+  fallback.
 - **What is audited:** permission refusals, edit conflicts, rule violations
   and system errors. Plain validation failures (a missing or malformed answer,
   shown to the person at once) are not.

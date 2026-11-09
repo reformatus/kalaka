@@ -12,8 +12,6 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\StartPeriodicRun;
 
-require_once __DIR__ . '/PeriodicTestCase.php';
-
 /** AC9. */
 final class StartPeriodicRunTest extends PeriodicTestCase
 {

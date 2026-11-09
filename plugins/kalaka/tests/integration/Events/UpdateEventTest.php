@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC3 and AC4. */
 final class UpdateEventTest extends EventsTestCase
 {
@@ -37,7 +35,10 @@ final class UpdateEventTest extends EventsTestCase
         self::assertEquals(new \DateTimeImmutable('2027-07-05 00:00', $zone), $event->start);
         self::assertEquals(new \DateTimeImmutable('2027-07-12 00:00', $zone), $event->end);
         self::assertSame([1, 2], array_map(static fn ($point): int => $point->id, $event->customPoints));
-        self::assertSame(['Befizetés', 'Csomaglista'], array_map(static fn ($point): string => $point->name, $event->customPoints));
+        self::assertSame(
+            ['Befizetés', 'Csomaglista'],
+            array_map(static fn ($point): string => $point->name, $event->customPoints)
+        );
         self::assertEquals(new \DateTimeImmutable('2027-06-01 00:00', $zone), $event->customPoints[1]->day);
         self::assertSame(
             '[{"id":1,"name":"Befizetés","date":"2027-05-01"},{"id":2,"name":"Csomaglista","date":"2027-06-01"}]',
@@ -72,8 +73,14 @@ final class UpdateEventTest extends EventsTestCase
             ['name' => ' árvíz ', 'date' => '2027-05-02'],
         ]]];
         yield 'an empty point name' => [['points' => [['name' => '  ', 'date' => '2027-05-01']]]];
-        yield 'a 192-character point name' => [['points' => [['name' => str_repeat('b', 192), 'date' => '2027-05-01']]]];
-        yield 'a point id that is not stored' => [['points' => [['id' => 99, 'name' => 'Új', 'date' => '2027-05-01']]]];
+        yield 'a 192-character point name' => [
+            ['points' => [['name' => str_repeat('b', 192), 'date' => '2027-05-01']]],
+        ];
+        yield 'a point id that is not stored' => [
+            ['points' => [['id' => 99, 'name' => 'Új', 'date' => '2027-05-01']]],
+        ];
+        yield 'a capacity over the limit' => [['capacity' => 50001]];
+        yield 'a capacity over the column' => [['capacity' => 4294967296]];
         yield 'a point id given twice' => [['points' => [
             ['id' => 1, 'name' => 'Egy', 'date' => '2027-05-01'],
             ['id' => 1, 'name' => 'Kettő', 'date' => '2027-05-02'],
@@ -96,6 +103,16 @@ final class UpdateEventTest extends EventsTestCase
         } catch (InvalidInput) {
             self::assertSame($before, $this->row($id));
         }
+    }
+
+    public function testTheLargestAllowedCapacityIsSaved(): void
+    {
+        $id = $this->create();
+        $this->update($id, ['capacity' => 50000]);
+
+        $event = $this->events->find($id);
+        self::assertNotNull($event);
+        self::assertSame(50000, $event->capacity);
     }
 
     /** @return iterable<string, array{string}> */
@@ -168,6 +185,21 @@ final class UpdateEventTest extends EventsTestCase
         $this->update($id, ['points' => [['id' => 2, 'name' => 'Kettő', 'date' => '2027-05-02']]]);
     }
 
+    public function testResendingTheStoredValuesWithAnOldVersionConflictsAndWritesNothing(): void
+    {
+        $id = $this->filled();
+        $before = $this->row($id);
+        self::assertSame('2', $before['version'] ?? null);
+
+        try {
+            $this->exec(new UpdateEvent(), $this->updateInput($id, 1));
+            self::fail('The stale version should have conflicted.');
+        } catch (VersionConflict) {
+            self::assertSame($before, $this->row($id));
+            self::assertCount(1, $this->failedEntries());
+        }
+    }
+
     public function testResendingTheStoredValuesChangesNothingAndRunsNoUpdate(): void
     {
         $id = $this->create();
@@ -188,7 +220,7 @@ final class UpdateEventTest extends EventsTestCase
 
     public function testEditingTheCapacityOrThePointsOfAFullEventKeepsTheLatch(): void
     {
-        $id = $this->filled();
+        $id = $this->published();
         $this->markFull($id);
 
         $this->update($id, ['capacity' => 45]);

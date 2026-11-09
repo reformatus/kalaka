@@ -17,8 +17,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/AuditTestCase.php';
-
 /** Succeeded entries: what the runner writes before the commit. */
 final class AuditEntryTest extends AuditTestCase
 {
@@ -36,7 +34,7 @@ final class AuditEntryTest extends AuditTestCase
         $runner = new Runner($this->clockAt('2026-11-30 10:00:00'), true);
 
         $useCase = new AdminProbe(function (array $input, Context $context): void {
-            $context->touch($this->registration('00B1'));
+            $context->touch($this->registration('00B3'));
             $context->change($this->registration('00A0'), 'tier', 'A', 'B');
         }, event: 12, targets: [new RegistrationKey(12, '00A0')]);
         $runner->run($useCase, [], new UserActor($user));
@@ -57,10 +55,20 @@ final class AuditEntryTest extends AuditTestCase
         self::assertSame('succeeded', $entry['outcome']);
         self::assertNull($entry['error']);
         self::assertSame(
-            [['type' => 'registration', 'event' => 12, 'key' => '00A0', 'field' => 'tier', 'before' => 'A', 'after' => 'B']],
+            [[
+                'type' => 'registration',
+                'event' => 12,
+                'key' => '00A0',
+                'field' => 'tier',
+                'before' => 'A',
+                'after' => 'B',
+            ]],
             $this->decode($entry['changes'])
         );
-        self::assertSame(['event/12/12', 'registration/12/00A0', 'registration/12/00B1'], $this->subjectsOf($entry['id']));
+        self::assertSame(
+            ['event/12/12', 'registration/12/00A0', 'registration/12/00B3'],
+            $this->subjectsOf($entry['id'])
+        );
     }
 
     public function testAnEntryWithoutChangesHasAnEmptyList(): void
@@ -112,7 +120,7 @@ final class AuditEntryTest extends AuditTestCase
     {
         $schema = ['type' => 'object', 'properties' => ['reason' => ['type' => 'string']]];
         $nested = new NamedProbe(function (array $input, Context $context): void {
-            $context->change($this->registration('00B1'), 'tier', 'C', 'D');
+            $context->change($this->registration('00B3'), 'tier', 'C', 'D');
         }, $schema);
         $outer = new AdminProbe(function (array $input, Context $context) use ($nested): void {
             $context->touch($this->registration('00A0'));
@@ -130,9 +138,9 @@ final class AuditEntryTest extends AuditTestCase
         self::assertSame($first['id'], $second['parent_id']);
         self::assertSame($first['correlation_id'], $second['correlation_id']);
         self::assertSame(['registration/12/00A0'], $this->subjectsOf($first['id']));
-        self::assertSame(['registration/12/00B1'], $this->subjectsOf($second['id']));
+        self::assertSame(['registration/12/00B3'], $this->subjectsOf($second['id']));
         self::assertSame('[]', $first['changes']);
-        self::assertSame('00B1', $this->decode($second['changes'])[0]['key']);
+        self::assertSame('00B3', $this->decode($second['changes'])[0]['key']);
         self::assertSame('Külső ok', $first['reason']);
         self::assertSame('Beágyazott ok', $second['reason']);
     }
@@ -161,19 +169,33 @@ final class AuditEntryTest extends AuditTestCase
             $context->change($a, 'tier', 'B', 'C');
             $context->change($a, 'name', 'N', 'M');
             $context->change($a, 'name', 'M', 'N');
-            $context->change($this->registration('00B1'), 'tier', 'A', 'A');
+            $context->change($this->registration('00B3'), 'tier', 'A', 'A');
         });
         $this->runner->run($useCase, [], new SystemActor());
 
         $entry = $this->onlyEntry();
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 12, 'key' => '00A0', 'field' => 'tier', 'before' => 'A', 'after' => 'C'],
-                ['type' => 'registration', 'event' => 12, 'key' => '00A0', 'field' => 'note', 'before' => 'x', 'after' => 'y'],
+                [
+                    'type' => 'registration',
+                    'event' => 12,
+                    'key' => '00A0',
+                    'field' => 'tier',
+                    'before' => 'A',
+                    'after' => 'C',
+                ],
+                [
+                    'type' => 'registration',
+                    'event' => 12,
+                    'key' => '00A0',
+                    'field' => 'note',
+                    'before' => 'x',
+                    'after' => 'y',
+                ],
             ],
             $this->decode($entry['changes'])
         );
-        self::assertSame(['registration/12/00A0', 'registration/12/00B1'], $this->subjectsOf($entry['id']));
+        self::assertSame(['registration/12/00A0', 'registration/12/00B3'], $this->subjectsOf($entry['id']));
     }
 
     public function testAFieldRecordedOnceAsSecretStaysMasked(): void
@@ -213,12 +235,23 @@ final class AuditEntryTest extends AuditTestCase
         yield 'cli with a user' => [new CliActor(0), false, true, null, null];
         yield 'user' => [new UserActor(0), false, true, '192.0.2.10', 'Teszt-Bongeszo/1.0'];
         yield 'account' => [new AccountActor(0), true, true, '192.0.2.10', 'Teszt-Bongeszo/1.0'];
-        yield 'secret link' => [new SecretLinkActor(new RegistrationKey(12, '00A0')), true, false, '192.0.2.10', 'Teszt-Bongeszo/1.0'];
+        yield 'secret link' => [
+            new SecretLinkActor(new RegistrationKey(12, '00A0')),
+            true,
+            false,
+            '192.0.2.10',
+            'Teszt-Bongeszo/1.0',
+        ];
     }
 
     /** @dataProvider actors */
-    public function testActorColumnsIpAndUserAgent(Actor $actor, bool $portal, bool $withUser, ?string $ip, ?string $agent): void
-    {
+    public function testActorColumnsIpAndUserAgent(
+        Actor $actor,
+        bool $portal,
+        bool $withUser,
+        ?string $ip,
+        ?string $agent
+    ): void {
         $_SERVER['REMOTE_ADDR'] = '192.0.2.10';
         $_SERVER['HTTP_USER_AGENT'] = 'Teszt-Bongeszo/1.0';
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '198.51.100.7';
@@ -285,7 +318,7 @@ final class AuditEntryTest extends AuditTestCase
     {
         $useCase = new AdminProbe(function (): void {
             $this->insertRow('a');
-            Subject::registration(new RegistrationKey(12, ''));
+            new Subject('registration', 12, '');
         });
 
         try {
@@ -305,10 +338,12 @@ final class AuditEntryTest extends AuditTestCase
         }), [], new SystemActor());
         self::assertInstanceOf(Context::class, $kept);
 
-        foreach ([
+        foreach (
+            [
             fn () => $kept->touch($this->registration('00A0')),
             fn () => $kept->change($this->registration('00A0'), 'tier', 'A', 'B'),
-        ] as $record) {
+            ] as $record
+        ) {
             try {
                 $record();
                 self::fail('Recording should have been refused.');
@@ -347,7 +382,7 @@ final class AuditEntryTest extends AuditTestCase
     public function testASuccessfulRetryWritesOneEntryWithTheLastAttemptsSubjects(): void
     {
         $useCase = new AdminProbe(function (array $input, Context $context, int $call): void {
-            $context->touch($this->registration('A00' . $call));
+            $context->touch($this->registration(['00A0', '00A2', '00A5'][$call - 1]));
             if ($call < 3) {
                 throw new \Kalaka\Foundation\Api\Error\RetryableFailure();
             }
@@ -357,6 +392,6 @@ final class AuditEntryTest extends AuditTestCase
 
         $entry = $this->onlyEntry();
         self::assertSame('succeeded', $entry['outcome']);
-        self::assertSame(['registration/12/A003'], $this->subjectsOf($entry['id']));
+        self::assertSame(['registration/12/00A5'], $this->subjectsOf($entry['id']));
     }
 }

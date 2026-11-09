@@ -17,13 +17,38 @@ final class RunState
     /** False once the attempt has ended: a Context kept past that point is refused. */
     public bool $open = true;
 
-    /** The first error of a nested run (or of a second `Runner::run()`): it decides the outcome. */
+    /** The outermost use case's name, for the reconnect line in PHP's error log. */
+    public string $useCase = '';
+
+    /**
+     * The connection's thread id before the attempt's first transaction statement; null: no connection.
+     * `DatabaseError::check()` compares it on every statement: another id means wpdb reconnected.
+     */
+    public ?int $threadId = null;
+
+    /**
+     * The first error of a nested run, of a database statement (`DatabaseError::check()`) or of a second
+     * `Runner::run()`: it decides the outcome, and once it is set the context refuses writes, locks and
+     * nested runs by throwing it.
+     */
     public ?KalakaException $failure = null;
 
     /** The name of the use case that threw `failure`, when it is a nested one. */
     public ?string $failedIn = null;
 
     public ?LockLevel $highestLock = null;
+
+    /** @var array<string, true> the rows the attempt holds a lock on, by `LockKey::identity()` */
+    public array $heldRows = [];
+
+    /** @var array<int, array{string, list<int|string>}> the highest (table, normalised key) held, by level value */
+    public array $highestKey = [];
+
+    /**
+     * @var array<string, true> the registrations whose row the attempt holds at `LockLevel::Registration`,
+     *                          mapped by the repository's `registrationOf()`, by identity
+     */
+    public array $heldRegistrations = [];
 
     /** @var array<string, RegistrationKey> the registrations the attempt wrote, by identity, in first-touch order */
     public array $touched = [];

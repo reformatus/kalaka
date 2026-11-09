@@ -28,6 +28,9 @@ the waitlist and reference codes
 - The generator issues only codes that pass the validity rule; a code is never
   reused within its event. A collision is a retryable error; an existing
   registration never gets another code.
+- A `RegistrationKey` holds only a code valid in canonical form
+  (`ReferenceCode::isValid()`); any other spelling is `InvalidInput`, so none
+  reaches a read, a lock or a write.
 - A duplicate key is retryable only on the registration insert
   (`insertsReferenceCode()`); every other duplicate key is a `SystemFailure`.
 - The reference code grants no access.
@@ -37,6 +40,7 @@ the waitlist and reference codes
   compared in SQL; the link carries the registration key beside it. Only
   Registrations reads the stored secret: another module presents a secret and
   asks whether it matches.
+- `secret` and `field_key` are `utf8mb4_nopad_bin`: compared exactly.
 - Registration rows are locked at `LockLevel::Registration`: after the event
   row and quota rows, before everything else.
 - Only Registrations writes its tables.

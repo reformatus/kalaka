@@ -8,12 +8,10 @@ use Kalaka\Foundation\Decision\DecisionQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
-require_once __DIR__ . '/../PerEventCostTestCase.php';
-
 /** The per-event cost test of the query that reads one registration's decisions. */
 final class DecisionQueryCostTest extends PerEventCostTestCase
 {
-    private const CODES = ['00A0', '00A1', '00A2', '00A3'];
+    private const CODES = ['00A0', '00A2', '00A5', '00A8'];
 
     private const ROWS_PER_CODE = 20;
 
@@ -37,10 +35,12 @@ final class DecisionQueryCostTest extends PerEventCostTestCase
                 }
                 $wpdb->query(
                     "INSERT INTO {$wpdb->prefix}kalaka_decisions (event_id, code, kind, state, effective_at,"
-                    . ' recorded_at, cause_type, cause_event_id, cause_key, actor_type) VALUES ' . implode(', ', $values)
+                    . ' recorded_at, cause_type, cause_event_id, cause_key, actor_type) VALUES '
+                    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; statement built from prefix and constants
+                    . implode(', ', $values)
                 );
             },
-            static fn (int $event): array => (new DecisionQuery())->currentOf(new RegistrationKey($event, '00A1'))
+            static fn (int $event): array => (new DecisionQuery())->currentOf(new RegistrationKey($event, '00A2'))
         );
     }
 }

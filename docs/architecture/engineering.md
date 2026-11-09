@@ -24,7 +24,8 @@ title: Engineering
   Playground previews; anything that fails on SQLite is tested on MariaDB
   only. Known differences: SQLite stores `DECIMAL` as a float, lacks
   `LAST_INSERT_ID(expr)` and MariaDB's collations, and aborts the whole
-  transaction on a failed statement.
+  transaction on a failed statement. The runner sends no isolation or
+  lock-wait statement there.
 
 ## Database
 
@@ -36,7 +37,8 @@ title: Engineering
   Czakó, Zsolt before Zuhany), doubled forms are not expanded (Asszony before
   Aszalós), and Adam and Ádám tie. Gy, ny, sz and the like mostly come out
   right because y and z sort late. Every MariaDB collation has these
-  deviations; sorting stays indexable and free.
+  deviations; sorting stays indexable and free. Columns compared exactly
+  (secrets, field keys, currency codes) use `utf8mb4_nopad_bin` instead.
 - **Accent-insensitive search:** under `utf8mb4_hungarian_ci`, o ≠ ö and
   u ≠ ü, so search conditions use an accent-blind collation
   (`utf8mb4_unicode_520_ci`) in the predicate. Searches stay within one event,
@@ -56,13 +58,19 @@ title: Engineering
   `JSON_ARRAYAGG`, `JSON_OBJECTAGG`.
 - **Locking:** locks are taken in one fixed order
   ([Foundation](foundation.md#lock-order)). The capacity check's `FOR UPDATE`
-  on the event row is the first read of the submit transaction. A plain read
-  before it would let a later count reuse an old snapshot and overbook the
-  event.
+  on the event row is the first read of the submit transaction, as the lock
+  order requires.
+- **Isolation:** each run's transaction is READ COMMITTED, so a plain read
+  after a waited lock sees what the other transaction committed. Binary logging
+  with `binlog_format=STATEMENT` is refused
+  ([Foundation](foundation.md#the-use-case-runner)).
 - **Retryable database errors:** deadlock (1213), lock-wait timeout (1205),
   "record has changed since last read" (1020, 11.8) and a duplicate key on a
   reference-code collision (1062). The runner always issues an explicit
-  rollback, because some of these leave the transaction open.
+  rollback, because some of these leave the transaction open. A reconnect
+  detected inside a run (wpdb re-sent a statement after errno 2006) is retried
+  too, unless it came at the commit and the new connection finds the
+  attempt's audit entry: then the transaction committed and the run succeeds.
 - **Per-event cost is tested:** an integration test seeds many events and
   checks each per-event query's plan with `EXPLAIN`; a query that examines
   rows outside its own event fails the build
@@ -223,7 +231,8 @@ src/Registrations/
   - sanitizing input;
   - nonce checks;
   - prepared SQL;
-  - no direct database queries outside our repositories and query classes;
+  - no direct database queries outside Foundation's `Statements` class, which
+    the repositories and query classes use;
   - WordPress functions preferred over PHP ones where WordPress has its own
     (e.g. `wp_json_encode`, `wp_remote_get`).
 - PHPCS runs this mixed ruleset.
@@ -234,17 +243,17 @@ src/Registrations/
 - **deptrac** enforces module and plugin boundaries: a module uses another
   only through its `Kalaka\<Module>\Api\…` namespace. Layer rules by
   interface, base class and name join as those classes appear.
-- **Direct database access** (`$wpdb`) outside repositories and query classes
+- **Direct database access** (`$wpdb`) outside Foundation's `Statements` class
   is caught by PHPCS's direct-query rule ([Code style](#code-style)); deptrac
-  cannot see a `global $wpdb` cheaply. The rule gets `exclude-pattern`s for
-  repositories and query classes once they exist.
+  cannot see a `global $wpdb` cheaply. The rule's only `exclude-pattern` is
+  that class, and a test refuses any file that silences the rule.
 - **Admin reads registration data only through the view query**
   ([Foundation](foundation.md#views-and-grants)). deptrac enforces it: Admin
   and the admin-side entry points (`Rest/`, `Cli/`, `Blocks/`) may use
   registration data only through the view-query class, and full-access code
   paths are a named layer of their own. The rule joins when the view-query
-  class exists; until then PHPCS's direct-query rule keeps reads inside
-  repositories and query classes.
+  class exists; until then PHPCS's direct-query rule keeps reads inside the
+  repositories and query classes, which run them through `Statements`.
 - **Backward-compatibility check** of the public API against the last release,
   from the end of the alpha phase
   ([Modules](modules-and-extensions.md#alpha-phase)); the tool is chosen then

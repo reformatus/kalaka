@@ -6,14 +6,13 @@ namespace Kalaka\Tests\Integration\Support\Directory;
 
 use Kalaka\Support\Directory\NodeTreeQuery;
 
-require_once __DIR__ . '/SupportTestCase.php';
-
 /** AC12 and AC13: ancestors and descendants, each in one statement. */
 final class NodeTreeQueryTest extends SupportTestCase
 {
     /** @var array<string, int> */
     private array $ids = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();

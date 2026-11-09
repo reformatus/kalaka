@@ -8,9 +8,8 @@ use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicRunReport;
 use Kalaka\Foundation\Periodic\TimeRuleInput;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\Foundation\FakeBinlog;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
-
-require_once __DIR__ . '/PeriodicTestCase.php';
 
 /** AC3 to AC8. */
 final class PeriodicRunTest extends PeriodicTestCase
@@ -43,7 +42,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         $second = new SpyTimeRule(static fn (TimeRuleInput $input): array => [
             new RegistrationKey($input->event->id, '00A0'),
             new RegistrationKey($input->event->id, '00A0'),
-            new RegistrationKey($input->event->id, '00C0'),
+            new RegistrationKey($input->event->id, '00B6'),
         ]);
         $this->timeRules->add($first);
         $this->timeRules->add($second);
@@ -55,7 +54,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         $window = ['since' => null, 'until' => '2026-11-30 09:00:00', 'zone' => 'UTC+'];
         self::assertSame([$window, $window], array_map(self::windowOf(...), $first->inputs));
         self::assertSame(
-            ["$one/00A0", "$one/00B0", "$one/00C0", "$five/00A0", "$five/00B0", "$five/00C0"],
+            ["$one/00A0", "$one/00B0", "$one/00B6", "$five/00A0", "$five/00B0", "$five/00B6"],
             $this->evaluatedKeys()
         );
         foreach ($this->entriesOf('kalaka/evaluate-registration') as $entry) {
@@ -124,6 +123,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         };
         $this->rules->add($rule, true);
         $this->timeRules->add(SpyTimeRule::naming('00A0', '00B0'));
+        $this->seedRegistration($event, '00A0', '00B0');
 
         $report = $this->sweep();
 
@@ -152,6 +152,7 @@ final class PeriodicRunTest extends PeriodicTestCase
     {
         $published = $this->eventIn('published');
         $this->seedFlag($published, '00A0');
+        $this->seedRegistration($published, '00A0');
         $rule = new TestRule('test_state');
         $rule->throws = new \RuntimeException('rule failed');
         $this->rules->add($rule, true);
@@ -161,7 +162,10 @@ final class PeriodicRunTest extends PeriodicTestCase
         self::assertEquals(new PeriodicRunReport(0, 1), $report);
         $rows = $this->flagRows();
         self::assertCount(1, $rows);
-        self::assertSame(['decisions/test_state', '2026-11-30 09:00:00.000000'], [$rows[0]['rule'], $rows[0]['failed_at']]);
+        self::assertSame(
+            ['decisions/test_state', '2026-11-30 09:00:00.000000'],
+            [$rows[0]['rule'], $rows[0]['failed_at']]
+        );
     }
 
     public function testAKeyThatIsBothDueAndFlaggedIsEvaluatedOnce(): void
@@ -184,6 +188,7 @@ final class PeriodicRunTest extends PeriodicTestCase
         $rule->throws = new \RuntimeException('rule failed');
         $this->rules->add($rule, true);
         $this->timeRules->add(SpyTimeRule::naming('00A0'));
+        $this->seedRegistration($event, '00A0');
 
         $report = $this->sweep();
 
@@ -241,6 +246,33 @@ final class PeriodicRunTest extends PeriodicTestCase
         self::assertSame([], $this->evaluationEntries());
         self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));
         self::assertSame('2026-11-30 08:55:00.000000', get_option('kalaka_periodic_run_last'));
-        self::assertSame([], array_filter($statements, static fn (string $sql): bool => str_contains($sql, self::LOCK)));
+        self::assertSame(
+            [],
+            array_filter($statements, static fn (string $sql): bool => str_contains($sql, self::LOCK))
+        );
+    }
+
+    public function testWhileTheDatabaseRefusesWritesNothingHappens(): void
+    {
+        $event = $this->eventIn('published');
+        $this->seedFlag($event, '00A0');
+        $spy = SpyTimeRule::naming('00A0');
+        $this->timeRules->add($spy);
+        update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
+        $fake = FakeBinlog::statementFormat();
+
+        $statements = $this->statementsDuring(function (): void {
+            self::assertNull($this->sweep());
+        });
+
+        self::assertSame(1, $fake->reads);
+        self::assertSame([], $spy->inputs);
+        self::assertSame([], $this->evaluationEntries());
+        self::assertSame(['00A0'], array_column($this->flagRows(), 'code'));
+        self::assertSame('2026-11-30 08:55:00.000000', get_option('kalaka_periodic_run_last'));
+        self::assertSame(
+            [],
+            array_filter($statements, static fn (string $sql): bool => str_contains($sql, self::LOCK))
+        );
     }
 }

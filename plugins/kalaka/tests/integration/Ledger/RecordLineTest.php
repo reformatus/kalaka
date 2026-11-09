@@ -11,9 +11,6 @@ use Kalaka\Ledger\Api\LedgerLine;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\LedgerLineRepository;
-use Kalaka\Registrations\Api\RegistrationKey;
-
-require_once __DIR__ . '/LedgerTestCase.php';
 
 /** AC2, AC3 and AC4: what `record()` writes, repeats and refuses. */
 final class RecordLineTest extends LedgerTestCase
@@ -32,6 +29,7 @@ final class RecordLineTest extends LedgerTestCase
         );
 
         $stored = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
+            $this->lockRegistrations($context, $line->registration);
             $stored = $this->ledger->record($line, $context);
             $touched = $context->touchedRegistrations();
 
@@ -68,10 +66,36 @@ final class RecordLineTest extends LedgerTestCase
         self::assertSame('[]', $entry['changes']);
     }
 
+    public function testALineOfARegistrationTheRunDoesNotHoldIsASystemFailureAndWritesNothing(): void
+    {
+        $registration = $this->registration();
+        $line = $this->line($registration, LineKind::Charge, '1000', 'k1');
+
+        try {
+            $this->inRun(fn (array $input, Context $context): LedgerLine => $this->ledger->record($line, $context));
+            self::fail('The run should have failed.');
+        } catch (SystemFailure $caught) {
+            self::assertSame(SystemFailure::class, $caught::class);
+            self::assertSame('The run does not hold the registration.', $caught->getPrevious()?->getMessage());
+        }
+        self::assertSame(0, $this->lineCount());
+
+        $stored = $this->inRun(function (array $input, Context $context) use ($line): LedgerLine {
+            $this->lockRegistrations($context, $line->registration);
+
+            return $this->ledger->record($line, $context);
+        });
+
+        self::assertInstanceOf(LedgerLine::class, $stored);
+        self::assertSame(1, $this->lineCount());
+    }
+
     public function testAManualPaymentKeepsItsFractionAndValueDate(): void
     {
         $registration = $this->registration();
-        $recorded = $this->record($this->line($registration, LineKind::ManualPayment, '-12500.5', 'pay:1', '2026-12-03'))[0];
+        $recorded = $this->record(
+            $this->line($registration, LineKind::ManualPayment, '-12500.5', 'pay:1', '2026-12-03')
+        )[0];
 
         self::assertSame('-12500.50000000', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['amount'] ?? null);
         self::assertSame('2026-12-03', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['value_date'] ?? null);
@@ -100,7 +124,10 @@ final class RecordLineTest extends LedgerTestCase
 
         $recorded = $this->record($line)[0];
 
-        self::assertSame('2026-12-01 10:00:00.250000', $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['paid_at'] ?? null);
+        self::assertSame(
+            '2026-12-01 10:00:00.250000',
+            $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3')['paid_at'] ?? null
+        );
         self::assertNotNull($recorded->paidAt);
         self::assertSame('2026-12-01 10:00:00.250000', $recorded->paidAt->format('Y-m-d H:i:s.u'));
         self::assertSame('UTC', $recorded->paidAt->getTimezone()->getName());
@@ -127,6 +154,7 @@ final class RecordLineTest extends LedgerTestCase
 
         $touched = null;
         $second = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
+            $this->lockRegistrations($context, $line->registration);
             $stored = $this->ledger->record($line, $context);
             $touched = $context->touchedRegistrations();
 
@@ -150,20 +178,66 @@ final class RecordLineTest extends LedgerTestCase
         yield 'payer' => ['payer'];
         yield 'source' => ['source'];
         yield 'value date' => ['value date'];
+        yield 'source type' => ['source type'];
+        yield 'source event' => ['source event'];
+        yield 'paid at' => ['paid at'];
     }
 
     /** @dataProvider differentLines */
     public function testTheSameKeyWithADifferentLineIsASystemFailureAndStoresNothingMore(string $difference): void
     {
         $registration = $this->registration();
-        $stored = $this->line($registration, LineKind::ManualPayment, '-1000', 'k1', '2026-12-03');
+        $stored = $difference === 'paid at'
+            ? $this->line($registration, LineKind::Payment, '-1000', 'k1', null, '2026-12-01 10:00:00')
+            : $this->line($registration, LineKind::ManualPayment, '-1000', 'k1', '2026-12-03');
         $this->record($stored);
 
         $other = match ($difference) {
             'amount' => $this->line($registration, LineKind::ManualPayment, '-1001', 'k1', '2026-12-03'),
             'kind' => $this->line($registration, LineKind::Transfer, '-1000', 'k1', '2026-12-03'),
-            'payer' => $this->line($registration, LineKind::ManualPayment, '-1000', 'k1', '2026-12-03', null, 'sponsor'),
-            'source' => $this->line($registration, LineKind::ManualPayment, '-1000', 'k1', '2026-12-03', null, 'participant', 'other'),
+            'payer' => $this->line(
+                $registration,
+                LineKind::ManualPayment,
+                '-1000',
+                'k1',
+                '2026-12-03',
+                null,
+                'sponsor'
+            ),
+            'source' => $this->line(
+                $registration,
+                LineKind::ManualPayment,
+                '-1000',
+                'k1',
+                '2026-12-03',
+                null,
+                'participant',
+                'other'
+            ),
+            'source type' => $this->line(
+                $registration,
+                LineKind::ManualPayment,
+                '-1000',
+                'k1',
+                '2026-12-03',
+                null,
+                'participant',
+                'fixed_price',
+                'other_component'
+            ),
+            'source event' => $this->line(
+                $registration,
+                LineKind::ManualPayment,
+                '-1000',
+                'k1',
+                '2026-12-03',
+                null,
+                'participant',
+                'fixed_price',
+                'fee_component',
+                7
+            ),
+            'paid at' => $this->line($registration, LineKind::Payment, '-1000', 'k1', null, '2026-12-01 10:01:00'),
             default => $this->line($registration, LineKind::ManualPayment, '-1000', 'k1', '2026-12-04'),
         };
 
@@ -173,7 +247,7 @@ final class RecordLineTest extends LedgerTestCase
     public function testTheSameKeyOnAnotherRegistrationOfTheEventIsASecondRow(): void
     {
         $first = $this->registration('12A3');
-        $second = $this->registration('12A4');
+        $second = $this->registration('12K0');
 
         $this->record(
             $this->line($first, LineKind::Charge, '1000', 'k1'),
@@ -230,10 +304,16 @@ final class RecordLineTest extends LedgerTestCase
         yield 'charge of 0' => [LineKind::Charge, '0', null, null, 'participant'];
         yield 'payment without a paid time' => [LineKind::Payment, '-1', null, null, 'participant'];
         yield 'manual payment without a value date' => [LineKind::ManualPayment, '-1', null, null, 'participant'];
-        yield 'payment with a value date' => [LineKind::Payment, '-1', '2026-12-03', '2026-12-01 10:00:00', 'participant'];
+        yield 'payment with a value date' => [
+            LineKind::Payment, '-1', '2026-12-03', '2026-12-01 10:00:00', 'participant',
+        ];
         yield 'payment with only a value date' => [LineKind::Payment, '-1', '2026-12-03', null, 'participant'];
-        yield 'manual payment with a paid time' => [LineKind::ManualPayment, '-1', '2026-12-03', '2026-12-01 10:00:00', 'participant'];
-        yield 'manual payment with only a paid time' => [LineKind::ManualPayment, '-1', null, '2026-12-01 10:00:00', 'participant'];
+        yield 'manual payment with a paid time' => [
+            LineKind::ManualPayment, '-1', '2026-12-03', '2026-12-01 10:00:00', 'participant',
+        ];
+        yield 'manual payment with only a paid time' => [
+            LineKind::ManualPayment, '-1', null, '2026-12-01 10:00:00', 'participant',
+        ];
         yield 'transfer without a value date' => [LineKind::Transfer, '-1', null, null, 'participant'];
         yield 'charge with a value date' => [LineKind::Charge, '1', '2026-12-03', null, 'participant'];
         yield 'charge with a paid time' => [LineKind::Charge, '1', null, '2026-12-01 10:00:00', 'participant'];
@@ -271,8 +351,12 @@ final class RecordLineTest extends LedgerTestCase
     }
 
     /** @dataProvider storedLines */
-    public function testALineThatFollowsTheRulesIsStored(LineKind $kind, string $amount, ?string $valueDate, ?string $paidAt): void
-    {
+    public function testALineThatFollowsTheRulesIsStored(
+        LineKind $kind,
+        string $amount,
+        ?string $valueDate,
+        ?string $paidAt
+    ): void {
         $recorded = $this->record($this->line($this->registration(), $kind, $amount, 'k1', $valueDate, $paidAt))[0];
 
         self::assertSame(1, $this->lineCount());

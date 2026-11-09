@@ -11,14 +11,13 @@ use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Registrations\RegistrationList;
 
-require_once __DIR__ . '/RegistrationsTestCase.php';
-
 /** AC11: the sorszám is computed from the status and the creation order. */
 final class RegistrationListTest extends RegistrationsTestCase
 {
     /** @var list<string> codes whose order differs from the order of creation */
     private array $codes = [];
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -50,7 +49,9 @@ final class RegistrationListTest extends RegistrationsTestCase
         foreach ($statuses as $i => $status) {
             $this->insertRegistration($this->newRegistration(5, $this->codes[$i], $status, '2026-11-30 08:00:0' . $i));
         }
-        $this->insertRegistration($this->newRegistration(6, '12A3', RegistrationStatus::Registered, '2026-11-30 07:00:00'));
+        $this->insertRegistration(
+            $this->newRegistration(6, '12A3', RegistrationStatus::Registered, '2026-11-30 07:00:00')
+        );
         [$r1, $r2, $r3, $r4, $r5, $r6] = $this->codes;
 
         $this->setStatus(new RegistrationKey(5, $r2), RegistrationStatus::Withdrawn);
@@ -65,8 +66,12 @@ final class RegistrationListTest extends RegistrationsTestCase
 
     public function testTheRowsCarryTheirTimesAndComeInCreationOrder(): void
     {
-        $this->insertRegistration($this->newRegistration(5, $this->codes[0], RegistrationStatus::Waitlisted, '2026-11-30 08:00:01'));
-        $this->insertRegistration($this->newRegistration(5, $this->codes[1], RegistrationStatus::Registered, '2026-11-30 08:00:00'));
+        $this->insertRegistration(
+            $this->newRegistration(5, $this->codes[0], RegistrationStatus::Waitlisted, '2026-11-30 08:00:01')
+        );
+        $this->insertRegistration(
+            $this->newRegistration(5, $this->codes[1], RegistrationStatus::Registered, '2026-11-30 08:00:00')
+        );
 
         $rows = (new RegistrationList())->forEvent(5);
 
@@ -80,9 +85,15 @@ final class RegistrationListTest extends RegistrationsTestCase
     public function testTwoRegistrationsWithTheSameNameAreBothListed(): void
     {
         foreach ([0, 1] as $i) {
-            $this->insertRegistration($this->newRegistration(5, $this->codes[$i], RegistrationStatus::Registered, '2026-11-30 08:00:0' . $i));
+            $this->insertRegistration(
+                $this->newRegistration(5, $this->codes[$i], RegistrationStatus::Registered, '2026-11-30 08:00:0' . $i)
+            );
             $this->inRun(function (array $input, Context $context) use ($i): void {
-                $this->values->upsert(new FieldValue(new RegistrationKey(5, $this->codes[$i]), 'name', 'Teszt Anna'), $context);
+                $this->lockRegistrations($context, new RegistrationKey(5, $this->codes[$i]));
+                $this->values->upsert(
+                    new FieldValue(new RegistrationKey(5, $this->codes[$i]), 'name', 'Teszt Anna'),
+                    $context
+                );
             });
         }
 
@@ -92,8 +103,12 @@ final class RegistrationListTest extends RegistrationsTestCase
     public function testRegistrationsCreatedMicrosecondsApartAreOrderedByTheirTimesWhateverTheirCodes(): void
     {
         [$low, $high] = [ReferenceCode::fourCharacterCodes()[0], ReferenceCode::fourCharacterCodes()[4999]];
-        $this->insertRegistration($this->newRegistration(5, $low, RegistrationStatus::Registered, '2026-11-30 08:00:00.000400'));
-        $this->insertRegistration($this->newRegistration(5, $high, RegistrationStatus::Registered, '2026-11-30 08:00:00.000100'));
+        $this->insertRegistration(
+            $this->newRegistration(5, $low, RegistrationStatus::Registered, '2026-11-30 08:00:00.000400')
+        );
+        $this->insertRegistration(
+            $this->newRegistration(5, $high, RegistrationStatus::Registered, '2026-11-30 08:00:00.000100')
+        );
 
         self::assertSame([$high => 1, $low => 2], $this->serials(5));
         self::assertSame([$high, $low], array_keys($this->serials(5)));

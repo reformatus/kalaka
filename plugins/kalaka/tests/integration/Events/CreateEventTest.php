@@ -7,25 +7,25 @@ namespace Kalaka\Tests\Integration\Events;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Events\CreateEvent;
 use Kalaka\Foundation\Api\Error\InvalidInput;
-
-require_once __DIR__ . '/EventsTestCase.php';
+use Kalaka\Foundation\Api\Money\Currency;
 
 /** AC2. */
 final class CreateEventTest extends EventsTestCase
 {
-    public function testANameAloneMakesADraftWithNoPointsAndNoCapacity(): void
+    public function testANameAloneMakesADraftInHufWithNoPointsAndNoCapacity(): void
     {
         $id = $this->create('Nyári tábor');
 
         $row = $this->row($id);
-        self::assertSame(['1', 'Nyári tábor', 'draft', null, '0', '[]', '1', null], [
-            $row['version'], $row['name'], $row['state'], $row['capacity'], $row['is_full'],
+        self::assertSame(['1', 'Nyári tábor', 'draft', 'HUF', null, '0', '[]', '1', null], [
+            $row['version'], $row['name'], $row['state'], $row['currency'], $row['capacity'], $row['is_full'],
             $row['points'], $row['next_point_id'], $row['archived_at'],
         ]);
 
         $event = $this->events->find($id);
         self::assertNotNull($event);
         self::assertSame(EventState::Draft, $event->state());
+        self::assertSame(Currency::HUF, $event->currency);
         self::assertSame([], $event->customPoints);
 
         $entry = $this->onlyEntry();
@@ -35,6 +35,7 @@ final class CreateEventTest extends EventsTestCase
             [
                 ['name', null, 'Nyári tábor'],
                 ['state', null, 'draft'],
+                ['currency', null, 'HUF'],
                 ['is_full', null, '0'],
                 ['points', null, '[]'],
                 ['next_point_id', null, '1'],

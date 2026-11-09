@@ -28,7 +28,8 @@ final class PeriodicRunCommand
     {
         $report = $this->run->run();
         if ($report === null) {
-            \WP_CLI::error('Periodic run not started: another run holds the lock, or Kaláka did not load cleanly.');
+            \WP_CLI::error('Periodic run not started: another run holds the lock, Kaláka did not load cleanly, '
+                . 'or the database refuses writes (binlog_format=STATEMENT, see Site Health).');
         }
 
         \WP_CLI::success('Evaluated ' . $report->evaluated . ' registrations, ' . $report->failed . ' failed.');

@@ -22,6 +22,9 @@ final class Context
      * @param \Closure(): void $assertOpen
      * @param \Closure(RegistrationKey): void $markTouched
      * @param \Closure(): list<RegistrationKey> $touchedRegistrations
+     * @param \Closure(LockLevel, string, list<int|string>, bool, ?RegistrationKey): void $lockRow
+     * @param \Closure(LockLevel, string, list<int|string>): void $checkRow
+     * @param \Closure(RegistrationKey): bool $holdsRegistration
      */
     public function __construct(
         private readonly Actor $actor,
@@ -34,6 +37,9 @@ final class Context
         private readonly \Closure $assertOpen,
         private readonly \Closure $markTouched,
         private readonly \Closure $touchedRegistrations,
+        private readonly \Closure $lockRow,
+        private readonly \Closure $checkRow,
+        private readonly \Closure $holdsRegistration,
     ) {
     }
 
@@ -78,6 +84,49 @@ final class Context
         ($this->lock)($level);
     }
 
+    /**
+     * @internal Only the repository bases call it: declares the row lock a read or write takes, with the
+     * row's key in key order. A row this attempt already holds is no new lock. A lower level than one
+     * already taken, or a lower key than the highest one at the event, quota or registration level, is
+     * a programming error. `$recordOnly` records the row as held without that check and without raising
+     * that highest key: only for an inserted row, which nobody else can hold, and for a row already held.
+     * `$registration` is the registration the row's record maps to, given once the record is known: at the
+     * registration level it makes `holdsRegistration()` true for it.
+     *
+     * @param list<int|string> $key
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure
+     */
+    public function lockRow(
+        LockLevel $level,
+        string $table,
+        array $key,
+        bool $recordOnly = false,
+        ?RegistrationKey $registration = null,
+    ): void {
+        ($this->lockRow)($level, $table, $key, $recordOnly, $registration);
+    }
+
+    /**
+     * @internal Only the repository bases call it: checks the row lock a read `FOR UPDATE` is about to take,
+     * as `lockRow()` does, and records nothing. The read declares the row with `lockRow()` once it finds it.
+     *
+     * @param list<int|string> $key
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure
+     */
+    public function checkRow(LockLevel $level, string $table, array $key): void
+    {
+        ($this->checkRow)($level, $table, $key);
+    }
+
+    /**
+     * Whether this attempt, in this run or a nested one, holds the registration's row lock: it read the row
+     * `FOR UPDATE`, inserted it or updated it. A key without a row is never held.
+     */
+    public function holdsRegistration(RegistrationKey $key): bool
+    {
+        return ($this->holdsRegistration)($key);
+    }
+
     /** Records on this run's audit entry that the use case touched a record. */
     public function touch(Subject $subject): void
     {
@@ -94,9 +143,10 @@ final class Context
     }
 
     /**
-     * @internal Repositories call it before a write: a context kept past its run is refused.
+     * @internal Repositories call it before a write: a context kept past its run is refused, and after
+     * the run's recorded failure (a database error or a nested run's error) the call throws that failure.
      *
-     * @throws \Kalaka\Foundation\Api\Error\SystemFailure
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
     public function assertOpen(): void
     {

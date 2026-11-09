@@ -12,8 +12,6 @@ use Kalaka\Events\UpdateEvent;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 
-require_once __DIR__ . '/EventsTestCase.php';
-
 /** AC5, AC6 and AC9. */
 final class EventStateTest extends EventsTestCase
 {
@@ -104,9 +102,13 @@ final class EventStateTest extends EventsTestCase
     public function testArchivedIsFinalAndReadOnly(): void
     {
         $this->useClock($this->clockAt('2026-12-01 10:30:00'));
-        $id = $this->archived();
-        self::assertSame('2026-12-01 09:30:00', $this->row($id)['archived_at']);
+        // Only a published event takes the latch.
+        $id = $this->published();
         $this->markFull($id);
+        $this->transition(new UnpublishEvent(), $id);
+        $this->transition(new ArchiveEvent(), $id);
+        self::assertSame('2026-12-01 09:30:00', $this->row($id)['archived_at']);
+        self::assertSame('1', $this->row($id)['is_full']);
         $before = $this->row($id);
 
         $attempts = [
@@ -138,7 +140,16 @@ final class EventStateTest extends EventsTestCase
         self::assertSame('published', $this->row($id)['state']);
         $entry = $this->entriesOf('kalaka/reopen-event')[0];
         self::assertSame(
-            [['type' => 'event', 'event' => $id, 'key' => (string) $id, 'field' => 'is_full', 'before' => '1', 'after' => '0']],
+            [
+                [
+                    'type' => 'event',
+                    'event' => $id,
+                    'key' => (string) $id,
+                    'field' => 'is_full',
+                    'before' => '1',
+                    'after' => '0',
+                ],
+            ],
             $this->changesOf($entry)
         );
     }

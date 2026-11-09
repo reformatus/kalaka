@@ -8,8 +8,6 @@ use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\Module;
 use WP_UnitTestCase;
 
-require_once __DIR__ . '/IndexCheck.php';
-
 /** The audit tables: character set, collation and indexes. */
 final class AuditSchemaTest extends WP_UnitTestCase
 {
@@ -23,20 +21,26 @@ final class AuditSchemaTest extends WP_UnitTestCase
         $names = [$wpdb->prefix . 'kalaka_audit_entries', $wpdb->prefix . 'kalaka_audit_subjects'];
         foreach ($names as $name) {
             $collation = $wpdb->get_var($wpdb->prepare(
-                'SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+                'SELECT TABLE_COLLATION FROM information_schema.TABLES'
+                . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
                 $name
             ));
             self::assertSame('utf8mb4_hungarian_ci', $collation, $name);
 
             $columns = $wpdb->get_results($wpdb->prepare(
                 'SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS'
-                . " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND DATA_TYPE IN ('varchar', 'text', 'longtext')",
+                . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s'
+                . " AND DATA_TYPE IN ('varchar', 'text', 'longtext')",
                 $name
             ), ARRAY_A);
             self::assertNotEmpty($columns, $name);
             foreach ((array) $columns as $column) {
                 self::assertSame('utf8mb4', $column['CHARACTER_SET_NAME'], $name . '.' . $column['COLUMN_NAME']);
-                self::assertSame('utf8mb4_hungarian_ci', $column['COLLATION_NAME'], $name . '.' . $column['COLUMN_NAME']);
+                self::assertSame(
+                    'utf8mb4_hungarian_ci',
+                    $column['COLLATION_NAME'],
+                    $name . '.' . $column['COLUMN_NAME']
+                );
             }
         }
     }
@@ -91,5 +95,14 @@ final class AuditSchemaTest extends WP_UnitTestCase
         $problems = IndexCheck::mismatchesOfNewTable($wpdb->prefix . 'kalaka_test_index', $statement);
 
         self::assertNotSame([], $problems);
+        foreach ($problems as $problem) {
+            self::assertStringNotContainsStringIgnoringCase('already exists', $problem);
+        }
+
+        $suppressed = $wpdb->suppress_errors(true);
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test inspection; the name is a constant
+        $left = $wpdb->query('SELECT 1 FROM ' . $wpdb->prefix . 'kalaka_test_index');
+        $wpdb->suppress_errors($suppressed);
+        self::assertFalse($left, 'The control table is dropped afterwards.');
     }
 }

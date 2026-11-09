@@ -15,14 +15,12 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-
 final class RunnerPermissionTest extends RunnerTestCase
 {
     /** @return iterable<string, array{Actor, string, bool}> actor, use case, passes */
     public static function cases(): iterable
     {
-        $own = new RegistrationKey(10, 'ABCD');
+        $own = new RegistrationKey(10, '12A3');
 
         yield 'system, admin' => [new SystemActor(), 'admin', true];
         yield 'system, site-level admin' => [new SystemActor(), 'site', true];
@@ -53,15 +51,15 @@ final class RunnerPermissionTest extends RunnerTestCase
 
             return 'ran';
         };
-        $own = new RegistrationKey(10, 'ABCD');
+        $own = new RegistrationKey(10, '12A3');
         $useCase = match ($kind) {
             'admin' => new AdminProbe($body, event: 3),
             'site' => new AdminProbe($body),
             'own' => new PortalProbe([$own], $body),
-            'own twice' => new PortalProbe([$own, new RegistrationKey(10, 'ABCD')], $body),
-            'other code' => new PortalProbe([new RegistrationKey(10, 'WXYZ')], $body),
-            'other event' => new PortalProbe([new RegistrationKey(11, 'ABCD')], $body),
-            'own and other' => new PortalProbe([$own, new RegistrationKey(10, 'WXYZ')], $body),
+            'own twice' => new PortalProbe([$own, new RegistrationKey(10, '12A3')], $body),
+            'other code' => new PortalProbe([new RegistrationKey(10, '00B0')], $body),
+            'other event' => new PortalProbe([new RegistrationKey(11, '12A3')], $body),
+            'own and other' => new PortalProbe([$own, new RegistrationKey(10, '00B0')], $body),
             'none' => new PortalProbe([], $body),
         };
 

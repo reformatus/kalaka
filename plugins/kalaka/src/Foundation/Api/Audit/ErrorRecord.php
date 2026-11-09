@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Audit;
 
 use Kalaka\Foundation\Api\Database\DatabaseError;
+use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Api\Error\KalakaException;
 
 /**
@@ -65,17 +66,18 @@ final class ErrorRecord
     }
 
     /**
-     * Where the exception was thrown; for one made in `DatabaseError`, the first stack frame
-     * outside it, so the entry names the failing statement.
+     * Where the exception was thrown; for one made in `DatabaseError` or `Statements`, the first stack
+     * frame outside both, so the entry names the code that ran the failing statement.
      *
      * @return array{string, int}
      */
     private static function position(\Throwable $error): array
     {
         $databaseError = (string) (new \ReflectionClass(DatabaseError::class))->getFileName();
-        if ($error->getFile() === $databaseError) {
+        $skipped = [$databaseError, (string) (new \ReflectionClass(Statements::class))->getFileName()];
+        if (in_array($error->getFile(), $skipped, true)) {
             foreach ($error->getTrace() as $frame) {
-                if (isset($frame['file'], $frame['line']) && $frame['file'] !== $databaseError) {
+                if (isset($frame['file'], $frame['line']) && !in_array($frame['file'], $skipped, true)) {
                     return [$frame['file'], $frame['line']];
                 }
             }

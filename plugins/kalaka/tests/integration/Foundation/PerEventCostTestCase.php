@@ -8,7 +8,7 @@ use WP_UnitTestCase;
 
 /**
  * The per-event cost test of foundation.md, "Entities, repositories and queries": a query that
- * examines rows outside its own event fails the build. Later modules' tests `require_once` this file.
+ * examines rows outside its own event fails the build. Later modules' tests extend it.
  *
  * It seeds 20 events, records the SELECTs the database receives while the query runs for one of
  * them and measures each with ANALYZE FORMAT=JSON (MariaDB's executing EXPLAIN; rows examined is
@@ -77,6 +77,7 @@ abstract class PerEventCostTestCase extends WP_UnitTestCase
         global $wpdb;
         $examined = [];
         foreach ($statements as $sql) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             $json = $wpdb->get_var('ANALYZE FORMAT=JSON ' . $sql);
             self::assertIsString($json, 'ANALYZE FORMAT=JSON gave nothing for: ' . $sql);
             $plan = json_decode($json, true, flags: JSON_THROW_ON_ERROR);

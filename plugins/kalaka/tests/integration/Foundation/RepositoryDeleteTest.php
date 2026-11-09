@@ -9,8 +9,6 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RepositoryTestCase.php';
-
 /** `EntityRepository::delete()`: a delete by key and version that the audit and the evaluation see. */
 final class RepositoryDeleteTest extends RepositoryTestCase
 {
@@ -34,9 +32,11 @@ final class RepositoryDeleteTest extends RepositoryTestCase
     public function testADeleteRemovesTheRowRecordsTheColumnsAndMarksTheRegistration(): void
     {
         $item = $this->seedItem();
+        $this->seedRegistrations(new RegistrationKey(12, '00A0'));
         $touched = null;
 
         $this->inRun(function (array $input, Context $context) use ($item, &$touched): void {
+            $this->lockRegistrations($context, new RegistrationKey(12, '00A0'));
             $this->items->delete($item, $context);
             $touched = $context->touchedRegistrations();
         });
@@ -107,6 +107,11 @@ final class RepositoryDeleteTest extends RepositoryTestCase
     public function testAnEntityThatWasNotLoadedCannotBeDeleted(): void
     {
         $this->expectException(SystemFailure::class);
-        $this->inRun(fn (array $input, Context $context) => $this->items->delete(new TestItem('new', id: 1, version: 1), $context));
+        $this->inRun(
+            fn (array $input, Context $context) => $this->items->delete(
+                new TestItem('new', id: 1, version: 1),
+                $context
+            )
+        );
     }
 }

@@ -6,14 +6,14 @@ namespace Kalaka\Tests\Integration\Foundation\Periodic;
 
 use Kalaka\Foundation\Cli\PeriodicRunCommand;
 
-require_once __DIR__ . '/PeriodicTestCase.php';
-require_once __DIR__ . '/../Seed/WpCliDouble.php';
-
 /** AC10: the command's wiring; the real command is run in wp-env. */
 final class PeriodicRunCommandTest extends PeriodicTestCase
 {
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
+        // A recording stand-in for WP-CLI, defined only when the real class is absent.
+        require_once __DIR__ . '/../Seed/WpCliDouble.php';
         parent::set_up();
 
         if (!defined('WP_CLI::IS_TEST_DOUBLE')) {

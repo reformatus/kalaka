@@ -29,7 +29,8 @@ final class PaymentFactQuery extends Query
             $rows = $this->select(
                 'ledger_line',
                 'SELECT id, kind, payer, amount, currency, value_date, paid_at FROM %i'
-                . ' WHERE event_id = %d AND code = %s AND kind IN (%s, %s, %s, %s, %s)',
+                . ' WHERE event_id = %d AND code = %s AND kind IN ('
+                . implode(', ', array_fill(0, count($kinds), '%s')) . ')',
                 [$this->table('kalaka_ledger_lines'), $registration->eventId, $registration->code, ...$kinds]
             );
 

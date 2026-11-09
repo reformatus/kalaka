@@ -9,8 +9,6 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-require_once __DIR__ . '/../Foundation/IndexCheck.php';
-
 /** AC1: the three tables of the module. */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
@@ -42,6 +40,12 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         ],
     ];
 
+    /** The columns compared exactly (#42, D1). */
+    private const EXACT = [
+        'kalaka_registrations.secret' => 'utf8mb4_nopad_bin',
+        'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
+    ];
+
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
         global $wpdb;
@@ -52,23 +56,30 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         foreach (self::COLUMNS as $table => $expected) {
             $name = $wpdb->prefix . $table;
             self::assertSame('utf8mb4_hungarian_ci', $wpdb->get_var($wpdb->prepare(
-                'SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
+                'SELECT TABLE_COLLATION FROM information_schema.TABLES'
+                . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',
                 $name
             )), $table);
 
             $columns = $wpdb->get_results($wpdb->prepare(
                 'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, CHARACTER_SET_NAME, COLLATION_NAME'
-                . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
+                . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s'
+                . ' ORDER BY ORDINAL_POSITION',
                 $name
             ), ARRAY_A);
             self::assertIsArray($columns);
 
             $declared = [];
             foreach ($columns as $column) {
-                $declared[$column['COLUMN_NAME']] = $column['COLUMN_TYPE'] . ($column['IS_NULLABLE'] === 'YES' ? ' null' : '');
+                $declared[$column['COLUMN_NAME']] = $column['COLUMN_TYPE']
+                    . ($column['IS_NULLABLE'] === 'YES' ? ' null' : '');
                 if ($column['CHARACTER_SET_NAME'] !== null) {
                     self::assertSame('utf8mb4', $column['CHARACTER_SET_NAME'], $table . '.' . $column['COLUMN_NAME']);
-                    self::assertSame('utf8mb4_hungarian_ci', $column['COLLATION_NAME'], $table . '.' . $column['COLUMN_NAME']);
+                    self::assertSame(
+                        self::EXACT[$table . '.' . $column['COLUMN_NAME']] ?? 'utf8mb4_hungarian_ci',
+                        $column['COLLATION_NAME'],
+                        $table . '.' . $column['COLUMN_NAME']
+                    );
                 }
             }
             self::assertSame($expected, $declared, $table);

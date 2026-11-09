@@ -36,8 +36,19 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Retryable errors are retried from scratch at the outermost run only; a
   nested run never commits, retries or rolls back on its own, and the first
   error in a nested run ends the whole use case.
-- Locks are taken in the lock order; `Context::lock()` refuses a lower level
-  after a higher one.
+- A database error inside a run is recorded as the run's failure, as a nested
+  run's error is. After it, or after a caught nested error, the context
+  refuses writes, locks and nested runs, and the recorded error decides the
+  outcome.
+- Each outermost attempt's transaction is READ COMMITTED and waits at most
+  5 s for a lock; a reconnect inside a run fails the attempt as retryable,
+  except at the commit when the new connection finds the attempt's audit
+  entry, which proves the commit; while binary logging runs with
+  `binlog_format=STATEMENT`, every use case is refused before its transaction
+  and the periodic run does not run.
+- Locks are taken in the lock order; the guard refuses a lower level after a
+  higher one, and a lower key within the event, quota or registration level,
+  for every repository read `FOR UPDATE` and write.
 - The admin-side coarse permission check is Admin's (`Admin\Api\AdminAccess`),
   called by the runner before the transaction; Foundation holds no interface
   or default for it and decides only the side match and the portal side itself.
@@ -51,7 +62,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Only the runner writes `kalaka_audit_entries` and `kalaka_audit_subjects`:
   one entry per audited use case, in its transaction before the commit, or,
   when it failed, after the rollback in a transaction of its own; PHP's error
-  log only when that write fails.
+  log only when that write fails, or when writing it could keep or commit work
+  that is not the use case's own: a failed rollback with no new connection, or
+  a transaction another plugin left open.
 - A failed entry holds no changes, no input values and no reason; the context
   a thrower adds to a `KalakaException` names rules and record keys, never a
   submitted field value, a person's data or a secret; a secret never reaches
@@ -70,10 +83,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   `Money`'s public methods never take or return a brick/math type.
 - Every outstanding check (confirmation threshold, "nothing due", fully paid)
   uses `countsAsZero()`; payment requests use `roundedUpToPayableUnit()`.
-- `$wpdb` is used only by repositories and query classes on the Foundation
-  bases (besides the runner's transaction statements, the audit writer and
-  the seed's development drop), exempted from PHPCS by name and checked by a
-  test.
+- `$wpdb` runs statements only in `Foundation\Database\Statements`; the
+  repository and query bases, the runner, the audit writer and the
+  development drop go through it. PHPCS exempts that one file, and a test
+  refuses any file that silences the direct-query rule.
 - The seed writes our tables only through use cases run as the `CliActor`
   without a user, and WordPress data only with WordPress functions outside
   any use case; the development drop drops only the tables a module declares
@@ -114,5 +127,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - WP-Cron timestamps come from the `Clock`, never `time()`; the upgrader lock's
   own stamp is WordPress's and is not ours to set.
 - The periodic run's health check (the admin notice and the Site Health test)
-  only reads `kalaka_periodic_run_last` and compares it with the `Clock`; it writes nothing
-  and never schedules, starts or unlocks a run.
+  only reads `kalaka_periodic_run_last`, the `Clock` and `BinlogCheck`; it writes
+  nothing and never schedules, starts or unlocks a run.
+- The database health check (`IsolationHealth`) only reads `BinlogCheck`; it
+  writes nothing.

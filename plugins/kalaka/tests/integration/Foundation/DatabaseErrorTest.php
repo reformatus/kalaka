@@ -13,20 +13,24 @@ final class DatabaseErrorTest extends WP_UnitTestCase
 {
     private string $table;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
 
         global $wpdb;
         $this->table = $wpdb->prefix . 'kalaka_test_unique';
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("CREATE TABLE {$this->table} (code VARCHAR(10) NOT NULL PRIMARY KEY) ENGINE=InnoDB");
         $wpdb->suppress_errors(true);
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         global $wpdb;
         $wpdb->suppress_errors(false);
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
         $wpdb->query("DROP TABLE IF EXISTS {$this->table}");
 
         parent::tear_down();

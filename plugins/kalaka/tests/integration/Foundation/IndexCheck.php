@@ -26,6 +26,7 @@ final class IndexCheck
 
         $suppressed = $wpdb->suppress_errors(true);
         try {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup or inspection; the statement is built from the table prefix and constants only
             $rows = $wpdb->get_results("SHOW INDEX FROM {$table}", ARRAY_A);
         } finally {
             $wpdb->suppress_errors($suppressed);
@@ -50,7 +51,8 @@ final class IndexCheck
             ksort($actual[$name]);
             $found = array_map(static fn (array $row): string => (string) $row['Column_name'], $actual[$name]);
             if (array_values($found) !== $expected) {
-                $problems[] = "{$table}.{$name}: columns " . implode(',', $found) . ' instead of ' . implode(',', $expected);
+                $problems[] = "{$table}.{$name}: columns " . implode(',', $found)
+                    . ' instead of ' . implode(',', $expected);
             }
             foreach ($actual[$name] as $row) {
                 if ($row['Sub_part'] !== null) {
@@ -80,14 +82,25 @@ final class IndexCheck
 
         $suppressed = $wpdb->suppress_errors(true);
         try {
+            // A table left by an earlier case would make the create fail with "already exists".
+            self::drop($table);
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; table name and constants only
             $created = $wpdb->query(str_replace('{table}', $table, $createSql));
+            if ($created === false) {
+                return ["{$table}: refused: " . $wpdb->last_error];
+            }
+
+            return self::mismatches($table, $createSql);
         } finally {
+            self::drop($table);
             $wpdb->suppress_errors($suppressed);
         }
-        if ($created === false) {
-            return ["{$table}: refused: " . $wpdb->last_error];
-        }
+    }
 
-        return self::mismatches($table, $createSql);
+    private static function drop(string $table): void
+    {
+        global $wpdb;
+
+        $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $table));
     }
 }

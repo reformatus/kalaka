@@ -13,8 +13,6 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 
-require_once __DIR__ . '/RunnerTestCase.php';
-
 final class RunnerTest extends RunnerTestCase
 {
     public function testRunReturnsTheResultAndCommitsTheRow(): void
@@ -102,12 +100,51 @@ final class RunnerTest extends RunnerTestCase
         self::assertSame(['attempt 3'], $this->rows());
     }
 
+    public function testInSavepointModeNoIsolationStatementIsSentAndAFailedRunIsAuditedWithoutOne(): void
+    {
+        $statements = [];
+        $capture = static function (string $query) use (&$statements): string {
+            $statements[] = $query;
+
+            return $query;
+        };
+        $retried = new AdminProbe(function (array $input, Context $context, int $call): string {
+            $this->insertRow('attempt ' . $call);
+            if ($call === 1) {
+                throw new RetryableFailure();
+            }
+
+            return 'done';
+        });
+        $failing = new AdminProbe(static function (): void {
+            throw new RuleViolation();
+        });
+
+        add_filter('query', $capture);
+        try {
+            self::assertSame('done', $this->runner->run($retried, [], new SystemActor()));
+            try {
+                $this->runner->run($failing, [], new SystemActor());
+                self::fail('The run should have thrown.');
+            } catch (RuleViolation) {
+            }
+        } finally {
+            remove_filter('query', $capture);
+        }
+
+        self::assertSame(2, $retried->calls);
+        self::assertContains('SAVEPOINT kalaka_run', $statements);
+        self::assertContains('SAVEPOINT kalaka_audit', $statements);
+        self::assertSame([], preg_grep('/ISOLATION|START TRANSACTION/i', $statements));
+    }
+
     public function testRetriesStopAfterFourAttemptsAndTheLastErrorIsThrown(): void
     {
         $thrown = [];
         $useCase = new AdminProbe(function () use (&$thrown): void {
             $this->insertRow('a');
             $thrown[] = new RetryableFailure();
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a test double; nothing is printed
             throw end($thrown);
         });
 
@@ -169,7 +206,15 @@ final class RunnerTest extends RunnerTestCase
         $nested = new AdminProbe(function (array $input, Context $context) use (&$seen): void {
             $seen[] = ['nested', $context->now()->format('H:i:s')];
         });
-        $useCase = new AdminProbe(function (array $input, Context $context, int $call) use (&$seen, $nested, $actor): void {
+        $useCase = new AdminProbe(function (
+            array $input,
+            Context $context,
+            int $call
+        ) use (
+            &$seen,
+            $nested,
+            $actor
+        ): void {
             self::assertSame($actor, $context->actor());
             $seen[] = ['outer', $context->now()->format('H:i:s')];
             $context->run($nested, []);

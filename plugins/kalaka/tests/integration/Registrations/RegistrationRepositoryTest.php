@@ -17,8 +17,6 @@ use Kalaka\Registrations\Submission\Submission;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Foundation\Api\Actor\CliActor;
 
-require_once __DIR__ . '/RegistrationsTestCase.php';
-
 /** AC6 to AC8: the registration repository. */
 final class RegistrationRepositoryTest extends RegistrationsTestCase
 {
@@ -29,7 +27,14 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
         $failure = null;
         $generator = new ReferenceCodeGenerator();
 
-        $useCase = new AdminProbe(function (array $input, Context $context, int $call) use (&$failure, $generator): void {
+        $useCase = new AdminProbe(function (
+            array $input,
+            Context $context,
+            int $call
+        ) use (
+            &$failure,
+            $generator
+        ): void {
             if ($call === 1) {
                 try {
                     $this->registrations->upsert($this->newRegistration(5, '12A3'), $context);
@@ -69,9 +74,14 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
     {
         $key = new RegistrationKey(5, '12A3');
         $submission = new Submission($key, 1, 10, 1, ['name' => 'Anna'], $this->utc('2026-11-30 08:00:00'));
-        $this->inRun(fn (array $input, Context $context) => $this->submissions->insert($submission, $context));
+        $this->seedRegistrations($key);
+        $this->inRun(function (array $input, Context $context) use ($key, $submission): void {
+            $this->lockRegistrations($context, $key);
+            $this->submissions->insert($submission, $context);
+        });
 
-        $useCase = new AdminProbe(function (array $input, Context $context) use ($submission): void {
+        $useCase = new AdminProbe(function (array $input, Context $context) use ($key, $submission): void {
+            $this->lockRegistrations($context, $key);
             $this->submissions->insert($submission, $context);
         });
         try {
@@ -109,10 +119,31 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
         self::assertSame(['registration/5/12A3'], $this->subjectsOf($entry['id']));
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'status', 'before' => null, 'after' => 'registered'],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'status',
+                    'before' => null,
+                    'after' => 'registered',
+                ],
                 ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'secret', 'masked' => true],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'created_at', 'before' => null, 'after' => '2026-11-30 08:00:00.000000'],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'registered_at', 'before' => null, 'after' => '2026-11-30 08:00:00.000000'],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'created_at',
+                    'before' => null,
+                    'after' => '2026-11-30 08:00:00.000000',
+                ],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'registered_at',
+                    'before' => null,
+                    'after' => '2026-11-30 08:00:00.000000',
+                ],
             ],
             $this->decode($entry['changes'])
         );
@@ -122,7 +153,7 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
             "SELECT * FROM {$wpdb->prefix}kalaka_audit_subjects WHERE entry_id = " . (int) $entry['id'],
             ARRAY_A
         );
-        self::assertStringNotContainsString($registration->secret, (string) json_encode([$entry, $subjects]));
+        self::assertStringNotContainsString($registration->secret, (string) wp_json_encode([$entry, $subjects]));
     }
 
     public function testAStatusChangeBumpsTheVersionAndOldVersionsConflict(): void
@@ -150,8 +181,22 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
         self::assertCount($entriesBefore + 1, $entries);
         self::assertSame(
             [
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'status', 'before' => 'waitlisted', 'after' => 'registered'],
-                ['type' => 'registration', 'event' => 5, 'key' => '12A3', 'field' => 'registered_at', 'before' => null, 'after' => '2026-12-01 09:30:00.123456'],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'status',
+                    'before' => 'waitlisted',
+                    'after' => 'registered',
+                ],
+                [
+                    'type' => 'registration',
+                    'event' => 5,
+                    'key' => '12A3',
+                    'field' => 'registered_at',
+                    'before' => null,
+                    'after' => '2026-12-01 09:30:00.123456',
+                ],
             ],
             $this->decode($entries[$entriesBefore]['changes'])
         );
@@ -185,5 +230,58 @@ final class RegistrationRepositoryTest extends RegistrationsTestCase
             $this->registrations->findForUpdate($key, $context);
             $context->lock(LockLevel::Event);
         });
+    }
+
+    /** @return list<array{RegistrationKey, RegistrationKey}> */
+    public static function descendingPairs(): array
+    {
+        return [
+            [new RegistrationKey(5, '20A0'), new RegistrationKey(5, '10A1')],
+            [new RegistrationKey(6, '10A1'), new RegistrationKey(5, '90A2')],
+        ];
+    }
+
+    /** @dataProvider descendingPairs */
+    public function testRegistrationsLockedInDescendingKeyOrderAreASystemFailure(
+        RegistrationKey $first,
+        RegistrationKey $second,
+    ): void {
+        $this->seedCodes($first->eventId, [$first->code]);
+        $this->seedCodes($second->eventId, [$second->code]);
+
+        $this->inRun(function (array $input, Context $context) use ($first, $second): void {
+            $this->registrations->findForUpdate($second, $context);
+            $this->registrations->findForUpdate($first, $context);
+        });
+
+        $this->expectException(SystemFailure::class);
+        $this->inRun(function (array $input, Context $context) use ($first, $second): void {
+            $this->registrations->findForUpdate($first, $context);
+            $this->registrations->findForUpdate($second, $context);
+        });
+    }
+
+    public function testTheSameRegistrationTwicePasses(): void
+    {
+        $this->seedCodes(5, ['10A1', '20A0']);
+
+        $this->inRun(function (array $input, Context $context): void {
+            $this->registrations->findForUpdate(new RegistrationKey(5, '20A0'), $context);
+            $this->registrations->findForUpdate(new RegistrationKey(5, '20A0'), $context);
+        });
+
+        self::addToAssertionCount(1);
+    }
+
+    public function testInsertingALowerCodeThanAHeldOneIsNotKeyChecked(): void
+    {
+        $this->seedCodes(5, ['50A0']);
+
+        $this->inRun(function (array $input, Context $context): void {
+            $this->registrations->findForUpdate(new RegistrationKey(5, '50A0'), $context);
+            $this->registrations->upsert($this->newRegistration(5, '10A1'), $context);
+        });
+
+        self::assertSame(2, $this->registrationCount());
     }
 }

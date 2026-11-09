@@ -6,6 +6,7 @@ namespace Kalaka\Events\Api;
 
 use Kalaka\Events\EventRepository;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /** What a registration's capacity check needs of the event row: the lock and the "full" latch. */
@@ -28,13 +29,20 @@ final class EventCapacity
     }
 
     /**
-     * Sets the latch in the calling use case; an event that is already full is left as it is.
+     * Sets the latch in the calling use case, reading the event `FOR UPDATE`: the event row must be the
+     * run's first lock, as `lockForRegistration()` takes it. Only a published event takes the latch; one
+     * that is already full is left as it is.
      *
      * @throws NotFound
+     * @throws RuleViolation when the event is not published
      */
     public function markFull(Context $context, int $eventId): void
     {
-        $record = $this->repository->find($eventId) ?? throw new NotFound();
+        $record = $this->repository->findForUpdate($eventId, $context) ?? throw new NotFound();
+        if ($record->state !== EventState::Published) {
+            $error = new RuleViolation();
+            throw $error;
+        }
         if ($record->isFull) {
             return;
         }

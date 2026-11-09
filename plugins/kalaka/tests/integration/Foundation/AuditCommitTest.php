@@ -11,8 +11,6 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-require_once __DIR__ . '/RealTableTestCase.php';
-
 /** The production runner commits the audit entry with the work, and writes a failed one after the rollback. */
 final class AuditCommitTest extends RealTableTestCase
 {
@@ -36,7 +34,8 @@ final class AuditCommitTest extends RealTableTestCase
 
         return implode(',', $this->column(
             $connection,
-            "SELECT outcome FROM {$wpdb->prefix}kalaka_audit_entries WHERE correlation_id = '" . Correlation::id() . "' ORDER BY id"
+            "SELECT outcome FROM {$wpdb->prefix}kalaka_audit_entries WHERE correlation_id = '"
+                . Correlation::id() . "' ORDER BY id"
         ));
     }
 

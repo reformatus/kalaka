@@ -9,8 +9,6 @@ use Kalaka\Support\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-require_once __DIR__ . '/../../../../kalaka/tests/integration/Foundation/IndexCheck.php';
-
 /** AC1: the plugin loads with core and creates the directory table. */
 final class SupportSchemaTest extends WP_UnitTestCase
 {

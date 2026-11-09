@@ -10,9 +10,9 @@ use Kalaka\Foundation\Api\Repository\Repository;
 use PHPUnit\Framework\TestCase;
 
 /**
- * PHPCS exempts files named `*Repository.php`, `*List.php` and `*Query.php` from the direct-query
- * rule, so a name alone must never escape it: every such file of every plugin, outside core's two
- * base folders, declares a class that extends the base (engineering.md, "Static checks").
+ * Every file named `*Repository.php`, `*List.php` or `*Query.php` of every plugin, outside core's two
+ * base folders, declares a class that extends its base, so repositories and queries reach the
+ * database only through the bases (foundation.md, "Entities, repositories and queries").
  */
 final class RepositoryNamesTest extends TestCase
 {
@@ -28,7 +28,8 @@ final class RepositoryNamesTest extends TestCase
 
             self::assertFileExists(
                 $autoload,
-                'The plugin ' . $plugin . ' has src/ but no vendor/autoload.php; run composer install in plugins/' . $plugin . '.'
+                'The plugin ' . $plugin . ' has src/ but no vendor/autoload.php; run composer install in plugins/'
+                    . $plugin . '.'
             );
             require_once $autoload;
 
@@ -47,17 +48,16 @@ final class RepositoryNamesTest extends TestCase
         self::assertStringEndsWith('BadRepository.php', $violations[0]);
     }
 
-    public function testAppendOnlyRepositoryDeclaresNothingBeyondInsert(): void
+    public function testAnAppendOnlyRepositoryHasNoWayToUpdateOrDelete(): void
     {
-        $declared = [];
         $class = new \ReflectionClass(AppendOnlyRepository::class);
+        $names = [];
         foreach ($class->getMethods(\ReflectionMethod::IS_PUBLIC | \ReflectionMethod::IS_PROTECTED) as $method) {
-            if ($method->getDeclaringClass()->getName() === AppendOnlyRepository::class) {
-                $declared[] = $method->getName();
-            }
+            $names[] = $method->getName();
         }
 
-        self::assertSame(['insert'], $declared);
+        self::assertContains('insert', $names);
+        self::assertSame([], preg_grep('/update|upsert|delete/i', $names));
         self::assertTrue($class->isSubclassOf(Repository::class));
     }
 
@@ -95,6 +95,7 @@ final class RepositoryNamesTest extends TestCase
     private static function classOf(string $path): ?string
     {
         $namespace = '';
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads a plugin source file
         $tokens = token_get_all((string) file_get_contents($path));
         foreach ($tokens as $i => $token) {
             if (!is_array($token)) {
@@ -123,7 +124,11 @@ final class RepositoryNamesTest extends TestCase
             $token = $tokens[$i];
             if (is_array($token) && in_array($token[0], [T_STRING, T_NAME_QUALIFIED], true)) {
                 $name .= $token[1];
-            } elseif ($token === ';' || $token === '{' || ($name !== '' && is_array($token) && $token[0] === T_WHITESPACE)) {
+            } elseif (
+                $token === ';'
+                || $token === '{'
+                || ($name !== '' && is_array($token) && $token[0] === T_WHITESPACE)
+            ) {
                 break;
             }
         }

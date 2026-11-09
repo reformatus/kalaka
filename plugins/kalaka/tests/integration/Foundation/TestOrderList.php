@@ -12,8 +12,14 @@ final class TestOrderList extends Query
     public static function create(): void
     {
         global $wpdb;
-        $wpdb->query("CREATE TABLE {$wpdb->prefix}kalaka_test_orders (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, product_id INT UNSIGNED NOT NULL) ENGINE=InnoDB");
-        $wpdb->query("CREATE TABLE {$wpdb->prefix}kalaka_test_products (id INT UNSIGNED PRIMARY KEY, name VARCHAR(50) NOT NULL) ENGINE=InnoDB");
+        $wpdb->query(
+            "CREATE TABLE {$wpdb->prefix}kalaka_test_orders "
+            . "(id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, product_id INT UNSIGNED NOT NULL) ENGINE=InnoDB"
+        );
+        $wpdb->query(
+            "CREATE TABLE {$wpdb->prefix}kalaka_test_products "
+            . "(id INT UNSIGNED PRIMARY KEY, name VARCHAR(50) NOT NULL) ENGINE=InnoDB"
+        );
     }
 
     /** @return list<array<string, ?string>> the orders, each with the name of its product */

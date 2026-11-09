@@ -9,8 +9,8 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
-use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Database\Statements;
 
 /**
  * Writes entries and their subjects; only the runner calls it, inside the transaction it
@@ -20,42 +20,38 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  */
 final class AuditWriter
 {
-    public function __construct(private readonly \wpdb $wpdb)
+    public function __construct(private readonly Statements $statements)
     {
     }
 
     /**
-     * Writes the entry and, after it, each nested entry, so `parent_id` is known.
+     * Writes the entry and, after it, each nested entry, so `parent_id` is known. `Statements`
+     * suppresses wpdb's error output, which would log the values; the audit may hold personal data.
      *
+     * @return int the id of the entry, the root of the tree
      * @throws \Throwable the first failed statement, as DatabaseError::check() makes it
      */
-    public function write(AuditEntry $entry): void
+    public function write(AuditEntry $entry): int
     {
-        // wpdb logs a failed statement with its values; the audit may hold personal data.
-        $suppressed = $this->wpdb->suppress_errors(true);
-        try {
-            $this->writeTree($entry, null);
-        } finally {
-            $this->wpdb->suppress_errors($suppressed);
-        }
+        return $this->writeTree($entry, null);
     }
 
-    private function writeTree(AuditEntry $entry, ?int $parentId): void
+    private function writeTree(AuditEntry $entry, ?int $parentId): int
     {
         $id = $this->insertEntry($entry, $parentId);
         foreach ($entry->subjects() as $subject) {
-            // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the runner's audit writer
-            $this->wpdb->insert($this->wpdb->prefix . 'kalaka_audit_subjects', [
+            $this->statements->insert($this->statements->prefixed('kalaka_audit_subjects'), [
                 'entry_id' => $id,
                 'event_id' => $subject->eventId,
                 'record_type' => $subject->type,
                 'record_key' => $subject->key,
             ], ['%d', '%d', '%s', '%s']);
-            DatabaseError::check($this->wpdb);
         }
         foreach ($entry->children() as $child) {
             $this->writeTree($child, $id);
         }
+
+        return $id;
     }
 
     private function insertEntry(AuditEntry $entry, ?int $parentId): int
@@ -64,8 +60,7 @@ final class AuditWriter
         [$address, $agent] = self::origin($actor);
         $changes = $entry->changeItems();
 
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- the runner's audit writer
-        $this->wpdb->insert($this->wpdb->prefix . 'kalaka_audit_entries', [
+        return $this->statements->insert($this->statements->prefixed('kalaka_audit_entries'), [
             'parent_id' => $parentId,
             'correlation_id' => Correlation::id(),
             'occurred_at' => $entry->occurredAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
@@ -83,9 +78,6 @@ final class AuditWriter
             'error' => $entry->error,
             'changes' => $changes === null ? null : self::json($changes),
         ], ['%d', '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']);
-        DatabaseError::check($this->wpdb);
-
-        return $this->wpdb->insert_id;
     }
 
     /** @param list<array<string, mixed>> $changes */

@@ -75,7 +75,9 @@ change.
 - Nothing reaches the UI that the owner has not approved: no extra fields,
   labels, settings, styling or polish.
 - Minimums: WordPress 7.0, PHP 8.3, MariaDB 10.3 and later (no features newer
-  than 10.3). Never build for SQLite.
+  than 10.3). Never build for SQLite, except that the runner skips the
+  statements Playground's SQLite driver rejects
+  ([Platform](docs/architecture/engineering.md#platform)).
 - No personal data and nothing from `internal/` in commits, fixtures, issues
   or PRs.
 - Ask before deviating from the architecture pages.

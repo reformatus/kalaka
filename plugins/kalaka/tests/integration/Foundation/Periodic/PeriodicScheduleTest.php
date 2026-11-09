@@ -8,8 +8,6 @@ use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 
-require_once __DIR__ . '/PeriodicTestCase.php';
-
 /** AC1, AC2 and the WP-Cron handler of AC4. */
 final class PeriodicScheduleTest extends PeriodicTestCase
 {
@@ -50,7 +48,10 @@ final class PeriodicScheduleTest extends PeriodicTestCase
         $this->schedule()->register(static fn (): null => null);
 
         self::assertSame(1, $this->scheduledCount('kalaka_periodic_run'));
-        self::assertSame($this->clockAt('2026-11-30 10:00:00')->now()->getTimestamp(), wp_next_scheduled('kalaka_periodic_run'));
+        self::assertSame(
+            $this->clockAt('2026-11-30 10:00:00')->now()->getTimestamp(),
+            wp_next_scheduled('kalaka_periodic_run')
+        );
     }
 
     public function testDeactivatingThePluginClearsBothHooks(): void
