@@ -189,7 +189,8 @@ reference and check-in barcode.
   granted to them ([Foundation](foundation.md#views-and-grants)).
 - **Secret links:** 128 random bits, URL-safe (22 characters). They are
   **stored readable,** so every email can carry the registrant's link. They
-  are treated as secrets: never logged, masked in exports.
+  are treated as secrets: our own code never writes one into a log line or an
+  exception message, and they are masked in exports.
 - **Organizers can regenerate a link:** an audited use case; the old link
   stops working immediately. Mailing the new link is an action mail, switched
   on or off per event like the others.

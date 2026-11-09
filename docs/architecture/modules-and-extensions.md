@@ -231,10 +231,10 @@ Besides the money plugins:
   match their definitions: `dbDelta` reports no errors, so the upgrader runs
   it again as a dry run, and any change still pending is a failure. Table
   definitions are therefore written in `dbDelta`'s own format.
-- **A failed upgrade:**
-  - an extension module stays unbooted, and admins get a notice with a retry;
-  - a core module puts core in a **safe mode**: public forms and the portal
-    close, and admins see the notice.
+- **A failed upgrade** leaves its module unbooted, which is a failed load
+  ([Failure isolation](#failure-isolation)): public forms and the portal
+  close, and admins see the failed-load warning. The next request tries the
+  upgrade again.
 - **Until production data exists there are no migrations:** during
   development everything is dropped and recreated freely, with test fixtures
   ([Engineering](engineering.md#fixtures)). Migrations start at the first
@@ -375,8 +375,9 @@ deprecation period and the compatibility-check tool are chosen then.
   supports through `requiresApi()`, e.g. `>=1.4 <2.0`, using only `>=` and
   `<`, so core parses it without a library. Core modules declare
   `>=` their own version. During 0.x any release may break.
-- Core boots only extensions in range. One out of range is not booted, and
-  admins see a notice instead of a fatal error. This holds for our own
+- Core boots only extensions in range. One out of range is not booted, which
+  is a failed load ([Failure isolation](#failure-isolation)): admins see the
+  failed-load warning instead of a fatal error. This holds for our own
   extensions too: WordPress updates plugins one by one, so a site can run
   mismatched versions despite the one repository version.
 
@@ -384,8 +385,13 @@ deprecation period and the compatibility-check tool are chosen then.
 
 - A contribution **outside** the transaction that throws is caught and
   skipped, so core keeps working. Its failure is kept on its extension: an
-  option holding the latest failure per contribution (message, time, count),
-  shown in Site Health and written to PHP's error log.
+  option per contribution holding its latest message and since when it has
+  failed, shown as a site warning
+  ([Foundation](foundation.md#site-warnings)). It is not a Site Health test:
+  it is not an environment requirement. When a failure starts, its message
+  changes, or the contribution succeeds again, a log line and a system audit
+  entry record it ([Foundation](foundation.md#audit)); on recovery the option
+  is deleted. A failure that only repeats writes nothing.
 - A contribution **inside** the transaction that throws rolls back the use
   case like any error.
 - **No point writes to our tables:** a point returns a value, and core writes
@@ -399,8 +405,17 @@ deprecation period and the compatibility-check tool are chosen then.
   and clear. The stored event states do not change, so events come back once
   the problem is fixed. The boot records the outcome in
   `Kalaka\Foundation\Api\LoadState`; `isOpen()` is false after any load
-  failure and before boot has finished, and every public entry point checks
-  it.
+  failure and before boot has finished.
+  - **One outcome:** every public entry point calls `requireOpen()`, which
+    refuses with `SiteClosed` (503, [Foundation](foundation.md#errors)).
+    Background work (the periodic run, the sender) skips. The admin side
+    keeps working, and admins see the failed-load warning
+    ([Foundation](foundation.md#site-warnings)), which reads the request's
+    load state.
+  - **Logged once:** the failure is logged when it starts or changes, not on
+    every request; a WordPress option holds what was last logged and is
+    deleted after a clean load. A schema upgrade still in progress in another
+    request closes the request but is not logged.
 
 ### After-save actions
 

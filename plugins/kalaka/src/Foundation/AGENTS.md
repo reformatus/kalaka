@@ -54,7 +54,22 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   or default for it and decides only the side match and the portal side itself.
 - Inside the transaction only our own tables are written: no WordPress
   function that fires hooks or fills WordPress caches. WordPress-side steps
-  run after commit and are safe to repeat.
+  run after commit and are safe to repeat; a nudge's failure is only logged,
+  and an outside call keeps its outcome on its own record through its own use
+  cases. Whatever escapes a step is logged and the remaining steps run.
+- Outside a use case our code only reads, writes WordPress-owned data, or runs
+  development-only tools; it never writes our tables, except the schema
+  upgrade, whose failure is a failed load.
+- Every entry point (REST route, WP-CLI command method, background hook,
+  rendered page or block) runs through `Api\Entry\Boundary`: a
+  `KalakaException` is shown as it is, anything else is logged and shown as a
+  `SystemFailure`. REST routes are registered only through it. A WP-CLI
+  command's own refusal is a `CommandFailure`, shown and not logged.
+- Every error response carries the correlation ID; only a 500 shows it to the
+  person, as the `Hibaazonosító` line.
+- Only Foundation's error-log writer calls `error_log()`; a line holds what
+  failed, the correlation ID and the full exception chain (class, code,
+  message).
 - Use cases never read the current user; the delivery layer resolves the
   actor and passes it in.
 - Errors are `KalakaException`s carrying their Hungarian default text; no
@@ -68,7 +83,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - A failed entry holds no changes, no input values and no reason; the context
   a thrower adds to a `KalakaException` names rules and record keys, never a
   submitted field value, a person's data or a secret; a secret never reaches
-  an entry (masked in the changes) or the error log.
+  an entry (masked in the changes), and our own code never writes one into a
+  log line.
 - The current time comes from the `Clock` (`Context::now()` inside a use case),
   never from `time()`, `current_time()` or `new DateTimeImmutable('now')`.
 - `Api` is the contract: Foundation's own classes sit at the module root and
@@ -76,7 +92,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   module and never another module's root); a class in an `Api` marked
   `@internal` is not contract, and no new one is added.
 - Any load failure closes the site (`LoadState`); nothing in Foundation
-  reopens it.
+  reopens it. Every public entry point calls `requireOpen()`, which refuses
+  with `SiteClosed`; background work skips; the admin side keeps working. The
+  failure is logged when it starts or changes, not on every request.
 - Amounts are `Money`, never floats or raw strings in arithmetic, and every
   amount carries its `Currency`.
 - Only `Foundation\Api\Money` uses `Kalaka\Vendor\Brick\Math` (deptrac);
@@ -118,7 +136,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Only `FlagEvaluationFailure`, run by `PeriodicEvaluation` in a transaction of
   its own, inserts or replaces a row of `kalaka_evaluation_failures`; every
   successful evaluation of the registration, interactive or periodic, deletes
-  its row.
+  its row. A repeat of the same failure (same rule, same error) does not run
+  it again, so the row keeps when it first failed. The periodic run retries
+  flagged registrations once an hour, and on every run an admin or WP-CLI
+  starts.
 - The periodic run runs only while `LoadState` is open and only under its lock;
   it sweeps only published events, evaluates each registration in its own
   transaction through `PeriodicEvaluation`, and writes its last-run time only
@@ -131,3 +152,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   nothing and never schedules, starts or unlocks a run.
 - The database health check (`IsolationHealth`) only reads `BinlogCheck`; it
   writes nothing.
+- Standing conditions are `Api\SiteWarning`s: a check writes nothing, is
+  cheap, never throws and runs through the boundary; Site Health is used only
+  for environment requirements; the boot registers the banners before any
+  module. A warning whose cause is another warning's condition stays
+  silent.

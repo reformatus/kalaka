@@ -116,8 +116,8 @@ flowchart LR
 - **Isolation:** each run's transaction is READ COMMITTED, set for that
   transaction only, and waits at most 5 seconds for a row lock. If the
   server logs binary with `binlog_format=STATEMENT`, writes under READ
-  COMMITTED fail, so the runner refuses every use case, and Site Health and
-  an admin notice show the problem.
+  COMMITTED fail, so the runner refuses every use case, and a site warning
+  shows the problem ([Failures](#site-warnings)).
 - **Retries:** only errors marked retryable (a reference-code collision, a
   deadlock, a lock-wait timeout, a version conflict hit by a system run, a
   reconnect detected inside a run) are retried, about three times, each
@@ -135,9 +135,19 @@ flowchart LR
     activates it is queued by the registration itself
     ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
   - Steps *after* commit run in the same request and must be safe to repeat.
-    A failure is kept on the record it concerns (see [Failures](#failures)).
-  - The admin-started WooCommerce refund follows this pattern
-    ([Money](money.md#refunds)).
+    A step is one of two kinds:
+    - **A nudge** (schedule a run now, such as the sender nudge). Its failure
+      is only logged: the periodic run does the same work within 5 minutes.
+      Scheduling counts an event already scheduled as success.
+    - **A call to an outside system whose outcome matters** (the
+      admin-started WooCommerce refund, [Money](money.md#refunds)). It keeps
+      its outcome on its own record ([Failures](#failures)) and writes that
+      record through its own use cases. A timeout or unknown outcome leaves
+      the record in the state it had before the call.
+
+    The runner catches anything that still escapes a step, logs it and runs
+    the remaining steps. The person sees the use case's own result: it
+    committed, so a step failure is never shown as an error.
 - **The shapes** (in `Kalaka\Foundation\Api\UseCase`; actors in
   `Api\Actor`, errors in `Api\Error`):
 
@@ -207,6 +217,57 @@ on each other in a circle:
 
 ## Errors
 
+**Where errors happen.** An error falls in one of five places, each with one
+way of being handled:
+
+1. **Inside a use case:** the runner rolls back, retries what is retryable,
+   writes the failed audit entry ([Audit](#audit)), and the caller shows the
+   error's text and status.
+2. **Our code outside a use case:** see the rule below. When a person's
+   action causes the error, it is shown the same way as a use-case error.
+3. **A failure kept on a record:** the record holds the status and the error
+   ([Failures](#failures)).
+4. **A standing condition:** the site cannot work correctly until something
+   changes. It is shown as a site warning ([Site warnings](#site-warnings)).
+5. **A PHP fatal:** WordPress's own fatal handling. Locks are freed only when
+   their expiry passes.
+
+**Outside a use case, nothing is consistency-critical.** Code outside the
+runner may only (a) read, (b) write WordPress-owned data (options, cron,
+posts, users), before or after a use case, as [the runner](#the-use-case-runner)
+requires, or (c) run development-only tools. It never writes our own tables. A
+failure there must leave a state that the next use case either accepts or
+refuses; it must never leave our tables in a state no use case would produce,
+or a change without its audit entry. **The one exception is the schema
+upgrade.** It writes our tables, and when it fails the load fails
+([Modules](modules-and-extensions.md#failure-isolation)), so Kaláka refuses
+every use case until the upgrade succeeds.
+
+**One error boundary at every entry point.** REST callbacks (permission
+callbacks included), WP-CLI commands, background hooks (cron) and rendered
+pages and blocks run inside Foundation's error boundary
+(`Kalaka\Foundation\Api\Entry\Boundary`). It catches anything thrown:
+
+- a `KalakaException` is shown as it is (the runner has audited it already,
+  or it is a deliberate refusal);
+- anything else is wrapped as a `SystemFailure`, logged as one line of PHP's
+  error log, and shown as a `SystemFailure`.
+
+REST routes are registered through the boundary, and each WP-CLI command
+method runs its body through it, so no entry point shows WordPress's own
+"critical error" or a raw PHP error. A WP-CLI command's own refusal (a bad
+argument, a file it cannot read, a run it cannot start) is a
+`CommandFailure`: its English message is shown as it is and not logged. On
+the participant side, a form whose field fails to render fails as a whole and
+shows the `SystemFailure` text in place of the form.
+
+**The correlation ID reaches the person.** Every error response carries the
+request's correlation ID ([Audit](#audit)) in its data. A 500 error also shows
+it, as a separate, less pronounced line under the text: `Hibaazonosító:`
+followed by the ID's first 8 hex digits, which find the audit entries and log
+lines by prefix. Other statuses do not show it: the person can act on them.
+WP-CLI shows it the same way, on 500s only.
+
 - Use cases throw exceptions; the throw triggers the rollback.
 - An exception carries a `WP_Error` (code, Hungarian message, HTTP status), so
   REST, abilities and WP-CLI show it correctly.
@@ -226,6 +287,7 @@ on each other in a circle:
   | `RuleViolation` | 422 | A művelet nem hajtható végre. |
   | `SystemFailure` | 500 | Váratlan hiba történt. Próbáld újra később. |
   | `RetryableFailure` (a `SystemFailure`, retried) | 500 | as `SystemFailure` |
+  | `SiteClosed` (a `SystemFailure`; the load failed, no `Hibaazonosító` line) | 503 | as `SystemFailure` |
 
 - **The UI addresses everyone with tegezés,** in the admin and the portal.
 
@@ -291,6 +353,11 @@ on each other in a circle:
 - **What is audited:** permission refusals, edit conflicts, rule violations
   and system errors. Plain validation failures (a missing or malformed answer,
   shown to the person at once) are not.
+- **System entries:** a failure noticed outside any person's action (an
+  extension contribution starting to fail, changing its error, or recovering)
+  is recorded by a use case run as `SystemActor`, not tied to an event, so it
+  is audited like everything else
+  ([Modules](modules-and-extensions.md#failure-isolation)).
 - **Privacy:** when the privacy tools come ([Deferred](deferred.md)), IP
   address and user agent are declared through WordPress's privacy tools, and
   a privacy erase also scrubs audit diffs. Our own audit trail
@@ -299,17 +366,74 @@ on each other in a circle:
 ## Failures
 
 **Failures are kept on the record they concern; there is no log table.**
+PHP's error log counts as storage, which is why Kaláka has no log table of its
+own.
 
 - A mail delivery keeps its status and latest error.
-- A refund request keeps its status and error.
+- A refund request keeps its status and error, written through its own use
+  cases ([The use-case runner](#the-use-case-runner)).
 - A registration the periodic run cannot evaluate gets an **"evaluation
   failed" flag** naming the rule that failed and its error
   ([Evaluation](#evaluation)). Admins see it as a broken record; the next
   successful evaluation clears it.
-- A failing extension contribution is kept on its extension
+- A failing extension contribution is kept on its extension and shown as a
+  site warning
   ([Modules and extensions](modules-and-extensions.md#failure-isolation)).
 - Interactive failures are shown to the person at once. PHP's error log is
   the last fallback.
+
+### The error log
+
+- **A log line carries the full error:** what failed, the correlation ID, and
+  the whole exception chain, each with its class, code and message (MariaDB's
+  included). It may hold personal data. Our own code still never writes a
+  secret into a log line or into an exception message it makes.
+- **The log is protected and rotated, never scrubbed:** it lives outside the
+  web root and is deleted after 30 days
+  ([Platform](engineering.md#platform)). The audit differs: it is kept for
+  good, so a failed entry holds no input values and no wrapped messages.
+- **One writer:** every line goes through Foundation's error-log writer, in
+  one shape. Nothing else calls `error_log()` (a static check,
+  [Engineering](engineering.md#static-checks)).
+
+### Site warnings
+
+**A standing condition is shown as a site warning: an admin banner, and a
+Site Health test only when the condition is an environment requirement.**
+
+- **The registry:** a module contributes `SiteWarning`s
+  (`Kalaka\Foundation\Api\SiteWarning`). Each has an ID, a check that
+  returns what to show or nothing while all is well, and, for an environment
+  requirement only, its Site Health test.
+- **Checks** write nothing, are cheap (memory, options or a value cached for
+  the request: they run on every admin page) and never throw; each runs
+  through the error boundary.
+- **The boot registers the banners itself,** before any module, so a warning
+  about a failed load shows even when Foundation's own module did not load.
+- **Shown** on every admin page to users who may see Site Health and to users
+  with full access; grant holders see none. When the access check is not
+  available (the load failed), only users who may see Site Health see them.
+- **Two severities:** error (red; a critical Site Health test) and info. They
+  cannot be dismissed, several may show at once, and errors come first. A
+  Hungarian title states the condition; English details may follow,
+  collapsed.
+- **One cause, one warning:** a warning whose cause is another warning's
+  condition stays silent (the periodic run's stall while the load failed or
+  the database refuses writes).
+- **The current warnings:**
+
+  | Condition | Banner | Site Health |
+  |---|---|---|
+  | The load failed ([Modules](modules-and-extensions.md#failure-isolation)) | error | no |
+  | Binary logging with `binlog_format=STATEMENT` ([The use-case runner](#the-use-case-runner)) | error | yes |
+  | The PHP error log lies under the web root ([The error log](#the-error-log)) | error | yes |
+  | The periodic run has stalled, with cron as the cause ([Deferred work](#deferred-work)) | error | yes |
+  | An extension contribution is failing ([Modules](modules-and-extensions.md#failure-isolation)) | error | no |
+  | Mail sending reports errors ([Mail](mail.md#failures)) | error | yes |
+  | Mail sending is paused ([Mail](mail.md#pausing)) | info | no |
+
+  An event's own problems (its reference codes running out) are not site
+  warnings: they show on that event's admin pages.
 
 ## Deferred work
 
@@ -330,14 +454,17 @@ of deferred work gets exactly the guarantee it needs:
 - **The periodic run** comes **every 5 minutes**, matching today's Google
   Sheets system. It evaluates only work that has fallen due over time (late
   fees, scheduled mails, reminders) and retries registrations flagged
-  "evaluation failed", then runs the sender. An admin or WP-CLI can also start
+  "evaluation failed" (once an hour, and on every run an admin or WP-CLI
+  starts), then runs the sender. An admin or WP-CLI can also start
   it at any time; this is safe because every effect is claim-guarded.
 - **Keeping the 5-minute run cheap:** it sweeps only published, non-archived
   events, and time rules query only what became due since the last run.
 - **A real system cron is required,** with WP-Cron as the fallback.
   WordPress core has only WP-Cron, which fires only when `wp-cron.php` runs.
   - A warning shows when the last run is older than 20 minutes, or when no
-    run has completed: an admin notice and a critical Site Health test. 20
+    run has completed: a site warning with a critical Site Health test
+    ([Site warnings](#site-warnings)). It shows only when cron is the cause,
+    not while the load failed or the database refuses writes. 20
     minutes is longer than the lock's 15-minute expiry, so a lock left by a
     crash is taken over before the warning shows.
   - A lock keeps two runs from overlapping.
@@ -374,7 +501,9 @@ registration's decisions, money and mail up to date with its facts.
 - **Failure:** any rule failure rolls back the whole use case, or, in the
   periodic run, just that registration. The run then sets the "evaluation
   failed" flag ([Failures](#failures)) in a small transaction of its own,
-  naming the rule, and moves on to the next registration.
+  naming the rule, and moves on to the next registration. A repeat of the
+  same failure (the same rule and the same error) leaves the flag as it is,
+  so the flag tells when it first failed.
 
 ## Facts, decisions and computed values
 
@@ -424,7 +553,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 | **Time** | Stored in UTC, every stored instant as a `datetime(6)` column; displayed and computed in the site's WordPress time zone, never a fixed zone. A deadline ends at midnight in the site's time zone. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
 | **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are carried by the grant, usable inside that grant's view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the list of actions and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase, covering registrations, presets and audit diffs, are deferred until a wide release ([Deferred](deferred.md)). Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
-| **Secret links** | Treated as secrets: never logged, masked in exports ([Registrations](registrations-and-identity.md#access)) |
+| **Secret links** | Treated as secrets: our own code never writes one into a log line or an exception message, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns ([Engineering](engineering.md#database)) |
 | **Language** | Hungarian UI strings directly in code; English identifiers and comments |
