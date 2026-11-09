@@ -368,8 +368,13 @@ final class AuditFailureTest extends AuditTestCase
         $lines = $this->auditLines($log);
         self::assertCount(1, $lines);
         self::assertStringContainsString(
-            'Kaláka: audit entry not written: kalaka/probe failed with kalaka_rule_violation, correlation '
-            . Correlation::id() . ': ' . SystemFailure::class . ' <- RuntimeException (1064)',
+            'Kaláka: kalaka/probe failed, correlation ' . Correlation::id() . ': ' . RuleViolation::class
+            . ' (0): A művelet nem hajtható végre. Eredeti.; audit entry not written: ' . SystemFailure::class
+            . ' (0): ',
+            $lines[0]
+        );
+        self::assertStringContainsString(
+            ' <- RuntimeException (1064): Database error 1064: ',
             $lines[0]
         );
         self::assertCount(1, array_filter(explode("\n", trim($log))), 'Nothing else is logged.');
@@ -397,6 +402,6 @@ final class AuditFailureTest extends AuditTestCase
         self::assertSame(SystemFailure::class, $caught::class);
         self::assertSame([], $this->rows());
         self::assertCount(1, $this->auditLines($log));
-        self::assertStringContainsString('failed with kalaka_system_failure', $log);
+        self::assertStringContainsString(': ' . SystemFailure::class . ' (0): ', $this->auditLines($log)[0]);
     }
 }

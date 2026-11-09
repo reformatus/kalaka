@@ -9,9 +9,9 @@ use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Api\Error\KalakaException;
 
 /**
- * What a failed entry stores about the error (decision D6) and the one line the error log gets
- * when even that cannot be written (decision D13). Messages of previous exceptions are never
- * used: MariaDB's message can carry row values or a secret, and a wrapped exception's is not ours.
+ * What a failed entry stores about the error (decision D6). Messages of previous exceptions are
+ * never stored: MariaDB's message can carry row values, and the audit is kept for good; the error
+ * log, which is rotated, carries them (`Foundation\ErrorLog`).
  *
  * @internal
  */
@@ -47,22 +47,6 @@ final class ErrorRecord
         }
 
         return $json;
-    }
-
-    /** No message, input, reason, IP address or user agent: only class names and numbers. */
-    public static function fallbackLine(
-        string $action,
-        string $errorCode,
-        string $correlationId,
-        \Throwable $writeError,
-    ): string {
-        $line = 'Kaláka: audit entry not written: ' . $action . ' failed with ' . $errorCode
-            . ', correlation ' . $correlationId . ': ' . $writeError::class;
-        for ($cause = $writeError->getPrevious(); $cause !== null; $cause = $cause->getPrevious()) {
-            $line .= ' <- ' . $cause::class . ' (' . $cause->getCode() . ')';
-        }
-
-        return $line;
     }
 
     /**

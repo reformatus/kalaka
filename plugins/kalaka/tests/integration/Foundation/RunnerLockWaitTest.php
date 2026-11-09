@@ -116,7 +116,8 @@ final class RunnerLockWaitTest extends RealTableTestCase
         self::assertSame(2, $useCase->calls);
         self::assertFalse($failOnce);
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the test's own log file
-        self::assertStringContainsString('lock-wait timeout not restored', (string) file_get_contents($log));
+        $written = (string) file_get_contents($log);
+        self::assertStringContainsString('Kaláka: restoring the lock-wait timeout failed, correlation ', $written);
         self::assertSame(20, $this->statements->lockWaitTimeout());
         wp_delete_file($log);
     }

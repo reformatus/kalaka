@@ -33,7 +33,7 @@ final class SchemaUpgrader
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         $lock = $this->lockName($module);
         if (!\WP_Upgrader::create_lock($lock, self::LOCK_TTL)) {
-            throw new \RuntimeException('Schema upgrade in progress.');
+            throw new UpgradeInProgress('Schema upgrade in progress.');
         }
 
         try {

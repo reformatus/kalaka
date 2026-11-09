@@ -13,8 +13,19 @@ use Kalaka\Foundation\Api\LoadState;
  */
 final class Boot
 {
+    /** The WP option holding the fingerprint of the load failures last logged. */
+    public const FAILURE_OPTION = 'kalaka_load_failure';
+
     /** @var list<LoadFailure> */
     private array $failures = [];
+
+    /**
+     * What each failure is logged with: the exception, if one was caught; none for a schema
+     * upgrade another request is running, which closes this request but is not logged.
+     *
+     * @var list<array{LoadFailure, ?\Throwable}>
+     */
+    private array $logged = [];
 
     /** @param list<Api\Module\Module> $coreModules in boot order */
     public function __construct(private readonly array $coreModules)
@@ -31,7 +42,7 @@ final class Boot
         try {
             do_action('kalaka_register_modules', $set);
         } catch (\Throwable $e) {
-            $this->fail('kalaka_register_modules', $e->getMessage());
+            $this->fail('kalaka_register_modules', $e->getMessage(), $e);
         }
 
         $modules = [];
@@ -48,7 +59,7 @@ final class Boot
                 $upgrader->upgrade($module);
                 $upgraded[] = $module;
             } catch (\Throwable $e) {
-                $this->fail($module->id(), $e->getMessage());
+                $this->fail($module->id(), $e->getMessage(), $e);
             }
         }
 
@@ -58,7 +69,7 @@ final class Boot
                 $module->contribute($contributions);
                 $module->boot();
             } catch (\Throwable $e) {
-                $this->fail($module->id(), $e->getMessage());
+                $this->fail($module->id(), $e->getMessage(), $e);
             }
         }
 
@@ -72,6 +83,7 @@ final class Boot
             $this->fail($failure->moduleId, $failure->reason);
         }
 
+        $this->logOnChange();
         LoadState::record($this->failures);
     }
 
@@ -89,15 +101,51 @@ final class Boot
             }
             $this->fail($module->id(), 'Requires API ' . $module->requiresApi() . ', core is ' . KALAKA_VERSION . '.');
         } catch (\Throwable $e) {
-            $this->fail($module->id(), $e->getMessage());
+            $this->fail($module->id(), $e->getMessage(), $e);
         }
 
         return false;
     }
 
-    private function fail(string $moduleId, string $reason): void
+    private function fail(string $moduleId, string $reason, ?\Throwable $error = null): void
     {
-        $this->failures[] = new LoadFailure($moduleId, $reason);
-        error_log('Kaláka: module ' . $moduleId . ' not loaded: ' . $reason);
+        $failure = new LoadFailure($moduleId, $reason);
+        $this->failures[] = $failure;
+        if (!$error instanceof UpgradeInProgress) {
+            $this->logged[] = [$failure, $error];
+        }
+    }
+
+    /**
+     * Logs the load failures only when they start or change, so a failure that lasts does not
+     * write a line on every request; a clean load forgets them. A request that only found another
+     * request upgrading the schema neither logs nor forgets.
+     */
+    private function logOnChange(): void
+    {
+        if ($this->logged === []) {
+            if ($this->failures === [] && get_option(self::FAILURE_OPTION) !== false) {
+                delete_option(self::FAILURE_OPTION);
+            }
+
+            return;
+        }
+
+        $fingerprint = md5((string) wp_json_encode(array_map(
+            static fn (array $entry): array => [$entry[0]->moduleId, $entry[0]->reason],
+            $this->logged,
+        )));
+        if (get_option(self::FAILURE_OPTION) === $fingerprint) {
+            return;
+        }
+
+        foreach ($this->logged as [$failure, $error]) {
+            if ($error !== null) {
+                ErrorLog::failure('loading module ' . $failure->moduleId, $error);
+            } else {
+                ErrorLog::notice('module ' . $failure->moduleId . ' not loaded: ' . $failure->reason);
+            }
+        }
+        update_option(self::FAILURE_OPTION, $fingerprint, true);
     }
 }

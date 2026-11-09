@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Boot;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Seed\Seed;
 use Kalaka\Foundation\Seed\SeedFailure;
@@ -69,6 +70,7 @@ final class SchemaDropTest extends RealTableTestCase
             . "VALUES (1, 'A', 1, 'r', 'e', '2026-11-10 12:00:00')"
         );
         self::assertSame(1, $this->rows('kalaka_evaluation_failures'));
+        update_option(Boot::FAILURE_OPTION, 'stale', true);
 
         (new SchemaDrop(SeedTestCase::modulesForTests()))->run();
 
@@ -87,6 +89,7 @@ final class SchemaDropTest extends RealTableTestCase
         foreach (SeedTestCase::modulesForTests() as $module) {
             self::assertSame($module->schema()->version, (int) get_option('kalaka_schema_' . $module->id(), 0));
         }
+        self::assertFalse(get_option(Boot::FAILURE_OPTION));
         self::assertSame(1, $this->rows('kalaka_test_undeclared'));
         self::assertSame($users, (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->users}"));
     }

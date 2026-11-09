@@ -21,6 +21,7 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\ErrorLog;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\LockKey;
 use Kalaka\Foundation\ObjectCache;
@@ -149,7 +150,7 @@ final class Runner
             try {
                 $step();
             } catch (\Throwable $e) {
-                error_log('Kaláka: after-commit step of ' . $name . ' failed: ' . $e::class . ': ' . $e->getMessage());
+                ErrorLog::failure('after-commit step of ' . $name, $e);
             }
         }
 
@@ -314,7 +315,7 @@ final class Runner
         try {
             $this->statements->setLockWaitTimeout($seconds);
         } catch (\Throwable $e) {
-            error_log('Kaláka: lock-wait timeout not restored: ' . ($e->getPrevious() ?? $e)->getMessage());
+            ErrorLog::failure('restoring the lock-wait timeout', $e);
         }
     }
 
@@ -331,17 +332,16 @@ final class Runner
         }
         if ($trace->foreignTransaction) {
             // Beginning the entry's own transaction would commit someone else's open work: the error log only.
-            error_log(ErrorRecord::fallbackLine($useCase::name(), $error->errorCode(), Correlation::id(), $error));
+            ErrorLog::failure(
+                $useCase::name(),
+                $error,
+                'audit entry not written: a transaction another plugin left open',
+            );
 
             return;
         }
         if ($trace->rollbackFailure !== null) {
-            error_log(ErrorRecord::fallbackLine(
-                $useCase::name(),
-                $error->errorCode(),
-                Correlation::id(),
-                $trace->rollbackFailure,
-            ));
+            ErrorLog::failure($useCase::name(), $error, 'audit entry not written: the rollback failed');
 
             return;
         }
@@ -377,7 +377,11 @@ final class Runner
                 throw $writeError;
             }
         } catch (\Throwable $writeError) {
-            error_log(ErrorRecord::fallbackLine($useCase::name(), $error->errorCode(), Correlation::id(), $writeError));
+            ErrorLog::failure(
+                $useCase::name(),
+                $error,
+                'audit entry not written: ' . ErrorLog::chain($writeError),
+            );
         }
     }
 
@@ -398,7 +402,7 @@ final class Runner
                 $this->statements->rollback();
             }
         } catch (\Throwable $e) {
-            error_log('Kaláka: rollback failed: ' . ($e->getPrevious() ?? $e)->getMessage());
+            ErrorLog::failure('rollback', $e);
             if ($this->insideOpenTransaction || !$this->reconnect()) {
                 $trace->rollbackFailure = $e;
             }

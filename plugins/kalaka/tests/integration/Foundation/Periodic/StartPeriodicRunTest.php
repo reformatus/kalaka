@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Foundation\Periodic;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
@@ -76,5 +77,34 @@ final class StartPeriodicRunTest extends PeriodicTestCase
         $this->expectException(InvalidInput::class);
 
         $this->exec(new StartPeriodicRun(), ['x' => 1]);
+    }
+
+    public function testASchedulingErrorIsLoggedAndTheUseCaseStillSucceeds(): void
+    {
+        add_filter('pre_schedule_event', static fn (): \WP_Error => new \WP_Error('test_failure', 'cron is broken'));
+
+        $result = 'not run';
+        $log = $this->capturedErrorLog(function () use (&$result): void {
+            $result = $this->exec(new StartPeriodicRun(), []);
+        });
+
+        self::assertNull($result);
+        self::assertStringContainsString(
+            'Kaláka: after-commit step of kalaka/start-periodic-run failed, correlation ' . Correlation::id()
+            . ': RuntimeException (0): WP-Cron scheduling failed: test_failure: cron is broken',
+            $log
+        );
+    }
+
+    public function testAnAlreadyScheduledRunCountsAsSuccessAndLogsNothing(): void
+    {
+        $this->exec(new StartPeriodicRun(), []);
+
+        $log = $this->capturedErrorLog(function (): void {
+            $this->exec(new StartPeriodicRun(), []);
+        });
+
+        self::assertSame('', $log);
+        self::assertSame(1, $this->scheduledCount());
     }
 }

@@ -81,8 +81,8 @@ final class RunnerReconnectTest extends RealTableTestCase
         self::assertSame(\RuntimeException::class, $error['previous'][0]['class']);
         self::assertSame(2006, $error['previous'][0]['code']);
 
-        $line = 'Kaláka: reconnect inside kalaka/probe (correlation ' . Correlation::id()
-            . '); the statement wpdb re-sent may have committed on its own.';
+        $line = 'Kaláka: reconnect inside kalaka/probe; the statement wpdb re-sent may have committed on its own,'
+            . ' correlation ' . Correlation::id();
         self::assertSame(4, substr_count($log, $line));
         // The runner's own rollback, on the new connection, is not taken for a reconnect.
         self::assertStringNotContainsString('rollback failed', $log);
@@ -141,7 +141,7 @@ final class RunnerReconnectTest extends RealTableTestCase
         self::assertSame('done', $result);
         self::assertSame(1, $useCase->calls);
         self::assertSame(1, $this->reconnects);
-        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe (correlation '));
+        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe; '));
         global $wpdb;
         self::assertSame('0', $wpdb->get_var('SELECT @@in_transaction'));
         $next = new AdminProbe(static fn (): string => 'again');
@@ -180,7 +180,7 @@ final class RunnerReconnectTest extends RealTableTestCase
         self::assertSame(['written 1'], $this->rowsSeenBy($this->secondConnection()));
         self::assertCount(1, $this->succeededEntries());
         self::assertSame([], $this->failedEntries());
-        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe (correlation '));
+        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe; '));
     }
 
     public function testAReconnectBeforeAnInsertEndsTheAttemptRightAfterItAndTheRetrySucceeds(): void
@@ -211,7 +211,7 @@ final class RunnerReconnectTest extends RealTableTestCase
         self::assertSame([2], $reached);
         // The insert wpdb re-sent ran alone on the new connection and committed on its own.
         self::assertSame(['first 1', 'first 2', 'second 2'], $this->rowsSeenBy($this->secondConnection()));
-        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe (correlation '));
+        self::assertSame(1, substr_count($log, 'Kaláka: reconnect inside kalaka/probe; '));
     }
 
     public function testACaughtReconnectIsTheRunsFailureTheContextRefusesWritesAndTheRunIsRetried(): void

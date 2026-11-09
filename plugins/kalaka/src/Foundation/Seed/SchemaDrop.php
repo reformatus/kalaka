@@ -6,13 +6,15 @@ namespace Kalaka\Foundation\Seed;
 
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Module\Module;
+use Kalaka\Foundation\Boot;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\SchemaUpgrader;
 
 /**
  * The development drop: drops the tables each module declares in its `Schema` and its
- * `kalaka_schema_<id>` option, then recreates every schema through the upgrader. It never drops a
- * table no module declares and touches no other WordPress data. modules-and-extensions.md, "Schema ownership".
+ * `kalaka_schema_<id>` option, clears the boot's `kalaka_load_failure` record, then recreates every
+ * schema through the upgrader. It never drops a table no module declares and touches no other
+ * WordPress data. modules-and-extensions.md, "Schema ownership".
  */
 final class SchemaDrop
 {
@@ -53,6 +55,7 @@ final class SchemaDrop
             delete_option($this->upgrader->versionOption($module));
             \WP_Upgrader::release_lock($this->upgrader->lockName($module));
         }
+        delete_option(Boot::FAILURE_OPTION);
 
         foreach ($this->modules as $module) {
             try {
