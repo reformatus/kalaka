@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Database\Statements;
 
 /**
@@ -63,7 +64,7 @@ final class AuditWriter
         return $this->statements->insert($this->statements->prefixed('kalaka_audit_entries'), [
             'parent_id' => $parentId,
             'correlation_id' => Correlation::id(),
-            'occurred_at' => $entry->occurredAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+            'occurred_at' => Instant::toStorage($entry->occurredAt),
             'side' => $entry->side->value,
             'actor_type' => $actor->type(),
             'actor_user_id' => $actor instanceof UserActor || $actor instanceof AccountActor

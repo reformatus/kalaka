@@ -8,7 +8,7 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;
 
-/** AC7, AC8 and AC11: the registration window is computed on every read. */
+/** AC6: the registration window is computed on every read. */
 final class RegistrationWindowTest extends EventsTestCase
 {
     /** @return iterable<string, array{string}> */
@@ -20,17 +20,17 @@ final class RegistrationWindowTest extends EventsTestCase
     }
 
     /** @dataProvider zones */
-    public function testAPublishedEventIsOpenFromMidnightOfTheOpeningDayToMidnightAfterTheClosingDay(string $zone): void
+    public function testAPublishedEventIsOpenFromTheOpeningInstantUpToButNotTheClosingInstant(string $zone): void
     {
         update_option('timezone_string', $zone);
         $id = $this->published();
         $event = $this->events->find($id);
         self::assertNotNull($event);
 
-        self::assertFalse($event->registrationWindowContains($this->local('2026-11-29 23:59:59', $zone)));
-        self::assertTrue($event->registrationWindowContains($this->local('2026-11-30 00:00:00', $zone)));
-        self::assertTrue($event->registrationWindowContains($this->local('2026-12-15 23:59:59', $zone)));
-        self::assertFalse($event->registrationWindowContains($this->local('2026-12-16 00:00:00', $zone)));
+        self::assertFalse($event->registrationWindowContains($this->local('2026-11-30 07:59:59', $zone)));
+        self::assertTrue($event->registrationWindowContains($this->local('2026-11-30 08:00:00', $zone)));
+        self::assertTrue($event->registrationWindowContains($this->local('2026-12-15 19:59:59', $zone)));
+        self::assertFalse($event->registrationWindowContains($this->local('2026-12-15 20:00:00', $zone)));
     }
 
     public function testTheMomentIsComparedAsAnInstantWhateverZoneItIsGivenIn(): void
@@ -39,8 +39,8 @@ final class RegistrationWindowTest extends EventsTestCase
         $event = $this->events->find($id);
         self::assertNotNull($event);
 
-        self::assertTrue($event->registrationWindowContains($this->local('2026-11-29 23:00:00', 'UTC')));
-        self::assertFalse($event->registrationWindowContains($this->local('2026-11-29 22:59:59', 'UTC')));
+        self::assertTrue($event->registrationWindowContains($this->local('2026-11-30 07:00:00', 'UTC')));
+        self::assertFalse($event->registrationWindowContains($this->local('2026-11-30 06:59:59', 'UTC')));
     }
 
     public function testADraftOrAnUnpublishedEventInsideTheWindowIsNotOpen(): void

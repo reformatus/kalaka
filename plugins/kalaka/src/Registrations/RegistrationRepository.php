@@ -6,6 +6,7 @@ namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -90,11 +91,11 @@ final class RegistrationRepository extends EntityRepository
     /** UTC, as the `datetime(6)` column returns it. */
     private static function stored(\DateTimeImmutable $time): string
     {
-        return $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+        return Instant::toStorage($time);
     }
 
     private static function instant(string $stored): \DateTimeImmutable
     {
-        return new \DateTimeImmutable($stored, new \DateTimeZone('UTC'));
+        return Instant::fromStorage($stored);
     }
 }

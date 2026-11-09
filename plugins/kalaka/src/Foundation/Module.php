@@ -40,7 +40,7 @@ CREATE TABLE {prefix}kalaka_audit_entries (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   parent_id bigint(20) unsigned DEFAULT NULL,
   correlation_id varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  occurred_at datetime NOT NULL,
+  occurred_at datetime(6) NOT NULL,
   side varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   actor_type varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   actor_user_id bigint(20) unsigned DEFAULT NULL,
@@ -122,7 +122,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(2, [self::AUDIT_ENTRIES, self::AUDIT_SUBJECTS, self::DECISIONS, self::EVALUATION_FAILURES]);
+        return new Schema(3, [self::AUDIT_ENTRIES, self::AUDIT_SUBJECTS, self::DECISIONS, self::EVALUATION_FAILURES]);
     }
 
     /**

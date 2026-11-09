@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Registrations\Api\RegistrationKey;
 
-/** One stored ledger line; the paid time and the recording time are in UTC. */
+/** One stored ledger line; the value date, the paid time and the recording time are UTC instants. */
 final readonly class LedgerLine
 {
     public function __construct(
@@ -19,7 +19,7 @@ final readonly class LedgerLine
         public Money $amount,
         public Subject $source,
         public string $idempotencyKey,
-        public ?string $valueDate,
+        public ?\DateTimeImmutable $valueDate,
         public ?\DateTimeImmutable $paidAt,
         public \DateTimeImmutable $recordedAt,
     ) {

@@ -92,10 +92,10 @@ abstract class PeriodicTestCase extends EvaluationTestCase
             'version' => $this->eventVersion($id),
             'name' => 'Tábor',
             'capacity' => 41,
-            'registration_opens_on' => '2026-11-30',
-            'registration_closes_on' => '2026-12-15',
-            'starts_on' => '2027-07-05',
-            'ends_on' => '2027-07-12',
+            'registration_opens_at' => '2026-11-30 08:00',
+            'registration_closes_at' => '2026-12-15 20:00',
+            'starts_at' => '2027-07-05 10:00',
+            'ends_at' => '2027-07-12 14:00',
             'points' => [],
         ]);
         $steps = match ($state) {

@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Module\Schema;
 final class Module extends AbstractModule
 {
     /**
-     * events-and-forms.md, "Events". Points are zone-free `date` columns; the custom points are
+     * events-and-forms.md, "Events". Points are UTC `datetime(6)` columns; the custom points are
      * JSON in `points`, a `longtext` for the same reason as the audit's JSON columns. `currency` is the
      * event's `Currency` code.
      */
@@ -25,13 +25,13 @@ CREATE TABLE {prefix}kalaka_events (
   currency char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
   capacity int(10) unsigned DEFAULT NULL,
   is_full tinyint(1) NOT NULL DEFAULT 0,
-  registration_opens_on date DEFAULT NULL,
-  registration_closes_on date DEFAULT NULL,
-  starts_on date DEFAULT NULL,
-  ends_on date DEFAULT NULL,
+  registration_opens_at datetime(6) DEFAULT NULL,
+  registration_closes_at datetime(6) DEFAULT NULL,
+  starts_at datetime(6) DEFAULT NULL,
+  ends_at datetime(6) DEFAULT NULL,
   points longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   next_point_id int(10) unsigned NOT NULL DEFAULT 1,
-  archived_at datetime DEFAULT NULL,
+  archived_at datetime(6) DEFAULT NULL,
   PRIMARY KEY  (id),
   KEY state (state)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
@@ -49,7 +49,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::EVENTS]);
+        return new Schema(2, [self::EVENTS]);
     }
 
     public function contribute(Contributions $to): void

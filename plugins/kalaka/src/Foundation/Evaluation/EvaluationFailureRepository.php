@@ -6,6 +6,7 @@ namespace Kalaka\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -43,7 +44,7 @@ final class EvaluationFailureRepository extends EntityRepository
             'version' => $entity->version,
             'rule' => $entity->rule,
             'error' => $entity->error,
-            'failed_at' => $entity->failedAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
+            'failed_at' => Instant::toStorage($entity->failedAt),
         ];
     }
 
@@ -53,7 +54,7 @@ final class EvaluationFailureRepository extends EntityRepository
             new RegistrationKey((int) $row['event_id'], (string) $row['code']),
             (string) $row['rule'],
             (string) $row['error'],
-            new \DateTimeImmutable((string) $row['failed_at'], new \DateTimeZone('UTC')),
+            Instant::fromStorage((string) $row['failed_at']),
             (int) $row['version'],
         );
     }

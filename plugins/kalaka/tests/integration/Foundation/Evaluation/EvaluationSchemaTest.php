@@ -14,7 +14,7 @@ final class EvaluationSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(2, (int) get_option('kalaka_schema_foundation'));
+        self::assertSame(3, (int) get_option('kalaka_schema_foundation'));
         self::assertSame([], LoadState::current()->failures);
 
         $expected = [

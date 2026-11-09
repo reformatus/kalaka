@@ -6,6 +6,7 @@ namespace Kalaka\Foundation\Decision;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Query\Query;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /** Reads the decisions of one registration. */
@@ -25,15 +26,14 @@ final class DecisionQuery extends Query
                 [$this->table('kalaka_decisions'), $registration->eventId, $registration->code]
             );
 
-            $utc = new \DateTimeZone('UTC');
             $current = [];
             foreach ($rows as $row) {
                 $kind = (string) $row['kind'];
                 $current[$kind] = new Decision(
                     $kind,
                     (string) $row['state'],
-                    new \DateTimeImmutable((string) $row['effective_at'], $utc),
-                    new \DateTimeImmutable((string) $row['recorded_at'], $utc),
+                    Instant::fromStorage((string) $row['effective_at']),
+                    Instant::fromStorage((string) $row['recorded_at']),
                     new Subject(
                         (string) $row['cause_type'],
                         $row['cause_event_id'] === null ? null : (int) $row['cause_event_id'],
