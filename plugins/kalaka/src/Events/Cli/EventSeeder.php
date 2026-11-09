@@ -14,7 +14,8 @@ use Kalaka\Foundation\Api\Seed\Seeding;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 
 /**
- * Five sample events, one in each place of the lifecycle, with every date relative to the seed day.
+ * Five sample events, one in each place of the lifecycle, with every point at a local time on a day
+ * relative to the seed day.
  * These names are seed data, not UI strings.
  */
 final class EventSeeder implements Seeder
@@ -22,23 +23,24 @@ final class EventSeeder implements Seeder
     public function seed(Seeding $seeding): void
     {
         $today = $seeding->today();
-        $day = static fn (int $offset): string => $today->modify(sprintf('%+d days', $offset))->format('Y-m-d');
+        $at = static fn (int $offset, string $time): string
+            => $today->modify(sprintf('%+d days', $offset))->format('Y-m-d') . ' ' . $time;
 
         $this->event($seeding, 'Nyári tábor', [
             'capacity' => 40,
-            'registration_opens_on' => $day(-14),
-            'registration_closes_on' => $day(30),
-            'starts_on' => $day(60),
-            'ends_on' => $day(66),
-            'points' => [['name' => 'Előleg határideje', 'date' => $day(21)]],
+            'registration_opens_at' => $at(-14, '08:00'),
+            'registration_closes_at' => $at(30, '20:00'),
+            'starts_at' => $at(60, '10:00'),
+            'ends_at' => $at(66, '14:00'),
+            'points' => [['name' => 'Előleg határideje', 'at' => $at(21, '20:00')]],
         ], [new PublishEvent()]);
 
         $this->event($seeding, 'Őszi hétvége', [
             'capacity' => 25,
-            'registration_opens_on' => $day(30),
-            'registration_closes_on' => $day(60),
-            'starts_on' => $day(75),
-            'ends_on' => $day(77),
+            'registration_opens_at' => $at(30, '08:00'),
+            'registration_closes_at' => $at(60, '20:00'),
+            'starts_at' => $at(75, '10:00'),
+            'ends_at' => $at(77, '14:00'),
             'points' => [],
         ], [new PublishEvent()]);
 
@@ -46,19 +48,19 @@ final class EventSeeder implements Seeder
 
         $this->event($seeding, 'Tavaszi találkozó', [
             'capacity' => 30,
-            'registration_opens_on' => $day(-90),
-            'registration_closes_on' => $day(-60),
-            'starts_on' => $day(-45),
-            'ends_on' => $day(-44),
+            'registration_opens_at' => $at(-90, '08:00'),
+            'registration_closes_at' => $at(-60, '20:00'),
+            'starts_at' => $at(-45, '10:00'),
+            'ends_at' => $at(-44, '14:00'),
             'points' => [],
         ], [new PublishEvent(), new UnpublishEvent()]);
 
         $this->event($seeding, 'Tavalyi nyári tábor', [
             'capacity' => 50,
-            'registration_opens_on' => $day(-420),
-            'registration_closes_on' => $day(-380),
-            'starts_on' => $day(-360),
-            'ends_on' => $day(-354),
+            'registration_opens_at' => $at(-420, '08:00'),
+            'registration_closes_at' => $at(-380, '20:00'),
+            'starts_at' => $at(-360, '10:00'),
+            'ends_at' => $at(-354, '14:00'),
             'points' => [],
         ], [new PublishEvent(), new UnpublishEvent(), new ArchiveEvent()]);
     }

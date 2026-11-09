@@ -62,10 +62,10 @@ final class PublishEvent implements AdminUseCase
         if (
             $record->name === ''
             || $record->capacity === null
-            || $record->registrationOpensOn === null
-            || $record->registrationClosesOn === null
-            || $record->startsOn === null
-            || $record->endsOn === null
+            || $record->registrationOpensAt === null
+            || $record->registrationClosesAt === null
+            || $record->startsAt === null
+            || $record->endsAt === null
         ) {
             throw new RuleViolation();
         }

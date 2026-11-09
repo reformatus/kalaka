@@ -2,7 +2,7 @@
 
 Events, states, timeline points, capacity and the "full" latch. Date types belong to Events. Later: the participant phase tracker.
 
-Table, created by the schema in `Module.php`: `kalaka_events` (the core points are `date` columns, the custom points are JSON in `points`, `currency` is the event's currency code; `CreateEvent` stores `HUF`); only `EventRepository` writes it.
+Table, created by the schema in `Module.php`: `kalaka_events` (the core points `registration_opens_at`, `registration_closes_at`, `starts_at` and `ends_at` are UTC `datetime(6)` columns, the custom points are JSON in `points` with `at` in UTC, `currency` is the event's currency code; `CreateEvent` stores `HUF`); only `EventRepository` writes it.
 
 At the root: `EventRecord` (the stored event), `EventRepository`, `EventQuery` (the published events, for the periodic run's sweep), and the admin use cases `CreateEvent`, `UpdateEvent`, `PublishEvent`, `UnpublishEvent`, `ArchiveEvent` and `ReopenEvent` (`kalaka/create-event`, `kalaka/update-event`, `kalaka/publish-event`, `kalaka/unpublish-event`, `kalaka/archive-event`, `kalaka/reopen-event`; all need full access).
 
