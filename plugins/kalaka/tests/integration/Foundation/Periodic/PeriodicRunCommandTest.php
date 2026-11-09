@@ -6,7 +6,7 @@ namespace Kalaka\Tests\Integration\Foundation\Periodic;
 
 use Kalaka\Foundation\Cli\PeriodicRunCommand;
 
-/** AC10: the command's wiring; the real command is run in wp-env. */
+/** AC9: the command's wiring; the real command is run in wp-env. */
 final class PeriodicRunCommandTest extends PeriodicTestCase
 {
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
@@ -30,7 +30,28 @@ final class PeriodicRunCommandTest extends PeriodicTestCase
 
         (new PeriodicRunCommand($this->periodicRun()))([], []);
 
-        self::assertSame([['success', 'Evaluated 2 registrations, 0 failed.']], \WP_CLI::$calls);
+        self::assertSame(
+            [['success', 'Evaluated 2 registrations, 0 failed, 0 skipped; 0 time rule checks failed.']],
+            \WP_CLI::$calls
+        );
+    }
+
+    public function testTheLineCountsAFailedTimeRuleCheck(): void
+    {
+        $event = $this->eventIn('published');
+        $this->seedFlag($event, '00A0');
+        $this->timeRules->add(new SpyTimeRule(static function (): array {
+            throw new \RuntimeException('rule failed');
+        }));
+
+        $this->capturedErrorLog(function (): void {
+            (new PeriodicRunCommand($this->periodicRun()))([], []);
+        });
+
+        self::assertSame(
+            [['success', 'Evaluated 1 registrations, 0 failed, 0 skipped; 1 time rule checks failed.']],
+            \WP_CLI::$calls
+        );
     }
 
     public function testAHeldLockIsAnErrorWithExitCodeOneAndNothingIsEvaluated(): void

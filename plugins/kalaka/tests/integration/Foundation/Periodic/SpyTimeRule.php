@@ -14,9 +14,19 @@ final class SpyTimeRule implements TimeRule
     /** @var list<TimeRuleInput> */
     public array $inputs = [];
 
+    private static int $count = 0;
+
+    private readonly string $name;
+
     /** @param \Closure(TimeRuleInput): list<RegistrationKey> $answer */
-    public function __construct(private readonly \Closure $answer)
+    public function __construct(private readonly \Closure $answer, ?string $name = null)
     {
+        $this->name = $name ?? 'spy-' . ++self::$count;
+    }
+
+    public function name(): string
+    {
+        return $this->name;
     }
 
     /** A rule that names the same registration codes in every event it is asked about. */

@@ -32,6 +32,7 @@ final class PeriodicRunCommand
                 . 'or the database refuses writes (binlog_format=STATEMENT, see Site Health).');
         }
 
-        \WP_CLI::success('Evaluated ' . $report->evaluated . ' registrations, ' . $report->failed . ' failed.');
+        \WP_CLI::success('Evaluated ' . $report->evaluated . ' registrations, ' . $report->failed . ' failed, '
+            . $report->skipped . ' skipped; ' . $report->timeRulesFailed . ' time rule checks failed.');
     }
 }

@@ -83,15 +83,25 @@ final class PeriodicScheduleTest extends PeriodicTestCase
     public function testAThrowingRunIsLoggedWithoutAMessageAndTheHandlerReturns(): void
     {
         $this->eventIn('published');
-        $this->timeRules->add(new SpyTimeRule(static function (): array {
-            throw new \RuntimeException('secret rule message');
-        }));
+        // A failing time rule is isolated to its rule and event (#41), so the run fails on the flag query instead.
+        $throw = static function (string $query): string {
+            if (str_contains($query, 'kalaka_evaluation_failures')) {
+                throw new \RuntimeException('secret rule message');
+            }
+
+            return $query;
+        };
         $this->schedule()->register(fn () => $this->periodicRun()->run());
 
         foreach (['kalaka_periodic_run', 'kalaka_periodic_run_now'] as $hook) {
-            $log = $this->capturedErrorLog(static function () use ($hook): void {
-                do_action($hook);
-            });
+            add_filter('query', $throw);
+            try {
+                $log = $this->capturedErrorLog(static function () use ($hook): void {
+                    do_action($hook);
+                });
+            } finally {
+                remove_filter('query', $throw);
+            }
 
             self::assertSame(
                 'Kaláka: periodic run failed: ' . \RuntimeException::class . ', correlation ' . Correlation::id(),
