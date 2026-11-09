@@ -29,6 +29,9 @@ final class PeriodicRun
      */
     public const FAILURE_OPTION = 'kalaka_periodic_run_failure';
 
+    /** The windows the run missed: "<rule name>|<event id>" => the window's `since` ('' for none). */
+    public const MISSED_OPTION = 'kalaka_periodic_run_missed';
+
     private const LOCK = 'kalaka_periodic_run';
 
     private const LOCK_TTL = 900;
@@ -48,7 +51,8 @@ final class PeriodicRun
     /**
      * @return ?PeriodicRunReport null when the run did not happen: the site is closed, the database refuses writes
      *                            (`BinlogCheck`) or another run holds the lock
-     * @throws \Throwable whatever a time rule or a query throws; the run ends and writes no last-run time
+     * @throws \Throwable whatever the event or flag queries throw; the run ends and writes no last-run time.
+     *         A time rule that throws is isolated to its rule and event; its window is kept for the next run.
      */
     public function run(): ?PeriodicRunReport
     {
@@ -76,11 +80,32 @@ final class PeriodicRun
     {
         $events = $this->events->published();
 
+        $kept = $this->missed();
+        $missed = [];
+        $ruleFailures = 0;
         $due = [];
+        $windows = [];
+        $pairsOf = [];
         foreach ($events as $event) {
             foreach ($this->rules->all() as $rule) {
-                foreach ($rule->due(new TimeRuleInput($event, $since, $until)) as $key) {
+                $pair = $rule->name() . '|' . $event->id;
+                $from = $since;
+                if (isset($kept[$pair])) {
+                    $from = $kept[$pair] === '' ? null : (self::parseLastRun($kept[$pair]) ?? $since);
+                }
+                try {
+                    $names = $rule->due(new TimeRuleInput($event, $from, $until));
+                } catch (\Throwable $e) {
+                    $ruleFailures++;
+                    $missed[$pair] = $from?->format(self::TIME_FORMAT) ?? '';
+                    // [UNAPPROVED N2] the full exception chain, as every error-log line
+                    ErrorLog::failure('time rule ' . $rule->name() . ' for event ' . $event->id, $e);
+                    continue;
+                }
+                $windows[$pair] = $from?->format(self::TIME_FORMAT) ?? '';
+                foreach ($names as $key) {
                     $due[self::identity($key)] = $key;
+                    $pairsOf[self::identity($key)][] = $pair;
                 }
             }
         }
@@ -93,12 +118,30 @@ final class PeriodicRun
         $done = [];
         $evaluated = 0;
         $failed = 0;
-        $evaluate = function (RegistrationKey $key) use (&$done, &$evaluated, &$failed): void {
+        $skipped = 0;
+        $evaluate = function (RegistrationKey $key) use (
+            &$done,
+            &$evaluated,
+            &$failed,
+            &$skipped,
+            &$missed,
+            $windows,
+            $pairsOf
+        ): void {
             if (isset($done[self::identity($key)])) {
                 return;
             }
             $done[self::identity($key)] = true;
-            if ($this->evaluation->evaluate($key)) {
+            $result = $this->evaluation->evaluate($key);
+            if ($result === null) {
+                // A retryable failure is not flagged. A registration that was due stays due: its windows are kept.
+                // [UNAPPROVED N1] skipped count
+                $skipped++;
+                // [UNAPPROVED N1] a skipped registration keeps its windows for the next run
+                foreach ($pairsOf[self::identity($key)] ?? [] as $pair) {
+                    $missed[$pair] ??= $windows[$pair];
+                }
+            } elseif ($result) {
                 $evaluated++;
             } else {
                 $failed++;
@@ -113,7 +156,28 @@ final class PeriodicRun
             $evaluate($key);
         }
 
-        return new PeriodicRunReport($evaluated, $failed);
+        if ($missed === []) {
+            delete_option(self::MISSED_OPTION);
+        } else {
+            update_option(self::MISSED_OPTION, $missed, false);
+        }
+
+        return new PeriodicRunReport($evaluated, $failed, $ruleFailures, $skipped);
+    }
+
+    /** @return array<string, string> the kept windows; entries not in the stored shape are ignored */
+    private function missed(): array
+    {
+        $stored = get_option(self::MISSED_OPTION);
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        return array_filter(
+            $stored,
+            static fn ($since, $pair): bool => is_string($since) && is_string($pair),
+            ARRAY_FILTER_USE_BOTH
+        );
     }
 
     private function lastRun(): ?\DateTimeImmutable
