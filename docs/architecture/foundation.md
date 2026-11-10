@@ -465,8 +465,11 @@ of deferred work gets exactly the guarantee it needs:
     run has completed: a site warning with a critical Site Health test
     ([Site warnings](#site-warnings)). It names its cause: when the run
     itself failed after its last completed run, the warning says the run
-    fails and shows that failure, which the run's error boundary keeps in an
-    option; otherwise cron is the cause. It stays silent while the load
+    fails and shows that failure; otherwise cron is the cause. The WP-Cron
+    handler keeps the run's last failure (its time and error) in the option
+    `kalaka_periodic_run_failure`. It is never cleared: the warning compares
+    its time with the last completed run's. A run started from WP-CLI
+    records nothing, since its failure shows where it was started. It stays silent while the load
     failed or the database refuses writes. 20
     minutes is longer than the lock's 15-minute expiry, so a lock left by a
     crash is taken over before the warning shows.

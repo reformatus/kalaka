@@ -412,8 +412,9 @@ deprecation period and the compatibility-check tool are chosen then.
   - **One outcome:** every public entry point calls `requireOpen()`, which
     refuses with `SiteClosed` (503, [Foundation](foundation.md#errors)).
     Background work (the periodic run, the sender) skips. The runner refuses
-    every use case with `SiteClosed` too, so nothing writes to tables that
-    may not match the code. Admins can still read, and see the failed-load
+    every use case with `SiteClosed` too, before its transaction and without
+    a failed audit entry, so nothing writes to tables that may not match the
+    code. Admins can still read, and see the failed-load
     warning ([Foundation](foundation.md#site-warnings)), which reads the
     request's load state.
   - **Logged once:** the failure is logged when it starts or changes, not on

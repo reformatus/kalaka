@@ -94,7 +94,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Any load failure closes the site (`LoadState`); nothing in Foundation
   reopens it. Every public entry point calls `requireOpen()`, which refuses
   with `SiteClosed`; background work skips; the runner refuses every use case
-  with `SiteClosed`; admins can still read. The
+  with `SiteClosed` before its transaction, writing no failed audit entry; admins can still read. The
   failure is logged when it starts or changes, not on every request.
 - Amounts are `Money`, never floats or raw strings in arithmetic, and every
   amount carries its `Currency`.
@@ -149,7 +149,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - WP-Cron timestamps come from the `Clock`, never `time()`; the upgrader lock's
   own stamp is WordPress's and is not ours to set.
 - The periodic run's stall warning (a `SiteWarning` with a Site Health test)
-  only reads `kalaka_periodic_run_last`, the run's last recorded failure, the
+  only reads `kalaka_periodic_run_last`, `kalaka_periodic_run_failure`, the
   `Clock`, `BinlogCheck` and the request's `LoadState`; it writes nothing and never schedules, starts or
   unlocks a run.
 - The database health check (`IsolationHealth`) only reads `BinlogCheck`; it
