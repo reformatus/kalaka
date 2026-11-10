@@ -13,7 +13,7 @@ final readonly class PeriodicRunReport
         public int $evaluated,
         public int $failed,
         public int $timeRulesFailed,
-        public int $skipped = 0, // [UNAPPROVED N1] new field
+        public int $skipped = 0,
     ) {
     }
 }

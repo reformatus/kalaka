@@ -23,7 +23,6 @@ final class PeriodicEvaluation
     {
     }
 
-    // [UNAPPROVED N1] ?bool return: null = skipped for a retryable failure
     /** @return ?bool whether the registration was evaluated; null when it was skipped for a retryable failure */
     public function evaluate(RegistrationKey $key): ?bool
     {
@@ -33,7 +32,6 @@ final class PeriodicEvaluation
 
             return true;
         } catch (KalakaException $error) {
-            // [UNAPPROVED N1] skip, no flag, for a retryable failure or a version conflict
             if ($error->isRetryable() || $error instanceof VersionConflict) {
                 return null;
             }

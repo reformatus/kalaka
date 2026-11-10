@@ -98,7 +98,6 @@ final class PeriodicRun
                 } catch (\Throwable $e) {
                     $ruleFailures++;
                     $missed[$pair] = $from?->format(self::TIME_FORMAT) ?? '';
-                    // [UNAPPROVED N2] the full exception chain, as every error-log line
                     ErrorLog::failure('time rule ' . $rule->name() . ' for event ' . $event->id, $e);
                     continue;
                 }
@@ -135,9 +134,7 @@ final class PeriodicRun
             $result = $this->evaluation->evaluate($key);
             if ($result === null) {
                 // A retryable failure is not flagged. A registration that was due stays due: its windows are kept.
-                // [UNAPPROVED N1] skipped count
                 $skipped++;
-                // [UNAPPROVED N1] a skipped registration keeps its windows for the next run
                 foreach ($pairsOf[self::identity($key)] ?? [] as $pair) {
                     $missed[$pair] ??= $windows[$pair];
                 }

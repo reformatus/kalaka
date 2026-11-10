@@ -37,7 +37,6 @@ final class PeriodicRunCommand
                 );
             }
 
-            // [UNAPPROVED N1] the skipped count in the success line
             \WP_CLI::success('Evaluated ' . $report->evaluated . ' registrations, ' . $report->failed . ' failed, '
                 . $report->skipped . ' skipped; ' . $report->timeRulesFailed . ' time rule checks failed.');
         });
