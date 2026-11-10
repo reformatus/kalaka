@@ -21,7 +21,7 @@ final class Module extends AbstractModule
      * masked text of the latest error, a `longtext` for the same reason as the audit's JSON columns. `once`
      * is the once-only key; `event_status` serves the sender's candidates and the per-event counts;
      * `claimed_at` serves the site-wide hourly budget.
-     * // [UNAPPROVED N6] `claimed_at` is a site-wide index that does not start with the event.
+     * // [UNAPPROVED N10] `claimed_at` is a site-wide index that does not start with the event.
      */
     private const DELIVERIES = <<<'SQL'
 CREATE TABLE {prefix}kalaka_deliveries (

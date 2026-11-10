@@ -89,7 +89,7 @@ final class Boundary
      * Logs a failure the caller handled itself and neither rethrows nor shows: one line of the error log,
      * with the request's correlation ID and the whole exception chain. For a module that keeps a masked
      * error on its own record and the full one only in the log (a mail delivery's error).
-     * // [UNAPPROVED N2] an Api route to the error-log writer.
+     * // [UNAPPROVED N6] an Api route to the error-log writer.
      */
     public static function report(string $what, \Throwable $error): void
     {
