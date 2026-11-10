@@ -23,7 +23,7 @@ final class MailState
      * @param ?\DateTimeImmutable $pausedAt null while sending runs
      * @param ?int $pausedBy the user who paused; null for the system or a WP-CLI run without a user
      * @param ?int $deliveryId after errors: the delivery whose second error paused sending
-     * @param ?string $error after errors: that delivery's error, masked as on the delivery
+     * @param ?string $error after errors: that delivery's error, as on the delivery
      * @param int $errorsInRow attempts that ended in an error since the last successful one
      */
     public function __construct(

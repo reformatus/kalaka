@@ -18,7 +18,7 @@ final class Module extends AbstractModule
 {
     /**
      * mail.md, "Words", "Five kinds of mail" and "Failures". Times are UTC `datetime(6)`; `error` is the
-     * masked text of the latest error, a `longtext` for the same reason as the audit's JSON columns. `once`
+     * text of the latest error, a `longtext` for the same reason as the audit's JSON columns. `once`
      * is the once-only key; `event_status` serves the sender's candidates and the per-event counts;
      * `claimed_at` serves the site-wide hourly budget.
      * // [UNAPPROVED N10] `claimed_at` is a site-wide index that does not start with the event.
@@ -49,7 +49,7 @@ SQL;
 
     /**
      * mail.md, "Pausing": the sender's one state row (`id` 1), with the pause, the errors in a row and the
-     * hourly budget. `error` is the masked error of the delivery that paused sending.
+     * hourly budget. `error` is the error of the delivery that paused sending.
      * // [UNAPPROVED S8-3] the pause lives in a Mail-owned one-row table.
      */
     private const STATES = <<<'SQL'

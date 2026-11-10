@@ -70,7 +70,7 @@ final class FailDelivery implements AdminUseCase
         }
 
         $delivery->status = DeliveryStatus::Failed;
-        $delivery->error = DeliveryError::mask((string) $input['error']);
+        $delivery->error = (string) $input['error'];
         $this->deliveries->upsert($delivery, $context);
 
         return true;

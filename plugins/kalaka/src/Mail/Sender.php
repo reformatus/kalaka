@@ -173,8 +173,8 @@ final class Sender implements PeriodicStep
     }
 
     /**
-     * Renders and sends one claimed delivery. The stored error is masked; the full one goes to the error
-     * log under the same correlation ID.
+     * Renders and sends one claimed delivery. The error is stored as reported, and the error log gets the
+     * same failure under the same correlation ID.
      *
      * @return array{?string, ?DeliveryError} the rendered body's version, and the error, if one was reported
      */

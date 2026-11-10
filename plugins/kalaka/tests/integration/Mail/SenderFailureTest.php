@@ -10,12 +10,12 @@ use Kalaka\Mail\Pause\ResumeMail;
 use Kalaka\Mail\SendReport;
 
 /**
- * Errors: back to pending with the masked error, the run stops, the errored delivery is tried first, and
+ * Errors: back to pending with the reported error, the run stops, the errored delivery is tried first, and
  * two errors in a row pause sending until a person resumes. mail.md, "Failures" and "Pausing".
  */
 final class SenderFailureTest extends MailTestCase
 {
-    public function testAnErrorPutsTheDeliveryBackToPendingWithItsMaskedErrorAndStopsTheRun(): void
+    public function testAnErrorPutsTheDeliveryBackToPendingWithItsRawErrorAndStopsTheRun(): void
     {
         $event = $this->published();
         $this->queue($event, '00A0');
@@ -35,7 +35,7 @@ final class SenderFailureTest extends MailTestCase
         self::assertSame('1', $row['attempts']);
         self::assertSame('v1', $row['mail_version']);
         self::assertMatchesRegularExpression(
-            '/^send wp_mail_failed: SMTP Error: The following recipients failed: \[cím\]'
+            '/^send wp_mail_failed: SMTP Error: The following recipients failed: teszt@example\.test'
             . ' \(correlation [0-9a-f-]{36}\)$/',
             (string) $row['error']
         );
@@ -48,7 +48,7 @@ final class SenderFailureTest extends MailTestCase
         self::assertStringContainsString('teszt@example.test', $log, 'The full error goes to the log.');
     }
 
-    public function testNoAddressReachesTheDeliveryOrTheAudit(): void
+    public function testTheRawErrorIsStoredOnTheDeliveryAndInTheAudit(): void
     {
         $event = $this->published();
         $this->queue($event);
@@ -56,15 +56,15 @@ final class SenderFailureTest extends MailTestCase
 
         $this->capturedErrorLog(fn () => $this->sender()->send());
 
-        global $wpdb;
-        self::assertSame(
-            '0',
-            $wpdb->get_var(
-                "SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_audit_entries WHERE changes LIKE '%example.test%'"
-                . " OR error LIKE '%example.test%'"
-            )
-        );
-        self::assertStringNotContainsString('example.test', (string) $this->deliveries()[0]['error']);
+        $stored = (string) $this->deliveries()[0]['error'];
+        self::assertStringContainsString('The following recipients failed: teszt@example.test', $stored);
+        $record = $this->entriesOf('kalaka/record-delivery')[0];
+        $errors = array_values(array_filter(
+            $this->changesOf($record),
+            static fn (array $change): bool => $change['field'] === 'error'
+        ));
+        self::assertCount(1, $errors);
+        self::assertSame($stored, $errors[0]['after']);
     }
 
     public function testTheNextRunTriesTheErroredDeliveryFirstAndSuccessResetsTheErrorsInARow(): void
@@ -167,7 +167,7 @@ final class SenderFailureTest extends MailTestCase
         self::assertSame(['sent', 'pending'], array_column($this->deliveries(), 'status'));
     }
 
-    public function testARenderingErrorIsAnErrorWithTheExceptionClassOnly(): void
+    public function testARenderingErrorKeepsTheExceptionClassAndItsMessage(): void
     {
         $event = $this->published();
         $this->queue($event);
@@ -178,7 +178,10 @@ final class SenderFailureTest extends MailTestCase
         $row = $this->deliveries()[0];
         self::assertSame('pending', $row['status']);
         self::assertNull($row['mail_version']);
-        self::assertStringStartsWith('compose RuntimeException (correlation ', (string) $row['error']);
+        self::assertStringStartsWith(
+            'compose RuntimeException: Teszt Elek <teszt@example.test> has no name. (correlation ',
+            (string) $row['error']
+        );
         self::assertSame([], $this->mailed);
     }
 

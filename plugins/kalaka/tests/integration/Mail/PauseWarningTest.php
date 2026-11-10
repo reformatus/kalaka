@@ -38,13 +38,13 @@ final class PauseWarningTest extends MailTestCase
         self::assertNull((new PauseWarning(PauseCause::Errors, $state))->check());
     }
 
-    public function testAPauseAfterErrorsShowsTheErrorBannerWithTheDeliveryTheTimeAndTheMaskedError(): void
+    public function testAPauseAfterErrorsShowsTheErrorBannerWithTheDeliveryTheTimeAndTheRawError(): void
     {
         update_option('timezone_string', 'Europe/Budapest');
         $this->storeState([
             'paused_at' => '2026-11-30 08:00:00.000000', 'cause' => 'errors', 'errors_in_row' => 2,
             'delivery_id' => 7, 'delivery_event_id' => 5,
-            'error' => 'send wp_mail_failed: SMTP Error: [cím] (correlation 1234)',
+            'error' => 'send wp_mail_failed: SMTP Error: teszt@example.test (correlation 1234)',
         ]);
         $state = new RequestState();
 
@@ -56,7 +56,7 @@ final class PauseWarningTest extends MailTestCase
         self::assertStringStartsWith('Két egymást követő küldési kísérlet hibával zárult', $shown->description);
         self::assertSame(
             "Delivery 7 of event 5\nPaused at 2026-11-30 09:00:00\n"
-            . 'Error: send wp_mail_failed: SMTP Error: [cím] (correlation 1234)',
+            . 'Error: send wp_mail_failed: SMTP Error: teszt@example.test (correlation 1234)',
             $shown->details
         );
         self::assertNull((new PauseWarning(PauseCause::Manual, $state))->check());

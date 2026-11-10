@@ -13,7 +13,7 @@ use Kalaka\Mail\Pause\PauseCause;
 
 /**
  * The outcome of a claimed delivery's attempt. Without an error it is sent, and the errors in a row go
- * back to zero. With one it goes back to pending, keeping the (masked) error, and the errors in a row go
+ * back to zero. With one it goes back to pending, keeping its error, and the errors in a row go
  * up; at two, sending pauses, naming this delivery and its error, with the system as the actor. Run by
  * the sender as the system, only for a delivery it claimed. mail.md, "Sending", "Failures" and "Pausing".
  * // [UNAPPROVED S8-10] site-level (`event()` is null), so only the system, WP-CLI and full access pass.
@@ -82,7 +82,7 @@ final class RecordDelivery implements AdminUseCase
             throw $error;
         }
 
-        $error = is_string($input['error']) ? DeliveryError::mask($input['error']) : null;
+        $error = is_string($input['error']) ? $input['error'] : null;
         $delivery->mailVersion = is_string($input['mail_version']) ? $input['mail_version'] : null;
         $state = $this->states->forUpdate($context);
         if ($error === null) {

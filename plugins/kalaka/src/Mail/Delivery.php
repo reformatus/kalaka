@@ -16,7 +16,7 @@ final class Delivery
 {
     /**
      * @param int $attempts the claims so far; an attempt that ended in an error leaves the delivery pending
-     * @param ?string $error the latest error, masked (`DeliveryError::text()`); null when none was reported
+     * @param ?string $error the latest error (`DeliveryError::text()`); null when none was reported
      */
     public function __construct(
         public readonly RegistrationKey $registration,

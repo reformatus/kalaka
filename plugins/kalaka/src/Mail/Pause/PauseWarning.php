@@ -57,9 +57,8 @@ final class PauseWarning implements SiteWarning
     }
 
     /**
-     * The delivery's key, the time and the masked error with its correlation ID, which finds the full
-     * error in the log. English, one item per line.
-     * // [UNAPPROVED S8-2] the details show the masked error and the correlation ID, not the raw error.
+     * The delivery's key, the time and the raw error with its correlation ID (owner's ruling on S8-2).
+     * English, one item per line.
      */
     private static function details(MailState $state): string
     {

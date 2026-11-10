@@ -37,9 +37,9 @@ bodies, the composer and the mail settings come later.
   system. On an error it goes back to pending with its error and the run stops;
   the next run tries it first; two errors in a row pause sending. Only a
   successful attempt resets the errors in a row.
-- A stored error is masked (`DeliveryError`): no e-mail-shaped text on a
-  delivery, on the pause or in an audit diff; the full error goes only to the
-  error log, under the same correlation ID.
+- A stored error is the reported text as it is (`DeliveryError`): on the
+  delivery, on the pause, in the audit diff and in the banner; the error log
+  gets the same failure under the same correlation ID.
 - The pause lives in `kalaka_mail_states` (one row), written only by
   `PauseMail`, `ResumeMail` and `RecordDelivery`; only a person resumes. The
   warnings read it, never the deliveries table.
