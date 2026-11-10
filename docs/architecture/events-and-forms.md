@@ -33,13 +33,16 @@ title: Events and forms
   stored state ([Modules](modules-and-extensions.md#failure-isolation)).
 - **Timeline points:** core has **registration opens, registration closes,
   start, end**; admins can add their own named points, which mails can use.
-  Points are **absolute dates only**, never relative to each other (that
-  would allow cycles).
+  Points are **absolute instants only**: an admin enters a day and a time in
+the site time zone, and the point is stored in UTC. Points are never
+relative to each other (that would allow cycles). Registration is open from
+the "registration opens" instant up to, but not including, the
+"registration closes" instant.
 - **"Open", "closed" and phases are derived** by comparing the current time
   with the points. They are never stored, and nothing fires at those moments.
   The same holds for every form's date window. Registration therefore opens
   and closes automatically at its points; to change that, an admin edits the
-  dates (which does not clear the "full" latch).
+points (which does not clear the "full" latch).
 - **The participant phase tracker** (today's F1–F5) stays, as a modular
   subsystem in the Events module: core default phases, configurable,
   extensions add phases. Designed later ([Deferred](deferred.md)).
@@ -63,7 +66,12 @@ transaction and takes one immutable input; the periodic run computes them
 in PHP for registrations in published events. If that ever becomes slow, the
 computed date is cached in a column on the registration.
 
-**A deadline ends at midnight in the site time zone** at the end of its day.
+**Deadlines are compared as instants.** A deadline set as a day ends at
+midnight in the site time zone at the end of that day. For a stored
+deadline that instant is fixed when it is stored, not when it is used, so a
+later change of the site time zone does not move it. A date type that is
+computed, such as payment due, is not stored: its day ends at midnight in
+the site time zone at the time of computing.
 
 ## Forms and the registration slot
 

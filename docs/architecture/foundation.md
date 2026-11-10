@@ -302,8 +302,9 @@ on each other in a circle:
 
 - A mail delivery keeps its status and latest error.
 - A refund request keeps its status and error.
-- A registration the periodic run cannot evaluate gets an **"evaluation
-  failed" flag** naming the rule that failed and its error
+- A registration the periodic run cannot evaluate, other than for a
+  retryable failure, gets an **"evaluation failed" flag** naming the rule
+  that failed and its error
   ([Evaluation](#evaluation)). Admins see it as a broken record; the next
   successful evaluation clears it.
 - A failing extension contribution is kept on its extension
@@ -332,6 +333,9 @@ of deferred work gets exactly the guarantee it needs:
   it at any time; this is safe because every effect is claim-guarded.
 - **Keeping the 5-minute run cheap:** it sweeps only published, non-archived
   events, and time rules query only what became due since the last run.
+- **A failing time rule** is isolated to its rule and event; the rest of the
+  run goes on. Its window is kept until the rule succeeds for that event, so
+  nothing that fell due in it is missed.
 - **A real system cron is required,** with WP-Cron as the fallback.
   WordPress core has only WP-Cron, which fires only when `wp-cron.php` runs.
   - A warning shows when the last run is older than 20 minutes, or when no
@@ -372,7 +376,10 @@ registration's decisions, money and mail up to date with its facts.
 - **Failure:** any rule failure rolls back the whole use case, or, in the
   periodic run, just that registration. The run then sets the "evaluation
   failed" flag ([Failures](#failures)) in a small transaction of its own,
-  naming the rule, and moves on to the next registration.
+  naming the rule, and moves on to the next registration. A retryable
+  failure (a held row, a version conflict) that outlasts the retries sets no
+  flag: the run skips the registration, counts it as skipped, and keeps it
+  due for the next run.
 
 ## Facts, decisions and computed values
 
@@ -419,7 +426,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 | Concern | Rule |
 |---|---|
 | **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
-| **Time** | Stored in UTC, every stored instant as a `datetime(6)` column; displayed and computed in the site's WordPress time zone, never a fixed zone. A deadline ends at midnight in the site's time zone. Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
+| **Time** | Stored in UTC, every stored instant as a `datetime(6)` column; displayed and computed in the site's WordPress time zone, never a fixed zone. Event points and value dates are stored instants too. A deadline set as a day ends at midnight in the site's time zone, fixed when it is stored ([Date references](events-and-forms.md#date-references)). Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
 | **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are carried by the grant, usable inside that grant's view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the list of actions and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase, covering registrations, presets and audit diffs, are deferred until a wide release ([Deferred](deferred.md)). Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
 | **Secret links** | Treated as secrets: never logged, masked in exports ([Registrations](registrations-and-identity.md#access)) |
