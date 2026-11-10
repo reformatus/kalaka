@@ -84,6 +84,9 @@ activated.**
   reminders add their own layout blocks (e.g. a payment table).
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
+- **The body's title is the subject,** as plain text. A layout marks the
+  place of the body with one `kalaka/mail-content` block; the body's blocks
+  take its place and the whole mail renders once. Mail is sent as HTML only.
 
 ## Sending
 

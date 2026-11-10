@@ -39,7 +39,9 @@ the waitlist and reference codes
 - The secret is compared in PHP (`hash_equals()`) and never looked up or
   compared in SQL; the link carries the registration key beside it. Only
   Registrations reads the stored secret: another module presents a secret and
-  asks whether it matches.
+  asks whether it matches, or gets the finished link URL for a mail from
+  `Api\RegistrationRead::linkUrl()` (registrations-and-identity.md, "Access":
+  stored readable so every email can carry it), and never stores it.
 - `secret` and `field_key` are `utf8mb4_nopad_bin`: compared exactly.
 - Registration rows are locked at `LockLevel::Registration`: after the event
   row and quota rows, before everything else.
