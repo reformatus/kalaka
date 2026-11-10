@@ -23,7 +23,8 @@ final class PeriodicSchedule
 
     /**
      * Adds the interval and the handler of both hooks, and schedules the recurring event if it is not.
-     * The handler lets no exception escape, so one failing run never aborts the `wp-cron.php` request.
+     * The handler lets no exception escape, so one failing run never aborts the `wp-cron.php` request;
+     * it keeps the failure for the stall warning (`PeriodicRun::FAILURE_OPTION`).
      *
      * @param \Closure(): mixed $run
      */
@@ -35,8 +36,16 @@ final class PeriodicSchedule
             return $schedules;
         });
 
-        $handler = static function () use ($run): void {
-            Boundary::background('periodic run', $run);
+        $clock = $this->clock;
+        $handler = static function () use ($run, $clock): void {
+            Boundary::background('periodic run', static function () use ($run, $clock): mixed {
+                try {
+                    return $run();
+                } catch (\Throwable $e) {
+                    PeriodicRun::recordFailure($clock->now(), $e);
+                    throw $e;
+                }
+            });
         };
         add_action(self::HOOK, $handler);
         add_action(self::NOW_HOOK, $handler);

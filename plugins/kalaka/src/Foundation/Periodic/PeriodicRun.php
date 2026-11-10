@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Clock;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
+use Kalaka\Foundation\ErrorLog;
 use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -20,6 +21,13 @@ use Kalaka\Registrations\Api\RegistrationKey;
 final class PeriodicRun
 {
     public const LAST_RUN_OPTION = 'kalaka_periodic_run_last';
+
+    /**
+     * The last failure of a run WP-Cron or an admin started: `at` (UTC, in the last-run format) and
+     * `error` (the exception chain as the error log writes it). Kept by the cron handler's boundary;
+     * the stall warning compares it with the last completed run.
+     */
+    public const FAILURE_OPTION = 'kalaka_periodic_run_failure';
 
     private const LOCK = 'kalaka_periodic_run';
 
@@ -119,6 +127,27 @@ final class PeriodicRun
     public static function parseLastRun(string $stored): ?\DateTimeImmutable
     {
         return \DateTimeImmutable::createFromFormat(self::TIME_FORMAT, $stored, new \DateTimeZone('UTC')) ?: null;
+    }
+
+    /** Keeps a run's failure for the stall warning; only the cron handler calls it. */
+    public static function recordFailure(\DateTimeImmutable $at, \Throwable $error): void
+    {
+        update_option(self::FAILURE_OPTION, [
+            'at' => $at->setTimezone(new \DateTimeZone('UTC'))->format(self::TIME_FORMAT),
+            'error' => ErrorLog::chain($error),
+        ], false);
+    }
+
+    /** @return ?array{at: \DateTimeImmutable, error: string} null when none is kept or the value is not in its format */
+    public static function lastFailure(): ?array
+    {
+        $stored = get_option(self::FAILURE_OPTION);
+        if (!is_array($stored) || !is_string($stored['at'] ?? null) || !is_string($stored['error'] ?? null)) {
+            return null;
+        }
+        $at = self::parseLastRun($stored['at']);
+
+        return $at === null ? null : ['at' => $at, 'error' => $stored['error']];
     }
 
     private static function identity(RegistrationKey $key): string

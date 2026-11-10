@@ -45,6 +45,7 @@ abstract class PeriodicTestCase extends EvaluationTestCase
         wp_unschedule_hook(PeriodicSchedule::HOOK);
         wp_unschedule_hook(PeriodicSchedule::NOW_HOOK);
         delete_option(PeriodicRun::LAST_RUN_OPTION);
+        delete_option(PeriodicRun::FAILURE_OPTION);
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case

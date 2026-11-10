@@ -6,6 +6,13 @@ namespace Kalaka\Foundation;
 
 use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\Clock\WordPressClock;
+use Kalaka\Foundation\Database\BinlogCheck;
+use Kalaka\Foundation\Database\IsolationHealth;
+use Kalaka\Foundation\Periodic\PeriodicRunHealth;
+use Kalaka\Foundation\SiteWarning\ErrorLogWarning;
+use Kalaka\Foundation\SiteWarning\LoadFailureWarning;
+use Kalaka\Foundation\SiteWarning\SiteWarnings;
 
 /**
  * Any load failure closes the site for this request (see LoadState):
@@ -34,6 +41,10 @@ final class Boot
 
     public function run(): void
     {
+        // Before any module, so the failed-load warning shows even when Foundation's module did not load.
+        $warnings = self::siteWarnings();
+        $warnings->register();
+
         $set = new ModuleSet();
         foreach ($this->coreModules as $module) {
             $set->add($module);
@@ -73,6 +84,10 @@ final class Boot
             }
         }
 
+        foreach ($contributions->siteWarnings() as $warning) {
+            $warnings->add($warning);
+        }
+
         foreach ($this->coreModules as $module) {
             if ($module instanceof Module) {
                 $module->collect($modules, $contributions);
@@ -85,6 +100,23 @@ final class Boot
 
         $this->logOnChange();
         LoadState::record($this->failures);
+    }
+
+    /**
+     * The boot's own warnings, errors in the order they show: the failed load, the database, the error
+     * log, the periodic run's stall. They read a `BinlogCheck` of their own, so the stall warning and
+     * the database warning share one read. foundation.md, "Site warnings".
+     */
+    private static function siteWarnings(): SiteWarnings
+    {
+        $binlog = new BinlogCheck();
+        $warnings = new SiteWarnings();
+        $warnings->add(new LoadFailureWarning());
+        $warnings->add(new IsolationHealth($binlog));
+        $warnings->add(new ErrorLogWarning());
+        $warnings->add(new PeriodicRunHealth(new WordPressClock(), $binlog));
+
+        return $warnings;
     }
 
     /** @return list<LoadFailure> */

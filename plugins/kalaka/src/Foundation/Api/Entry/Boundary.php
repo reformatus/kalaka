@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Entry;
 
 use Kalaka\Foundation\Api\Error\KalakaException;
+use Kalaka\Foundation\Api\Error\SiteClosed;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\ErrorLog;
@@ -68,7 +69,8 @@ final class Boundary
     }
 
     /**
-     * Runs work nobody watches (a WP-Cron handler): nothing escapes, and what would have is logged.
+     * Runs work nobody watches (a WP-Cron handler): nothing escapes, and what would have is logged,
+     * unless a run recorded it or it is `SiteClosed`, whose load failure the boot logs once.
      *
      * @param \Closure(): mixed $body
      */
@@ -77,7 +79,7 @@ final class Boundary
         try {
             $body();
         } catch (\Throwable $e) {
-            if (!$e instanceof KalakaException || !Runner::recorded($e)) {
+            if (!$e instanceof KalakaException || !$e instanceof SiteClosed && !Runner::recorded($e)) {
                 ErrorLog::failure($what, $e);
             }
         }
@@ -100,12 +102,12 @@ final class Boundary
     /**
      * The error shown for what escaped: a `KalakaException` as it is, anything else as a
      * `SystemFailure` wrapping it. What no run recorded is logged, unless it is a refusal the
-     * person can act on (below 500).
+     * person can act on (below 500) or `SiteClosed`, whose load failure the boot logs once.
      */
     public static function shown(string $what, \Throwable $error): KalakaException
     {
         if ($error instanceof KalakaException) {
-            if ($error->status() >= 500 && !Runner::recorded($error)) {
+            if ($error->status() >= 500 && !$error instanceof SiteClosed && !Runner::recorded($error)) {
                 ErrorLog::failure($what, $error);
             }
 

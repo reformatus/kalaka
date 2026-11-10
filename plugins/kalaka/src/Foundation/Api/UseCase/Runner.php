@@ -18,6 +18,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
@@ -125,7 +126,8 @@ final class Runner
      * Runs a use case as the actor and returns what its `execute` returned.
      *
      * @param array<string, mixed> $input
-     * @throws KalakaException anything else that goes wrong is wrapped in a SystemFailure
+     * @throws KalakaException anything else that goes wrong is wrapped in a SystemFailure;
+     *                         `SiteClosed` while the load failed
      */
     public function run(UseCase $useCase, array $input, Actor $actor): mixed
     {
@@ -136,6 +138,10 @@ final class Runner
             self::$active->failure ??= $error;
             throw $error;
         }
+
+        // While the load failed the tables may not match the code: refused before anything else,
+        // so not even a failed audit entry is written.
+        LoadState::current()->requireOpen();
 
         $side = null;
         $declared = [];

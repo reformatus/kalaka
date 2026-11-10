@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SiteClosed;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use WP_UnitTestCase;
@@ -38,6 +39,9 @@ final class ErrorsTest extends WP_UnitTestCase
         ];
         yield 'RetryableFailure' => [
             RetryableFailure::class, 'kalaka_retryable_failure', 500, 'Váratlan hiba történt. Próbáld újra később.',
+        ];
+        yield 'SiteClosed' => [
+            SiteClosed::class, 'kalaka_site_closed', 503, 'Váratlan hiba történt. Próbáld újra később.',
         ];
     }
 
