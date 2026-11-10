@@ -9,7 +9,8 @@ title: Mail
 - A **mail** is one configured message: its trigger settings plus its
   **body**, one to one. There are no "templates".
 - A **delivery** is one row in the send log: one mail to one registration (or
-  address) on one occurrence, pending or sent. **Nothing reads the deliveries
+  address) on one occurrence: pending, sending, sent or failed. A pending
+  delivery may carry the error of an earlier attempt. **Nothing reads the deliveries
   table except the sender:** no decision, condition or view depends on
   whether a mail was sent.
 
@@ -100,35 +101,68 @@ activated.**
     WP-Cron as the fallback: [Foundation](foundation.md#deferred-work)).
 - **A delivery is claimed before sending:** the sender moves it from pending
   to "sending" before calling `wp_mail`, so overlapping sender runs never send
-  the same delivery twice. After the attempt it is **marked sent even if
-  sending failed,** so a mail is never delivered twice. This claim is what
-  makes mail at most once.
+  the same delivery at the same time. After a successful attempt it is marked
+  sent; after an error it goes back to pending ([Failures](#failures)).
+- **The sender checks the pause before each claim,** reading it fresh rather
+  than from a per-request cache, so a pause set by one run stops an
+  overlapping run after at most the attempt it has in hand.
+- **The address is checked before the claim** with `is_email()`. A delivery
+  without a valid address is marked failed with that error and no attempt is
+  made; it does not count as an error for pausing, because retrying cannot
+  fix it.
 - **It renders the body at send time from current data** and records the
   mail's version and send time, not the content. The content can be recovered
   by re-rendering, and may be incomplete after a privacy erase. Exact copies
   are left to a mail-logging plugin. There is no archive copy.
 - **Throttle:** an **hourly budget**, a site setting with a default of 240 per
   hour (today's 20 per 5-minute run). Each run sends at most its share of
-  what is left.
+  what is left. Attempts that end in an error count against it.
 - **Order:** self-sent and action mails first, then manual mails, reminders
   and scheduled mails.
 
 ### Failures
 
-- **A failure** (`wp_mail` returns false, or `wp_mail_failed` fires) keeps
-  its error on the delivery, which is marked sent. Nothing is retried and
-  nothing stops automatically; the hourly budget is what keeps us under a
-  host's cap.
-- **A crash** leaves the delivery in "sending". It is rare, which is
-  acceptable.
-- **Staff see which deliveries failed or were left in "sending",** and can
-  send a chosen mail to chosen registrations. This is the ordinary manual
-  mail, not a retry feature.
+An **error** is any failure after the claim: `wp_mail` returns false,
+`wp_mail_failed` fires, or rendering the mail throws. Delivery itself is never
+known, only whether an error was reported; a reported error may still have
+been delivered, so a retry may send a second copy. The rule bounds that: a
+mail is never sent automatically more than twice.
+
+- **On an error the run stops.** The delivery goes back to pending, keeping
+  its error and an attempt count. No other delivery is touched.
+- **The next run tries that delivery first,** before the usual order. The
+  wait until the next run (at most 5 minutes; no nudge) gives a passing error
+  at the mail provider time to clear.
+- **Two errors in a row pause sending** ([Pausing](#pausing)). Because the
+  failed delivery is always tried next, its two errors are always in a row: a
+  delivery that fails for its own reason cannot be retried run after run. It
+  stays pending, so it is never removed from the queue.
+- **The count of errors in a row is reset only by a successful attempt,** not
+  by resuming. After a resume the first attempt is the same delivery; if it
+  fails again, sending pauses at once. Each resume costs at most one more
+  attempt.
+- **A crash** leaves the delivery in "sending". Whether it was sent is
+  unknown, so it is not retried. It is rare, which is acceptable.
+- **Staff see which deliveries carry an error, failed, or were left in
+  "sending",** and can send a chosen mail to chosen registrations. This is
+  the ordinary manual mail, not a retry feature.
 
 ## Pausing
 
 - **The mail engine can be paused:** deliveries pile up, and an admin can
   clear the queue.
+- **One pause, two causes.** An admin pauses by hand, or the sender pauses
+  after two errors in a row ([Failures](#failures)). Both set the same pause.
+  It records its cause, who set it (a user, or the system) and when, and for
+  a pause after errors the delivery's key and error, so the admin warning
+  never reads the deliveries table.
+- **Only a person resumes sending,** with the same control in either case.
+  Nothing resumes automatically: there is no way to check the mail provider
+  without sending.
+- **Pausing and resuming are use cases** and are audited like any other
+  ([Foundation](foundation.md#audit)): the actor is the user, or the system
+  for a pause after errors, and a pause after errors names the delivery as
+  its subject.
 - **Unpublishing an event** is a separate action, placed next to the pause in
   the UI. It stops the event's sending, and no scheduled or reminder
   deliveries are added to the queue while it is unpublished, so republishing

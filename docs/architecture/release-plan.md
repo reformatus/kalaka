@@ -49,7 +49,11 @@ short. The architecture pages say how things are built; this page says when.
 9. **Operations:** deployment to the IVK site and to a staging copy; a real
    system cron verified on IVK's host, with WP-Cron as the fallback, a
    warning when the last run is older than 20 minutes, and a lock
-   against overlapping runs; a backup and a restore drill.
+   against overlapping runs; a backup and a restore drill; mail sent through
+   FluentSMTP and the Gmail API from the organisation's Google Workspace
+   account, with the OAuth consent screen set to Internal and FluentSMTP's
+   fallback connection left empty, so every send error reaches the sender
+   ([Mail](mail.md#failures)).
 
 ### Order of sacrifice
 

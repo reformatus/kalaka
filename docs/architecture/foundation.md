@@ -322,9 +322,11 @@ of deferred work gets exactly the guarantee it needs:
   materialized by the [evaluation](#evaluation) inside that action's
   transaction; changes caused by time passing (e.g. a late fee from an
   extension) are applied by the periodic run.
-- **Mail is sent at most once.** Deciding a mail is due inserts a delivery
-  with a unique key; only the sender run sends, never an interactive request
-  ([Mail](mail.md#sending)).
+- **Mail is never sent over and over.** Deciding a mail is due inserts a
+  delivery with a unique key; only the sender run sends, never an interactive
+  request. A delivery is attempted at most twice automatically; a second error
+  pauses sending until a person resumes it
+  ([Mail](mail.md#failures)).
 - **The periodic run** comes **every 5 minutes**, matching today's Google
   Sheets system. It evaluates only work that has fallen due over time (late
   fees, scheduled mails, reminders) and retries registrations flagged
