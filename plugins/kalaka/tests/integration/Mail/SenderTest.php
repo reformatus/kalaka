@@ -64,9 +64,9 @@ final class SenderTest extends MailTestCase
         $event = $this->published();
         $this->queue($event, '00A0', MailKind::Scheduled);
         $this->queue($event, '00B0', MailKind::Reminder);
-        $this->queue($event, '00C0', MailKind::Manual);
-        $this->queue($event, '00D0', MailKind::Action);
-        $this->queue($event, '00E0', MailKind::SelfSent);
+        $this->queue($event, '00K1', MailKind::Manual);
+        $this->queue($event, '00G1', MailKind::Action);
+        $this->queue($event, '00E2', MailKind::SelfSent);
         $this->queue($event, '00F0', MailKind::Scheduled);
         [$scheduled, $reminder, $manual, $action, $selfSent, $retried] = $this->deliveryIds();
         global $wpdb;
@@ -82,7 +82,7 @@ final class SenderTest extends MailTestCase
         $event = $this->published();
         $this->queue($event, '00A0');
         $this->queue($event, '00B0');
-        $this->queue($event, '00C0');
+        $this->queue($event, '00K1');
         [$noAddress, $bad, $good] = $this->deliveryIds();
         $this->composer->addresses = [$noAddress => null, $bad => 'nem-cím'];
 
@@ -122,7 +122,7 @@ final class SenderTest extends MailTestCase
     {
         $this->storeState(['hourly_budget' => 24]);
         $event = $this->published();
-        foreach (['00A0', '00B0', '00C0', '00D0'] as $code) {
+        foreach (['00A0', '00B0', '00K1', '00G1'] as $code) {
             $this->queue($event, $code);
         }
         wp_unschedule_hook('kalaka_send_mail');
@@ -184,7 +184,7 @@ final class SenderTest extends MailTestCase
             self::assertNull($this->sender()->send());
             self::assertSame('pending', $this->deliveries()[0]['status']);
         } finally {
-            $other->close();
+            $this->freeSenderLock($other);
         }
 
         self::assertEquals(new SendReport(1), $this->sender()->send(), 'Once the other run is gone, it runs.');
@@ -197,8 +197,7 @@ final class SenderTest extends MailTestCase
 
         $this->sender()->send();
 
-        $other = $this->holdSenderLock();
-        $other->close();
+        $this->freeSenderLock($this->holdSenderLock());
     }
 
     public function testNothingRunsWhileTheLoadFailed(): void

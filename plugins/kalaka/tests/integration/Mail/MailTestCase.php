@@ -164,6 +164,14 @@ abstract class MailTestCase extends EventsTestCase
         return $connection;
     }
 
+    /** Frees the lock `holdSenderLock()` took and closes its connection. */
+    protected function freeSenderLock(\mysqli $connection): void
+    {
+        $name = $connection->real_escape_string((new NamedLock(Sender::LOCK))->scoped());
+        $connection->query("SELECT RELEASE_LOCK('" . $name . "')");
+        $connection->close();
+    }
+
     /** @return ?int the time of the next nudge, if one is scheduled */
     protected function nextNudge(): ?int
     {

@@ -34,7 +34,7 @@ final class MailStatsTest extends MailTestCase
 
     public function testEachEventIsCountedByStatusAndEveryAskedEventIsThere(): void
     {
-        foreach (['00A0', '00B0', '00C0', '00D0', '00E0', '00F0'] as $code) {
+        foreach (['00A0', '00B0', '00K1', '00G1', '00E2', '00F0'] as $code) {
             $this->queue(5, $code);
         }
         $this->queue(6, '00A0');

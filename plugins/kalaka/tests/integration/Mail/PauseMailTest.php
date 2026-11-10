@@ -65,10 +65,10 @@ final class PauseMailTest extends MailTestCase
     public function testClearingTheQueueDeletesEveryPendingDeliveryAndKeepsTheRest(): void
     {
         $event = $this->published();
-        foreach (['00A0', '00B0', '00C0', '00D0'] as $code) {
+        foreach (['00A0', '00B0', '00K1', '00G1'] as $code) {
             $this->queue($event, $code);
         }
-        $this->queue($this->unpublished(), '00E0');
+        $this->queue($this->unpublished(), '00E2');
         [$sent, $sending, $failed] = $this->deliveryIds();
         global $wpdb;
         $table = $wpdb->prefix . 'kalaka_deliveries';

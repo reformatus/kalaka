@@ -20,6 +20,12 @@ final class NamedLockTest extends WP_UnitTestCase
         return $connection;
     }
 
+    private static function free(\mysqli $connection, string $name): void
+    {
+        $connection->query("SELECT RELEASE_LOCK('" . $connection->real_escape_string($name) . "')");
+        $connection->close();
+    }
+
     public function testTheNameIsScopedToTheSiteAndWithinMariaDbsLimit(): void
     {
         global $wpdb;
@@ -39,13 +45,12 @@ final class NamedLockTest extends WP_UnitTestCase
         try {
             self::assertFalse($lock->acquire());
         } finally {
-            $other->close();
+            self::free($other, $lock->scoped());
         }
 
         self::assertTrue($lock->acquire());
         $lock->release();
-        $again = $this->holdOnAnotherConnection($lock->scoped());
-        $again->close();
+        self::free($this->holdOnAnotherConnection($lock->scoped()), $lock->scoped());
     }
 
     public function testABadNameIsRefused(): void

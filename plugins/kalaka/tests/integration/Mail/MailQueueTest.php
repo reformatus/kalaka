@@ -53,7 +53,7 @@ final class MailQueueTest extends MailTestCase
     {
         self::assertTrue($this->queue(5, '12A3', MailKind::Action, 'registered', 'c1'));
         self::assertTrue($this->queue(5, '12A3', MailKind::Action, 'registered', 'c2'));
-        self::assertTrue($this->queue(5, '12A4', MailKind::Action, 'registered', 'c1'));
+        self::assertTrue($this->queue(5, '00J0', MailKind::Action, 'registered', 'c1'));
         self::assertTrue($this->queue(5, '12A3', MailKind::Action, 'admitted', 'c1'));
         self::assertTrue($this->queue(6, '12A3', MailKind::Action, 'registered', 'c1'));
 
