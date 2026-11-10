@@ -9,9 +9,16 @@ IVK go-live; IVK registration opens on 2026-11-30.
 ## Binding rule
 
 `docs/architecture/` is binding. Before changing anything, read the sections
-the topic map lists for your topic. If the code would need to deviate from
-them, or they are silent or contradict each other on something that matters,
-stop and ask the owner. Never resolve it silently and never work around it.
+the topic map lists for your topic. If they are silent or contradict each other
+on something that matters, stop and ask the owner. Never resolve it silently
+and never work around it.
+
+When the approved spec, a blessed decision or the owner's clear instruction
+changes a rule, change its section in the same PR as the code that follows it,
+and say why. Change only the sentences that are no longer true, keep the page's
+style, and keep the topic map below pointing at the right sections. A change
+the work merely seems to need is a question for the owner, not an edit. The
+same holds for this file and the module `AGENTS.md` files.
 
 ## Topic map
 
@@ -98,4 +105,6 @@ data of minors.
 ## Pipeline
 
 The AI pipeline reads this file and `.pipeline/` from `main`. Pipeline agents
-cannot see `internal/`.
+cannot see `internal/`. They never change `.pipeline/` or `.github/`. A change
+they make to `docs/architecture/` or an `AGENTS.md` is listed on the PR as an R
+item under "Awaiting your decision", and holds only once the owner ticks it.
