@@ -92,7 +92,6 @@ final class Runner
      */
     public function clock(): Clock
     {
-        // [UNAPPROVED N1] a public accessor, not a Clock injected through module wiring
         return $this->clock;
     }
 
