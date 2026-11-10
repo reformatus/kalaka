@@ -11,7 +11,7 @@ use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Registrations\RegistrationList;
 
-/** AC11: the sorszám is computed from the status and the creation order. */
+/** AC11: the sorszám is computed from the status and the ordering time. */
 final class RegistrationListTest extends RegistrationsTestCase
 {
     /** @var list<string> codes whose order differs from the order of creation */
@@ -57,11 +57,11 @@ final class RegistrationListTest extends RegistrationsTestCase
         $this->setStatus(new RegistrationKey(5, $r2), RegistrationStatus::Withdrawn);
         self::assertSame([$r1 => 1, $r2 => null, $r3 => 1, $r4 => 2, $r5 => 2, $r6 => 3], $this->serials(5));
 
-        $this->setStatus(new RegistrationKey(5, $r3), RegistrationStatus::Registered);
-        self::assertSame([$r1 => 1, $r2 => null, $r3 => 2, $r4 => 3, $r5 => 1, $r6 => 4], $this->serials(5));
+        $this->setStatus(new RegistrationKey(5, $r3), RegistrationStatus::Registered, '2026-12-01 08:00:00');
+        self::assertEquals([$r1 => 1, $r2 => null, $r3 => 4, $r4 => 2, $r5 => 1, $r6 => 3], $this->serials(5));
 
         $this->setStatus(new RegistrationKey(5, $r4), RegistrationStatus::Removed);
-        self::assertSame([$r1 => 1, $r2 => null, $r3 => 2, $r4 => null, $r5 => 1, $r6 => 3], $this->serials(5));
+        self::assertEquals([$r1 => 1, $r2 => null, $r3 => 3, $r4 => null, $r5 => 1, $r6 => 2], $this->serials(5));
     }
 
     public function testTheRowsCarryTheirTimesAndComeInCreationOrder(): void
@@ -121,5 +121,75 @@ final class RegistrationListTest extends RegistrationsTestCase
         $this->insertRegistration($this->newRegistration(5, $low));
 
         self::assertSame([$low => 1, $high => 2], $this->serials(5));
+    }
+
+    public function testAnAdmissionFromTheWaitlistGoesToTheEndOfRegistered(): void
+    {
+        [$a, $w, $b, $c] = $this->codes;
+        $this->insertRegistration($this->newRegistration(5, $a, RegistrationStatus::Registered, '2026-11-30 08:00:00'));
+        $this->insertRegistration($this->newRegistration(5, $w, RegistrationStatus::Waitlisted, '2026-11-30 08:01:00'));
+        $this->insertRegistration($this->newRegistration(5, $b, RegistrationStatus::Registered, '2026-11-30 08:02:00'));
+        $this->insertRegistration($this->newRegistration(5, $c, RegistrationStatus::Registered, '2026-11-30 08:03:00'));
+
+        $this->setStatus(new RegistrationKey(5, $w), RegistrationStatus::Registered, '2026-12-01 09:00:00');
+
+        self::assertSame([$a => 1, $b => 2, $c => 3, $w => 4], $this->serials(5));
+    }
+
+    public function testARestoredRegistrationGoesToTheEndOfRegistered(): void
+    {
+        [$a, $r, $c] = $this->codes;
+        $this->insertRegistration($this->newRegistration(5, $a, RegistrationStatus::Registered, '2026-11-30 08:00:00'));
+        $this->insertRegistration($this->newRegistration(5, $r, RegistrationStatus::Registered, '2026-11-30 08:01:00'));
+        $this->insertRegistration($this->newRegistration(5, $c, RegistrationStatus::Registered, '2026-11-30 08:02:00'));
+
+        $this->setStatus(new RegistrationKey(5, $r), RegistrationStatus::Withdrawn);
+        self::assertSame([$a => 1, $r => null, $c => 2], $this->serials(5));
+
+        $this->setStatus(new RegistrationKey(5, $r), RegistrationStatus::Registered, '2026-12-01 09:00:00');
+        self::assertSame([$a => 1, $c => 2, $r => 3], $this->serials(5));
+    }
+
+    public function testTheWaitlistFollowsTheSubmitTimeWhateverTheRegisteredAt(): void
+    {
+        [$x, $y] = $this->codes;
+        $early = $this->newRegistration(5, $x, RegistrationStatus::Waitlisted, '2026-11-30 08:00:00');
+        $early->registeredAt = $this->utc('2026-12-05 08:00:00');
+        $late = $this->newRegistration(5, $y, RegistrationStatus::Waitlisted, '2026-11-30 09:00:00');
+        $late->registeredAt = $this->utc('2026-12-01 08:00:00');
+        $this->insertRegistration($late);
+        $this->insertRegistration($early);
+
+        self::assertSame([$x => 1, $y => 2], $this->serials(5));
+    }
+
+    public function testRegisteredAtTiesAreOrderedByCodeAndMicrosecondsByTime(): void
+    {
+        [$low, $high] = [ReferenceCode::fourCharacterCodes()[0], ReferenceCode::fourCharacterCodes()[4999]];
+        $this->insertRegistration(
+            $this->newRegistration(5, $high, RegistrationStatus::Registered, '2026-11-30 08:00:00')
+        );
+        $this->insertRegistration(
+            $this->newRegistration(5, $low, RegistrationStatus::Registered, '2026-11-30 08:00:00')
+        );
+        self::assertSame([$low => 1, $high => 2], $this->serials(5));
+
+        $this->setStatus(new RegistrationKey(5, $low), RegistrationStatus::Registered, '2026-12-01 08:00:00.000400');
+        $this->setStatus(new RegistrationKey(5, $high), RegistrationStatus::Registered, '2026-12-01 08:00:00.000100');
+        self::assertSame([$high => 1, $low => 2], $this->serials(5));
+    }
+
+    public function testWithdrawnAndRemovedHaveNoSorszamAndSitAtTheirSubmitTime(): void
+    {
+        [$a, $b, $c] = $this->codes;
+        $this->insertRegistration($this->newRegistration(5, $a, RegistrationStatus::Registered, '2026-11-30 08:00:00'));
+        $this->insertRegistration($this->newRegistration(5, $b, RegistrationStatus::Withdrawn, '2026-11-30 08:01:00'));
+        $this->insertRegistration($this->newRegistration(5, $c, RegistrationStatus::Removed, '2026-11-30 08:02:00'));
+        $this->setStatus(new RegistrationKey(5, $a), RegistrationStatus::Registered, '2026-12-01 08:00:00');
+
+        $rows = (new RegistrationList())->forEvent(5);
+
+        self::assertSame([$b, $c, $a], array_column($rows, 'code'));
+        self::assertSame([null, null, 1], array_column($rows, 'serial'));
     }
 }
