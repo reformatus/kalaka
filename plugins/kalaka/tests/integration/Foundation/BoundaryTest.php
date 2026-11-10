@@ -205,6 +205,19 @@ final class BoundaryTest extends RunnerTestCase
         );
     }
 
+    public function testAReportedFailureIsOneLogLineWithTheWholeChain(): void
+    {
+        $log = $this->capturedErrorLog(static function (): void {
+            Boundary::report('mail delivery 7 of event 5', new \RuntimeException('Teszt hiba.'));
+        });
+
+        self::assertStringContainsString(
+            'Kaláka: mail delivery 7 of event 5 failed, correlation ' . Correlation::id()
+            . ': RuntimeException (0): Teszt hiba.',
+            $log
+        );
+    }
+
     public function testARenderShowsTheErrorInPlaceAndLogsIt(): void
     {
         $html = '';
