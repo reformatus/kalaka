@@ -429,7 +429,7 @@ Site Health test only when the condition is an environment requirement.**
   | The PHP error log lies under the web root ([The error log](#the-error-log)) | error | yes |
   | The periodic run has stalled: cron does not start it, or it fails ([Deferred work](#deferred-work)) | error | yes |
   | An extension contribution is failing ([Modules](modules-and-extensions.md#failure-isolation)) | error | no |
-  | Mail sending is paused after errors ([Mail](mail.md#pausing)) | error | yes |
+  | Mail sending is paused after errors ([Mail](mail.md#pausing)) | error | no |
   | Mail sending is paused by hand ([Mail](mail.md#pausing)) | info | no |
 
   An event's own problems (its reference codes running out) are not site
