@@ -16,8 +16,19 @@ final class LoadState
 {
     private static ?self $current = null;
 
-    /** @param list<LoadFailure> $failures */
-    private function __construct(public readonly array $failures)
+    /**
+     * Failures a late check found while the boot was running (activation, where `wp_loaded` has already
+     * fired and a module runs its check in its own `boot()`); `record()` takes them over.
+     *
+     * @var list<LoadFailure>
+     */
+    private static array $early = [];
+
+    /**
+     * @param list<LoadFailure> $failures every failure: the boot's, then the late ones
+     * @param list<LoadFailure> $late the failures modules' late checks added (`close()`)
+     */
+    private function __construct(public readonly array $failures, public readonly array $late = [])
     {
     }
 
@@ -28,6 +39,18 @@ final class LoadState
     }
 
     /**
+     * Called by the boot only, before any module: until it records its outcome, the site counts as
+     * closed and a late check's failure waits for `record()`.
+     *
+     * @internal
+     */
+    public static function begin(): void
+    {
+        self::$current = null;
+        self::$early = [];
+    }
+
+    /**
      * Called by the boot only.
      *
      * @internal
@@ -35,7 +58,24 @@ final class LoadState
      */
     public static function record(array $failures): void
     {
-        self::$current = new self($failures);
+        self::$current = new self([...$failures, ...self::$early], self::$early);
+        self::$early = [];
+    }
+
+    /**
+     * Adds a failure found after the boot (a module's late check, on `wp_loaded`): the site is closed
+     * from now on. Never reopens. The boot logs it with its own failures, when they start or change.
+     *
+     * @internal called only by late checks of modules
+     */
+    public static function close(LoadFailure $failure): void
+    {
+        if (self::$current === null) {
+            self::$early[] = $failure;
+
+            return;
+        }
+        self::$current = new self([...self::$current->failures, $failure], [...self::$current->late, $failure]);
     }
 
     public function isOpen(): bool
