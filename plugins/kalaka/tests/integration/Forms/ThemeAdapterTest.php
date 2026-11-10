@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Forms;
 
+use Kalaka\Forms\Api\ElementRole;
 use Kalaka\Forms\Api\FieldWrapper;
 use Kalaka\Forms\Api\ThemeAdaptation;
 use Kalaka\Forms\ThemeAdapters;
@@ -96,7 +97,7 @@ final class ThemeAdapterTest extends WP_UnitTestCase
             $html
         );
         self::assertStringContainsString('<label for="kalaka-field-email" class="et_pb_contact_form_label">', $html);
-        self::assertStringContainsString('name="email" class="input" required>', $html);
+        self::assertStringContainsString('name="email" autocomplete="email" class="input" required>', $html);
         self::assertStringContainsString(
             '<span class="kalaka-field__required et_required" aria-hidden="true">*</span>',
             $html
@@ -104,6 +105,17 @@ final class ThemeAdapterTest extends WP_UnitTestCase
         self::assertStringContainsString('class="kalaka-field__error et-pb-contact-message" hidden>', $html);
         self::assertMatchesRegularExpression('#</p>\s*\z#', $html);
         self::assertSame('#e02b20', ThemeAdapters::current()->errorColour);
+    }
+
+    public function testAConsentStaysInADivAndTheFormRoleIsThere(): void
+    {
+        $this->adapters(new TestThemeAdapter(new ThemeAdaptation(['form' => ['et_pb_contact']], FieldWrapper::P)));
+
+        $html = $this->render('consent', ['key' => 'gdpr', 'label' => 'Elfogadom']);
+
+        self::assertMatchesRegularExpression('/\A\s*<div class="kalaka-field wp-block-kalaka-consent-field"/', $html);
+        self::assertMatchesRegularExpression('#</div>\s*\z#', $html);
+        self::assertSame(['et_pb_contact'], ThemeAdapters::current()->classes(ElementRole::Form));
     }
 
     public function testAChoiceStaysInADivWithTheClassesOfItsRoles(): void

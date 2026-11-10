@@ -3,9 +3,6 @@
   "name": "kalaka/date-field",
   "title": "Dátum",
   "category": "kalaka",
-  "ancestor": [
-    "kalaka/form"
-  ],
   "supports": {
     "html": false
   },
@@ -20,6 +17,12 @@
     "required": {
       "type": "boolean",
       "default": false
+    },
+    "autocomplete": {
+      "type": "string",
+      "enum": [
+        "bday"
+      ]
     }
   },
   "render": "file:./render.php"

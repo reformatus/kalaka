@@ -79,7 +79,7 @@ final class FieldTypesTest extends TestCase
     {
         $answer = $this->answer(new PhoneFieldType(), $phone);
 
-        self::assertSame('Adj meg egy érvényes telefonszámot, például: 06301234567 vagy +36301234567.', $answer->error);
+        self::assertSame('Adj meg egy érvényes telefonszámot, például 06301234567 vagy +36301234567.', $answer->error);
         self::assertNull($answer->value);
     }
 

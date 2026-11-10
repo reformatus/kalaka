@@ -30,7 +30,7 @@ final class PhoneFieldType extends AbstractFieldType
             $phone = '+36' . $domestic[1];
         }
         if (preg_match('/\A\+[1-9][0-9]{7,14}\z/', $phone) !== 1) {
-            return FieldAnswer::error('Adj meg egy érvényes telefonszámot, például: 06301234567 vagy +36301234567.');
+            return FieldAnswer::error('Adj meg egy érvényes telefonszámot, például 06301234567 vagy +36301234567.');
         }
 
         return FieldAnswer::stored($phone);

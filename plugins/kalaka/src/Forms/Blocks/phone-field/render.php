@@ -14,4 +14,4 @@ use Kalaka\Forms\FieldMarkup;
 defined('ABSPATH') || exit;
 
 // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds
-echo FieldMarkup::textLike($attributes, 'tel', FieldMarkup::flag($attributes, 'required'));
+echo FieldMarkup::textLike($attributes, 'tel', FieldMarkup::flag($attributes, 'required'), false, 'tel');

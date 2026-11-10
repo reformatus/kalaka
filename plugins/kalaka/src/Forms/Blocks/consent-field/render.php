@@ -16,10 +16,9 @@ defined('ABSPATH') || exit;
 
 $kalakaKey = FieldMarkup::text($attributes, 'key');
 $kalakaRequired = FieldMarkup::flag($attributes, 'required');
-$kalakaTag = FieldMarkup::wrapperTag(true);
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds
 ?>
-<<?php echo $kalakaTag; ?> <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?>>
+<div <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?>>
     <label<?php echo FieldMarkup::classAttribute(ElementRole::Label); ?>>
         <input type="checkbox" name="<?php echo esc_attr($kalakaKey); ?>" value="1"<?php
             echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : ''; ?>>
@@ -28,6 +27,6 @@ $kalakaTag = FieldMarkup::wrapperTag(true);
         ?>
     </label>
     <?php echo FieldMarkup::errorElement($kalakaKey); ?>
-</<?php echo $kalakaTag; ?>>
+</div>
 <?php
 // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

@@ -3,9 +3,6 @@
   "name": "kalaka/phone-field",
   "title": "Telefonszám",
   "category": "kalaka",
-  "ancestor": [
-    "kalaka/form"
-  ],
   "supports": {
     "html": false
   },

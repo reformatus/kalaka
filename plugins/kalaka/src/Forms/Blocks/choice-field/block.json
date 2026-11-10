@@ -3,9 +3,6 @@
   "name": "kalaka/choice-field",
   "title": "Választás",
   "category": "kalaka",
-  "ancestor": [
-    "kalaka/form"
-  ],
   "supports": {
     "html": false
   },

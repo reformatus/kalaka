@@ -47,7 +47,7 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
             self::assertArrayHasKey('required', $block->attributes);
             self::assertSame('kalaka', $block->category, $type);
             self::assertFalse($block->supports['html'] ?? true, $type);
-            self::assertSame(['kalaka/form'], $block->ancestor, $type);
+            self::assertNull($block->ancestor, $type);
         }
         $name = $registry->get_registered('kalaka/name-field');
         $email = $registry->get_registered('kalaka/email-field');
@@ -95,20 +95,38 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
 
     public function testTheTextLikeFieldsRenderALabelledInputAndAnErrorElement(): void
     {
+        $hints = ['phone' => ' autocomplete="tel"', 'date' => '', 'text' => ''];
         foreach (['phone' => 'tel', 'date' => 'date', 'text' => 'text'] as $type => $inputType) {
             $this->assertMarkup(
                 $this->open($type, 'my_key') . '<label for="kalaka-field-my_key">Címke</label>'
-                . '<input type="' . $inputType . '" id="kalaka-field-my_key" name="my_key">'
+                . '<input type="' . $inputType . '" id="kalaka-field-my_key" name="my_key"' . $hints[$type] . '>'
                 . $this->error('my_key') . '</div>',
                 $this->render($type, ['key' => 'my_key', 'label' => 'Címke'])
             );
             $this->assertMarkup(
                 $this->open($type, 'my_key') . '<label for="kalaka-field-my_key">Címke' . self::MARKER . '</label>'
-                . '<input type="' . $inputType . '" id="kalaka-field-my_key" name="my_key" required>'
+                . '<input type="' . $inputType . '" id="kalaka-field-my_key" name="my_key"' . $hints[$type]
+                . ' required>'
                 . $this->error('my_key') . '</div>',
                 $this->render($type, ['key' => 'my_key', 'label' => 'Címke', 'required' => true])
             );
         }
+    }
+
+    public function testADateCarriesItsAutofillHintOnlyWhenItIsAnAllowedOne(): void
+    {
+        self::assertStringContainsString(
+            '<input type="date" id="kalaka-field-born" name="born" autocomplete="bday">',
+            $this->render('date', ['key' => 'born', 'label' => 'Születési dátum', 'autocomplete' => 'bday'])
+        );
+        foreach (['email', 'off', 'bday" onfocus="x'] as $token) {
+            self::assertStringNotContainsString(
+                'autocomplete',
+                $this->render('date', ['key' => 'born', 'label' => 'Születési dátum', 'autocomplete' => $token]),
+                $token
+            );
+        }
+        self::assertStringNotContainsString('autocomplete', $this->render('text', ['key' => 'x', 'label' => 'L']));
     }
 
     public function testAMultilineTextRendersATextarea(): void
@@ -124,12 +142,14 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
     {
         $this->assertMarkup(
             $this->open('email', 'email') . '<label for="kalaka-field-email">E-mail' . self::MARKER . '</label>'
-            . '<input type="email" id="kalaka-field-email" name="email" required>' . $this->error('email') . '</div>',
+            . '<input type="email" id="kalaka-field-email" name="email" autocomplete="email" required>'
+            . $this->error('email') . '</div>',
             $this->render('email', ['key' => 'email', 'label' => 'E-mail', 'contactEmail' => true])
         );
         $this->assertMarkup(
             $this->open('name', 'name') . '<label for="kalaka-field-name">Név' . self::MARKER . '</label>'
-            . '<input type="text" id="kalaka-field-name" name="name" required>' . $this->error('name') . '</div>',
+            . '<input type="text" id="kalaka-field-name" name="name" autocomplete="name" required>'
+            . $this->error('name') . '</div>',
             $this->render('name', ['key' => 'name', 'label' => 'Név', 'displayName' => true])
         );
         $optional = $this->render('email', ['key' => 'email2', 'label' => 'E-mail']);

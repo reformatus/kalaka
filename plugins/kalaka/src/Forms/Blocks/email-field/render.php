@@ -17,6 +17,8 @@ defined('ABSPATH') || exit;
 echo FieldMarkup::textLike(
     $attributes,
     'email',
-    FieldMarkup::flag($attributes, 'required') || FieldMarkup::flag($attributes, 'contactEmail')
+    FieldMarkup::flag($attributes, 'required') || FieldMarkup::flag($attributes, 'contactEmail'),
+    false,
+    'email'
 );
 // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

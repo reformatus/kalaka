@@ -13,5 +13,12 @@ use Kalaka\Forms\FieldMarkup;
 
 defined('ABSPATH') || exit;
 
-// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds
-echo FieldMarkup::textLike($attributes, 'date', FieldMarkup::flag($attributes, 'required'));
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds
+echo FieldMarkup::textLike(
+    $attributes,
+    'date',
+    FieldMarkup::flag($attributes, 'required'),
+    false,
+    FieldMarkup::dateAutocomplete($attributes)
+);
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

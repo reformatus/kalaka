@@ -68,6 +68,19 @@ final class Module extends AbstractModule
         // events-and-forms.md, "Fields": keys and option values come from the visible text, set on save.
         add_filter('wp_insert_post_data', [FieldKeys::class, 'onInsert']);
         add_filter('block_categories_all', [$this, 'blockCategories']);
+        add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
+        add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
+    }
+
+    /**
+     * The `enter_title_here` filter: a form's title is its internal name.
+     *
+     * @internal
+     */
+    public function titlePlaceholder(string $placeholder, \WP_Post $post): string
+    {
+        // [UNAPPROVED N9] the title placeholder.
+        return $post->post_type === FormPosts::POST_TYPE ? 'Űrlap nevének hozzáadása' : $placeholder;
     }
 
     /**
@@ -92,13 +105,39 @@ final class Module extends AbstractModule
     /**
      * Forms are built in the block editor (events-and-forms.md, "Forms implementation"), by full access
      * only: every capability, REST reads included (`FormRestController`), needs `kalaka_full_access`. The
-     * editor opens a form from its own link; the type adds no admin menu item and no labels of its own.
+     * editor opens a form from its own link; the type adds no admin menu item. Its labels are the ones the
+     * block editor and the list screen show for a type without a menu or a public view.
      */
     private function registerPostType(): void
     {
         $full = AdminAccess::FULL_ACCESS;
         register_post_type(FormPosts::POST_TYPE, [
             'public' => false,
+            // [UNAPPROVED N9] the labels.
+            'labels' => [
+                'name' => 'Űrlapok',
+                'singular_name' => 'Űrlap',
+                'add_new' => 'Új űrlap',
+                'add_new_item' => 'Új űrlap hozzáadása',
+                'new_item' => 'Új űrlap',
+                'edit_item' => 'Űrlap szerkesztése',
+                'view_items' => 'Űrlapok megtekintése',
+                'all_items' => 'Összes űrlap',
+                'search_items' => 'Űrlapok keresése',
+                'not_found' => 'Nem található űrlap.',
+                'not_found_in_trash' => 'Nem található űrlap a lomtárban.',
+                'insert_into_item' => 'Beszúrás az űrlapba',
+                'uploaded_to_this_item' => 'Feltöltve ehhez az űrlaphoz',
+                'filter_items_list' => 'Űrlapok listájának szűrése',
+                'items_list_navigation' => 'Űrlapok listájának navigációja',
+                'items_list' => 'Űrlapok listája',
+                'item_published' => 'Űrlap közzétéve.',
+                'item_published_privately' => 'Űrlap privátként közzétéve.',
+                'item_reverted_to_draft' => 'Űrlap visszaállítva vázlattá.',
+                'item_trashed' => 'Űrlap lomtárba helyezve.',
+                'item_scheduled' => 'Űrlap időzítve.',
+                'item_updated' => 'Űrlap frissítve.',
+            ],
             'show_ui' => true,
             'show_in_menu' => false,
             'show_in_rest' => true,

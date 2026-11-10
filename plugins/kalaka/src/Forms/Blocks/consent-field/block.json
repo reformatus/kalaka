@@ -3,9 +3,6 @@
   "name": "kalaka/consent-field",
   "title": "Hozzájárulás",
   "category": "kalaka",
-  "ancestor": [
-    "kalaka/form"
-  ],
   "supports": {
     "html": false
   },

@@ -3,9 +3,6 @@
   "name": "kalaka/email-field",
   "title": "E-mail-cím",
   "category": "kalaka",
-  "ancestor": [
-    "kalaka/form"
-  ],
   "supports": {
     "html": false
   },

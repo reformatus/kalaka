@@ -16,6 +16,12 @@ use Kalaka\Forms\Api\FieldWrapper;
  */
 final class FieldMarkup
 {
+    /**
+     * The HTML autofill tokens a date field may carry (`kalaka/date-field`'s `autocomplete` attribute).
+     * [UNAPPROVED N11] the autofill hints: name `name`, email `email`, phone `tel`, a date's own.
+     */
+    public const DATE_AUTOCOMPLETE = ['bday'];
+
     /** The id of a field's control, which its `label` names. */
     public static function controlId(string $key): string
     {
@@ -23,8 +29,9 @@ final class FieldMarkup
     }
 
     /**
-     * The wrapper element: `p` when the adapter chooses it, but only for a single control, since a
-     * `fieldset` cannot sit in a `p`.
+     * The wrapper element: `p` when the adapter chooses it, but only for a single text control. A
+     * choice's `fieldset` cannot sit in a `p`, and a consent stays a `div` too (themes such as Divi
+     * hide `p input[type=checkbox]`).
      */
     public static function wrapperTag(bool $singleControl): string
     {
@@ -98,7 +105,8 @@ final class FieldMarkup
 
     /**
      * A field with one text-like control: a `label` (the title, then the required marker), the `input` of
-     * the given type or a `textarea`, then the error element.
+     * the given type or a `textarea`, then the error element. `$autocomplete` is the control's autofill
+     * hint (an HTML autofill token), or null for none.
      *
      * @param array<string, mixed> $attributes
      */
@@ -106,11 +114,13 @@ final class FieldMarkup
         array $attributes,
         string $inputType,
         bool $required,
-        bool $multiline = false
+        bool $multiline = false,
+        ?string $autocomplete = null
     ): string {
         $key = self::text($attributes, 'key');
         $id = esc_attr(self::controlId($key));
         $controlAttributes = ' id="' . $id . '" name="' . esc_attr($key) . '"'
+            . ($autocomplete === null ? '' : ' autocomplete="' . esc_attr($autocomplete) . '"')
             . self::classAttribute(ElementRole::TextControl) . ($required ? ' required' : '');
         $control = $multiline
             ? '<textarea' . $controlAttributes . '></textarea>'
@@ -123,5 +133,17 @@ final class FieldMarkup
             . $control
             . self::errorElement($key)
             . '</' . $tag . '>';
+    }
+
+    /**
+     * The date field's autofill hint: its `autocomplete` attribute when it is one the block allows, else none.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public static function dateAutocomplete(array $attributes): ?string
+    {
+        $token = $attributes['autocomplete'] ?? null;
+
+        return in_array($token, self::DATE_AUTOCOMPLETE, true) ? $token : null;
     }
 }

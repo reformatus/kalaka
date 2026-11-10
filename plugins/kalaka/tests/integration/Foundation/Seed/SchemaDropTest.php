@@ -136,7 +136,7 @@ final class SchemaDropTest extends RealTableTestCase
         self::assertSame(0, $this->rows('kalaka_events'));
         self::assertSame(0, $this->rows('kalaka_audit_entries'));
         self::assertSame((new EventsModule())->schema()->version, (int) get_option('kalaka_schema_events', 0));
-        foreach (['administrator', 'editor', 'author', 'contributor', 'subscriber'] as $login) {
+        foreach (['administrator', 'editor', 'author', 'contributor', 'subscriber', 'kalaka_admin'] as $login) {
             self::assertFalse(get_user_by('login', $login));
         }
     }

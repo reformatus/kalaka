@@ -20,13 +20,13 @@ final class SeedTest extends SeedTestCase
         $second = $this->seeded();
         $rows = $this->eventRows();
 
-        self::assertCount(5, $this->seededLogins());
+        self::assertCount(6, $this->seededLogins());
         self::assertSame(
-            5,
+            6,
             count(array_filter($first, static fn (string $l): bool => str_starts_with($l, 'Created user')))
         );
         self::assertSame(
-            5,
+            6,
             count(array_filter($second, static fn (string $l): bool => str_starts_with($l, 'Kept user')))
         );
         self::assertCount(10, $rows);

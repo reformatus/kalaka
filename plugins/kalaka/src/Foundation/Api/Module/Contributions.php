@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api\Module;
 
+use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Seed\Seeder;
@@ -25,6 +26,9 @@ final class Contributions
 
     /** @var list<ThemeAdapter> */
     private array $themeAdapters = [];
+
+    /** @var list<BlockHost> */
+    private array $blockHosts = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -114,5 +118,24 @@ final class Contributions
     public function themeAdapters(): array
     {
         return $this->themeAdapters;
+    }
+
+    /**
+     * A post type other than a form whose editor may insert some of the form-only blocks (Forms'
+     * `BlockGate`), e.g. the condition blocks in a mail body. Data only.
+     */
+    public function blockHost(BlockHost $host): void
+    {
+        $this->blockHosts[] = $host;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<BlockHost>
+     */
+    public function blockHosts(): array
+    {
+        return $this->blockHosts;
     }
 }

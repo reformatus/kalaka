@@ -212,7 +212,7 @@ final class FormValidationTest extends FormsTestCase
     {
         foreach (['0630123', '30 123 4567'] as $phone) {
             self::assertSame(
-                ['phone' => 'Adj meg egy érvényes telefonszámot, például: 06301234567 vagy +36301234567.'],
+                ['phone' => 'Adj meg egy érvényes telefonszámot, például 06301234567 vagy +36301234567.'],
                 $this->errorsOf(['phone' => $phone] + $this->required()),
                 $phone
             );

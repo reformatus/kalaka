@@ -11,6 +11,8 @@ namespace Kalaka\Forms\Api;
  */
 enum ElementRole: string
 {
+    /** The form's own wrapper, around all its fields (rendered by the form block and the form page). */
+    case Form = 'form';
     /** The wrapper of one field (`div`, or `p` when the adapter chooses it for a single-control field). */
     case Field = 'field';
     /** A field's title: the `label` of a single control, the `legend` of a choice, the `label` of a consent. */

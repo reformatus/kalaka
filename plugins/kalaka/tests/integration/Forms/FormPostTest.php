@@ -27,6 +27,10 @@ final class FormPostTest extends FormsTestCase
         self::assertTrue(post_type_supports('kalaka_form', 'editor'));
         self::assertTrue(post_type_supports('kalaka_form', 'revisions'));
         self::assertTrue(post_type_supports('kalaka_form', 'custom-fields'));
+        self::assertSame('Űrlap', $type->labels->singular_name);
+        self::assertSame('Űrlap szerkesztése', $type->labels->edit_item);
+        self::assertSame('Új űrlap hozzáadása', $type->labels->add_new_item);
+        self::assertSame('Űrlap frissítve.', $type->labels->item_updated);
         self::assertFalse(post_type_supports('kalaka_form', 'thumbnail'));
         foreach ((array) $type->cap as $name => $capability) {
             self::assertSame(AdminAccess::FULL_ACCESS, $capability, 'capability ' . $name);
