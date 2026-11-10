@@ -55,7 +55,7 @@ abstract class KalakaException extends \RuntimeException
      */
     public function publicMessage(): string
     {
-        // [UNAPPROVED N1] A 500 shows only its default text.
+        // A 500 shows only its default text.
         return $this->status() < 500 ? $this->getMessage() : $this->defaultMessage();
     }
 
@@ -74,7 +74,7 @@ abstract class KalakaException extends \RuntimeException
      */
     public function operatorMessage(): string
     {
-        // [UNAPPROVED N2] WP-CLI keeps a 500's context.
+        // WP-CLI keeps a 500's context.
         return $this->withIdLine($this->getMessage());
     }
 
