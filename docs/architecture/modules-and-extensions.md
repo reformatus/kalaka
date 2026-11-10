@@ -259,7 +259,7 @@ never our prefix.
 | Blocks, abilities | `kalaka/<name>` |
 | Post types | `kalaka_form`, `kalaka_field`, `kalaka_mail` |
 | REST namespaces | `kalaka-admin/v1`, `kalaka-portal/v1` |
-| Extension REST namespaces | `kalaka-<module id>/v1`, e.g. `kalaka-support/v1`; routes are registered in the module's `boot()`, and every public route checks `LoadState::isOpen()` |
+| Extension REST namespaces | `kalaka-<module id>/v1`, e.g. `kalaka-support/v1`; routes are registered in the module's `boot()`, and every public route calls `LoadState::requireOpen()` |
 | Repository | `reformatus/kalaka` |
 | Plugin headers | `Plugin Name: Kaláka` (extensions `Kaláka – <Feature>`), `Plugin URI: https://kalaka.dev`, `Author: Benedek Fodor`, `Update URI: https://kalaka.dev` so WordPress never offers a wordpress.org plugin of the same slug as an update; no Text Domain; extensions add `Requires Plugins: kalaka[, …]` |
 
@@ -385,13 +385,16 @@ deprecation period and the compatibility-check tool are chosen then.
 
 - A contribution **outside** the transaction that throws is caught and
   skipped, so core keeps working. Its failure is kept on its extension: an
-  option per contribution holding its latest message and since when it has
-  failed, shown as a site warning
+  option per contribution holding its latest message, since when it has
+  failed and when it last failed, shown as a site warning
   ([Foundation](foundation.md#site-warnings)). It is not a Site Health test:
   it is not an environment requirement. When a failure starts, its message
   changes, or the contribution succeeds again, a log line and a system audit
-  entry record it ([Foundation](foundation.md#audit)); on recovery the option
-  is deleted. A failure that only repeats writes nothing.
+  entry record it ([Foundation](foundation.md#audit)). A failure ends only after
+  24 hours without a failure, so a contribution that fails in one place and
+  works in another does not flap; then the option is deleted. A failure that
+  only repeats writes nothing but the option's last-failure time, at most
+  once an hour.
 - A contribution **inside** the transaction that throws rolls back the use
   case like any error.
 - **No point writes to our tables:** a point returns a value, and core writes
@@ -408,10 +411,11 @@ deprecation period and the compatibility-check tool are chosen then.
   failure and before boot has finished.
   - **One outcome:** every public entry point calls `requireOpen()`, which
     refuses with `SiteClosed` (503, [Foundation](foundation.md#errors)).
-    Background work (the periodic run, the sender) skips. The admin side
-    keeps working, and admins see the failed-load warning
-    ([Foundation](foundation.md#site-warnings)), which reads the request's
-    load state.
+    Background work (the periodic run, the sender) skips. The runner refuses
+    every use case with `SiteClosed` too, so nothing writes to tables that
+    may not match the code. Admins can still read, and see the failed-load
+    warning ([Foundation](foundation.md#site-warnings)), which reads the
+    request's load state.
   - **Logged once:** the failure is logged when it starts or changes, not on
     every request; a WordPress option holds what was last logged and is
     deleted after a clean load. A schema upgrade still in progress in another

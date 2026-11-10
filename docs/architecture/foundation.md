@@ -240,8 +240,8 @@ failure there must leave a state that the next use case either accepts or
 refuses; it must never leave our tables in a state no use case would produce,
 or a change without its audit entry. **The one exception is the schema
 upgrade.** It writes our tables, and when it fails the load fails
-([Modules](modules-and-extensions.md#failure-isolation)), so Kaláka refuses
-every use case until the upgrade succeeds.
+([Modules](modules-and-extensions.md#failure-isolation)), and the runner
+refuses every use case until the upgrade succeeds.
 
 **One error boundary at every entry point.** REST callbacks (permission
 callbacks included), WP-CLI commands, background hooks (cron) and rendered
@@ -427,10 +427,10 @@ Site Health test only when the condition is an environment requirement.**
   | The load failed ([Modules](modules-and-extensions.md#failure-isolation)) | error | no |
   | Binary logging with `binlog_format=STATEMENT` ([The use-case runner](#the-use-case-runner)) | error | yes |
   | The PHP error log lies under the web root ([The error log](#the-error-log)) | error | yes |
-  | The periodic run has stalled, with cron as the cause ([Deferred work](#deferred-work)) | error | yes |
+  | The periodic run has stalled: cron does not start it, or it fails ([Deferred work](#deferred-work)) | error | yes |
   | An extension contribution is failing ([Modules](modules-and-extensions.md#failure-isolation)) | error | no |
-  | Mail sending reports errors ([Mail](mail.md#failures)) | error | yes |
-  | Mail sending is paused ([Mail](mail.md#pausing)) | info | no |
+  | Mail sending is paused after errors ([Mail](mail.md#pausing)) | error | yes |
+  | Mail sending is paused by hand ([Mail](mail.md#pausing)) | info | no |
 
   An event's own problems (its reference codes running out) are not site
   warnings: they show on that event's admin pages.
@@ -463,8 +463,11 @@ of deferred work gets exactly the guarantee it needs:
   WordPress core has only WP-Cron, which fires only when `wp-cron.php` runs.
   - A warning shows when the last run is older than 20 minutes, or when no
     run has completed: a site warning with a critical Site Health test
-    ([Site warnings](#site-warnings)). It shows only when cron is the cause,
-    not while the load failed or the database refuses writes. 20
+    ([Site warnings](#site-warnings)). It names its cause: when the run
+    itself failed after its last completed run, the warning says the run
+    fails and shows that failure, which the run's error boundary keeps in an
+    option; otherwise cron is the cause. It stays silent while the load
+    failed or the database refuses writes. 20
     minutes is longer than the lock's 15-minute expiry, so a lock left by a
     crash is taken over before the warning shows.
   - A lock keeps two runs from overlapping.
