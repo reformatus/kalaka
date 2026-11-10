@@ -67,6 +67,7 @@ final class ConditionEvaluatorTest extends TestCase
         yield 'text contains, case-insensitive with accents' => [$text('Kovács Anna'), Operator::Contains, 'ÁCS', true];
         yield 'text does not contain' => [$text('Kovács Anna'), Operator::Contains, 'xyz', false];
         yield 'text accent-sensitive' => [$text('Á'), Operator::Equals, 'A', false];
+        yield 'text case-folded' => [$text('Straße'), Operator::Equals, 'STRASSE', true];
         yield 'choice contains one of several' => [Value::choice(['a', 'b'], 'x'), Operator::Contains, 'b', true];
         yield 'choice contains none of them' => [Value::choice(['a', 'b'], 'x'), Operator::Contains, 'c', false];
         yield 'choice equals the only one' => [Value::choice(['a'], 'x'), Operator::Equals, 'a', true];

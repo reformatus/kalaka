@@ -101,11 +101,11 @@ final class ConditionEvaluator
         };
     }
 
-    /** Case-insensitive, accent-sensitive. */
+    /** Case-insensitive by Unicode case folding (so `ß` matches `SS`), accent-sensitive. */
     private function text(Value $value, Comparison $comparison): bool
     {
-        $text = mb_strtolower($this->string($value));
-        $given = mb_strtolower((string) $comparison->value);
+        $text = mb_convert_case($this->string($value), MB_CASE_FOLD, 'UTF-8');
+        $given = mb_convert_case((string) $comparison->value, MB_CASE_FOLD, 'UTF-8');
 
         return $comparison->operator === Operator::Contains ? str_contains($text, $given) : $text === $given;
     }

@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
@@ -67,6 +68,11 @@ final class FormAvailabilityTest extends FormsTestCase
     /** The track form (S44): the track picks the module options and the track's own questions. */
     private function trackForm(): FormDefinition
     {
+        return $this->definition($this->trackContent());
+    }
+
+    private function trackContent(): string
+    {
         $tracks = [
             ['value' => 'ifivezeto', 'label' => 'Ifivezető'],
             ['value' => 'iskolamisszio', 'label' => 'Iskolamisszió'],
@@ -83,8 +89,7 @@ final class FormAvailabilityTest extends FormsTestCase
             ['value' => 'pro_a', 'label' => 'PRO A', 'condition' => $this->when('track', 'equals', 'pro')],
         ];
 
-        return $this->definition(
-            $this->field('choice', 'track', ['options' => $tracks, 'required' => true])
+        return $this->field('choice', 'track', ['options' => $tracks, 'required' => true])
             . $this->branch(
                 'if',
                 $this->when('track', 'equals', 'pro'),
@@ -93,8 +98,7 @@ final class FormAvailabilityTest extends FormsTestCase
             )
             . $this->branch('else', null, $this->field('text', 'other_question'))
             . $this->field('choice', 'modules', ['options' => $modules, 'multiple' => true])
-            . $this->field('choice', 'first', ['options' => $modules, 'required' => true])
-        );
+            . $this->field('choice', 'first', ['options' => $modules, 'required' => true]);
     }
 
     public function testChainsAreNumberedInDocumentOrderAndTriggersAreTheKeysConditionsRead(): void
@@ -106,6 +110,51 @@ final class FormAvailabilityTest extends FormsTestCase
         self::assertSame([], $definition->chains[0]->outer);
         self::assertSame(0, $definition->chains[1]->outer[0]->chain);
         self::assertSame(['track', 'pro_question'], $definition->triggers);
+    }
+
+    /** N7: the branch wrappers the page renders carry the numbers the definition and the availability use. */
+    public function testTheRenderedBranchesCarryTheDefinitionsChainNumbers(): void
+    {
+        $form = $this->readForm($this->slotForm($this->trackContent()));
+        $definition = $this->forms->definition($form);
+
+        $html = implode('', array_map('render_block', $this->forms->blocks($form)));
+
+        $wrapper = '/<div data-kalaka-chain="(\d+)" data-kalaka-branch="(\d+)" hidden>/';
+        self::assertSame(3, preg_match_all($wrapper, $html, $found));
+        self::assertSame(['0', '1', '0'], $found[1]);
+        self::assertSame(['0', '0', '1'], $found[2]);
+        $numbered = [];
+        foreach ($definition->chains as $chain) {
+            foreach ($chain->branches as $branch) {
+                $numbered[] = [(string) $branch->chain, (string) $branch->index];
+            }
+        }
+        sort($numbered);
+        $rendered = array_map(null, $found[1], $found[2]);
+        sort($rendered);
+        self::assertSame($numbered, $rendered);
+        self::assertStringContainsString('data-kalaka-field="pro_why"', $html);
+    }
+
+    /** N8: only the latest version is accepted for a re-fetch or a submit. */
+    public function testOnlyTheLatestVersionIsAccepted(): void
+    {
+        $id = $this->slotForm($this->trackContent());
+        $old = $this->readForm($id);
+        wp_update_post(['ID' => $id, 'post_content' => $this->slotFields() . $this->field('text', 'note')]);
+        $form = $this->readForm($id);
+        self::assertNotSame($old->version, $form->version);
+
+        self::assertSame($form->version, $this->forms->latestDefinition($form, $form->version)->version);
+        try {
+            $this->forms->latestDefinition($form, $old->version);
+            self::fail('An earlier version should have been refused.');
+        } catch (FormOutdated $outdated) {
+            self::assertSame('kalaka_form_outdated', $outdated->errorCode());
+            self::assertSame(409, $outdated->status());
+            self::assertFalse($outdated->isAudited());
+        }
     }
 
     public function testADraftShowsTheHeldBranchesFieldsAndOfferedOptions(): void

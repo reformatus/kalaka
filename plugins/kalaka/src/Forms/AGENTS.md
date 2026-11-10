@@ -120,6 +120,12 @@ values and conditions, prefill and form links
   and the event's keys (`Api\EventValues`). At submit, an answer in a branch
   that does not hold, or an option that is not offered, is dropped: never
   stored, never required, never an error.
+- A form's chains are numbered once, by `Condition\ChainMarks`, on the parsed
+  blocks: `DefinitionParser` reads the numbers from those marks and the branch
+  blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing
+  else, in PHP or JavaScript, recomputes them.
+- A re-fetch or a submit accepts only the form's latest version
+  (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a

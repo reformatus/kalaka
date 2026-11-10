@@ -392,7 +392,9 @@ is no other participant-side edit.
 - **Typed comparison:** values compare as number, date, text or choice.
 - **A date can be compared with a date reference:** another date key of the
   fact source moved by whole years and days, e.g. the event's start minus 16
-  years for "under 16 at the event's start".
+  years for "under 16 at the event's start". A day the moved month does not
+  have becomes its last day (29 February to 28 February), so the age rule
+  holds for an event starting on 29 February.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice

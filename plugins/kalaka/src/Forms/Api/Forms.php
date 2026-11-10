@@ -7,6 +7,7 @@ namespace Kalaka\Forms\Api;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\AnswerValidator;
+use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
@@ -65,6 +66,37 @@ final class Forms
         }
 
         return $definition;
+    }
+
+    /**
+     * The definition of the version a form page was built from, which must be the form's latest version
+     * (S76 follow-up, N8): a re-fetch and a submit accept nothing else.
+     *
+     * @throws FormOutdated when the version is not the latest
+     * @throws SystemFailure when the definition has a problem
+     */
+    public function latestDefinition(Form $form, int $version): FormDefinition
+    {
+        if ($version !== $form->version) {
+            $error = new FormOutdated();
+            throw $error;
+        }
+
+        return $this->definition($form, $version);
+    }
+
+    /**
+     * The parsed blocks of the form's version with every branch block marked with its chain number and
+     * branch index (`Condition\ChainMarks`, the numbering the definition reads): what a form page renders,
+     * block by block with `render_block()`, outside `Values::render()`. A branch then renders as
+     * `<div data-kalaka-chain="N" data-kalaka-branch="i" hidden>…</div>` (`BranchMarkup`). [UNAPPROVED N7]
+     *
+     * @return list<array<string, mixed>>
+     * @throws SystemFailure when the version is not a revision of the form, or a branch is misplaced
+     */
+    public function blocks(Form $form, ?int $version = null): array
+    {
+        return ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version ?? $form->version))));
     }
 
     /**

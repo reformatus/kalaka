@@ -19,7 +19,11 @@ final readonly class DateReference
     }
 
     /**
-     * The referenced day moved, as `YYYY-MM-DD`; a 29 February moved to a year without one is 1 March.
+     * The referenced day moved by the years, then by the days, as `YYYY-MM-DD`. A day the moved year's
+     * month does not have becomes that month's last day: 29 February moved to a year without one is
+     * 28 February, not 1 March (N9). So "born after the start minus N years" is exactly "under N at the
+     * start" when the start is a 29 February: someone born on the 1 March of the moved year is still
+     * under N on the start, someone born on its 28 February is not.
      *
      * @param string $day the key's value, `YYYY-MM-DD`
      */
@@ -30,6 +34,11 @@ final readonly class DateReference
             throw new \InvalidArgumentException('A date reference moves a day given as YYYY-MM-DD.');
         }
 
-        return $date->modify(sprintf('%+d years %+d days', $this->years, $this->days))->format('Y-m-d');
+        $year = (int) $date->format('Y') + $this->years;
+        $month = (int) $date->format('n');
+        $first = $date->setDate($year, $month, 1);
+        $moved = $first->setDate($year, $month, min((int) $date->format('j'), (int) $first->format('t')));
+
+        return $moved->modify(sprintf('%+d days', $this->days))->format('Y-m-d');
     }
 }

@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Condition\Chain;
+use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\Condition\Chains;
 use Kalaka\Forms\Condition\Condition;
 use Kalaka\Forms\Condition\ConditionParser;
@@ -22,7 +23,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * Reads the field blocks of a form's block markup, in document order, whatever core blocks and
  * condition branches they sit in; each field carries the branches it sits in, and a choice field
  * the availability conditions of its options. The chains are numbered in document order, and every
- * key a condition reads is collected. Any problem makes the form unusable (`SystemFailure`, naming
+ * key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`, the marks
+ * the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming
  * the problem and the field key, never a label or an option).
  */
 final class DefinitionParser
@@ -48,7 +50,7 @@ final class DefinitionParser
         $this->read = [];
         $fields = [];
         try {
-            $this->collect(array_values(parse_blocks($content)), $contributions, $fields, []);
+            $this->collect(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields, []);
             $this->slotRules->check($form->id, $form->placement, $fields);
             $triggers = [];
             foreach ($fields as $field) {
@@ -111,10 +113,19 @@ final class DefinitionParser
             }
         }
 
-        $number = count($this->chains);
+        // The numbers come from the marks the blocks render with: one numbering for both.
+        $number = ChainMarks::of($chain->branches[0])[0] ?? null;
+        if ($number === null || $number !== count($this->chains)) {
+            $error = new SystemFailure(null, new \LogicException('A chain was not marked in document order.'));
+            throw $error;
+        }
         $own = [];
         $earlier = [];
         foreach ($conditions as $index => $condition) {
+            if ((ChainMarks::of($chain->branches[$index])[1] ?? null) !== $index) {
+                $error = new SystemFailure(null, new \LogicException('A branch was not marked in chain order.'));
+                throw $error;
+            }
             $own[] = new FormBranch($earlier, $condition, $number, $index);
             if ($condition instanceof Condition) {
                 $earlier[] = $condition;

@@ -79,10 +79,50 @@ final class DateReferenceTest extends TestCase
         self::assertFalse($this->under16($this->facts('2015-01-01', null)));
     }
 
-    public function testDaysMoveTooAndALeapDayRollsOver(): void
+    public function testDaysMove(): void
     {
         self::assertSame('2027-07-03', (new DateReference('event.start', 0, -7))->from('2027-07-10'));
-        self::assertSame('2013-03-01', (new DateReference('event.start', -15))->from('2028-02-29'));
+        self::assertSame('2027-03-01', (new DateReference('event.start', 0, 1))->from('2027-02-28'));
+    }
+
+    /**
+     * N9: 29 February moved to a year without one is that February's last day, 28 February, not PHP's
+     * overflow to 1 March. Years move first, then days; a leap day moved to a leap year stays.
+     */
+    public function testALeapDayMovedToAYearWithoutOneIsTheLastDayOfFebruary(): void
+    {
+        self::assertSame('2013-02-28', (new DateReference('event.start', -15))->from('2028-02-29'));
+        self::assertSame('2012-02-29', (new DateReference('event.start', -16))->from('2028-02-29'));
+        self::assertSame('2013-03-01', (new DateReference('event.start', -15, 1))->from('2028-02-29'));
+        self::assertSame('2032-02-29', (new DateReference('event.start', 4))->from('2028-02-29'));
+        self::assertSame('2013-01-31', (new DateReference('event.start', -15))->from('2028-01-31'));
+    }
+
+    /**
+     * The age rule at an event starting on 29 February 2028, "under 15 at the start" written as
+     * `born greaterThan {event.start, years: -15}`: someone born on 1 March 2013 turns 15 on
+     * 1 March 2028, so on the start they are 14 and under 15; someone born on 28 February 2013 turned 15
+     * the day before the start. With PHP's overflow (1 March) the first would wrongly count as not under 15.
+     */
+    public function testUnderFifteenAtALeapDayStart(): void
+    {
+        $under15 = [
+            'match' => 'all',
+            'items' => [
+                ['key' => 'born', 'operator' => 'greaterThan', 'value' => ['key' => 'event.start', 'years' => -15]],
+            ],
+        ];
+        $holds = function (string $born) use ($under15): bool {
+            $facts = $this->facts($born, '2028-02-29');
+            $condition = (new ConditionParser())->parse($under15, new ContextScope($facts));
+
+            return (new ConditionEvaluator())->holds($condition, $facts);
+        };
+
+        self::assertTrue($holds('2013-03-01'), 'born 2013-03-01 is 14 on 2028-02-29');
+        self::assertFalse($holds('2013-02-28'), 'born 2013-02-28 turned 15 on 2028-02-28');
+        self::assertFalse($holds('2013-01-15'));
+        self::assertTrue($holds('2014-01-01'));
     }
 
     /** @return iterable<string, array{mixed}> a reference that is not valid */
