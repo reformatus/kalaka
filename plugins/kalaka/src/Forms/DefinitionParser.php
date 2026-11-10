@@ -7,6 +7,7 @@ namespace Kalaka\Forms;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormBranch;
+use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Condition\Chain;
 use Kalaka\Forms\Condition\Chains;
@@ -19,9 +20,10 @@ use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
  * Reads the field blocks of a form's block markup, in document order, whatever core blocks and
- * condition branches they sit in; each field carries the branches it sits in. Any problem makes
- * the form unusable (`SystemFailure`, naming the problem and the field key, never a label or an
- * option).
+ * condition branches they sit in; each field carries the branches it sits in, and a choice field
+ * the availability conditions of its options. The chains are numbered in document order, and every
+ * key a condition reads is collected. Any problem makes the form unusable (`SystemFailure`, naming
+ * the problem and the field key, never a label or an option).
  */
 final class DefinitionParser
 {
@@ -33,14 +35,33 @@ final class DefinitionParser
     ) {
     }
 
+    /** @var list<FormChain> the chains met so far, in order of their numbers */
+    private array $chains = [];
+
+    /** @var list<string> the keys the conditions met so far read */
+    private array $read = [];
+
     /** @throws SystemFailure */
     public function parse(Form $form, int $version, string $content, Contributions $contributions): FormDefinition
     {
+        $this->chains = [];
+        $this->read = [];
         $fields = [];
-        $this->collect(array_values(parse_blocks($content)), $contributions, $fields, []);
-        $this->slotRules->check($form->id, $form->placement, $fields);
+        try {
+            $this->collect(array_values(parse_blocks($content)), $contributions, $fields, []);
+            $this->slotRules->check($form->id, $form->placement, $fields);
+            $triggers = [];
+            foreach ($fields as $field) {
+                if (in_array($field->key, $this->read, true)) {
+                    $triggers[] = $field->key;
+                }
+            }
 
-        return new FormDefinition($form->id, $version, $fields);
+            return new FormDefinition($form->id, $version, $fields, $this->chains, $triggers);
+        } finally {
+            $this->chains = [];
+            $this->read = [];
+        }
     }
 
     /**
@@ -79,7 +100,7 @@ final class DefinitionParser
             try {
                 $conditions[] = $name === Chains::ELSE_BLOCK
                     ? null
-                    : $this->conditions->parse($attributes['condition'] ?? null, $scope);
+                    : $this->read($this->conditions->parse($attributes['condition'] ?? null, $scope));
             } catch (SystemFailure $e) {
                 // A condition with no key to name (empty, or not an object) is named by its block.
                 if (str_ends_with($e->getMessage(), ' invalid_condition')) {
@@ -90,15 +111,27 @@ final class DefinitionParser
             }
         }
 
+        $number = count($this->chains);
+        $own = [];
         $earlier = [];
-        foreach ($chain->branches as $index => $branch) {
-            $own = $conditions[$index];
-            $inside = [...$branches, new FormBranch($earlier, $own)];
-            $this->collect(Chains::sequenceOf($branch), $contributions, $fields, $inside);
-            if ($own instanceof Condition) {
-                $earlier[] = $own;
+        foreach ($conditions as $index => $condition) {
+            $own[] = new FormBranch($earlier, $condition, $number, $index);
+            if ($condition instanceof Condition) {
+                $earlier[] = $condition;
             }
         }
+        $this->chains[] = new FormChain($number, $branches, $own);
+
+        foreach ($chain->branches as $index => $branch) {
+            $this->collect(Chains::sequenceOf($branch), $contributions, $fields, [...$branches, $own[$index]]);
+        }
+    }
+
+    private function read(Condition $condition): Condition
+    {
+        $this->read = array_values(array_unique([...$this->read, ...$condition->keys()]));
+
+        return $condition;
     }
 
     /**
@@ -112,7 +145,7 @@ final class DefinitionParser
         $name = $block['blockName'] ?? null;
         if (is_string($name)) {
             if (isset($contributions->fieldTypes()[$name])) {
-                $fields[] = $this->field($name, $block, $fields, $branches);
+                $fields[] = $this->field($name, $block, $fields, $branches, $contributions);
             } elseif (
                 str_starts_with($name, 'kalaka/')
                 && !\WP_Block_Type_Registry::get_instance()->is_registered($name)
@@ -131,8 +164,13 @@ final class DefinitionParser
      * @param list<FormBranch> $branches
      * @throws SystemFailure
      */
-    private function field(string $name, array $block, array $fields, array $branches): FormField
-    {
+    private function field(
+        string $name,
+        array $block,
+        array $fields,
+        array $branches,
+        Contributions $contributions
+    ): FormField {
         $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
         /** @var array<string, mixed> $attributes */
         $key = $attributes['key'] ?? null;
@@ -155,6 +193,32 @@ final class DefinitionParser
             throw new SystemFailure('invalid_options ' . $key);
         }
 
-        return new FormField($key, $name, $attributes, $branches);
+        $optionConditions = $name === ChoiceFieldType::BLOCK_NAME
+            ? $this->optionConditions($attributes, new FormScope($fields, $contributions))
+            : [];
+
+        return new FormField($key, $name, $attributes, $branches, $optionConditions);
+    }
+
+    /**
+     * The availability conditions of a choice field's options (S76): an option may carry a
+     * `condition`, which reads the fields before the choice field and the event's keys.
+     * [UNAPPROVED N4] the option attribute `condition`.
+     *
+     * @param array<string, mixed> $attributes
+     * @return array<string, Condition> option value → condition, for the options that have one
+     * @throws SystemFailure
+     */
+    private function optionConditions(array $attributes, FormScope $scope): array
+    {
+        $conditions = [];
+        $options = is_array($attributes['options'] ?? null) ? $attributes['options'] : [];
+        foreach ($options as $option) {
+            if (is_array($option) && is_string($option['value'] ?? null) && array_key_exists('condition', $option)) {
+                $conditions[$option['value']] = $this->read($this->conditions->parse($option['condition'], $scope));
+            }
+        }
+
+        return $conditions;
     }
 }

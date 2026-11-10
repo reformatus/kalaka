@@ -342,11 +342,12 @@ is no other participant-side edit.
   - mail: the recipient and the registration;
   - a participant block: the active registration
     ([Registrations](registrations-and-identity.md#access));
-  - form, for conditions: the form's own answers, plus the current field
-    values of the registration it writes to for participant fields the form
-    does not hold (e.g. a staff form branching on the camp chosen at
-    registration). Fields the form holds are always read from its answers.
-    Event values are rendered at page load.
+  - form, for conditions: the answers of earlier fields and the event's
+    values (`event.*`), plus the current field values of the registration it
+    writes to for participant fields the form does not hold (e.g. a staff
+    form branching on the camp chosen at registration). Fields the form holds
+    are always read from its answers. Event values are also rendered at page
+    load.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -364,8 +365,23 @@ is no other participant-side edit.
 - **Container blocks** `kalaka/if`, `kalaka/else-if` and `kalaka/else` hold
   the branches, using the one condition format below.
 - **The server renders them** in mails and participant blocks.
-- **Forms show and hide branches** with the Interactivity API. The server
-  re-checks them at submit and keeps only answers whose conditions hold.
+- **One availability base.** Whatever is shown or selectable is decided by
+  one condition in this format, through one evaluator in PHP that reads a
+  **fact source**: form fields and branches, pages and sections, a choice
+  field's options, the options of an assignment set, price-ladder tiers,
+  offers and the adjudicated aid. In a form it reads the draft answers and
+  the event's values, on every render and again at submit; in the fee
+  components and the materializer it reads the registration's facts. It
+  never runs the materializer on a draft. Computed facts such as a
+  congregation's ancestors or free seats are put into the fact source by the
+  caller.
+- **Forms are rendered by the server for their current answers.** The page's
+  script holds no condition: when an answer a condition reads changes, it
+  re-fetches the parts the server renders. At submit the server walks the
+  form the same way and keeps only answers whose conditions hold, including
+  only the options that are offered.
+- **Mid-form availability is advisory.** Seats and capacity are decided only
+  at submit, under the lock; the texts say so (approved when built).
 
 **The condition format:**
 
@@ -374,6 +390,9 @@ is no other participant-side edit.
 - **A "not" switch** on each condition, instead of separate negated
   operators.
 - **Typed comparison:** values compare as number, date, text or choice.
+- **A date can be compared with a date reference:** another date key of the
+  fact source moved by whole years and days, e.g. the event's start minus 16
+  years for "under 16 at the event's start".
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice

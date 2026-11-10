@@ -107,11 +107,19 @@ values and conditions, prefill and form links
   type writes to a table. Core ships no money-relevant field type.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
-- A condition is evaluated purely, from a value context or a form's answers:
-  no database, hook, current user, request or clock.
-- In a form, a condition reads only answers of fields before its chain. At
-  submit, an answer in a branch that does not hold is dropped: never stored,
-  never required, never an error.
+- One availability base (S76): everything shown or selectable (fields,
+  branches, pages, choice options, set options, tiers, offers, aid) is
+  decided by one condition through `Condition\ConditionEvaluator`, reached
+  through `FormWalk` (a form) or `Api\Availability` (anything another module
+  owns). No second evaluator anywhere, and no condition logic in JavaScript.
+- A condition is evaluated purely, from a fact source (`Api\Facts`): no
+  database, hook, current user, request or clock. Whoever evaluates fills the
+  fact source; the evaluator never runs the materializer on a draft.
+- A form is walked the same way for a draft's re-render and at submit
+  (`FormWalk`). In a form, a condition reads only answers of fields before it
+  and the event's keys (`Api\EventValues`). At submit, an answer in a branch
+  that does not hold, or an option that is not offered, is dropped: never
+  stored, never required, never an error.
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a

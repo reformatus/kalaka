@@ -12,6 +12,7 @@ use Kalaka\Forms\FormPosts;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
+use Kalaka\Forms\FormWalk;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -27,6 +28,7 @@ final class Forms
         private readonly FormPosts $posts = new FormPosts(),
         private readonly DefinitionParser $parser = new DefinitionParser(),
         private readonly AnswerValidator $validator = new AnswerValidator(),
+        private readonly FormWalk $walk = new FormWalk(),
     ) {
     }
 
@@ -146,12 +148,35 @@ final class Forms
     }
 
     /**
+     * The submit's check of the answers, with the same walk as `availability()`.
+     * [UNAPPROVED N5] the facts are optional, so the signature of #53 stays.
+     *
      * @param array<array-key, mixed> $answers field key → the answer as sent
+     * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
+     *     form whose conditions read them; none when null
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
+     * @throws SystemFailure a key the facts do not declare
      */
-    public function validate(FormDefinition $definition, array $answers): ValidatedAnswers
+    public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->validator->validate($definition, $answers, Contributions::current());
+        return $this->validator->validate($definition, $answers, Contributions::current(), $facts);
+    }
+
+    /**
+     * What the form shows for answers as they stand (a draft, "if submitted now"; S76): the read model
+     * every render and re-render of the form's page builds from. Pure; errors in the answers are not
+     * reported here, an answer in error reads as empty.
+     *
+     * @param array<array-key, mixed> $answers field key → the answer as sent
+     * @param Facts $facts the facts besides the answers: the event's keys (`EventValues::of()`)
+     * @throws InvalidInput an undeclared key or a value of the wrong JSON type
+     * @throws SystemFailure a key the facts do not declare
+     */
+    public function availability(FormDefinition $definition, array $answers, Facts $facts): FormAvailability
+    {
+        $result = $this->walk->run($definition, $answers, $facts, Contributions::current());
+
+        return new FormAvailability($result->shown, $result->held, $result->options, $definition->triggers);
     }
 }
