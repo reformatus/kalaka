@@ -10,7 +10,6 @@ use Kalaka\Foundation\Api\Time\Instant;
  * The sender's one state row: the pause, the errors in a row and the hourly budget. Without a stored row
  * the state is the default one: not paused, no errors, the default budget. mail.md, "Pausing", "Failures"
  * and "Sending".
- * // [UNAPPROVED S8-3] the pause lives in a Mail-owned one-row table.
  */
 final class MailState
 {

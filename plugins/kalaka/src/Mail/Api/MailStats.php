@@ -12,7 +12,6 @@ use Kalaka\Mail\Pause\MailStateQuery;
  * The mail counts for the admin dashboard ("Levelek", and the mail rows of "Összesítés" and "Teendők").
  * Counts only, with no addresses and no error text; shown to full access only. mail.md, "Failures":
  * staff see which deliveries carry an error, failed, or were left in "sending".
- * // [UNAPPROVED S8-4] the read model of the mail counts (the dashboard's seam).
  */
 final class MailStats
 {

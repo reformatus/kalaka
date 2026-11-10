@@ -7,7 +7,6 @@ namespace Kalaka\Mail;
 /**
  * Elapsed wall time of a sender run, from `hrtime()`: the one duration in Mail that is not the
  * `Clock`'s, since it measures the request, not the domain's time. mail.md, "Sending".
- * // [UNAPPROVED S8-6] a run stops claiming after 20 seconds.
  */
 final class Stopwatch
 {

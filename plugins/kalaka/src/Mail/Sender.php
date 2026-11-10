@@ -63,11 +63,11 @@ final class Sender implements PeriodicStep
      */
     public function send(): ?SendReport
     {
-        // [UNAPPROVED S8-1] without a composer the sender claims nothing: deliveries stay pending.
+        // Without a composer the sender claims nothing: deliveries stay pending.
         if ($this->composer === null || !LoadState::current()->isOpen()) {
             return null;
         }
-        // [UNAPPROVED S8-7] one sender run at a time; a run that cannot take the lock ends at once.
+        // One sender run at a time; a run that cannot take the lock ends at once.
         if (!$this->lock->acquire()) {
             return null;
         }
@@ -152,7 +152,7 @@ final class Sender implements PeriodicStep
         try {
             return $runner->run(new ClaimDelivery(), $this->identity($delivery), new SystemActor()) === true;
         } catch (NotFound) {
-            // [UNAPPROVED S8-8] a delivery cleared between the read and the claim is skipped.
+            // A delivery cleared between the read and the claim is skipped.
             return false;
         }
     }

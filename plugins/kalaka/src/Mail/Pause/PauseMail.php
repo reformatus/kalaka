@@ -10,7 +10,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 /**
  * A person pauses sending: deliveries pile up until a person resumes. Site-level, so only full access
  * (and WP-CLI) passes. When sending is already paused, for either cause, nothing changes. mail.md, "Pausing".
- * // [UNAPPROVED S8-4] pause, resume and clear the queue as use cases, without screens.
  */
 final class PauseMail implements AdminUseCase
 {

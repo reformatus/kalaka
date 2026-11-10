@@ -16,7 +16,6 @@ use Kalaka\Mail\Pause\PauseCause;
  * back to zero. With one it goes back to pending, keeping its error, and the errors in a row go
  * up; at two, sending pauses, naming this delivery and its error, with the system as the actor. Run by
  * the sender as the system, only for a delivery it claimed. mail.md, "Sending", "Failures" and "Pausing".
- * // [UNAPPROVED S8-10] site-level (`event()` is null), so only the system, WP-CLI and full access pass.
  */
 final class RecordDelivery implements AdminUseCase
 {

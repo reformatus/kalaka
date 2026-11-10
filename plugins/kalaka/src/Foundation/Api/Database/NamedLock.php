@@ -23,8 +23,6 @@ final class NamedLock
     private bool $held = false;
 
     /**
-     * // [UNAPPROVED S8-7] a Foundation Api class over GET_LOCK, scoped to the site.
-     *
      * @param string $name `[a-z][a-z0-9_]*`, at most 40 characters
      * @throws \InvalidArgumentException
      */

@@ -12,7 +12,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Pending to failed without an attempt: the delivery has no valid address, which retrying cannot fix.
  * It is no error for pausing and does not count against the budget. Run by the sender as the system.
  * mail.md, "Sending".
- * // [UNAPPROVED S8-10] site-level (`event()` is null), so only the system, WP-CLI and full access pass.
  */
 final class FailDelivery implements AdminUseCase
 {

@@ -50,7 +50,6 @@ SQL;
     /**
      * mail.md, "Pausing": the sender's one state row (`id` 1), with the pause, the errors in a row and the
      * hourly budget. `error` is the error of the delivery that paused sending.
-     * // [UNAPPROVED S8-3] the pause lives in a Mail-owned one-row table.
      */
     private const STATES = <<<'SQL'
 CREATE TABLE {prefix}kalaka_mail_states (
@@ -103,7 +102,7 @@ SQL;
 
     private function sender(): Sender
     {
-        // [UNAPPROVED S8-1] no composer is bound until the mail bodies are built, so the sender idles.
+        // No composer is bound until the mail bodies are built, so the sender idles.
         return $this->sender ??= new Sender(static fn (): Runner => Runner::current(), null);
     }
 }

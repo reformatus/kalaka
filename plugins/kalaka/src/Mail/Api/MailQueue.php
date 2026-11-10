@@ -16,7 +16,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Where a use case that decides a mail is due queues it: a pending delivery whose key (event, mail,
  * registration, cause) makes the mail once-only. After the commit a sender run is nudged. mail.md,
  * "Five kinds of mail" and "Sending".
- * // [UNAPPROVED S8-11] deliveries are keyed by a registration; address deliveries come with the portal.
  */
 final class MailQueue
 {

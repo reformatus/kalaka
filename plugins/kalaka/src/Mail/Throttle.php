@@ -8,7 +8,6 @@ namespace Kalaka\Mail;
  * The hourly budget and each run's share of what is left. The hour is the UTC clock hour with twelve
  * 5-minute slots; a run may claim `ceil(L / S) - C`: L the budget less the hour's claims before the current
  * slot, S the slots left counting this one, C the claims already made in this slot. mail.md, "Sending".
- * // [UNAPPROVED S8-6] twelve fixed 5-minute UTC slots and `ceil(L / S) - C`.
  */
 final class Throttle
 {

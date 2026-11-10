@@ -11,7 +11,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * A person resumes sending, whatever paused it. The errors in a row stay, so a delivery that fails again
  * right after pauses sending at once (mail.md, "Failures"). No nudge: the next periodic run sends.
  * Site-level. mail.md, "Pausing".
- * // [UNAPPROVED S8-4] pause, resume and clear the queue as use cases, without screens.
  */
 final class ResumeMail implements AdminUseCase
 {

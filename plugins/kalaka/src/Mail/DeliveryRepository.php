@@ -19,7 +19,6 @@ final class DeliveryRepository extends EntityRepository
 {
     /**
      * Inserts a new delivery unless its once-only key is taken (`INSERT IGNORE`).
-     * // [UNAPPROVED S8-9] INSERT IGNORE instead of find-for-update and insert.
      *
      * @return ?Delivery the stored delivery, or null when the key was already queued
      */

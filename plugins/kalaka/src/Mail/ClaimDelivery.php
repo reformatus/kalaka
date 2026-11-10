@@ -12,7 +12,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Pending to sending, before `wp_mail` is called: the claim that keeps two sender runs from sending one
  * delivery at the same time. It counts the attempt and its time, which the hourly budget counts. Run by
  * the sender as the system. mail.md, "Sending".
- * // [UNAPPROVED S8-10] site-level (`event()` is null), so only the system, WP-CLI and full access pass.
  */
 final class ClaimDelivery implements AdminUseCase
 {
