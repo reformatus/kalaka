@@ -12,7 +12,7 @@ use Kalaka\Foundation\Boot;
 
 /**
  * A module's late check closes the site with `LoadState::close()`; the boot logs the late failures with
- * its own, only when they start or change [UNAPPROVED N1, N2].
+ * its own, only when they start or change.
  */
 final class LateLoadFailureTest extends RunnerTestCase
 {
