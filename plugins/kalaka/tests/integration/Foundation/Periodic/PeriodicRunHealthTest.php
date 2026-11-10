@@ -4,18 +4,26 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation\Periodic;
 
+use Kalaka\Foundation\Api\Clock;
 use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicRunHealth;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
+use Kalaka\Foundation\SiteWarning\SiteWarnings;
 use Kalaka\Tests\Integration\Foundation\FakeBinlog;
 
-/** The warning of a stale periodic run (AC2 to AC7 and AC11 of the cron health spec; 20 minutes per the owner's ruling on D1). */
+/**
+ * The periodic run's stall warning (the cron health spec, 20 minutes per the owner's ruling on D1;
+ * its cause and its silence while another warning's condition holds, #152).
+ */
 final class PeriodicRunHealthTest extends PeriodicTestCase
 {
-    private const LATE_LABEL = 'Az időzített események feldolgozása több mint 20 perce megakadt!';
+    private const LATE_LABEL = 'Az időzített események feldolgozása több mint 20 perce megakadt';
 
-    private const NEVER_LABEL = 'Az időzített események feldolgozása nem működik!';
+    private const NEVER_LABEL = 'Az időzített események feldolgozása nem működik';
+
+    private const FAILING_CAUSE = 'Amíg a futtatás áll, nem mennek ki a levelek, és késnek az időhöz kötött teendők. '
+        . 'A futtatás elindul, de hiba miatt nem fejeződik be.</p>';
 
     private const GOOD_LABEL = 'Az időzített események feldolgozása rendben van';
 
@@ -27,10 +35,23 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
     {
         parent::set_up();
 
+        $this->register($this->clock);
+        wp_set_current_user(self::factory()->user->create(['role' => 'administrator']));
+    }
+
+    /** Only the stall warning, on fresh hooks. */
+    private function register(Clock $clock, BinlogCheck $binlog = new BinlogCheck()): void
+    {
         remove_all_actions('admin_notices');
         remove_all_filters('site_status_tests');
-        (new PeriodicRunHealth($this->clock))->register();
-        wp_set_current_user(self::factory()->user->create(['role' => 'administrator']));
+        $warnings = new SiteWarnings();
+        $warnings->add(new PeriodicRunHealth($clock, $binlog));
+        $warnings->register();
+    }
+
+    private static function banner(string $title, string $body): string
+    {
+        return '<div class="notice notice-error"><p><strong>' . $title . '</strong></p>' . $body . '</div>';
     }
 
     /** What `admin_notices` prints. */
@@ -52,6 +73,14 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
         self::assertIsCallable($test['test']);
 
         return ($test['test'])();
+    }
+
+    private function hasSiteHealthTest(): bool
+    {
+        $tests = apply_filters('site_status_tests', ['direct' => [], 'async' => []]);
+        self::assertIsArray($tests);
+
+        return isset($tests['direct'][PeriodicRunHealth::SITE_HEALTH_TEST]);
     }
 
     /** @return array<string, mixed> the Site Health result with the given label, status and description */
@@ -86,17 +115,17 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
         $this->lastRunWas('2026-11-30 08:39:59.999999');
 
         self::assertSame(
-            '<div class="notice notice-error"><p><strong>' . self::LATE_LABEL . '</strong></p>'
-            . '<p>Az utolsó befejezett futtatás: 2026. 11. 30. 09:39. '
-            . self::CONSEQUENCE . '</div>',
+            self::banner(
+                self::LATE_LABEL,
+                '<p>Az utolsó befejezett futtatás: 2026. 11. 30. 09:39. ' . self::CONSEQUENCE
+            ),
             $this->notices()
         );
     }
 
     public function testNoStoredRunAndAValueThatDoesNotParseShowTheNeverNotice(): void
     {
-        $never = '<div class="notice notice-error"><p><strong>' . self::NEVER_LABEL . '</strong></p>'
-            . '<p>' . self::CONSEQUENCE . '</div>';
+        $never = self::banner(self::NEVER_LABEL, '<p>' . self::CONSEQUENCE);
 
         delete_option(PeriodicRun::LAST_RUN_OPTION);
         self::assertSame($never, $this->notices());
@@ -105,15 +134,25 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
         self::assertSame($never, $this->notices());
     }
 
-    public function testAClosedSiteAndAHeldLockDoNotChangeTheCheck(): void
+    public function testAHeldLockDoesNotChangeTheCheck(): void
     {
         $this->lastRunWas('2026-11-30 08:30:00.000000');
 
-        $this->closeTheSite();
-        self::assertStringContainsString(self::LATE_LABEL, $this->notices());
-
         update_option('kalaka_periodic_run.lock', '2026-11-30 08:59:00', false);
         self::assertStringContainsString(self::LATE_LABEL, $this->notices());
+    }
+
+    public function testWhileTheSiteIsClosedTheWarningIsSilentAndHasNoSiteHealthTest(): void
+    {
+        $this->lastRunWas('2026-11-30 08:30:00.000000');
+        $this->closeTheSite();
+
+        self::assertSame('', $this->notices());
+        self::assertFalse($this->hasSiteHealthTest());
+
+        delete_option(PeriodicRun::LAST_RUN_OPTION);
+        self::assertSame('', $this->notices());
+        self::assertFalse($this->hasSiteHealthTest());
     }
 
     public function testTheCheckWritesNothing(): void
@@ -163,8 +202,7 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
     {
         $this->lastRunWas('2026-11-30 08:55:00.000000');
         $this->useClock('2026-11-30 10:30:00');
-        remove_all_actions('admin_notices');
-        (new PeriodicRunHealth($this->clock))->register();
+        $this->register($this->clock);
 
         self::assertStringContainsString(self::LATE_LABEL, $this->notices());
     }
@@ -202,27 +240,96 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
         );
     }
 
-    public function testWhileTheDatabaseRefusesWritesTheNoticeNamesThatCauseNotWpCron(): void
+    public function testWhileTheDatabaseRefusesWritesTheWarningIsSilentAndHasNoSiteHealthTest(): void
     {
-        remove_all_actions('admin_notices');
-        remove_all_filters('site_status_tests');
         $fake = FakeBinlog::statementFormat();
         try {
-            (new PeriodicRunHealth($this->clock, new BinlogCheck()))->register();
+            $this->register($this->clock, new BinlogCheck());
             $notices = $this->notices();
+            $hasTest = $this->hasSiteHealthTest();
         } finally {
             $fake->remove();
         }
 
-        self::assertStringContainsString('Az időzített események feldolgozása nem működik!', $notices);
-        self::assertStringContainsString(
-            'Amíg a futtatás áll, nem mennek ki a levelek, és késnek az időhöz kötött teendők. A futtatás áll, '
-            . 'mert a webtárhely adatbázisszerverén be van kapcsolva a bináris naplózás binlog_format=STATEMENT '
-            . 'értékkel, és ilyenkor a Kaláka nem ment adatot. A tárhely üzemeltetőjének a binlog_format értékét '
-            . 'MIXED-re vagy ROW-ra kell állítania.',
-            $notices
+        self::assertSame('', $notices);
+        self::assertFalse($hasTest);
+        self::assertSame(1, $fake->reads);
+    }
+
+    public function testANotLateRunReadsNeitherTheLoadStateNorTheDatabase(): void
+    {
+        $this->lastRunWas('2026-11-30 08:55:00.000000');
+        $fake = FakeBinlog::statementFormat();
+        try {
+            $this->register($this->clock, new BinlogCheck());
+            self::assertSame('', $this->notices());
+        } finally {
+            $fake->remove();
+        }
+
+        self::assertSame(0, $fake->reads);
+    }
+
+    public function testARunThatFailedAfterTheLastCompletedOneIsTheCauseWithItsErrorInTheDetails(): void
+    {
+        $this->lastRunWas('2026-11-30 08:30:00.000000');
+        PeriodicRun::recordFailure(
+            new \DateTimeImmutable('2026-11-30 08:35:00', new \DateTimeZone('UTC')),
+            new \RuntimeException('rule broke <here>', 0, new \LogicException('cause'))
         );
-        self::assertStringNotContainsString('wp-cron.php', $notices);
+        $details = '<details><summary>Részletek</summary><p>RuntimeException (0): rule broke &lt;here&gt; '
+            . '&lt;- LogicException (0): cause</p></details>';
+
+        self::assertSame(
+            self::banner(
+                self::LATE_LABEL,
+                '<p>Az utolsó befejezett futtatás: 2026. 11. 30. 09:30. ' . self::FAILING_CAUSE . $details
+            ),
+            $this->notices()
+        );
+        self::assertSame(
+            self::siteHealthResult(
+                self::LATE_LABEL,
+                'critical',
+                '<p>Az utolsó befejezett futtatás: 2026. 11. 30. 09:30. ' . self::FAILING_CAUSE
+                . str_replace('<details>', '<details open>', $details)
+            ),
+            $this->siteHealth()
+        );
+    }
+
+    public function testWithNoCompletedRunAnyRecordedFailureIsTheCause(): void
+    {
+        PeriodicRun::recordFailure(
+            new \DateTimeImmutable('2026-11-30 08:35:00', new \DateTimeZone('UTC')),
+            new \RuntimeException('broken')
+        );
+
+        self::assertSame(
+            self::banner(
+                self::NEVER_LABEL,
+                '<p>' . self::FAILING_CAUSE
+                . '<details><summary>Részletek</summary><p>RuntimeException (0): broken</p></details>'
+            ),
+            $this->notices()
+        );
+    }
+
+    public function testAFailureBeforeTheLastCompletedRunLeavesCronAsTheCause(): void
+    {
+        $this->lastRunWas('2026-11-30 08:30:00.000000');
+        PeriodicRun::recordFailure(
+            new \DateTimeImmutable('2026-11-30 08:29:59', new \DateTimeZone('UTC')),
+            new \RuntimeException('old')
+        );
+
+        self::assertSame(
+            self::banner(
+                self::LATE_LABEL,
+                '<p>Az utolsó befejezett futtatás: 2026. 11. 30. 09:30. ' . self::CONSEQUENCE
+            ),
+            $this->notices()
+        );
     }
 
     public function testTheSiteHealthTestRunsWithoutAUserForTheWeeklyCronCheck(): void
@@ -231,20 +338,6 @@ final class PeriodicRunHealthTest extends PeriodicTestCase
         $this->lastRunWas('2026-11-30 08:55:00.000000');
 
         self::assertSame('good', $this->siteHealth()['status']);
-    }
-
-    public function testBootRegistersTheNoticeAndTheSiteHealthTest(): void
-    {
-        remove_all_actions('admin_notices');
-        remove_all_filters('site_status_tests');
-        remove_all_actions('kalaka_periodic_run');
-        remove_all_actions('kalaka_periodic_run_now');
-        delete_option(PeriodicRun::LAST_RUN_OPTION);
-
-        (new \Kalaka\Foundation\Module())->boot();
-
-        self::assertStringContainsString(self::NEVER_LABEL, $this->notices());
-        self::assertSame(self::NEVER_LABEL, $this->siteHealth()['label']);
     }
 
     public function testAFrontEndRequestSpawnsWpCronWhenTheRecurringEventIsDue(): void

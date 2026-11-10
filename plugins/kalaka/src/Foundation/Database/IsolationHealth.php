@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Database;
 
-use Kalaka\Foundation\HealthCheck;
+use Kalaka\Foundation\Api\SiteWarning\Severity;
+use Kalaka\Foundation\Api\SiteWarning\SiteHealth;
+use Kalaka\Foundation\Api\SiteWarning\Shown;
+use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 
 /**
- * The database's health check: an admin notice and a Site Health test, both critical while
- * `BinlogCheck` refuses, that is while every use case is refused. It only reads `BinlogCheck`; it
- * writes nothing. foundation.md, "The use-case runner".
+ * The database's site warning: a banner and a critical Site Health test while `BinlogCheck` refuses,
+ * that is while every use case is refused. It only reads `BinlogCheck`; it writes nothing.
+ * foundation.md, "The use-case runner" and "Site warnings".
  */
-final class IsolationHealth extends HealthCheck
+final class IsolationHealth implements SiteWarning
 {
     public const SITE_HEALTH_TEST = 'kalaka_database_isolation';
 
-    private const CRITICAL_LABEL = 'Az adatbázis beállítása miatt a Kaláka nem tud adatot menteni!';
+    private const CRITICAL_LABEL = 'Az adatbázis beállítása miatt a Kaláka nem tud adatot menteni';
 
     private const CRITICAL_DESCRIPTION = 'A webtárhely adatbázisszerverén be van kapcsolva a bináris naplózás, és a '
         . 'binlog_format értéke STATEMENT. Ilyenkor a Kaláka minden mentést visszautasít. A tárhely üzemeltetőjének '
@@ -30,31 +33,22 @@ final class IsolationHealth extends HealthCheck
     {
     }
 
-    protected function testId(): string
+    public function id(): string
     {
-        return self::SITE_HEALTH_TEST;
+        return 'database_isolation';
     }
 
-    protected function goodLabel(): string
+    public function check(): ?Shown
     {
-        return self::GOOD_LABEL;
-    }
-
-    /** @return array{critical: bool, label: string, description: string} the description is HTML */
-    protected function check(): array
-    {
-        if ($this->binlog->refuses()) {
-            return [
-                'critical' => true,
-                'label' => self::CRITICAL_LABEL,
-                'description' => '<p>' . self::CRITICAL_DESCRIPTION . '</p>',
-            ];
+        if (!$this->binlog->refuses()) {
+            return null;
         }
 
-        return [
-            'critical' => false,
-            'label' => self::GOOD_LABEL,
-            'description' => '<p>' . self::GOOD_DESCRIPTION . '</p>',
-        ];
+        return new Shown(Severity::Error, self::CRITICAL_LABEL, self::CRITICAL_DESCRIPTION);
+    }
+
+    public function siteHealth(): SiteHealth
+    {
+        return new SiteHealth(self::SITE_HEALTH_TEST, self::GOOD_LABEL, self::GOOD_DESCRIPTION);
     }
 }

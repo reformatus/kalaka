@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation;
 
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SiteClosed;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use WP_UnitTestCase;
@@ -38,6 +40,9 @@ final class ErrorsTest extends WP_UnitTestCase
         yield 'RetryableFailure' => [
             RetryableFailure::class, 'kalaka_retryable_failure', 500, 'Váratlan hiba történt. Próbáld újra később.',
         ];
+        yield 'SiteClosed' => [
+            SiteClosed::class, 'kalaka_site_closed', 503, 'Váratlan hiba történt. Próbáld újra később.',
+        ];
     }
 
     /**
@@ -48,12 +53,12 @@ final class ErrorsTest extends WP_UnitTestCase
     {
         $plain = (new $class())->toWpError();
         self::assertSame($code, $plain->get_error_code());
-        self::assertSame(['status' => $status], $plain->get_error_data());
+        self::assertSame(['status' => $status, 'correlation' => Correlation::id()], $plain->get_error_data());
         self::assertSame($text, $plain->get_error_message());
 
         $withContext = (new $class('Az esemény nem található.'))->toWpError();
         self::assertSame($code, $withContext->get_error_code());
-        self::assertSame(['status' => $status], $withContext->get_error_data());
+        self::assertSame(['status' => $status, 'correlation' => Correlation::id()], $withContext->get_error_data());
         self::assertSame($text . ' Az esemény nem található.', $withContext->get_error_message());
     }
 

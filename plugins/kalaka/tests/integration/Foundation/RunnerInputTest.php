@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -41,7 +42,7 @@ final class RunnerInputTest extends RunnerTestCase
             self::assertSame(InvalidInput::class, $caught::class);
             $wpError = $caught->toWpError();
             self::assertSame('kalaka_invalid_input', $wpError->get_error_code());
-            self::assertSame(['status' => 400], $wpError->get_error_data());
+            self::assertSame(['status' => 400, 'correlation' => Correlation::id()], $wpError->get_error_data());
             self::assertSame('Hibás vagy hiányzó adat.', $wpError->get_error_message());
             self::assertNotNull($caught->getPrevious());
         }

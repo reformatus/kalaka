@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Support\Directory\Cli;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
@@ -44,13 +46,19 @@ final class DirectoryCommand
      */
     public function import(array $args, array $assoc): void
     {
-        $actor = new CliActor(get_current_user_id() ?: null);
+        Boundary::cli(static function () use ($args, $assoc): void {
+            self::runImport($args, $assoc);
+        });
+    }
 
-        try {
-            $report = (new DirectoryImport(Runner::current()))->run($args[0], $assoc['delimiter'] ?? ',', $actor);
-        } catch (\InvalidArgumentException $e) {
-            \WP_CLI::error($e->getMessage());
-        }
+    /**
+     * @param list<string> $args
+     * @param array<string, string> $assoc
+     */
+    private static function runImport(array $args, array $assoc): void
+    {
+        $actor = new CliActor(get_current_user_id() ?: null);
+        $report = (new DirectoryImport(Runner::current()))->run($args[0], $assoc['delimiter'] ?? ',', $actor);
 
         // an implied ancestor counts only when it was created or failed
         $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'failed' => 0];
@@ -76,7 +84,8 @@ final class DirectoryCommand
         }
 
         if ($counts['failed'] > 0) {
-            \WP_CLI::error($counts['failed'] . ' of ' . $counted . ' nodes failed.');
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- WP-CLI prints it as plain text
+            throw new CommandFailure($counts['failed'] . ' of ' . $counted . ' nodes failed.');
         }
         \WP_CLI::success(
             $counts['created'] . ' created, ' . $counts['updated'] . ' updated, ' . $counts['unchanged'] . ' unchanged.'

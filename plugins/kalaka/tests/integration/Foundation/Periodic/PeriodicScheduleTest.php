@@ -80,7 +80,7 @@ final class PeriodicScheduleTest extends PeriodicTestCase
         self::assertCount(2, $spy->inputs);
     }
 
-    public function testAThrowingRunIsLoggedWithoutAMessageAndTheHandlerReturns(): void
+    public function testAThrowingRunIsLoggedWithItsChainAndTheHandlerReturns(): void
     {
         $this->eventIn('published');
         $this->timeRules->add(new SpyTimeRule(static function (): array {
@@ -93,13 +93,63 @@ final class PeriodicScheduleTest extends PeriodicTestCase
                 do_action($hook);
             });
 
+            // The whole chain, the message included (foundation.md, "The error log").
             self::assertSame(
-                'Kaláka: periodic run failed: ' . \RuntimeException::class . ', correlation ' . Correlation::id(),
+                'Kaláka: periodic run failed, correlation ' . Correlation::id() . ': ' . \RuntimeException::class
+                . ' (0): secret rule message',
                 trim(preg_replace('/^\[[^\]]*\] /', '', $log) ?? '')
             );
-            self::assertStringNotContainsString('secret rule message', $log);
             self::assertFalse(get_option('kalaka_periodic_run.lock'));
             self::assertFalse(get_option(PeriodicRun::LAST_RUN_OPTION));
         }
+    }
+
+    public function testAThrowingRunKeepsItsTimeAndErrorChainForTheStallWarning(): void
+    {
+        $error = new \RuntimeException('outer', 0, new \LogicException('inner'));
+        $this->schedule()->register(static function () use ($error): never {
+            throw $error;
+        });
+
+        $this->capturedErrorLog(static function (): void {
+            do_action('kalaka_periodic_run');
+        });
+
+        self::assertSame(
+            [
+                'at' => '2026-11-30 09:00:00.000000',
+                'error' => 'RuntimeException (0): outer <- LogicException (0): inner',
+            ],
+            get_option(PeriodicRun::FAILURE_OPTION)
+        );
+        $failure = PeriodicRun::lastFailure();
+        self::assertNotNull($failure);
+        self::assertSame('2026-11-30 09:00:00', $failure['at']->format('Y-m-d H:i:s'));
+    }
+
+    public function testACompletedRunKeepsNoFailure(): void
+    {
+        $this->schedule()->register(fn () => $this->periodicRun()->run());
+
+        do_action('kalaka_periodic_run');
+
+        self::assertFalse(get_option(PeriodicRun::FAILURE_OPTION));
+        self::assertNull(PeriodicRun::lastFailure());
+    }
+
+    public function testASchedulingErrorAtBootIsLoggedAndNotThrown(): void
+    {
+        add_filter('pre_schedule_event', static fn (): \WP_Error => new \WP_Error('test_failure', 'cron is broken'));
+
+        $log = $this->capturedErrorLog(function (): void {
+            $this->schedule()->register(static fn (): null => null);
+        });
+
+        self::assertSame(
+            'Kaláka: scheduling the periodic run failed, correlation ' . Correlation::id()
+            . ': RuntimeException (0): WP-Cron scheduling failed: test_failure: cron is broken',
+            trim(preg_replace('/^\[[^\]]*\] /', '', $log) ?? '')
+        );
+        self::assertFalse(wp_next_scheduled('kalaka_periodic_run'));
     }
 }

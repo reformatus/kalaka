@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api;
 
+use Kalaka\Foundation\Api\Error\SiteClosed;
+
 /**
  * The outcome of this request's boot. If anything failed to load, the site is
  * closed: every event is treated as unpublished, all public access is refused,
- * and mail decisions and sending stop. Stored event states do not change.
+ * and mail decisions and sending stop, and every use case is refused (`requireOpen()`). Stored event
+ * states do not change.
  */
 final class LoadState
 {
@@ -38,5 +41,17 @@ final class LoadState
     public function isOpen(): bool
     {
         return $this->failures === [];
+    }
+
+    /**
+     * Called at every public entry point, and by the runner before every use case.
+     *
+     * @throws SiteClosed while the site is closed
+     */
+    public function requireOpen(): void
+    {
+        if (!$this->isOpen()) {
+            throw new SiteClosed();
+        }
     }
 }

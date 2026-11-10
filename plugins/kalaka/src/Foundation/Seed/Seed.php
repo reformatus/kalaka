@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Seed;
 
 use Kalaka\Foundation\Api\Clock;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Module;
@@ -29,7 +30,7 @@ final class Seed
     /**
      * @param \Closure(string): void $report one call per line of progress
      * @return string the closing success message
-     * @throws SeedFailure on a refusal or a failed step; what earlier steps committed stays
+     * @throws CommandFailure on a refusal or a failed step; what earlier steps committed stays
      */
     public function run(bool $drop, string $environmentType, \Closure $report): string
     {
@@ -38,7 +39,7 @@ final class Seed
         // The load state is this request's boot: a failed module never contributed its seeders.
         $open = LoadState::current()->isOpen();
         if (!$open && !$drop) {
-            $error = new SeedFailure('Refused: Kaláka did not load cleanly; run "wp kalaka seed --drop".');
+            $error = new CommandFailure('Refused: Kaláka did not load cleanly; run "wp kalaka seed --drop".');
             throw $error;
         }
 

@@ -142,7 +142,7 @@ final class PeriodicEvaluationTest extends EvaluationTestCase
         }
     }
 
-    public function testAFlagThatCannotBeWrittenIsLoggedOnceWithoutAMessage(): void
+    public function testAFlagThatCannotBeWrittenIsLoggedOnceWithItsChain(): void
     {
         $rule = new TestRule('test_state');
         $rule->throws = new \RuntimeException('secret rule message');
@@ -158,13 +158,13 @@ final class PeriodicEvaluationTest extends EvaluationTestCase
         self::assertSame([], $this->flagRows());
         self::assertCount(1, array_filter(explode("\n", trim($log))));
         self::assertStringContainsString(
-            'Kaláka: evaluation failure not flagged: rule decisions/test_state, correlation '
-            . Correlation::id() . ': ' . SystemFailure::class,
+            'Kaláka: flagging the evaluation failure of registration ' . $this->key->eventId . '/'
+            . $this->key->code . ' (rule decisions/test_state) failed, correlation ' . Correlation::id() . ': '
+            . SystemFailure::class . ' (0): ',
             $log
         );
-        self::assertStringNotContainsString('secret rule message', $log);
-        self::assertStringNotContainsString('Database error', $log);
-        self::assertStringNotContainsString('00A0', $log);
+        // The write error's whole chain, MariaDB's message included (foundation.md, "The error log").
+        self::assertStringContainsString('Database error', $log);
     }
 
     /** @return iterable<string, array{string, string}> */

@@ -8,8 +8,10 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 
 /**
  * Would writes under READ COMMITTED fail? Yes while the server logs binary with
- * `binlog_format=STATEMENT` (MariaDB refuses them with error 1665). One read per instance, cached;
- * boot shares one instance, so it is one read per request. A read that fails or returns nothing
+ * `binlog_format=STATEMENT` (MariaDB refuses them with error 1665). One read per instance, cached:
+ * Foundation's module shares one instance between the runner and the periodic run, and the boot's
+ * site warnings share another, so a request reads at most twice, and only when it runs a use case
+ * or checks the warnings. A read that fails or returns nothing
  * counts as "writes work": error 1665 still catches a real problem at the first write.
  * foundation.md, "The use-case runner".
  */

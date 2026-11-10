@@ -42,7 +42,13 @@ final class StartPeriodicRun implements AdminUseCase
     {
         $timestamp = $context->now()->getTimestamp();
         $context->afterCommit(static function () use ($timestamp): void {
-            wp_schedule_single_event($timestamp, PeriodicSchedule::NOW_HOOK);
+            // An error other than an already scheduled run is thrown, so the runner logs it.
+            $failure = PeriodicSchedule::failureOf(
+                wp_schedule_single_event($timestamp, PeriodicSchedule::NOW_HOOK, [], true)
+            );
+            if ($failure !== null) {
+                throw $failure;
+            }
         });
 
         return null;

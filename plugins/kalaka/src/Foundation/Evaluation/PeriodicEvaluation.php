@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Actor\SystemActor;
-use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Audit\ErrorRecord;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\ErrorLog;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -54,9 +54,10 @@ final class PeriodicEvaluation
                 new SystemActor()
             );
         } catch (\Throwable $writeError) {
-            error_log(
-                'Kaláka: evaluation failure not flagged: rule ' . $rule . ', correlation ' . Correlation::id()
-                . ': ' . $writeError::class
+            ErrorLog::failure(
+                'flagging the evaluation failure of registration ' . $input['event_id'] . '/' . $input['code']
+                    . ' (rule ' . $rule . ')',
+                $writeError,
             );
         }
     }

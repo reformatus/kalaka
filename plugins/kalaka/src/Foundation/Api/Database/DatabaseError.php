@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api\Database;
 
-use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\RetryableFailure;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Database\BinlogCheck;
+use Kalaka\Foundation\ErrorLog;
 
 /**
  * Turns the database's last error into a Kalaka exception: engineering.md, "Database".
@@ -58,9 +58,8 @@ final class DatabaseError
 
         if ($run->failure === null) {
             // Once a failure is recorded only reads still reach the database: the first re-sent statement counts.
-            error_log(
-                'Kaláka: reconnect inside ' . $run->useCase . ' (correlation ' . Correlation::id()
-                . '); the statement wpdb re-sent may have committed on its own.'
+            ErrorLog::notice(
+                'reconnect inside ' . $run->useCase . '; the statement wpdb re-sent may have committed on its own'
             );
         }
         $previous = new \RuntimeException(

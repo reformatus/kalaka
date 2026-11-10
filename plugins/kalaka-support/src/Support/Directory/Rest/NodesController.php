@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Support\Directory\Rest;
 
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Support\Directory\NodeList;
 
@@ -24,12 +24,12 @@ final class NodesController
 
     public function register(): void
     {
-        register_rest_route(self::NAMESPACE, '/nodes', [
+        Boundary::route(self::NAMESPACE, '/nodes', [
             [
                 'methods' => 'GET',
                 'callback' => $this->get(...),
                 // public: anyone may read while the site is open;
-                // a closed site answers with SystemFailure's text
+                // a closed site answers with SiteClosed
                 'permission_callback' => $this->permit(...),
                 'args' => self::args(),
             ],
@@ -37,10 +37,12 @@ final class NodesController
         ]);
     }
 
-    /** @return true|\WP_Error */
-    private function permit(): bool|\WP_Error
+    /** @throws \Kalaka\Foundation\Api\Error\SiteClosed while the site is closed; the boundary answers with it */
+    private function permit(): bool
     {
-        return LoadState::current()->isOpen() ? true : (new SystemFailure())->toWpError();
+        LoadState::current()->requireOpen();
+
+        return true;
     }
 
     private function get(\WP_REST_Request $request): \WP_REST_Response|\WP_Error

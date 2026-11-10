@@ -18,9 +18,11 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Database\Statements;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\ErrorLog;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\LockKey;
 use Kalaka\Foundation\ObjectCache;
@@ -45,6 +47,9 @@ final class Runner
 
     /** The attempt in progress, in any runner of this request. */
     private static ?RunState $active = null;
+
+    /** @var \WeakMap<KalakaException, true>|null the errors a run threw after recording them */
+    private static ?\WeakMap $recorded = null;
 
     private readonly Statements $statements;
 
@@ -99,6 +104,16 @@ final class Runner
     }
 
     /**
+     * Whether a run threw this error after recording it: in a failed audit entry, in the error log
+     * when that entry could not be written, or not at all when it is not audited (InvalidInput). The
+     * error boundary logs only an error that no run recorded.
+     */
+    public static function recorded(KalakaException $error): bool
+    {
+        return isset(self::$recorded[$error]);
+    }
+
+    /**
      * @internal `DatabaseError::check()` reads the attempt in progress, if any, to compare its connection
      * thread id with the current one.
      */
@@ -111,7 +126,8 @@ final class Runner
      * Runs a use case as the actor and returns what its `execute` returned.
      *
      * @param array<string, mixed> $input
-     * @throws KalakaException anything else that goes wrong is wrapped in a SystemFailure
+     * @throws KalakaException anything else that goes wrong is wrapped in a SystemFailure;
+     *                         `SiteClosed` while the load failed
      */
     public function run(UseCase $useCase, array $input, Actor $actor): mixed
     {
@@ -122,6 +138,10 @@ final class Runner
             self::$active->failure ??= $error;
             throw $error;
         }
+
+        // While the load failed the tables may not match the code: refused before anything else,
+        // so not even a failed audit entry is written.
+        LoadState::current()->requireOpen();
 
         $side = null;
         $declared = [];
@@ -142,6 +162,8 @@ final class Runner
             $error = self::asKalaka($e);
             $header = new EntryHeader($useCase::name(), $side ?? $actor->side(), $actor, null, $declared);
             $this->auditFailure($useCase, $header, $error, $trace);
+            self::$recorded ??= new \WeakMap();
+            self::$recorded[$error] = true;
             throw $error;
         }
 
@@ -149,7 +171,7 @@ final class Runner
             try {
                 $step();
             } catch (\Throwable $e) {
-                error_log('Kaláka: after-commit step of ' . $name . ' failed: ' . $e::class . ': ' . $e->getMessage());
+                ErrorLog::failure('after-commit step of ' . $name, $e);
             }
         }
 
@@ -314,7 +336,7 @@ final class Runner
         try {
             $this->statements->setLockWaitTimeout($seconds);
         } catch (\Throwable $e) {
-            error_log('Kaláka: lock-wait timeout not restored: ' . ($e->getPrevious() ?? $e)->getMessage());
+            ErrorLog::failure('restoring the lock-wait timeout', $e);
         }
     }
 
@@ -331,17 +353,16 @@ final class Runner
         }
         if ($trace->foreignTransaction) {
             // Beginning the entry's own transaction would commit someone else's open work: the error log only.
-            error_log(ErrorRecord::fallbackLine($useCase::name(), $error->errorCode(), Correlation::id(), $error));
+            ErrorLog::failure(
+                $useCase::name(),
+                $error,
+                'audit entry not written: a transaction another plugin left open',
+            );
 
             return;
         }
         if ($trace->rollbackFailure !== null) {
-            error_log(ErrorRecord::fallbackLine(
-                $useCase::name(),
-                $error->errorCode(),
-                Correlation::id(),
-                $trace->rollbackFailure,
-            ));
+            ErrorLog::failure($useCase::name(), $error, 'audit entry not written: the rollback failed');
 
             return;
         }
@@ -377,7 +398,11 @@ final class Runner
                 throw $writeError;
             }
         } catch (\Throwable $writeError) {
-            error_log(ErrorRecord::fallbackLine($useCase::name(), $error->errorCode(), Correlation::id(), $writeError));
+            ErrorLog::failure(
+                $useCase::name(),
+                $error,
+                'audit entry not written: ' . ErrorLog::chain($writeError),
+            );
         }
     }
 
@@ -398,7 +423,7 @@ final class Runner
                 $this->statements->rollback();
             }
         } catch (\Throwable $e) {
-            error_log('Kaláka: rollback failed: ' . ($e->getPrevious() ?? $e)->getMessage());
+            ErrorLog::failure('rollback', $e);
             if ($this->insideOpenTransaction || !$this->reconnect()) {
                 $trace->rollbackFailure = $e;
             }

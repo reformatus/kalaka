@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\UseCase;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -76,7 +77,7 @@ final class RunnerPermissionTest extends RunnerTestCase
         } catch (PermissionDenied $caught) {
             $wpError = $caught->toWpError();
             self::assertSame('kalaka_permission_denied', $wpError->get_error_code());
-            self::assertSame(['status' => 403], $wpError->get_error_data());
+            self::assertSame(['status' => 403, 'correlation' => Correlation::id()], $wpError->get_error_data());
             self::assertSame('Ehhez nincs jogosultságod.', $wpError->get_error_message());
         }
         self::assertSame(0, self::calls($useCase));
@@ -121,7 +122,7 @@ final class RunnerPermissionTest extends RunnerTestCase
         } catch (PermissionDenied $caught) {
             $wpError = $caught->toWpError();
             self::assertSame('kalaka_permission_denied', $wpError->get_error_code());
-            self::assertSame(['status' => 403], $wpError->get_error_data());
+            self::assertSame(['status' => 403, 'correlation' => Correlation::id()], $wpError->get_error_data());
             self::assertSame('Ehhez nincs jogosultságod.', $wpError->get_error_message());
         }
         self::assertSame(0, $useCase->calls);

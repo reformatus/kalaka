@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Support\Directory;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Support\Directory\Cli\DirectoryImport;
 
 /**
@@ -161,7 +162,7 @@ final class DirectoryImportTest extends SupportTestCase
         try {
             $this->import($this->file($content));
             self::fail('The file should have been refused.');
-        } catch (\InvalidArgumentException $e) {
+        } catch (CommandFailure $e) {
             self::assertStringContainsString($reason, $e->getMessage());
             self::assertSame(0, $this->nodeCount());
         }
@@ -173,7 +174,7 @@ final class DirectoryImportTest extends SupportTestCase
             try {
                 $this->import($path, $delimiter);
                 self::fail('Should have been refused.');
-            } catch (\InvalidArgumentException) {
+            } catch (CommandFailure) {
                 self::assertSame(0, $this->nodeCount());
             }
         }

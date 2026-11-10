@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Periodic;
 
-use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Clock;
+use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\ErrorLog;
 
 /** The WP-Cron wiring of the periodic run: the 5-minute interval, the recurring event and the manual start's hook. */
 final class PeriodicSchedule
@@ -22,7 +23,8 @@ final class PeriodicSchedule
 
     /**
      * Adds the interval and the handler of both hooks, and schedules the recurring event if it is not.
-     * The handler lets no exception escape, so one failing run never aborts the `wp-cron.php` request.
+     * The handler lets no exception escape, so one failing run never aborts the `wp-cron.php` request;
+     * it keeps the failure for the stall warning (`PeriodicRun::FAILURE_OPTION`).
      *
      * @param \Closure(): mixed $run
      */
@@ -34,19 +36,44 @@ final class PeriodicSchedule
             return $schedules;
         });
 
-        $handler = static function () use ($run): void {
-            try {
-                $run();
-            } catch (\Throwable $e) {
-                error_log('Kaláka: periodic run failed: ' . $e::class . ', correlation ' . Correlation::id());
-            }
+        $clock = $this->clock;
+        $handler = static function () use ($run, $clock): void {
+            Boundary::background('periodic run', static function () use ($run, $clock): mixed {
+                try {
+                    return $run();
+                } catch (\Throwable $e) {
+                    PeriodicRun::recordFailure($clock->now(), $e);
+                    throw $e;
+                }
+            });
         };
         add_action(self::HOOK, $handler);
         add_action(self::NOW_HOOK, $handler);
 
         if (wp_next_scheduled(self::HOOK) === false) {
-            wp_schedule_event($this->clock->now()->getTimestamp(), self::INTERVAL, self::HOOK);
+            $failure = self::failureOf(
+                wp_schedule_event($this->clock->now()->getTimestamp(), self::INTERVAL, self::HOOK, [], true)
+            );
+            if ($failure !== null) {
+                // At boot: logged, never thrown, so a scheduling problem does not fail the module's load.
+                ErrorLog::failure('scheduling the periodic run', $failure);
+            }
         }
+    }
+
+    /**
+     * What a `wp_schedule_*()` call in its `$wp_error` form failed with, or null on success. An event
+     * that is already scheduled (`duplicate_event`) counts as success.
+     */
+    public static function failureOf(bool|\WP_Error $result): ?\RuntimeException
+    {
+        if (!$result instanceof \WP_Error || $result->get_error_code() === 'duplicate_event') {
+            return null;
+        }
+
+        return new \RuntimeException(
+            'WP-Cron scheduling failed: ' . $result->get_error_code() . ': ' . $result->get_error_message()
+        );
     }
 
     public static function clear(): void

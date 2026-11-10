@@ -70,7 +70,7 @@ final class RunnerRollbackFailureTest extends RealTableTestCase
         self::assertNotSame($threadBefore, $this->threadId());
         self::assertSame([], $this->rowsSeenBy($this->secondConnection()));
         self::assertCount(1, $this->failedEntries());
-        self::assertStringContainsString('Kaláka: rollback failed: ', $log);
+        self::assertStringContainsString('Kaláka: rollback failed, correlation ' . Correlation::id() . ': ', $log);
         self::assertStringNotContainsString('audit entry not written', $log);
         self::assertSame('1', $wpdb->get_var('SELECT 1'));
     }
@@ -103,10 +103,10 @@ final class RunnerRollbackFailureTest extends RealTableTestCase
         self::assertSame('use case failed', $caught->getPrevious()?->getMessage());
         self::assertSame([], $this->rowsSeenBy($this->secondConnection()));
         self::assertSame([], $this->failedEntries());
-        self::assertStringContainsString('Kaláka: rollback failed: ', $log);
+        self::assertStringContainsString('Kaláka: rollback failed, correlation ' . Correlation::id() . ': ', $log);
         self::assertStringContainsString(
-            'Kaláka: audit entry not written: kalaka/probe failed with kalaka_system_failure, correlation '
-            . Correlation::id() . ': ' . SystemFailure::class,
+            'Kaláka: kalaka/probe failed, correlation ' . Correlation::id() . ': ' . SystemFailure::class
+            . ' (0): ',
             $log
         );
     }
@@ -127,10 +127,10 @@ final class RunnerRollbackFailureTest extends RealTableTestCase
         self::assertInstanceOf(SystemFailure::class, $caught);
         self::assertSame('use case failed', $caught->getPrevious()?->getMessage());
         self::assertSame([], $failed);
-        self::assertStringContainsString('Kaláka: rollback failed: ', $log);
+        self::assertStringContainsString('Kaláka: rollback failed, correlation ' . Correlation::id() . ': ', $log);
         self::assertStringContainsString(
-            'Kaláka: audit entry not written: kalaka/probe failed with kalaka_system_failure, correlation '
-            . Correlation::id() . ': ' . SystemFailure::class,
+            'Kaláka: kalaka/probe failed, correlation ' . Correlation::id() . ': ' . SystemFailure::class
+            . ' (0): ',
             $log
         );
         self::assertSame([], $this->rowsSeenBy($this->secondConnection()));

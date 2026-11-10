@@ -13,13 +13,11 @@ use Kalaka\Foundation\Cli\PeriodicRunCommand;
 use Kalaka\Foundation\Cli\SeedCommand;
 use Kalaka\Foundation\Clock\WordPressClock;
 use Kalaka\Foundation\Database\BinlogCheck;
-use Kalaka\Foundation\Database\IsolationHealth;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Foundation\Evaluation\PeriodicEvaluation;
 use Kalaka\Foundation\Periodic\PeriodicRun;
-use Kalaka\Foundation\Periodic\PeriodicRunHealth;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Foundation\Seed\Seed;
@@ -165,8 +163,6 @@ SQL;
             $binlog
         );
         (new PeriodicSchedule($clock))->register(static fn (): mixed => $periodicRun->run());
-        (new PeriodicRunHealth($clock, $binlog))->register();
-        (new IsolationHealth($binlog))->register();
 
         if (defined('WP_CLI') && WP_CLI) {
             PeriodicRunCommand::register($periodicRun);

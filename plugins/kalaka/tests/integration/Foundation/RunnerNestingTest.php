@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Foundation;
 
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\Database\DatabaseError;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -393,7 +394,8 @@ final class RunnerNestingTest extends AuditTestCase
         self::assertSame(['second'], $log);
         self::assertSame(['row'], $this->rows());
         self::assertStringContainsString(
-            'Kaláka: after-commit step of kalaka/probe failed: RuntimeException: step trouble',
+            'Kaláka: after-commit step of kalaka/probe failed, correlation ' . Correlation::id()
+            . ': RuntimeException (0): step trouble',
             $errorLog
         );
     }

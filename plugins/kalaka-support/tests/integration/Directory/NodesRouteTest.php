@@ -257,18 +257,22 @@ final class NodesRouteTest extends SupportTestCase
         self::assertSame('Hibás vagy hiányzó adat.', $response->get_data()['message']);
     }
 
-    public function testAClosedSiteAnswersWithSystemFailureAndRunsNoStatementOnTheDirectory(): void
+    public function testAClosedSiteAnswersWithSiteClosedLogsNothingAndRunsNoStatementOnTheDirectory(): void
     {
         LoadState::record([new LoadFailure('test', 'Closed for the test.')]);
         $response = null;
+        $statements = [];
 
-        $statements = $this->statementsDuring(function () use (&$response): void {
-            $response = $this->get(['search' => 'teszt']);
+        $log = $this->capturedErrorLog(function () use (&$response, &$statements): void {
+            $statements = $this->statementsDuring(function () use (&$response): void {
+                $response = $this->get(['search' => 'teszt']);
+            });
         });
 
         self::assertInstanceOf(WP_REST_Response::class, $response);
-        self::assertSame(500, $response->get_status());
-        self::assertSame('kalaka_system_failure', $response->get_data()['code']);
+        self::assertSame(503, $response->get_status());
+        self::assertSame('kalaka_site_closed', $response->get_data()['code']);
+        self::assertSame('', $log);
         self::assertSame('Váratlan hiba történt. Próbáld újra később.', $response->get_data()['message']);
         self::assertSame([], array_values(array_filter(
             $statements,
