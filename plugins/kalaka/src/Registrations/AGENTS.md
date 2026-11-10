@@ -43,7 +43,9 @@ the waitlist and reference codes
 - The secret is compared in PHP (`hash_equals()`) and never looked up or
   compared in SQL; the link carries the registration key beside it. Only
   Registrations reads the stored secret: another module presents a secret and
-  asks whether it matches.
+  asks whether it matches, or gets the finished link URL for a mail from
+  `Api\SecretLinks::url()` (registrations-and-identity.md, "Access": stored
+  readable so every email can carry it), and never stores it.
 - The active-registration token is `v1.<eventId>.<code>.<issuedAt>.<mac>`,
   issued and verified only by `Api\SecretLinks`: the MAC covers the current
   secret, so a new secret revokes every token issued before it, and a token

@@ -139,6 +139,56 @@ final class Forms
     }
 
     /**
+     * The values of one registration's stored answers over the event's participant fields (a document's value
+     * context): one value for every field of the event, retired ones included, so a key that only another
+     * form holds reads as `Value::none()` of its type and never fails. A field with no stored answer, a
+     * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
+     * none too. A stored answer of a key the event does not have is left out.
+     * [UNAPPROVED N14]
+     *
+     * @param array<string, string> $stored field key → the stored value
+     * @return array<string, Value> field key → value
+     */
+    public function participantValues(int $eventId, array $stored): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $values = [];
+        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
+            $type = $types[$field->type] ?? null;
+            if ($type === null) {
+                $values[$field->key] = Value::none(ValueType::Text);
+                continue;
+            }
+            $answer = $field->source === ParticipantField::SOURCE_SYSTEM ? null : ($stored[$field->key] ?? null);
+            $values[$field->key] = $answer === null
+                ? Value::none($type->valueType())
+                : $type->value(new FieldTypeInput($answer, self::attributesOf($field, $answer)));
+        }
+
+        return $values;
+    }
+
+    /**
+     * The block attributes a field type reads a stored answer with, from the participant field: the label,
+     * the options, and for a choice whether it is multiple, which its stored form shows (a JSON list).
+     *
+     * @return array<string, mixed>
+     */
+    private static function attributesOf(ParticipantField $field, string $answer): array
+    {
+        $attributes = ['label' => $field->title];
+        if ($field->options !== []) {
+            $attributes['options'] = array_map(
+                static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
+                $field->options
+            );
+            $attributes['multiple'] = str_starts_with($answer, '[');
+        }
+
+        return $attributes;
+    }
+
+    /**
      * The submit's check of the answers, with the same walk as `availability()`.
      * Decision N5 (#156): the facts are optional, so the signature of #53 stays.
      *

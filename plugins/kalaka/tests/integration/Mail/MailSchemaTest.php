@@ -43,12 +43,29 @@ final class MailSchemaTest extends WP_UnitTestCase
         'hourly_budget' => 'int(10) unsigned',
     ];
 
+    private const ACTION_MAILS = [
+        'event_id' => 'bigint(20) unsigned',
+        'mail' => 'varchar(64)',
+        'version' => 'int(10) unsigned',
+        'enabled' => 'tinyint(1) unsigned',
+        'body_id' => 'bigint(20) unsigned null',
+        'layout' => 'tinyint(1) unsigned',
+    ];
+
+    private const LAYOUTS = [
+        'event_id' => 'bigint(20) unsigned',
+        'version' => 'int(10) unsigned',
+        'layout_id' => 'bigint(20) unsigned',
+    ];
+
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
         self::assertSame(2, (int) get_option('kalaka_schema_mail'));
         self::assertSame([], LoadState::current()->failures);
         self::assertSame(self::DELIVERIES, $this->columns('kalaka_deliveries'));
         self::assertSame(self::STATES, $this->columns('kalaka_mail_states'));
+        self::assertSame(self::ACTION_MAILS, $this->columns('kalaka_action_mails'));
+        self::assertSame(self::LAYOUTS, $this->columns('kalaka_mail_layouts'));
     }
 
     public function testTheKeysAreAsDeclaredWithoutAPrefixIndex(): void
