@@ -7,7 +7,9 @@ namespace Kalaka\Foundation\Periodic;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Clock;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Database\BinlogCheck;
 use Kalaka\Foundation\Evaluation\EvaluationFailureQuery;
 use Kalaka\Foundation\ErrorLog;
@@ -16,7 +18,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * The periodic run: the sweep of the work that fell due over time, the retries of the flagged
- * registrations, then the sender. foundation.md, "Deferred work".
+ * registrations, then the modules' periodic steps (the sender). foundation.md, "Deferred work".
  */
 final class PeriodicRun
 {
@@ -38,6 +40,10 @@ final class PeriodicRun
 
     private const TIME_FORMAT = 'Y-m-d H:i:s.u';
 
+    /**
+     * @param ?\Closure(): list<PeriodicStep> $steps the modules' periodic steps, read when a run reaches them
+     *                                            (the contributions are collected after Foundation boots)
+     */
     public function __construct(
         private readonly Clock $clock,
         private readonly PeriodicEvaluation $evaluation,
@@ -45,6 +51,7 @@ final class PeriodicRun
         private readonly Events $events,
         private readonly EvaluationFailureQuery $failures,
         private readonly BinlogCheck $binlog = new BinlogCheck(),
+        private readonly ?\Closure $steps = null,
     ) {
     }
 
@@ -68,11 +75,27 @@ final class PeriodicRun
         try {
             $until = $this->clock->now()->setTimezone(new \DateTimeZone('UTC'));
             $report = $this->sweep($this->lastRun(), $until);
+            $this->runSteps();
             update_option(self::LAST_RUN_OPTION, $until->format(self::TIME_FORMAT), false);
 
             return $report;
         } finally {
             \WP_Upgrader::release_lock(self::LOCK);
+        }
+    }
+
+    /**
+     * Each module's step, behind the error boundary: one that throws is logged unless a run recorded it,
+     * and the next step runs. foundation.md, "Deferred work".
+     */
+    private function runSteps(): void
+    {
+        foreach ($this->steps === null ? [] : ($this->steps)() as $step) {
+            Boundary::background('periodic step ' . $step->name(), static function () use ($step): null {
+                $step->run();
+
+                return null;
+            });
         }
     }
 
