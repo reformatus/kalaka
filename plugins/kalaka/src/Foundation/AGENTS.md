@@ -150,7 +150,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   own stamp is WordPress's and is not ours to set.
 - The periodic run's stall warning (a `SiteWarning` with a Site Health test)
   only reads `kalaka_periodic_run_last`, the run's last recorded failure, the
-  `Clock` and `BinlogCheck`; it writes nothing and never schedules, starts or
+  `Clock`, `BinlogCheck` and the request's `LoadState`; it writes nothing and never schedules, starts or
   unlocks a run.
 - The database health check (`IsolationHealth`) only reads `BinlogCheck`; it
   writes nothing.
