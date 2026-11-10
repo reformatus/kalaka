@@ -28,6 +28,11 @@ final class RunnerTest extends RunnerTestCase
         self::assertSame(['a'], $this->rows());
     }
 
+    public function testClockIsTheClockItWasGiven(): void
+    {
+        self::assertSame($this->clock, $this->runner->clock());
+    }
+
     public function testKalakaExceptionIsThrownAsIsAndRollsBack(): void
     {
         $error = new RuleViolation();

@@ -86,6 +86,16 @@ final class Runner
         return self::$current ?? throw new \LogicException('Foundation has not booted: no runner yet.');
     }
 
+    /**
+     * The clock the runner gives its use cases: delivery code that reads outside a use case asks it for
+     * the current time, so a read and a run agree on "now". Inside a use case, `Context::now()`.
+     */
+    public function clock(): Clock
+    {
+        // [UNAPPROVED N1] a public accessor, not a Clock injected through module wiring
+        return $this->clock;
+    }
+
     /** @internal Foundation's boot publishes the production runner. */
     public static function publish(self $runner): void
     {

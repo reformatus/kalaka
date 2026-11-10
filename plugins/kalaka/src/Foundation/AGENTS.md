@@ -88,7 +88,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   submitted field value, a person's data or a secret; a secret never reaches
   an entry (masked in the changes), and our own code never writes one into a
   log line.
-- The current time comes from the `Clock` (`Context::now()` inside a use case),
+- The current time comes from the `Clock` (`Context::now()` inside a use case,
+  `Runner::current()->clock()` for a read outside one),
   never from `time()`, `current_time()` or `new DateTimeImmutable('now')`.
 - `Api` is the contract: Foundation's own classes sit at the module root and
   `Foundation\Api` may use them (deptrac lets each module's `Api` use its own
