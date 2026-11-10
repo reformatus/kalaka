@@ -104,7 +104,7 @@ final class Boot
 
         // After the modules' late checks, which run on `wp_loaded` below this priority; at once when it
         // has already fired (activation). A request that ends before `wp_loaded` neither logs nor
-        // forgets. [UNAPPROVED N2]
+        // forgets.
         if (did_action('wp_loaded') > 0) {
             $this->logOnChange();
         } else {

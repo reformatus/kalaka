@@ -40,7 +40,7 @@ final class LoadState
 
     /**
      * Called by the boot only, before any module: until it records its outcome, the site counts as
-     * closed and a late check's failure waits for `record()`. [UNAPPROVED N3]
+     * closed and a late check's failure waits for `record()`.
      *
      * @internal
      */
@@ -65,7 +65,6 @@ final class LoadState
     /**
      * Adds a failure found after the boot (a module's late check, on `wp_loaded`): the site is closed
      * from now on. Never reopens. The boot logs it with its own failures, when they start or change.
-     * [UNAPPROVED N1]
      *
      * @internal called only by late checks of modules
      */
