@@ -8,6 +8,9 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Mail\ClaimDelivery;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Mail\Api\MailStats;
+use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\ClearMailQueue;
 use Kalaka\Mail\FailDelivery;
 use Kalaka\Mail\Pause\PauseMail;
@@ -83,6 +86,40 @@ final class PauseMailTest extends MailTestCase
         self::assertCount(2, $this->subjectsOf($entry['id'] ?? 0));
     }
 
+    public function testClearingOneEventsMailDropsOnlyItsHeldDeliveries(): void
+    {
+        $held = $this->unpublished();
+        $other = $this->unpublished();
+        $this->queue($held, '00A0');
+        $this->queue($held, '00B0');
+        $this->queue($other, '00A0');
+        [$sent] = $this->deliveryIds();
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_deliveries', ['status' => 'sent'], ['id' => $sent]);
+        self::assertSame(1, (new MailStats())->ofEvents([$held])[$held]->queued);
+
+        self::assertSame(1, $this->exec(new ClearEventMail(), ['event_id' => $held]));
+
+        self::assertSame(0, (new MailStats())->ofEvents([$held])[$held]->queued);
+        self::assertSame(1, (new MailStats())->ofEvents([$other])[$other]->queued);
+        self::assertCount(2, $this->deliveries());
+        $entry = $this->entriesOf('kalaka/clear-event-mail')[0];
+        self::assertContains('event/' . $held . '/' . $held, $this->subjectsOf($entry['id'] ?? 0));
+    }
+
+    public function testAPublishedEventsMailIsNotHeldAndIsNotCleared(): void
+    {
+        $event = $this->published();
+        $this->queue($event);
+
+        try {
+            $this->exec(new ClearEventMail(), ['event_id' => $event]);
+            self::fail('A published event\'s mail should not be cleared.');
+        } catch (RuleViolation) {
+            self::assertCount(1, $this->deliveries());
+        }
+    }
+
     public function testOnlyFullAccessAndTheCliRunTheMailUseCases(): void
     {
         $grantee = new UserActor(self::factory()->user->create());
@@ -90,6 +127,7 @@ final class PauseMailTest extends MailTestCase
             [new PauseMail(), []],
             [new ResumeMail(), []],
             [new ClearMailQueue(), []],
+            [new ClearEventMail(), ['event_id' => 5]],
             [new ClaimDelivery(), ['event_id' => 5, 'id' => 1]],
             [new RecordDelivery(), ['event_id' => 5, 'id' => 1, 'mail_version' => null, 'error' => null]],
             [new FailDelivery(), ['event_id' => 5, 'id' => 1, 'error' => 'x']],

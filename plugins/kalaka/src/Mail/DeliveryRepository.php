@@ -38,6 +38,20 @@ final class DeliveryRepository extends EntityRepository
         return $this->findWhere('status = %s ORDER BY id', [DeliveryStatus::Pending->value], $context);
     }
 
+    /**
+     * The pending deliveries of one event, read `FOR UPDATE`, in id order.
+     *
+     * @return list<Delivery>
+     */
+    public function pendingOfEventForUpdate(int $eventId, Context $context): array
+    {
+        return $this->findWhere(
+            'event_id = %d AND status = %s ORDER BY id',
+            [$eventId, DeliveryStatus::Pending->value],
+            $context
+        );
+    }
+
     protected function table(): string
     {
         return 'kalaka_deliveries';
