@@ -94,11 +94,15 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   `Foundation\Api` may use them (deptrac lets each module's `Api` use its own
   module and never another module's root); a class in an `Api` marked
   `@internal` is not contract, and no new one is added.
-- Any load failure closes the site (`LoadState`); nothing in Foundation
-  reopens it. Every public entry point calls `requireOpen()`, which refuses
+- Any load failure closes the site (`LoadState`): the boot records its
+  outcome, and a module's late check may only add a failure
+  (`LoadState::close()`); nothing reopens it. Every public entry point calls `requireOpen()`, which refuses
   with `SiteClosed`; background work skips; the runner refuses every use case
   with `SiteClosed` before its transaction, writing no failed audit entry; admins can still read. The
-  failure is logged when it starts or changes, not on every request.
+  failures, the boot's and the late checks' together under one fingerprint, are logged when they start
+  or change, not on every request, by the boot on `wp_loaded` at `PHP_INT_MAX` (at once when it has
+  already fired); `close()` never logs. A late check runs on every request that reaches `wp_loaded`, at a
+  priority below `PHP_INT_MAX`, so a request without it does not forget its failure.
 - Amounts are `Money`, never floats or raw strings in arithmetic, and every
   amount carries its `Currency`.
 - Only `Foundation\Api\Money` uses `Kalaka\Vendor\Brick\Math` (deptrac);

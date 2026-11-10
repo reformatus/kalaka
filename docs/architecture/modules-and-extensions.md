@@ -408,7 +408,9 @@ deprecation period and the compatibility-check tool are chosen then.
   and clear. The stored event states do not change, so events come back once
   the problem is fixed. The boot records the outcome in
   `Kalaka\Foundation\Api\LoadState`; `isOpen()` is false after any load
-  failure and before boot has finished.
+  failure and before boot has finished. A module's check that can only run
+  once WordPress has loaded (on `wp_loaded`) may add a failure, closing the
+  site from then on; nothing reopens it.
   - **One outcome:** every public entry point calls `requireOpen()`, which
     refuses with `SiteClosed` (503, [Foundation](foundation.md#errors)).
     Background work (the periodic run, the sender) skips. The runner refuses
@@ -419,7 +421,8 @@ deprecation period and the compatibility-check tool are chosen then.
     request's load state.
   - **Logged once:** the failure is logged when it starts or changes, not on
     every request; a WordPress option holds what was last logged and is
-    deleted after a clean load. A schema upgrade still in progress in another
+    deleted after a clean load. The boot's and the late checks' failures are
+    logged together, after the late checks. A schema upgrade still in progress in another
     request closes the request but is not logged.
 
 ### After-save actions

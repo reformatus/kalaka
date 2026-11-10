@@ -41,6 +41,8 @@ final class Boot
 
     public function run(): void
     {
+        LoadState::begin();
+
         // Before any module, so the failed-load warning shows even when Foundation's module did not load.
         $warnings = self::siteWarnings();
         $warnings->register();
@@ -98,8 +100,16 @@ final class Boot
             $this->fail($failure->moduleId, $failure->reason);
         }
 
-        $this->logOnChange();
         LoadState::record($this->failures);
+
+        // After the modules' late checks, which run on `wp_loaded` below this priority; at once when it
+        // has already fired (activation). A request that ends before `wp_loaded` neither logs nor
+        // forgets. [UNAPPROVED N2]
+        if (did_action('wp_loaded') > 0) {
+            $this->logOnChange();
+        } else {
+            add_action('wp_loaded', [$this, 'logOnChange'], PHP_INT_MAX);
+        }
     }
 
     /**
@@ -149,14 +159,21 @@ final class Boot
     }
 
     /**
-     * Logs the load failures only when they start or change, so a failure that lasts does not
-     * write a line on every request; a clean load forgets them. A request that only found another
-     * request upgrading the schema neither logs nor forgets.
+     * Logs the load failures, the boot's and the late checks' together, only when they start or change,
+     * so a failure that lasts does not write a line on every request; a clean load forgets them. A
+     * request that only found another request upgrading the schema neither logs nor forgets.
+     *
+     * @internal the `wp_loaded` callback
      */
-    private function logOnChange(): void
+    public function logOnChange(): void
     {
-        if ($this->logged === []) {
-            if ($this->failures === [] && get_option(self::FAILURE_OPTION) !== false) {
+        $logged = $this->logged;
+        foreach (LoadState::current()->late as $failure) {
+            $logged[] = [$failure, null];
+        }
+
+        if ($logged === []) {
+            if (LoadState::current()->isOpen() && get_option(self::FAILURE_OPTION) !== false) {
                 delete_option(self::FAILURE_OPTION);
             }
 
@@ -165,13 +182,13 @@ final class Boot
 
         $fingerprint = md5((string) wp_json_encode(array_map(
             static fn (array $entry): array => [$entry[0]->moduleId, $entry[0]->reason],
-            $this->logged,
+            $logged,
         )));
         if (get_option(self::FAILURE_OPTION) === $fingerprint) {
             return;
         }
 
-        foreach ($this->logged as [$failure, $error]) {
+        foreach ($logged as [$failure, $error]) {
             if ($error !== null) {
                 ErrorLog::failure('loading module ' . $failure->moduleId, $error);
             } else {
