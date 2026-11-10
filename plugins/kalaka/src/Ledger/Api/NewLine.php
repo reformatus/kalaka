@@ -13,7 +13,8 @@ final readonly class NewLine
 {
     /**
      * @param string $idempotencyKey 1 to 128 characters of `[a-z0-9_:.-]`, unique within the registration
-     * @param ?string $valueDate a calendar day, `Y-m-d`; on `manual_payment`, `manual_refund` and `transfer`
+     * @param ?string $valueDate a calendar day, `Y-m-d`, stored as 00:00 of it in the site time zone;
+     *                           on `manual_payment`, `manual_refund` and `transfer`
      * @param ?\DateTimeImmutable $paidAt on `payment` and `refund`
      */
     public function __construct(

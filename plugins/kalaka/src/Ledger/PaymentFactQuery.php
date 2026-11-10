@@ -7,6 +7,7 @@ namespace Kalaka\Ledger;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Query\Query;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\PaymentFact;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -34,7 +35,6 @@ final class PaymentFactQuery extends Query
                 [$this->table('kalaka_ledger_lines'), $registration->eventId, $registration->code, ...$kinds]
             );
 
-            $utc = new \DateTimeZone('UTC');
             $facts = [];
             foreach ($rows as $row) {
                 $facts[] = new PaymentFact(
@@ -42,8 +42,8 @@ final class PaymentFactQuery extends Query
                     LineKind::from((string) $row['kind']),
                     (string) $row['payer'],
                     Money::of((string) $row['amount'], Currency::from((string) $row['currency'])),
-                    $row['value_date'],
-                    $row['paid_at'] === null ? null : new \DateTimeImmutable($row['paid_at'], $utc),
+                    $row['value_date'] === null ? null : Instant::fromStorage((string) $row['value_date']),
+                    $row['paid_at'] === null ? null : Instant::fromStorage((string) $row['paid_at']),
                 );
             }
             usort(

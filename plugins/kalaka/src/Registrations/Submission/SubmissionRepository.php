@@ -7,6 +7,7 @@ namespace Kalaka\Registrations\Submission;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -45,7 +46,7 @@ final class SubmissionRepository extends AppendOnlyRepository
             'form_id' => $entity->formId,
             'form_version' => $entity->formVersion,
             'answers' => self::encode($entity->answers),
-            'submitted_at' => $entity->submittedAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
+            'submitted_at' => Instant::toStorage($entity->submittedAt),
         ];
     }
 
@@ -63,7 +64,7 @@ final class SubmissionRepository extends AppendOnlyRepository
             (int) $row['form_id'],
             (int) $row['form_version'],
             $answers,
-            new \DateTimeImmutable((string) $row['submitted_at'], new \DateTimeZone('UTC')),
+            Instant::fromStorage((string) $row['submitted_at']),
         );
     }
 

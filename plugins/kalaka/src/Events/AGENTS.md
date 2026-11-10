@@ -20,7 +20,9 @@ Events is events, their states, timeline points, date types, capacity and the
   draft → published ⇄ unpublished → archived; archived is read-only.
 - "Open", "closed" and phases are computed from the points and the current
   time on every read; they are never stored and nothing fires at those moments.
-- Timeline points are absolute; no point is defined relative to another.
+- Timeline points are absolute UTC instants (`datetime(6)`, custom points
+  in the `points` JSON); no point is defined relative to another. Input is
+  a local `YYYY-MM-DD HH:MM` in the site time zone; `Instant` converts.
 - Custom points are part of the event row: no table, repository or audit
   subject of their own; a change of points is a change of the event, covered
   by its `version`, and a removed point's id is never reused.

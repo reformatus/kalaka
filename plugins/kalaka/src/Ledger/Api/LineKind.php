@@ -29,7 +29,7 @@ enum LineKind: string
         return $this === self::Payment || $this === self::Refund;
     }
 
-    /** Whether the kind is stamped with a value date, a calendar day. */
+    /** Whether the kind is stamped with a value date, entered as a day and stored as a UTC instant. */
     public function carriesValueDate(): bool
     {
         return $this === self::ManualPayment || $this === self::ManualRefund || $this === self::Transfer;

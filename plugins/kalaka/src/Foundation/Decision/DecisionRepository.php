@@ -6,6 +6,7 @@ namespace Kalaka\Foundation\Decision;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -57,14 +58,13 @@ final class DecisionRepository extends AppendOnlyRepository
 
     protected function fromRow(array $row): object
     {
-        $utc = new \DateTimeZone('UTC');
 
         return new DecisionRecord(
             new RegistrationKey((int) $row['event_id'], (string) $row['code']),
             (string) $row['kind'],
             (string) $row['state'],
-            new \DateTimeImmutable((string) $row['effective_at'], $utc),
-            new \DateTimeImmutable((string) $row['recorded_at'], $utc),
+            Instant::fromStorage((string) $row['effective_at']),
+            Instant::fromStorage((string) $row['recorded_at']),
             new Subject(
                 (string) $row['cause_type'],
                 $row['cause_event_id'] === null ? null : (int) $row['cause_event_id'],
@@ -90,6 +90,6 @@ final class DecisionRepository extends AppendOnlyRepository
 
     private static function utc(\DateTimeImmutable $time): string
     {
-        return $time->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+        return Instant::toStorage($time);
     }
 }

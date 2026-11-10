@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Ledger\Api\LedgerLine;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -62,15 +63,14 @@ final class LedgerLineRepository extends AppendOnlyRepository
             'source_event_id' => $entity->source->eventId,
             'source_key' => $entity->source->key,
             'idempotency_key' => $entity->idempotencyKey,
-            'value_date' => $entity->valueDate,
-            'paid_at' => $entity->paidAt?->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
-            'recorded_at' => $entity->recordedAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s.u'),
+            'value_date' => $entity->valueDate === null ? null : Instant::toStorage($entity->valueDate),
+            'paid_at' => $entity->paidAt === null ? null : Instant::toStorage($entity->paidAt),
+            'recorded_at' => Instant::toStorage($entity->recordedAt),
         ];
     }
 
     protected function fromRow(array $row): object
     {
-        $utc = new \DateTimeZone('UTC');
 
         return new LedgerLine(
             (int) $row['id'],
@@ -84,9 +84,9 @@ final class LedgerLineRepository extends AppendOnlyRepository
                 (string) $row['source_key'],
             ),
             (string) $row['idempotency_key'],
-            $row['value_date'],
-            $row['paid_at'] === null ? null : new \DateTimeImmutable($row['paid_at'], $utc),
-            new \DateTimeImmutable((string) $row['recorded_at'], $utc),
+            $row['value_date'] === null ? null : Instant::fromStorage((string) $row['value_date']),
+            $row['paid_at'] === null ? null : Instant::fromStorage((string) $row['paid_at']),
+            Instant::fromStorage((string) $row['recorded_at']),
         );
     }
 

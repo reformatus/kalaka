@@ -87,6 +87,10 @@ title: Money
   registration desk. One action records **one registration, one payer and one
   amount**, with the method, the value date and an optional bank reference or
   payer note (free text). It writes one `manual_payment` line.
+- **The value date is entered as a day.** It is stored as the instant
+  00:00 of that day in the site time zone, fixed when the line is
+  recorded. A payment with that value date therefore counts as before a
+  deadline that ends at midnight at the end of the same day.
 - **"Record refund"** writes a `manual_refund` line for money returned by
   transfer or cash. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
