@@ -59,7 +59,11 @@ final class ErrorsTest extends WP_UnitTestCase
         $withContext = (new $class('Az esemény nem található.'))->toWpError();
         self::assertSame($code, $withContext->get_error_code());
         self::assertSame(['status' => $status, 'correlation' => Correlation::id()], $withContext->get_error_data());
-        self::assertSame($text . ' Az esemény nem található.', $withContext->get_error_message());
+        // A 500's context is technical: only the log and the audit get it, never the person.
+        self::assertSame(
+            $status < 500 ? $text . ' Az esemény nem található.' : $text,
+            $withContext->get_error_message()
+        );
     }
 
     public function testOnlyRetryableFailureIsRetryable(): void

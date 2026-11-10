@@ -44,9 +44,9 @@ final class Boundary
 
     /**
      * Runs a WP-CLI command method's body. A `CommandFailure` prints its own message; a
-     * `KalakaException` prints the text a person sees; anything else is logged and prints
-     * `SystemFailure`'s. Each ends the command with exit code 1. Inside it a command stops by throwing
-     * `CommandFailure`, never by calling `WP_CLI::error()` itself.
+     * `KalakaException` prints the operator's text (a 500 keeps its context); anything else
+     * is logged and prints `SystemFailure`'s. Each ends the command with exit code 1. Inside it a
+     * command stops by throwing `CommandFailure`, never by calling `WP_CLI::error()` itself.
      *
      * @param \Closure(): void $body
      */
@@ -62,7 +62,7 @@ final class Boundary
             if (class_exists('WP_CLI\ExitException', false) && $e instanceof \WP_CLI\ExitException) {
                 throw $e;
             }
-            $message = self::shown('WP-CLI command', $e)->displayMessage();
+            $message = self::shown('WP-CLI command', $e)->operatorMessage();
         }
 
         \WP_CLI::error($message);

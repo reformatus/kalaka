@@ -274,6 +274,11 @@ WP-CLI shows it the same way, on 500s only.
 - Each exception class has its own default Hungarian text, and the place that
   throws can add Hungarian context. There is no result type and no separate
   code-to-text mapping.
+- **A 500 never shows its context to the person.** Its context is technical:
+  REST, rendered output and the admin show only the default text and the
+  `Hibaazonosító` line, while the error log and the audit keep the full
+  message. WP-CLI, the operator's console, prints the context too. Below 500
+  the context is meant for the person and is shown.
 - **The classes:** an abstract `KalakaException` (with `toWpError()`,
   `status()`, `isRetryable()`, `isAudited()`; the constructor takes optional
   Hungarian context) and, to start with:

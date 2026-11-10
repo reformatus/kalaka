@@ -223,6 +223,70 @@ final class BoundaryTest extends RunnerTestCase
         self::assertSame('<b>ok</b>', Boundary::render('test block', static fn (): string => '<b>ok</b>'));
     }
 
+    public function testASystemFailuresContextReachesTheLogButNeverThePerson(): void
+    {
+        $failure = new SystemFailure('duplicate_key name');
+
+        [$response, $log] = $this->routeThrowing($failure);
+
+        self::assertSame(500, $response->get_status());
+        self::assertSame('Váratlan hiba történt. Próbáld újra később.', $response->get_data()['message']);
+        self::assertSame(Correlation::id(), $response->get_data()['data']['correlation']);
+        self::assertStringContainsString(
+            'SystemFailure (0): Váratlan hiba történt. Próbáld újra később. duplicate_key name',
+            $log
+        );
+
+        $html = '';
+        $this->capturedErrorLog(static function () use (&$html, $failure): void {
+            $html = Boundary::render('test block', static function () use ($failure): never {
+                throw $failure;
+            });
+        });
+        self::assertSame(
+            '<p>Váratlan hiba történt. Próbáld újra később.</p><p><small>Hibaazonosító: ' . self::shortId()
+            . '</small></p>',
+            $html
+        );
+    }
+
+    public function testARefusalsContextIsShownToThePerson(): void
+    {
+        [$response] = $this->routeThrowing(new InvalidInput('A név kötelező.'));
+
+        self::assertSame(400, $response->get_status());
+        self::assertSame('Hibás vagy hiányzó adat. A név kötelező.', $response->get_data()['message']);
+        self::assertSame(
+            '<p>Hibás vagy hiányzó adat. A név kötelező.</p>',
+            Boundary::render('test block', static function (): never {
+                throw new InvalidInput('A név kötelező.');
+            })
+        );
+    }
+
+    public function testACommandPrintsASystemFailuresContextToTheOperator(): void
+    {
+        $this->requireTheCliDouble();
+
+        $this->capturedErrorLog(static function (): void {
+            try {
+                Boundary::cli(static function (): never {
+                    throw new SystemFailure('duplicate_key name');
+                });
+            } catch (\RuntimeException) {
+                // The double's error() does not return.
+            }
+        });
+
+        self::assertSame(
+            [['error', [
+                "Váratlan hiba történt. Próbáld újra később. duplicate_key name\nHibaazonosító: " . self::shortId(),
+                1,
+            ]]],
+            \WP_CLI::$calls
+        );
+    }
+
     private function requireTheCliDouble(): void
     {
         if (!defined('WP_CLI::IS_TEST_DOUBLE')) {

@@ -21,8 +21,8 @@ final class SiteClosed extends SystemFailure
         return 503;
     }
 
-    public function displayMessage(): string
+    protected function withIdLine(string $text): string
     {
-        return $this->getMessage();
+        return $text;
     }
 }

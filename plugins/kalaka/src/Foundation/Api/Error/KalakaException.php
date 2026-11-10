@@ -35,17 +35,28 @@ abstract class KalakaException extends \RuntimeException
     }
 
     /**
-     * The code, the Hungarian text and the status, with the request's correlation ID in the data, so
-     * a client can match the error to the audit and the error log. The text stays plain: a client
-     * that shows a 500 adds the `Hibaazonosító` line from `data.correlation` (see `displayMessage()`).
+     * The code, the text a person sees and the status, with the request's correlation ID in the
+     * data, so a client can match the error to the audit and the error log. The text stays plain: a
+     * client that shows a 500 adds the `Hibaazonosító` line from `data.correlation` (see
+     * `displayMessage()`).
      */
     public function toWpError(): \WP_Error
     {
         return new \WP_Error(
             $this->errorCode(),
-            $this->getMessage(),
+            $this->publicMessage(),
             ['status' => $this->status(), 'correlation' => Correlation::id()]
         );
+    }
+
+    /**
+     * The Hungarian text a person may see: the default text and the thrower's context, except for a
+     * 500, whose context is technical and reaches only the error log and the audit (`getMessage()`).
+     */
+    public function publicMessage(): string
+    {
+        // [UNAPPROVED N1] A 500 shows only its default text.
+        return $this->status() < 500 ? $this->getMessage() : $this->defaultMessage();
     }
 
     /**
@@ -54,11 +65,27 @@ abstract class KalakaException extends \RuntimeException
      */
     public function displayMessage(): string
     {
+        return $this->withIdLine($this->publicMessage());
+    }
+
+    /**
+     * The text WP-CLI prints: as `displayMessage()`, but a 500 keeps its context, because the
+     * console is the operator's.
+     */
+    public function operatorMessage(): string
+    {
+        // [UNAPPROVED N2] WP-CLI keeps a 500's context.
+        return $this->withIdLine($this->getMessage());
+    }
+
+    /** The text, and for a 500 the `Hibaazonosító` line under it. */
+    protected function withIdLine(string $text): string
+    {
         if ($this->status() < 500) {
-            return $this->getMessage();
+            return $text;
         }
 
-        return $this->getMessage() . "\n" . self::idLine(Correlation::id());
+        return $text . "\n" . self::idLine(Correlation::id());
     }
 
     /** `Hibaazonosító: <the first 8 hex digits of the correlation ID>`. */
