@@ -353,6 +353,8 @@ An admin-started WooCommerce refund:
    which rules out a double refund.
 
 A record left in `requested` (the call never started) gets a retry button.
+Steps 2 and 3 each change the record through a use case of their own
+([Foundation](foundation.md#the-use-case-runner)).
 
 The refund line itself arrives through WooCommerce's refund event, exactly
 once.

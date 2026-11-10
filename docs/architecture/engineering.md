@@ -26,6 +26,13 @@ title: Engineering
   `LAST_INSERT_ID(expr)` and MariaDB's collations, and aborts the whole
   transaction on a failed statement. The runner sends no isolation or
   lock-wait statement there.
+- **PHP's error log lies outside the web root and is rotated, keeping 30
+  days.** It may hold personal data
+  ([Foundation](foundation.md#the-error-log)). The host sets this up, either
+  in its own PHP configuration, or with `WP_DEBUG_LOG` set to a path (which
+  needs `WP_DEBUG` on and `WP_DEBUG_DISPLAY` off); never the default
+  `wp-content/debug.log`. A site warning and a Site Health test catch
+  a log under the web root; rotation cannot be checked from the plugin.
 
 ## Database
 
@@ -254,6 +261,12 @@ src/Registrations/
   paths are a named layer of their own. The rule joins when the view-query
   class exists; until then PHPCS's direct-query rule keeps reads inside the
   repositories and query classes, which run them through `Statements`.
+- **Error handling has one route each,** checked by unit tests that read the
+  source with PHP's tokenizer:
+  `register_rest_route` is called only inside the error boundary, every
+  WP-CLI command method runs its body through the boundary, and `error_log()`
+  is called only by Foundation's error-log writer
+  ([Foundation](foundation.md#errors)).
 - **Backward-compatibility check** of the public API against the last release,
   from the end of the alpha phase
   ([Modules](modules-and-extensions.md#alpha-phase)); the tool is chosen then

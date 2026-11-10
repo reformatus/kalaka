@@ -138,7 +138,8 @@ flowchart TB
 - **Secret sections** are ordinary conditional sections whose condition reads
   a link-only field. The server re-checks conditions at submit
   ([Conditions](#conditions)).
-- **Tokens:** 128 random bits, never logged, masked in exports, sent with
+- **Tokens:** 128 random bits, never written into a log line by our own code
+  ([Foundation](foundation.md#the-error-log)), masked in exports, sent with
   no-referrer. Links are stored readable, single-use ones included, so admins
   can always re-send them.
 - **An association** (e.g. a partner church) is either chosen by the

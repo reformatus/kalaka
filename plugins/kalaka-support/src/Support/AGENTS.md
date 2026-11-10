@@ -29,7 +29,9 @@ So far it holds the directory.
 - Only `parent_id` is stored about the tree; ancestors and descendants are
   computed in SQL when read.
 - Every public route is under `kalaka-support/v1`, registered in
-  `Module::boot()`, and refused while `LoadState::isOpen()` is false.
+  `Module::boot()` through `Boundary::route()`, and calls
+  `LoadState::requireOpen()`, which refuses with `SiteClosed` while the site
+  is closed.
 - The public search lists only live nodes (active, under active ancestors)
   and never their external IDs or aliases.
 - Search predicates use `utf8mb4_unicode_520_ci`; stored text uses

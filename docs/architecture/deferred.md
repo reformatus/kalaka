@@ -49,8 +49,6 @@ presentations are known to be needed and are approved when their UI is built:
 - the soft notice for a second guest registration with the same email;
 - the admin warning when an event's reference codes run out;
 - the privacy policy text (IP address and user agent in the audit);
-- the admin notice for an extension whose version is out of range;
-- the admin notice for a failed schema upgrade;
 - how prefill is presented on a form;
 - the form's validation messages and its messages when it is not open;
 - the activation message when late registrants are excluded from a
