@@ -200,12 +200,23 @@ final class FormValidationTest extends FormsTestCase
         }
     }
 
-    public function testAPhoneInNationalFormIsRefusedWithTheExample(): void
+    public function testADomesticPhoneIsStoredInInternationalForm(): void
     {
-        self::assertSame(
-            ['phone' => 'Add meg a telefonszámot nemzetközi formátumban, például: +36301234567.'],
-            $this->errorsOf(['phone' => '06301234567'] + $this->required())
-        );
+        $validated = $this->validate(['phone' => '06 30 123 4567'] + $this->required());
+
+        self::assertSame('+36301234567', $validated->stored()['phone']);
+        self::assertSame('06 30 123 4567', $validated->submitted()['phone']);
+    }
+
+    public function testAPhoneNeitherInternationalNorDomesticIsRefusedWithTheExample(): void
+    {
+        foreach (['0630123', '30 123 4567'] as $phone) {
+            self::assertSame(
+                ['phone' => 'Adj meg egy érvényes telefonszámot, például: 06301234567 vagy +36301234567.'],
+                $this->errorsOf(['phone' => $phone] + $this->required()),
+                $phone
+            );
+        }
     }
 
     public function testAnImpossibleOrMisformattedDateIsTheDateMessage(): void

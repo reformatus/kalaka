@@ -1,6 +1,14 @@
 {
   "apiVersion": 3,
   "name": "kalaka/date-field",
+  "title": "Dátum",
+  "category": "kalaka",
+  "ancestor": [
+    "kalaka/form"
+  ],
+  "supports": {
+    "html": false
+  },
   "attributes": {
     "key": {
       "type": "string"

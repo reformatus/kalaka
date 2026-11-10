@@ -1,41 +1,52 @@
 <?php
 
 /**
- * Server render of the choice field: events-and-forms.md, "Forms implementation".
+ * Server render of the choice field: events-and-forms.md, "Forms implementation". The markup is
+ * `Kalaka\Forms\FieldMarkup`'s, with the theme adapter's classes and wrapper.
  *
  * @var array<string, mixed> $attributes
  */
 
 declare(strict_types=1);
 
+use Kalaka\Forms\Api\ElementRole;
+use Kalaka\Forms\FieldMarkup;
+
 defined('ABSPATH') || exit;
 
-$kalakaKey = is_string($attributes['key'] ?? null) ? $attributes['key'] : '';
-$kalakaLabel = is_string($attributes['label'] ?? null) ? $attributes['label'] : '';
-$kalakaRequired = ($attributes['required'] ?? false) === true;
-$kalakaMultiple = ($attributes['multiple'] ?? false) === true;
+$kalakaKey = FieldMarkup::text($attributes, 'key');
+$kalakaRequired = FieldMarkup::flag($attributes, 'required');
+$kalakaMultiple = FieldMarkup::flag($attributes, 'multiple');
 $kalakaOptions = is_array($attributes['options'] ?? null) ? $attributes['options'] : [];
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds
 ?>
-<div class="kalaka-field" data-kalaka-field="<?php echo esc_attr($kalakaKey); ?>">
-    <fieldset>
-        <legend><?php echo wp_kses_post($kalakaLabel); ?></legend>
+<div <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?>>
+    <fieldset<?php echo FieldMarkup::classAttribute(ElementRole::ChoiceGroup); ?>>
+        <legend<?php echo FieldMarkup::classAttribute(ElementRole::Label); ?>><?php
+            echo FieldMarkup::title(FieldMarkup::text($attributes, 'label')),
+                FieldMarkup::requiredMarker($kalakaRequired);
+        ?></legend>
 <?php foreach ($kalakaOptions as $kalakaOption) : ?>
     <?php
-    $kalakaValue = is_array($kalakaOption) && is_string($kalakaOption['value'] ?? null) ? $kalakaOption['value'] : '';
-    $kalakaOptionLabel = is_array($kalakaOption) && is_string($kalakaOption['label'] ?? null)
-        ? $kalakaOption['label']
-        : '';
+    $kalakaOption = is_array($kalakaOption) ? $kalakaOption : [];
+    /** @var array<string, mixed> $kalakaOption */
+    $kalakaValue = FieldMarkup::text($kalakaOption, 'value');
     ?>
-        <label>
+        <label<?php echo FieldMarkup::classAttribute(ElementRole::Option); ?>>
     <?php if ($kalakaMultiple) : ?>
             <input type="checkbox" name="<?php echo esc_attr($kalakaKey); ?>[]"
-                value="<?php echo esc_attr($kalakaValue); ?>">
+                value="<?php echo esc_attr($kalakaValue); ?>"<?php
+                echo FieldMarkup::classAttribute(ElementRole::ChoiceControl); ?>>
     <?php else : ?>
             <input type="radio" name="<?php echo esc_attr($kalakaKey); ?>"
-                value="<?php echo esc_attr($kalakaValue); ?>"<?php echo $kalakaRequired ? ' required' : ''; ?>>
+                value="<?php echo esc_attr($kalakaValue); ?>"<?php
+                echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : ''; ?>>
     <?php endif; ?>
-            <?php echo wp_kses_post($kalakaOptionLabel); ?>
+            <?php echo FieldMarkup::title(FieldMarkup::text($kalakaOption, 'label')); ?>
         </label>
 <?php endforeach; ?>
     </fieldset>
+    <?php echo FieldMarkup::errorElement($kalakaKey); ?>
 </div>
+<?php
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

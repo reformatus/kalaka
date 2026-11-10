@@ -1,6 +1,14 @@
 {
   "apiVersion": 3,
   "name": "kalaka/email-field",
+  "title": "E-mail-cím",
+  "category": "kalaka",
+  "ancestor": [
+    "kalaka/form"
+  ],
+  "supports": {
+    "html": false
+  },
   "attributes": {
     "key": {
       "type": "string"

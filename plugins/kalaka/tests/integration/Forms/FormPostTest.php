@@ -18,18 +18,22 @@ final class FormPostTest extends FormsTestCase
 
         self::assertInstanceOf(\WP_Post_Type::class, $type);
         self::assertFalse($type->public);
-        self::assertFalse($type->show_ui);
-        self::assertFalse($type->show_in_rest);
+        self::assertTrue($type->show_ui);
+        self::assertFalse($type->show_in_menu);
+        self::assertTrue($type->show_in_rest);
+        self::assertSame(\Kalaka\Forms\FormRestController::class, $type->rest_controller_class);
+        self::assertTrue(use_block_editor_for_post_type('kalaka_form'));
         self::assertTrue(post_type_supports('kalaka_form', 'title'));
         self::assertTrue(post_type_supports('kalaka_form', 'editor'));
         self::assertTrue(post_type_supports('kalaka_form', 'revisions'));
+        self::assertTrue(post_type_supports('kalaka_form', 'custom-fields'));
         self::assertFalse(post_type_supports('kalaka_form', 'thumbnail'));
         foreach ((array) $type->cap as $name => $capability) {
             self::assertSame(AdminAccess::FULL_ACCESS, $capability, 'capability ' . $name);
         }
     }
 
-    public function testTheSettingsAreRegisteredAsTypedSinglePostMetaOutsideRest(): void
+    public function testTheSettingsAreRegisteredAsTypedSinglePostMetaInRestForFullAccessOnly(): void
     {
         // The harness unregisters all meta keys after each test, so register them again the way `init` does.
         (new Module())->registerMeta();
@@ -41,7 +45,14 @@ final class FormPostTest extends FormsTestCase
         self::assertSame('string', $registered['kalaka_required_role']['type']);
         foreach (['kalaka_event_id', 'kalaka_placement', 'kalaka_required_role'] as $key) {
             self::assertTrue($registered[$key]['single'], $key);
-            self::assertFalse($registered[$key]['show_in_rest'], $key);
+            self::assertNotFalse($registered[$key]['show_in_rest'], $key);
+        }
+        $full = $this->fullAccessUser();
+        $admin = self::factory()->user->create(['role' => 'administrator']);
+        $id = $this->slotForm();
+        foreach (['kalaka_event_id', 'kalaka_placement', 'kalaka_required_role'] as $key) {
+            self::assertTrue(user_can($full, 'edit_post_meta', $id, $key), $key);
+            self::assertFalse(user_can($admin, 'edit_post_meta', $id, $key), $key);
         }
     }
 

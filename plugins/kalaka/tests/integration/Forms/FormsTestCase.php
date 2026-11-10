@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\FieldKeys;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
 
 /** The base of the Forms tests: forms inserted the way code and WP-CLI do, as block markup in the content. */
@@ -62,6 +63,23 @@ abstract class FormsTestCase extends EventsTestCase
         self::assertIsInt($id);
 
         return $id;
+    }
+
+    /**
+     * A form inserted as written, without the keys and option values set on save: what content that
+     * bypassed the save (a direct database write) looks like to `DefinitionParser`.
+     *
+     * @param array<string, mixed> $meta
+     */
+    protected function insertUnderived(string $content, array $meta = []): int
+    {
+        $filter = [FieldKeys::class, 'onInsert'];
+        remove_filter('wp_insert_post_data', $filter);
+        try {
+            return $this->insertForm($content, $meta);
+        } finally {
+            add_filter('wp_insert_post_data', $filter);
+        }
     }
 
     /** A registration-slot form with the two marked fields and more fields. */

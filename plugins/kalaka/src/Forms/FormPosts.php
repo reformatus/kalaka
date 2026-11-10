@@ -63,6 +63,7 @@ final class FormPosts
             !$revision instanceof \WP_Post
             || $revision->post_type !== 'revision'
             || $revision->post_parent !== $form->id
+            || wp_is_post_autosave($revision) !== false
         ) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('unknown_version form ' . $form->id);
@@ -88,14 +89,28 @@ final class FormPosts
         }
     }
 
+    /**
+     * The latest saved revision, never an autosave: the block editor autosaves a form being edited
+     * as a revision too, and an autosave is not a version anybody published.
+     */
     private function latestRevision(int $postId): int
     {
-        $latest = wp_get_latest_revision_id_and_total_count($postId);
-        if (is_wp_error($latest) || $latest['latest_id'] === 0) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
-            throw new SystemFailure('no_revision form ' . $postId);
+        $revisions = get_posts([
+            'post_parent' => $postId,
+            'post_type' => 'revision',
+            'post_status' => 'inherit',
+            'orderby' => ['date' => 'DESC', 'ID' => 'DESC'],
+            'posts_per_page' => -1,
+            'fields' => 'ids',
+            'suppress_filters' => true,
+        ]);
+        foreach ($revisions as $revision) {
+            if (wp_is_post_autosave($revision) === false) {
+                return $revision;
+            }
         }
 
-        return $latest['latest_id'];
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+        throw new SystemFailure('no_revision form ' . $postId);
     }
 }

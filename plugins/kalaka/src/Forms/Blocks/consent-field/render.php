@@ -1,23 +1,33 @@
 <?php
 
 /**
- * Server render of the consent field: events-and-forms.md, "Forms implementation".
+ * Server render of the consent field: events-and-forms.md, "Forms implementation". The markup is
+ * `Kalaka\Forms\FieldMarkup`'s, with the theme adapter's classes and wrapper.
  *
  * @var array<string, mixed> $attributes
  */
 
 declare(strict_types=1);
 
+use Kalaka\Forms\Api\ElementRole;
+use Kalaka\Forms\FieldMarkup;
+
 defined('ABSPATH') || exit;
 
-$kalakaKey = is_string($attributes['key'] ?? null) ? $attributes['key'] : '';
-$kalakaLabel = is_string($attributes['label'] ?? null) ? $attributes['label'] : '';
-$kalakaRequired = ($attributes['required'] ?? false) === true;
+$kalakaKey = FieldMarkup::text($attributes, 'key');
+$kalakaRequired = FieldMarkup::flag($attributes, 'required');
+$kalakaTag = FieldMarkup::wrapperTag(true);
+// phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds
 ?>
-<div class="kalaka-field" data-kalaka-field="<?php echo esc_attr($kalakaKey); ?>">
-    <label>
-        <input type="checkbox" name="<?php echo esc_attr($kalakaKey); ?>"
-            value="1"<?php echo $kalakaRequired ? ' required' : ''; ?>>
-        <?php echo wp_kses_post($kalakaLabel); ?>
+<<?php echo $kalakaTag; ?> <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?>>
+    <label<?php echo FieldMarkup::classAttribute(ElementRole::Label); ?>>
+        <input type="checkbox" name="<?php echo esc_attr($kalakaKey); ?>" value="1"<?php
+            echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : ''; ?>>
+        <?php
+        echo FieldMarkup::title(FieldMarkup::text($attributes, 'label')), FieldMarkup::requiredMarker($kalakaRequired);
+        ?>
     </label>
-</div>
+    <?php echo FieldMarkup::errorElement($kalakaKey); ?>
+</<?php echo $kalakaTag; ?>>
+<?php
+// phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped

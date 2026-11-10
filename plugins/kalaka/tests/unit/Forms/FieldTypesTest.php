@@ -50,10 +50,23 @@ final class FieldTypesTest extends TestCase
         self::assertSame('+123456789012345', $this->answer($type, '+123456789012345')->value);
     }
 
+    /** D6 (owner ruling 2026-11-10): a Hungarian domestic number, `06` and 8 or 9 digits, is stored as `+36…`. */
+    public function testADomesticHungarianPhoneIsStoredWithPlus36(): void
+    {
+        $type = new PhoneFieldType();
+
+        self::assertSame('+36301234567', $this->answer($type, '06 30 123 4567')->value);
+        self::assertSame('+36301234567', $this->answer($type, '06-30-123-4567')->value);
+        self::assertSame('+3612345678', $this->answer($type, '06 (1) 234 5678')->value);
+        self::assertSame('+441234567890', $this->answer($type, '+44 1234 567890')->value);
+    }
+
     /** @return iterable<string, array{string}> */
     public static function badPhones(): iterable
     {
-        yield 'national form' => ['06301234567'];
+        yield 'domestic, too short' => ['06 30 123 45'];
+        yield 'domestic, too long' => ['06 30 123 45678'];
+        yield 'bare subscriber number' => ['30 123 4567'];
         yield 'no plus' => ['36301234567'];
         yield 'too short' => ['+1234567'];
         yield 'too long' => ['+1234567890123456'];
@@ -66,7 +79,7 @@ final class FieldTypesTest extends TestCase
     {
         $answer = $this->answer(new PhoneFieldType(), $phone);
 
-        self::assertSame('Add meg a telefonszámot nemzetközi formátumban, például: +36301234567.', $answer->error);
+        self::assertSame('Adj meg egy érvényes telefonszámot, például: 06301234567 vagy +36301234567.', $answer->error);
         self::assertNull($answer->value);
     }
 

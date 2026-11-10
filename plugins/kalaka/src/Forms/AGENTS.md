@@ -13,8 +13,10 @@ conditions, prefill and form links
   [Editability after submit](../../../../docs/architecture/events-and-forms.md#editability-after-submit),
   [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
-- modules-and-extensions.md: the field-type point of
+- modules-and-extensions.md: the field-type and theme-adapter points of
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
+- engineering.md: the field markup of
+  [WordPress surfaces](../../../../docs/architecture/engineering.md#wordpress-surfaces).
 
 ## Invariants
 
@@ -25,7 +27,17 @@ conditions, prefill and form links
 - The server accepts only declared fields of the form's definition, checked
   against the same definition the page was built from; a value the browser
   sends for anything else is refused.
-- A field key is stable: authored once, never generated or renamed by code.
+- A field key and a choice option's value are derived once from the title or
+  label, on save, by `FieldKeys` (the only writer); after that they never
+  change, whatever the text becomes. Only a missing, invalid or repeated one is
+  derived again, since a form holding one was unusable and stored nothing.
+- A form autosave is never a version: the version is the latest revision that
+  is not an autosave.
+- Forms are edited in the block editor by full access only: every capability
+  and every REST read of `kalaka_form` needs `kalaka_full_access`.
+- A theme adapter only returns data (classes per element role, a `div` or `p`
+  wrapper, an error colour); core renders the markup and applies it. A failing
+  adapter is skipped and the form renders without it.
 - A form version is the ID of one of the form's revisions, every usable form
   has at least one, and revisions of forms are never pruned, so a submission's
   version resolves to the definition it was checked against for as long as

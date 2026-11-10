@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Module;
 
 use Kalaka\Forms\Api\FieldType;
+use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 
@@ -21,6 +22,9 @@ final class Contributions
 
     /** @var array<string, FieldType> */
     private array $fieldTypes = [];
+
+    /** @var list<ThemeAdapter> */
+    private array $themeAdapters = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -91,5 +95,24 @@ final class Contributions
     public function fieldTypes(): array
     {
         return $this->fieldTypes;
+    }
+
+    /**
+     * A theme adapter is an outside point (modules-and-extensions.md, "The extension surface"). At most
+     * one applies: the first, in contribution order, that returns an adaptation for the active theme.
+     */
+    public function themeAdapter(ThemeAdapter $adapter): void
+    {
+        $this->themeAdapters[] = $adapter;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<ThemeAdapter>
+     */
+    public function themeAdapters(): array
+    {
+        return $this->themeAdapters;
     }
 }

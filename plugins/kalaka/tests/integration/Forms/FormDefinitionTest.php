@@ -93,18 +93,20 @@ final class FormDefinitionTest extends FormsTestCase
     public function testAFieldWithoutAKeyIsAProblem(): void
     {
         $this->assertProblem(
-            $this->insertForm($this->slotFields() . $this->block('kalaka/text-field', ['label' => 'Titkos címke'])),
+            $this->insertUnderived(
+                $this->slotFields() . $this->block('kalaka/text-field', ['label' => 'Titkos címke'])
+            ),
             'missing_key',
             'kalaka/text-field',
             'Titkos címke'
         );
         $this->assertProblem(
-            $this->insertForm($this->slotFields() . $this->block('kalaka/text-field', ['key' => ''])),
+            $this->insertUnderived($this->slotFields() . $this->block('kalaka/text-field', ['key' => ''])),
             'missing_key',
             'kalaka/text-field'
         );
         $this->assertProblem(
-            $this->insertForm($this->slotFields() . $this->block('kalaka/text-field', ['key' => 12])),
+            $this->insertUnderived($this->slotFields() . $this->block('kalaka/text-field', ['key' => 12])),
             'missing_key',
             'kalaka/text-field'
         );
@@ -125,7 +127,7 @@ final class FormDefinitionTest extends FormsTestCase
     /** @dataProvider invalidKeys */
     public function testAKeyOutsideThePatternIsAProblem(string $key): void
     {
-        $id = $this->insertForm($this->slotFields() . $this->field('text', $key, ['label' => 'Titkos címke']));
+        $id = $this->insertUnderived($this->slotFields() . $this->field('text', $key, ['label' => 'Titkos címke']));
 
         $this->assertProblem($id, 'invalid_key', $key, 'Titkos címke');
     }
@@ -140,7 +142,7 @@ final class FormDefinitionTest extends FormsTestCase
 
     public function testARepeatedKeyIsAProblemAcrossTypesAndNesting(): void
     {
-        $id = $this->insertForm(
+        $id = $this->insertUnderived(
             $this->slotFields() . $this->field('text', 'note')
                 . $this->wrapped($this->field('date', 'note', ['label' => 'Titkos címke']))
         );
@@ -161,12 +163,14 @@ final class FormDefinitionTest extends FormsTestCase
         ];
 
         foreach ($bad as $why => $options) {
-            $id = $this->insertForm($this->slotFields() . $this->field('choice', 'pick', ['options' => $options]));
+            $id = $this->insertUnderived($this->slotFields() . $this->field('choice', 'pick', ['options' => $options]));
             $this->assertProblem($id, 'invalid_options', 'pick', 'Titkos opció');
             self::assertNotEmpty($why);
         }
 
-        $noAttribute = $this->insertForm($this->slotFields() . $this->block('kalaka/choice-field', ['key' => 'pick']));
+        $noAttribute = $this->insertUnderived(
+            $this->slotFields() . $this->block('kalaka/choice-field', ['key' => 'pick'])
+        );
         $this->assertProblem($noAttribute, 'invalid_options', 'pick');
     }
 
