@@ -222,8 +222,11 @@ final class RunnerDatabaseFailureTest extends RealTableTestCase
         $second->query("SELECT id FROM {$items} WHERE id = {$this->rowB} FOR UPDATE");
 
         $this->items->findForUpdate($this->rowA, $context);
-        $second->query("SELECT id FROM {$items} WHERE id = {$this->rowA} FOR UPDATE", MYSQLI_ASYNC);
-        $this->waitForLockWait();
+        self::assertTrue(
+            $second->query("SELECT id FROM {$items} WHERE id = {$this->rowA} FOR UPDATE", MYSQLI_ASYNC),
+            'The second connection could not send its read: ' . $second->error
+        );
+        $this->waitForLockWait($second);
 
         $deadlock = null;
         try {
@@ -242,22 +245,59 @@ final class RunnerDatabaseFailureTest extends RealTableTestCase
     }
 
     /**
-     * Waits until a transaction is in LOCK WAIT: only the second connection can be. Not matched by
-     * thread id, because `INNODB_TRX` does not always report the id the connection's `thread_id` gives.
+     * Waits until the second connection is in LOCK WAIT, for up to 15 seconds. `INNODB_TRX` is a
+     * cache the server refreshes only once it has gone unread for 100 ms
+     * (`CACHE_MIN_IDLE_TIME_NS` in MariaDB's `trx0i_s.cc`), so polling it faster than that can read,
+     * forever, a snapshot taken before the wait began. Every read therefore comes after a longer
+     * pause. If the second connection's read finishes instead of waiting, this fails at once with
+     * what it returned.
      */
-    private function waitForLockWait(): void
+    private function waitForLockWait(\mysqli $second): void
     {
         global $wpdb;
-        for ($i = 0; $i < 250; $i++) {
-            $waiting = (int) $wpdb->get_var(
+        $deadline = hrtime(true) + 15_000_000_000;
+        while (true) {
+            usleep(200_000);
+            $this->failIfFinished($second);
+            $waiting = (int) $wpdb->get_var($wpdb->prepare(
                 "SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT'"
-            );
+                . ' AND trx_mysql_thread_id = %d',
+                $second->thread_id
+            ));
             if ($waiting > 0) {
                 return;
             }
-            usleep(20000);
+            if (hrtime(true) > $deadline) {
+                self::fail('The second connection never waited for the lock.');
+            }
         }
-        self::fail('The second connection never waited for the lock.');
+    }
+
+    /** Fails if the second connection's pending read has already finished. */
+    private function failIfFinished(\mysqli $second): void
+    {
+        $read = [$second];
+        $error = [$second];
+        $reject = [];
+        if (\mysqli::poll($read, $error, $reject, 0) < 1 && $error === []) {
+            return;
+        }
+        try {
+            $result = $second->reap_async_query();
+        } catch (\mysqli_sql_exception $failure) {
+            self::fail('The second connection\'s read failed instead of waiting: ' . $failure->getMessage());
+        }
+        if ($result === false) {
+            self::fail(sprintf(
+                'The second connection\'s read failed instead of waiting: %d %s',
+                $second->errno,
+                $second->error
+            ));
+        }
+        self::fail(sprintf(
+            'The second connection\'s read finished without waiting, with %d row(s).',
+            $result instanceof \mysqli_result ? $result->num_rows : 0
+        ));
     }
 
     private function itemsTable(): string
