@@ -2,6 +2,7 @@ deptrac:
   paths:
     - plugins/kalaka/src
     - plugins/kalaka-support/src
+    - plugins/kalaka-divi4/src
   layers:
     - name: Foundation
       collectors:
@@ -108,6 +109,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Support\\Api\\'
+    - name: Divi4
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Divi4\\(?!Api\\)'
+    - name: Divi4 Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Divi4\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -286,6 +295,21 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+    Divi4:
+      - WordPress
+      - Divi4 Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
     Foundation Api:
       - WordPress
       - Foundation
@@ -448,6 +472,21 @@ deptrac:
     Support Api:
       - WordPress
       - Support
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    Divi4 Api:
+      - WordPress
+      - Divi4
       - Foundation Api
       - Foundation Api Money
       - Events Api
