@@ -102,7 +102,8 @@ values and conditions, prefill and form links
 - Access checks are pure: they read no current user, cookie or request; the
   caller passes the roles and whether the password was given.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
-  transaction, never inside it.
+  transaction, never inside it. The one exception is `Forms::refusals()`,
+  which reads nothing: a submit checks it under the event's lock.
 - Field types contribute through the typed point and return values; no field
   type writes to a table. Core ships no money-relevant field type.
 - Forms checks answers and hands them over; only Registrations writes
@@ -136,6 +137,9 @@ values and conditions, prefill and form links
 - The after-submit section (`Api\AfterSubmit`) is at most one block, outside
   any branch, with no fields; its chains are not the form's (not numbered,
   not walked) and read only `AfterSubmit::TYPES`.
+- A page that places a form (the block `kalaka/form` or the `[kalaka_form]`
+  shortcode) is never cached: `Api\FormPage::preventCaching()` on
+  `template_redirect`, and again from the form renderer.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
 - Reading a key that a value context does not declare is a failure, never an

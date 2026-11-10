@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation\SiteWarning;
 
+use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\SiteWarning\Severity;
@@ -28,6 +29,12 @@ final class BootWarningsTest extends SiteWarningTestCase
 
     private string $previousLog;
 
+    /** The contributions of the real boot, which a test boot replaces. */
+    private Contributions $contributions;
+
+    /** @var list<\Kalaka\Foundation\Api\LoadFailure> */
+    private array $state;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
@@ -38,6 +45,8 @@ final class BootWarningsTest extends SiteWarningTestCase
         delete_option(Boot::FAILURE_OPTION);
         delete_option(PeriodicRun::LAST_RUN_OPTION);
         $this->previousLog = (string) ini_get('error_log');
+        $this->contributions = Contributions::current();
+        $this->state = LoadState::current()->failures;
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
@@ -45,6 +54,8 @@ final class BootWarningsTest extends SiteWarningTestCase
     {
         ini_set('error_log', $this->previousLog);
         delete_option(Boot::FAILURE_OPTION);
+        Contributions::record($this->contributions);
+        LoadState::record($this->state);
 
         parent::tear_down();
     }

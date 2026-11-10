@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Api\FormPage;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
 use Kalaka\Forms\FieldType\ConsentFieldType;
@@ -13,10 +14,11 @@ use Kalaka\Forms\FieldType\EmailFieldType;
 use Kalaka\Forms\FieldType\NameFieldType;
 use Kalaka\Forms\FieldType\PhoneFieldType;
 use Kalaka\Forms\FieldType\TextFieldType;
+use Kalaka\Forms\Value\BindingSource;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
-use Kalaka\Forms\Value\BindingSource;
 
 final class Module extends AbstractModule
 {
@@ -82,6 +84,21 @@ SQL;
     {
         add_action('init', [$this, 'register']);
         add_action('rest_api_init', [ParticipantFieldsRoute::class, 'register']);
+        add_action('template_redirect', [$this, 'preventFormPageCaching']);
+    }
+
+    /**
+     * @internal the `template_redirect` callback: a singular page that places a form is never cached,
+     * so no visitor is served another's submit token (N6).
+     */
+    public function preventFormPageCaching(): void
+    {
+        Boundary::background('form page caching', static function (): void {
+            $post = is_singular() ? get_queried_object() : null;
+            if ($post instanceof \WP_Post && FormPage::placesForm($post->post_content)) {
+                FormPage::preventCaching();
+            }
+        });
     }
 
     /** @internal the `init` callback */

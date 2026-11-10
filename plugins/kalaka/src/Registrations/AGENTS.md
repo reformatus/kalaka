@@ -9,7 +9,7 @@ the waitlist and reference codes
 - registrations-and-identity.md: [Registrations](../../../../docs/architecture/registrations-and-identity.md#registrations),
   [Identity: no person records](../../../../docs/architecture/registrations-and-identity.md#identity-no-person-records),
   [Submissions and values](../../../../docs/architecture/registrations-and-identity.md#submissions-and-values),
-  the status and sorszám part of [Status, capacity and waitlist](../../../../docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist),
+  the status, sorszám and submit-time capacity decision of [Status, capacity and waitlist](../../../../docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist),
   [Reference codes](../../../../docs/architecture/registrations-and-identity.md#reference-codes),
   the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access).
 - foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
@@ -43,4 +43,15 @@ the waitlist and reference codes
 - `secret` and `field_key` are `utf8mb4_nopad_bin`: compared exactly.
 - Registration rows are locked at `LockLevel::Registration`: after the event
   row and quota rows, before everything else.
+- A registration is created only by `kalaka-portal/submit-registration`
+  (`SubmitRegistration`, reached through `Api\RegistrationSubmit`): the
+  answers are checked before the transaction, then the event row is the
+  run's first lock, a submit token the event's submissions already hold is a
+  repeat only with the same answers' fingerprint (then it writes nothing and
+  the result names no registration) and otherwise `SubmitTokenReused`, the
+  form must be at its latest version, and the status follows from
+  the latch and the count of `registered` registrations read under that lock.
+  The latch is set before the registration row is written.
+- The submit token is a secret: masked in the audit, never in a log. It is
+  compared in SQL, because it grants nothing: it only names an earlier submit.
 - Only Registrations writes its tables.

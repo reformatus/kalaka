@@ -82,6 +82,9 @@ erDiagram
   participants are all adults).
 - **The form never asks for a password.** The account is activated through
   a set-password mail sent by the queue, which also verifies the address.
+- **The registration does not wait for the account:** it lands at submit,
+  takes its place in capacity and gets its reference code before the
+  set-password mail is used.
 - **If the person is logged in,** the registration attaches to their account.
 - **If the email already has an account,** the registration attaches when
   the mail's link is used. The form never reveals whether an account exists.
@@ -121,6 +124,11 @@ erDiagram
 - **A participant field of source "system" has no field value.** It only
   declares a system decision; reading it reads the current decision record
   ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+- **A repeated submit creates nothing.** The form page carries a submit
+  token (128 random bits, a secret like the secret link) and is never
+  cached. A submit whose token the event's submissions already hold, with
+  the same answers, is answered only as a repeat, revealing nothing of the
+  registration; the same token with other answers is refused.
 - **One row per field,** each carrying the event ID, keyed by event,
   reference code and field. Loading a registration is one index range read;
   filtering and sorting by a field stay within the event. Estimated at about

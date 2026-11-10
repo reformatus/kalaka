@@ -52,6 +52,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - The admin-side coarse permission check is Admin's (`Admin\Api\AdminAccess`),
   called by the runner before the transaction; Foundation holds no interface
   or default for it and decides only the side match and the portal side itself.
+- On the portal side a `PublicUseCase` names no registration and passes for
+  any portal-side actor; a `GuestActor` carries no identity and passes only a
+  public use case.
 - Inside the transaction only our own tables are written: no WordPress
   function that fires hooks or fills WordPress caches. WordPress-side steps
   run after commit and are safe to repeat; a nudge's failure is only logged,

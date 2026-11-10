@@ -8,6 +8,7 @@ use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
@@ -42,6 +43,16 @@ final class RunnerPermissionTest extends RunnerTestCase
         yield 'account, a registration' => [new AccountActor(5), 'own', false];
         yield 'account, account-level' => [new AccountActor(5), 'none', true];
         yield 'account, admin' => [new AccountActor(5), 'admin', false];
+
+        yield 'guest, public' => [new GuestActor(), 'public', true];
+        yield 'account, public' => [new AccountActor(5), 'public', true];
+        yield 'secret link, public' => [new SecretLinkActor($own), 'public', true];
+        yield 'guest, public naming a registration' => [new GuestActor(), 'public own', false];
+        yield 'guest, account-level' => [new GuestActor(), 'none', false];
+        yield 'guest, a registration' => [new GuestActor(), 'own', false];
+        yield 'guest, admin' => [new GuestActor(), 'admin', false];
+        yield 'user, public' => [new UserActor(5), 'public', false];
+        yield 'system, public' => [new SystemActor(), 'public', false];
     }
 
     /** @dataProvider cases */
@@ -62,6 +73,8 @@ final class RunnerPermissionTest extends RunnerTestCase
             'other event' => new PortalProbe([new RegistrationKey(11, '12A3')], $body),
             'own and other' => new PortalProbe([$own, new RegistrationKey(10, '00B0')], $body),
             'none' => new PortalProbe([], $body),
+            'public' => new PublicProbe([], $body),
+            'public own' => new PublicProbe([$own], $body),
         };
 
         if ($passes) {
@@ -145,6 +158,7 @@ final class RunnerPermissionTest extends RunnerTestCase
 
     private static function calls(UseCase $useCase): int
     {
-        return $useCase instanceof AdminProbe || $useCase instanceof PortalProbe ? $useCase->calls : -1;
+        return $useCase instanceof AdminProbe || $useCase instanceof PortalProbe || $useCase instanceof PublicProbe
+            ? $useCase->calls : -1;
     }
 }

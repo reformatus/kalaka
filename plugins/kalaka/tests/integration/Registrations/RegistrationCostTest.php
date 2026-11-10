@@ -7,7 +7,9 @@ namespace Kalaka\Tests\Integration\Registrations;
 use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Registrations\ReferenceCodeGenerator;
 use Kalaka\Registrations\ReferenceCodeQuery;
+use Kalaka\Registrations\RegistrationCount;
 use Kalaka\Registrations\RegistrationList;
+use Kalaka\Registrations\Submission\SubmissionRepository;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
 /** AC12: the per-event statements stay inside their event, and the site-wide one reads only the codes asked for. */
@@ -49,6 +51,43 @@ final class RegistrationCostTest extends PerEventCostTestCase
         $statements = $this->statementsOf(fn () => (new RegistrationList())->forEvent(1));
 
         self::assertCount(1, $statements);
+    }
+
+    public function testTheCapacityCountStaysInsideItsEvent(): void
+    {
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event) => (new RegistrationCount())->registered($event)
+        );
+    }
+
+    public function testTheSubmitTokenLookupStaysInsideItsEvent(): void
+    {
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedSubmissions($event),
+            fn (int $event) => (new SubmissionRepository())->withToken($event, 'tokentokentokentoken07')
+        );
+    }
+
+    private function seedSubmissions(int $event): void
+    {
+        global $wpdb;
+
+        $values = [];
+        foreach (array_slice(ReferenceCode::fourCharacterCodes(), 0, self::CODES_PER_EVENT) as $index => $code) {
+            $values[] = $wpdb->prepare(
+                "(%d, %s, 1, 1, 1, '{}', '2026-11-30 08:00:00.000000', %s)",
+                $event,
+                $code,
+                sprintf('tokentokentokentoken%02d', $index % 100)
+            );
+        }
+        $wpdb->query(
+            "INSERT INTO {$wpdb->prefix}kalaka_submissions "
+            . "(event_id, code, number, form_id, form_version, answers, submitted_at, submit_token) VALUES "
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; table prefix and constants only
+            . implode(', ', $values)
+        );
     }
 
     public function testTheCandidatesAnEventUsesStayInsideTheirEvent(): void

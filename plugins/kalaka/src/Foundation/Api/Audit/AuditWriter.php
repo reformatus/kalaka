@@ -7,6 +7,7 @@ namespace Kalaka\Foundation\Api\Audit;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -102,7 +103,10 @@ final class AuditWriter
      */
     private static function origin(Actor $actor): array
     {
-        if (!($actor instanceof UserActor || $actor instanceof SecretLinkActor || $actor instanceof AccountActor)) {
+        if (
+            !($actor instanceof UserActor || $actor instanceof SecretLinkActor || $actor instanceof AccountActor
+                || $actor instanceof GuestActor)
+        ) {
             return [null, null];
         }
 
