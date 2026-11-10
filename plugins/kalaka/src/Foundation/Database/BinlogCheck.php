@@ -17,7 +17,10 @@ use Kalaka\Foundation\Api\Error\KalakaException;
  */
 final class BinlogCheck
 {
-    /** The context of the refusal and of error 1665. */
+    /**
+     * The context of the refusal and of error 1665. A 500's context reaches only the
+     * error log, the audit and WP-CLI; the person sees `SystemFailure`'s text, and admins the site warning.
+     */
     public const REFUSAL = 'A webtárhely adatbázis-beállítása (binlog_format=STATEMENT) miatt a Kaláka most nem tud '
         . 'adatot menteni. Szólj a webhely üzemeltetőjének.';
 

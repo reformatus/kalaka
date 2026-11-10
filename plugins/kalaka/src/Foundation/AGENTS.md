@@ -67,6 +67,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   command's own refusal is a `CommandFailure`, shown and not logged.
 - Every error response carries the correlation ID; only a 500 shows it to the
   person, as the `Hibaazonosító` line.
+- A 500's context (`SiteClosed` included) never reaches the person: REST,
+  rendered output and the admin show `publicMessage()`, its default text;
+  only the error log, the audit and WP-CLI (`operatorMessage()`) carry it.
 - Only Foundation's error-log writer calls `error_log()`; a line holds what
   failed, the correlation ID and the full exception chain (class, code,
   message).
