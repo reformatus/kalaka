@@ -136,6 +136,27 @@ final class ActionMailSendingTest extends MailBodyTestCase
         self::assertSame('0', $this->deliveries()[0]['attempts']);
     }
 
+    public function testAnUnpublishedSlotFormFailsTheMailWithItsOwnReasonNotABadAddress(): void
+    {
+        $event = $this->published();
+        $form = $this->slotForm($event);
+        $key = $this->registration($event, form: $form);
+        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
+        $this->act($key, ActionMail::Registered);
+        wp_update_post(['ID' => $form, 'post_status' => 'draft']);
+
+        $report = $this->realSender()->send();
+
+        self::assertSame([], $this->sent);
+        $row = $this->deliveries()[0];
+        self::assertSame('failed', $row['status']);
+        self::assertSame('0', $row['attempts']);
+        self::assertStringStartsWith('address no_recipient_form (correlation ', (string) $row['error']);
+        self::assertNotNull($report);
+        self::assertSame(1, $report->invalidAddresses);
+        self::assertFalse($report->paused);
+    }
+
     public function testABodyThatCannotRenderIsAnErrorThatNamesNoValue(): void
     {
         $event = $this->published();
