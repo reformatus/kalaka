@@ -32,11 +32,14 @@ final class BrokenForms
         }
     }
 
-    /** `wp_after_insert_post`, `deleted_post`: recomputes the list after a form changed. */
+    /**
+     * `wp_after_insert_post`, `deleted_post`: recomputes the list after a form changed. Only a form
+     * counts: its revisions and autosaves are not its content, and a restore saves the form itself.
+     */
     public static function onPostChange(int $postId, mixed $post = null): void
     {
         $type = $post instanceof \WP_Post ? $post->post_type : get_post_type($postId);
-        if ($type === FormPosts::POST_TYPE || $type === 'revision') {
+        if ($type === FormPosts::POST_TYPE) {
             self::refresh();
         }
     }

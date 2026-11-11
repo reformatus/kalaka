@@ -78,6 +78,7 @@ final class Module extends AbstractModule
             add_action($hook, [BrokenForms::class, 'onMetaChange'], 10, 3);
         }
         add_action('admin_init', [BrokenForms::class, 'ensure']);
+        add_action('admin_notices', [DefinitionCheck::class, 'notice']);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);

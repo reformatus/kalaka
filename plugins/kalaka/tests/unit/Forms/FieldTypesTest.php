@@ -9,6 +9,7 @@ use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\FieldType\ConsentFieldType;
 use Kalaka\Forms\FieldType\DateFieldType;
+use Kalaka\Forms\FieldType\EmailFieldType;
 use Kalaka\Forms\FieldType\NameFieldType;
 use Kalaka\Forms\FieldType\PhoneFieldType;
 use Kalaka\Forms\FieldType\TextFieldType;
@@ -81,6 +82,18 @@ final class FieldTypesTest extends TestCase
 
         self::assertSame('Adj meg egy érvényes telefonszámot, például 06301234567 vagy +36301234567.', $answer->error);
         self::assertNull($answer->value);
+    }
+
+    public function testInvalidUtf8IsRefusedAsInvalidInputNotStoredRaw(): void
+    {
+        foreach ([new TextFieldType(), new NameFieldType(), new EmailFieldType(), new DateFieldType()] as $type) {
+            try {
+                $this->answer($type, "  \xC3\x28 ");
+                self::fail($type->blockName() . ' accepted invalid UTF-8.');
+            } catch (InvalidInput) {
+                self::assertTrue(true);
+            }
+        }
     }
 
     public function testADateIsARealCalendarDayWithNoRange(): void

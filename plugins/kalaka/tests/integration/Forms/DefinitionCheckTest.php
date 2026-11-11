@@ -7,8 +7,8 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\BrokenFormsWarning;
+use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
-use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /** A published form never goes from working to broken through an edit; one that is broken stays closed. */
@@ -105,8 +105,17 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertSame($version, $this->readForm($id)->version);
         self::assertCount(2, $this->forms->definition($this->readForm($id))->fields);
 
-        $this->expectException(InvalidInput::class);
-        wp_update_post(['ID' => $id, 'post_content' => wp_slash($this->slotFields() . $this->unknownBlock())]);
+        $result = wp_update_post([
+            'ID' => $id,
+            'post_content' => wp_slash($this->slotFields() . $this->unknownBlock()),
+        ]);
+        self::assertSame($id, $result);
+        self::assertSame($version, $this->readForm($id)->version);
+        self::assertStringNotContainsString('nope-field', (string) get_post_field('post_content', $id));
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: unknown_field_block („kalaka/nope-field”).',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
     }
 
     public function testAPlacementChangeOverRestIsCheckedWithTheNewPlacement(): void
@@ -142,10 +151,52 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertCount(2, $this->forms->definition($this->readForm($additional))->fields);
     }
 
-    public function testCodeCannotPublishABrokenFormEither(): void
+    public function testCodeCannotPublishABrokenFormEitherItIsKeptAsADraftWithANotice(): void
     {
-        $this->expectException(InvalidInput::class);
-        $this->insertChecked($this->slotFields() . $this->unknownBlock());
+        $id = $this->insertChecked($this->slotFields() . $this->unknownBlock());
+
+        self::assertSame('draft', get_post_status($id));
+        self::assertNull($this->forms->form($id));
+        ob_start();
+        DefinitionCheck::notice();
+        $html = (string) ob_get_clean();
+        self::assertStringContainsString('notice-error', $html);
+        self::assertStringContainsString('unknown_field_block („kalaka/nope-field”)', $html);
+        self::assertFalse(get_transient(DefinitionCheck::NOTICE . get_current_user_id()));
+    }
+
+    public function testRestoringABrokenRevisionKeepsThePublishedFormWorking(): void
+    {
+        // A revision from before the check: the form was published broken, then fixed.
+        $id = $this->insertForm($this->slotFields() . $this->unknownBlock());
+        $broken = $this->readForm($id)->version;
+        wp_update_post(['ID' => $id, 'post_content' => wp_slash($this->slotFields())]);
+        $version = $this->readForm($id)->version;
+        self::assertNotSame($broken, $version);
+
+        $restored = wp_restore_post_revision($broken);
+
+        self::assertSame($id, $restored);
+        self::assertSame('publish', get_post_status($id));
+        self::assertSame($version, $this->readForm($id)->version);
+        self::assertCount(2, $this->forms->definition($this->readForm($id))->fields);
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: unknown_field_block („kalaka/nope-field”).',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
+    }
+
+    public function testTheBrokenFormListIgnoresOtherPostTypesAndAutosaves(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        delete_option(BrokenForms::OPTION);
+
+        self::factory()->post->create();
+        $post = get_post($id, ARRAY_A);
+        self::assertIsArray($post);
+        _wp_put_post_revision(['post_content' => $this->unknownBlock()] + $post, true);
+
+        self::assertNull(get_option(BrokenForms::OPTION, null));
     }
 
     public function testAFormBrokenBeforeTheCheckStaysClosedAndIsNamedInASiteWarning(): void

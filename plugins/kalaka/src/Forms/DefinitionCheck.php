@@ -6,7 +6,6 @@ namespace Kalaka\Forms;
 
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
-use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
@@ -18,8 +17,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * half built. A form whose placement is not set yet is not checked either: it cannot be used anyway.
  *
  * The REST save (the block editor) is refused with a 400 before anything is written, checked with the
- * placement the request sets, if any; any other save path (code, WP-CLI) throws `InvalidInput` from
- * `wp_insert_post_data`, checked with the placement it sets in `meta_input`, else the stored one. An
+ * placement the request sets, if any; any other save path (code, WP-CLI, a revision restore) is vetoed
+ * gracefully in `wp_insert_post_data`, checked with the placement it sets in `meta_input`, else the
+ * stored one: nothing ever throws out of a core filter. An
  * autosave is stored as a revision and is never a version (`FormPosts`), so it is not checked.
  */
 final class DefinitionCheck
@@ -35,6 +35,9 @@ final class DefinitionCheck
 
     /** The refusal: `{problem}` is the problem code, `{subject}` the field key or block. */
     public const MESSAGE = 'Az űrlapot így nem lehet menteni: %1$s („%2$s”).';
+
+    /** The transient that holds a vetoed save's message, per user: this prefix and the user ID. */
+    public const NOTICE = 'kalaka_form_refused_';
 
     /**
      * The problem of a content as a published form of that placement, or null when it has none.
@@ -93,34 +96,58 @@ final class DefinitionCheck
     }
 
     /**
-     * `wp_insert_post_data`, after the keys are derived: the backstop for every other save path.
+     * `wp_insert_post_data`, after the keys are derived: the backstop for every other save path (code,
+     * WP-CLI, WordPress's own revision restore). It never throws out of the core filter: a save that would
+     * publish a broken definition is vetoed gracefully. A published form keeps its stored content; any
+     * other form keeps the new content but not the published status. Why is kept for the saving user and
+     * shown as an admin notice on their next admin page (`notice()`).
      *
      * @param array<string, mixed> $data the post's fields, slashed
      * @param array<string, mixed> $postarr
      * @return array<string, mixed>
-     * @throws InvalidInput when a published form would be broken
      */
     public static function onInsert(array $data, array $postarr): array
     {
-        if (
-            ($data['post_type'] ?? null) !== FormPosts::POST_TYPE
-            || ($data['post_status'] ?? null) !== 'publish'
-            || !is_string($data['post_content'] ?? null)
-        ) {
+        if (($data['post_type'] ?? null) !== FormPosts::POST_TYPE) {
             return $data;
         }
         $id = is_int($postarr['ID'] ?? null) ? $postarr['ID'] : 0;
-        $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
-        $placement = self::$restPlacements[$id]
-            ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
+        $fromRest = self::$restPlacements[$id] ?? null;
         unset(self::$restPlacements[$id]);
+        if (($data['post_status'] ?? null) !== 'publish' || !is_string($data['post_content'] ?? null)) {
+            return $data;
+        }
+        $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
+        $placement = $fromRest ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
         $problem = $placement !== null ? self::problem(wp_unslash($data['post_content']), $id, $placement) : null;
-        if ($problem !== null) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- escaped by whoever shows it
-            throw new InvalidInput(self::message(...$problem));
+        if ($problem === null) {
+            return $data;
+        }
+
+        $stored = $id > 0 ? get_post($id) : null;
+        if ($stored instanceof \WP_Post && $stored->post_status === 'publish') {
+            $data['post_content'] = wp_slash($stored->post_content);
+        } else {
+            $data['post_status'] = $stored instanceof \WP_Post ? $stored->post_status : 'draft';
+        }
+        $user = get_current_user_id();
+        if ($user > 0) {
+            set_transient(self::NOTICE . $user, self::message(...$problem), HOUR_IN_SECONDS);
         }
 
         return $data;
+    }
+
+    /** `admin_notices`: the saving user's vetoed save, once. */
+    public static function notice(): void
+    {
+        $key = self::NOTICE . get_current_user_id();
+        $message = get_transient($key);
+        if (!is_string($message)) {
+            return;
+        }
+        delete_transient($key);
+        echo '<div class="notice notice-error"><p>' . esc_html($message) . '</p></div>';
     }
 
     /** The placement being saved, else the stored one, else null. */
