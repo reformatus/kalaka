@@ -48,15 +48,28 @@ final class BlockGateTest extends WP_UnitTestCase
         return get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $post]));
     }
 
-    public function testAFormAllowsTheFieldBlocksAndCoreBlocksButNotTheFormBlock(): void
+    public function testAFormAllowsExactlyItsOwnBlocksAndTheNamedCoreBlocks(): void
     {
         $allowed = $this->allowedIn('kalaka_form');
 
         self::assertIsArray($allowed);
-        foreach ([...self::FIELDS, 'core/paragraph', 'core/heading', 'core/group'] as $name) {
-            self::assertContains($name, $allowed, $name);
-        }
+        self::assertEqualsCanonicalizing(
+            [
+                ...self::FIELDS,
+                'kalaka/form-page',
+                'kalaka/after-submit',
+                'core/paragraph',
+                'core/heading',
+                'core/list',
+                'core/list-item',
+                'core/separator',
+                'core/image',
+                'core/group',
+            ],
+            $allowed
+        );
         self::assertNotContains(BlockGate::FORM_BLOCK, $allowed);
+        self::assertNotContains('core/table', $allowed);
     }
 
     public function testAPostAndAPageAllowTheFormBlockButNoFieldBlock(): void
@@ -86,6 +99,7 @@ final class BlockGateTest extends WP_UnitTestCase
         self::assertIsArray($inForm);
         self::assertContains('core/paragraph', $inForm);
         self::assertNotContains('core/heading', $inForm);
+        self::assertContains('kalaka/form-page', $inForm);
         self::assertNotContains(BlockGate::FORM_BLOCK, $inForm);
         self::assertSame([], array_values(array_diff(self::FIELDS, $inForm)));
     }

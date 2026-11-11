@@ -44,6 +44,7 @@ final class Module extends AbstractModule
         $to->fieldType(new TextFieldType());
         $to->fieldType(new ChoiceFieldType());
         $to->fieldType(new ConsentFieldType());
+        $to->siteWarning(new BrokenFormsWarning());
     }
 
     public function boot(): void
@@ -67,6 +68,9 @@ final class Module extends AbstractModule
 
         // events-and-forms.md, "Fields": keys and option values come from the visible text, set on save.
         add_filter('wp_insert_post_data', [FieldKeys::class, 'onInsert']);
+        // A published form never goes from working to broken through an edit.
+        add_filter('wp_insert_post_data', [DefinitionCheck::class, 'onInsert'], 20, 2);
+        add_filter('rest_pre_insert_' . FormPosts::POST_TYPE, [DefinitionCheck::class, 'onRestInsert'], 10, 2);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);

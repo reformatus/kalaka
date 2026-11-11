@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\FieldKeys;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
 
@@ -52,6 +53,24 @@ abstract class FormsTestCase extends EventsTestCase
      * @param array<string, mixed> $post
      */
     protected function insertForm(string $content, array $meta = [], array $post = []): int
+    {
+        // As code that writes around the save check, so the parser's own problems can be read back.
+        $check = [DefinitionCheck::class, 'onInsert'];
+        remove_filter('wp_insert_post_data', $check, 20);
+        try {
+            return $this->insertChecked($content, $meta, $post);
+        } finally {
+            add_filter('wp_insert_post_data', $check, 20, 2);
+        }
+    }
+
+    /**
+     * A form inserted the way code does, through the save check.
+     *
+     * @param array<string, mixed> $meta
+     * @param array<string, mixed> $post
+     */
+    protected function insertChecked(string $content, array $meta = [], array $post = []): int
     {
         $id = wp_insert_post($post + [
             'post_type' => 'kalaka_form',

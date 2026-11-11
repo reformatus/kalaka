@@ -7,17 +7,31 @@ namespace Kalaka\Forms;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
- * Which of Kaláka's form blocks each block editor may insert (`allowed_block_types_all`). The gated
- * blocks are the contributed field types' blocks and `FORM_ONLY_BLOCKS`. In a `kalaka_form` they are
- * all allowed, with every other block, except the form block itself (a form never embeds a form). In
- * any other editor a gated block is allowed only when a `BlockHost` that applies to it names it; the
- * form block and every other block are left as they are. What another filter allowed is kept: a list
- * is only narrowed, except that a form's editor always gets its gated blocks back.
+ * Which blocks each block editor may insert (`allowed_block_types_all`). The gated blocks are the
+ * contributed field types' blocks and `FORM_ONLY_BLOCKS`. A `kalaka_form` editor gets an allow-list:
+ * the gated blocks and `FORM_CORE_BLOCKS`, nothing else (no form block: a form never embeds a form).
+ * In any other editor a gated block is allowed only when a `BlockHost` that applies to it names it; the
+ * form block and every other block are left as they are. What another filter allowed is kept: a list is
+ * only narrowed, except that a form's editor always gets its gated blocks back.
  */
 final class BlockGate
 {
-    /** Form-only blocks that are not field types (the condition blocks join with values and conditions). */
-    public const FORM_ONLY_BLOCKS = [];
+    /**
+     * Form-only blocks that are not field types: the form's pages and its after-submit section (registered
+     * by the form front end); the condition blocks join with values and conditions.
+     */
+    public const FORM_ONLY_BLOCKS = ['kalaka/form-page', 'kalaka/after-submit'];
+
+    /** [UNAPPROVED N16] the core blocks a form may hold. */
+    public const FORM_CORE_BLOCKS = [
+        'core/paragraph',
+        'core/heading',
+        'core/list',
+        'core/list-item',
+        'core/separator',
+        'core/image',
+        'core/group',
+    ];
 
     /** The block that embeds a form in a page. */
     public const FORM_BLOCK = 'kalaka/form';
@@ -54,9 +68,9 @@ final class BlockGate
             : array_values(array_filter($allowed, 'is_string'));
 
         if ($postType === FormPosts::POST_TYPE) {
-            $names = array_merge(array_diff($names, [self::FORM_BLOCK]), $gated);
+            $core = $allowed === true ? self::FORM_CORE_BLOCKS : array_intersect(self::FORM_CORE_BLOCKS, $names);
 
-            return array_values(array_unique($names));
+            return array_values(array_unique([...$gated, ...$core]));
         }
 
         $hosted = [];
