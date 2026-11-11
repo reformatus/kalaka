@@ -83,7 +83,6 @@ final class Module extends AbstractModule
      */
     public function titlePlaceholder(string $placeholder, \WP_Post $post): string
     {
-        // [UNAPPROVED N9] the title placeholder.
         return $post->post_type === FormPosts::POST_TYPE ? 'Űrlap nevének hozzáadása' : $placeholder;
     }
 
@@ -117,7 +116,6 @@ final class Module extends AbstractModule
         $full = AdminAccess::FULL_ACCESS;
         register_post_type(FormPosts::POST_TYPE, [
             'public' => false,
-            // [UNAPPROVED N9] the labels.
             'labels' => [
                 'name' => 'Űrlapok',
                 'singular_name' => 'Űrlap',

@@ -23,7 +23,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  */
 final class DefinitionCheck
 {
-    /** [UNAPPROVED N14] the refusal: `{problem}` is the problem code, `{subject}` the field key or block. */
+    /** The refusal: `{problem}` is the problem code, `{subject}` the field key or block. */
     public const MESSAGE = 'Az űrlapot így nem lehet menteni: %1$s („%2$s”).';
 
     /**

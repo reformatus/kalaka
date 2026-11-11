@@ -14,7 +14,7 @@ use Kalaka\Forms\FieldMarkup;
 
 defined('ABSPATH') || exit;
 
-// [UNAPPROVED N12] a consent is always a `div`, never a `p`.
+// A consent is always a `div`, never a `p` (some themes hide `p input[type=checkbox]`).
 $kalakaKey = FieldMarkup::text($attributes, 'key');
 $kalakaRequired = FieldMarkup::flag($attributes, 'required');
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup escapes what it builds

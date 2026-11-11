@@ -19,10 +19,8 @@ use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
  */
 final class BrokenFormsWarning implements SiteWarning
 {
-    /** [UNAPPROVED N15] */
     private const TITLE = 'Hibás közzétett űrlap';
 
-    /** [UNAPPROVED N15] */
     private const DESCRIPTION = 'Egy vagy több közzétett űrlap hibás, ezért nem tölthető ki. '
         . 'Nyisd meg őket a szerkesztőben, javítsd a hibát, majd mentsd újra.';
 

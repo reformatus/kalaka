@@ -22,7 +22,7 @@ final class BlockGate
      */
     public const FORM_ONLY_BLOCKS = ['kalaka/form-page', 'kalaka/after-submit'];
 
-    /** [UNAPPROVED N16] the core blocks a form may hold. */
+    /** The core blocks a form may hold. */
     public const FORM_CORE_BLOCKS = [
         'core/paragraph',
         'core/heading',

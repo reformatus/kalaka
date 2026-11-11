@@ -11,7 +11,7 @@ namespace Kalaka\Forms\Api;
  */
 enum ElementRole: string
 {
-    /** [UNAPPROVED N12] The form's own wrapper, around all its fields (rendered by the form block and the form page). */
+    /** The form's own wrapper, around all its fields (rendered by the form block and the form page). */
     case Form = 'form';
     /** The wrapper of one field (`div`, or `p` when the adapter chooses it for a single-control field). */
     case Field = 'field';

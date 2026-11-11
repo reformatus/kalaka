@@ -18,7 +18,7 @@ final class FieldMarkup
 {
     /**
      * The HTML autofill tokens a date field may carry (`kalaka/date-field`'s `autocomplete` attribute).
-     * [UNAPPROVED N11] the autofill hints: name `name`, email `email`, phone `tel`, a date's own.
+     * The autofill hints: name `name`, email `email`, phone `tel`, a date's own.
      */
     public const DATE_AUTOCOMPLETE = ['bday'];
 
