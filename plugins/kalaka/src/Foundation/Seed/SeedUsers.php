@@ -24,6 +24,7 @@ final class SeedUsers
     /** The login of the administrator who also has `kalaka_full_access`, e.g. to build forms. */
     public const FULL_ACCESS_LOGIN = 'kalaka_admin';
 
+    /** [UNAPPROVED N13] */
     private const FULL_ACCESS_NAME = 'Teszt Kaláka-adminisztrátor';
 
     /**

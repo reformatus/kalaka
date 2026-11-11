@@ -44,6 +44,16 @@ conditions, prefill and form links
   the form exists; a form that submissions refer to is never deleted.
 - A form with a definition problem (keys, options, an unknown field block, the
   slot's markings, a missing revision) is unusable; it is never half-accepted.
+- A published form never goes from working to broken through an edit: saving a
+  form as published runs the live form's definition check (`DefinitionCheck`,
+  through `DefinitionParser`) and refuses a broken one on every save path. A
+  new definition check goes into `DefinitionParser`, so the save check gets it
+  too. A form broken before the check stays closed and is named in a site
+  warning; it is never rendered from another revision.
+- Kaláka's form blocks are gated by post type (`BlockGate` on
+  `allowed_block_types_all`), never by `ancestor`: a form's editor gets the
+  allow-list, any other editor only what a `BlockHost` names. Forms never names
+  another module's post type; that module contributes the host.
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
 - Access checks are pure: they read no current user, cookie or request; the
