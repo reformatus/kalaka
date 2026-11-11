@@ -77,6 +77,34 @@ final class PeriodicStepTest extends PeriodicTestCase
         self::assertIsString(get_option(PeriodicRun::LAST_RUN_OPTION), 'The run completed.');
     }
 
+    public function testTheStepsRunWhenTheSweepThrowsAndTheRunStillEndsWithoutItsLastRunTime(): void
+    {
+        $this->eventIn('published');
+        update_option(PeriodicRun::LAST_RUN_OPTION, '2026-11-30 08:55:00.000000', false);
+        $ran = false;
+        $throw = static function (string $sql): string {
+            if (str_contains($sql, 'kalaka_evaluation_failures')) {
+                throw new \RuntimeException('query failed');
+            }
+
+            return $sql;
+        };
+        add_filter('query', $throw);
+        try {
+            $this->runWith([self::step('sender', static function () use (&$ran): void {
+                $ran = true;
+            })])->run();
+            self::fail('The sweep\'s exception should have left run().');
+        } catch (\RuntimeException $e) {
+            self::assertSame('query failed', $e->getMessage());
+        } finally {
+            remove_filter('query', $throw);
+        }
+
+        self::assertTrue($ran, 'The step ran although the sweep failed.');
+        self::assertSame('2026-11-30 08:55:00.000000', get_option(PeriodicRun::LAST_RUN_OPTION));
+    }
+
     public function testNoStepRunsWhileTheSiteIsClosed(): void
     {
         $ran = false;

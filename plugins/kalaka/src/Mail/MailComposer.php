@@ -8,7 +8,6 @@ namespace Kalaka\Mail;
  * The seam between the sender and the rendering of a mail, which renders at send time from current data
  * (mail.md, "Sending"). The mail bodies come in a later slice; until a composer is bound, the sender does
  * not run. The address is asked for before the claim, the rest after it.
- * // [UNAPPROVED N9] the composer seam: `recipient()` before the claim, `compose()` after it.
  */
 interface MailComposer
 {

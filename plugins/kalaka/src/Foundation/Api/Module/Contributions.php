@@ -53,7 +53,6 @@ final class Contributions
 
     /**
      * Work to run at the end of every periodic run (foundation.md, "Deferred work").
-     * // [UNAPPROVED N5] a typed extension point for periodic steps.
      */
     public function periodicStep(PeriodicStep $step): void
     {

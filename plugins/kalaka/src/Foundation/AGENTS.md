@@ -165,6 +165,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - The periodic run ends with the contributed `PeriodicStep`s, in contribution
   order, each behind `Boundary::background()`: one that throws is logged
   unless a run recorded it, and the next step and the last-run write go on.
+  The steps run even when the sweep or the flag retries throw; that run then
+  ends without its last-run time.
 - A once-only insert uses `insertUnlessDuplicate()` (`INSERT IGNORE`): a taken
   unique key writes nothing, audits nothing and is no error; it is never
   retried.

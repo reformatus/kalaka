@@ -43,6 +43,31 @@ final class SenderStepTest extends MailTestCase
         self::assertSame('sent', $this->deliveries()[0]['status']);
     }
 
+    public function testTheSenderStillSendsWhenTheSweepThrows(): void
+    {
+        $event = $this->published();
+        $this->queue($event);
+        $throw = static function (string $sql): string {
+            if (str_contains($sql, 'kalaka_evaluation_failures')) {
+                throw new \RuntimeException('query failed');
+            }
+
+            return $sql;
+        };
+        add_filter('query', $throw);
+        try {
+            $this->periodicRun($this->sender())->run();
+            self::fail('The sweep\'s exception should have left run().');
+        } catch (\RuntimeException $e) {
+            self::assertSame('query failed', $e->getMessage());
+        } finally {
+            remove_filter('query', $throw);
+        }
+
+        self::assertSame('sent', $this->deliveries()[0]['status']);
+        self::assertFalse(get_option(PeriodicRun::LAST_RUN_OPTION));
+    }
+
     public function testAFailingRecordEndsTheSenderRunButNotThePeriodicRun(): void
     {
         $event = $this->published();

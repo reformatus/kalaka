@@ -20,8 +20,8 @@ final class Module extends AbstractModule
      * mail.md, "Words", "Five kinds of mail" and "Failures". Times are UTC `datetime(6)`; `error` is the
      * text of the latest error, a `longtext` for the same reason as the audit's JSON columns. `once`
      * is the once-only key; `event_status` serves the sender's candidates and the per-event counts;
-     * `claimed_at` serves the site-wide hourly budget.
-     * // [UNAPPROVED N10] `claimed_at` is a site-wide index that does not start with the event.
+     * `claimed_at` serves the site-wide hourly budget; `status_id` the site-wide pending count and the
+     * clearing of the queue.
      */
     private const DELIVERIES = <<<'SQL'
 CREATE TABLE {prefix}kalaka_deliveries (
@@ -43,7 +43,8 @@ CREATE TABLE {prefix}kalaka_deliveries (
   PRIMARY KEY  (id),
   UNIQUE KEY once (event_id,mail,code,cause_type,cause_key),
   KEY event_status (event_id,status),
-  KEY claimed_at (claimed_at)
+  KEY claimed_at (claimed_at),
+  KEY status_id (status,id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
@@ -81,7 +82,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::DELIVERIES, self::STATES]);
+        return new Schema(2, [self::DELIVERIES, self::STATES]);
     }
 
     public function contribute(Contributions $to): void

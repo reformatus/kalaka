@@ -17,7 +17,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * skips (mail.md, "Pausing": the admin sees the pending count with the option to clear them). Refused while
  * the event is published, since its pending deliveries are then not held but on their way. Site-level, so
  * only full access (and WP-CLI) runs it; audited like the global clear.
- * // [UNAPPROVED N11] a per-event clear of held deliveries for the republish dialog.
  */
 final class ClearEventMail implements AdminUseCase
 {

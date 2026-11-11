@@ -58,7 +58,8 @@ final class PeriodicRun
     /**
      * @return ?PeriodicRunReport null when the run did not happen: the site is closed, the database refuses writes
      *                            (`BinlogCheck`) or another run holds the lock
-     * @throws \Throwable whatever the event or flag queries throw; the run ends and writes no last-run time.
+     * @throws \Throwable whatever the event or flag queries throw; the run ends and writes no last-run time,
+     *         after the modules' periodic steps have still run.
      *         A time rule that throws is isolated to its rule and event; its window is kept for the next run.
      */
     public function run(): ?PeriodicRunReport
@@ -74,8 +75,13 @@ final class PeriodicRun
 
         try {
             $until = $this->clock->now()->setTimezone(new \DateTimeZone('UTC'));
-            $report = $this->sweep($this->lastRun(), $until);
-            $this->runSteps();
+            try {
+                $report = $this->sweep($this->lastRun(), $until);
+            } finally {
+                // The steps (the sender) run whether or not the sweep completed; a failed sweep still ends
+                // the run afterwards, without the last-run time.
+                $this->runSteps();
+            }
             update_option(self::LAST_RUN_OPTION, $until->format(self::TIME_FORMAT), false);
 
             return $report;

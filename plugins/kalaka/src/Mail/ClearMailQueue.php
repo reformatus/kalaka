@@ -10,7 +10,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
 /**
  * Clears the queue: deletes every pending delivery of the site, those that carry an error included.
  * A delivery in "sending" or a sent or failed one is kept. Site-level. mail.md, "Pausing".
- * // [UNAPPROVED N8] one use case, one transaction for the whole queue.
  */
 final class ClearMailQueue implements AdminUseCase
 {
