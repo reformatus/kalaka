@@ -60,7 +60,7 @@ final class MailSchemaTest extends WP_UnitTestCase
 
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
-        self::assertSame(2, (int) get_option('kalaka_schema_mail'));
+        self::assertSame(3, (int) get_option('kalaka_schema_mail'));
         self::assertSame([], LoadState::current()->failures);
         self::assertSame(self::DELIVERIES, $this->columns('kalaka_deliveries'));
         self::assertSame(self::STATES, $this->columns('kalaka_mail_states'));
