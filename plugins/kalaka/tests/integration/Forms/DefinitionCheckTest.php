@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\BrokenFormsWarning;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -108,6 +109,39 @@ final class DefinitionCheckTest extends FormsTestCase
         wp_update_post(['ID' => $id, 'post_content' => wp_slash($this->slotFields() . $this->unknownBlock())]);
     }
 
+    public function testAPlacementChangeOverRestIsCheckedWithTheNewPlacement(): void
+    {
+        $slot = $this->insertChecked($this->slotFields());
+        $toAdditional = $this->rest('/wp/v2/kalaka_form/' . $slot, ['meta' => ['kalaka_placement' => 'additional']]);
+        self::assertSame(400, $toAdditional->get_status());
+        $data = $toAdditional->get_data();
+        self::assertIsArray($data);
+        self::assertStringContainsString('marking_on_additional_form', (string) $data['message']);
+        self::assertSame('registration', get_post_meta($slot, 'kalaka_placement', true));
+
+        $moved = $this->rest('/wp/v2/kalaka_form/' . $slot, [
+            'content' => $this->field('text', 'note'),
+            'meta' => ['kalaka_placement' => 'additional'],
+        ]);
+        self::assertSame(200, $moved->get_status());
+        self::assertSame('additional', get_post_meta($slot, 'kalaka_placement', true));
+
+        $additional = $this->insertChecked($this->field('text', 'note'), ['kalaka_placement' => 'additional']);
+        $toSlot = $this->rest('/wp/v2/kalaka_form/' . $additional, ['meta' => ['kalaka_placement' => 'registration']]);
+        self::assertSame(400, $toSlot->get_status());
+        $data = $toSlot->get_data();
+        self::assertIsArray($data);
+        self::assertStringContainsString('contact_email_count', (string) $data['message']);
+
+        $promoted = $this->rest('/wp/v2/kalaka_form/' . $additional, [
+            'content' => $this->slotFields(),
+            'meta' => ['kalaka_placement' => 'registration'],
+        ]);
+        self::assertSame(200, $promoted->get_status());
+        self::assertSame('registration', get_post_meta($additional, 'kalaka_placement', true));
+        self::assertCount(2, $this->forms->definition($this->readForm($additional))->fields);
+    }
+
     public function testCodeCannotPublishABrokenFormEither(): void
     {
         $this->expectException(InvalidInput::class);
@@ -127,6 +161,21 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertStringNotContainsString('#' . $working . ' ', (string) $shown->details);
         $this->expectException(SystemFailure::class);
         $this->forms->definition($this->readForm($broken));
+    }
+
+    public function testTheWarningReadsTheStoredListWhichIsComputedOnceWhenMissing(): void
+    {
+        update_option(BrokenForms::OPTION, ['#1 Valami: invalid_key X'], false);
+        $shown = (new BrokenFormsWarning())->check();
+        self::assertNotNull($shown);
+        self::assertSame('#1 Valami: invalid_key X', $shown->details);
+
+        $broken = $this->insertForm($this->slotFields() . $this->unknownBlock(), [], ['post_title' => 'Régi']);
+        delete_option(BrokenForms::OPTION);
+        self::assertNull((new BrokenFormsWarning())->check());
+        BrokenForms::ensure();
+        self::assertSame(['#' . $broken . ' Régi: unknown_field_block kalaka/nope-field'], BrokenForms::stored());
+        self::assertFalse(wp_load_alloptions()[BrokenForms::OPTION] ?? false);
     }
 
     public function testNoWarningWhileEveryPublishedFormWorks(): void

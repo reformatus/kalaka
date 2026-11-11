@@ -71,6 +71,13 @@ final class Module extends AbstractModule
         // A published form never goes from working to broken through an edit.
         add_filter('wp_insert_post_data', [DefinitionCheck::class, 'onInsert'], 20, 2);
         add_filter('rest_pre_insert_' . FormPosts::POST_TYPE, [DefinitionCheck::class, 'onRestInsert'], 10, 2);
+        // The broken-form list the site warning reads, kept current on every change of a form.
+        add_action('wp_after_insert_post', [BrokenForms::class, 'onPostChange'], 20, 2);
+        add_action('deleted_post', [BrokenForms::class, 'onPostChange'], 10, 2);
+        foreach (['added_post_meta', 'updated_post_meta', 'deleted_post_meta'] as $hook) {
+            add_action($hook, [BrokenForms::class, 'onMetaChange'], 10, 3);
+        }
+        add_action('admin_init', [BrokenForms::class, 'ensure']);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);

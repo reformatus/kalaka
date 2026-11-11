@@ -17,12 +17,22 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * content as it will be stored (keys and option values derived first). A draft is not checked: it can be
  * half built. A form whose placement is not set yet is not checked either: it cannot be used anyway.
  *
- * The REST save (the block editor) is refused with a 400 before anything is written; any other save path
- * (code, WP-CLI) throws `InvalidInput` from `wp_insert_post_data`. An autosave is stored as a revision
- * and is never a version (`FormPosts`), so it is not checked.
+ * The REST save (the block editor) is refused with a 400 before anything is written, checked with the
+ * placement the request sets, if any; any other save path (code, WP-CLI) throws `InvalidInput` from
+ * `wp_insert_post_data`, checked with the placement it sets in `meta_input`, else the stored one. An
+ * autosave is stored as a revision and is never a version (`FormPosts`), so it is not checked.
  */
 final class DefinitionCheck
 {
+    /**
+     * The placement the REST check used, by post ID, for this request's `wp_insert_post_data` that
+     * follows it: the REST controller saves the meta only after the post, so the stored placement is
+     * still the old one there.
+     *
+     * @var array<int, FormPlacement>
+     */
+    private static array $restPlacements = [];
+
     /** The refusal: `{problem}` is the problem code, `{subject}` the field key or block. */
     public const MESSAGE = 'Az űrlapot így nem lehet menteni: %1$s („%2$s”).';
 
@@ -72,6 +82,10 @@ final class DefinitionCheck
 
         $problem = $status === 'publish' && $placement !== null ? self::problem($content, $id, $placement) : null;
         if ($problem === null) {
+            if ($placement !== null) {
+                self::$restPlacements[$id] = $placement;
+            }
+
             return $prepared;
         }
 
@@ -97,7 +111,9 @@ final class DefinitionCheck
         }
         $id = is_int($postarr['ID'] ?? null) ? $postarr['ID'] : 0;
         $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
-        $placement = self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
+        $placement = self::$restPlacements[$id]
+            ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
+        unset(self::$restPlacements[$id]);
         $problem = $placement !== null ? self::problem(wp_unslash($data['post_content']), $id, $placement) : null;
         if ($problem !== null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- escaped by whoever shows it
