@@ -137,12 +137,23 @@ values and conditions, prefill and form links
 - Only answer-driven chains ship every branch to the page; a chain that reads
   any other key ships only its held branch (`FormDefinition::withheldChains()`,
   `ChainMarks::prune()`).
-- The after-submit section (`Api\AfterSubmit`) is at most one block, outside
-  any branch, with no fields; its chains are not the form's (not numbered,
+- The after-submit section (`Api\AfterSubmit`) is at most one block, at the
+  top level outside any branch or page, with no fields; its chains are not the form's (not numbered,
   not walked) and read only `AfterSubmit::TYPES`.
 - A page that places a form (the block `kalaka/form` or the `[kalaka_form]`
   shortcode) is never cached: `Api\FormPage::preventCaching()` on
   `template_redirect`, and again from the form renderer.
+- A form has no page or all its content in top-level `kalaka/form-page`
+  blocks (with the one top-level `kalaka/after-submit` beside them); pages
+  are numbered once, by `Condition\ChainMarks`, like chains. A page's
+  condition reads only earlier pages and `event.*`; page 0 has none; a
+  terminal page has one and holds no field. A page is one more gate in
+  `FormWalk`: a skipped page's fields and chains do not show and its answers
+  are dropped. A submit while a terminal page shows is `Api\FormTerminal`
+  (`AnswerValidator`). The contact email and display name never sit on a
+  conditional page (`SlotRules`).
+- A page's errors come only from `Forms::availability()` with `$page`: the
+  walk's errors filtered to that page's shown fields.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
 - Reading a key that a value context does not declare is a failure, never an

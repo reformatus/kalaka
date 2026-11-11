@@ -13,9 +13,9 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 /**
  * The one availability base (S76): every "is it shown, is it selectable" decision reads one
  * condition, in the one format (events-and-forms.md, "Conditions"), from a fact source, through the
- * one evaluator. A form's fields, branches and options go through `Forms::availability()` and
- * `Forms::validate()`; everything another module owns (price-ladder tiers, offers, the adjudicated
- * aid, assignment-set options, pages) goes through `available()` here. The same call serves the form
+ * one evaluator. A form's fields, branches, options and pages go through `Forms::availability()` and
+ * `Forms::validate()` (`FormWalk`); everything another module owns (price-ladder tiers, offers, the
+ * adjudicated aid, assignment-set options) goes through `available()` here. The same call serves the form
  * (over draft answers), the submit and the fee components and materializer (over registration facts);
  * only the fact source differs.
  *

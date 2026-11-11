@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
+use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Condition\Chain;
 use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\Condition\Chains;
@@ -48,16 +49,27 @@ final class DefinitionParser
     /** Whether the form's after-submit section was met. */
     private bool $afterSubmit = false;
 
+    /** the page whose blocks are being collected; null outside pages */
+    private ?int $page = null;
+
+    /** @var list<PageDefinition> the pages met so far, in order of their numbers */
+    private array $pages = [];
+
+    /** the page block, only at the top level of a form. */
+    public const PAGE_BLOCK = ChainMarks::PAGE_BLOCK;
+
     /** @throws SystemFailure */
     public function parse(Form $form, int $version, string $content, Contributions $contributions): FormDefinition
     {
         $this->chains = [];
         $this->read = [];
         $this->afterSubmit = false;
+        $this->page = null;
+        $this->pages = [];
         $fields = [];
         try {
-            $this->collect(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields, []);
-            $this->slotRules->check($form->id, $form->placement, $fields);
+            $this->topLevel(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields);
+            $this->slotRules->check($form->id, $form->placement, $fields, $this->pages);
             $triggers = [];
             foreach ($fields as $field) {
                 if (in_array($field->key, $this->read, true)) {
@@ -65,11 +77,103 @@ final class DefinitionParser
                 }
             }
 
-            return new FormDefinition($form->id, $version, $fields, $this->chains, $triggers);
+            return new FormDefinition($form->id, $version, $fields, $this->chains, $triggers, $this->pages);
         } finally {
             $this->chains = [];
             $this->read = [];
+            $this->page = null;
+            $this->pages = [];
         }
+    }
+
+    /**
+     * The top level of a form: either no page (the blocks as one
+     * page) or every block inside a page, whitespace and the one after-submit block aside. The after-submit
+     * block is not collected: no field may sit in it.
+     *
+     * @param list<array<string, mixed>> $blocks the marked top-level blocks
+     * @param list<FormField> $fields
+     * @throws SystemFailure
+     */
+    private function topLevel(array $blocks, Contributions $contributions, array &$fields): void
+    {
+        $hasPages = false;
+        foreach ($blocks as $block) {
+            $name = $block['blockName'] ?? null;
+            $hasPages = $hasPages || $name === self::PAGE_BLOCK;
+            if ($name === AfterSubmit::BLOCK) {
+                $this->afterSubmit($block, $contributions);
+            }
+        }
+        $rest = array_values(array_filter(
+            $blocks,
+            static fn (array $block): bool => ($block['blockName'] ?? null) !== AfterSubmit::BLOCK
+        ));
+        if (!$hasPages) {
+            $this->collect($rest, $contributions, $fields, []);
+
+            return;
+        }
+
+        foreach ($rest as $block) {
+            $name = $block['blockName'] ?? null;
+            if ($name === null && trim((string) ($block['innerHTML'] ?? '')) === '') {
+                continue;
+            }
+            if ($name !== self::PAGE_BLOCK) {
+                $this->fail('content_outside_pages');
+            }
+            $this->page($block, $contributions, $fields);
+        }
+    }
+
+    /**
+     * A page: its condition reads the fields before it (earlier pages) and the
+     * event's keys; page 0 has none; a terminal page has one and holds no field.
+     *
+     * @param array<string, mixed> $block
+     * @param list<FormField> $fields
+     * @throws SystemFailure
+     */
+    private function page(array $block, Contributions $contributions, array &$fields): void
+    {
+        $index = ChainMarks::pageOf($block);
+        if ($index === null || $index !== count($this->pages)) {
+            $error = new SystemFailure(null, new \LogicException('A page was not marked in document order.'));
+            throw $error;
+        }
+        $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+        $data = $attributes['condition'] ?? null;
+        $condition = $data === null
+            ? null
+            : $this->read($this->conditions->parse($data, new FormScope($fields, $contributions)));
+        $terminal = ($attributes['terminal'] ?? false) === true;
+        if ($index === 0 && $condition !== null) {
+            $this->fail('first_page_condition');
+        }
+        if ($terminal && $condition === null) {
+            $this->fail('terminal_page_unconditional ' . $index);
+        }
+        $label = is_string($attributes['label'] ?? null) ? $attributes['label'] : '';
+        $this->pages[] = new PageDefinition($index, $label, $terminal, $condition);
+
+        $before = count($fields);
+        $this->page = $index;
+        try {
+            $this->collect(Chains::sequenceOf($block), $contributions, $fields, []);
+        } finally {
+            $this->page = null;
+        }
+        if ($terminal && count($fields) > $before) {
+            $this->fail('field_on_terminal_page ' . $index);
+        }
+    }
+
+    /** @throws SystemFailure */
+    private function fail(string $problem): never
+    {
+        // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a number, never output
+        throw new SystemFailure($problem);
     }
 
     /**
@@ -137,7 +241,7 @@ final class DefinitionParser
                 $earlier[] = $condition;
             }
         }
-        $this->chains[] = new FormChain($number, $branches, $own);
+        $this->chains[] = new FormChain($number, $branches, $own, $this->page);
 
         foreach ($chain->branches as $index => $branch) {
             $this->collect(Chains::sequenceOf($branch), $contributions, $fields, [...$branches, $own[$index]]);
@@ -160,10 +264,11 @@ final class DefinitionParser
     private function block(array $block, Contributions $contributions, array &$fields, array $branches): void
     {
         $name = $block['blockName'] ?? null;
+        if ($name === self::PAGE_BLOCK) {
+            $this->fail('page_not_top_level');
+        }
         if ($name === AfterSubmit::BLOCK) {
-            $this->afterSubmit($block, $contributions, $branches);
-
-            return;
+            $this->fail('after_submit_not_top_level');
         }
         if (is_string($name)) {
             if (isset($contributions->fieldTypes()[$name])) {
@@ -219,25 +324,22 @@ final class DefinitionParser
             ? $this->optionConditions($attributes, new FormScope($fields, $contributions))
             : [];
 
-        return new FormField($key, $name, $attributes, $branches, $optionConditions);
+        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page);
     }
 
     /**
-     * The after-submit section (N12): at most one, outside any branch, with no field block in it, its
-     * conditions reading only the after-submit context (`AfterSubmit::TYPES`). Its fields and chains are
-     * not the form's: nothing in it is collected or numbered.
+     * The after-submit section (N12): at most one, at the top level (outside any branch or page, MP-13),
+     * with no field block in it, its conditions reading only the after-submit context
+     * (`AfterSubmit::TYPES`). Its fields and chains are not the form's: nothing in it is collected or
+     * numbered.
      *
      * @param array<string, mixed> $block
-     * @param list<FormBranch> $branches
      * @throws SystemFailure
      */
-    private function afterSubmit(array $block, Contributions $contributions, array $branches): void
+    private function afterSubmit(array $block, Contributions $contributions): void
     {
         if ($this->afterSubmit) {
             throw new SystemFailure('after_submit_count');
-        }
-        if ($branches !== []) {
-            throw new SystemFailure('after_submit_in_branch');
         }
         $this->afterSubmit = true;
         $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, new DeclaredScope(AfterSubmit::TYPES));

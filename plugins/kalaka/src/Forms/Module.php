@@ -113,6 +113,7 @@ SQL;
             register_block_type(__DIR__ . '/Blocks/' . $name);
         }
         register_block_type(__DIR__ . '/Blocks/after-submit');
+        register_block_type(__DIR__ . '/Blocks/form-page');
         register_block_bindings_source(BindingSource::NAME, [
             'label' => 'Kaláka-érték',
             'get_value_callback' => [BindingSource::class, 'value'],

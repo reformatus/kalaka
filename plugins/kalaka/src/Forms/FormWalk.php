@@ -62,6 +62,9 @@ final class FormWalk
         }
 
         $facts = new FormFacts(new ValueContext(), $base);
+        // a page is decided when the walk reaches its first field: the facts then
+        // hold every earlier field, all its condition may read.
+        $pages = [];
         $shown = [];
         $options = [];
         $submitted = [];
@@ -69,7 +72,10 @@ final class FormWalk
         $errors = [];
         foreach ($definition->fields as $field) {
             $type = $contributions->fieldTypes()[$field->blockName] ?? null;
-            $isShown = $this->isShown($field->branches, $facts);
+            if ($field->page !== null && !isset($pages[$field->page])) {
+                $pages[$field->page] = $this->pageShows($definition, $field->page, $facts);
+            }
+            $isShown = ($field->page === null || $pages[$field->page]) && $this->isShown($field->branches, $facts);
             $shown[$field->key] = $isShown;
             $value = null;
             if ($field->optionConditions !== []) {
@@ -85,12 +91,29 @@ final class FormWalk
             $facts = $facts->with($field->key, $value ?? Value::none($type?->valueType() ?? ValueType::Text));
         }
 
-        $held = [];
-        foreach ($definition->chains as $chain) {
-            $held[$chain->number] = $this->held($chain, $facts);
+        // A page with no field (every terminal page) is decided with the final facts: the same result, as a
+        // page's condition reads only fields before it.
+        $decided = [];
+        foreach ($definition->pages as $page) {
+            $decided[] = $pages[$page->index] ?? $this->pageShows($definition, $page->index, $facts);
         }
 
-        return new FormWalkResult($shown, array_values($held), $options, $submitted, $stored, $errors);
+        $held = [];
+        foreach ($definition->chains as $chain) {
+            $held[$chain->number] = $chain->page !== null && !($decided[$chain->page] ?? true)
+                ? null
+                : $this->held($chain, $facts);
+        }
+
+        return new FormWalkResult($shown, array_values($held), $options, $submitted, $stored, $errors, $decided);
+    }
+
+    /** Whether a page shows: its condition holds, or it has none. */
+    private function pageShows(FormDefinition $definition, int $page, Facts $facts): bool
+    {
+        $condition = $definition->pages[$page]->condition ?? null;
+
+        return $condition === null || $this->evaluator->holds($condition, $facts);
     }
 
     /**

@@ -23,6 +23,10 @@ final readonly class FormAvailability
      * @param list<string> $triggers the field keys any condition reads, in document order
      * @param list<int> $withheld the chains whose branches the page gets only when they show (N11): when
      *     the held branch of one changes, the re-fetch sends that chain's markup
+     * @param list<bool> $pages page number → whether it shows, every page in document
+     *     order; none for a form without pages
+     * @param array<string, string> $errors field key → message, for the shown fields of
+     *     the page asked for (`Forms::availability()`'s `$page`); none when no page was asked for
      */
     public function __construct(
         public array $fields,
@@ -30,6 +34,8 @@ final readonly class FormAvailability
         public array $options,
         public array $triggers,
         public array $withheld = [],
+        public array $pages = [],
+        public array $errors = [],
     ) {
     }
 
@@ -58,14 +64,16 @@ final readonly class FormAvailability
     /**
      * The shape the front end consumes, JSON-ready:
      * `{"fields": {key: bool}, "chains": [index|null, …], "options": {key: [value, …]}, "triggers": [key, …],
-     * "withheld": [chain, …]}`.
+     * "withheld": [chain, …], "pages": [bool, …], "errors": {key: message}}`. `errors` is always a JSON object.
      *
      * @return array{
      *     fields: array<string, bool>,
      *     chains: list<int|null>,
      *     options: array<string, list<string>>,
      *     triggers: list<string>,
-     *     withheld: list<int>
+     *     withheld: list<int>,
+     *     pages: list<bool>,
+     *     errors: array<string, string>|\stdClass
      * }
      */
     public function toArray(): array
@@ -76,6 +84,8 @@ final readonly class FormAvailability
             'options' => $this->options,
             'triggers' => $this->triggers,
             'withheld' => $this->withheld,
+            'pages' => $this->pages,
+            'errors' => $this->errors === [] ? new \stdClass() : $this->errors,
         ];
     }
 }

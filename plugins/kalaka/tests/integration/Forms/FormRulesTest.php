@@ -327,7 +327,7 @@ final class FormRulesTest extends FormsTestCase
         yield 'inside a branch' => [
             '<!-- wp:kalaka/if {"condition":{"match":"all","items":[{"key":"name","operator":"empty"}]}} -->'
                 . $section('') . '<!-- /wp:kalaka/if -->',
-            'after_submit_in_branch',
+            'after_submit_not_top_level',
         ];
     }
 

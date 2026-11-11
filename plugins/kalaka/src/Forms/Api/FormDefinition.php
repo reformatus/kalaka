@@ -15,6 +15,8 @@ final readonly class FormDefinition
      * @param list<FormField> $fields
      * @param list<FormChain> $chains
      * @param list<string> $triggers
+     * @param list<PageDefinition> $pages the pages in order of their numbers; none
+     *     for a form without pages (one page)
      */
     public function __construct(
         public int $formId,
@@ -22,6 +24,7 @@ final readonly class FormDefinition
         public array $fields,
         public array $chains = [],
         public array $triggers = [],
+        public array $pages = [],
     ) {
     }
 

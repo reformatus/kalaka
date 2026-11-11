@@ -8,6 +8,7 @@ use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormRefused;
+use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\AccountActor;
@@ -574,6 +575,49 @@ final class SubmitRegistrationTest extends FormsTestCase
         self::assertSame((string) $event, get_post_meta($form, 'kalaka_event_id', true));
         self::assertNotFalse(update_post_meta($free, 'kalaka_event_id', $other));
         self::assertSame((string) $other, get_post_meta($free, 'kalaka_event_id', true));
+    }
+
+    /** MP-7 and MP-6 at submit: a skipped page's answers are not stored; a terminal submit writes nothing. */
+    public function testASkippedPagesAnswersAreNotStoredAndATerminalSubmitWritesNothing(): void
+    {
+        $page = static fn (string $inner, array $attributes = []): string => '<!-- wp:kalaka/form-page'
+            . ($attributes === [] ? '' : ' ' . wp_json_encode($attributes)) . ' -->' . $inner
+            . '<!-- /wp:kalaka/form-page -->';
+        $when = static fn (string $value): array => [
+            'match' => 'all',
+            'items' => [['key' => 'mode', 'operator' => 'equals', 'value' => $value]],
+        ];
+        $mode = $this->field('choice', 'mode', ['required' => true, 'options' => [
+            ['value' => 'camp', 'label' => 'Tábor'],
+            ['value' => 'day', 'label' => 'Napközi'],
+            ['value' => 'young', 'label' => 'Fiatal'],
+        ]]);
+        $event = $this->create();
+        $this->update($event);
+        $this->transition(new PublishEvent(), $event);
+        $form = $this->insertForm(
+            $page($this->slotFields() . $mode)
+            . $page($this->field('text', 'room'), ['condition' => $when('camp')])
+            . $page('<!-- wp:paragraph --><p>Teszt</p><!-- /wp:paragraph -->', [
+                'terminal' => true,
+                'condition' => $when('young'),
+            ]),
+            ['kalaka_event_id' => $event]
+        );
+
+        try {
+            $this->submit($form, self::ANSWERS + ['mode' => 'young', 'room' => 'Teszt']);
+            self::fail('The terminal submit should have been refused.');
+        } catch (FormTerminal $terminal) {
+            self::assertSame('kalaka_form_terminal', $terminal->errorCode());
+        }
+        $this->assertNothingWritten($event);
+
+        $this->submit($form, self::ANSWERS + ['mode' => 'camp', 'room' => 'Teszt']);
+        // The room page is skipped for a day guest: the room the browser still holds is dropped.
+        $this->submit($form, self::ANSWERS + ['mode' => 'day', 'room' => 'Teszt']);
+        $keys = array_map(static fn (array $row): string => (string) $row['field_key'], $this->fieldRows($event));
+        self::assertSame(['email', 'email', 'mode', 'mode', 'name', 'name', 'room'], $keys);
     }
 
     public function testAMalformedTokenIsInvalidInput(): void

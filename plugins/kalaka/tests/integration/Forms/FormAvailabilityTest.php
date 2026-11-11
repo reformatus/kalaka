@@ -176,7 +176,7 @@ final class FormAvailabilityTest extends FormsTestCase
         self::assertSame(['ifi_a', 'ifi_b', 'pro_a'], $availability->offeredOptions('modules'));
         self::assertSame(['ifi_a', 'ifi_b', 'pro_a'], $availability->offeredOptions('first'));
         self::assertNull($availability->offeredOptions('track'));
-        self::assertSame(
+        self::assertEquals(
             [
                 'fields' => [
                     'name' => true,
@@ -192,6 +192,8 @@ final class FormAvailabilityTest extends FormsTestCase
                 'options' => ['modules' => ['ifi_a', 'ifi_b', 'pro_a'], 'first' => ['ifi_a', 'ifi_b', 'pro_a']],
                 'triggers' => ['track', 'pro_question'],
                 'withheld' => [],
+                'pages' => [],
+                'errors' => new \stdClass(),
             ],
             $availability->toArray()
         );

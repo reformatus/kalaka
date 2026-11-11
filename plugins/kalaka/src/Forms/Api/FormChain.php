@@ -13,11 +13,13 @@ final readonly class FormChain
     /**
      * @param list<FormBranch> $outer
      * @param non-empty-list<FormBranch> $branches
+     * @param int|null $page the number of the page the chain sits on; null without pages
      */
     public function __construct(
         public int $number,
         public array $outer,
         public array $branches,
+        public ?int $page = null,
     ) {
     }
 }

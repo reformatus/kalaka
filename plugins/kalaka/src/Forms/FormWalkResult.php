@@ -15,6 +15,7 @@ final readonly class FormWalkResult
      * @param array<string, mixed> $submitted field key → the answer as sent, for the valid answers
      * @param array<string, string> $stored field key → the value to store, for the valid answers
      * @param array<string, string> $errors field key → the message, for the shown fields in error
+     * @param list<bool> $pages page number → whether the page shows; none without pages
      */
     public function __construct(
         public array $shown,
@@ -23,6 +24,7 @@ final readonly class FormWalkResult
         public array $submitted,
         public array $stored,
         public array $errors,
+        public array $pages = [],
     ) {
     }
 }

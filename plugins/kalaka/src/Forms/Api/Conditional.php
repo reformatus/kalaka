@@ -6,8 +6,8 @@ namespace Kalaka\Forms\Api;
 
 /**
  * Something whose availability one condition decides (S76): a price-ladder tier, an offer, the
- * adjudicated aid, an option of an assignment set, a page. The module that owns it stores its
- * condition in the condition format (events-and-forms.md, "Conditions") and hands it to
+ * adjudicated aid, an option of an assignment set (a form's own pages go through `FormWalk`). The
+ * module that owns it stores its condition in the condition format (events-and-forms.md, "Conditions") and hands it to
  * `Availability::available()`; it never evaluates a condition itself.
  *
  * Decision N1 (#156): the interface the evaluator consumes for the things Forms does not own.

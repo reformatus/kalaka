@@ -6,6 +6,7 @@ namespace Kalaka\Forms;
 
 use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
@@ -29,6 +30,7 @@ final class AnswerValidator
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers (the event's keys); none when null
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
+     * @throws FormTerminal a terminal page shows for the answers (MP-6)
      * @throws InvalidAnswers missing or wrong answers, all fields at once
      * @throws SystemFailure a field of a type that is no longer contributed, a key the facts do not declare
      */
@@ -39,6 +41,13 @@ final class AnswerValidator
         ?Facts $facts = null
     ): ValidatedAnswers {
         $result = $this->walk->run($definition, $answers, $facts ?? new ValueContext(), $contributions);
+        foreach ($definition->pages as $page) {
+            // MP-6: a shown terminal page: the person could not have reached Küldés.
+            if ($page->terminal && ($result->pages[$page->index] ?? false)) {
+                $error = new FormTerminal();
+                throw $error;
+            }
+        }
         if ($result->errors !== []) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- the messages are fixed texts, no input
             throw new InvalidAnswers($result->errors);

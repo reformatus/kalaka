@@ -88,7 +88,9 @@ final class Forms
     /**
      * The parsed blocks of the form's version with every branch block marked with its chain number and
      * branch index (`Condition\ChainMarks`, the numbering the definition reads): what a form page renders,
-     * block by block with `render_block()`, outside `Values::render()`.
+     * block by block with `render_block()`, outside `Values::render()`. A top-level page renders as
+     * `<div data-kalaka-page="N" [data-kalaka-terminal] hidden>…</div>` (`PageMarkup`); the after-submit
+     * section is left out.
      *
      * An answer-driven chain ships every branch, each as `<div data-kalaka-chain="N" data-kalaka-branch="i"
      * hidden>…</div>` (`BranchMarkup`); the page shows the one `FormAvailability::$chains` holds. A
@@ -109,7 +111,11 @@ final class Forms
             $withheld[$number] = $availability?->heldBranch($number);
         }
 
-        return ChainMarks::prune($marked, $withheld);
+        // The after-submit section is never rendered with the form.
+        return array_values(array_filter(
+            ChainMarks::prune($marked, $withheld),
+            static fn (array $block): bool => ($block['blockName'] ?? null) !== AfterSubmit::BLOCK
+        ));
     }
 
     /**
@@ -256,19 +262,40 @@ final class Forms
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts $facts the facts besides the answers: the event's keys (`EventValues::of()`)
-     * @throws InvalidInput an undeclared key or a value of the wrong JSON type
+     * @param int|null $page the page whose errors to report (Tovább): the walk's
+     *     errors of that page's shown fields; null reports none
+     * @throws InvalidInput an undeclared key or a value of the wrong JSON type, a page out of range
      * @throws SystemFailure a key the facts do not declare
      */
-    public function availability(FormDefinition $definition, array $answers, Facts $facts): FormAvailability
-    {
+    public function availability(
+        FormDefinition $definition,
+        array $answers,
+        Facts $facts,
+        ?int $page = null
+    ): FormAvailability {
+        if ($page !== null && !isset($definition->pages[$page])) {
+            // a page out of range, or any page of a form without pages.
+            $error = new InvalidInput();
+            throw $error;
+        }
         $result = $this->walk->run($definition, $answers, $facts, Contributions::current());
+        $errors = [];
+        if ($page !== null && ($result->pages[$page] ?? false) && !$definition->pages[$page]->terminal) {
+            foreach ($result->errors as $key => $message) {
+                if ($definition->field($key)?->page === $page) {
+                    $errors[$key] = $message;
+                }
+            }
+        }
 
         return new FormAvailability(
             $result->shown,
             $result->held,
             $result->options,
             $definition->triggers,
-            $definition->withheldChains()
+            $definition->withheldChains(),
+            $result->pages,
+            $errors
         );
     }
 }

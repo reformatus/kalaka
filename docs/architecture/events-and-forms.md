@@ -210,9 +210,21 @@ flowchart TB
   `[kalaka_form id="…"]` **shortcode** for page builders that cannot hold
   blocks, such as Divi 4's Builder. Both use the same renderer. A form is
   never edited from the page builder.
+- **Multi-page forms** (Google Forms style): a form has no pages (one
+  page) or all its content in **page blocks** at the top level, each with
+  an optional title, an optional condition (none on the first page) and an
+  optional **terminal** mark. A page's condition reads earlier pages and
+  the event's values; a page that does not show is skipped both ways and
+  its answers are dropped like those of a hidden branch. Next checks the
+  current page on the server first (the re-fetch with the page); Back needs
+  no request. A terminal page holds no fields and has a condition: it shows
+  its content and cannot be sent, and the server refuses a submit while one
+  shows. The contact email and the display name never sit on a conditional
+  page. Answers are not kept across a reload.
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
-  message): one block per form, outside any branch, holding no fields. It
+  message): one block per form, at the top level outside any branch or
+  page, holding no fields. It
   never shows in the form; it is rendered at submit with the event's values
   and the new registration's reference code and status, and its conditions
   read only those. Without it, a short default text per status shows.

@@ -20,6 +20,12 @@ final class ChainMarks
 
     public const BRANCH_ATTRIBUTE = 'kalakaBranch';
 
+    /** The attribute a top-level page block is marked with: its page number (MP-3). */
+    public const PAGE_ATTRIBUTE = 'kalakaPage';
+
+    /** The page block; only a top-level one is numbered. */
+    public const PAGE_BLOCK = 'kalaka/form-page';
+
     private int $next = 0;
 
     /**
@@ -29,6 +35,15 @@ final class ChainMarks
      */
     public static function mark(array $blocks): array
     {
+        // Pages are numbered from 0 in document order, at the top level only.
+        $page = 0;
+        foreach ($blocks as $index => $block) {
+            if (($block['blockName'] ?? null) === self::PAGE_BLOCK) {
+                $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+                $blocks[$index]['attrs'] = [...$attributes, self::PAGE_ATTRIBUTE => $page++];
+            }
+        }
+
         $marks = new self();
         $marked = [];
         foreach ($marks->sequence($blocks) as $item) {
@@ -123,6 +138,18 @@ final class ChainMarks
         $branch = $attributes[self::BRANCH_ATTRIBUTE] ?? null;
 
         return is_int($chain) && is_int($branch) ? [$chain, $branch] : null;
+    }
+
+    /**
+     * The page number a top-level page block was marked with; null for any other block.
+     *
+     * @param array<string, mixed> $block
+     */
+    public static function pageOf(array $block): ?int
+    {
+        $page = $block['attrs'][self::PAGE_ATTRIBUTE] ?? null;
+
+        return is_int($page) ? $page : null;
     }
 
     /**

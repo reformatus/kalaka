@@ -70,6 +70,24 @@ final class ChainMarksTest extends TestCase
         );
     }
 
+    public function testTopLevelPagesAreNumberedInDocumentOrderAndChainsKeepCountingAcrossThem(): void
+    {
+        $blocks = [
+            self::block('kalaka/form-page', [self::block('kalaka/if')]),
+            ['blockName' => null, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => "\n", 'innerContent' => ["\n"]],
+            self::block('kalaka/form-page', [self::block('kalaka/if'), self::block('kalaka/form-page')]),
+        ];
+
+        $marked = ChainMarks::mark($blocks);
+
+        self::assertSame(0, ChainMarks::pageOf($marked[0]));
+        self::assertNull(ChainMarks::pageOf($marked[1]));
+        self::assertSame(1, ChainMarks::pageOf($marked[2]));
+        // A page inside a page is not numbered: the definition refuses it.
+        self::assertNull(ChainMarks::pageOf($marked[2]['innerBlocks'][1]));
+        self::assertSame([['kalaka/if', 0, 0], ['kalaka/if', 1, 0]], self::marks($marked));
+    }
+
     public function testAMarkInTheStoredMarkupIsOverwrittenAndOtherBlocksCarryNone(): void
     {
         $forged = self::block('kalaka/if');
