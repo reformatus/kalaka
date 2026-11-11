@@ -133,6 +133,25 @@ final class DateReferenceTest extends TestCase
         yield 'no key' => [['years' => -16]];
         yield 'years as a string' => [['key' => 'event.start', 'years' => '-16']];
         yield 'an unknown member' => [['key' => 'event.start', 'months' => 2]];
+        yield 'years past the bound' => [['key' => 'event.start', 'years' => -201]];
+        yield 'days past the bound' => [['key' => 'event.start', 'days' => 3661]];
+        yield 'the largest integer of years' => [['key' => 'event.start', 'years' => PHP_INT_MAX]];
+        yield 'the smallest integer of days' => [['key' => 'event.start', 'days' => PHP_INT_MIN]];
+    }
+
+    public function testTheBoundsThemselvesAreAllowed(): void
+    {
+        $facts = $this->facts(null);
+        $condition = (new ConditionParser())->parse([
+            'match' => 'all',
+            'items' => [[
+                'key' => 'born',
+                'operator' => 'greaterThan',
+                'value' => ['key' => 'event.start', 'years' => -200, 'days' => 3660],
+            ]],
+        ], new ContextScope($facts));
+
+        self::assertSame(['born', 'event.start'], $condition->keys());
     }
 
     /** @dataProvider invalid */

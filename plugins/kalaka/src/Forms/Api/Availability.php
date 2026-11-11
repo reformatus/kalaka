@@ -21,7 +21,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  *
  * Pure: no database, hook, current user, request or clock, so it runs inside a transaction too.
  *
- * [UNAPPROVED N1] the facade and its three methods.
+ * Decision N1 (#156): the facade and its three methods.
  */
 final class Availability
 {

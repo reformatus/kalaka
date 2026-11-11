@@ -15,7 +15,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  *
  * Every key is declared with its type, also when its value is `Value::none()`.
  *
- * [UNAPPROVED N1] the fact source interface and its one method.
+ * Decision N1 (#156): the fact source interface and its one method.
  */
 interface Facts
 {

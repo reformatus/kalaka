@@ -10,7 +10,7 @@ namespace Kalaka\Forms\Api;
  * condition in the condition format (events-and-forms.md, "Conditions") and hands it to
  * `Availability::available()`; it never evaluates a condition itself.
  *
- * [UNAPPROVED N1] the interface the evaluator consumes for the things Forms does not own.
+ * Decision N1 (#156): the interface the evaluator consumes for the things Forms does not own.
  */
 interface Conditional
 {

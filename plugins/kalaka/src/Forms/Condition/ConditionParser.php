@@ -99,7 +99,8 @@ final class ConditionParser
 
     /**
      * A date reference: `{"key", "years", "days"}`, the key a date the scope allows, the moves whole
-     * numbers (both optional). [UNAPPROVED N3] the stored shape of a date reference in a comparison.
+     * numbers (both optional) of at most `DateReference::MAX_YEARS` years and `MAX_DAYS` days either way.
+     * Decision N3 (#156): the stored shape of a date reference in a comparison.
      *
      * @param array<array-key, mixed> $data
      * @throws SystemFailure
@@ -113,6 +114,9 @@ final class ConditionParser
         $years = $data['years'] ?? 0;
         $days = $data['days'] ?? 0;
         if (!is_string($reference) || !is_int($years) || !is_int($days)) {
+            self::fail($key);
+        }
+        if (abs($years) > DateReference::MAX_YEARS || abs($days) > DateReference::MAX_DAYS) {
             self::fail($key);
         }
         if ($scope->typeOf($reference) !== ValueType::Date) {

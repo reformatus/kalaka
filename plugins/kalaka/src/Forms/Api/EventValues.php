@@ -12,7 +12,7 @@ use Kalaka\Events\Api\Event;
  * builds them from `of()`. In a form, conditions may read them too: the event's date references
  * (S76), e.g. the age at the event's start.
  *
- * [UNAPPROVED N2] the same keys and `of()` as the form front end's (p04); a date's text is the
+ * Decision N2 (#156): the same keys and `of()` as the form front end's (p04); a date's text is the
  * `YYYY-MM-DD` day until the front end brings the approved Hungarian date text.
  */
 final class EventValues

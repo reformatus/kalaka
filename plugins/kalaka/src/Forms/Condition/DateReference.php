@@ -11,6 +11,12 @@ namespace Kalaka\Forms\Condition;
  */
 final readonly class DateReference
 {
+    /** The largest move either way, in years: a person's age with room to spare. */
+    public const MAX_YEARS = 200;
+
+    /** The largest move either way, in days: ten years. */
+    public const MAX_DAYS = 3660;
+
     public function __construct(
         public string $key,
         public int $years = 0,
