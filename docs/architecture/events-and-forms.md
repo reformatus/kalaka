@@ -212,7 +212,10 @@ flowchart TB
   never edited from the page builder.
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
-  message).
+  message): one block per form, outside any branch, holding no fields. It
+  never shows in the form; it is rendered at submit with the event's values
+  and the new registration's reference code and status, and its conditions
+  read only those. Without it, a short default text per status shows.
 - **Required fields** show a bold asterisk after the field's title, in the
   error colour. The form's look follows the site's theme
   ([Engineering](engineering.md#wordpress-surfaces)).
@@ -375,11 +378,21 @@ is no other participant-side edit.
   never runs the materializer on a draft. Computed facts such as a
   congregation's ancestors or free seats are put into the fact source by the
   caller.
-- **Forms are rendered by the server for their current answers.** The page's
-  script holds no condition: when an answer a condition reads changes, it
-  re-fetches the parts the server renders. At submit the server walks the
-  form the same way and keeps only answers whose conditions hold, including
-  only the options that are offered.
+- **Forms are rendered by the server; the page's script holds no
+  condition.** A branch whose conditions read only the form's own answers
+  is sent hidden and shown when it holds for the current answers. A branch
+  whose condition reads anything else (an event value, a link-only or other
+  held fact) is sent only when it holds, so a browser never receives a
+  branch it does not qualify for; when its outcome changes, the page
+  re-fetches it. At submit the server walks the form the same way and keeps
+  only answers of fields that show, including only the options that are
+  offered; whatever the browser still holds for a hidden field is dropped.
+- **A chain waits for a required single choice.** While a required choice
+  of one option that shows is unanswered, a chain whose conditions read it
+  shows no branch, since one of them will be chosen. Every other unanswered
+  field (an unticked box, an empty text, an optional choice, a multiple
+  choice with nothing ticked) reads as empty, so the branch for "empty"
+  (often `else`) shows at once.
 - **Mid-form availability is advisory.** Seats and capacity are decided only
   at submit, under the lock; the texts say so (approved when built).
 

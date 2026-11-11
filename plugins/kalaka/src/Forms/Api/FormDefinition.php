@@ -25,6 +25,34 @@ final readonly class FormDefinition
     ) {
     }
 
+    /**
+     * The chains that are not answer-driven (N11): their conditions read a key that is not a field of
+     * this form (an event value, a held fact; later a link-only field). The page never ships the
+     * branches of these that do not show.
+     *
+     * @return list<int> chain numbers, ascending
+     */
+    public function withheldChains(): array
+    {
+        $fields = [];
+        foreach ($this->fields as $field) {
+            $fields[$field->key] = true;
+        }
+        $withheld = [];
+        foreach ($this->chains as $chain) {
+            foreach ($chain->branches as $branch) {
+                foreach ($branch->own?->keys() ?? [] as $key) {
+                    if (!isset($fields[$key])) {
+                        $withheld[] = $chain->number;
+                        continue 3;
+                    }
+                }
+            }
+        }
+
+        return $withheld;
+    }
+
     public function field(string $key): ?FormField
     {
         foreach ($this->fields as $field) {

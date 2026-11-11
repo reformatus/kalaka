@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormBranch;
@@ -14,6 +15,7 @@ use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\Condition\Chains;
 use Kalaka\Forms\Condition\Condition;
 use Kalaka\Forms\Condition\ConditionParser;
+use Kalaka\Forms\Condition\DeclaredScope;
 use Kalaka\Forms\Condition\FormScope;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -43,11 +45,15 @@ final class DefinitionParser
     /** @var list<string> the keys the conditions met so far read */
     private array $read = [];
 
+    /** Whether the form's after-submit section was met. */
+    private bool $afterSubmit = false;
+
     /** @throws SystemFailure */
     public function parse(Form $form, int $version, string $content, Contributions $contributions): FormDefinition
     {
         $this->chains = [];
         $this->read = [];
+        $this->afterSubmit = false;
         $fields = [];
         try {
             $this->collect(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields, []);
@@ -154,6 +160,11 @@ final class DefinitionParser
     private function block(array $block, Contributions $contributions, array &$fields, array $branches): void
     {
         $name = $block['blockName'] ?? null;
+        if ($name === AfterSubmit::BLOCK) {
+            $this->afterSubmit($block, $contributions, $branches);
+
+            return;
+        }
         if (is_string($name)) {
             if (isset($contributions->fieldTypes()[$name])) {
                 $fields[] = $this->field($name, $block, $fields, $branches, $contributions);
@@ -212,9 +223,56 @@ final class DefinitionParser
     }
 
     /**
+     * The after-submit section (N12): at most one, outside any branch, with no field block in it, its
+     * conditions reading only the after-submit context (`AfterSubmit::TYPES`). Its fields and chains are
+     * not the form's: nothing in it is collected or numbered.
+     *
+     * @param array<string, mixed> $block
+     * @param list<FormBranch> $branches
+     * @throws SystemFailure
+     */
+    private function afterSubmit(array $block, Contributions $contributions, array $branches): void
+    {
+        if ($this->afterSubmit) {
+            throw new SystemFailure('after_submit_count');
+        }
+        if ($branches !== []) {
+            throw new SystemFailure('after_submit_in_branch');
+        }
+        $this->afterSubmit = true;
+        $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, new DeclaredScope(AfterSubmit::TYPES));
+    }
+
+    /**
+     * @param list<array<string, mixed>|string> $sequence
+     * @throws SystemFailure
+     */
+    private function checkAfterSubmit(array $sequence, Contributions $contributions, DeclaredScope $scope): void
+    {
+        foreach (Chains::split($sequence) as $item) {
+            $blocks = $item instanceof Chain ? $item->branches : (is_array($item) ? [$item] : []);
+            foreach ($blocks as $block) {
+                $name = $block['blockName'] ?? null;
+                if (is_string($name) && isset($contributions->fieldTypes()[$name])) {
+                    // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name, never output
+                    throw new SystemFailure('field_in_after_submit ' . $name);
+                }
+                if ($name === AfterSubmit::BLOCK) {
+                    throw new SystemFailure('after_submit_count');
+                }
+                if ($item instanceof Chain && $name !== Chains::ELSE_BLOCK) {
+                    $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+                    $this->conditions->parse($attributes['condition'] ?? null, $scope);
+                }
+                $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, $scope);
+            }
+        }
+    }
+
+    /**
      * The availability conditions of a choice field's options (S76): an option may carry a
      * `condition`, which reads the fields before the choice field and the event's keys.
-     * [UNAPPROVED N4] the option attribute `condition`.
+     * Decision N4 (#156): the option attribute `condition`.
      *
      * @param array<string, mixed> $attributes
      * @return array<string, Condition> option value → condition, for the options that have one

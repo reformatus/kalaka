@@ -88,15 +88,70 @@ final class Forms
     /**
      * The parsed blocks of the form's version with every branch block marked with its chain number and
      * branch index (`Condition\ChainMarks`, the numbering the definition reads): what a form page renders,
-     * block by block with `render_block()`, outside `Values::render()`. A branch then renders as
-     * `<div data-kalaka-chain="N" data-kalaka-branch="i" hidden>…</div>` (`BranchMarkup`). [UNAPPROVED N7]
+     * block by block with `render_block()`, outside `Values::render()`.
      *
+     * An answer-driven chain ships every branch, each as `<div data-kalaka-chain="N" data-kalaka-branch="i"
+     * hidden>…</div>` (`BranchMarkup`); the page shows the one `FormAvailability::$chains` holds. A
+     * withheld chain (`FormDefinition::withheldChains()`: it reads an event value or a held fact) ships
+     * only the branch the availability holds, without `hidden`, and nothing of the others.
+     * [UNAPPROVED N11]
+     *
+     * @param FormAvailability|null $availability what shows for the page's answers; without it no branch
+     *     of a withheld chain ships
      * @return list<array<string, mixed>>
      * @throws SystemFailure when the version is not a revision of the form, or a branch is misplaced
      */
-    public function blocks(Form $form, ?int $version = null): array
+    public function blocks(Form $form, ?int $version = null, ?FormAvailability $availability = null): array
     {
-        return ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version ?? $form->version))));
+        $version ??= $form->version;
+        $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
+        $withheld = [];
+        foreach ($this->definition($form, $version)->withheldChains() as $number) {
+            $withheld[$number] = $availability?->heldBranch($number);
+        }
+
+        return ChainMarks::prune($marked, $withheld);
+    }
+
+    /**
+     * The after-submit section of the form's version (`AfterSubmit`, N12) rendered with the context
+     * (`AfterSubmit::context()`): its inner blocks through `Values::render()`, conditions resolved, values
+     * filled. Null when the form has none; the caller then shows its default text.
+     *
+     * @throws SystemFailure when the version is not a revision of the form, or a key the context lacks
+     */
+    public function afterSubmit(Form $form, int $version, ValueContext $context): ?string
+    {
+        $section = self::findAfterSubmit(parse_blocks($this->posts->content($form, $version)));
+        if ($section === null) {
+            return null;
+        }
+        $inner = is_array($section['innerBlocks'] ?? null) ? array_values($section['innerBlocks']) : [];
+
+        return (new Values())->render(serialize_blocks($inner), $context);
+    }
+
+    /**
+     * @param array<array-key, mixed> $blocks
+     * @return array<string, mixed>|null
+     */
+    private static function findAfterSubmit(array $blocks): ?array
+    {
+        foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            if (($block['blockName'] ?? null) === AfterSubmit::BLOCK) {
+                /** @var array<string, mixed> $block */
+                return $block;
+            }
+            $found = self::findAfterSubmit(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : []);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -181,7 +236,7 @@ final class Forms
 
     /**
      * The submit's check of the answers, with the same walk as `availability()`.
-     * [UNAPPROVED N5] the facts are optional, so the signature of #53 stays.
+     * Decision N5 (#156): the facts are optional, so the signature of #53 stays.
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
@@ -209,6 +264,12 @@ final class Forms
     {
         $result = $this->walk->run($definition, $answers, $facts, Contributions::current());
 
-        return new FormAvailability($result->shown, $result->held, $result->options, $definition->triggers);
+        return new FormAvailability(
+            $result->shown,
+            $result->held,
+            $result->options,
+            $definition->triggers,
+            $definition->withheldChains()
+        );
     }
 }

@@ -11,7 +11,7 @@ namespace Kalaka\Forms\Api;
  *
  * Mid-form availability is advisory: a seat or a place is decided only at submit, under the lock.
  *
- * [UNAPPROVED N1] the read model and its array shape (`toArray()`), the seam of the form front end.
+ * Decision N1 (#156): the read model and its array shape (`toArray()`), the seam of the form front end.
  */
 final readonly class FormAvailability
 {
@@ -20,12 +20,15 @@ final readonly class FormAvailability
      * @param list<int|null> $chains chain number → the index of its branch that shows, or null
      * @param array<string, list<string>> $options choice field with option conditions → its offered option values
      * @param list<string> $triggers the field keys any condition reads, in document order
+     * @param list<int> $withheld the chains whose branches the page gets only when they show (N11): when
+     *     the held branch of one changes, the re-fetch sends that chain's markup
      */
     public function __construct(
         public array $fields,
         public array $chains,
         public array $options,
         public array $triggers,
+        public array $withheld = [],
     ) {
     }
 
@@ -53,13 +56,15 @@ final readonly class FormAvailability
 
     /**
      * The shape the front end consumes, JSON-ready:
-     * `{"fields": {key: bool}, "chains": [index|null, …], "options": {key: [value, …]}, "triggers": [key, …]}`.
+     * `{"fields": {key: bool}, "chains": [index|null, …], "options": {key: [value, …]}, "triggers": [key, …],
+     * "withheld": [chain, …]}`.
      *
      * @return array{
      *     fields: array<string, bool>,
      *     chains: list<int|null>,
      *     options: array<string, list<string>>,
-     *     triggers: list<string>
+     *     triggers: list<string>,
+     *     withheld: list<int>
      * }
      */
     public function toArray(): array
@@ -69,6 +74,7 @@ final readonly class FormAvailability
             'chains' => $this->chains,
             'options' => $this->options,
             'triggers' => $this->triggers,
+            'withheld' => $this->withheld,
         ];
     }
 }

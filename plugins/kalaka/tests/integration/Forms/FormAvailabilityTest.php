@@ -154,6 +154,10 @@ final class FormAvailabilityTest extends FormsTestCase
             self::assertSame('kalaka_form_outdated', $outdated->errorCode());
             self::assertSame(409, $outdated->status());
             self::assertFalse($outdated->isAudited());
+            self::assertSame(
+                'Az űrlap időközben megváltozott. Töltsd újra az oldalt, és próbáld újra.',
+                $outdated->getMessage()
+            );
         }
     }
 
@@ -187,6 +191,7 @@ final class FormAvailabilityTest extends FormsTestCase
                 'chains' => [0, 0],
                 'options' => ['modules' => ['ifi_a', 'ifi_b', 'pro_a'], 'first' => ['ifi_a', 'ifi_b', 'pro_a']],
                 'triggers' => ['track', 'pro_question'],
+                'withheld' => [],
             ],
             $availability->toArray()
         );
@@ -214,7 +219,8 @@ final class FormAvailabilityTest extends FormsTestCase
             $this->eventFacts()
         );
 
-        self::assertSame([1, null], $availability->chains);
+        // The required track in error is no valid answer: its chain waits for it (N10).
+        self::assertSame([null, null], $availability->chains);
         self::assertSame(['ifi_a', 'ifi_b'], $availability->offeredOptions('first'));
     }
 

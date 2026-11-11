@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Condition;
 
+use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
@@ -37,6 +38,76 @@ final class ChainMarks
         }
 
         return $marked;
+    }
+
+    /** Set by `prune()` on the branch of a withheld chain it keeps: that branch shows. */
+    public const SHOWN_ATTRIBUTE = 'kalakaShown';
+
+    /**
+     * Withholds branches from marked blocks (N11): of each chain in `$withheld` only the branch given
+     * there stays, marked shown; the chain's other branches, and everything inside them, are dropped. A
+     * chain withheld with null keeps no branch.
+     *
+     * @param list<array<string, mixed>> $blocks blocks `mark()` returned
+     * @param array<int, int|null> $withheld chain number → the branch to keep
+     * @return list<array<string, mixed>>
+     */
+    public static function prune(array $blocks, array $withheld): array
+    {
+        if ($withheld === []) {
+            return $blocks;
+        }
+
+        $kept = [];
+        foreach ($blocks as $block) {
+            $pruned = self::pruned($block, $withheld);
+            if ($pruned !== null) {
+                $kept[] = $pruned;
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * @param array<string, mixed> $block
+     * @param array<int, int|null> $withheld
+     * @return array<string, mixed>|null
+     */
+    private static function pruned(array $block, array $withheld): ?array
+    {
+        $marks = self::of($block);
+        if ($marks !== null && array_key_exists($marks[0], $withheld)) {
+            if ($withheld[$marks[0]] !== $marks[1]) {
+                return null;
+            }
+            $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+            $block['attrs'] = [...$attributes, self::SHOWN_ATTRIBUTE => true];
+        }
+        if (($block['innerBlocks'] ?? []) === []) {
+            return $block;
+        }
+
+        $content = [];
+        $inner = [];
+        $index = 0;
+        $blocks = is_array($block['innerBlocks']) ? array_values($block['innerBlocks']) : [];
+        foreach (is_array($block['innerContent'] ?? null) ? $block['innerContent'] : [] as $chunk) {
+            if (is_string($chunk)) {
+                $content[] = $chunk;
+                continue;
+            }
+            $child = $blocks[$index++] ?? null;
+            $child = is_array($child) ? self::pruned($child, $withheld) : null;
+            if ($child !== null) {
+                $content[] = null;
+                $inner[] = $child;
+            }
+        }
+        $block['innerBlocks'] = $inner;
+        $block['innerContent'] = $content;
+
+        return $block;
     }
 
     /**
@@ -96,7 +167,8 @@ final class ChainMarks
      */
     private function block(array $block): array
     {
-        if (($block['innerBlocks'] ?? []) === []) {
+        // The after-submit section's chains are not the form's: rendered by `Values::render()` alone.
+        if (($block['innerBlocks'] ?? []) === [] || ($block['blockName'] ?? null) === AfterSubmit::BLOCK) {
             return $block;
         }
 

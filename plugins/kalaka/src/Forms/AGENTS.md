@@ -124,6 +124,15 @@ values and conditions, prefill and form links
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
   blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing
   else, in PHP or JavaScript, recomputes them.
+- A chain that reads a shown, required single choice still unanswered holds
+  no branch (`FormWalk::decides()`); any other unanswered field reads as
+  empty.
+- Only answer-driven chains ship every branch to the page; a chain that reads
+  any other key ships only its held branch (`FormDefinition::withheldChains()`,
+  `ChainMarks::prune()`).
+- The after-submit section (`Api\AfterSubmit`) is at most one block, outside
+  any branch, with no fields; its chains are not the form's (not numbered,
+  not walked) and read only `AfterSubmit::TYPES`.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
 - Reading a key that a value context does not declare is a failure, never an

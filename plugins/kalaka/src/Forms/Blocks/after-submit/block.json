@@ -1,0 +1,11 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/after-submit",
+  "title": "Beküldés után",
+  "category": "kalaka",
+  "supports": {
+    "html": false,
+    "multiple": false
+  },
+  "render": "file:./render.php"
+}
