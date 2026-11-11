@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Mail;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -12,7 +13,6 @@ use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Body\ActionMailComposer;
-use Kalaka\Mail\Body\MailBlockGate;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Pause\PauseCause;
@@ -103,6 +103,9 @@ CREATE TABLE {prefix}kalaka_mail_layouts (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /** Kaláka's gated blocks a mail body may hold: the condition blocks (mail.md, "Content"). */
+    public const BODY_BLOCKS = ['kalaka/if', 'kalaka/else-if', 'kalaka/else'];
+
     private ?Sender $sender = null;
 
     public function id(): string
@@ -126,6 +129,8 @@ SQL;
         $to->siteWarning(new PauseWarning(PauseCause::Errors, $state));
         $to->siteWarning(new PauseWarning(PauseCause::Manual, $state));
         $to->periodicStep($this->sender());
+        // [UNAPPROVED N12] a mail body may hold the condition blocks, never a field block.
+        $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE));
     }
 
     public function boot(): void
@@ -146,7 +151,6 @@ SQL;
         // A mail's version is a revision ID, so revisions of mail documents are never pruned.
         add_filter('wp_' . MailPosts::POST_TYPE . '_revisions_to_keep', static fn (): int => -1);
         add_action('wp_after_insert_post', [new MailPosts(), 'ensureRevision'], 10, 2);
-        add_filter('allowed_block_types_all', [MailBlockGate::class, 'filter'], 20, 2);
     }
 
     /**

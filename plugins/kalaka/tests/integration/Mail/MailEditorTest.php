@@ -62,7 +62,7 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertGreaterThan(0, $revision['latest_id']);
     }
 
-    public function testTheEditorOffersAMailTheConditionBlocksButNoFieldBlock(): void
+    public function testTheEditorOffersAMailTheConditionBlocksButNoFieldBlockAndAPageNeither(): void
     {
         $mail = get_post($this->document($this->create(), $this->paragraph('Szia')));
         $page = get_post(self::factory()->post->create(['post_type' => 'page']));
@@ -77,6 +77,8 @@ final class MailEditorTest extends MailBodyTestCase
             $allowed,
             static fn (string $name): bool => str_ends_with($name, '-field')
         )));
-        self::assertTrue(get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $page])));
+        $onPage = get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $page]));
+        self::assertIsArray($onPage);
+        self::assertNotContains('kalaka/if', $onPage);
     }
 }

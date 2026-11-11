@@ -8,10 +8,10 @@ At the module root: `Delivery` (one row of the send log) with `DeliveryStatus`, 
 
 `Catalogue/` holds the per-event settings: `ActionMailEntry` and `ActionMailRepository` (the only writer of `kalaka_action_mails`), `MailLayout` (an event's raw HTML layout with its one `{{content}}`) and `MailLayoutRepository` (the only writer of `kalaka_mail_layouts`), and the use cases `UpdateActionMail` (`kalaka/update-action-mail`) and `SetEventMailLayout` (`kalaka/set-event-mail-layout`).
 
-`Body/` holds the mail documents and their rendering: `MailPosts` (reads the `kalaka_mail` posts; `MailDocument`), `MailRestController` (REST for full access only), `MailBlockGate` (Kaláka's blocks in the mail editor), `MailValues` (a mail's value context and its recipient), `MailRenderer` with `RenderedMail`, and `ActionMailComposer`, the composer the module binds into the sender.
+`Body/` holds the mail documents and their rendering: `MailPosts` (reads the `kalaka_mail` posts; `MailDocument`), `MailRestController` (REST for full access only), `MailValues` (a mail's value context and its recipient), `MailRenderer` with `RenderedMail`, and `ActionMailComposer`, the composer the module binds into the sender.
 
 `Api/` holds `MailQueue` (`add()` and the nudge), `MailKind`, `ActionMail` (the catalogue), `ActionMails` (`due()`: deciding an action mail), `ActionMailSettings` (`ofEvent()`) with `EventMailSettings` and `ActionMailSetting`, and `MailStats` (`site()`, `ofEvents()`) with `SiteMailStats`, `EventMailStats` and `PauseInfo`.
 
-Tables, created by the schema in `Module.php`: `kalaka_deliveries`, `kalaka_mail_states`, `kalaka_action_mails` and `kalaka_mail_layouts`. Post type: `kalaka_mail`, with the meta `kalaka_event_id`.
+Tables, created by the schema in `Module.php`: `kalaka_deliveries`, `kalaka_mail_states`, `kalaka_action_mails` and `kalaka_mail_layouts`. Post type: `kalaka_mail`, with the meta `kalaka_event_id`; the module contributes a `BlockHost` so its editor offers the condition blocks (`Module::BODY_BLOCKS`).
 
 Entry points: the WP-Cron hook `kalaka_send_mail` (the nudge; the plugin's deactivation clears it) and the periodic run's step `mail_sender`. The use cases have no REST route or screen yet.
