@@ -8,16 +8,19 @@ use Kalaka\Forms\Api\Values;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
+use Kalaka\Mail\Catalogue\MailLayout;
+use Kalaka\Mail\Catalogue\MailLayoutRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * Renders a mail for one registration at send time, from current data (mail.md, "Content" and "Sending"):
- * the mail's body, inside the event's layout when the mail uses it and the event has one, rendered once by
- * `Values::render()` with the mail's context, so conditions in either part are evaluated by the one
- * evaluator. It reads WordPress posts, so it runs outside any use case. Its failures name a problem code
- * and a key, never a value.
- * // [UNAPPROVED N17] the renderer: one render of the body spliced into the layout; the subject is the
- * // body's title as plain text; HTML only; the version `b<revision>` or `b<revision>-l<revision>`.
+ * the mail's body rendered by `Values::render()` with the mail's context (conditions by the one evaluator),
+ * then put in the event's layout in place of `{{content}}` when the mail uses it (a new event's layout is
+ * exactly `{{content}}`). The
+ * layout is raw HTML and is not rendered or escaped; the body's values are escaped by the render. It reads
+ * WordPress posts, so it runs outside any use case. Its failures name a problem code and a key, never a value.
+ * // [UNAPPROVED N17] the renderer: the subject is the body's title as plain text; HTML only; the version
+ * // `b<revision>`, or `b<revision>-l<layout row version>` when wrapped by a stored layout.
  */
 final class MailRenderer
 {
@@ -25,16 +28,16 @@ final class MailRenderer
         private readonly ActionMailSettings $settings = new ActionMailSettings(),
         private readonly MailPosts $posts = new MailPosts(),
         private readonly MailValues $values = new MailValues(),
-        private readonly LayoutSlot $slot = new LayoutSlot(),
+        private readonly MailLayoutRepository $layouts = new MailLayoutRepository(),
         private readonly Values $renderer = new Values(),
     ) {
     }
 
     /**
      * @param string $mail the mail's key: an action mail's key
-     * @throws SystemFailure an unknown mail (`unknown_mail`), no body (`no_body`), a body or layout that is
-     *         not a published document of the event, a layout without exactly one slot, or what
-     *         `Values::render()` and the context throw
+     * @throws SystemFailure an unknown mail (`unknown_mail`), no body (`no_body`), a body that is not a
+     *         published document of the event, a stored layout without its one placeholder (`layout`), or
+     *         what `Values::render()` and the context throw
      */
     public function render(int $eventId, string $mail, RegistrationKey $registration): RenderedMail
     {
@@ -51,15 +54,18 @@ final class MailRenderer
         }
 
         $body = $this->posts->published($setting->bodyId, $eventId);
-        $document = $body->content;
+        $html = $this->renderer->render($body->content, $this->values->context($registration));
         $version = 'b' . $body->revision;
-        if ($setting->layout && $settings->layoutId !== null) {
-            $layout = $this->posts->published($settings->layoutId, $eventId);
-            $document = $this->slot->wrap($layout->content, $body->content);
-            $version .= '-l' . $layout->revision;
+        $layout = $setting->layout ? $this->layouts->of($eventId) : null;
+        if ($layout !== null) {
+            if (!MailLayout::isValid($layout->html)) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+                throw new SystemFailure('layout ' . $eventId);
+            }
+            $html = $layout->wrap($html);
+            // The default layout (no stored row) is exactly `{{content}}`, so it adds nothing to the version.
+            $version .= $layout->version > 0 ? '-l' . $layout->version : '';
         }
-
-        $html = $this->renderer->render($document, $this->values->context($registration));
 
         return new RenderedMail(self::subject($body->title), $html, $version);
     }

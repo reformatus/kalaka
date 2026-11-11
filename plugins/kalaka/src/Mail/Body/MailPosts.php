@@ -7,7 +7,7 @@ namespace Kalaka\Mail\Body;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
- * Reads the `kalaka_mail` posts: the bodies and layouts of mails, edited in the block editor (mail.md,
+ * Reads the `kalaka_mail` posts: the bodies of mails, edited in the block editor (mail.md,
  * "Content"). Each belongs to one event (`kalaka_event_id`). It reads WordPress posts, so it runs before or
  * after a use case's transaction, or in a use case only to check a post an input names.
  */
@@ -54,7 +54,7 @@ final class MailPosts
     }
 
     /**
-     * Saves the first revision of a mail document that has none: WordPress saves none on insert, and a
+     * Saves the first revision of a mail body that has none: WordPress saves none on insert, and a
      * mail's version is a revision ID.
      *
      * @internal the `wp_after_insert_post` callback

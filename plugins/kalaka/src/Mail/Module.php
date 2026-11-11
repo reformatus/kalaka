@@ -90,18 +90,18 @@ CREATE TABLE {prefix}kalaka_action_mails (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
-    /** mail.md, "Configuration": an event's layout, the `kalaka_mail` post that wraps its mails. */
+    /**
+     * mail.md, "Configuration": an event's layout, the raw HTML that wraps its mails, stored as written.
+     * // [UNAPPROVED N21] the layout is raw HTML in a Mail-owned table, stored verbatim.
+     */
     private const LAYOUTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_mail_layouts (
   event_id bigint(20) unsigned NOT NULL,
   version int(10) unsigned NOT NULL,
-  layout_id bigint(20) unsigned NOT NULL,
+  html longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   PRIMARY KEY  (event_id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
-
-    /** The mail blocks, in `Blocks/`: the body's place in a layout. */
-    private const BLOCKS = ['mail-content'];
 
     private ?Sender $sender = null;
 
@@ -142,10 +142,6 @@ SQL;
     {
         $this->registerPostType();
         $this->registerMeta();
-        // [UNAPPROVED N12] the block `kalaka/mail-content`; [UNAPPROVED N20] its title.
-        foreach (self::BLOCKS as $name) {
-            register_block_type(__DIR__ . '/Blocks/' . $name);
-        }
 
         // A mail's version is a revision ID, so revisions of mail documents are never pruned.
         add_filter('wp_' . MailPosts::POST_TYPE . '_revisions_to_keep', static fn (): int => -1);

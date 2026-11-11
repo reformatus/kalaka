@@ -7,7 +7,7 @@ namespace Kalaka\Mail\Api;
 use Kalaka\Mail\Catalogue\ActionMailRepository;
 use Kalaka\Mail\Catalogue\MailLayoutRepository;
 
-/** Reads an event's mail settings; the use cases `kalaka/update-action-mail` and `kalaka/set-mail-layout` change them. */
+/** Reads an event's mail settings; `kalaka/update-action-mail` and `kalaka/set-event-mail-layout` change them. */
 final class ActionMailSettings
 {
     public function __construct(
@@ -16,7 +16,10 @@ final class ActionMailSettings
     ) {
     }
 
-    /** Every action of the catalogue, a missing row as its default (off, no body, wrapped by the layout). */
+    /**
+     * Every action of the catalogue, a missing row as its default (off, no body, wrapped by the layout), and
+     * the layout, exactly `{{content}}` until one is set.
+     */
     public function ofEvent(int $eventId): EventMailSettings
     {
         $stored = $this->mails->ofEvent($eventId);
@@ -28,6 +31,6 @@ final class ActionMailSettings
                 : new ActionMailSetting($action, $entry->enabled, $entry->bodyId, $entry->layout);
         }
 
-        return new EventMailSettings($eventId, $this->layouts->find($eventId)?->layoutId, $mails);
+        return new EventMailSettings($eventId, $this->layouts->of($eventId)->html, $mails);
     }
 }

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Body;
 
 /**
- * Which of Kaláka's blocks the block editor offers in a mail document: the condition blocks and the
- * body's place in a layout, never a form field block. Core blocks and other post types are left as they are.
+ * Which of Kaláka's blocks the block editor offers in a mail body: the condition blocks, never a form
+ * field block. Core blocks and other post types are left as they are.
  * // [UNAPPROVED N12] Kaláka's blocks are allowed per post type, not by `ancestor`. Stand-in until #52's
  * // per-post-type gate (`allowed_block_types_all`, with a point for other modules) lands; then Mail
  * // allows these blocks through that point and this filter goes.
@@ -14,7 +14,7 @@ namespace Kalaka\Mail\Body;
 final class MailBlockGate
 {
     /** Kaláka's blocks a mail document may hold. */
-    public const MAIL_BLOCKS = ['kalaka/if', 'kalaka/else-if', 'kalaka/else', LayoutSlot::BLOCK];
+    public const MAIL_BLOCKS = ['kalaka/if', 'kalaka/else-if', 'kalaka/else'];
 
     /**
      * @internal the `allowed_block_types_all` filter

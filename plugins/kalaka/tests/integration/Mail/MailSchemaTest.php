@@ -55,7 +55,7 @@ final class MailSchemaTest extends WP_UnitTestCase
     private const LAYOUTS = [
         'event_id' => 'bigint(20) unsigned',
         'version' => 'int(10) unsigned',
-        'layout_id' => 'bigint(20) unsigned',
+        'html' => 'longtext',
     ];
 
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void

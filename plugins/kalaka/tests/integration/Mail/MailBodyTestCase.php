@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Mail;
 
-use Kalaka\Mail\Catalogue\SetMailLayout;
+use Kalaka\Mail\Catalogue\SetEventMailLayout;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -142,8 +142,8 @@ abstract class MailBodyTestCase extends MailTestCase
         return $settings;
     }
 
-    protected function setLayout(int $event, ?int $layout): void
+    protected function setLayout(int $event, string $html): void
     {
-        $this->exec(new SetMailLayout(), ['event_id' => $event, 'layout_id' => $layout]);
+        $this->exec(new SetEventMailLayout(), ['event_id' => $event, 'html' => $html]);
     }
 }

@@ -62,18 +62,15 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertGreaterThan(0, $revision['latest_id']);
     }
 
-    public function testTheEditorOffersAMailTheConditionBlocksAndTheSlotButNoFieldBlock(): void
+    public function testTheEditorOffersAMailTheConditionBlocksButNoFieldBlock(): void
     {
-        $slot = \WP_Block_Type_Registry::get_instance()->get_registered('kalaka/mail-content');
-        self::assertNotNull($slot);
-        self::assertSame('Levél szövege', $slot->title);
         $mail = get_post($this->document($this->create(), $this->paragraph('Szia')));
         $page = get_post(self::factory()->post->create(['post_type' => 'page']));
 
         $allowed = get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $mail]));
 
         self::assertIsArray($allowed);
-        foreach (['kalaka/if', 'kalaka/else-if', 'kalaka/else', 'kalaka/mail-content', 'core/paragraph'] as $name) {
+        foreach (['kalaka/if', 'kalaka/else-if', 'kalaka/else', 'core/paragraph'] as $name) {
             self::assertContains($name, $allowed);
         }
         self::assertSame([], array_values(array_filter(
@@ -81,10 +78,5 @@ final class MailEditorTest extends MailBodyTestCase
             static fn (string $name): bool => str_ends_with($name, '-field')
         )));
         self::assertTrue(get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $page])));
-    }
-
-    public function testOutsideTheRendererTheSlotRendersNothing(): void
-    {
-        self::assertSame('', trim(do_blocks('<!-- wp:kalaka/mail-content /-->')));
     }
 }
