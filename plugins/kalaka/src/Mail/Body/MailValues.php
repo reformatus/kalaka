@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationRead;
 use Kalaka\Registrations\Api\RegistrationRecord;
@@ -37,20 +38,24 @@ final class MailValues
     }
 
     /**
-     * The registration's contact email; null when there is none to be had: no registration, no first
-     * submission, a slot form that is not usable now, or no answer to its contact-email field. Never throws on
-     * data, since the sender asks for it before the claim.
+     * The registration's contact email; null when its contact-email field has no answer. The sender asks for
+     * it before the claim, so a data problem is a `RecipientUnavailable`, never another exception.
+     *
+     * @throws RecipientUnavailable no registration or first submission (`no_registration`), or a slot form
+     *         that is unpublished or has a problem now (`no_recipient_form`)
      */
     public function recipient(RegistrationKey $key): ?string
     {
         $record = $this->registrations->find($key);
         if ($record === null) {
-            return null;
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a machine code, never output
+            throw new RecipientUnavailable(RecipientUnavailable::NO_REGISTRATION);
         }
         try {
             $definition = $this->definition($record);
         } catch (SystemFailure) {
-            return null;
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a machine code, never output
+            throw new RecipientUnavailable(RecipientUnavailable::NO_RECIPIENT_FORM);
         }
         $field = $this->marked($definition, true);
         $email = $field === null ? null : ($record->values[$field] ?? null);

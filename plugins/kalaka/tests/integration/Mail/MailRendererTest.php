@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Mail;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Body\MailRenderer;
 use Kalaka\Mail\Body\MailValues;
+use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /** The renderer: a mail's body, its layout and its context. mail.md, "Content". */
@@ -134,18 +135,29 @@ final class MailRendererTest extends MailBodyTestCase
         (new MailRenderer())->render($event, 'registered', $key);
     }
 
-    public function testTheRecipientIsTheContactEmailOrNoneWithoutThrowing(): void
+    public function testTheRecipientIsTheContactEmailOrNoneOrUnavailableWithItsReason(): void
     {
         $event = $this->create();
         $values = new MailValues();
 
         self::assertSame('teszt@example.test', $values->recipient($this->registration($event)));
         self::assertNull($values->recipient($this->registration($event, '00A0', ['name' => 'Teszt'])));
-        self::assertNull($values->recipient(new RegistrationKey($event, '00B0')));
         $form = $this->slotForm($event);
-        $withoutForm = $this->registration($event, '00J0', form: $form);
-        wp_delete_post($form, true);
-        self::assertNull($values->recipient($withoutForm));
+        $unpublished = $this->registration($event, '00J0', form: $form);
+        wp_update_post(['ID' => $form, 'post_status' => 'draft']);
+
+        $cases = [
+            RecipientUnavailable::NO_REGISTRATION => new RegistrationKey($event, '00B0'),
+            RecipientUnavailable::NO_RECIPIENT_FORM => $unpublished,
+        ];
+        foreach ($cases as $reason => $key) {
+            try {
+                $values->recipient($key);
+                self::fail('Expected ' . $reason . '.');
+            } catch (RecipientUnavailable $e) {
+                self::assertSame($reason, $e->reason);
+            }
+        }
     }
 
     /** The text of rendered HTML, its whitespace collapsed. */

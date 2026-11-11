@@ -21,8 +21,8 @@ use Kalaka\Mail\Api\ActionMailSettings;
  */
 final class SetEventMailLayout implements AdminUseCase
 {
-    // [UNAPPROVED N20] the refusal's text.
-    public const NO_PLACEHOLDER = 'Az elrendezésben a {{content}} jelölőnek pontosan egyszer kell szerepelnie.';
+    // [UNAPPROVED N20] the refusal's text, with the UI's term "Levélsablon".
+    public const NO_PLACEHOLDER = 'A levélsablonban a {{content}} jelölőnek pontosan egyszer kell szerepelnie.';
 
     public function __construct(
         private readonly MailLayoutRepository $layouts = new MailLayoutRepository(),

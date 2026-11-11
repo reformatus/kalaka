@@ -47,8 +47,12 @@ bodies, the renderer and the per-event action-mail catalogue.
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
   nothing else in the layout is replaced.
-- `MailComposer::recipient()` never throws on data (no registration, form or
-  contact email is `null`); only `compose()` throws.
+- `MailComposer::recipient()` returns `null` for a registration without a
+  contact email (failed as `invalid_address`) and throws only
+  `RecipientUnavailable` when the address cannot be determined (no
+  registration: `no_registration`; slot form unpublished or broken:
+  `no_recipient_form`); the sender fails the delivery with that reason, with
+  no attempt and no count toward pausing. Only `compose()` throws otherwise.
 - The secret link reaches a mail only as the value `registration.link` from
   `Registrations\Api\RegistrationRead::linkUrl()`. It is never stored on a
   delivery, logged or audited; render failures name a problem code and a
