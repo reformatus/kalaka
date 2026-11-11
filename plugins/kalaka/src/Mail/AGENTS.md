@@ -31,18 +31,22 @@ bodies, the renderer and the per-event action-mail catalogue.
   interactive request, and only under the named lock `mail_sender`.
 - The sender does not run without a bound `MailComposer`: deliveries stay
   pending. The module binds `Body\ActionMailComposer`.
-- A mail body or layout is a `kalaka_mail` post of one event
-  (`kalaka_event_id`), edited in the block editor by full access only; the
-  per-event settings live in Mail's tables (`kalaka_action_mails`,
-  `kalaka_mail_layouts`), never in post meta. A mail's version is the latest
+- A mail body is a `kalaka_mail` post of one event (`kalaka_event_id`),
+  edited in the block editor by full access only; its blocks are content and
+  the condition blocks, never a field block. An event's layout is raw HTML
+  with `{{content}}` exactly once (exactly `{{content}}` until set; any other
+  save is refused), stored verbatim (full access is trusted
+  like `unfiltered_html`) and never escaped. The per-event settings and the
+  layout live in Mail's tables (`kalaka_action_mails`, `kalaka_mail_layouts`),
+  never in post meta. A mail's version is the latest
   non-autosave revision ID; revisions of mail documents are never pruned.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
   acting use case, which queues it only when the event has it switched on and
   looks at nothing else (not the event's state).
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
-  its own; a layout wraps a body by having the body's blocks put in the place
-  of its one `kalaka/mail-content` block, and the whole renders once.
+  its own; the rendered body then replaces the layout's `{{content}}`, and
+  nothing else in the layout is replaced.
 - `MailComposer::recipient()` never throws on data (no registration, form or
   contact email is `null`); only `compose()` throws.
 - The secret link reaches a mail only as the value `registration.link` from

@@ -14,6 +14,16 @@ use Kalaka\Foundation\Api\Repository\EntityRepository;
  */
 final class MailLayoutRepository extends EntityRepository
 {
+    /**
+     * The event's layout: the stored one, or the default (exactly `{{content}}`, version 0), so mail works with
+     * no setup.
+     * // [UNAPPROVED N21] a new event's layout is exactly `{{content}}`.
+     */
+    public function of(int $eventId): MailLayout
+    {
+        return $this->find($eventId) ?? new MailLayout($eventId, MailLayout::CONTENT);
+    }
+
     public static function subjectOf(int $eventId): Subject
     {
         return new Subject('mail_layout', $eventId, (string) $eventId);
@@ -44,13 +54,13 @@ final class MailLayoutRepository extends EntityRepository
         return [
             'event_id' => $entity->eventId,
             'version' => $entity->version,
-            'layout_id' => $entity->layoutId,
+            'html' => $entity->html,
         ];
     }
 
     protected function fromRow(array $row): object
     {
-        return new MailLayout((int) $row['event_id'], (int) $row['layout_id'], (int) $row['version']);
+        return new MailLayout((int) $row['event_id'], (string) $row['html'], (int) $row['version']);
     }
 
     protected function subject(object $record): Subject

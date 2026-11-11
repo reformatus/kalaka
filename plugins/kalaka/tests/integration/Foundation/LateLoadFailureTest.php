@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Boot;
 
 /**
@@ -19,11 +20,15 @@ final class LateLoadFailureTest extends RunnerTestCase
     /** @var list<LoadFailure> */
     private array $state;
 
+    /** The contributions of the real boot, which a test boot replaces. */
+    private Contributions $contributions;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
         $this->state = LoadState::current()->failures;
+        $this->contributions = Contributions::current();
         // Only the modules a test boots: nothing registered on the hook joins in.
         remove_all_actions('kalaka_register_modules');
         delete_option(Boot::FAILURE_OPTION);
@@ -33,6 +38,7 @@ final class LateLoadFailureTest extends RunnerTestCase
     public function tear_down(): void
     {
         LoadState::record($this->state);
+        Contributions::record($this->contributions);
         delete_option(Boot::FAILURE_OPTION);
         parent::tear_down();
     }

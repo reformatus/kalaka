@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Mail\Api\ActionMailSettings;
-use Kalaka\Mail\Catalogue\SetMailLayout;
+use Kalaka\Mail\Catalogue\SetEventMailLayout;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 
 /** The per-event action-mail catalogue and the event's layout. mail.md, "Configuration". */
@@ -23,7 +23,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $settings = (new ActionMailSettings())->ofEvent($event)->toArray();
 
         self::assertSame($event, $settings['event_id']);
-        self::assertNull($settings['layout_id']);
+        self::assertSame('{{content}}', $settings['layout_html']);
         self::assertSame(
             ['registered', 'waitlisted', 'admitted', 'payment_recorded', 'confirmed', 'link_regenerated'],
             array_column($settings['mails'], 'mail')
@@ -122,40 +122,47 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         );
     }
 
-    public function testALayoutWithExactlyOneSlotIsSetAndRemoved(): void
+    public function testALayoutWithOneContentPlaceholderIsStoredAsWritten(): void
     {
         $event = $this->create();
-        $layout = $this->document($event, $this->paragraph('Fejléc') . "\n<!-- wp:kalaka/mail-content /-->");
+        $html = '<html><body style="color:#333"><div class="keret">{{content}}</div><script>x()</script></body></html>';
 
-        $this->setLayout($event, $layout);
-        self::assertSame($layout, (new ActionMailSettings())->ofEvent($event)->layoutId);
+        $this->setLayout($event, $html);
+        self::assertSame($html, (new ActionMailSettings())->ofEvent($event)->layoutHtml);
 
-        $this->setLayout($event, null);
-        self::assertNull((new ActionMailSettings())->ofEvent($event)->layoutId);
-        self::assertCount(2, $this->entriesOf('kalaka/set-mail-layout'));
+        $this->setLayout($event, '{{content}}');
+        self::assertSame('{{content}}', (new ActionMailSettings())->ofEvent($event)->layoutHtml);
+        self::assertCount(2, $this->entriesOf('kalaka/set-event-mail-layout'));
     }
 
-    public function testALayoutWithoutOneSlotIsRefused(): void
+    public function testALayoutWithoutExactlyOnePlaceholderIsRefused(): void
     {
         $event = $this->create();
-        $none = $this->document($event, $this->paragraph('Fejléc'));
-        $two = $this->document(
-            $event,
-            "<!-- wp:kalaka/mail-content /-->\n<!-- wp:group -->\n<div class=\"wp-block-group\">"
-            . "<!-- wp:kalaka/mail-content /--></div>\n<!-- /wp:group -->"
-        );
 
-        foreach ([$none, $two] as $layout) {
+        foreach (['', '<p>Nincs helye</p>', '{{content}}<hr>{{content}}', '{{ content }}'] as $html) {
             try {
-                $this->exec(new SetMailLayout(), ['event_id' => $event, 'layout_id' => $layout]);
+                $this->exec(new SetEventMailLayout(), ['event_id' => $event, 'html' => $html]);
                 self::fail('Expected a refusal.');
             } catch (RuleViolation $e) {
                 self::assertSame(
-                    'A művelet nem hajtható végre. Az elrendezésben pontosan egy „Levél szövege” blokknak kell lennie.',
+                    'A művelet nem hajtható végre. ' . SetEventMailLayout::NO_PLACEHOLDER,
                     $e->getMessage()
                 );
             }
         }
-        self::assertNull((new ActionMailSettings())->ofEvent($event)->layoutId);
+        self::assertSame('{{content}}', (new ActionMailSettings())->ofEvent($event)->layoutHtml);
+    }
+
+    public function testOnlyFullAccessSetsTheLayout(): void
+    {
+        $event = $this->create();
+        $user = self::factory()->user->create(['role' => 'administrator']);
+
+        $this->expectException(PermissionDenied::class);
+        $this->exec(
+            new SetEventMailLayout(),
+            ['event_id' => $event, 'html' => '{{content}}'],
+            new UserActor($user)
+        );
     }
 }

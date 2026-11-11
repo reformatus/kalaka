@@ -73,39 +73,32 @@ final class MailRendererTest extends MailBodyTestCase
         );
     }
 
-    public function testTheLayoutWrapsTheBodyAndAChainInTheBodyStillResolves(): void
+    public function testTheLayoutWrapsTheRenderedBodyAsWritten(): void
     {
         $event = $this->create();
         $key = $this->registration($event, status: 'waitlisted');
-        $layout = $this->document(
-            $event,
-            $this->paragraph('Fejléc') . "\n<!-- wp:group -->\n<div class=\"wp-block-group\">"
-            . "<!-- wp:kalaka/mail-content /--></div>\n<!-- /wp:group -->\n" . $this->paragraph('Lábléc'),
-            'Elrendezés'
-        );
         $body = $this->document($event, $this->waitlistChain());
-        $this->setLayout($event, $layout);
+        $this->setLayout($event, '<div style="color:#333">Fejléc <span data-kalaka-value="nincs">x</span>'
+            . '{{content}} Lábléc &amp;</div>');
         $this->switchOn($event, 'waitlisted', $body);
 
         $mail = (new MailRenderer())->render($event, 'waitlisted', $key);
 
-        self::assertSame('Fejléc Várólistán vagy. Lábléc', self::text($mail->html));
-        $grouped = '/<div class="wp-block-group[^>]*>.*<p[^>]*>Várólistán vagy\.<\/p>\s*<\/div>/s';
-        self::assertSame(1, preg_match($grouped, $mail->html), $mail->html);
+        $head = '<div style="color:#333">Fejléc <span data-kalaka-value="nincs">x</span>';
+        self::assertStringStartsWith($head, $mail->html);
+        self::assertStringEndsWith(' Lábléc &amp;</div>', $mail->html);
+        self::assertStringContainsString('Várólistán vagy.', $mail->html);
         self::assertStringNotContainsString('Bent vagy.', $mail->html);
-        $bodyRevision = wp_get_latest_revision_id_and_total_count($body);
-        $layoutRevision = wp_get_latest_revision_id_and_total_count($layout);
-        self::assertIsArray($bodyRevision);
-        self::assertIsArray($layoutRevision);
-        self::assertSame('b' . $bodyRevision['latest_id'] . '-l' . $layoutRevision['latest_id'], $mail->version);
+        $revision = wp_get_latest_revision_id_and_total_count($body);
+        self::assertIsArray($revision);
+        self::assertSame('b' . $revision['latest_id'] . '-l1', $mail->version);
     }
 
     public function testAMailThatDoesNotUseTheLayoutIsNotWrapped(): void
     {
         $event = $this->create();
         $key = $this->registration($event);
-        $layout = $this->document($event, $this->paragraph('Fejléc') . "\n<!-- wp:kalaka/mail-content /-->");
-        $this->setLayout($event, $layout);
+        $this->setLayout($event, '<p>Fejléc</p>{{content}}');
         $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')), false);
 
         $html = (new MailRenderer())->render($event, 'registered', $key)->html;

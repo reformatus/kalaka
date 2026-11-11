@@ -12,12 +12,12 @@ namespace Kalaka\Mail\Api;
 final readonly class EventMailSettings
 {
     /**
-     * @param ?int $layoutId the event-wide layout's `kalaka_mail` post; null when the event has none
+     * @param string $layoutHtml the event's layout, raw HTML with one `{{content}}`; exactly `{{content}}` until set
      * @param list<ActionMailSetting> $mails
      */
     public function __construct(
         public int $eventId,
-        public ?int $layoutId,
+        public string $layoutHtml,
         public array $mails,
     ) {
     }
@@ -37,7 +37,7 @@ final readonly class EventMailSettings
     /**
      * @return array{
      *     event_id: int,
-     *     layout_id: ?int,
+     *     layout_html: string,
      *     mails: list<array{mail: string, label: string, enabled: bool, body_id: ?int, layout: bool}>
      * }
      */
@@ -45,7 +45,7 @@ final readonly class EventMailSettings
     {
         return [
             'event_id' => $this->eventId,
-            'layout_id' => $this->layoutId,
+            'layout_html' => $this->layoutHtml,
             'mails' => array_map(static fn (ActionMailSetting $mail): array => $mail->toArray(), $this->mails),
         ];
     }
