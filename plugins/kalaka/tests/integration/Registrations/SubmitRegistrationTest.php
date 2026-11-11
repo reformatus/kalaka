@@ -36,10 +36,10 @@ final class SubmitRegistrationTest extends FormsTestCase
 
     private function keyOf(SubmitResult $result): RegistrationKey
     {
-        self::assertNotNull($result->registration);
-
         return $result->registration;
     }
+
+    private const REGISTERED_TEXT = '<p>' . RegistrationSubmit::DEFAULT_REGISTERED . '</p>';
 
     private function submitter(): RegistrationSubmit
     {
@@ -132,7 +132,7 @@ final class SubmitRegistrationTest extends FormsTestCase
                 'code' => $this->keyOf($result)->code,
                 'status' => 'registered',
                 'repeated' => false,
-                'after_submit' => '',
+                'after_submit' => self::REGISTERED_TEXT,
             ],
             $result->toArray()
         );
@@ -203,15 +203,52 @@ final class SubmitRegistrationTest extends FormsTestCase
 
         self::assertFalse($first->repeated);
         self::assertTrue($second->repeated);
-        self::assertNull($second->registration);
-        self::assertNull($second->status);
-        self::assertSame(['repeated' => true, 'after_submit' => ''], $second->toArray());
+        // N13: only the after-submit content, rendered for the original registration.
+        self::assertSame($this->keyOf($first)->code, $this->keyOf($second)->code);
+        self::assertSame(['repeated' => true, 'after_submit' => self::REGISTERED_TEXT], $second->toArray());
         self::assertNotSame($this->keyOf($first)->code, $this->keyOf($other)->code);
         self::assertCount(2, $this->tableRows('kalaka_registrations', $event));
         self::assertCount(2, $this->tableRows('kalaka_submissions', $event));
     }
 
     /** N6: a cached page's token sent with someone else's answers is refused and reveals nothing. */
+    /** #156 N12: the section renders with the registration's code and status; N13: a repeat with the original's. */
+    public function testTheAfterSubmitSectionRendersForTheRegistration(): void
+    {
+        $paragraph = static fn (string $html): string
+            => '<!-- wp:paragraph --><p>' . $html . '</p><!-- /wp:paragraph -->';
+        $status = static fn (string $value): string => wp_json_encode(['condition' => [
+            'match' => 'all',
+            'items' => [['key' => 'registration.status', 'operator' => 'contains', 'value' => $value]],
+        ]]);
+        $section = '<!-- wp:kalaka/after-submit -->'
+            . $paragraph('Kód: <span data-kalaka-value="registration.code">kód</span>')
+            . '<!-- wp:kalaka/if ' . $status('waitlisted') . ' -->' . $paragraph('Várólista') . '<!-- /wp:kalaka/if -->'
+            . '<!-- wp:kalaka/else -->' . $paragraph('Bent vagy') . '<!-- /wp:kalaka/else -->'
+            . '<!-- /wp:kalaka/after-submit -->';
+        $form = $this->openForm(1, $section);
+        $token = SubmitToken::generate();
+
+        $first = $this->submit($form, self::ANSWERS, $token);
+        $repeat = $this->submit($form, self::ANSWERS, $token);
+        $waitlisted = $this->submit($form);
+
+        self::assertStringContainsString($this->keyOf($first)->code, $first->afterSubmit);
+        self::assertStringContainsString('Bent vagy', $first->afterSubmit);
+        self::assertSame($first->afterSubmit, $repeat->afterSubmit);
+        self::assertSame(['repeated', 'after_submit'], array_keys($repeat->toArray()));
+        self::assertStringContainsString($this->keyOf($waitlisted)->code, $waitlisted->afterSubmit);
+        self::assertStringContainsString('Várólista', $waitlisted->afterSubmit);
+    }
+
+    public function testWithoutASectionEachStatusGetsItsDefaultText(): void
+    {
+        $form = $this->openForm(1);
+
+        self::assertSame(self::REGISTERED_TEXT, $this->submit($form)->afterSubmit);
+        self::assertSame('<p>' . RegistrationSubmit::DEFAULT_WAITLISTED . '</p>', $this->submit($form)->afterSubmit);
+    }
+
     public function testTheSameTokenWithOtherAnswersIsRefusedAndWritesNothing(): void
     {
         $form = $this->openForm();
@@ -381,6 +418,10 @@ final class SubmitRegistrationTest extends FormsTestCase
             self::fail('The submit should have been refused.');
         } catch (FormOutdated $outdated) {
             self::assertSame('kalaka_form_outdated', $outdated->errorCode());
+            self::assertSame(
+                'Az űrlap időközben megváltozott. Töltsd újra az oldalt, és próbáld újra.',
+                $outdated->getMessage()
+            );
         }
         $this->assertNothingWritten($this->eventOf($form));
     }

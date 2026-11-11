@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
+use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
@@ -35,6 +39,16 @@ final class RegistrationSubmit
         private readonly Events $events = new Events(),
     ) {
     }
+
+    /**
+     * The default after-submit text of each status, shown when the form has no after-submit section or it
+     * fails to render. [UNAPPROVED N14]
+     */
+    public const DEFAULT_REGISTERED = 'Köszönjük a jelentkezésedet! A további tudnivalókat e-mailben küldjük el.';
+
+    /** [UNAPPROVED N14] */
+    public const DEFAULT_WAITLISTED = 'Köszönjük a jelentkezésedet! Jelenleg nincs szabad hely, ezért várólistára '
+        . 'kerültél. Ha felszabadul egy hely, e-mailben értesítünk.';
 
     /**
      * @param Actor $actor the person: `GuestActor`, or `AccountActor` when logged in
@@ -91,8 +105,36 @@ final class RegistrationSubmit
                 throw $error;
             }
 
-            // After the transaction: the after-submit content reads the form's post (N10).
-            return $result->withAfterSubmit($this->forms->afterSubmit($form, $definition->version));
+            // After the transaction: the after-submit content reads the form's post.
+            return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result));
         }
+    }
+
+    /**
+     * The form's after-submit section rendered for the registration (#156 N12; for a repeat the original
+     * one, N13), or the status's default text when there is none. The registration is committed by now,
+     * so a section that fails to render is logged and the default shows instead of an error.
+     */
+    private function afterSubmit(Form $form, int $version, Event $event, SubmitResult $result): string
+    {
+        $html = null;
+        Boundary::background('after-submit section of form ' . $form->id, function () use (
+            &$html,
+            $form,
+            $version,
+            $event,
+            $result
+        ): void {
+            $context = AfterSubmit::context($event, $result->registration->code, $result->status->value);
+            $html = $this->forms->afterSubmit($form, $version, $context);
+        });
+        if (is_string($html)) {
+            return $html;
+        }
+        $text = $result->status === RegistrationStatus::Waitlisted
+            ? self::DEFAULT_WAITLISTED
+            : self::DEFAULT_REGISTERED;
+
+        return '<p>' . esc_html($text) . '</p>';
     }
 }

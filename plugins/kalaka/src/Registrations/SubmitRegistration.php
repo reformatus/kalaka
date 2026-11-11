@@ -33,9 +33,9 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * event as read then; they come in through the constructor, the input names only the form and the
  * token. Inside, in this order: the event row `FOR UPDATE` (the first read, the lock order's first
  * level); a submission with the same token and the same answers is a repeat that writes nothing and
- * reveals nothing, the same token with other answers is `SubmitTokenReused` (N6); the event
- * must still be the version the answers were checked against; the form's requirements at this
- * moment; then the capacity check, the reference code and the rows.
+ * names the registration only to the after-submit content (N13), the same token with other answers is
+ * `SubmitTokenReused` (N6); the event must still be the version the answers were checked against;
+ * the form's requirements at this moment; then the capacity check, the reference code and the rows.
  */
 final class SubmitRegistration implements PublicUseCase
 {
@@ -100,14 +100,20 @@ final class SubmitRegistration implements PublicUseCase
         $fingerprint = self::fingerprint($this->form->id, $this->answers->stored());
         $earlier = $this->submissions->withToken($eventId, $token);
         if ($earlier !== null) {
-            // N6: a repeat must carry the same answers, and its answer reveals nothing of the registration.
+            // N6: a repeat must carry the same answers; its answer names the registration to nothing but the
+            // after-submit content (N13).
             if ($earlier->answersHash === null || !hash_equals($earlier->answersHash, $fingerprint)) {
                 $error = new SubmitTokenReused();
                 throw $error;
             }
-            $context->touch(Subject::registration($earlier->registration));
+            $registration = $this->registrations->find($earlier->registration);
+            if ($registration === null) {
+                $error = new SystemFailure(null, new \LogicException('A submission without its registration.'));
+                throw $error;
+            }
+            $context->touch(Subject::registration($registration->key));
 
-            return SubmitResult::repeat();
+            return SubmitResult::repeat($registration->key, $registration->status);
         }
 
         if ($event->version !== $this->eventVersion) {

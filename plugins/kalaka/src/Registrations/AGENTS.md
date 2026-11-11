@@ -48,7 +48,8 @@ the waitlist and reference codes
   answers are checked before the transaction, then the event row is the
   run's first lock, a submit token the event's submissions already hold is a
   repeat only with the same answers' fingerprint (then it writes nothing and
-  the result names no registration) and otherwise `SubmitTokenReused`, the
+  the result carries only the after-submit content of the original
+  registration) and otherwise `SubmitTokenReused`, the
   form must be at its latest version, and the status follows from
   the latch and the count of `registered` registrations read under that lock.
   The latch is set before the registration row is written.

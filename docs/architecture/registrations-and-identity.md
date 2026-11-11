@@ -127,8 +127,9 @@ erDiagram
 - **A repeated submit creates nothing.** The form page carries a submit
   token (128 random bits, a secret like the secret link) and is never
   cached. A submit whose token the event's submissions already hold, with
-  the same answers, is answered only as a repeat, revealing nothing of the
-  registration; the same token with other answers is refused.
+  the same answers, creates nothing and is answered as a repeat with the
+  after-submit content of the registration it made (the sender holds the
+  token and every answer); the same token with other answers is refused.
 - **One row per field,** each carrying the event ID, keyed by event,
   reference code and field. Loading a registration is one index range read;
   filtering and sorting by a field stay within the event. Estimated at about

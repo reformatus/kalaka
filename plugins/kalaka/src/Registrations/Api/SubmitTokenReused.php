@@ -15,7 +15,7 @@ final class SubmitTokenReused extends KalakaException
 {
     protected function defaultMessage(): string
     {
-        // [UNAPPROVED N6]
+        // N12 (#161): approved by the owner on 2026-11-10.
         return 'Ez az űrlap már nem küldhető be. Töltsd újra az oldalt, ha új jelentkezést szeretnél küldeni.';
     }
 

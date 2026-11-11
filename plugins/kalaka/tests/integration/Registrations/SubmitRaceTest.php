@@ -40,14 +40,15 @@ final class SubmitRaceTest extends RealTableTestCase
             'currency' => 'HUF',
             'capacity' => 1,
             'is_full' => 0,
-            'registration_opens_on' => '2026-11-30',
-            'registration_closes_on' => '2026-12-15',
-            'starts_on' => '2027-07-05',
-            'ends_on' => '2027-07-12',
+            'registration_opens_at' => '2026-11-29 23:00:00.000000',
+            'registration_closes_at' => '2026-12-15 23:00:00.000000',
+            'starts_at' => '2027-07-04 22:00:00.000000',
+            'ends_at' => '2027-07-11 22:00:00.000000',
             'points' => '[]',
             'next_point_id' => 1,
         ]);
         $this->event = (int) $wpdb->insert_id;
+        self::assertGreaterThan(0, $this->event, (string) $wpdb->last_error);
         $wpdb->query('COMMIT');
         ObjectCache::clear();
     }
@@ -83,7 +84,6 @@ final class SubmitRaceTest extends RealTableTestCase
         self::assertSame("waited\n", $this->finish($holder), 'The event lock was not waited for.');
         self::assertInstanceOf(SubmitResult::class, $result);
         self::assertSame(RegistrationStatus::Waitlisted, $result->status);
-        self::assertNotNull($result->registration);
         self::assertNotSame('00A0', $result->registration->code);
         self::assertSame('1', $wpdb->get_var($wpdb->prepare(
             "SELECT is_full FROM {$wpdb->prefix}kalaka_events WHERE id = %d",

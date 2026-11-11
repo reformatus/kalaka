@@ -8,18 +8,18 @@ namespace Kalaka\Registrations\Api;
  * What a submit tells the page.
  *
  * - A new registration: its key, its status (`registered` or `waitlisted`) and the after-submit content.
- * - A repeat (the same token with the same answers, N6): only that it was a repeat, and the after-submit
- *   content; nothing of the registration (no code, no status), since the sender cannot be told apart from
- *   someone else holding the same page.
+ * - A repeat (the same token with the same answers, N6): only that it was a repeat and the after-submit
+ *   content, rendered for the original registration (its code and status, N13). `toArray()` sends nothing
+ *   else; the key and the status are kept here only to render that content.
  *
- * `afterSubmit` is the HTML that replaces the form after a successful submit (events-and-forms.md, "Forms
- * implementation"): `Forms::afterSubmit()`, empty until the after-submit section is defined. [UNAPPROVED N10]
+ * `afterSubmit` is the HTML that replaces the form after a successful submit: the form's after-submit
+ * section (`Forms::afterSubmit()`, #156 N12), or the default text of the status (N14).
  */
 final readonly class SubmitResult
 {
     private function __construct(
-        public ?RegistrationKey $registration,
-        public ?RegistrationStatus $status,
+        public RegistrationKey $registration,
+        public RegistrationStatus $status,
         public bool $repeated,
         public string $afterSubmit = '',
     ) {
@@ -30,9 +30,10 @@ final readonly class SubmitResult
         return new self($registration, $status, false);
     }
 
-    public static function repeat(): self
+    /** A repeat of the submit that created the registration, with its status as it is now. */
+    public static function repeat(RegistrationKey $registration, RegistrationStatus $status): self
     {
-        return new self(null, null, true);
+        return new self($registration, $status, true);
     }
 
     /** The same result with the after-submit content. */
@@ -47,7 +48,7 @@ final readonly class SubmitResult
      */
     public function toArray(): array
     {
-        if ($this->registration === null || $this->status === null) {
+        if ($this->repeated) {
             return ['repeated' => true, 'after_submit' => $this->afterSubmit];
         }
 
