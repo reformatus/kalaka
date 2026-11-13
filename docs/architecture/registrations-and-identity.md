@@ -10,9 +10,11 @@ erDiagram
   ACCOUNT |o--o{ REGISTRATION : "owns (optional)"
   PRESET |o--o{ REGISTRATION : "filled from (optional)"
   EVENT ||--|{ FORM : "has"
+  EVENT ||--o{ PARTICIPANT_FIELD : "has"
+  PARTICIPANT_FIELD ||--o{ FIELD_VALUE : "value per registration"
   FORM ||--o{ SUBMISSION : "receives"
   SUBMISSION ||--o| REGISTRATION : "creates"
-  REGISTRATION ||--o{ SUBMISSION : "additional forms"
+  REGISTRATION ||--o{ SUBMISSION : "additional forms (each submit)"
   EVENT ||--o{ REGISTRATION : "has"
   REGISTRATION ||--o{ FIELD_VALUE : "current data"
   REGISTRATION ||--o{ LEDGER_LINE : "balance"
@@ -104,17 +106,26 @@ erDiagram
 
 - A **submission** is the frozen original: the answers as JSON plus the form
   version, never changed. A view of it comes later, at low priority.
-- **A submission creates zero or one registration, never more.** A form in
-  the registration slot creates one; an additional form attaches a
-  **supplementary submission** to an existing registration. Supplementary
-  answers are facts that rules and fee components can read.
+- **A registration has one or more submissions.** A registration form's
+  submission creates it; each submit of an additional form appends another
+  ([Forms](events-and-forms.md#forms-and-the-registration-slot)). A
+  submission creates zero or one registration, never more.
 - **At submit the answers are copied** into the registration's **field
-  values**, which hold the current state and are what admins work with.
+  values**, one per participant field of the event
+  ([Fields](events-and-forms.md#fields)), whichever form they came from.
+  Field values hold the current state; they are what admins work with and
+  what mails, views, conditions and fee components read. Which answers an
+  additional form writes, and when an overwrite is refused:
+  [Changing participant fields after submit](events-and-forms.md#changing-participant-fields-after-submit).
+- **A participant field of source "system" has no field value.** It only
+  declares a system decision; reading it reads the current decision record
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **One row per field,** each carrying the event ID, keyed by event,
   reference code and field. Loading a registration is one index range read;
   filtering and sorting by a field stay within the event. Estimated at about
   a million rows over ten years, which InnoDB handles comfortably.
-- Editability after submit: [Fields](events-and-forms.md#editability-after-submit).
+- **A field with no value for a registration reads as none,** e.g. a field
+  only another form holds.
 
 ## Status, capacity and waitlist
 
@@ -187,6 +198,24 @@ reference and check-in barcode.
   registrations, plus account-level actions). Organizers and outside
   partners are admin-side users who reach registrations through the views
   granted to them ([Foundation](foundation.md#views-and-grants)).
+- **The active registration** is the one registration the site currently
+  acts for on the participant side. It is never called "logged in": an
+  account may own several registrations, and a guest has no account.
+  - **A secret link** makes its registration active: the site remembers it
+    in a cookie, then redirects to the same page without the token, so the
+    token does not stay in the address bar or the history.
+  - **An account** picks the active registration among the registrations it
+    owns. When the account owns the registration a cookie names, the account
+    wins: access follows the account.
+  - The active registration **expires,** and **"kilépés"** clears it.
+- **The participant side is built from blocks** that admins place on any
+  page, not from a fixed portal page: e.g. the registration's status, a
+  picker among an account's registrations, "kilépés", or a small additional
+  form. They show the active registration.
+- **A page holding a participant block is never cached.**
+- **Forms start from the active registration:** an additional form writes
+  to it, and a registration form may prefill from it
+  ([Forms](events-and-forms.md#prefill-from-a-link)).
 - **Secret links:** 128 random bits, URL-safe (22 characters). They are
   **stored readable,** so every email can carry the registrant's link. They
   are treated as secrets: our own code never writes one into a log line or an
@@ -207,7 +236,8 @@ reference and check-in barcode.
 - **A hidden attribution field** can carry a key from another page, e.g. the
   module recommender's answers. Erasing the registration deletes the field
   value, so those answers stay, unlinked and anonymous, for statistics.
-- **An erasure anonymises** the registration's personal fields and answers.
+- **An erasure anonymises** the registration's personal field values and
+  submissions.
   The reference code, ledger lines and decision records are kept. **Ledger
   lines are kept at least 8 years** (the Hungarian accounting-law period), to
   be confirmed with the organisations' bookkeepers.

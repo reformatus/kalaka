@@ -7,7 +7,9 @@ title: Events and forms
 ## Events
 
 - **The event is the top-level unit.** A form belongs to exactly one event,
-  and the event is fixed by which form is opened. Seasons are grouped by
+  fixed when the form is created: a form is created from its event, and
+  changing the event is refused once the form has fields or submissions.
+  Opening a form therefore fixes the event. Seasons are grouped by
   dates, labels and filters, not by a layer above events.
 - **Budgets and accounting are completely separate per event.** Linking
   events (e.g. REFISZ's two camps) is not part of the lifecycle.
@@ -40,7 +42,7 @@ the "registration opens" instant up to, but not including, the
 "registration closes" instant.
 - **"Open", "closed" and phases are derived** by comparing the current time
   with the points. They are never stored, and nothing fires at those moments.
-  The same holds for every form's date window. Registration therefore opens
+  The same holds for every form's open period. Registration therefore opens
   and closes automatically at its points; to change that, an admin edits the
 points (which does not clear the "full" latch).
 - **The participant phase tracker** (today's F1–F5) stays, as a modular
@@ -85,18 +87,31 @@ flowchart TB
     AF["Additional forms<br/>e.g. staff form"]
   end
   F1 & F2 -->|"create"| REG["Registration"]
-  AF -->|"attach a supplementary submission"| REG
+  AF -->|"write to it (a submission each time)"| REG
 ```
 
-- An event has a **registration slot** holding one or more forms, plus
-  **additional forms** that attach extra data to an existing registration
-  (e.g. a staff form). A form's purpose follows from where it sits.
-- **Every form has its own access requirements,** kept minimal: a date window,
-  a password (WordPress's own post password) and a required WordPress role.
-- **The slot adds two rules:** every form in it must contain the required
-  fields and functionality (e.g. exactly one contact email), and the slot's
-  date range (registration opens and closes) applies on top of each form's own
-  requirements. Otherwise all forms share the same primitives.
+- An event has a **registration slot** holding one or more **registration
+  forms**, plus **additional forms** that write to an existing registration
+  (e.g. a staff form, or a form holding only the module ranking). A form's
+  purpose follows from where it sits.
+- **Every form has its own access requirements,** kept minimal: a password
+  (WordPress's own post password) and a required WordPress role.
+- **When a form is open:**
+  - a registration form is open while the slot is: from "registration
+    opens" up to "registration closes". It has no period of its own;
+  - **each additional form has its own open period**;
+  - an additional form that writes an assignment set's choice follows that
+    set's choice window instead
+    ([Modules](modules-and-extensions.md#assignment-sets)).
+- **The slot adds one more rule:** every form in it must contain the
+  required fields and functionality (e.g. exactly one contact email).
+  Otherwise all forms share the same primitives.
+- **An additional form never creates a registration** and never counts
+  toward capacity. It writes to the active registration
+  ([Registrations](registrations-and-identity.md#access)) or to the one its
+  form link targets, and only a `registered` or `waitlisted` registration
+  may submit it
+  ([Changing participant fields after submit](#changing-participant-fields-after-submit)).
 - **The event's capacity is the only capacity on registrations**
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
   There are no registration categories and no per-form capacity. Options of
@@ -104,12 +119,12 @@ flowchart TB
 - **Staff work as today:** they register through the normal registration form
   (taking a place), then fill in the staff form, an additional form whose
   answers give the discount. Staff is not a core concept; it is built on
-  supplementary submissions.
+  additional forms.
 - Workshops, modules, groups, rooms and meal turns are **assignment sets**
   ([Modules](modules-and-extensions.md#assignment-sets)). A choice field in a
-  form writes a set's direct choice or a request; re-choosing later is an
-  edit in the portal while the set's choice window is open, not a resubmitted
-  form.
+  form writes a set's direct choice or a request. **Re-choosing later is an
+  additional form** holding that choice, in both access modes, open while
+  the set's choice window is; there is no separate portal edit.
 - **Form texts read amounts, quotas and deadlines from the event's settings,**
   so they cannot drift from the rules
   ([Values and conditions](#values-and-conditions)).
@@ -118,6 +133,10 @@ flowchart TB
 
 - **There is no public prefill:** no URL argument other than the link token
   affects a form.
+- **Forms start from the active registration**
+  ([Registrations](registrations-and-identity.md#access)): an additional
+  form is prefilled from its current field values, as editable values (a
+  type may refuse prefill); a registration form may prefill from it too.
 - **A form link prefills from its record** (below): the server sets the
   values, either locked or as editable prefilled values. Prefill from a
   preset is separate ([Fields](#fields)).
@@ -131,6 +150,9 @@ flowchart TB
 
 - **A form link has:**
   - its form;
+  - optionally, a **target registration**: the registration an additional
+    form writes to. A registration is never identified by a typed reference
+    code ([Registrations](registrations-and-identity.md#reference-codes));
   - the field values it sets, each either locked (read-only or hidden) or an
     editable prefilled value;
   - uses: unlimited or at most N (a single-use link, max 1, is today's
@@ -196,10 +218,34 @@ flowchart TB
 
 | Concept | What it is |
 |---|---|
+| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
 | **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, choice, …) |
 | **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Created by a single switch on a form field |
-| **Form field** | A block in a form, standalone or copied from a definition (keeping the definition's ID and version) |
+| **Form field** | A block in a form that asks for one participant field, standalone or copied from a definition (keeping the definition's ID and version) |
 
+- **Words.** A **submission** is what one submit sends, kept frozen; an
+  **answer** is one field's entry in it; a **field value** is a participant
+  field's current value for one registration
+  ([Registrations](registrations-and-identity.md#submissions-and-values)).
+  A field definition is not a participant field.
+- **Each event has one list of participant fields,** stored as a table, not
+  derived from the forms. Each field records its **source**:
+  - **form:** created by a form field; most fields are;
+  - **staff:** a column admins add that no participant fills in; staff
+    write it through views, and it may also appear in an additional form;
+  - **extension:** written only by an extension's own use case, e.g. the
+    award of adjudicated aid ([Money](money.md#core-money-scope));
+  - **system:** a read-only field that only **declares** a system decision
+    (e.g. confirmation) so that mails, views and conditions can name it. The
+    decision record stays the source of truth
+    ([Foundation](foundation.md#facts-decisions-and-computed-values)); no
+    field value is ever written for it, so nothing can shadow the decision.
+- **Designing a form designs participant fields.** A new form field creates
+  a new participant field. A form field joins an existing participant field
+  only explicitly, by taking its key (below); several forms writing one
+  field is never accidental.
+- **A field that no form holds any more stays in the list, retired.** Its
+  values stay, and its key is never given to another field.
 - **Definition, its copies in forms and its data are three separate things.**
   Changing a definition never changes forms automatically: admins are offered
   an update per form (a new form version), and registration data is never
@@ -220,36 +266,67 @@ flowchart TB
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Keys and option values come from the visible text.** A field's key is
   derived from its title and a choice option's value from its label: no
-  diacritics, snake_case, and `_1`, `_2`, … on a collision (keys within the
-  form, values within the field). Both are set when the field or option is
-  created and stay the same when the text is renamed later, so stored data
-  keeps its meaning. The editor hides them unless asked.
+  diacritics, snake_case, and `_1`, `_2`, … on a collision. A derived key is
+  **unique across the event's participant fields, retired ones included,**
+  so a key is never reused; an option value is unique within its field.
+  Both are set when the field or option is created and stay the same when
+  the text is renamed later, so stored data keeps its meaning. The editor
+  hides them unless asked.
+- **A typed key may match on purpose.** A form field given the key of an
+  existing participant field is that same field: its answers write the same
+  field value. Its field type must be the same; saving a form that gives a
+  key another type is refused. A choice field's options are the union over
+  the forms that hold it; an option no form offers any more is retired,
+  keeping its label, so stored values still read.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins; core ships no
-  money field types. Values are stored like any other, **locked after submit
-  by default** (an organizer can unlock per field), and changed only through
-  use cases that re-materialize the money.
+  money field types. Values are stored like any other, **locked after their
+  first write by default** (an organizer can unlock per field), and changed
+  only through use cases that re-materialize the money.
 
-### Editability after submit
+### Changing participant fields after submit
 
-- Each form field defines whether registrants may edit it after submit, with
-  locks by date (a date reference) or set manually.
-- Registrants (by secret link or owner account) see all their submitted data
-  and can edit the editable fields.
-- Organizers with the capability can correct any field at any time.
-- The original submission stays unchanged, and every edit is audited.
+**A participant changes field values by submitting an additional form**
+that holds those fields, e.g. a form holding only the module ranking. There
+is no other participant-side edit.
+
+- **Every submit appends a submission;** earlier submissions stay as they
+  are. The latest write wins in the field values, and each change is
+  audited.
+- **Only fields the form shows are written,** plus hidden fields its form
+  link sets. Fields the form does not hold,
+  and fields in branches or pages that do not show, keep their values. A
+  shown field left blank clears its value: the form showed the current
+  value, so blank is the answer.
+- **The form opens with the current values** of the registration, as
+  editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
+- **Locked fields, money-relevant ones by default:** the first write is
+  allowed (e.g. the staff form setting staff status); an overwrite is
+  refused unless an organizer unlocked the field.
+- **Staff fields may appear in an additional form.**
+- **Admins can correct any field at any time,** through views. An admin
+  edit and a later participant submit are both writes: the last one wins
+  and both are audited. To freeze a field, an admin closes the form's open
+  period.
+- A resubmit never re-decides "not counted"
+  ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 
 ## Values and conditions
 
-**One value API** serves mails, portal pages and forms.
+**One value API** serves mails, participant blocks and forms.
 
 - **Each document kind declares its context,** and pickers offer only that
   context's keys:
   - mail: the recipient and the registration;
-  - portal page: the logged-in person and their registration;
+  - a participant block: the active registration
+    ([Registrations](registrations-and-identity.md#access));
   - form: answers only, for conditions; event values are rendered at page
     load.
+- **A form's conditions may also read the registration's current field
+  values** for participant fields the form does not hold, e.g. a staff form
+  branching on the camp chosen at registration. Fields the form holds are
+  read from its answers.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -266,7 +343,7 @@ flowchart TB
 
 - **Container blocks** `kalaka/if`, `kalaka/else-if` and `kalaka/else` hold
   the branches, using the one condition format below.
-- **The server renders them** in mails and portal pages.
+- **The server renders them** in mails and participant blocks.
 - **Forms show and hide branches** with the Interactivity API. The server
   re-checks them at submit and keeps only answers whose conditions hold.
 

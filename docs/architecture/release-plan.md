@@ -68,7 +68,9 @@ If the date is at risk, these give way, in this order:
 
 ### Not in this release
 
-Presets; the portal beyond "Coming soon", including its editable fields;
+Presets; the participant blocks beyond "Coming soon", including additional
+forms for changing field values after submit (the module ranking's is needed
+before IVK registration closes, not at opening);
 the privacy tools: WordPress's privacy export and eraser, the audit-diff
 scrub, self-service erasure and the other GDPR features (deferred until a wide
 release, [Deferred](deferred.md));

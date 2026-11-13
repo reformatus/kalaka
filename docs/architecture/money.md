@@ -23,7 +23,10 @@ title: Money
      participant states what they can pay, organizers decide whether and how
      much to grant, and payment is blocked until decided. It reduces only the
      participant's own part. Every request with a positive amount waits for a
-     decision; automatic evaluation may come later;
+     decision; automatic evaluation may come later. **The award is a
+     participant field of source "extension,"** written only by the aid
+     extension's own use case, never by a form
+     ([Fields](events-and-forms.md#fields));
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
 - Price-ladder tier quotas are separate from the event's waitlist. Each
@@ -248,8 +251,13 @@ such as lunch or a donation.
   `FeeComponentInput`. The price and the confirmation threshold are entries
   like any other.
 - **Personal facts still recompute automatically:** e.g. a price-ladder
-  choice, aid, staff status (a fact from an additional form), a passed
-  deadline.
+  choice, the aid award, staff status (a field value written by the staff
+  form, an additional form), a passed deadline.
+- **A money-relevant field value is locked after its first write** unless an
+  organizer unlocked the field: an additional form may set it once, and a
+  later submit that would overwrite it is refused
+  ([Changing participant fields after submit](events-and-forms.md#changing-participant-fields-after-submit)).
+  Every write is evaluated, so a change re-materializes the money.
 - **Event configuration edits reach existing registrations only through an
   explicit re-price** action with a preview. It replaces the snapshot, and the
   materializer writes the difference as `charge` lines; `adjustment` lines
@@ -261,8 +269,8 @@ such as lunch or a donation.
 ```mermaid
 flowchart LR
   S["Registration snapshot<br/>tariff, choices"] --> R
-  F["Registration facts<br/>status, answers, additional forms"] --> R
-  X["Extension inputs<br/>aid award, …"] --> R
+  F["Registration facts<br/>status, field values from every form"] --> R
+  X["Extension-written field values<br/>aid award, …"] --> R
   PF["Payment facts<br/>read from payment lines only"] --> R
   R["Fee components<br/>target amount per component and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]

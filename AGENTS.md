@@ -42,12 +42,12 @@ Links are relative to the repository root. Read these sections, not whole pages.
 | Events, lifecycle, date references | [Events](docs/architecture/events-and-forms.md#events), [Event lifecycle](docs/architecture/events-and-forms.md#event-lifecycle), [Date references](docs/architecture/events-and-forms.md#date-references) |
 | Forms and the registration slot | [Forms and the registration slot](docs/architecture/events-and-forms.md#forms-and-the-registration-slot), [Forms implementation](docs/architecture/events-and-forms.md#forms-implementation) |
 | Form links, prefill, admin submissions | [Prefill from a link](docs/architecture/events-and-forms.md#prefill-from-a-link), [Form links and admin submissions](docs/architecture/events-and-forms.md#form-links-and-admin-submissions) |
-| Fields, editability, conditions | [Fields](docs/architecture/events-and-forms.md#fields), [Editability after submit](docs/architecture/events-and-forms.md#editability-after-submit), [Conditions](docs/architecture/events-and-forms.md#conditions) |
+| Participant fields, additional forms, conditions | [Fields](docs/architecture/events-and-forms.md#fields), [Changing participant fields after submit](docs/architecture/events-and-forms.md#changing-participant-fields-after-submit), [Conditions](docs/architecture/events-and-forms.md#conditions) |
 | Registrations, identity (no person records), presets | [Registrations](docs/architecture/registrations-and-identity.md#registrations), [Identity: no person records](docs/architecture/registrations-and-identity.md#identity-no-person-records), [Presets](docs/architecture/registrations-and-identity.md#presets) |
 | Submissions and values | [Submissions and values](docs/architecture/registrations-and-identity.md#submissions-and-values) |
 | Status, capacity and waitlist | [Status, capacity and waitlist](docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist) |
 | Reference codes | [Reference codes](docs/architecture/registrations-and-identity.md#reference-codes) |
-| Registrant access (secret links, accounts) | [Access](docs/architecture/registrations-and-identity.md#access) |
+| Registrant access (secret links, accounts, the active registration) | [Access](docs/architecture/registrations-and-identity.md#access) |
 | Attribution and erasure | [Attribution and erasure](docs/architecture/registrations-and-identity.md#attribution-and-erasure) |
 | Money scope, amounts | [Core money scope](docs/architecture/money.md#core-money-scope), [Amounts](docs/architecture/money.md#amounts) |
 | Ledger | [Ledger](docs/architecture/money.md#ledger), [Recording payments by hand](docs/architecture/money.md#recording-payments-by-hand) |

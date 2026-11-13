@@ -80,7 +80,12 @@ activated.**
   (`kalaka_mail` posts). Blocks are used **only for layouts and conditions**.
 - **Values and conditions** follow the shared rules
   ([Values and conditions](events-and-forms.md#values-and-conditions)). A
-  mail's context is **the recipient and the registration**. Actions and
+  mail's context is **the recipient and the registration**. The
+  registration's keys are **the event's participant fields**
+  ([Fields](events-and-forms.md#fields)), not the fields of the form it
+  came through; a field with no value for that registration reads as none,
+  so a mail naming a field only one form holds still renders for everyone.
+  A key that is not a participant field of the event stays an error. Actions and
   reminders add their own layout blocks (e.g. a payment table).
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
