@@ -33,3 +33,6 @@ plugins/*/build/
 
 # Built plugin zips
 dist/
+
+# Drawn in CI by bin/loc-chart.py for the site
+docs/stats/

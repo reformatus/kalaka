@@ -9,6 +9,10 @@ today's Google Sheets, Forms and Apps Script setup with WordPress plugins.
 
 **Status (2026-10-29):** architecture decided; implementation not started.
 
+## Progress
+
+![Lines of code over time, with the estimate to the IVK release](stats/loc.png)
+
 ## Architecture
 
 The architecture pages are the authoritative record of the owner's
