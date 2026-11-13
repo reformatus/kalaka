@@ -239,12 +239,23 @@ flowchart TB
   - **staff:** a column admins add that no participant fills in; staff
     write it through views, and it may also appear in an additional form;
   - **extension:** written only by an extension's own use case, e.g. the
-    award of adjudicated aid ([Money](money.md#core-money-scope));
+    award of adjudicated aid ([Money](money.md#core-money-scope)), unless
+    the extension declares the field form-writable (off by default); only
+    then may a form hold its key;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
     ([Foundation](foundation.md#facts-decisions-and-computed-values)); no
     field value is ever written for it, so nothing can shadow the decision.
+- **A participant field's title and option labels are its own,** separate
+  from the labels the forms show. Each is set when it is first declared (an
+  option is matched by its value) and is never overwritten by a form's label,
+  including a form that joins the field. It changes only on an explicit
+  request: the form editor asks the organizer whether to carry a changed
+  label over, or staff edit it in the field list (`form` and `staff` fields;
+  a `system` or `extension` field's texts are its declarer's). A form shows
+  its own labels; mails, views and the participant blocks show the
+  participant field's.
 - **Designing a form designs participant fields.** A new form field creates
   a new participant field. A form field joins an existing participant field
   only explicitly, by taking its key (below); several forms writing one
