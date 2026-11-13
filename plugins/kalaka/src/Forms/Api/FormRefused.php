@@ -22,7 +22,6 @@ final class FormRefused extends KalakaException
 
     protected function defaultMessage(): string
     {
-        // [UNAPPROVED N3]
         return 'Ez az űrlap most nem küldhető be.';
     }
 

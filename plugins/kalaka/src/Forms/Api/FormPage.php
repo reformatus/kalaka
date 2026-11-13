@@ -6,7 +6,7 @@ namespace Kalaka\Forms\Api;
 
 /**
  * A page that shows a Kaláka form is never cached (N6): it carries a submit token of its own, and a
- * cached copy would hand one visitor's token to the next. [UNAPPROVED N6]
+ * cached copy would hand one visitor's token to the next.
  *
  * Forms calls `preventCaching()` on `template_redirect` for a singular page whose content holds the
  * form block `kalaka/form` or the `[kalaka_form]` shortcode, before any output. The form renderer

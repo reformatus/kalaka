@@ -9,7 +9,7 @@ use Kalaka\Registrations\Api\FormSubmissions;
 /**
  * A form that submissions refer to is never deleted permanently (Forms `AGENTS.md`: a submission's
  * version must resolve to its definition for as long as the form exists). Moving it to the trash stays
- * allowed. [UNAPPROVED N15]
+ * allowed.
  *
  * - Every path (code, WP-CLI, wp-admin, emptying the trash) goes through `pre_delete_post`: the deletion
  *   is refused, `wp_delete_post()` returns false, and the form stays as it is.

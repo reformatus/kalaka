@@ -247,7 +247,11 @@ final class SubmitRegistrationTest extends FormsTestCase
         $form = $this->openForm(1);
 
         self::assertSame(self::REGISTERED_TEXT, $this->submit($form)->afterSubmit);
-        self::assertSame('<p>' . RegistrationSubmit::DEFAULT_WAITLISTED . '</p>', $this->submit($form)->afterSubmit);
+        self::assertSame(
+            '<p>Köszönjük a jelentkezésedet! Jelenleg nincs szabad hely, ezért várólistára kerültél. '
+            . 'Figyeld az e-maileidet: értesítünk, ha be tudunk hívni az eseményre.</p>',
+            $this->submit($form)->afterSubmit
+        );
     }
 
     public function testTheSameTokenWithOtherAnswersIsRefusedAndWritesNothing(): void

@@ -43,13 +43,12 @@ final class RegistrationSubmit
 
     /**
      * The default after-submit text of each status, shown when the form has no after-submit section or it
-     * fails to render. [UNAPPROVED N14]
+     * fails to render (#161 N14; the waitlisted text owner 2026-11-13).
      */
     public const DEFAULT_REGISTERED = 'Köszönjük a jelentkezésedet! A további tudnivalókat e-mailben küldjük el.';
 
-    /** [UNAPPROVED N14] */
     public const DEFAULT_WAITLISTED = 'Köszönjük a jelentkezésedet! Jelenleg nincs szabad hely, ezért várólistára '
-        . 'kerültél. Ha felszabadul egy hely, e-mailben értesítünk.';
+        . 'kerültél. Figyeld az e-maileidet: értesítünk, ha be tudunk hívni az eseményre.';
 
     /**
      * @param Actor $actor the person: `GuestActor`, or `AccountActor` when logged in

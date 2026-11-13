@@ -177,7 +177,7 @@ final class SubmitRegistration implements PublicUseCase
      * every key must be an active participant field of the event, of the type the form gives it, and never
      * a `system` field or one a form may not write (`formWritable`), which no submit writes. Anything else
      * means the form and the event's list disagree (a declaration that has not caught up): a
-     * `SystemFailure`, never a partial write. [UNAPPROVED N17]
+     * `SystemFailure`, never a partial write.
      *
      * @return array<string, string> field key → the value to store
      * @throws SystemFailure

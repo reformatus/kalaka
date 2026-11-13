@@ -115,7 +115,7 @@ final class FormEvent
 
     /**
      * Whether the form's event is fixed: it holds a field block, or submissions refer to it in its stored
-     * event (#169 N4's submissions half). [UNAPPROVED N16]
+     * event (#169 N4's submissions half).
      */
     public static function isFixed(int $id, ?int $stored): bool
     {
