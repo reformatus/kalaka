@@ -10,7 +10,7 @@ conditions, prefill and form links
   [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
   [Fields](../../../../docs/architecture/events-and-forms.md#fields);
   later [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions),
-  [Editability after submit](../../../../docs/architecture/events-and-forms.md#editability-after-submit),
+  [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
   [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
 - modules-and-extensions.md: the field-type and theme-adapter points of
