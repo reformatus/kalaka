@@ -9,6 +9,7 @@ use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Forms\ParticipantField\DeclareParticipantFields;
+use Kalaka\Forms\ParticipantField\RenameParticipantField;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
@@ -30,11 +31,15 @@ final class ParticipantFieldsTest extends FormsTestCase
     }
 
     /** A participant field another source declared, written as its use case would. */
-    private function declareField(string $key, string $source, bool $formWritable = false): void
-    {
+    private function declareField(
+        string $key,
+        string $source,
+        bool $formWritable = false,
+        int $event = self::EVENT,
+    ): void {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
-            'event_id' => self::EVENT,
+            'event_id' => $event,
             'field_key' => $key,
             'version' => 1,
             'type' => 'kalaka/text-field',
@@ -182,7 +187,7 @@ final class ParticipantFieldsTest extends FormsTestCase
 
         $fields = $this->participantFields();
         self::assertSame(['note'], array_keys($fields));
-        self::assertSame('Egyéb megjegyzés', $fields['note']->title);
+        self::assertSame('Megjegyzés', $fields['note']->title); // the field's own title, set when declared
         self::assertFalse($fields['note']->retired);
     }
 
@@ -583,5 +588,42 @@ final class ParticipantFieldsTest extends FormsTestCase
         wp_set_current_user(self::factory()->user->create(['role' => 'editor']));
         $refused = $this->rest('GET', '/kalaka-admin/v1/events/' . $event . '/participant-fields');
         self::assertSame(403, $refused->get_status());
+    }
+
+    public function testATitleIsTheFieldsOwnAndChangesOnlyByARename(): void
+    {
+        $event = $this->create();
+        $id = $this->additional($this->field('text', 'note', ['label' => 'Megjegyzés']), $event);
+        $route = '/kalaka-admin/v1/events/' . $event . '/participant-fields/note';
+
+        // A new block label, here and in another form joining the key, leaves the field's title alone.
+        $this->saveContent($id, $this->field('text', 'note', ['label' => 'Egyéb megjegyzés']));
+        $this->additional($this->field('text', 'note', ['label' => 'Más cím']), $event);
+        self::assertSame('Megjegyzés', $this->participantFields($event)['note']->title);
+
+        $renamed = $this->rest('PATCH', $route, ['title' => '  Egyéb megjegyzés ']);
+        self::assertSame(200, $renamed->get_status());
+        self::assertSame('Egyéb megjegyzés', ((array) $renamed->get_data())['title']);
+        self::assertSame('Egyéb megjegyzés', $this->participantFields($event)['note']->title);
+        self::assertContains(RenameParticipantField::name(), array_column($this->entries(), 'action'));
+
+        $this->declareField('staff_note', 'staff', false, $event);
+        $staff = '/kalaka-admin/v1/events/' . $event . '/participant-fields/staff_note';
+        self::assertSame(200, $this->rest('PATCH', $staff, ['title' => 'Belső'])->get_status());
+
+        $this->declareField('aid_award', 'system', false, $event);
+        $system = '/kalaka-admin/v1/events/' . $event . '/participant-fields/aid_award';
+        self::assertSame(422, $this->rest('PATCH', $system, ['title' => 'Más'])->get_status());
+        $this->declareField('ranking', 'extension', true, $event);
+        $extension = '/kalaka-admin/v1/events/' . $event . '/participant-fields/ranking';
+        self::assertSame(422, $this->rest('PATCH', $extension, ['title' => 'Más'])->get_status());
+
+        $unknown = '/kalaka-admin/v1/events/' . $event . '/participant-fields/nincs';
+        self::assertSame(404, $this->rest('PATCH', $unknown, ['title' => 'Más'])->get_status());
+        self::assertSame(400, $this->rest('PATCH', $route, ['title' => '   '])->get_status());
+
+        wp_set_current_user(self::factory()->user->create(['role' => 'editor']));
+        self::assertSame(403, $this->rest('PATCH', $route, ['title' => 'Más'])->get_status());
+        self::assertSame('Egyéb megjegyzés', $this->participantFields($event)['note']->title);
     }
 }

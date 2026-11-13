@@ -44,6 +44,10 @@ conditions, prefill and form links
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
   kept.
+- A participant field's title is its own, separate from the labels of the
+  blocks that hold it: set when the field is declared, never from a later
+  block label, and changed only by `RenameParticipantField` (a `form` or
+  `staff` field; a `system` or `extension` field's title is its declarer's).
 - A form's event is set when it is created and fixed once the form has
   fields, on every path that writes the setting. A save that changes the
   event is judged before anything is stored, on the stored and the incoming

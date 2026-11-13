@@ -16,7 +16,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * - a held key keeps its row and type; one held with a different type, or a field forms may not hold
  *   (`system`, or `extension` not declared form-writable), is skipped and
  *   returned (the save check lets neither through, so only a form written around it gets here) and the
- *   rest goes on; a retired one is active again; the saved form's title and option labels are the latest;
+ *   rest goes on; a retired one is active again; the saved form's option labels are the latest, while the
+ *   title stays the one the field was declared with (`RenameParticipantField` changes it);
  * - choice options are a union: a new one is added, one no form holds any more is retired with its label
  *   kept (owner ruling 2026-11-13, B3(a)), and one held again is active again;
  * - a `form` field no form holds any more is retired. Its key is never derived again (`FieldKeys`).
@@ -135,9 +136,8 @@ final class DeclareParticipantFields implements AdminUseCase
 
             $before = $record->toRow();
             $record->retiredAt = null;
-            if ($field['latest']) {
-                $record->title = $field['title'];
-            }
+            // The title is the participant field's own: set when it is declared, changed only by
+            // `RenameParticipantField` (owner ruling 2026-11-13). [UNAPPROVED N10]
             $record->options = self::merged(
                 $record->options,
                 $field['options'],
