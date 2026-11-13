@@ -33,9 +33,6 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  */
 final class ParticipantFieldSync
 {
-    /** The statuses of the forms whose fields count: every one but `trash`, `auto-draft` and `inherit`. */
-    private const STATUSES = ['publish', 'future', 'draft', 'pending', 'private'];
-
     /** @var array<int, int> the event of a form being deleted, by post ID, kept before its meta goes */
     private static array $deleting = [];
 
@@ -111,18 +108,9 @@ final class ParticipantFieldSync
     public static function fields(int $eventId, ?\WP_Post $saved): array
     {
         $contributions = Contributions::current();
-        $posts = get_posts([
-            'post_type' => FormPosts::POST_TYPE,
-            'post_status' => self::STATUSES,
-            'meta_key' => FormPosts::META_EVENT_ID,
-            'meta_value' => (string) $eventId,
-            'posts_per_page' => -1,
-            'orderby' => 'ID',
-            'order' => 'ASC',
-            'suppress_filters' => true,
-        ]);
-        $forms = $saved !== null && in_array($saved->post_status, self::STATUSES, true) ? [$saved] : [];
-        foreach ($posts as $post) {
+        $holding = $saved !== null && in_array($saved->post_status, FormPosts::HOLDING_STATUSES, true);
+        $forms = $holding ? [$saved] : [];
+        foreach ((new FormPosts())->ofEvent($eventId) as $post) {
             if ($saved === null || $post->ID !== $saved->ID) {
                 $forms[] = $post;
             }

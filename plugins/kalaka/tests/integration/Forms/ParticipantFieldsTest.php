@@ -29,6 +29,24 @@ final class ParticipantFieldsTest extends FormsTestCase
         wp_set_current_user($this->fullAccessUser());
     }
 
+    /** A participant field another source declared, written as its use case would. */
+    private function declareField(string $key, string $source, bool $formWritable = false): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => self::EVENT,
+            'field_key' => $key,
+            'version' => 1,
+            'type' => 'kalaka/text-field',
+            'title' => 'Támogatás',
+            'source' => $source,
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 100,
+            'form_writable' => $formWritable ? 1 : 0,
+        ]);
+    }
+
     /** @param array<string, mixed> $attributes */
     private function unkeyed(string $type, string $label, array $attributes = []): string
     {
@@ -199,17 +217,7 @@ final class ParticipantFieldsTest extends FormsTestCase
 
     public function testASystemFieldIsReadOnly(): void
     {
-        global $wpdb;
-        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
-            'event_id' => self::EVENT,
-            'field_key' => 'aid_award',
-            'version' => 1,
-            'type' => 'kalaka/text-field',
-            'title' => 'Támogatás',
-            'source' => 'system',
-            'created_at' => '2026-11-13 08:00:00.000000',
-            'updated_at' => '2026-11-13 08:00:00.000000',
-        ]);
+        $this->declareField('aid_award', 'system');
 
         $response = $this->rest('POST', '/wp/v2/kalaka_form', [
             'title' => 'Pótlap',
@@ -221,6 +229,65 @@ final class ParticipantFieldsTest extends FormsTestCase
         self::assertSame(400, $response->get_status());
         self::assertStringContainsString('system_field („aid_award”)', (string) $this->error($response)['message']);
         self::assertSame(['aid_award_1'], $this->storedKeys($this->additional($this->unkeyed('text', 'Aid award'))));
+    }
+
+    public function testAnExtensionFieldIsReadOnlyUnlessDeclaredFormWritableAndAStaffFieldIsWritable(): void
+    {
+        $this->declareField('aid_award', 'extension');
+        $this->declareField('ranking', 'extension', true);
+        $this->declareField('staff_note', 'staff');
+
+        $refused = $this->rest('POST', '/wp/v2/kalaka_form', [
+            'title' => 'Pótlap',
+            'status' => 'draft',
+            'content' => $this->field('text', 'aid_award'),
+            'meta' => ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional'],
+        ]);
+        self::assertSame(400, $refused->get_status());
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: extension_field („aid_award”).',
+            $this->error($refused)['message']
+        );
+
+        $id = $this->additional($this->field('text', 'ranking') . $this->field('text', 'staff_note'));
+        self::assertSame(['ranking', 'staff_note'], $this->storedKeys($id));
+        $fields = $this->participantFields();
+        self::assertFalse($fields['aid_award']->formWritable);
+        self::assertTrue($fields['ranking']->formWritable);
+        self::assertSame('extension', $fields['ranking']->source);
+        self::assertSame('staff', $fields['staff_note']->source);
+        self::assertSame([['form_id' => $id, 'title' => 'Regisztráció']], $fields['staff_note']->forms);
+    }
+
+    public function testAKeylessBlockKeepsItsKeyAcrossSaves(): void
+    {
+        $id = $this->additional($this->unkeyed('text', 'Megjegyzés'));
+        self::assertSame(['megjegyzes'], $this->storedKeys($id));
+
+        // The block editor sends its own block state again, still without the key the server set.
+        $this->saveContent($id, $this->unkeyed('text', 'Megjegyzés'));
+        self::assertSame(['megjegyzes'], $this->storedKeys($id));
+        $response = $this->rest(
+            'POST',
+            '/wp/v2/kalaka_form/' . $id,
+            ['content' => $this->unkeyed('text', 'Megjegyzés')]
+        );
+        self::assertSame(200, $response->get_status());
+        self::assertSame(['megjegyzes'], $this->storedKeys($id));
+
+        // A keyless block inserted before it: the original keeps its key.
+        $this->saveContent($id, $this->unkeyed('text', 'Kérdés') . $this->unkeyed('text', 'Megjegyzés'));
+        self::assertSame(['kerdes', 'megjegyzes'], $this->storedKeys($id));
+        self::assertSame(['megjegyzes', 'kerdes'], array_keys($this->participantFields(self::EVENT, false)));
+    }
+
+    public function testFieldsComeBackInTheOrderTheyWereDeclared(): void
+    {
+        $this->additional($this->unkeyed('text', 'Zebra') . $this->unkeyed('date', 'Alma'));
+        $this->additional($this->unkeyed('text', 'Barack'));
+
+        self::assertSame(['zebra', 'alma', 'barack'], array_keys($this->participantFields()));
+        self::assertSame('Dátum', $this->participantFields()['alma']->typeLabel);
     }
 
     public function testChoiceOptionsAreAUnionAndARemovedOneIsRetiredWithItsLabel(): void
@@ -476,16 +543,20 @@ final class ParticipantFieldsTest extends FormsTestCase
             [[
                 'key' => 'note',
                 'type' => 'kalaka/text-field',
+                'type_label' => 'Szöveg',
                 'title' => 'Megjegyzés',
                 'options' => [],
                 'source' => 'form',
+                'form_writable' => true,
                 'retired' => false,
+                'forms' => [['form_id' => $id, 'title' => 'Regisztráció']],
             ]],
             $response->get_data()
         );
         $route = '/kalaka-admin/v1/events/' . $event . '/participant-fields';
         $all = $this->rest('GET', $route, ['include_retired' => true]);
-        self::assertSame(['gone', 'note'], array_column((array) $all->get_data(), 'key'));
+        self::assertSame(['note', 'gone'], array_column((array) $all->get_data(), 'key'));
+        self::assertSame([], ((array) $all->get_data())[1]['forms']);
 
         self::assertSame(404, $this->rest('GET', '/kalaka-admin/v1/events/99999/participant-fields')->get_status());
 

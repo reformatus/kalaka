@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Query\Query;
 final class ParticipantFieldQuery extends Query
 {
     /**
-     * One statement on the primary key's event prefix, in the order the fields were declared.
+     * One statement on the primary key's event prefix, in the order the fields were declared (`position`).
      *
      * @return list<ParticipantFieldRecord> retired ones included
      */
@@ -19,7 +19,7 @@ final class ParticipantFieldQuery extends Query
         return $this->scope(function () use ($eventId): array {
             $rows = $this->select(
                 'participant_field',
-                'SELECT * FROM %i WHERE event_id = %d ORDER BY created_at, field_key',
+                'SELECT * FROM %i WHERE event_id = %d ORDER BY position, field_key',
                 [$this->table(ParticipantFieldRecord::TABLE), $eventId]
             );
 

@@ -9,6 +9,7 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\AnswerValidator;
 use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
+use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -98,13 +99,22 @@ final class Forms
     }
 
     /**
-     * The event's participant fields, in the order they were declared; retired ones only when asked.
-     * It reads Kaláka's own table, so it may run anywhere. [UNAPPROVED N1]
+     * The event's participant fields, in the order they were declared (`position`); retired ones only when
+     * asked. Each names the forms of the event that hold it now and its type's label. It reads Kaláka's own
+     * table and the event's form posts, so it runs outside a use case's transaction. [UNAPPROVED N1]
      *
      * @return list<ParticipantField>
      */
     public function participantFields(int $eventId, bool $includeRetired = false): array
     {
+        $holders = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            foreach (array_keys(FieldBlocks::of($post->post_content, Contributions::current())) as $key) {
+                $holders[$key][] = ['form_id' => $post->ID, 'title' => $post->post_title];
+            }
+        }
+        $blocks = \WP_Block_Type_Registry::get_instance();
+
         $fields = [];
         foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
             if ($record->retiredAt !== null && !$includeRetired) {
@@ -118,6 +128,7 @@ final class Forms
                     'retired' => $option['retired_at'] !== null,
                 ];
             }
+            $title = $blocks->get_registered($record->type)?->title;
             $fields[] = new ParticipantField(
                 $record->key,
                 $record->type,
@@ -125,6 +136,9 @@ final class Forms
                 $options,
                 $record->source,
                 $record->retiredAt !== null,
+                is_string($title) && $title !== '' ? $title : $record->type,
+                $record->writableFromForms(),
+                $holders[$record->key] ?? [],
             );
         }
 

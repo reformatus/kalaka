@@ -41,6 +41,8 @@ CREATE TABLE {prefix}kalaka_participant_fields (
   retired_at datetime(6) DEFAULT NULL,
   created_at datetime(6) NOT NULL,
   updated_at datetime(6) NOT NULL,
+  position int(10) unsigned NOT NULL,
+  form_writable tinyint(1) NOT NULL,
   PRIMARY KEY  (event_id,field_key)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;

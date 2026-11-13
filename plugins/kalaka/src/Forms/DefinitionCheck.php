@@ -223,7 +223,12 @@ final class DefinitionCheck
         bool $published,
     ): ?array {
         $contributions = Contributions::current();
-        $content = (new FieldKeys())->derive($content, $contributions, SharedKeyCheck::takenKeys($eventId));
+        $content = (new FieldKeys())->derive(
+            $content,
+            $contributions,
+            SharedKeyCheck::takenKeys($eventId),
+            FieldKeys::stored($formId),
+        );
         $problem = SharedKeyCheck::problem($content, $eventId, $contributions);
         if ($problem !== null || !$published || $placement === null) {
             return $problem;

@@ -23,6 +23,8 @@ final class FormsSchemaTest extends PerEventCostTestCase
         'retired_at' => 'datetime(6) null',
         'created_at' => 'datetime(6)',
         'updated_at' => 'datetime(6)',
+        'position' => 'int(10) unsigned',
+        'form_writable' => 'tinyint(1)',
     ];
 
     private const EXACT = ['field_key' => 'utf8mb4_nopad_bin', 'type' => 'utf8mb4_nopad_bin'];
@@ -85,6 +87,8 @@ final class FormsSchemaTest extends PerEventCostTestCase
                         'source' => 'form',
                         'created_at' => '2026-11-13 08:00:00.000000',
                         'updated_at' => '2026-11-13 08:00:00.000000',
+                        'position' => $n + 1,
+                        'form_writable' => 0,
                     ]);
                 }
             },

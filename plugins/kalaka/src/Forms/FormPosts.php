@@ -19,6 +19,31 @@ final class FormPosts
     public const META_PLACEMENT = 'kalaka_placement';
     public const META_REQUIRED_ROLE = 'kalaka_required_role';
 
+    /** The statuses of the forms whose fields count for their event: every one but `trash` and `auto-draft`. */
+    public const HOLDING_STATUSES = ['publish', 'future', 'draft', 'pending', 'private'];
+
+    /**
+     * The forms of an event whose fields count (`HOLDING_STATUSES`), by ascending ID.
+     *
+     * @return list<\WP_Post>
+     */
+    public function ofEvent(int $eventId): array
+    {
+        /** @var list<\WP_Post> $posts without `fields`, `get_posts()` returns post objects */
+        $posts = get_posts([
+            'post_type' => self::POST_TYPE,
+            'post_status' => self::HOLDING_STATUSES,
+            'meta_key' => self::META_EVENT_ID,
+            'meta_value' => (string) $eventId,
+            'posts_per_page' => -1,
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'suppress_filters' => true,
+        ]);
+
+        return $posts;
+    }
+
     /**
      * A published form of the right kind with valid settings, or null.
      *

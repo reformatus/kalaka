@@ -13,7 +13,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * the union over every form of the event that is not trashed, the saved form's fields marked `latest`:
  *
  * - a key no row has yet is declared, source `form`;
- * - a held key keeps its row and type; one held with a different type, or a `system` row, is skipped and
+ * - a held key keeps its row and type; one held with a different type, or a field forms may not hold
+ *   (`system`, or `extension` not declared form-writable), is skipped and
  *   returned (the save check lets neither through, so only a form written around it gets here) and the
  *   rest goes on; a retired one is active again; the saved form's title and option labels are the latest;
  * - choice options are a union: a new one is added, one no form holds any more is retired with its label
@@ -97,6 +98,11 @@ final class DeclareParticipantFields implements AdminUseCase
         foreach ($this->repository->forEventForUpdate($eventId, $context) as $record) {
             $rows[$record->key] = $record;
         }
+        // A new field comes after every field declared before, in the order the input lists them.
+        $position = 0;
+        foreach ($rows as $record) {
+            $position = max($position, $record->position);
+        }
 
         $held = [];
         $skipped = [];
@@ -117,10 +123,11 @@ final class DeclareParticipantFields implements AdminUseCase
                     null,
                     $now,
                     $now,
+                    ++$position,
                 ), $context);
                 continue;
             }
-            if ($record->source === ParticipantFieldRecord::SOURCE_SYSTEM || $record->type !== $field['type']) {
+            if (!$record->writableFromForms() || $record->type !== $field['type']) {
                 // A form written around the save check: the stored field stays as it is, the rest goes on.
                 $skipped[] = $key;
                 continue;

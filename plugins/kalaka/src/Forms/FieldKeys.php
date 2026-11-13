@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Forms\FieldType\ChoiceFieldType;
+use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Module\Contributions;
 
@@ -26,6 +27,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
  */
 final class FieldKeys
 {
+    /** @var array<string, array{string, string}> the stored fields no incoming block holds: key → type, title */
+    private array $own = [];
+
     /**
      * The `wp_insert_post_data` filter: the content of a `kalaka_form` with every key and value set.
      *
@@ -41,7 +45,12 @@ final class FieldKeys
         $id = is_int($postarr['ID'] ?? null) ? $postarr['ID'] : 0;
         $content = wp_unslash($data['post_content']);
         [$eventId] = FormEvent::resolve($id, FormEvent::requested($id, $postarr), $content);
-        $derived = (new self())->derive($content, Contributions::current(), SharedKeyCheck::takenKeys($eventId));
+        $derived = (new self())->derive(
+            $content,
+            Contributions::current(),
+            SharedKeyCheck::takenKeys($eventId),
+            self::stored($id),
+        );
         if ($derived !== $content) {
             $data['post_content'] = wp_slash($derived);
         }
@@ -49,13 +58,33 @@ final class FieldKeys
         return $data;
     }
 
+    /** The stored content of a form, the save's previous state; empty for a new one. */
+    public static function stored(int $id): string
+    {
+        $post = $id > 0 ? get_post($id) : null;
+
+        return $post instanceof \WP_Post && $post->post_type === FormPosts::POST_TYPE ? $post->post_content : '';
+    }
+
     /**
      * The block markup with every field key and option value set; unchanged when none was missing.
      *
+     * A field block that arrives without a key first takes back its own key from the form's stored content:
+     * the first stored field of the same type and the same title whose key no block of the incoming content
+     * holds. The block editor keeps its own block state and does not re-read what the server set, so without
+     * this a keyless block would derive again on every save, against the event's keys, which by then include
+     * the key it got on the save before (`x`, then `x_1`). Matching by type and title, not by position, keeps
+     * the key when a block is inserted or moved before it. [UNAPPROVED N7]
+     *
      * @param array<string, true> $eventKeys the keys a derived key must not take: the event's participant fields
+     * @param string $previous the form's stored content
      */
-    public function derive(string $content, Contributions $contributions, array $eventKeys = []): string
-    {
+    public function derive(
+        string $content,
+        Contributions $contributions,
+        array $eventKeys = [],
+        string $previous = '',
+    ): string {
         $fieldTypes = $contributions->fieldTypes();
         if ($fieldTypes === [] || !has_blocks($content)) {
             return $content;
@@ -64,6 +93,13 @@ final class FieldKeys
         $blocks = parse_blocks($content);
         $taken = [];
         $this->keep($blocks, $fieldTypes, $taken);
+        $this->own = [];
+        foreach ($previous === '' ? [] : FieldBlocks::of($previous, $contributions) as $key => $field) {
+            if (!isset($taken[$key])) {
+                $this->own[$key] = [$field['type'], $field['title']];
+                $taken[$key] = true;
+            }
+        }
         $taken += $eventKeys;
         $changed = false;
         $this->fill($blocks, $fieldTypes, $taken, $changed);
@@ -118,7 +154,8 @@ final class FieldKeys
                 /** @var array<string, mixed> $attributes */
                 $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
                 if (!isset($attributes['key'])) {
-                    $key = KeyDerivation::key(FieldMarkup::text($attributes, 'label'), $name, $taken);
+                    $title = FieldMarkup::text($attributes, 'label');
+                    $key = $this->ownKey($name, $title) ?? KeyDerivation::key($title, $name, $taken);
                     $taken[$key] = true;
                     $attributes['key'] = $key;
                     $changed = true;
@@ -136,6 +173,20 @@ final class FieldKeys
             }
         }
         unset($block);
+    }
+
+    /** The stored key of the first unclaimed stored field of this type and title, claimed now; or null. */
+    private function ownKey(string $type, string $title): ?string
+    {
+        foreach ($this->own as $key => [$ownType, $ownTitle]) {
+            if ($ownType === $type && $ownTitle === $title) {
+                unset($this->own[$key]);
+
+                return $key;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -37,8 +37,11 @@ conditions, prefill and form links
   (`kalaka_participant_fields`, owned by Forms). A derived key is unique
   across the event and never takes a key the event ever had, retired ones
   included. A key the form holds on purpose that another form of the event
-  holds too is the same participant field and must have its type; a `system`
-  field is read-only and no form holds its key. A choice field's options are
+  holds too is the same participant field and must have its type; an
+  `extension` field not declared form-writable, like a `system` field, is
+  read-only and no form holds its key; a `staff` field stays writable from
+  forms. A block that arrives without its key takes back its stored key
+  (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
   kept.
 - A form's event is set when it is created and fixed once the form has
@@ -64,13 +67,17 @@ conditions, prefill and form links
   version resolves to the definition it was checked against for as long as
   the form exists; a form that submissions refer to is never deleted.
 - A form with a definition problem (keys, options, an unknown field block, the
-  slot's markings, a missing revision) is unusable; it is never half-accepted.
+  slot's markings, a missing revision, a key that clashes with the event's
+  participant field) is unusable; it is never half-accepted.
 - A published form never goes from working to broken through an edit: saving a
   form as published runs the live form's definition check (`DefinitionCheck`,
-  through `DefinitionParser`) and refuses a broken one on every save path. A
-  new definition check goes into `DefinitionParser`, so the save check gets it
-  too. A form broken before the check stays closed and is named in a site
-  warning; it is never rendered from another revision.
+  through `DefinitionParser` and `SharedKeyCheck`) and refuses a broken one on
+  every save path. The definition check has two homes, and both the save check
+  and `Forms::definition()` run both: a check of the form alone goes into
+  `DefinitionParser`, a check against the event's participant fields into
+  `ParticipantField\SharedKeyCheck`. A form broken before the check stays
+  closed and is named in a site warning; it is never rendered from another
+  revision.
 - Kaláka's form blocks are gated by post type (`BlockGate` on
   `allowed_block_types_all`), never by `ancestor`: a form's editor gets the
   allow-list, any other editor only what a `BlockHost` names. Forms never names
