@@ -1,10 +1,9 @@
 <?php
 
 /**
- * Server render of a condition branch: events-and-forms.md, "Conditions". `Values::render()` keeps
- * only the held branch of each chain and marks it, so a branch renders its inner blocks, with no wrapper,
- * only when marked and while a `Values::render()` or `Values::renderPage()` call is in progress; any other
- * branch renders nothing.
+ * Server render of a condition branch: events-and-forms.md, "Conditions". See `BranchMarkup`: in a
+ * `Values::render()` or `Values::renderPage()` document only the held branch's inner blocks; in a form
+ * page's marked blocks every branch in a hidden wrapper carrying its chain and branch numbers.
  *
  * @var string $content the rendered inner blocks
  * @var \WP_Block $block
@@ -14,6 +13,5 @@ declare(strict_types=1);
 
 defined('ABSPATH') || exit;
 
-if (\Kalaka\Forms\Value\RenderStack::rendersBranch($block)) {
-    echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blocks WordPress has rendered
-}
+// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blocks WordPress has rendered, in a wrapper of integers
+echo \Kalaka\Forms\BranchMarkup::render($block, $content);

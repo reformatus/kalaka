@@ -6,13 +6,14 @@ namespace Kalaka\Forms;
 
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Api\FormSubmissions;
 
 /**
  * The event of a form is set when the form is created and fixed once the form has fields (owner ruling
  * 2026-11-13, B2(a)): keys are derived across the event's forms, so a form with fields cannot move to
  * another event. A save that changes the event is refused before anything is stored when the stored
- * content or the incoming content holds a field block; a form without fields may still change its
- * event, and fields may be added in a later save.
+ * content or the incoming content holds a field block, or submissions refer to the form (`isFixed()`); a
+ * form without either may still change its event, and fields may be added in a later save.
  *
  * A save learns the event the way `DefinitionCheck` learns the placement: from the REST request (the REST
  * controller saves meta only after the post, so it is remembered here for this request's
@@ -83,7 +84,7 @@ final class FormEvent
             return [$stored, false];
         }
         $incomingFields = $incoming !== null && FieldBlocks::any($incoming, Contributions::current());
-        if (self::hasFields($id) || ($stored !== null && $incomingFields)) {
+        if (self::isFixed($id, $stored) || ($stored !== null && $incomingFields)) {
             return [$stored, true];
         }
 
@@ -110,6 +111,15 @@ final class FormEvent
         }
 
         return is_string($value) && preg_match('/\A[1-9][0-9]*\z/', $value) === 1 ? (int) $value : null;
+    }
+
+    /**
+     * Whether the form's event is fixed: it holds a field block, or submissions refer to it in its stored
+     * event (#169 N4's submissions half).
+     */
+    public static function isFixed(int $id, ?int $stored): bool
+    {
+        return self::hasFields($id) || ($stored !== null && (new FormSubmissions())->exist($stored, $id));
     }
 
     /** Whether the stored form holds a field block. */
@@ -158,7 +168,7 @@ final class FormEvent
         }
         $refused = isset(self::$refused[$id]);
         unset(self::$refused[$id]);
-        if (!$refused && ($stored === null || !self::hasFields($id))) {
+        if (!$refused && ($stored === null || !self::isFixed($id, $stored))) {
             return true;
         }
         if (!$refused) {

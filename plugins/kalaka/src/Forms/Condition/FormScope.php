@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Condition;
 
+use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
@@ -11,19 +12,28 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
- * In a form, a condition reads answers only, and only those of the fields that come before its
- * chain in document order (events-and-forms.md, "Values and conditions"): never a later field, a
- * field of its own branch or anything that is not a field.
+ * In a form, a condition reads the answers of the fields that come before it in document order
+ * (events-and-forms.md, "Values and conditions") and the event's keys (`EventValues`, S76): never a
+ * later field, a field of its own branch or any other key.
  */
 final readonly class FormScope implements ConditionScope
 {
-    /** @param list<FormField> $fields the fields before the chain */
-    public function __construct(private array $fields, private Contributions $contributions)
-    {
+    /**
+     * @param list<FormField> $fields the fields before the condition
+     * @param array<string, ValueType> $declared the other keys a form's condition may read
+     */
+    public function __construct(
+        private array $fields,
+        private Contributions $contributions,
+        private array $declared = EventValues::TYPES,
+    ) {
     }
 
     public function typeOf(string $key): ValueType
     {
+        if (isset($this->declared[$key])) {
+            return $this->declared[$key];
+        }
         $type = $this->contributions->fieldTypes()[$this->field($key)->blockName] ?? null;
         if ($type === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
@@ -35,6 +45,9 @@ final readonly class FormScope implements ConditionScope
 
     public function choices(string $key): ?array
     {
+        if (isset($this->declared[$key])) {
+            return null;
+        }
         $field = $this->field($key);
 
         return $field->blockName === ChoiceFieldType::BLOCK_NAME

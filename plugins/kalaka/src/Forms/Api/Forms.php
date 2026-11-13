@@ -7,11 +7,13 @@ namespace Kalaka\Forms\Api;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\AnswerValidator;
+use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
+use Kalaka\Forms\FormWalk;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -27,6 +29,7 @@ final class Forms
         private readonly FormPosts $posts = new FormPosts(),
         private readonly DefinitionParser $parser = new DefinitionParser(),
         private readonly AnswerValidator $validator = new AnswerValidator(),
+        private readonly FormWalk $walk = new FormWalk(),
     ) {
     }
 
@@ -63,6 +66,97 @@ final class Forms
         }
 
         return $definition;
+    }
+
+    /**
+     * The definition of the version a form page was built from, which must be the form's latest version
+     * (S76 follow-up, N8): a re-fetch and a submit accept nothing else.
+     *
+     * @throws FormOutdated when the version is not the latest
+     * @throws SystemFailure when the definition has a problem
+     */
+    public function latestDefinition(Form $form, int $version): FormDefinition
+    {
+        if ($version !== $form->version) {
+            $error = new FormOutdated();
+            throw $error;
+        }
+
+        return $this->definition($form, $version);
+    }
+
+    /**
+     * The parsed blocks of the form's version with every branch block marked with its chain number and
+     * branch index (`Condition\ChainMarks`, the numbering the definition reads): what a form page renders,
+     * block by block with `render_block()`, outside `Values::render()`. A top-level page renders as
+     * `<div data-kalaka-page="N" [data-kalaka-terminal] hidden>…</div>` (`PageMarkup`); the after-submit
+     * section is left out.
+     *
+     * An answer-driven chain ships every branch, each as `<div data-kalaka-chain="N" data-kalaka-branch="i"
+     * hidden>…</div>` (`BranchMarkup`); the page shows the one `FormAvailability::$chains` holds. A
+     * withheld chain (`FormDefinition::withheldChains()`: it reads an event value or a held fact) ships
+     * only the branch the availability holds, without `hidden`, and nothing of the others.
+     *
+     * @param FormAvailability|null $availability what shows for the page's answers; without it no branch
+     *     of a withheld chain ships
+     * @return list<array<string, mixed>>
+     * @throws SystemFailure when the version is not a revision of the form, or a branch is misplaced
+     */
+    public function blocks(Form $form, ?int $version = null, ?FormAvailability $availability = null): array
+    {
+        $version ??= $form->version;
+        $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
+        $withheld = [];
+        foreach ($this->definition($form, $version)->withheldChains() as $number) {
+            $withheld[$number] = $availability?->heldBranch($number);
+        }
+
+        // The after-submit section is never rendered with the form.
+        return array_values(array_filter(
+            ChainMarks::prune($marked, $withheld),
+            static fn (array $block): bool => ($block['blockName'] ?? null) !== AfterSubmit::BLOCK
+        ));
+    }
+
+    /**
+     * The after-submit section of the form's version (`AfterSubmit`, N12) rendered with the context
+     * (`AfterSubmit::context()`): its inner blocks through `Values::render()`, conditions resolved, values
+     * filled. Null when the form has none; the caller then shows its default text.
+     *
+     * @throws SystemFailure when the version is not a revision of the form, or a key the context lacks
+     */
+    public function afterSubmit(Form $form, int $version, ValueContext $context): ?string
+    {
+        $section = self::findAfterSubmit(parse_blocks($this->posts->content($form, $version)));
+        if ($section === null) {
+            return null;
+        }
+        $inner = is_array($section['innerBlocks'] ?? null) ? array_values($section['innerBlocks']) : [];
+
+        return (new Values())->render(serialize_blocks($inner), $context);
+    }
+
+    /**
+     * @param array<array-key, mixed> $blocks
+     * @return array<string, mixed>|null
+     */
+    private static function findAfterSubmit(array $blocks): ?array
+    {
+        foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            if (($block['blockName'] ?? null) === AfterSubmit::BLOCK) {
+                /** @var array<string, mixed> $block */
+                return $block;
+            }
+            $found = self::findAfterSubmit(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : []);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -146,12 +240,62 @@ final class Forms
     }
 
     /**
+     * The submit's check of the answers, with the same walk as `availability()`.
+     * Decision N5 (#156): the facts are optional, so the signature of #53 stays.
+     *
      * @param array<array-key, mixed> $answers field key → the answer as sent
+     * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
+     *     form whose conditions read them; none when null
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
+     * @throws SystemFailure a key the facts do not declare
      */
-    public function validate(FormDefinition $definition, array $answers): ValidatedAnswers
+    public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->validator->validate($definition, $answers, Contributions::current());
+        return $this->validator->validate($definition, $answers, Contributions::current(), $facts);
+    }
+
+    /**
+     * What the form shows for answers as they stand (a draft, "if submitted now"; S76): the read model
+     * every render and re-render of the form's page builds from. Pure; errors in the answers are not
+     * reported here, an answer in error reads as empty.
+     *
+     * @param array<array-key, mixed> $answers field key → the answer as sent
+     * @param Facts $facts the facts besides the answers: the event's keys (`EventValues::of()`)
+     * @param int|null $page the page whose errors to report (Tovább): the walk's
+     *     errors of that page's shown fields; null reports none
+     * @throws InvalidInput an undeclared key or a value of the wrong JSON type, a page out of range
+     * @throws SystemFailure a key the facts do not declare
+     */
+    public function availability(
+        FormDefinition $definition,
+        array $answers,
+        Facts $facts,
+        ?int $page = null
+    ): FormAvailability {
+        if ($page !== null && !isset($definition->pages[$page])) {
+            // a page out of range, or any page of a form without pages.
+            $error = new InvalidInput();
+            throw $error;
+        }
+        $result = $this->walk->run($definition, $answers, $facts, Contributions::current());
+        $errors = [];
+        if ($page !== null && ($result->pages[$page] ?? false) && !$definition->pages[$page]->terminal) {
+            foreach ($result->errors as $key => $message) {
+                if ($definition->field($key)?->page === $page) {
+                    $errors[$key] = $message;
+                }
+            }
+        }
+
+        return new FormAvailability(
+            $result->shown,
+            $result->held,
+            $result->options,
+            $definition->triggers,
+            $definition->withheldChains(),
+            $result->pages,
+            $errors
+        );
     }
 }

@@ -22,19 +22,27 @@ final class BlockGateTest extends WP_UnitTestCase
         'kalaka/consent-field',
     ];
 
+    private bool $standIn = false;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
 
-        // The form block is the front end's; a stand-in here so the gate's handling of it shows.
-        register_block_type(BlockGate::FORM_BLOCK, []);
+        // The form block is the front end's; a stand-in here so the gate's handling of it shows, only when
+        // the real one is not registered (its teardown would unregister the real one otherwise).
+        $this->standIn = !\WP_Block_Type_Registry::get_instance()->is_registered(BlockGate::FORM_BLOCK);
+        if ($this->standIn) {
+            register_block_type(BlockGate::FORM_BLOCK, []);
+        }
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
     public function tear_down(): void
     {
-        unregister_block_type(BlockGate::FORM_BLOCK);
+        if ($this->standIn) {
+            unregister_block_type(BlockGate::FORM_BLOCK);
+        }
 
         parent::tear_down();
     }

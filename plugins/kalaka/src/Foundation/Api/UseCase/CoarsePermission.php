@@ -39,6 +39,15 @@ final class CoarsePermission
     {
         $registrations = $useCase->registrations($input);
 
+        // A public use case acts on no existing registration: any portal-side actor, a guest included.
+        if ($useCase instanceof PublicUseCase) {
+            if ($registrations !== []) {
+                throw new PermissionDenied();
+            }
+
+            return;
+        }
+
         if ($actor instanceof SecretLinkActor) {
             if ($registrations === []) {
                 throw new PermissionDenied();

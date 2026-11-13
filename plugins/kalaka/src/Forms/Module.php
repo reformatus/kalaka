@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Api\FormPage;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
 use Kalaka\Forms\FieldType\ConsentFieldType;
@@ -13,10 +14,11 @@ use Kalaka\Forms\FieldType\EmailFieldType;
 use Kalaka\Forms\FieldType\NameFieldType;
 use Kalaka\Forms\FieldType\PhoneFieldType;
 use Kalaka\Forms\FieldType\TextFieldType;
+use Kalaka\Forms\Value\BindingSource;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
-use Kalaka\Forms\Value\BindingSource;
 
 final class Module extends AbstractModule
 {
@@ -82,6 +84,21 @@ SQL;
     {
         add_action('init', [$this, 'register']);
         add_action('rest_api_init', [ParticipantFieldsRoute::class, 'register']);
+        add_action('template_redirect', [$this, 'preventFormPageCaching']);
+    }
+
+    /**
+     * @internal the `template_redirect` callback: a singular page that places a form is never cached,
+     * so no visitor is served another's submit token (N6).
+     */
+    public function preventFormPageCaching(): void
+    {
+        Boundary::background('form page caching', static function (): void {
+            $post = is_singular() ? get_queried_object() : null;
+            if ($post instanceof \WP_Post && FormPage::placesForm($post->post_content)) {
+                FormPage::preventCaching();
+            }
+        });
     }
 
     /** @internal the `init` callback */
@@ -95,6 +112,8 @@ SQL;
         foreach (self::BRANCH_BLOCKS as $name) {
             register_block_type(__DIR__ . '/Blocks/' . $name);
         }
+        register_block_type(__DIR__ . '/Blocks/after-submit');
+        register_block_type(__DIR__ . '/Blocks/form-page');
         register_block_bindings_source(BindingSource::NAME, [
             'label' => 'Kaláka-érték',
             'get_value_callback' => [BindingSource::class, 'value'],
@@ -115,6 +134,8 @@ SQL;
         add_filter('add_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
         add_filter('update_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
         add_filter('delete_post_metadata', [FormEvent::class, 'onDelete'], 10, 3);
+        // A form that submissions refer to is never deleted permanently.
+        add_filter('pre_delete_post', [FormDeletion::class, 'onPreDelete'], 10, 3);
         // The event's participant fields follow its forms, once the saved form and its settings are stored.
         add_action('wp_after_insert_post', [ParticipantFieldSync::class, 'onPostChange'], 15, 2);
         add_action('before_delete_post', [ParticipantFieldSync::class, 'beforeDelete'], 10, 2);

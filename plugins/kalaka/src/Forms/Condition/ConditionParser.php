@@ -83,6 +83,9 @@ final class ConditionParser
         }
 
         $value = $data['value'] ?? null;
+        if ($type === ValueType::Date && $this->isObject($value)) {
+            return new Comparison($key, $operator, null, $not, $this->reference($value, $scope, $key));
+        }
         if (!is_string($value) || !$this->isWellFormed($type, $value)) {
             self::fail($key);
         }
@@ -92,6 +95,35 @@ final class ConditionParser
         }
 
         return new Comparison($key, $operator, $value, $not);
+    }
+
+    /**
+     * A date reference: `{"key", "years", "days"}`, the key a date the scope allows, the moves whole
+     * numbers (both optional) of at most `DateReference::MAX_YEARS` years and `MAX_DAYS` days either way.
+     * Decision N3 (#156): the stored shape of a date reference in a comparison.
+     *
+     * @param array<array-key, mixed> $data
+     * @throws SystemFailure
+     */
+    private function reference(array $data, ConditionScope $scope, string $key): DateReference
+    {
+        if (array_diff(array_keys($data), ['key', 'years', 'days']) !== []) {
+            self::fail($key);
+        }
+        $reference = $data['key'] ?? null;
+        $years = $data['years'] ?? 0;
+        $days = $data['days'] ?? 0;
+        if (!is_string($reference) || !is_int($years) || !is_int($days)) {
+            self::fail($key);
+        }
+        if (abs($years) > DateReference::MAX_YEARS || abs($days) > DateReference::MAX_DAYS) {
+            self::fail($key);
+        }
+        if ($scope->typeOf($reference) !== ValueType::Date) {
+            self::fail($key);
+        }
+
+        return new DateReference($reference, $years, $days);
     }
 
     /** @phpstan-assert-if-true array<array-key, mixed> $data */

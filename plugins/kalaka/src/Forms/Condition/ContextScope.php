@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Condition;
 
-use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\ValueType;
 
-/** Outside a form, a condition reads the keys a value context declares. */
+/** Outside a form, a condition reads the keys a fact source (a value context, say) declares. */
 final readonly class ContextScope implements ConditionScope
 {
-    public function __construct(private ValueContext $context)
+    public function __construct(private Facts $context)
     {
     }
 

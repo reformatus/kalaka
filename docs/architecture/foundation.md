@@ -165,6 +165,7 @@ flowchart LR
       public function targets(array $input): array;  // list<RegistrationKey> this call acts on
   }
   interface PortalUseCase extends UseCase { public function registrations(array $input): array; }
+  interface PublicUseCase extends PortalUseCase {}  // acts on no existing registration, e.g. a submit
 
   Runner::run(UseCase $useCase, array $input, Actor $actor): mixed
   ```
@@ -182,12 +183,14 @@ flowchart LR
   - **The fine check** runs inside `execute`: a field change needs a
     read-write column of a held view whose filter contains the registration.
   - On the portal side the coarse check is access to the registrations the
-    input names.
+    input names. A public use case names none and passes for any
+    portal-side actor, a guest included.
   - `Context` is what a running use case gets: `actor()`, `now()`, `run()`
     for a nested use case, and `afterCommit()` for WordPress-side steps.
   - **Actors:** admin side `UserActor`, `CliActor` (optional `--user`),
     `SystemActor`; portal side `SecretLinkActor` (the registration key, never
-    the secret) and `AccountActor`.
+    the secret), `AccountActor` and `GuestActor` (no identity; it runs only
+    public use cases).
 - **No domain events in the initial shape.** Everything our own plugins do in
   response to a change must be consistent with it, so it happens inside the
   use case. Public after-save actions for third parties come later

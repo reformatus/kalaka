@@ -173,10 +173,11 @@ final class FormBranchTest extends FormsTestCase
             'condition_key_not_earlier',
             'nope'
         );
+        // The event's keys are a form's facts since S76; a registration's are not.
         $this->assertProblem(
-            $this->branch('if', $this->compare('event.start', 'empty'), $this->field('text', 'x')),
+            $this->branch('if', $this->compare('registration.status', 'empty'), $this->field('text', 'x')),
             'condition_key_not_earlier',
-            'event.start'
+            'registration.status'
         );
     }
 
