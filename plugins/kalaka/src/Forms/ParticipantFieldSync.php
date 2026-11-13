@@ -71,7 +71,7 @@ final class ParticipantFieldSync
     private static function sync(int $eventId, ?\WP_Post $saved): void
     {
         $what = 'participant fields of event ' . $eventId;
-        Boundary::background($what, static function () use ($eventId, $saved): void {
+        Boundary::background($what, static function () use ($eventId, $saved, $what): void {
             [$fields, $conflicts] = self::fields($eventId, $saved);
             $skipped = Runner::current()->run(
                 new DeclareParticipantFields(),
@@ -86,9 +86,11 @@ final class ParticipantFieldSync
                     . ' (the event field has another type, or forms may not hold it)';
             }
             if ($conflicts !== []) {
-                // Logged through the boundary: the rest of the list is declared.
-                $error = new \UnexpectedValueException('Skipped clashing keys: ' . implode('; ', $conflicts));
-                throw $error;
+                // Handled here (the rest of the list is declared), so only logged.
+                Boundary::report(
+                    $what,
+                    new \UnexpectedValueException('Skipped clashing keys: ' . implode('; ', $conflicts)),
+                );
             }
         });
     }

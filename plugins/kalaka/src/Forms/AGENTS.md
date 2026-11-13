@@ -52,7 +52,10 @@ conditions, prefill and form links
   and the status page show the participant field's labels; a form shows its
   own.
 - A form's event is set when it is created and fixed once the form has
-  fields, on every path that writes the setting. A save that changes the
+  fields, on every path that writes the setting, with one known gap: code
+  that sets the first event of a form that has fields but no event through
+  `update_post_meta()` directly is let through, because the REST create sets
+  the event that way after the post exists (`FormEvent`). A save that changes the
   event is judged before anything is stored, on the stored and the incoming
   content: it is refused whole, never stored with its setting refused.
 - The participant-field sync never stops on one clashing form: it declares
@@ -82,7 +85,8 @@ conditions, prefill and form links
   form as published runs the live form's definition check (`DefinitionCheck`,
   through `DefinitionParser` and `SharedKeyCheck`) and refuses a broken one on
   every save path. The definition check has two homes, and both the save check
-  and `Forms::definition()` run both: a check of the form alone goes into
+  and `Forms::definition()` run both (`Forms::definition()` runs the event
+  check on the current version only; an earlier version is read as it was): a check of the form alone goes into
   `DefinitionParser`, a check against the event's participant fields into
   `ParticipantField\SharedKeyCheck`. A form broken before the check stays
   closed and is named in a site warning; it is never rendered from another
