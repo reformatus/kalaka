@@ -180,8 +180,9 @@ Besides the money plugins:
   `kalaka_withdraw_registration`). Core collects them into one catalogue that
   grants pick from ([Foundation](foundation.md#views-and-grants)); they are
   not WordPress capabilities and are never added to roles. Only the
-  full-access capability and the minimal role for outside grantees touch
-  WordPress roles, and both belong to Admin.
+  minimal role for outside grantees touches WordPress roles; the
+  full-access capability is given per user, never to a role. Both belong
+  to Admin.
 
   `AbstractModule` gives the defaults (no schema, capabilities or
   contributions). Each module's class is `<Module>\Module`, in `Module.php`
