@@ -155,7 +155,7 @@ Besides the money plugins:
   them, Divi's form red as the error colour, and Divi's form styles loaded on
   pages that hold a form. It keeps visible labels and the browser's own radio
   buttons and checkboxes ([Engineering](engineering.md#wordpress-surfaces)).
-  Its plugin ID is confirmed with the owner. Divi 5 and other themes come
+  Its plugin is `kalaka-divi4`. Divi 5 and other themes come
   later, each as its own adapter.
 - **The wallet** is designed later ([Deferred](deferred.md)).
 
@@ -322,9 +322,10 @@ flowchart LR
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it
   applies to the active theme, and returns data only:
-  - extra classes for each element role core names (field, text control,
-    choice group, option, submit button, error message, …);
-  - the wrapper element of a single-control field, `div` or `p`;
+  - extra classes for each element role core names (form, field, text
+    control, choice group, option, submit button, error message, …);
+  - the wrapper element of a text-like field, `div` or `p` (a choice and a
+    consent checkbox always sit in a `div`);
   - the error colour.
 
   Core applies these to the markup it renders, for the block and the

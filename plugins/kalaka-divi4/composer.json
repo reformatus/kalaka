@@ -1,0 +1,18 @@
+{
+    "name": "kalaka/divi4",
+    "description": "Kaláka theme adapter for Divi 4",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kalaka\\Divi4\\": "src/Divi4/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}

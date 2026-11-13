@@ -7,7 +7,11 @@ parameters:
         - plugins/kalaka-support/src
         - plugins/kalaka-support/kalaka-support.php
         - plugins/kalaka-support/uninstall.php
+        - plugins/kalaka-divi4/src
+        - plugins/kalaka-divi4/kalaka-divi4.php
+        - plugins/kalaka-divi4/uninstall.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
+        - plugins/kalaka-divi4/vendor/autoload.php
         - phpstan-bootstrap.php
