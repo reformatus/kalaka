@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\ParticipantField;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Forms\ParticipantField\DeclareParticipantFields;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
  * The event's participant fields: keys derived across the event and never reused, shared keys of one type,
@@ -305,6 +307,112 @@ final class ParticipantFieldsTest extends FormsTestCase
             $this->notice()
         );
         self::assertSame([], $this->participantFields(8));
+    }
+
+    public function testASaveThatAddsFieldsAndChangesTheEventIsRefusedBeforeAnythingIsStored(): void
+    {
+        $intro = '<!-- wp:paragraph --><p>Bevezető</p><!-- /wp:paragraph -->';
+        $id = $this->additional($intro);
+
+        $response = $this->rest('POST', '/wp/v2/kalaka_form/' . $id, [
+            'content' => $intro . $this->unkeyed('text', 'Megjegyzés'),
+            'meta' => ['kalaka_event_id' => 8],
+        ]);
+        self::assertSame(400, $response->get_status());
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: event_fixed („kalaka_event_id”).',
+            $this->error($response)['message']
+        );
+        self::assertSame($intro, get_post_field('post_content', $id));
+        self::assertSame('7', get_post_meta($id, 'kalaka_event_id', true));
+
+        wp_update_post([
+            'ID' => $id,
+            'post_content' => wp_slash($intro . $this->unkeyed('text', 'Megjegyzés')),
+            'meta_input' => ['kalaka_event_id' => 8],
+        ]);
+        self::assertSame($intro, get_post_field('post_content', $id));
+        self::assertSame('7', get_post_meta($id, 'kalaka_event_id', true));
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: event_fixed („kalaka_event_id”).',
+            $this->notice()
+        );
+        self::assertSame([], $this->participantFields(7));
+        self::assertSame([], $this->participantFields(8));
+    }
+
+    public function testTheEventChangesFirstAndTheFieldsComeInALaterSave(): void
+    {
+        $this->additional($this->unkeyed('text', 'Megjegyzés'), 8);
+        $intro = '<!-- wp:paragraph --><p>Bevezető</p><!-- /wp:paragraph -->';
+        $id = $this->additional($intro);
+
+        $moved = $this->rest('POST', '/wp/v2/kalaka_form/' . $id, ['meta' => ['kalaka_event_id' => 8]]);
+        self::assertSame(200, $moved->get_status());
+        $added = $this->rest('POST', '/wp/v2/kalaka_form/' . $id, [
+            'content' => $intro . $this->unkeyed('text', 'Megjegyzés'),
+        ]);
+        self::assertSame(200, $added->get_status());
+
+        self::assertSame('8', get_post_meta($id, 'kalaka_event_id', true));
+        self::assertSame(['megjegyzes_1'], $this->storedKeys($id));
+        self::assertSame(['megjegyzes', 'megjegyzes_1'], array_keys($this->participantFields(8)));
+    }
+
+    public function testAFormWrittenAroundTheCheckNeverStopsTheRestOfTheList(): void
+    {
+        $log = (string) tempnam(sys_get_temp_dir(), 'kalaka-log');
+        $previous = ini_set('error_log', $log);
+        try {
+            $this->additional($this->field('text', 'note'));
+            // Written around the save check: `note` as a date.
+            $stale = $this->insertForm(
+                $this->field('date', 'note') . $this->field('text', 'extra'),
+                ['kalaka_placement' => 'additional']
+            );
+            $fields = $this->participantFields();
+            self::assertSame('kalaka/text-field', $fields['note']->type);
+            self::assertArrayHasKey('extra', $fields);
+
+            // A later save of another form still declares its fields.
+            $other = $this->additional($this->unkeyed('text', 'Új kérdés'));
+            self::assertArrayHasKey('uj_kerdes', $this->participantFields());
+            self::assertSame(['uj_kerdes'], $this->storedKeys($other));
+        } finally {
+            ini_set('error_log', (string) $previous);
+        }
+
+        self::assertStringContainsString(
+            'key note of form ' . $stale . ' (kalaka/date-field, not kalaka/text-field)',
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local test log
+            (string) file_get_contents($log)
+        );
+        wp_delete_file($log);
+
+        // The clashing form is closed and named in the broken-form warning.
+        try {
+            $this->forms->definition($this->readForm($stale));
+            self::fail('A form whose key clashes with the event field is closed.');
+        } catch (SystemFailure $e) {
+            self::assertStringContainsString('type_clash note', $e->getMessage());
+        }
+        self::assertContains('#' . $stale . ' Regisztráció: type_clash note', BrokenForms::stored());
+    }
+
+    public function testDeletingAFormForGoodRetiresTheKeysOnlyItHeld(): void
+    {
+        $kept = $this->additional($this->field('text', 'shared') . $this->unkeyed('text', 'Megjegyzés'));
+        $gone = $this->additional($this->field('text', 'shared') . $this->field('text', 'only_here'));
+
+        wp_delete_post($gone, true);
+
+        $fields = $this->participantFields();
+        self::assertTrue($fields['only_here']->retired);
+        self::assertFalse($fields['shared']->retired);
+        self::assertFalse($fields['megjegyzes']->retired);
+
+        $this->saveContent($kept, $this->field('text', 'shared') . $this->unkeyed('text', 'Only here'));
+        self::assertSame(['shared', 'only_here_1'], $this->storedKeys($kept));
     }
 
     public function testAFormWithoutFieldsMayChangeItsEvent(): void

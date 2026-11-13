@@ -39,8 +39,8 @@ final class FieldKeys
             return $data;
         }
         $id = is_int($postarr['ID'] ?? null) ? $postarr['ID'] : 0;
-        [$eventId] = FormEvent::resolve($id, FormEvent::requested($id, $postarr));
         $content = wp_unslash($data['post_content']);
+        [$eventId] = FormEvent::resolve($id, FormEvent::requested($id, $postarr), $content);
         $derived = (new self())->derive($content, Contributions::current(), SharedKeyCheck::takenKeys($eventId));
         if ($derived !== $content) {
             $data['post_content'] = wp_slash($derived);

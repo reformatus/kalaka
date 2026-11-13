@@ -11,6 +11,7 @@ use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
 use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Forms\ParticipantField\ParticipantFieldRecord;
+use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -41,15 +42,27 @@ final class Forms
     }
 
     /**
-     * The definition of the form's current version, or of an earlier revision of the same form.
+     * The definition of the form's current version, or of an earlier revision of the same form. The current
+     * version must also agree with the event's participant fields (a key of another type, or a `system`
+     * field's key, makes it unusable): a form written around the save check stays closed and is named in
+     * the broken-form warning. An earlier version is read as it was. [UNAPPROVED N3]
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
     public function definition(Form $form, ?int $version = null): FormDefinition
     {
         $version ??= $form->version;
+        $content = $this->posts->content($form, $version);
+        $definition = $this->parser->parse($form, $version, $content, Contributions::current());
+        if ($version === $form->version) {
+            $problem = SharedKeyCheck::problem($content, $form->eventId, Contributions::current());
+            if ($problem !== null) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+                throw new SystemFailure($problem[0] . ' ' . $problem[1]);
+            }
+        }
 
-        return $this->parser->parse($form, $version, $this->posts->content($form, $version), Contributions::current());
+        return $definition;
     }
 
     /**
