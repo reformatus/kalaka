@@ -7,7 +7,11 @@ namespace Kalaka\Forms\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
-/** Renders block markup with a value context: the chains resolved, then the bindings and inline values filled. */
+/**
+ * Renders block markup with a value context: the chains resolved, then the bindings and inline values
+ * filled. A document (a mail body) stops at the first failure; a page renders the failing chain or value
+ * as nothing and logs it.
+ */
 final class Renderer
 {
     public function __construct(
@@ -16,17 +20,17 @@ final class Renderer
     ) {
     }
 
-    /** @throws SystemFailure */
-    public function render(string $content, ValueContext $context): string
+    /** @throws SystemFailure only when it is not a page */
+    public function render(string $content, ValueContext $context, bool $page = false): string
     {
-        RenderStack::push($context);
+        RenderStack::push($context, $page);
         try {
             $html = '';
-            foreach ($this->chains->resolve(array_values(parse_blocks($content)), $context) as $block) {
+            foreach ($this->chains->resolve(array_values(parse_blocks($content)), $context, $page) as $block) {
                 $html .= render_block($block);
             }
 
-            return $this->inline->fill($html, $context);
+            return $this->inline->fill($html, $context, $page);
         } finally {
             RenderStack::pop();
         }

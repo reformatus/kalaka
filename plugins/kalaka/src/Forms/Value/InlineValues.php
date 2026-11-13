@@ -19,8 +19,12 @@ final class InlineValues
 {
     private const ATTRIBUTE = 'data-kalaka-value';
 
-    /** @throws SystemFailure when a span names a key the context does not declare */
-    public function fill(string $html, ValueContext $context): string
+    /**
+     * On a page, a span naming a key the context does not declare is emptied and logged.
+     *
+     * @throws SystemFailure when a span names a key the context does not declare, outside a page
+     */
+    public function fill(string $html, ValueContext $context, bool $page = false): string
     {
         $processor = new \WP_HTML_Tag_Processor($html);
         $depth = 0;
@@ -39,7 +43,7 @@ final class InlineValues
                 } else {
                     $key = $processor->get_attribute(self::ATTRIBUTE);
                     if ($key !== null) {
-                        $text = $context->get(is_string($key) ? $key : '')->text;
+                        $text = $this->text($context, is_string($key) ? $key : '', $page);
                         $processor->remove_attribute(self::ATTRIBUTE);
                         $depth = 1;
                         $filled = false;
@@ -49,5 +53,20 @@ final class InlineValues
         }
 
         return $processor->get_updated_html();
+    }
+
+    /** @throws SystemFailure */
+    private function text(ValueContext $context, string $key, bool $page): string
+    {
+        try {
+            return $context->get($key)->text;
+        } catch (SystemFailure $e) {
+            if (!$page) {
+                throw $e;
+            }
+            RenderStack::reportOnPage($e);
+
+            return '';
+        }
     }
 }

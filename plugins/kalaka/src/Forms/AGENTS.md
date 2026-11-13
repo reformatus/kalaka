@@ -95,7 +95,8 @@ values and conditions, prefill and form links
 - Kaláka's form blocks are gated by post type (`BlockGate` on
   `allowed_block_types_all`), never by `ancestor`: a form's editor gets the
   allow-list, any other editor only what a `BlockHost` names. Forms never names
-  another module's post type; that module contributes the host.
+  another module's post type; that module contributes the host. The condition
+  blocks are not gated: every block editor offers them.
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
 - Access checks are pure: they read no current user, cookie or request; the
@@ -112,7 +113,12 @@ values and conditions, prefill and form links
   submit, an answer in a branch that does not hold is dropped: never stored,
   never required, never an error.
 - Reading a key that a value context does not declare is a failure, never an
-  empty value.
+  empty value. A document (a mail body) stops at it; on an ordinary page the
+  failing chain or value renders nothing and the failure is logged, never a
+  fatal.
+- A condition reads: in a form, its answers; in a mail, the
+  recipient's registration; elsewhere, the visitor's active registration and
+  its event. With no active registration, no branch of a chain renders.
 - A value is plain text, escaped where it renders; inline values are replaced
   with the HTML API.
 - Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`

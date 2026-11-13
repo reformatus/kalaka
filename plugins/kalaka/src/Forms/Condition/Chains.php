@@ -51,10 +51,12 @@ final class Chains
      * branches of a chain belongs to the chain.
      *
      * @param list<array<string, mixed>|string> $sequence
+     * @param (\Closure(SystemFailure): void)|null $orphan when given, a branch that does not follow an `if` or
+     *     `else-if` is left out and its failure handed to it instead of thrown
      * @return list<array<string, mixed>|string|Chain>
      * @throws SystemFailure a branch that does not follow an `if` or `else-if` (problem `orphan_branch`)
      */
-    public static function split(array $sequence): array
+    public static function split(array $sequence, ?\Closure $orphan = null): array
     {
         $result = [];
         $count = count($sequence);
@@ -63,7 +65,12 @@ final class Chains
             $name = self::nameOf($item);
             if ($name === self::ELSE_IF_BLOCK || $name === self::ELSE_BLOCK) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name, never output
-                throw new SystemFailure('orphan_branch ' . $name);
+                $failure = new SystemFailure('orphan_branch ' . $name);
+                if ($orphan === null) {
+                    throw $failure;
+                }
+                $orphan($failure);
+                continue;
             }
             if ($name !== self::IF_BLOCK || !is_array($item)) {
                 $result[] = $item;
