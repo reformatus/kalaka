@@ -57,6 +57,7 @@ final class RegistrationSubmit
      * @throws SubmitTokenReused the token was spent on other answers
      * @throws InvalidInput a malformed token, an undeclared field, a value of the wrong JSON type
      * @throws \Kalaka\Forms\Api\InvalidAnswers missing or wrong answers, per field
+     * @throws \Kalaka\Forms\Api\FormTerminal a terminal page shows for the answers
      * @throws \Kalaka\Forms\Api\FormRefused the form cannot be used now (event not open, outside the
      *     registration window, password, role), with the codes
      * @throws RuleViolation the form is not in the registration slot

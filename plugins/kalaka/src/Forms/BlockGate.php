@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Forms\Api\FormPage;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
@@ -19,8 +20,8 @@ final class BlockGate
 {
     /**
      * Form-only blocks that are not field types: the after-submit section (`Api\AfterSubmit`, registered
-     * here) and the form's pages (registered by the form front end). Another editor gets them only through
-     * a `BlockHost`.
+     * here) and the form's pages (`kalaka/form-page`, registered by `Forms\Module`). Another editor gets
+     * them only through a `BlockHost`.
      */
     public const FORM_ONLY_BLOCKS = [
         'kalaka/form-page',
@@ -49,7 +50,7 @@ final class BlockGate
     ];
 
     /** The block that embeds a form in a page. */
-    public const FORM_BLOCK = 'kalaka/form';
+    public const FORM_BLOCK = FormPage::BLOCK;
 
     /**
      * The `allowed_block_types_all` filter.

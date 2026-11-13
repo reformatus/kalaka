@@ -182,7 +182,7 @@ final class FormPagesTest extends FormsTestCase
         $this->assertProblem(
             $this->page($this->slotFields())
             . $this->page($this->mode(), ['condition' => $this->when('mode', 'camp')]),
-            'mode'
+            'condition_key_not_earlier mode'
         );
     }
 
