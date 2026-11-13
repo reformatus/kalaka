@@ -53,8 +53,9 @@ values and conditions, prefill and form links
   and the status page show the participant field's labels; a form shows its
   own.
 - A form's event is set when it is created and fixed once the form has
-  fields, on every path that writes the setting, with one known gap: code
-  that sets the first event of a form that has fields but no event through
+  fields or submissions refer to it (`Registrations\Api\FormSubmissions`),
+  on every path that writes the setting, with one known gap: code that sets
+  the first event of a form that has fields but no event through
   `update_post_meta()` directly is let through, because the REST create sets
   the event that way after the post exists (`FormEvent`). A save that changes the
   event is judged before anything is stored, on the stored and the incoming
@@ -78,7 +79,9 @@ values and conditions, prefill and form links
 - A form version is the ID of one of the form's revisions, every usable form
   has at least one, and revisions of forms are never pruned, so a submission's
   version resolves to the definition it was checked against for as long as
-  the form exists; a form that submissions refer to is never deleted.
+  the form exists; a form that submissions refer to is never deleted
+  permanently (`FormDeletion` on `pre_delete_post`, and the REST controller's
+  forced delete); moving it to the trash is allowed.
 - A form with a definition problem (keys, options, an unknown field block, the
   slot's markings, a missing revision, a key that clashes with the event's
   participant field) is unusable; it is never half-accepted.
@@ -102,16 +105,57 @@ values and conditions, prefill and form links
 - Access checks are pure: they read no current user, cookie or request; the
   caller passes the roles and whether the password was given.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
-  transaction, never inside it.
+  transaction, never inside it. The one exception is `Forms::refusals()`,
+  which reads nothing: a submit checks it under the event's lock.
 - Field types contribute through the typed point and return values; no field
   type writes to a table. Core ships no money-relevant field type.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
-- A condition is evaluated purely, from a value context or a form's answers:
-  no database, hook, current user, request or clock.
-- In a form, a condition reads only answers of fields before its chain. At
-  submit, an answer in a branch that does not hold is dropped: never stored,
-  never required, never an error.
+- One availability base (S76): everything shown or selectable (fields,
+  branches, pages, choice options, set options, tiers, offers, aid) is
+  decided by one condition through `Condition\ConditionEvaluator`, reached
+  through `FormWalk` (a form) or `Api\Availability` (anything another module
+  owns). No second evaluator anywhere, and no condition logic in JavaScript.
+- A condition is evaluated purely, from a fact source (`Api\Facts`): no
+  database, hook, current user, request or clock. Whoever evaluates fills the
+  fact source; the evaluator never runs the materializer on a draft.
+- A form is walked the same way for a draft's re-render and at submit
+  (`FormWalk`). In a form, a condition reads only answers of fields before it
+  and the event's keys (`Api\EventValues`). At submit, an answer in a branch
+  that does not hold, or an option that is not offered, is dropped: never
+  stored, never required, never an error.
+- A form's chains are numbered once, by `Condition\ChainMarks`, on the parsed
+  blocks: `DefinitionParser` reads the numbers from those marks and the branch
+  blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing
+  else, in PHP or JavaScript, recomputes them.
+- No chain is ever pending: an unanswered field, a required or optional
+  single choice included, reads as empty, so a chain on it shows its `else`
+  until it is answered. Validation follows what is shown: at submit an
+  unanswered required choice has its own required error, and the fields of
+  any branch shown at that moment (an `else` among them) are checked like any
+  shown field.
+- Only answer-driven chains ship every branch to the page; a chain that reads
+  any other key ships only its held branch (`FormDefinition::withheldChains()`,
+  `ChainMarks::prune()`).
+- The after-submit section (`Api\AfterSubmit`) is at most one block, at the
+  top level outside any branch or page, with no fields; its chains are not the form's (not numbered,
+  not walked) and read only `AfterSubmit::TYPES`.
+- A page that places a form (the block `kalaka/form` or the `[kalaka_form]`
+  shortcode) is never cached: `Api\FormPage::preventCaching()` on
+  `template_redirect`, and again from the form renderer.
+- A form has no page or all its content in top-level `kalaka/form-page`
+  blocks (with the one top-level `kalaka/after-submit` beside them); pages
+  are numbered once, by `Condition\ChainMarks`, like chains. A page's
+  condition reads only earlier pages and `event.*`; page 0 has none; a
+  terminal page has one and holds no field. A page is one more gate in
+  `FormWalk`: a skipped page's fields and chains do not show and its answers
+  are dropped. A submit while a terminal page shows is `Api\FormTerminal`
+  (`AnswerValidator`). The contact email and display name never sit on a
+  conditional page (`SlotRules`).
+- A page's errors come only from `Forms::availability()` with `$page`: the
+  walk's errors filtered to that page's shown fields.
+- A re-fetch or a submit accepts only the form's latest version
+  (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a

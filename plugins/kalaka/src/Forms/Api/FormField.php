@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
+use Kalaka\Forms\Condition\Condition;
+
 /** A field block of a form's definition, with the attributes as authored. */
 final readonly class FormField
 {
@@ -13,12 +15,17 @@ final readonly class FormField
     /**
      * @param array<string, mixed> $attributes
      * @param list<FormBranch> $branches the branches the field sits in, outermost first; none outside any
+     * @param array<string, Condition> $optionConditions a choice field's option value → its availability
+     *     condition (S76), for the options that have one; passed along outside Forms, never inspected (N1)
+     * @param int|null $page the number of the page the field sits on; null in a form without pages
      */
     public function __construct(
         public string $key,
         public string $blockName,
         public array $attributes,
         public array $branches = [],
+        public array $optionConditions = [],
+        public ?int $page = null,
     ) {
     }
 

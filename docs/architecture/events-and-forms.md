@@ -210,9 +210,24 @@ flowchart TB
   `[kalaka_form id="…"]` **shortcode** for page builders that cannot hold
   blocks, such as Divi 4's Builder. Both use the same renderer. A form is
   never edited from the page builder.
+- **Multi-page forms** (Google Forms style): a form has no pages (one
+  page) or all its content in **page blocks** at the top level, each with
+  an optional title, an optional condition (none on the first page) and an
+  optional **terminal** mark. A page's condition reads earlier pages and
+  the event's values; a page that does not show is skipped both ways and
+  its answers are dropped like those of a hidden branch. Next checks the
+  current page on the server first (the re-fetch with the page); Back needs
+  no request. A terminal page holds no fields and has a condition: it shows
+  its content and cannot be sent, and the server refuses a submit while one
+  shows. The contact email and the display name never sit on a conditional
+  page. Answers are not kept across a reload.
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
-  message).
+  message): one block per form, at the top level outside any branch or
+  page, holding no fields. It
+  never shows in the form; it is rendered at submit with the event's values
+  and the new registration's reference code and status, and its conditions
+  read only those. Without it, a short default text per status shows.
 - **Required fields** show a bold asterisk after the field's title, in the
   error colour. The form's look follows the site's theme
   ([Engineering](engineering.md#wordpress-surfaces)).
@@ -342,11 +357,12 @@ is no other participant-side edit.
   - mail: the recipient and the registration;
   - a participant block: the active registration
     ([Registrations](registrations-and-identity.md#access));
-  - form, for conditions: the form's own answers, plus the current field
-    values of the registration it writes to for participant fields the form
-    does not hold (e.g. a staff form branching on the camp chosen at
-    registration). Fields the form holds are always read from its answers.
-    Event values are rendered at page load.
+  - form, for conditions: the answers of earlier fields and the event's
+    values (`event.*`), plus the current field values of the registration it
+    writes to for participant fields the form does not hold (e.g. a staff
+    form branching on the camp chosen at registration). Fields the form holds
+    are always read from its answers. Event values are also rendered at page
+    load.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -364,8 +380,34 @@ is no other participant-side edit.
 - **Container blocks** `kalaka/if`, `kalaka/else-if` and `kalaka/else` hold
   the branches, using the one condition format below.
 - **The server renders them** in mails and participant blocks.
-- **Forms show and hide branches** with the Interactivity API. The server
-  re-checks them at submit and keeps only answers whose conditions hold.
+- **One availability base.** Whatever is shown or selectable is decided by
+  one condition in this format, through one evaluator in PHP that reads a
+  **fact source**: form fields and branches, pages and sections, a choice
+  field's options, the options of an assignment set, price-ladder tiers,
+  offers and the adjudicated aid. In a form it reads the draft answers and
+  the event's values, on every render and again at submit; in the fee
+  components and the materializer it reads the registration's facts. It
+  never runs the materializer on a draft. Computed facts such as a
+  congregation's ancestors or free seats are put into the fact source by the
+  caller.
+- **Forms are rendered by the server; the page's script holds no
+  condition.** A branch whose conditions read only the form's own answers
+  is sent hidden and shown when it holds for the current answers. A branch
+  whose condition reads anything else (an event value, a link-only or other
+  held fact) is sent only when it holds, so a browser never receives a
+  branch it does not qualify for; when its outcome changes, the page
+  re-fetches it. At submit the server walks the form the same way and keeps
+  only answers of fields that show, including only the options that are
+  offered; whatever the browser still holds for a hidden field is dropped.
+- **An unanswered field reads as empty; no chain waits.** An unanswered
+  choice, required or optional, reads as empty like an unticked box or an
+  empty text, so the branch for "empty" (often `else`) shows until an
+  answer is given. Validation follows what shows: at submit a required
+  choice left unanswered has its own required error, and the fields of the
+  branch shown at that moment (an `else`, say) are checked like any shown
+  field.
+- **Mid-form availability is advisory.** Seats and capacity are decided only
+  at submit, under the lock; the texts say so (approved when built).
 
 **The condition format:**
 
@@ -374,6 +416,11 @@ is no other participant-side edit.
 - **A "not" switch** on each condition, instead of separate negated
   operators.
 - **Typed comparison:** values compare as number, date, text or choice.
+- **A date can be compared with a date reference:** another date key of the
+  fact source moved by whole years and days, e.g. the event's start minus 16
+  years for "under 16 at the event's start". A day the moved month does not
+  have becomes its last day (29 February to 28 February), so the age rule
+  holds for an event starting on 29 February.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice

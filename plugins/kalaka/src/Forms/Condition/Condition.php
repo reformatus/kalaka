@@ -18,4 +18,26 @@ final readonly class Condition
         public bool $not = false,
     ) {
     }
+
+    /**
+     * Every key the condition reads, date references included, each once, in order of appearance.
+     *
+     * @return list<string>
+     */
+    public function keys(): array
+    {
+        $keys = [];
+        foreach ($this->items as $item) {
+            $read = $item instanceof self
+                ? $item->keys()
+                : [$item->key, ...($item->reference !== null ? [$item->reference->key] : [])];
+            foreach ($read as $key) {
+                if (!in_array($key, $keys, true)) {
+                    $keys[] = $key;
+                }
+            }
+        }
+
+        return $keys;
+    }
 }

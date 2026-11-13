@@ -18,8 +18,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
 final class BlockGate
 {
     /**
-     * Form-only blocks that are not field types: the form's pages and its after-submit section (registered
-     * by the form front end). Another editor gets them only through a `BlockHost`.
+     * Form-only blocks that are not field types: the after-submit section (`Api\AfterSubmit`, registered
+     * here) and the form's pages (registered by the form front end). Another editor gets them only through
+     * a `BlockHost`.
      */
     public const FORM_ONLY_BLOCKS = [
         'kalaka/form-page',

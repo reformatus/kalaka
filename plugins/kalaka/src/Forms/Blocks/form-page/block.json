@@ -1,0 +1,23 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/form-page",
+  "title": "Űrlapoldal",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "condition": {
+      "type": "object"
+    },
+    "terminal": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "render": "file:./render.php"
+}

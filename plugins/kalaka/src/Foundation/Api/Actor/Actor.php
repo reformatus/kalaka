@@ -8,6 +8,6 @@ interface Actor
 {
     public function side(): Side;
 
-    /** One of: user, cli, system, secret_link, account. */
+    /** One of: user, cli, system, secret_link, account, guest. */
     public function type(): string;
 }

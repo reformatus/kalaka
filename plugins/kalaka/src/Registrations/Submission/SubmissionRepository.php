@@ -17,6 +17,15 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class SubmissionRepository extends AppendOnlyRepository
 {
+    /**
+     * The submission of the event that carries the submit token, by the unique key; a plain read. The
+     * token is compared in SQL: unlike the secret link it grants nothing, it only names an earlier submit.
+     */
+    public function withToken(int $eventId, string $token): ?Submission
+    {
+        return $this->findWhere('event_id = %d AND submit_token = %s', [$eventId, $token])[0] ?? null;
+    }
+
     protected function table(): string
     {
         return 'kalaka_submissions';
@@ -47,6 +56,8 @@ final class SubmissionRepository extends AppendOnlyRepository
             'form_version' => $entity->formVersion,
             'answers' => self::encode($entity->answers),
             'submitted_at' => Instant::toStorage($entity->submittedAt),
+            'submit_token' => $entity->token,
+            'answers_hash' => $entity->answersHash,
         ];
     }
 
@@ -65,7 +76,14 @@ final class SubmissionRepository extends AppendOnlyRepository
             (int) $row['form_version'],
             $answers,
             Instant::fromStorage((string) $row['submitted_at']),
+            $row['submit_token'],
+            $row['answers_hash'],
         );
+    }
+
+    protected function secretColumns(): array
+    {
+        return ['submit_token'];
     }
 
     protected function subject(object $record): Subject

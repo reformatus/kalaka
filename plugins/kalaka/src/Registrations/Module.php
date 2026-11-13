@@ -43,7 +43,13 @@ CREATE TABLE {prefix}kalaka_field_values (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
-    /** registrations-and-identity.md, "Submissions and values": append-only; `answers` is a JSON object. */
+    /**
+     * registrations-and-identity.md, "Submissions and values": append-only; `answers` is a JSON object.
+     * `submit_token` is the form page's token: a repeated submit with it and the same answers creates
+     * nothing and is answered only as a repeat (`{repeated: true, after_submit}`); `utf8mb4_nopad_bin`,
+     * compared exactly, and unique within the event. `answers_hash` is the SHA-256 fingerprint of the
+     * stored answers that a repeat with the token must match.
+     */
     private const SUBMISSIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_submissions (
   event_id bigint(20) unsigned NOT NULL,
@@ -53,7 +59,10 @@ CREATE TABLE {prefix}kalaka_submissions (
   form_version bigint(20) unsigned NOT NULL,
   answers longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   submitted_at datetime(6) NOT NULL,
-  PRIMARY KEY  (event_id,code,number)
+  submit_token varchar(22) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  answers_hash varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  PRIMARY KEY  (event_id,code,number),
+  UNIQUE KEY submit_token (event_id,submit_token)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
@@ -69,7 +78,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
+        return new Schema(2, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
     }
 
     public function boot(): void

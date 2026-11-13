@@ -9,8 +9,9 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 /**
  * The declared keys of a document and their values: built by whoever renders the document. A key
  * is a field key or a dotted `<group>.<name>`; each key's type is known even when its value is `none`.
+ * It is the plain fact source: a map of keys to values.
  */
-final readonly class ValueContext
+final readonly class ValueContext implements Facts
 {
     private const KEY_PATTERN = '/\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?\z/';
 
@@ -28,6 +29,11 @@ final readonly class ValueContext
     public function with(string $key, Value $value): self
     {
         return new self([...$this->values, $key => $value]);
+    }
+
+    public function has(string $key): bool
+    {
+        return isset($this->values[$key]);
     }
 
     /** @throws SystemFailure when the key is not declared (problem `unknown_value_key`) */
