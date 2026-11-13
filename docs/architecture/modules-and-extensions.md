@@ -64,14 +64,14 @@ flowchart LR
 |---|---|
 | Foundation | runner, audit, clock, Money, evaluation, module registry |
 | Events | events, states, timeline points, date types, capacity and the "full" latch; later the participant phase tracker |
-| Forms | forms, the registration slot, field types, field definitions, values and conditions, prefill, form links |
+| Forms | forms, the registration slot, the event's participant fields, field types, field definitions, values and conditions, prefill, form links |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
-| Portal | registration access by secret link or account, the account area |
+| Portal | the active registration (by secret link or account), the participant blocks admins place on any page, the account area |
 | Admin | views and grants, data grid, detail views, notes, audit, settings |
 
 ## Assignment sets
@@ -80,7 +80,7 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 
 - **A set** belongs to an event: a name, an optional time slot,
   required or optional, a choice window, an access mode and a **published
-  switch** (unpublished, its portal section is hidden; for a direct set,
+  switch** (unpublished, it is hidden from participants; for a direct set,
   publishing also opens the choice).
 - **An option** has a capacity, leaders (display text), a place and
   eligibility conditions on field values (e.g. age, gender).
@@ -91,11 +91,12 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
     field writes a confirmed assignment; capacity and eligibility are checked
     in the transaction under a lock on the option row; a full option cannot be
-    chosen; the choice can be changed in the portal while the window is open,
-    then only by staff;
+    chosen; the choice can be changed through an additional form holding it
+    while the window is open, then only by staff;
   - **request** (e.g. IVK's modules): the participant writes a request (a
-    field value; the ranking field type comes from an extension), locked at
-    close; staff run the proposer with a preview, then confirm in bulk; the
+    field value; the ranking field type comes from an extension), which an
+    additional form holding it can change while the window is open; it is
+    locked at close; staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
     row and re-checks capacity and eligibility; items that no longer fit go
@@ -118,8 +119,8 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **The assignment proposer** is an extension point. The IVK ranking engine
   is the first: it fills first choices in registration order, then second
   choices into what is left, then third; staff confirm. **It runs once, on
-  module choices frozen beforehand,** and need not handle later changes
-  (editing choices in the portal is a nice-to-have). Talk-group and room
+  module choices frozen beforehand** (after the set's choice window has
+  closed), and need not handle later changes. Talk-group and room
   algorithms come later on the same point.
 - Extensions read confirmed assignments through point inputs and keep their
   own per-option data (e.g. a module's level and the needs it answers).

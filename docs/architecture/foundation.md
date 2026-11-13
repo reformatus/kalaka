@@ -41,7 +41,9 @@ flowchart TB
 - **Portal side:** the actor is access to a registration. A secret link
   grants that one registration; an account grants every registration it
   owns, plus account-level actions (the combined list, paying all at once,
-  presets). See [Registrations](registrations-and-identity.md#access).
+  presets). The delivery layer resolves the active registration (a cookie
+  set from a secret link, or the account's pick) into this actor. See
+  [Registrations](registrations-and-identity.md#access).
 
 Both sides use the same use-case runner (transaction, evaluation, audit,
 errors) but have **separate action catalogues, authorization and
@@ -502,7 +504,8 @@ registration's decisions, money and mail up to date with its facts.
     case, inside its transaction, before the audit entry.
   - The periodic run does the same for work that falls due over time, one
     transaction per registration.
-  - Opening a registration in the portal or admin never evaluates it: a page
+  - Showing a registration in a participant block or the admin never
+    evaluates it: a page
     view writes nothing.
 - **Three phases, in order:**
   1. **decisions** ([Facts, decisions and computed
@@ -529,10 +532,18 @@ registration's decisions, money and mail up to date with its facts.
 **Every piece of registration state is one of three kinds.** Views filter and
 sort on the first two ([Views and grants](#views-and-grants)).
 
-- **Facts** come from people's acts: answers, payments (with their value
-  date), the manual confirmation flag (with its set time), assignments,
-  status, the "full" latch and "not counted". They are ordinary audited
-  writes.
+- **Facts** come from people's acts: field values, payments (with their
+  value date), the manual confirmation flag (with its set time),
+  assignments, status, the "full" latch and "not counted". They are ordinary
+  audited writes.
+  - **A field value is a fact,** whatever writes it. By the participant
+    field's source ([Fields](events-and-forms.md#fields)): answers copied
+    from a form's submission; a staff write; or an extension's own use case,
+    the only writer of its fields (e.g. the award of adjudicated aid, an
+    organizer's act).
+  - **A participant field of source "system" is not a fact.** It only
+    declares a decision under a key, read-only; the decision record stays
+    the source of truth, and no field value is ever written for it.
 - **Decisions** are made by the system: confirmation in core
   ([Money](money.md#confirmation)), and the late fee, price-tier place and
   support place from extensions ([Money](money.md#quota-places)).
