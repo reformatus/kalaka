@@ -17,7 +17,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Options are matched by value, retired ones included; a value the field does not have is refused (a new
  * option comes only from a form). A `form` or `staff` field, retired ones included; a `system` or
  * `extension` field's texts are its declarer's, so it is refused. Site-level: full access only.
- * [UNAPPROVED N10] [UNAPPROVED N11]
  */
 final class RenameParticipantField implements AdminUseCase
 {

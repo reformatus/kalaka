@@ -26,7 +26,7 @@ final class Module extends AbstractModule
     public const BLOCK_CATEGORY = 'kalaka';
 
     /**
-     * The event's participant fields, keyed by (event ID, field key) [UNAPPROVED N1]. `field_key` and `type`
+     * The event's participant fields, keyed by (event ID, field key). `field_key` and `type`
      * are compared exactly (`utf8mb4_nopad_bin`); `options` is JSON; times are UTC `datetime(6)`.
      */
     private const PARTICIPANT_FIELDS = <<<'SQL'

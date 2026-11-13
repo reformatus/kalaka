@@ -45,7 +45,7 @@ final class Forms
      * The definition of the form's current version, or of an earlier revision of the same form. The current
      * version must also agree with the event's participant fields (a key of another type, or a `system`
      * field's key, makes it unusable): a form written around the save check stays closed and is named in
-     * the broken-form warning. An earlier version is read as it was. [UNAPPROVED N3]
+     * the broken-form warning. An earlier version is read as it was.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
@@ -101,7 +101,7 @@ final class Forms
     /**
      * The event's participant fields, in the order they were declared (`position`); retired ones only when
      * asked. Each names the forms of the event that hold it now and its type's label. It reads Kaláka's own
-     * table and the event's form posts, so it runs outside a use case's transaction. [UNAPPROVED N1]
+     * table and the event's form posts, so it runs outside a use case's transaction.
      *
      * @return list<ParticipantField>
      */

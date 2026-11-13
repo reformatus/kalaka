@@ -16,7 +16,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
- * Declares an event's participant fields after one of its forms changes [UNAPPROVED N5]. A post save is
+ * Declares an event's participant fields after one of its forms changes. A post save is
  * WordPress's write, so it never touches Kaláka's tables itself: once the post and its settings are stored
  * (`wp_after_insert_post`, which the REST controller fires after the meta too, and which a trash or a
  * restore fires as well), or once a form is deleted for good (`deleted_post`), the forms of the event are

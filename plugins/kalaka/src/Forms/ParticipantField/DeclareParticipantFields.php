@@ -9,7 +9,7 @@ use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
- * Brings an event's participant fields in line with the fields its forms hold [UNAPPROVED N5]. The input is
+ * Brings an event's participant fields in line with the fields its forms hold. The input is
  * the union over every form of the event that is not trashed, the saved form's fields marked `latest`:
  *
  * - a key no row has yet is declared, source `form`;
@@ -138,7 +138,7 @@ final class DeclareParticipantFields implements AdminUseCase
             $before = $record->toRow();
             $record->retiredAt = null;
             // The title is the participant field's own: set when it is declared, changed only by
-            // `RenameParticipantField` (owner ruling 2026-11-13). [UNAPPROVED N10]
+            // `RenameParticipantField` (owner ruling 2026-11-13).
             $record->options = self::merged(
                 $record->options,
                 $field['options'],
@@ -183,7 +183,7 @@ final class DeclareParticipantFields implements AdminUseCase
      * The stored options with the held ones: a held option is active and keeps its stored label (the
      * participant field's own, owner ruling 2026-11-13; a form shows its own labels); a new one is added at
      * the end with the label it is first declared with; one no longer held is retired with its label (only
-     * when `$retire`). [UNAPPROVED N11]
+     * when `$retire`).
      *
      * @param ?list<array{value: string, label: string, retired_at: ?string}> $stored
      * @param ?list<array{value: string, label: string}> $held

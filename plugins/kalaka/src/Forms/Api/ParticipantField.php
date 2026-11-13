@@ -11,7 +11,7 @@ namespace Kalaka\Forms\Api;
  * own title for its types, the block name when the type is not registered). `title` is the latest title a
  * form gave it (it may hold the title's inline HTML), `source` one of `form`, `staff`, `extension` and
  * `system`, `formWritable` whether a form may hold its key, and `forms` the forms of the event that hold it
- * now (trashed ones not). [UNAPPROVED N1] [UNAPPROVED N9]
+ * now (trashed ones not).
  */
 final readonly class ParticipantField
 {

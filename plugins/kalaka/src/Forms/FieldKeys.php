@@ -18,7 +18,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * earlier in the field. Replacing an invalid one loses nothing: a form with such a key or value is unusable
  * (`DefinitionParser`), so nothing was ever stored under it. A key that repeats one earlier in the same form
  * is kept, never derived again: which of the two blocks the stored answers belong to cannot be told, so the
- * save check refuses the form (`duplicate_key`) instead. [UNAPPROVED N6]
+ * save check refuses the form (`duplicate_key`) instead.
  *
  * A derived key is unique across the form's event: it takes none of the event's participant-field keys,
  * retired ones included, so a key is never reused (owner ruling 2026-11-11). A key the form already holds
@@ -74,7 +74,7 @@ final class FieldKeys
      * holds. The block editor keeps its own block state and does not re-read what the server set, so without
      * this a keyless block would derive again on every save, against the event's keys, which by then include
      * the key it got on the save before (`x`, then `x_1`). Matching by type and title, not by position, keeps
-     * the key when a block is inserted or moved before it. [UNAPPROVED N7]
+     * the key when a block is inserted or moved before it.
      *
      * @param array<string, true> $eventKeys the keys a derived key must not take: the event's participant fields
      * @param string $previous the form's stored content

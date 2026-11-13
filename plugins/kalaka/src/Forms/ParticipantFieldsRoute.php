@@ -17,11 +17,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * `GET kalaka-admin/v1/events/{id}/participant-fields`: the event's participant fields for the form editor,
- * which only full access opens. `include_retired` adds the retired ones. [UNAPPROVED N2]
+ * which only full access opens. `include_retired` adds the retired ones.
  *
  * `PATCH kalaka-admin/v1/events/{id}/participant-fields/{key}` with `{title?, options?: [{value, label}]}`:
  * renames one or its options, through `RenameParticipantField`, and answers with the field as the read
- * shows it. [UNAPPROVED N10] [UNAPPROVED N11]
+ * shows it.
  */
 final class ParticipantFieldsRoute
 {

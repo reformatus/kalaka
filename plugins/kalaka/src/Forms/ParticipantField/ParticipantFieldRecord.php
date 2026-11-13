@@ -46,7 +46,7 @@ final class ParticipantFieldRecord
     ) {
     }
 
-    /** Whether a form may hold this field's key (owner ruling 2026-11-13; [UNAPPROVED N8]). */
+    /** Whether a form may hold this field's key (owner ruling 2026-11-13). */
     public function writableFromForms(): bool
     {
         return match ($this->source) {

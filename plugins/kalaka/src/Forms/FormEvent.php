@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * 2026-11-13, B2(a)): keys are derived across the event's forms, so a form with fields cannot move to
  * another event. A save that changes the event is refused before anything is stored when the stored
  * content or the incoming content holds a field block; a form without fields may still change its
- * event, and fields may be added in a later save. [UNAPPROVED N4]
+ * event, and fields may be added in a later save.
  *
  * A save learns the event the way `DefinitionCheck` learns the placement: from the REST request (the REST
  * controller saves meta only after the post, so it is remembered here for this request's

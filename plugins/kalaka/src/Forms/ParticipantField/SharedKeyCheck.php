@@ -10,11 +10,11 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * The save check of a form's keys against its event's participant fields. A form field that holds the key
  * of an existing participant field joins it, so it must be of the same type (owner ruling 2026-11-13, B3(a));
  * a retired field counts too, since its values keep their meaning. A `system` field is read-only: no form
- * may hold its key, so no answer ever shadows the decision it is read from. [UNAPPROVED N3] Nor may a form
+ * may hold its key, so no answer ever shadows the decision it is read from. Nor may a form
  * hold an `extension` field's key unless the extension declared it form-writable (`extension_field`): such
  * a field is written only by its use case, like the aid award; `staff` fields stay writable from forms
- * (owner ruling 2026-11-13). [UNAPPROVED N8] First of all, no
- * two blocks of one form hold the same key (`duplicate_key`), whatever the form's status. [UNAPPROVED N6]
+ * (owner ruling 2026-11-13). First of all, no
+ * two blocks of one form hold the same key (`duplicate_key`), whatever the form's status.
  */
 final class SharedKeyCheck
 {

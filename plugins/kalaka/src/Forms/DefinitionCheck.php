@@ -61,7 +61,7 @@ final class DefinitionCheck
 
     /**
      * The readable refusals of the participant-field checks, `%s` the field key; every other problem keeps
-     * the generic `MESSAGE` with its code. [UNAPPROVED N12]
+     * the generic `MESSAGE` with its code.
      */
     public const MESSAGES = [
         FormEvent::PROBLEM => 'Az űrlapot így nem lehet menteni: már vannak mezői, ezért az eseménye nem'
