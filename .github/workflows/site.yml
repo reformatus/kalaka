@@ -1,0 +1,59 @@
+name: Site
+
+# Builds kalaka.dev from docs/ and publishes it to GitHub Pages, with the
+# lines-of-code chart drawn fresh by bin/loc-chart.py. Runs on every push to
+# main (docs changes only deploy through this workflow) and four times a day,
+# so the chart follows branches and pull requests between merges.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2,8,14,20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  pull-requests: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The chart reads the whole history and every branch.
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: pip install matplotlib==3.10.8
+      - name: Draw the lines-of-code chart
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TZ: Europe/Budapest
+        run: |
+          mkdir -p docs/stats
+          bin/loc-chart.py docs/stats/loc.png
+      - uses: actions/configure-pages@v6
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      - uses: actions/upload-pages-artifact@v5
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
