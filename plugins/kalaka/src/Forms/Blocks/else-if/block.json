@@ -1,0 +1,15 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/else-if",
+  "title": "Különben ha",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "condition": {
+      "type": "object"
+    }
+  },
+  "render": "file:./render.php"
+}

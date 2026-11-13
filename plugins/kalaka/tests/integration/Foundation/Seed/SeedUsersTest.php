@@ -24,7 +24,7 @@ final class SeedUsersTest extends SeedTestCase
             $reported[] = $line;
         });
 
-        self::assertCount(5, $reported);
+        self::assertCount(6, $reported);
         foreach (self::EXPECTED as $login => $displayName) {
             $user = get_user_by('login', $login);
             self::assertInstanceOf(\WP_User::class, $user);
@@ -34,6 +34,13 @@ final class SeedUsersTest extends SeedTestCase
             self::assertTrue(wp_check_password('password', $user->user_pass));
             self::assertFalse($user->has_cap('kalaka_full_access'));
         }
+        $full = get_user_by('login', 'kalaka_admin');
+        self::assertInstanceOf(\WP_User::class, $full);
+        self::assertSame(['administrator'], $full->roles);
+        self::assertSame('Teszt Kaláka-adminisztrátor', $full->display_name);
+        self::assertSame('kalaka_admin@example.org', $full->user_email);
+        self::assertTrue(wp_check_password('password', $full->user_pass));
+        self::assertTrue($full->has_cap('kalaka_full_access'));
     }
 
     public function testAnExistingLoginIsLeftUnchangedAndTheOthersAreCreated(): void
@@ -54,9 +61,9 @@ final class SeedUsersTest extends SeedTestCase
         self::assertInstanceOf(\WP_User::class, $editor);
         self::assertSame('Valaki Más', $editor->display_name);
         self::assertSame('someone@example.org', $editor->user_email);
-        self::assertCount(5, $reported);
+        self::assertCount(6, $reported);
         self::assertSame(
-            ['administrator', 'editor', 'author', 'contributor', 'subscriber'],
+            ['administrator', 'editor', 'author', 'contributor', 'subscriber', 'kalaka_admin'],
             $this->seededLogins()
         );
         foreach (['administrator', 'author', 'contributor', 'subscriber'] as $login) {

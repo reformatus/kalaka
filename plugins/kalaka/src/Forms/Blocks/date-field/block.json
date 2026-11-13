@@ -1,0 +1,29 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/date-field",
+  "title": "Dátum",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    },
+    "autocomplete": {
+      "type": "string",
+      "enum": [
+        "bday"
+      ]
+    }
+  },
+  "render": "file:./render.php"
+}

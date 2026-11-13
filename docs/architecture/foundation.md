@@ -437,6 +437,7 @@ Site Health test only when the condition is an environment requirement.**
   | An extension contribution is failing ([Modules](modules-and-extensions.md#failure-isolation)) | error | no |
   | Mail sending is paused after errors ([Mail](mail.md#pausing)) | error | no |
   | Mail sending is paused by hand ([Mail](mail.md#pausing)) | info | no |
+  | A published form's definition is broken, so it stays closed ([Events and forms](events-and-forms.md#forms-implementation)) | error | no |
 
   An event's own problems (its reference codes running out) are not site
   warnings: they show on that event's admin pages.

@@ -1,5 +1,23 @@
 # Forms
 
-Forms, the registration slot, field types, field definitions, conditions, prefill and form links.
+Forms, the registration slot, field types, field definitions, values and conditions, prefill and form links.
 
-Entry points: none yet.
+A form is a `kalaka_form` post (registered in `Module.php` with its settings as post meta: `kalaka_event_id`, `kalaka_placement` and `kalaka_required_role`; the password is the post password). Its content is the definition, block markup built from the field blocks. Forms are built in the block editor, by full access only: the post type has `show_ui` and `show_in_rest` but no menu item, and `FormRestController` refuses every REST read without `kalaka_full_access`; the settings are in REST for the same users. A form's version is the ID of its latest revision that is not an autosave; WordPress saves none on insert, so `FormPosts::ensureRevision()` saves the first one, and revisions of forms are never pruned.
+
+On every save (`wp_insert_post_data`), `FieldKeys` sets each field's missing key from its title and each choice option's missing value from its label, with `KeyDerivation`. Then `DefinitionCheck` runs the live form's definition check on a form saved as published: the REST save is refused with a 400 (`rest_pre_insert_kalaka_form`), and any other save path (code, WP-CLI, a revision restore) is vetoed gracefully in the filter (a published form keeps its stored content, any other form stays unpublished) with an admin notice for the saving user; nothing throws out of a core filter. `BrokenForms` keeps the list of published forms whose definition is broken (saved before the check, or written around it) in a non-autoloaded option, recomputed when a form changes, and `BrokenFormsWarning` shows it as a site warning; such a form stays closed.
+
+`BlockGate` (on `allowed_block_types_all`) gates the blocks by post type: a `kalaka_form` editor gets an allow-list (the field types' blocks, `FORM_ONLY_BLOCKS` and `FORM_CORE_BLOCKS`), and any other editor gets the gated blocks only when a `BlockHost` names them. There is no `ancestor`.
+
+At the root: `FormPosts` (reads the posts, their revisions and their settings), `DefinitionParser` (reads the field blocks, in document order, out of any core blocks and condition branches around them), `SlotRules` (the registration slot's markings, none of them inside a condition branch), `AnswerValidator` (the server's check of answers against a definition, dropping the answers of branches that do not hold), `KeyDerivation` and `FieldKeys` (keys and option values), `DefinitionCheck` (the save check), `BrokenForms` and `BrokenFormsWarning`, `BlockGate`, `FormRestController`, `FieldMarkup` (the field blocks' shared markup) and `ThemeAdapters` (picks the theme adapter once per request).
+
+`Api/` holds `Forms` (the facade: `form()`, `definition()`, `refusals()`, `validate()`), `Form`, `FormPlacement`, `FormDefinition`, `FormField`, `FormBranch`, `AccessRefusal`, `ValidatedAnswers`, `InvalidAnswers`, the value API (`Values`, the facade with `render()`, `Value`, `ValueType` and `ValueContext`) and the field-type point: `FieldType`, `AbstractFieldType`, `FieldTypeInput`, `FieldAnswer` and the optional `MoneyRelevantFieldType`. Field types are contributed with `Contributions::fieldType()`. The theme-adapter point: `ThemeAdapter`, `ThemeAdapterInput`, `ThemeAdaptation`, `ElementRole` and `FieldWrapper`, contributed with `Contributions::themeAdapter()`. `BlockHost`, a declaration contributed with `Contributions::blockHost()`.
+
+`FieldType/` holds the seven core types: `NameFieldType`, `EmailFieldType`, `PhoneFieldType`, `DateFieldType`, `TextFieldType`, `ChoiceFieldType` and `ConsentFieldType`. `Blocks/<type>-field/` holds each type's `block.json` (title, the `kalaka` category, no `ancestor`) and `render.php`; the blocks are registered from `src/` until the front end adds the JavaScript build, and their editor scripts come with it.
+
+`Condition/` holds the stored condition format: `ConditionParser` reads it into a `Condition` (made of `Comparison`s, `Operator`s and `MatchMode`s) for the keys a `ConditionScope` allows (`FormScope` in a form, `ContextScope` over a `ValueContext` anywhere else), `ConditionEvaluator` decides whether it holds (pure), and `Chains` finds the `kalaka/if`, `kalaka/else-if` and `kalaka/else` chains among sibling blocks.
+
+`Value/` holds the renderer behind `Values::render()`: `ChainPass` keeps the held branch of every chain, `BindingSource` is the Block Bindings source `kalaka/value`, `InlineValues` fills `<span data-kalaka-value="key">` with the HTML API, and `RenderStack` holds the context of the render in progress. `Blocks/if/`, `Blocks/else-if/` and `Blocks/else/` hold the three branch blocks; they render their inner blocks, with no wrapper, only inside `Values::render()` and nothing anywhere else.
+
+`Api\Forms` reads WordPress posts, so it runs before or after a use case's transaction, never inside it.
+
+Entry points: none yet (the embed block and the form page come with the front end).

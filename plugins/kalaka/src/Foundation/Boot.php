@@ -85,6 +85,7 @@ final class Boot
                 $this->fail($module->id(), $e->getMessage(), $e);
             }
         }
+        Api\Module\Contributions::record($contributions);
 
         foreach ($contributions->siteWarnings() as $warning) {
             $warnings->add($warning);
