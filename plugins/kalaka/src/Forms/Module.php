@@ -5,9 +5,14 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Api\AfterSubmit;
+use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\FormPage;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Cli\FormSeeder;
+use Kalaka\Forms\Condition\DateReference;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
 use Kalaka\Forms\FieldType\ConsentFieldType;
 use Kalaka\Forms\FieldType\DateFieldType;
@@ -204,6 +209,7 @@ SQL;
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
+        add_action('enqueue_block_editor_assets', [$this, 'editorScriptData']);
     }
 
     /**
@@ -245,6 +251,50 @@ SQL;
         }
 
         return $html;
+    }
+
+    /**
+     * The `enqueue_block_editor_assets` action: what the server tells the form editor, printed before the
+     * editor script as `window.kalakaFormEditor` (read by `Blocks/form/server.js`).
+     *
+     * @internal
+     */
+    public function editorScriptData(): void
+    {
+        $type = \WP_Block_Type_Registry::get_instance()->get_registered(FormPage::BLOCK);
+        $handle = $type === null ? null : ($type->editor_script_handles[0] ?? null);
+        if (!is_string($handle)) {
+            return;
+        }
+        $data = wp_json_encode(self::editorData());
+        wp_add_inline_script($handle, 'window.kalakaFormEditor = ' . $data . ';', 'before');
+    }
+
+    /**
+     * What the form editor needs from the server, so it copies none of it: the registered field-type
+     * block names (extension field types included) with the value type of each answer, the keys a form's
+     * and the after-submit section's conditions may read, and a date reference's bounds.
+     *
+     * @return array{
+     *     fieldTypes: array<string, string>,
+     *     eventTypes: array<string, string>,
+     *     afterSubmitTypes: array<string, string>,
+     *     dateReference: array{maxYears: int, maxDays: int}
+     * }
+     */
+    public static function editorData(): array
+    {
+        $value = static fn (ValueType $type): string => $type->value;
+
+        return [
+            'fieldTypes' => array_map(
+                static fn (FieldType $type): string => $type->valueType()->value,
+                Contributions::current()->fieldTypes()
+            ),
+            'eventTypes' => array_map($value, EventValues::TYPES),
+            'afterSubmitTypes' => array_map($value, AfterSubmit::TYPES),
+            'dateReference' => ['maxYears' => DateReference::MAX_YEARS, 'maxDays' => DateReference::MAX_DAYS],
+        ];
     }
 
     /**

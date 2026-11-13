@@ -11,5 +11,6 @@
       "type": "object"
     }
   },
+  "editorScript": "kalaka-form-editor-script",
   "render": "file:./render.php"
 }

@@ -54,7 +54,7 @@ final class FormBranchTest extends FormsTestCase
         return $item instanceof Comparison ? $item : null;
     }
 
-    public function testTheBranchBlocksHaveTheirTitlesInTheKalakaCategory(): void
+    public function testTheBranchBlocksHaveTheirTitlesInTheKalakaCategoryWithTheFormEditor(): void
     {
         $registry = \WP_Block_Type_Registry::get_instance();
 
@@ -64,6 +64,7 @@ final class FormBranchTest extends FormsTestCase
             self::assertSame($title, $block->title, $name);
             self::assertSame('kalaka', $block->category, $name);
             self::assertNull($block->ancestor, $name);
+            self::assertSame(['kalaka-form-editor-script'], $block->editor_script_handles, $name);
         }
     }
 

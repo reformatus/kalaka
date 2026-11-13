@@ -48,6 +48,7 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
             self::assertSame('kalaka', $block->category, $type);
             self::assertFalse($block->supports['html'] ?? true, $type);
             self::assertNull($block->ancestor, $type);
+            self::assertSame(['kalaka-form-editor-script'], $block->editor_script_handles, $type);
         }
         $name = $registry->get_registered('kalaka/name-field');
         $email = $registry->get_registered('kalaka/email-field');

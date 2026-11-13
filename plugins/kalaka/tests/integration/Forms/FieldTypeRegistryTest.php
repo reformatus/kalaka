@@ -50,6 +50,34 @@ final class FieldTypeRegistryTest extends FormsTestCase
         }
     }
 
+    public function testTheFormEditorGetsTheJestFixtureOnASiteWithTheCoreTypes(): void
+    {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the tests' own fixture
+        $file = file_get_contents(__DIR__ . '/../../fixtures/form-editor.json');
+        self::assertIsString($file);
+
+        self::assertSame(json_decode($file, true, flags: JSON_THROW_ON_ERROR), \Kalaka\Forms\Module::editorData());
+    }
+
+    public function testTheFormEditorGetsExtensionFieldTypes(): void
+    {
+        $this->bootWithTestTypes();
+
+        $types = \Kalaka\Forms\Module::editorData()['fieldTypes'];
+
+        self::assertSame(array_keys(Contributions::current()->fieldTypes()), array_keys($types));
+        self::assertSame('text', $types['kalaka/test-rating-field']);
+    }
+
+    public function testTheFormEditorDataIsPrintedBeforeTheEditorScript(): void
+    {
+        (new \Kalaka\Forms\Module())->editorScriptData();
+
+        $before = wp_scripts()->get_data('kalaka-form-editor-script', 'before');
+        self::assertIsArray($before);
+        self::assertStringStartsWith('window.kalakaFormEditor = {"fieldTypes":{', (string) end($before));
+    }
+
     public function testTheCoreTypesAreInTheRegistryAndNoneIsMoneyRelevant(): void
     {
         $types = Contributions::current()->fieldTypes();

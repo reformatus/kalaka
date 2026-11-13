@@ -29,11 +29,14 @@ values and conditions, prefill and form links
   against the same definition the page was built from; a value the browser
   sends for anything else is refused.
 - A field key and a choice option's value are derived once from the title or
-  label, on save, by `FieldKeys` (the only writer); after that they never
-  change, whatever the text becomes. Only a missing or invalid key, or a
-  missing, invalid or repeated option value, is derived again, since a form
-  holding one was unusable and stored nothing. A key repeated within one form
-  is never derived again: the save check refuses it (`duplicate_key`).
+  label, by the same rules in two places: the form editor
+  (`Blocks/form/keys.js`) sets them in the block when the field or option is
+  created, and gives a copied field fresh ones; on save, `FieldKeys` (the only
+  writer on the server) derives any that is still missing or invalid. After
+  that they never change, whatever the text becomes. Only a missing or invalid
+  key, or a missing, invalid or repeated option value, is derived again, since
+  a form holding one was unusable and stored nothing. A key repeated within one
+  form is never derived again: the save check refuses it (`duplicate_key`).
 - A form's fields are its event's participant fields
   (`kalaka_participant_fields`, owned by Forms). A derived key is unique
   across the event and never takes a key the event ever had, retired ones
@@ -69,6 +72,29 @@ values and conditions, prefill and form links
   settings are stored, writes the participant fields; besides it only
   `RenameParticipantField` (an explicit request) does, both through
   `ParticipantFieldRepository`.
+- The form editor derives a key unique across the form's event: against the
+  event's participant fields, retired ones included, read when the editor
+  knows the event and again after every save (`Blocks/form/event-keys.js`),
+  and the form's own keys. While that list loads, or when it cannot be read,
+  it derives no key and says so in the canvas. Only a key the author types or
+  picks may match one of the event's keys.
+- A field block that arrives (pasted or inserted) with the key of one of the
+  event's participant fields that the form did not hold when last saved is
+  never kept silently and never joins implicitly
+  (`Blocks/form/participant-prompts.js`): the author chooses to join a field of
+  the same type that forms may write, or gets a fresh key as a copy does
+  (`keys.js`, `copied`); a field of another type or one no form writes gives a
+  fresh key and a snackbar says so.
+- A block's label and option labels never change its participant field's
+  title or option labels by itself (options matched by value); the editor
+  asks, and only the rename route (`PATCH …/participant-fields/{key}`, through
+  `renameParticipantField` in `participant-store.js`) changes them. Joining a
+  choice field never replaces the form's own option labels.
+- The form editor is one script (`Blocks/form/index.js`) for every Kaláka
+  block, so all field blocks share one keeper of keys. JavaScript never evaluates a condition. The
+  editor checks a condition against the server's rules (`ConditionParser`,
+  `FormScope`, with the types, keys and bounds the server prints) only to show
+  problems while editing; the server's check on save stays the judge.
 - A form autosave is never a version: the version is the latest revision that
   is not an autosave.
 - Forms are edited in the block editor by full access only: every capability
@@ -115,7 +141,9 @@ values and conditions, prefill and form links
   branches, pages, choice options, set options, tiers, offers, aid) is
   decided by one condition through `Condition\ConditionEvaluator`, reached
   through `FormWalk` (a form) or `Api\Availability` (anything another module
-  owns). No second evaluator anywhere, and no condition logic in JavaScript.
+  owns). No second evaluator anywhere, and JavaScript never evaluates a
+  condition (the editor only checks one against the server's rules to show
+  problems).
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
   database, hook, current user, request or clock. Whoever evaluates fills the
   fact source; the evaluator never runs the materializer on a draft.

@@ -1,0 +1,12 @@
+/*
+ * Kaláka's structural CSS (engineering.md, "WordPress surfaces"): no colours or fonts except the error
+ * colour, which is the theme adapter's (`--kalaka-error-color`, set on the form) or a fixed red.
+ */
+.kalaka-field__required {
+	font-weight: bold;
+	color: var(--kalaka-error-color, #cc1818);
+}
+
+.kalaka-field__error {
+	color: var(--kalaka-error-color, #cc1818);
+}
