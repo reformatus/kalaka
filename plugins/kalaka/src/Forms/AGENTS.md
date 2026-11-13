@@ -142,14 +142,17 @@ values and conditions, prefill and form links
   not walked) and read only `AfterSubmit::TYPES`.
 - A page that places a form (the block `kalaka/form` or the `[kalaka_form]`
   shortcode) is never cached: `Api\FormPage::preventCaching()` on
-  `template_redirect`, and again from the form renderer.
+  `template_redirect`; the form renderer, when it comes with the front end,
+  calls it again.
 - A form has no page or all its content in top-level `kalaka/form-page`
   blocks (with the one top-level `kalaka/after-submit` beside them); pages
   are numbered once, by `Condition\ChainMarks`, like chains. A page's
   condition reads only earlier pages and `event.*`; page 0 has none; a
   terminal page has one and holds no field. A page is one more gate in
   `FormWalk`: a skipped page's fields and chains do not show and its answers
-  are dropped. A submit while a terminal page shows is `Api\FormTerminal`
+  are dropped. Pages are not withheld like held-fact branches: every page
+  ships hidden, whatever its condition reads (#167 MP-16). A submit while a
+  terminal page shows is `Api\FormTerminal`
   (`AnswerValidator`). The contact email and display name never sit on a
   conditional page (`SlotRules`).
 - A page's errors come only from `Forms::availability()` with `$page`: the

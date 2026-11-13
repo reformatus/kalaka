@@ -215,7 +215,9 @@ flowchart TB
   an optional title, an optional condition (none on the first page) and an
   optional **terminal** mark. A page's condition reads earlier pages and
   the event's values; a page that does not show is skipped both ways and
-  its answers are dropped like those of a hidden branch. Next checks the
+  its answers are dropped like those of a hidden branch. Unlike a branch,
+  a page is never withheld: every page is sent hidden, whatever its
+  condition reads, and shown when it holds. Next checks the
   current page on the server first (the re-fetch with the page); Back needs
   no request. A terminal page holds no fields and has a condition: it shows
   its content and cannot be sent, and the server refuses a submit while one

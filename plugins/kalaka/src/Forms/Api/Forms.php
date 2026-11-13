@@ -248,6 +248,7 @@ final class Forms
      *     form whose conditions read them; none when null
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
+     * @throws FormTerminal a terminal page shows for the answers
      * @throws SystemFailure a key the facts do not declare
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
