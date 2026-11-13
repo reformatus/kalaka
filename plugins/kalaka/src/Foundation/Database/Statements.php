@@ -160,6 +160,74 @@ final class Statements
     }
 
     /**
+     * `INSERT IGNORE`: a row that a unique key already holds is not written, and that is no error.
+     * Values are ints, strings or null; the statement is built with `%i`, `%d` and `%s` placeholders and
+     * `NULL` literals. Note that `IGNORE` also turns other refusals MariaDB downgrades to warnings (a
+     * missing NOT NULL value) into a written row: values are validated in PHP before they get here.
+     *
+     * @param array<string, int|string|null> $row
+     * @return ?int the insert id, or null when a unique key already held the row
+     */
+    public function insertIgnore(string $table, array $row): ?int
+    {
+        if ($row === []) {
+            throw self::failure('An insert needs at least one column.');
+        }
+        $columns = [];
+        $values = [];
+        $args = [$table];
+        foreach (array_keys($row) as $column) {
+            $columns[] = '%i';
+            $args[] = $column;
+        }
+        foreach ($row as $value) {
+            if ($value === null) {
+                $values[] = 'NULL';
+                continue;
+            }
+            $values[] = is_int($value) ? '%d' : '%s';
+            $args[] = $value;
+        }
+        $sql = $this->prepare(
+            'INSERT IGNORE INTO %i (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $values) . ')',
+            $args
+        );
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- prepared above
+        $this->quietly(fn (): mixed => $this->wpdb->query($sql));
+        $insertId = $this->wpdb->insert_id;
+        $written = $this->wpdb->rows_affected;
+        DatabaseError::check($this->wpdb);
+
+        return $written === 1 ? $insertId : null;
+    }
+
+    /**
+     * Takes a MariaDB named lock without waiting (`GET_LOCK(name, 0)`). The lock belongs to the connection,
+     * not to a transaction: it outlives commits and rollbacks and is freed when the connection closes.
+     * WordPress Playground's SQLite has no named locks; there every call gets it.
+     *
+     * @return bool whether this connection holds the lock now
+     */
+    public function getLock(string $name): bool
+    {
+        if (self::onSqlite()) {
+            return true;
+        }
+        $rows = $this->select($this->prepare('SELECT GET_LOCK(%s, 0) AS got', [$name]));
+
+        return ($rows[0]['got'] ?? null) === '1';
+    }
+
+    /** Frees a named lock this connection holds; a lock it does not hold is left alone. */
+    public function releaseLock(string $name): void
+    {
+        if (self::onSqlite()) {
+            return;
+        }
+        $this->select($this->prepare('SELECT RELEASE_LOCK(%s) AS released', [$name]));
+    }
+
+    /**
      * @param array<string, mixed> $values
      * @param array<string, mixed> $where
      * @return int the rows affected

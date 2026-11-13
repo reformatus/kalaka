@@ -7,6 +7,7 @@ namespace Kalaka\Foundation\Api\Module;
 use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\ThemeAdapter;
+use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 
@@ -29,6 +30,9 @@ final class Contributions
 
     /** @var list<BlockHost> */
     private array $blockHosts = [];
+
+    /** @var list<PeriodicStep> */
+    private array $periodicSteps = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -137,5 +141,23 @@ final class Contributions
     public function blockHosts(): array
     {
         return $this->blockHosts;
+    }
+
+    /**
+     * Work to run at the end of every periodic run (foundation.md, "Deferred work").
+     */
+    public function periodicStep(PeriodicStep $step): void
+    {
+        $this->periodicSteps[] = $step;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<PeriodicStep>
+     */
+    public function periodicSteps(): array
+    {
+        return $this->periodicSteps;
     }
 }

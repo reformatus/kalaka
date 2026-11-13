@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Installs built plugin zips into WordPress Playground (PHP 8.3, SQLite),
 # activates them, core first, runs `wp kalaka seed` and fails unless Kaláka booted
-# with no load failures, every extension's schema was created and the seed left its
-# sample data.
+# with no load failures, every extension's plugin is active, every module an
+# extension registers is at the schema version it declares (none for a module
+# without a schema) and the seed left its sample data.
 # Usage: bin/playground-smoke.sh dist/kalaka-<VERSION>.zip [dist/kalaka-<name>-<VERSION>.zip ...]
 set -euo pipefail
 
@@ -13,11 +14,10 @@ version="$(tr -d '[:space:]' < "$root/VERSION")"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-# Core's zip first, the extensions after it in the given order. An extension's
-# module id is its plugin folder name without "kalaka-", dashes as underscores:
-# the option kalaka_schema_<module id> must be set once it is active.
+# Core's zip first, the extensions after it in the given order. Each extension's
+# plugin file, <slug>/<slug>.php, must be active afterwards.
 installed=""
-modules=""
+plugins=""
 copy() {
     local zip slug name
     zip="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
@@ -27,7 +27,7 @@ copy() {
     cp "$zip" "$work/$name"
     installed="$installed $name"
     if [ "$slug" != "kalaka" ]; then
-        modules="$modules $(echo "${slug#kalaka-}" | tr '-' '_')"
+        plugins="$plugins $slug/$slug.php"
     fi
 }
 for zip in "$@"; do
@@ -54,9 +54,28 @@ $event = (new Kalaka\Events\Api\Events())->find(1);
 if ($event === null || $event->name !== 'Nyári tábor' || $event->state() !== Kalaka\Events\Api\EventState::Published) {
     throw new Exception('The seed did not leave event 1 as the published "Nyári tábor".');
 }
-foreach (/*modules*/ [] as $module) {
-    if ((int) get_option('kalaka_schema_' . $module) !== 1) {
-        throw new Exception('The schema of the module ' . $module . ' was not created.');
+foreach (/*plugins*/ [] as $plugin) {
+    if (!in_array($plugin, (array) get_option('active_plugins', []), true)) {
+        throw new Exception('The extension plugin ' . $plugin . ' is not active.');
+    }
+}
+// The modules the extensions register, collected again; registering only constructs them.
+$extensions = new class implements Kalaka\Foundation\Api\Module\Modules {
+    /** @var list<Kalaka\Foundation\Api\Module\Module> */
+    public array $all = [];
+    public function add(Kalaka\Foundation\Api\Module\Module $module): void
+    {
+        $this->all[] = $module;
+    }
+};
+do_action('kalaka_register_modules', $extensions);
+if (count($extensions->all) < count(/*plugins*/ [])) {
+    throw new Exception('An extension registered no module.');
+}
+foreach ($extensions->all as $module) {
+    $version = $module->schema()->version;
+    if ($version > 0 && (int) get_option('kalaka_schema_' . $module->id()) !== $version) {
+        throw new Exception('The schema of the module ' . $module->id() . ' is not at version ' . $version . '.');
     }
 }
 if (get_user_by('login', 'editor') === false) {
@@ -65,12 +84,12 @@ if (get_user_by('login', 'editor') === false) {
 echo 'Kalaka booted: load state is open, the seed left event 1 and the editor user.' . PHP_EOL;
 PHP
 
-# Every installed extension's module id, as a PHP array literal.
-php_modules=""
-for module in $modules; do
-    php_modules="$php_modules'$module', "
+# Every installed extension's plugin file, as a PHP array literal.
+php_plugins=""
+for plugin in $plugins; do
+    php_plugins="$php_plugins'$plugin', "
 done
-check="${check/\/\*modules\*\/ \[\]/[${php_modules%, }]}"
+check="${check//\/\*plugins\*\/ \[\]/[${php_plugins%, }]}"
 
 # Playground defaults to the production environment type, where the seed refuses.
 CHECK="$check" INSTALLED="$installed" node -e '
