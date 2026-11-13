@@ -84,11 +84,25 @@ reached; the grant defines who holds the view.**
 - **Full access** is one separate site-wide capability: every view, every
   column read-write, every action, every event including future ones. It is
   for the people running the system.
+  - It is given **per user, never to a role**: administrators do not get it
+    by their role. The user who activates the plugin gets it while nobody
+    holds it; after that a holder gives or takes it on the user's profile screen, or WP-CLI does
+    (`wp kalaka full-access grant|revoke`), both through audited use cases.
+    The last holder cannot lose it. On multisite, super admins pass every
+    check.
 - **Actions that are not a column** (withdraw, remove, admit, record payment,
   refund, regenerate link, notes, audit history) are carried by the grant,
   not by WordPress roles. An action is usable only on registrations inside
   the filter of the same grant's view. Modules declare the actions they
-  offer ([Modules](modules-and-extensions.md#the-module-interface)).
+  offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant
+  lists its actions one by one; there are no default bundles yet.
+- **A grant holds a use case only by name:** the use case names an action
+  the grant carries, or it is a field change with at least one target; in
+  both cases every target is inside the grant's view. An event use case with
+  neither is for full access only.
+- **A view edit never widens access silently:** while a grant binds a value
+  to a view's parameter, the parameter cannot be removed or moved to another
+  column. A grant whose bound value no longer fits its view holds nothing.
 - Core ships a **minimal WordPress role** that only opens the Kaláka admin
   app, for outside grantees.
 - **Enforced in one place:** on the admin side, registration data is read
@@ -585,7 +599,7 @@ touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
 |---|---|
 | **Storage** | Our own database tables for the domain (events, registrations, values, submissions, presets, ledger, deliveries, audit, notes, …). WordPress posts only for documents edited in the block editor: forms, field definitions, mail bodies |
 | **Time** | Stored in UTC, every stored instant as a `datetime(6)` column; displayed and computed in the site's WordPress time zone, never a fixed zone. Event points and value dates are stored instants too. A deadline set as a day ends at midnight in the site's time zone, fixed when it is stored ([Date references](events-and-forms.md#date-references)). Our own `Clock` interface (`now(): DateTimeImmutable`, the shape of PSR-20, which a bundled and prefixed `psr/clock` would no longer share anyway) wraps `current_datetime()` in production and is fixed in tests; WordPress has no clock abstraction of its own. Dates are set through date references ([Events](events-and-forms.md#date-references)) |
-| **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are carried by the grant, usable inside that grant's view ([Views and grants](#views-and-grants)). Core ships a minimal role for outside grantees; the list of actions and their default bundles are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
+| **Permissions** | Data access through views and grants per event; one site-wide full-access capability; other actions are carried by the grant, usable inside that grant's view ([Views and grants](#views-and-grants)). Full access is given per user, never to a role. Core ships a minimal role for outside grantees; default bundles of actions are defined with the owner later ([Deferred](deferred.md)). Admin actions are also WordPress abilities and use the same checks |
 | **Personal data** | Kept only in our tables. WordPress privacy export and erase, covering registrations, presets and audit diffs, are deferred until a wide release ([Deferred](deferred.md)). Retention for guest data and the audit is decided later ([Deferred](deferred.md)); archiving an event starts its retention clock |
 | **Secret links** | Treated as secrets: our own code never writes one into a log line or an exception message, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |
