@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Mail;
 
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Catalogue\SetEventMailLayout;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -16,6 +17,42 @@ use Kalaka\Registrations\Api\RegistrationKey;
 abstract class MailBodyTestCase extends MailTestCase
 {
     protected const SECRET = 'TesztTitokTesztTitok01';
+
+    private Runner $production;
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    public function set_up(): void
+    {
+        parent::set_up();
+
+        // A form save declares the event's participant fields through the production runner: in a test it
+        // has to join the harness's transaction.
+        $this->production = Runner::current();
+        Runner::publish($this->runner);
+    }
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    public function tear_down(): void
+    {
+        Runner::publish($this->production);
+
+        parent::tear_down();
+    }
+
+    /** An additional form of the event holding one text field. */
+    protected function additionalForm(int $event, string $key): int
+    {
+        $id = wp_insert_post([
+            'post_type' => 'kalaka_form',
+            'post_status' => 'publish',
+            'post_title' => 'Póttájékoztató',
+            'post_content' => $this->block('kalaka/text-field', ['key' => $key, 'label' => 'Póló']),
+            'meta_input' => ['kalaka_event_id' => $event, 'kalaka_placement' => 'additional'],
+        ], true);
+        self::assertIsInt($id);
+
+        return $id;
+    }
 
     /** A published registration-slot form of the event: name, contact email and a choice of camps. */
     protected function slotForm(int $event): int

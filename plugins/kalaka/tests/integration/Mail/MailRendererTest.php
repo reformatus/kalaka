@@ -55,6 +55,47 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertSame('b' . $revision['latest_id'], $mail->version);
     }
 
+    public function testAKeyThatOnlyAnotherFormOfTheEventHoldsRendersEmptyWithoutFailing(): void
+    {
+        $event = $this->create();
+        $key = $this->registration($event);
+        $this->additionalForm($event, 'shirt');
+        $body = $this->document($event, $this->paragraph('Póló: [<span data-kalaka-value="shirt">méret</span>]')
+            . "\n" . $this->branch(
+                'if',
+                $this->paragraph('Van póló.'),
+                ['match' => 'all', 'items' => [['key' => 'shirt', 'operator' => 'empty', 'not' => true]]]
+            ));
+        $this->switchOn($event, 'registered', $body);
+
+        $mail = (new MailRenderer())->render($event, 'registered', $key);
+
+        self::assertSame('Póló: []', self::text($mail->html));
+    }
+
+    public function testASystemFieldReadsAsNoneUntilDecisionsCanBeRead(): void
+    {
+        global $wpdb;
+        $event = $this->create();
+        $key = $this->registration($event, values: ['name' => 'Teszt', 'email' => 'teszt@example.test', 'tier' => 'x']);
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $event,
+            'field_key' => 'tier',
+            'version' => 1,
+            'type' => 'kalaka/text-field',
+            'title' => 'Sáv',
+            'source' => 'system',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+        ]);
+        $this->switchOn($event, 'registered', $this->document(
+            $event,
+            $this->paragraph('Sáv: [<span data-kalaka-value="tier">sáv</span>]')
+        ));
+
+        self::assertSame('Sáv: []', self::text((new MailRenderer())->render($event, 'registered', $key)->html));
+    }
+
     public function testTheLinkCarriesTheSecretAndTheRegistrationKey(): void
     {
         $event = $this->create();
