@@ -1,6 +1,6 @@
 # Forms
 
-Forms, the registration slot, field types, field definitions, conditions, prefill and form links.
+Forms, the registration slot, the event's participant fields, field types, field definitions, conditions, prefill and form links.
 
 A form is a `kalaka_form` post (registered in `Module.php` with its settings as post meta: `kalaka_event_id`, `kalaka_placement` and `kalaka_required_role`; the password is the post password). Its content is the definition, block markup built from the field blocks. Forms are built in the block editor, by full access only: the post type has `show_ui` and `show_in_rest` but no menu item, and `FormRestController` refuses every REST read without `kalaka_full_access`; the settings are in REST for the same users. A form's version is the ID of its latest revision that is not an autosave; WordPress saves none on insert, so `FormPosts::ensureRevision()` saves the first one, and revisions of forms are never pruned.
 

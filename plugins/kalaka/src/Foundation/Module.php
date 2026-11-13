@@ -160,7 +160,8 @@ SQL;
             new TimeRules(),
             new Events(),
             new EvaluationFailureQuery(),
-            $binlog
+            $binlog,
+            fn (): array => $this->contributions?->periodicSteps() ?? []
         );
         (new PeriodicSchedule($clock))->register(static fn (): mixed => $periodicRun->run());
 

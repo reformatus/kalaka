@@ -28,7 +28,7 @@ record, the check-in act, and so on.
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
-| **Self-sent** | the registrant asks for it in the portal (e.g. resend my link), addressed to an email address | the portal use case, rate-limited |
+| **Self-sent** | the registrant asks for it through a participant block (e.g. resend my link), addressed to an email address | the portal use case, rate-limited |
 
 ## Configuration
 
@@ -80,7 +80,12 @@ activated.**
   (`kalaka_mail` posts). Blocks are used **only for layouts and conditions**.
 - **Values and conditions** follow the shared rules
   ([Values and conditions](events-and-forms.md#values-and-conditions)). A
-  mail's context is **the recipient and the registration**. Actions and
+  mail's context is **the recipient and the registration**. The
+  registration's keys are **the event's participant fields**
+  ([Fields](events-and-forms.md#fields)), not the fields of the form it
+  came through; a field with no value for that registration reads as none,
+  so a mail naming a field only one form holds still renders for everyone.
+  A key that is not a participant field of the event stays an error. Actions and
   reminders add their own layout blocks (e.g. a payment table).
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
@@ -117,6 +122,15 @@ activated.**
 - **Throttle:** an **hourly budget**, a site setting with a default of 240 per
   hour (today's 20 per 5-minute run). Each run sends at most its share of
   what is left. Attempts that end in an error count against it.
+  - **The share:** the hour is the UTC clock hour in twelve 5-minute slots. A
+    run may claim `ceil(L / S) − C`: L is the budget less the hour's claims
+    before the current slot, S the slots left counting the current one, C the
+    claims already made in it. A run that uses up its share nudges itself for
+    the next slot.
+  - **A run stops claiming after 20 seconds** and nudges itself at once, so it
+    stays inside a shared host's `max_execution_time`.
+  - **Only one sender runs at a time** (a named database lock); a run that
+    finds another one running ends at once.
 - **Order:** self-sent and action mails first, then manual mails, reminders
   and scheduled mails.
 
@@ -167,6 +181,7 @@ mail is never sent automatically more than twice.
   the UI. It stops the event's sending, and no scheduled or reminder
   deliveries are added to the queue while it is unpublished, so republishing
   does not release outdated mails. Action mails are still queued, so
-  none is forgotten. The portal, including "resend my link", is closed;
+  none is forgotten. The event's participant blocks, including "resend my
+  link", are closed;
   self-sent mails requested before unpublishing stay queued. The admin sees the pending count with the
   option to clear them ([Events](events-and-forms.md#event-lifecycle)).

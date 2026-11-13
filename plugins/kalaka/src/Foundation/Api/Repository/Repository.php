@@ -190,6 +190,37 @@ abstract class Repository
      */
     final protected function writeInsert(object $entity, Context $context, bool $versioned, bool $recordValues): object
     {
+        return $this->insertRow($entity, $context, $versioned, $recordValues, false)
+            ?? throw self::failure('The insert wrote no row.');
+    }
+
+    /**
+     * Inserts the record unless a unique key already holds a row with its values (`INSERT IGNORE`), and
+     * then writes nothing to the audit and holds no row. Otherwise as `writeInsert()`.
+     *
+     * @param TEntity $entity
+     * @return ?TEntity null when a unique key already held the row
+     */
+    final protected function writeInsertUnlessDuplicate(
+        object $entity,
+        Context $context,
+        bool $versioned,
+        bool $recordValues,
+    ): ?object {
+        return $this->insertRow($entity, $context, $versioned, $recordValues, true);
+    }
+
+    /**
+     * @param TEntity $entity
+     * @return ?TEntity
+     */
+    private function insertRow(
+        object $entity,
+        Context $context,
+        bool $versioned,
+        bool $recordValues,
+        bool $ignoreDuplicate,
+    ): ?object {
         $data = $this->toRow($entity);
         if ($this->autoIncrement()) {
             // The database generates a key the entity does not carry yet.
@@ -205,7 +236,14 @@ abstract class Repository
 
         // A new row cannot be held by anyone else, so only its level is checked.
         $context->lock($this->lockLevel());
-        $insertId = $this->statements->insert($this->prefixedTable(), $data, null, $this->insertsReferenceCode());
+        if ($ignoreDuplicate) {
+            $insertId = $this->statements->insertIgnore($this->prefixedTable(), $data);
+            if ($insertId === null) {
+                return null;
+            }
+        } else {
+            $insertId = $this->statements->insert($this->prefixedTable(), $data, null, $this->insertsReferenceCode());
+        }
 
         $key = [];
         foreach ($this->keyColumns() as $column) {

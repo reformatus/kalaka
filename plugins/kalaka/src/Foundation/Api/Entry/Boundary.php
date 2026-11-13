@@ -86,6 +86,16 @@ final class Boundary
     }
 
     /**
+     * Logs a failure the caller handled itself and neither rethrows nor shows: one line of the error log,
+     * with the request's correlation ID and the whole exception chain. For a module that keeps an error
+     * on its own record and also wants it in the log (a mail delivery's error).
+     */
+    public static function report(string $what, \Throwable $error): void
+    {
+        ErrorLog::failure($what, $error);
+    }
+
+    /**
      * Renders a page or a block: its HTML, or, when anything escapes, the error in its place.
      *
      * @param \Closure(): string $body
