@@ -285,7 +285,7 @@ flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
   REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter"]
-  REG --> DECL["Declarations<br/>payer kind"]
+  REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
 - **Extensions declare core in their `Requires Plugins` header,** so WordPress
@@ -302,6 +302,10 @@ flowchart LR
   - **Outside** (field type, payment method, portal or admin section, view,
     view column, filterable fact, theme adapter).
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
+  - A **block host** is only declared: the Kaláka blocks (e.g. the condition
+    blocks) that an editor other than a form's may insert, for a post type or a
+    block editor context. Forms gates its blocks by post type and lets a host
+    allow some elsewhere, without knowing the module that declares it.
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).

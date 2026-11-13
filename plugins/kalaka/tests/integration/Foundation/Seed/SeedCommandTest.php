@@ -38,7 +38,7 @@ final class SeedCommandTest extends SeedTestCase
         self::assertSame('Seeded.', $calls[count($calls) - 1][1]);
         $lines = array_column(array_filter($calls, static fn (array $call): bool => $call[0] === 'line'), 1);
         self::assertCount(
-            5,
+            6,
             array_filter($lines, static fn (string $line): bool => preg_match('/^(Created|Kept) user /', $line) === 1)
         );
         self::assertCount(1, array_filter($calls, static fn (array $call): bool => $call[0] === 'success'));
