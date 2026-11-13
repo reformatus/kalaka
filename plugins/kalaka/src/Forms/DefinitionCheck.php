@@ -6,20 +6,30 @@ namespace Kalaka\Forms;
 
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
- * Checks a form's definition when it is saved as published, so a published form never goes from working
- * to broken through an edit. The check is the one `DefinitionParser` runs on the live form (keys,
- * options, unknown blocks, the slot's markings, and whatever the parser checks later on), over the
- * content as it will be stored (keys and option values derived first). A draft is not checked: it can be
- * half built. A form whose placement is not set yet is not checked either: it cannot be used anyway.
+ * Checks a form when it is saved, so a published form never goes from working to broken through an edit
+ * and a form never breaks its event's participant fields. Three checks, in this order:
+ *
+ * - the event (`FormEvent`): a form with fields keeps its event (`event_fixed`);
+ * - the keys (`SharedKeyCheck`): no two blocks of the form hold the same key (`duplicate_key`), and against
+ *   the event's participant fields a shared key has the same type (`type_clash`) and no form holds a
+ *   `system` field's key (`system_field`). This runs on every save but an autosave, drafts included,
+ *   because every form of the event declares its fields;
+ * - when the form is saved as published, the definition check `DefinitionParser` runs on the live form
+ *   (keys, options, unknown blocks, the slot's markings, and whatever the parser checks later on). A draft
+ *   is not parsed: it can be half built. A form whose placement is not set yet is not parsed either: it
+ *   cannot be used anyway.
+ *
+ * Each runs over the content as it will be stored (keys and option values derived first, across the event).
  *
  * The REST save (the block editor) is refused with a 400 before anything is written, checked with the
- * placement the request sets, if any; any other save path (code, WP-CLI, a revision restore) is vetoed
- * gracefully in `wp_insert_post_data`, checked with the placement it sets in `meta_input`, else the
- * stored one: nothing ever throws out of a core filter. An
+ * placement and the event the request sets, if any; any other save path (code, WP-CLI, a revision restore)
+ * is vetoed gracefully in `wp_insert_post_data`, checked with what it sets in `meta_input`, else the stored
+ * settings: nothing ever throws out of a core filter. An
  * autosave is stored as a revision and is never a version (`FormPosts`), so it is not checked.
  */
 final class DefinitionCheck
@@ -40,22 +50,13 @@ final class DefinitionCheck
     public const NOTICE = 'kalaka_form_refused_';
 
     /**
-     * The problem of a content as a published form of that placement, or null when it has none.
+     * The problem of a content as a published form of that placement in that event, or null when it has none.
      *
      * @return array{string, string}|null the problem code and its subject (a key, a block or the form)
      */
-    public static function problem(string $content, int $formId, FormPlacement $placement): ?array
+    public static function problem(string $content, int $formId, FormPlacement $placement, ?int $eventId = null): ?array
     {
-        $contributions = Contributions::current();
-        $content = (new FieldKeys())->derive($content, $contributions);
-        try {
-            $form = new Form($formId, 0, $placement, null, false, 0);
-            (new DefinitionParser())->parse($form, 0, $content, $contributions);
-        } catch (SystemFailure $e) {
-            return self::split($e);
-        }
-
-        return null;
+        return self::problemOf($content, $formId, $placement, $eventId, true);
     }
 
     /** The refusal's text for a problem. */
@@ -65,7 +66,21 @@ final class DefinitionCheck
     }
 
     /**
-     * `rest_pre_insert_kalaka_form`: refuses a REST save that would publish a broken definition.
+     * Keeps a vetoed save's refusal for the saving user, shown on their next admin page (`notice()`).
+     *
+     * @internal
+     */
+    public static function notify(string $code, string $subject): void
+    {
+        $user = get_current_user_id();
+        if ($user > 0) {
+            set_transient(self::NOTICE . $user, self::message($code, $subject), HOUR_IN_SECONDS);
+        }
+    }
+
+    /**
+     * `rest_pre_insert_kalaka_form`: refuses a REST save that would change the event of a form with fields,
+     * break the event's participant fields or publish a broken definition.
      *
      * @param \stdClass $prepared the post as the REST controller prepared it
      * @param \WP_REST_Request<array<string, mixed>> $request
@@ -81,13 +96,21 @@ final class DefinitionCheck
             ? $prepared->post_content
             : ($stored instanceof \WP_Post ? $stored->post_content : '');
         $meta = $request->get_param('meta');
-        $placement = self::placement(is_array($meta) ? ($meta[FormPosts::META_PLACEMENT] ?? null) : null, $id);
+        $meta = is_array($meta) ? $meta : [];
+        $placement = self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
+        $requested = array_key_exists(FormPosts::META_EVENT_ID, $meta)
+            ? $meta[FormPosts::META_EVENT_ID]
+            : FormEvent::NOT_GIVEN;
+        [$eventId, $fixed] = FormEvent::resolve($id, $requested);
 
-        $problem = $status === 'publish' && $placement !== null ? self::problem($content, $id, $placement) : null;
+        $problem = $fixed
+            ? [FormEvent::PROBLEM, FormPosts::META_EVENT_ID]
+            : self::problemOf($content, $id, $placement, $eventId, $status === 'publish');
         if ($problem === null) {
             if ($placement !== null) {
                 self::$restPlacements[$id] = $placement;
             }
+            FormEvent::rememberRest($id, $requested);
 
             return $prepared;
         }
@@ -97,10 +120,17 @@ final class DefinitionCheck
 
     /**
      * `wp_insert_post_data`, after the keys are derived: the backstop for every other save path (code,
-     * WP-CLI, WordPress's own revision restore). It never throws out of the core filter: a save that would
-     * publish a broken definition is vetoed gracefully. A published form keeps its stored content; any
-     * other form keeps the new content but not the published status. Why is kept for the saving user and
-     * shown as an admin notice on their next admin page (`notice()`).
+     * WP-CLI, WordPress's own revision restore). It never throws out of the core filter: a refused save
+     * is vetoed gracefully.
+     *
+     * - A change of a form's event is refused (the setting keeps its stored value), the rest of the save
+     *   goes on.
+     * - Content whose keys break the event's participant fields is not stored: a stored form keeps its
+     *   stored content, a new one is saved empty as a draft.
+     * - Content that would publish a broken definition: a published form keeps its stored content; any
+     *   other form keeps the new content but not the published status.
+     *
+     * Why is kept for the saving user and shown as an admin notice on their next admin page (`notice()`).
      *
      * @param array<string, mixed> $data the post's fields, slashed
      * @param array<string, mixed> $postarr
@@ -114,25 +144,50 @@ final class DefinitionCheck
         $id = is_int($postarr['ID'] ?? null) ? $postarr['ID'] : 0;
         $fromRest = self::$restPlacements[$id] ?? null;
         unset(self::$restPlacements[$id]);
-        if (($data['post_status'] ?? null) !== 'publish' || !is_string($data['post_content'] ?? null)) {
-            return $data;
-        }
-        $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
-        $placement = $fromRest ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
-        $problem = $placement !== null ? self::problem(wp_unslash($data['post_content']), $id, $placement) : null;
-        if ($problem === null) {
+        $requested = FormEvent::requested($id, $postarr);
+        FormEvent::forget($id);
+        $status = $data['post_status'] ?? null;
+        if (!is_string($data['post_content'] ?? null) || in_array($status, ['auto-draft', 'trash'], true)) {
             return $data;
         }
 
-        $stored = $id > 0 ? get_post($id) : null;
-        if ($stored instanceof \WP_Post && $stored->post_status === 'publish') {
-            $data['post_content'] = wp_slash($stored->post_content);
-        } else {
-            $data['post_status'] = $stored instanceof \WP_Post ? $stored->post_status : 'draft';
+        $problem = null;
+        [$eventId, $fixed] = FormEvent::resolve($id, $requested);
+        if ($fixed) {
+            FormEvent::refuse($id);
+            $problem = [FormEvent::PROBLEM, FormPosts::META_EVENT_ID];
         }
-        $user = get_current_user_id();
-        if ($user > 0) {
-            set_transient(self::NOTICE . $user, self::message(...$problem), HOUR_IN_SECONDS);
+
+        $stored = $id > 0 ? get_post($id) : null;
+        $keys = SharedKeyCheck::problem(wp_unslash($data['post_content']), $eventId, Contributions::current());
+        if ($keys !== null) {
+            $problem ??= $keys;
+            if ($stored instanceof \WP_Post) {
+                $data['post_content'] = wp_slash($stored->post_content);
+            } else {
+                $data['post_content'] = '';
+                $data['post_status'] = 'draft';
+            }
+        }
+
+        if (($data['post_status'] ?? null) === 'publish') {
+            $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
+            $placement = $fromRest ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
+            $broken = $placement !== null
+                ? self::problemOf(wp_unslash((string) $data['post_content']), $id, $placement, $eventId, true)
+                : null;
+            if ($broken !== null) {
+                $problem ??= $broken;
+                if ($stored instanceof \WP_Post && $stored->post_status === 'publish') {
+                    $data['post_content'] = wp_slash($stored->post_content);
+                } else {
+                    $data['post_status'] = $stored instanceof \WP_Post ? $stored->post_status : 'draft';
+                }
+            }
+        }
+
+        if ($problem !== null) {
+            self::notify(...$problem);
         }
 
         return $data;
@@ -148,6 +203,35 @@ final class DefinitionCheck
         }
         delete_transient($key);
         echo '<div class="notice notice-error"><p>' . esc_html($message) . '</p></div>';
+    }
+
+    /**
+     * The first problem of a content: the keys against the event's participant fields, then, when it is
+     * to be published with a placement, the definition.
+     *
+     * @return array{string, string}|null
+     */
+    private static function problemOf(
+        string $content,
+        int $formId,
+        ?FormPlacement $placement,
+        ?int $eventId,
+        bool $published,
+    ): ?array {
+        $contributions = Contributions::current();
+        $content = (new FieldKeys())->derive($content, $contributions, SharedKeyCheck::takenKeys($eventId));
+        $problem = SharedKeyCheck::problem($content, $eventId, $contributions);
+        if ($problem !== null || !$published || $placement === null) {
+            return $problem;
+        }
+        try {
+            $form = new Form($formId, 0, $placement, null, false, 0);
+            (new DefinitionParser())->parse($form, 0, $content, $contributions);
+        } catch (SystemFailure $e) {
+            return self::split($e);
+        }
+
+        return null;
     }
 
     /** The placement being saved, else the stored one, else null. */

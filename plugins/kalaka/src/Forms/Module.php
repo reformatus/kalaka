@@ -16,6 +16,7 @@ use Kalaka\Forms\FieldType\TextFieldType;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Forms\Value\BindingSource;
+use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
 {
@@ -28,9 +29,34 @@ final class Module extends AbstractModule
     /** The condition branch blocks, in `Blocks/`. */
     private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
+    /**
+     * The event's participant fields, keyed by (event ID, field key) [UNAPPROVED N1]. `field_key` and `type`
+     * are compared exactly (`utf8mb4_nopad_bin`); `options` is JSON; times are UTC `datetime(6)`.
+     */
+    private const PARTICIPANT_FIELDS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_participant_fields (
+  event_id bigint(20) unsigned NOT NULL,
+  field_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  version int(10) unsigned NOT NULL,
+  type varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  title text CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  options longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
+  source varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  retired_at datetime(6) DEFAULT NULL,
+  created_at datetime(6) NOT NULL,
+  updated_at datetime(6) NOT NULL,
+  PRIMARY KEY  (event_id,field_key)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'forms';
+    }
+
+    public function schema(): Schema
+    {
+        return new Schema(1, [self::PARTICIPANT_FIELDS]);
     }
 
     public function requiresApi(): string
@@ -54,6 +80,7 @@ final class Module extends AbstractModule
     public function boot(): void
     {
         add_action('init', [$this, 'register']);
+        add_action('rest_api_init', [ParticipantFieldsRoute::class, 'register']);
     }
 
     /** @internal the `init` callback */
@@ -78,10 +105,17 @@ final class Module extends AbstractModule
         add_action('wp_after_insert_post', [new FormPosts(), 'ensureRevision'], 10, 2);
 
         // events-and-forms.md, "Fields": keys and option values come from the visible text, set on save.
-        add_filter('wp_insert_post_data', [FieldKeys::class, 'onInsert']);
+        // Derived across the form's event (owner ruling 2026-11-11), whose ID may be only in `$postarr`.
+        add_filter('wp_insert_post_data', [FieldKeys::class, 'onInsert'], 10, 2);
         // A published form never goes from working to broken through an edit.
         add_filter('wp_insert_post_data', [DefinitionCheck::class, 'onInsert'], 20, 2);
         add_filter('rest_pre_insert_' . FormPosts::POST_TYPE, [DefinitionCheck::class, 'onRestInsert'], 10, 2);
+        // A form with fields keeps its event (owner ruling 2026-11-13, B2(a)), whatever writes the setting.
+        add_filter('add_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
+        add_filter('update_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
+        add_filter('delete_post_metadata', [FormEvent::class, 'onDelete'], 10, 3);
+        // The event's participant fields follow its forms, once the saved form and its settings are stored.
+        add_action('wp_after_insert_post', [ParticipantFieldSync::class, 'onPostChange'], 15, 2);
         // The broken-form list the site warning reads, kept current on every change of a form.
         add_action('wp_after_insert_post', [BrokenForms::class, 'onPostChange'], 20, 2);
         add_action('deleted_post', [BrokenForms::class, 'onPostChange'], 10, 2);

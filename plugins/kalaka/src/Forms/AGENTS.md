@@ -30,8 +30,24 @@ values and conditions, prefill and form links
   sends for anything else is refused.
 - A field key and a choice option's value are derived once from the title or
   label, on save, by `FieldKeys` (the only writer); after that they never
-  change, whatever the text becomes. Only a missing, invalid or repeated one is
-  derived again, since a form holding one was unusable and stored nothing.
+  change, whatever the text becomes. Only a missing or invalid key, or a
+  missing, invalid or repeated option value, is derived again, since a form
+  holding one was unusable and stored nothing. A key repeated within one form
+  is never derived again: the save check refuses it (`duplicate_key`).
+- A form's fields are its event's participant fields
+  (`kalaka_participant_fields`, owned by Forms). A derived key is unique
+  across the event and never takes a key the event ever had, retired ones
+  included. A key the form holds on purpose that another form of the event
+  holds too is the same participant field and must have its type; a `system`
+  field is read-only and no form holds its key. A choice field's options are
+  the union over the event's forms; one no form holds is retired, its label
+  kept.
+- A form's event is set when it is created and fixed once the form has
+  fields, on every path that writes the setting.
+- A post save never writes Kaláka's tables: the save checks only read and
+  refuse (REST 400, else a graceful veto with an admin notice), and
+  `DeclareParticipantFields`, run through the runner after the post and its
+  settings are stored, is the only writer of the participant fields.
 - A form autosave is never a version: the version is the latest revision that
   is not an autosave.
 - Forms are edited in the block editor by full access only: every capability

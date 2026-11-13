@@ -110,7 +110,7 @@ final class FieldKeysTest extends FormsTestCase
         self::assertSame(['name', 'email', 'polomeret', 'polomeret_1'], $this->keysOf($id));
     }
 
-    public function testARepeatedOrInvalidKeyIsReplacedLaterInTheDocument(): void
+    public function testAnInvalidKeyIsReplacedButARepeatedOneIsKeptForTheSaveCheckToRefuse(): void
     {
         $id = $this->insertForm(
             $this->slotFields()
@@ -119,7 +119,10 @@ final class FieldKeysTest extends FormsTestCase
                 . $this->field('date', 'Bad Key', ['label' => 'Érkezés'])
         );
 
-        self::assertSame(['name', 'email', 'note', 'megjegyzes', 'erkezes'], $this->keysOf($id));
+        self::assertSame(
+            ['name', 'email', 'note', 'note', 'erkezes'],
+            array_column($this->storedFields($id), 'key')
+        );
     }
 
     public function testOptionValuesAreDerivedFromTheirLabelsWithinTheField(): void
