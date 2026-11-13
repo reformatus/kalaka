@@ -10,7 +10,7 @@ conditions, prefill and form links
   [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
   [Fields](../../../../docs/architecture/events-and-forms.md#fields);
   later [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions),
-  [Editability after submit](../../../../docs/architecture/events-and-forms.md#editability-after-submit),
+  [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
   [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
 - modules-and-extensions.md: the field-type and theme-adapter points of
@@ -29,8 +29,44 @@ conditions, prefill and form links
   sends for anything else is refused.
 - A field key and a choice option's value are derived once from the title or
   label, on save, by `FieldKeys` (the only writer); after that they never
-  change, whatever the text becomes. Only a missing, invalid or repeated one is
-  derived again, since a form holding one was unusable and stored nothing.
+  change, whatever the text becomes. Only a missing or invalid key, or a
+  missing, invalid or repeated option value, is derived again, since a form
+  holding one was unusable and stored nothing. A key repeated within one form
+  is never derived again: the save check refuses it (`duplicate_key`).
+- A form's fields are its event's participant fields
+  (`kalaka_participant_fields`, owned by Forms). A derived key is unique
+  across the event and never takes a key the event ever had, retired ones
+  included. A key the form holds on purpose that another form of the event
+  holds too is the same participant field and must have its type; an
+  `extension` field not declared form-writable, like a `system` field, is
+  read-only and no form holds its key; a `staff` field stays writable from
+  forms. A block that arrives without its key takes back its stored key
+  (same type and title) before anything is derived. A choice field's options are
+  the union over the event's forms; one no form holds is retired, its label
+  kept.
+- A participant field's title and its choice options' labels are its own,
+  separate from the labels the forms show: each is set when it is first
+  declared (an option is matched by value), never from a later form's label,
+  and changed only by `RenameParticipantField` (a `form` or `staff` field; a
+  `system` or `extension` field's texts are its declarer's). Mails, views
+  and the status page show the participant field's labels; a form shows its
+  own.
+- A form's event is set when it is created and fixed once the form has
+  fields, on every path that writes the setting, with one known gap: code
+  that sets the first event of a form that has fields but no event through
+  `update_post_meta()` directly is let through, because the REST create sets
+  the event that way after the post exists (`FormEvent`). A save that changes the
+  event is judged before anything is stored, on the stored and the incoming
+  content: it is refused whole, never stored with its setting refused.
+- The participant-field sync never stops on one clashing form: it declares
+  the rest, logs the clashing keys, and a published form whose key clashes
+  with the event's field is unusable and named in the broken-form warning.
+- A post save never writes Kaláka's tables: the save checks only read and
+  refuse (REST 400, else a graceful veto with an admin notice), and
+  `DeclareParticipantFields`, run through the runner after the post and its
+  settings are stored, writes the participant fields; besides it only
+  `RenameParticipantField` (an explicit request) does, both through
+  `ParticipantFieldRepository`.
 - A form autosave is never a version: the version is the latest revision that
   is not an autosave.
 - Forms are edited in the block editor by full access only: every capability
@@ -43,13 +79,18 @@ conditions, prefill and form links
   version resolves to the definition it was checked against for as long as
   the form exists; a form that submissions refer to is never deleted.
 - A form with a definition problem (keys, options, an unknown field block, the
-  slot's markings, a missing revision) is unusable; it is never half-accepted.
+  slot's markings, a missing revision, a key that clashes with the event's
+  participant field) is unusable; it is never half-accepted.
 - A published form never goes from working to broken through an edit: saving a
   form as published runs the live form's definition check (`DefinitionCheck`,
-  through `DefinitionParser`) and refuses a broken one on every save path. A
-  new definition check goes into `DefinitionParser`, so the save check gets it
-  too. A form broken before the check stays closed and is named in a site
-  warning; it is never rendered from another revision.
+  through `DefinitionParser` and `SharedKeyCheck`) and refuses a broken one on
+  every save path. The definition check has two homes, and both the save check
+  and `Forms::definition()` run both (`Forms::definition()` runs the event
+  check on the current version only; an earlier version is read as it was): a check of the form alone goes into
+  `DefinitionParser`, a check against the event's participant fields into
+  `ParticipantField\SharedKeyCheck`. A form broken before the check stays
+  closed and is named in a site warning; it is never rendered from another
+  revision.
 - Kaláka's form blocks are gated by post type (`BlockGate` on
   `allowed_block_types_all`), never by `ancestor`: a form's editor gets the
   allow-list, any other editor only what a `BlockHost` names. Forms never names

@@ -9,6 +9,9 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\AnswerValidator;
 use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
+use Kalaka\Forms\ParticipantField\FieldBlocks;
+use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
+use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -39,15 +42,27 @@ final class Forms
     }
 
     /**
-     * The definition of the form's current version, or of an earlier revision of the same form.
+     * The definition of the form's current version, or of an earlier revision of the same form. The current
+     * version must also agree with the event's participant fields (a key of another type, or a `system`
+     * field's key, makes it unusable): a form written around the save check stays closed and is named in
+     * the broken-form warning. An earlier version is read as it was.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
     public function definition(Form $form, ?int $version = null): FormDefinition
     {
         $version ??= $form->version;
+        $content = $this->posts->content($form, $version);
+        $definition = $this->parser->parse($form, $version, $content, Contributions::current());
+        if ($version === $form->version) {
+            $problem = SharedKeyCheck::problem($content, $form->eventId, Contributions::current());
+            if ($problem !== null) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+                throw new SystemFailure($problem[0] . ' ' . $problem[1]);
+            }
+        }
 
-        return $this->parser->parse($form, $version, $this->posts->content($form, $version), Contributions::current());
+        return $definition;
     }
 
     /**
@@ -81,6 +96,53 @@ final class Forms
         }
 
         return $refusals;
+    }
+
+    /**
+     * The event's participant fields, in the order they were declared (`position`); retired ones only when
+     * asked. Each names the forms of the event that hold it now and its type's label. It reads Kaláka's own
+     * table and the event's form posts, so it runs outside a use case's transaction.
+     *
+     * @return list<ParticipantField>
+     */
+    public function participantFields(int $eventId, bool $includeRetired = false): array
+    {
+        $holders = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            foreach (array_keys(FieldBlocks::of($post->post_content, Contributions::current())) as $key) {
+                $holders[$key][] = ['form_id' => $post->ID, 'title' => $post->post_title];
+            }
+        }
+        $blocks = \WP_Block_Type_Registry::get_instance();
+
+        $fields = [];
+        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
+            if ($record->retiredAt !== null && !$includeRetired) {
+                continue;
+            }
+            $options = [];
+            foreach ($record->options ?? [] as $option) {
+                $options[] = [
+                    'value' => $option['value'],
+                    'label' => $option['label'],
+                    'retired' => $option['retired_at'] !== null,
+                ];
+            }
+            $title = $blocks->get_registered($record->type)?->title;
+            $fields[] = new ParticipantField(
+                $record->key,
+                $record->type,
+                $record->title,
+                $options,
+                $record->source,
+                $record->retiredAt !== null,
+                is_string($title) && $title !== '' ? $title : $record->type,
+                $record->writableFromForms(),
+                $holders[$record->key] ?? [],
+            );
+        }
+
+        return $fields;
     }
 
     /**
