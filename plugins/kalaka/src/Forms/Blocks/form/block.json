@@ -1,0 +1,17 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/form",
+  "title": "Kaláka űrlap",
+  "category": "kalaka",
+  "attributes": {
+    "formId": {
+      "type": "integer"
+    }
+  },
+  "supports": {
+    "interactivity": true
+  },
+  "viewScriptModule": "file:./view.js",
+  "render": "file:./render.php",
+  "viewStyle": "kalaka-form-view"
+}

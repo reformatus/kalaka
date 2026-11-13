@@ -168,3 +168,12 @@ values and conditions, prefill and form links
 - Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`
   in the evaluator (deptrac: the `Forms` layer); no `Forms\Api` signature takes
   or returns a brick/math type.
+- The script keeps every answer while the page is open and sends only the
+  answers of fields that show; it keeps nothing across a reload.
+- The submit token (`Registrations\Api\SubmitToken`) is issued by the server
+  on every render of a form page, into a hidden field, and sent back
+  unchanged on every send of that page; it never goes into a cookie,
+  storage, a URL or a log line.
+- A `kalaka/` block in a published form that is not a registered block type
+  closes the site.
+- One field type per block name; a second one is a load failure.

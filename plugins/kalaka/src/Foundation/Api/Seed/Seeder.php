@@ -10,6 +10,9 @@ namespace Kalaka\Foundation\Api\Seed;
  */
 interface Seeder
 {
-    /** Writes only through `Seeding::run()`. */
+    /**
+     * Writes our tables only through `Seeding::run()`; WordPress data (posts, users) with WordPress
+     * functions, outside any use case.
+     */
     public function seed(Seeding $seeding): void;
 }

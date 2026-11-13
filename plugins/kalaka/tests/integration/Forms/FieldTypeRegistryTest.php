@@ -160,15 +160,18 @@ final class FieldTypeRegistryTest extends FormsTestCase
     public function testAModuleThatContributesTheSameBlockTwiceFailsToLoad(): void
     {
         $register = static function (\Kalaka\Foundation\Api\Module\Modules $modules): void {
-            $modules->add(new TestFieldTypesModule());
+            $modules->add(new DuplicateFieldTypeModule());
         };
         add_action('kalaka_register_modules', $register);
         $log = ini_set('error_log', '/dev/null');
         try {
-            $boot = new Boot([new \Kalaka\Forms\Module(), new TestFieldTypesModule()]);
+            $boot = new Boot([new \Kalaka\Forms\Module()]);
             $boot->run();
 
-            self::assertNotSame([], $boot->failures());
+            // The failing module is the second contributor, not Forms, and the reason names the block.
+            self::assertCount(1, $boot->failures());
+            self::assertSame('forms_duplicate', $boot->failures()[0]->moduleId);
+            self::assertStringContainsString('kalaka/name-field', $boot->failures()[0]->reason);
             self::assertFalse(LoadState::current()->isOpen());
         } finally {
             remove_action('kalaka_register_modules', $register);

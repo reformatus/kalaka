@@ -1,0 +1,2550 @@
+{
+  "cases": [
+    {
+      "name": "number greater",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "10"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "9"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number greater (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "10"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "9",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number not greater",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "9"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "9"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number not greater (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "9"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "9",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number less",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-1.5"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "0"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number less (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-1.5"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "0",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number not less",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "0"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number not less (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "0",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number equal as decimals",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.50"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2.5"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number equal as decimals (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.50"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2.5",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number unequal",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.51"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2.5"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number unequal (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.51"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2.5",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number less or equal",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.5"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "2.50"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number less or equal (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.5"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "2.50",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number greater or equal",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.49"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "2.5"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number greater or equal (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "2.49"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "2.5",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number exact beyond a float",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0.1000000000000000000001"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "0.1"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number exact beyond a float (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0.1000000000000000000001"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "0.1",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number ten is greater than nine",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "10"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "9"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number ten is greater than nine (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "10"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "9",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number 0.10 equals 0.1",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0.10"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "0.1"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number 0.10 equals 0.1 (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0.10"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "0.1",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number -2 is less than -1.5",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-2"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "-1.5"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number -2 is less than -1.5 (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-2"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "-1.5",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number -1.5 is not less than -2",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-1.5"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "-2"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number -1.5 is not less than -2 (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-1.5"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "-2",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number zero equals negative zero",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-0"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "0"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number zero equals negative zero (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "-0"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "0",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date less or equal on the day",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2010-11-30"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "2010-11-30"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date less or equal on the day (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2010-11-30"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "2010-11-30",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date less",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2010-11-30"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "2010-11-30"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date less (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2010-11-30"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "2010-11-30",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date greater",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2011-01-01"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "2010-12-31"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date greater (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2011-01-01"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "2010-12-31",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date equal",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2011-01-01"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2011-01-01"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date equal (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2011-01-01"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2011-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date greater or equal",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2010-12-31"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "2011-01-01"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date greater or equal (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": "2010-12-31"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "2011-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text equal, case-insensitive",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "anna"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text equal, case-insensitive (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "anna",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text unequal",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "Anna B"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text unequal (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "Anna B",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text contains a substring",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Kovács Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "ács"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text contains a substring (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Kovács Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "ács",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text contains, case-insensitive with accents",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Kovács Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "ÁCS"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text contains, case-insensitive with accents (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Kovács Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "ÁCS",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text does not contain",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Kovács Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "xyz"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text does not contain (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Kovács Anna"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "xyz",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text accent-sensitive",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Á"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "A"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text accent-sensitive (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Á"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "A",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text Árvíztűrő equals árvíztűrő",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Árvíztűrő"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "árvíztűrő"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text Árvíztűrő equals árvíztűrő (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Árvíztűrő"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "árvíztűrő",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text Ő does not equal O",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Ő"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "O"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text Ő does not equal O (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": "Ő"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "O",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice contains one of several",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "b"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice contains one of several (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "b",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice contains none of them",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "c"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice contains none of them (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "c",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice equals the only one",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice equals the only one (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice of two does not equal one",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice of two does not equal one (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number empty",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number empty (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": "0"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text empty",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": ""
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text empty (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": ""
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice empty",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": []
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice empty (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": []
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice not empty",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice not empty (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": [
+            "a"
+          ]
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number none is empty",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number none is empty (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number none fails equals",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "1"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number none fails equals (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "1",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number none fails lessThan",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "1"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number none fails lessThan (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "1",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number none fails lessOrEqual",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "1"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number none fails lessOrEqual (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "1",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number none fails greaterThan",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "1"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number none fails greaterThan (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "1",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "number none fails greaterOrEqual",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "1"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "number none fails greaterOrEqual (not)",
+      "values": {
+        "k": {
+          "type": "number",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "1",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date none is empty",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date none is empty (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date none fails equals",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2010-01-01"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date none fails equals (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "2010-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date none fails lessThan",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "2010-01-01"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date none fails lessThan (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessThan",
+            "value": "2010-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date none fails lessOrEqual",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "2010-01-01"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date none fails lessOrEqual (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "lessOrEqual",
+            "value": "2010-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date none fails greaterThan",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "2010-01-01"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date none fails greaterThan (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterThan",
+            "value": "2010-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "date none fails greaterOrEqual",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "2010-01-01"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "date none fails greaterOrEqual (not)",
+      "values": {
+        "k": {
+          "type": "date",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "greaterOrEqual",
+            "value": "2010-01-01",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text none is empty",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text none is empty (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text none fails equals",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text none fails equals (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "text none fails contains",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "a"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "text none fails contains (not)",
+      "values": {
+        "k": {
+          "type": "text",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "a",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice none is empty",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice none is empty (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "empty",
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice none fails equals",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice none fails equals (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "equals",
+            "value": "a",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "choice none fails contains",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "a"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "choice none fails contains (not)",
+      "values": {
+        "k": {
+          "type": "choice",
+          "data": null
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "k",
+            "operator": "contains",
+            "value": "a",
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "all: one fails",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "age",
+            "operator": "greaterThan",
+            "value": "9"
+          },
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "any: one holds",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "any",
+        "items": [
+          {
+            "key": "age",
+            "operator": "greaterThan",
+            "value": "9"
+          },
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "all: both hold",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "age",
+            "operator": "greaterThan",
+            "value": "9"
+          },
+          {
+            "key": "age",
+            "operator": "greaterThan",
+            "value": "9"
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "any: none holds",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "any",
+        "items": [
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          },
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "a negated group holds",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "match": "any",
+            "items": [
+              {
+                "key": "fee",
+                "operator": "equals",
+                "value": "extra"
+              },
+              {
+                "key": "fee",
+                "operator": "equals",
+                "value": "extra"
+              }
+            ],
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "a negated group beside a comparison",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "age",
+            "operator": "greaterThan",
+            "value": "9"
+          },
+          {
+            "match": "any",
+            "items": [
+              {
+                "key": "fee",
+                "operator": "equals",
+                "value": "extra"
+              },
+              {
+                "key": "fee",
+                "operator": "equals",
+                "value": "extra"
+              }
+            ],
+            "not": true
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "a negated group beside a failing comparison",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          },
+          {
+            "match": "any",
+            "items": [
+              {
+                "key": "fee",
+                "operator": "equals",
+                "value": "extra"
+              },
+              {
+                "key": "fee",
+                "operator": "equals",
+                "value": "extra"
+              }
+            ],
+            "not": true
+          }
+        ]
+      },
+      "expected": false
+    },
+    {
+      "name": "a group beside a failing comparison, any",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "any",
+        "items": [
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          },
+          {
+            "match": "all",
+            "items": [
+              {
+                "key": "age",
+                "operator": "greaterThan",
+                "value": "9"
+              },
+              {
+                "key": "note",
+                "operator": "contains",
+                "value": "ell"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": true
+    },
+    {
+      "name": "a group beside a failing comparison, all",
+      "values": {
+        "age": {
+          "type": "number",
+          "data": "12"
+        },
+        "fee": {
+          "type": "choice",
+          "data": [
+            "basic"
+          ]
+        },
+        "note": {
+          "type": "text",
+          "data": "hello"
+        }
+      },
+      "condition": {
+        "match": "all",
+        "items": [
+          {
+            "key": "fee",
+            "operator": "equals",
+            "value": "extra"
+          },
+          {
+            "match": "all",
+            "items": [
+              {
+                "key": "age",
+                "operator": "greaterThan",
+                "value": "9"
+              },
+              {
+                "key": "note",
+                "operator": "contains",
+                "value": "ell"
+              }
+            ]
+          }
+        ]
+      },
+      "expected": false
+    }
+  ]
+}

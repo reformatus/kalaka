@@ -194,9 +194,24 @@ flowchart TB
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
 - The public page uses WordPress's **Interactivity API**.
-- **Forms need JavaScript.** Conditional sections are hidden by default, and
-  the form shows a warning when JavaScript is off (UI text approved when
-  built).
+- **Forms need JavaScript.** Without it the form stays as the server
+  rendered it for no answers and cannot be sent, and it shows a warning
+  (UI text approved when built). A multi-page form shows none of its pages
+  without it.
+- **Moving between pages:** Next checks the current page on the server
+  first; Back, and the browser's Back button, move to the previous page
+  that shows; there is no progress indicator.
+- **Answers stay in the browser while the page is open:** a hidden answer
+  is kept and only the answers of what shows are sent; a ticked option that
+  stops being offered is ticked again when it returns. Nothing is kept
+  across a reload.
+- **While the server is asked** (a re-fetch, a page check, a submit) the
+  form is dimmed and its fields take no input; after 2 seconds a spinner in
+  the look of WordPress's own shows over it.
+- **One request in flight per form:** changes made while a request runs
+  coalesce into one follow-up with the latest answers. A click on Next or
+  Send during a request is queued, not lost; Back is ignored while the form
+  is busy.
 - **The server validates against the same form definition:** only declared,
   visible fields are accepted.
 - **Each submission stores the form and its version**

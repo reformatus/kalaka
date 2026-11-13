@@ -27,7 +27,7 @@ Kaláka is a WordPress plugin: an integrated registration system for events and 
 | Schema (`dbDelta`) | `src/Foundation/SchemaUpgrader.php`, option `kalaka_schema_<id>` |
 | REST routes | `<Module>/Rest/` (none yet) |
 | WP-CLI | `<Module>/Cli/` (none yet) |
-| Blocks | `<Module>/Blocks/<name>/`, built into `build/` (none yet) |
+| Blocks | `<Module>/Blocks/<name>/`, built into `build/` by `npm run build` and registered from there (Forms') |
 
 ## Modules
 
@@ -35,7 +35,7 @@ Kaláka is a WordPress plugin: an integrated registration system for events and 
 |---|---|---|
 | Foundation | `Kalaka\Foundation` | `plugins_loaded` boot, `kalaka_register_modules` |
 | Events | `Kalaka\Events` | none yet |
-| Forms | `Kalaka\Forms` | none yet |
+| Forms | `Kalaka\Forms` | `init` (blocks, form post type), `wp_loaded` (field block check), block `kalaka/form`, `wp kalaka seed` |
 | Registrations | `Kalaka\Registrations` | none yet |
 | Pricing | `Kalaka\Pricing` | none yet |
 | Ledger | `Kalaka\Ledger` | none yet |
@@ -55,3 +55,7 @@ add_action('kalaka_register_modules', static function (Kalaka\Foundation\Api\Mod
 ```
 
 The module's `requiresApi()` declares the supported core API range, for example `'>=0.1 <0.2'`. Only `>=` and `<` are used.
+
+## JavaScript
+
+One `@wordpress/scripts` build covers all of it: `npm run build` (`npm start` in watch mode) reads `src/` and writes `build/`, with a source map for each script module. The blocks are registered from `build/`; `bin/build.sh` builds it before it zips the plugin. `npm run lint:js` lints it and `npm run test:js` runs the Jest tests in `tests/js/`.
