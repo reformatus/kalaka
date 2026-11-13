@@ -10,8 +10,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
 /**
  * The event of a form is set when the form is created and fixed once the form has fields (owner ruling
  * 2026-11-13, B2(a)): keys are derived across the event's forms, so a form with fields cannot move to
- * another event. "Has fields" is the stored content holding a field block. A form without fields may
- * still change its event. [UNAPPROVED N4]
+ * another event. A save that changes the event is refused before anything is stored when the stored
+ * content or the incoming content holds a field block; a form without fields may still change its
+ * event, and fields may be added in a later save. [UNAPPROVED N4]
  *
  * A save learns the event the way `DefinitionCheck` learns the placement: from the REST request (the REST
  * controller saves meta only after the post, so it is remembered here for this request's
@@ -62,11 +63,16 @@ final class FormEvent
     }
 
     /**
-     * The event the form has after the save, and whether the save's change of it is refused.
+     * The event the form has after the save, and whether the save's change of it is refused. It judges the
+     * stored form and the incoming content together, before anything is stored: a change is refused when
+     * the stored form has fields, or when the incoming content has fields and the form already had an event.
+     * Setting the first event of a form whose stored content has no fields (a new form, or the block
+     * editor's auto-draft on its first save) is its creation, and allowed.
      *
+     * @param ?string $incoming the content the save stores, or null when it keeps the stored one
      * @return array{?int, bool}
      */
-    public static function resolve(int $id, mixed $requested): array
+    public static function resolve(int $id, mixed $requested, ?string $incoming = null): array
     {
         $stored = self::stored($id);
         if ($requested === self::NOT_GIVEN) {
@@ -76,7 +82,8 @@ final class FormEvent
         if ($event === $stored) {
             return [$stored, false];
         }
-        if (self::hasFields($id)) {
+        $incomingFields = $incoming !== null && FieldBlocks::any($incoming, Contributions::current());
+        if (self::hasFields($id) || ($stored !== null && $incomingFields)) {
             return [$stored, true];
         }
 

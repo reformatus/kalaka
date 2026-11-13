@@ -101,7 +101,7 @@ final class DefinitionCheck
         $requested = array_key_exists(FormPosts::META_EVENT_ID, $meta)
             ? $meta[FormPosts::META_EVENT_ID]
             : FormEvent::NOT_GIVEN;
-        [$eventId, $fixed] = FormEvent::resolve($id, $requested);
+        [$eventId, $fixed] = FormEvent::resolve($id, $requested, $content);
 
         $problem = $fixed
             ? [FormEvent::PROBLEM, FormPosts::META_EVENT_ID]
@@ -123,8 +123,8 @@ final class DefinitionCheck
      * WP-CLI, WordPress's own revision restore). It never throws out of the core filter: a refused save
      * is vetoed gracefully.
      *
-     * - A change of a form's event is refused (the setting keeps its stored value), the rest of the save
-     *   goes on.
+     * - A change of a form's event is refused: the setting and the content keep their stored values (the
+     *   new content's keys were derived for the stored event).
      * - Content whose keys break the event's participant fields is not stored: a stored form keeps its
      *   stored content, a new one is saved empty as a draft.
      * - Content that would publish a broken definition: a published form keeps its stored content; any
@@ -152,13 +152,17 @@ final class DefinitionCheck
         }
 
         $problem = null;
-        [$eventId, $fixed] = FormEvent::resolve($id, $requested);
+        $stored = $id > 0 ? get_post($id) : null;
+        [$eventId, $fixed] = FormEvent::resolve($id, $requested, wp_unslash($data['post_content']));
         if ($fixed) {
+            // Nothing the change would have touched is stored: the setting and the content stay as stored.
             FormEvent::refuse($id);
             $problem = [FormEvent::PROBLEM, FormPosts::META_EVENT_ID];
+            if ($stored instanceof \WP_Post) {
+                $data['post_content'] = wp_slash($stored->post_content);
+            }
         }
 
-        $stored = $id > 0 ? get_post($id) : null;
         $keys = SharedKeyCheck::problem(wp_unslash($data['post_content']), $eventId, Contributions::current());
         if ($keys !== null) {
             $problem ??= $keys;

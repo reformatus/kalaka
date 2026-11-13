@@ -42,7 +42,12 @@ conditions, prefill and form links
   the union over the event's forms; one no form holds is retired, its label
   kept.
 - A form's event is set when it is created and fixed once the form has
-  fields, on every path that writes the setting.
+  fields, on every path that writes the setting. A save that changes the
+  event is judged before anything is stored, on the stored and the incoming
+  content: it is refused whole, never stored with its setting refused.
+- The participant-field sync never stops on one clashing form: it declares
+  the rest, logs the clashing keys, and a published form whose key clashes
+  with the event's field is unusable and named in the broken-form warning.
 - A post save never writes Kaláka's tables: the save checks only read and
   refuse (REST 400, else a graceful veto with an admin notice), and
   `DeclareParticipantFields`, run through the runner after the post and its

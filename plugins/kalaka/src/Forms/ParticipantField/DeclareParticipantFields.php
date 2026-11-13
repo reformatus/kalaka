@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\ParticipantField;
 
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -14,9 +13,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * the union over every form of the event that is not trashed, the saved form's fields marked `latest`:
  *
  * - a key no row has yet is declared, source `form`;
- * - a held key keeps its row and type (a different type, or a `system` row, is refused: the save check
- *   lets neither through); a retired one is active again; the saved form's title and option labels are the
- *   latest;
+ * - a held key keeps its row and type; one held with a different type, or a `system` row, is skipped and
+ *   returned (the save check lets neither through, so only a form written around it gets here) and the
+ *   rest goes on; a retired one is active again; the saved form's title and option labels are the latest;
  * - choice options are a union: a new one is added, one no form holds any more is retired with its label
  *   kept (owner ruling 2026-11-13, B3(a)), and one held again is active again;
  * - a `form` field no form holds any more is retired. Its key is never derived again (`FieldKeys`).
@@ -89,7 +88,8 @@ final class DeclareParticipantFields implements AdminUseCase
         return [];
     }
 
-    public function execute(array $input, Context $context): null
+    /** @return list<string> the keys it skipped: a different type than the stored field, or a `system` field */
+    public function execute(array $input, Context $context): array
     {
         $eventId = (int) $input['event_id'];
         $now = $context->now();
@@ -99,6 +99,7 @@ final class DeclareParticipantFields implements AdminUseCase
         }
 
         $held = [];
+        $skipped = [];
         /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool}> $fields */
         $fields = $input['fields'];
         foreach ($fields as $field) {
@@ -120,7 +121,9 @@ final class DeclareParticipantFields implements AdminUseCase
                 continue;
             }
             if ($record->source === ParticipantFieldRecord::SOURCE_SYSTEM || $record->type !== $field['type']) {
-                throw new RuleViolation();
+                // A form written around the save check: the stored field stays as it is, the rest goes on.
+                $skipped[] = $key;
+                continue;
             }
 
             $before = $record->toRow();
@@ -148,7 +151,7 @@ final class DeclareParticipantFields implements AdminUseCase
             $this->save($record, $before, $now, $context);
         }
 
-        return null;
+        return $skipped;
     }
 
     /**
