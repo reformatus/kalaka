@@ -6,8 +6,8 @@ namespace Kalaka\Forms\Condition;
 
 /**
  * A date a comparison of a date compares with, read from a date key of the fact source and moved by
- * whole years and days (events-and-forms.md, "Date references"): `{"key": "event.start", "years":
- * -16}` is the day sixteen years before the event's start. Pure: no clock.
+ * whole years and days (events-and-forms.md, "Conditions", the condition format):
+ * `{"key": "event.start", "years": -16}` is the day sixteen years before the event's start. Pure: no clock.
  */
 final readonly class DateReference
 {
