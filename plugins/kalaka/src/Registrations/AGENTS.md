@@ -49,14 +49,16 @@ the waitlist and reference codes
   row and quota rows, before everything else.
 - A registration is created only by `kalaka-portal/submit-registration`
   (`SubmitRegistration`, reached through `Api\RegistrationSubmit`): the
-  answers are checked before the transaction, then the event row is the
+  answers are checked, the form's latest version is required and the event's
+  participant fields are read before the transaction, then the event row is the
   run's first lock, a submit token the event's submissions already hold is a
   repeat only with the same answers' fingerprint (then it writes nothing and
   the result carries only the after-submit content of the original
-  registration) and otherwise `SubmitTokenReused`, the
-  form must be at its latest version, and the status follows from
+  registration) and otherwise `SubmitTokenReused`, the event must still be
+  the version the answers were checked against, and the status follows from
   the latch and the count of `registered` registrations read under that lock.
   The latch is set before the registration row is written.
 - The submit token is a secret: masked in the audit, never in a log. It is
-  compared in SQL, because it grants nothing: it only names an earlier submit.
+  compared in SQL: on its own it names an earlier submit, and a repeat reveals
+  that submit's after-submit content only with the same answers' fingerprint.
 - Only Registrations writes its tables.

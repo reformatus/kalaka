@@ -212,7 +212,6 @@ final class SubmitRegistrationTest extends FormsTestCase
         self::assertCount(2, $this->tableRows('kalaka_submissions', $event));
     }
 
-    /** N6: a cached page's token sent with someone else's answers is refused and reveals nothing. */
     /** #156 N12: the section renders with the registration's code and status; N13: a repeat with the original's. */
     public function testTheAfterSubmitSectionRendersForTheRegistration(): void
     {
@@ -254,6 +253,7 @@ final class SubmitRegistrationTest extends FormsTestCase
         );
     }
 
+    /** N6: a cached page's token sent with someone else's answers is refused and reveals nothing. */
     public function testTheSameTokenWithOtherAnswersIsRefusedAndWritesNothing(): void
     {
         $form = $this->openForm();

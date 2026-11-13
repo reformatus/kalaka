@@ -9,6 +9,7 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\ParticipantField;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -30,7 +31,8 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * waitlist", "Reference codes", "Submissions and values".
  *
  * The answers were checked before the transaction (`Forms::validate()` reads WordPress), against the
- * event as read then; they come in through the constructor, the input names only the form and the
+ * event as read then, and the event's participant fields were read then too (`Forms::participantFields()`
+ * reads WordPress posts); both come in through the constructor, the input names only the form and the
  * token. Inside, in this order: the event row `FOR UPDATE` (the first read, the lock order's first
  * level); a submission with the same token and the same answers is a repeat that writes nothing and
  * names the registration only to the after-submit content (N13), the same token with other answers is
@@ -44,6 +46,7 @@ final class SubmitRegistration implements PublicUseCase
      * @param list<string> $roles the current user's roles
      * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition: a
      *     stored value's key must be a participant field of the event with that type
+     * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      */
     public function __construct(
         private readonly Form $form,
@@ -53,6 +56,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly array $roles,
         private readonly bool $passwordGiven,
         private readonly array $fieldTypes = [],
+        private readonly array $participantFields = [],
         private readonly ReferenceCodeGenerator $codes = new ReferenceCodeGenerator(),
         private readonly EventCapacity $capacity = new EventCapacity(),
         private readonly Forms $forms = new Forms(),
@@ -131,7 +135,7 @@ final class SubmitRegistration implements PublicUseCase
             throw new FormRefused($refusals);
         }
 
-        $values = $this->declaredValues($eventId);
+        $values = $this->declaredValues();
 
         if ($event->capacity === null) {
             $error = new SystemFailure(null, new \LogicException('A published event without a capacity.'));
@@ -173,7 +177,8 @@ final class SubmitRegistration implements PublicUseCase
     }
 
     /**
-     * The stored answers, checked against the event's participant fields (#169), before anything is written:
+     * The stored answers, checked against the event's participant fields (#169, as read before the
+     * transaction), before anything is written:
      * every key must be an active participant field of the event, of the type the form gives it, and never
      * a `system` field or one a form may not write (`formWritable`), which no submit writes. Anything else
      * means the form and the event's list disagree (a declaration that has not caught up): a
@@ -182,10 +187,10 @@ final class SubmitRegistration implements PublicUseCase
      * @return array<string, string> field key → the value to store
      * @throws SystemFailure
      */
-    private function declaredValues(int $eventId): array
+    private function declaredValues(): array
     {
         $declared = [];
-        foreach ($this->forms->participantFields($eventId) as $field) {
+        foreach ($this->participantFields as $field) {
             $declared[$field->key] = $field;
         }
         foreach (array_keys($this->answers->stored()) as $fieldKey) {

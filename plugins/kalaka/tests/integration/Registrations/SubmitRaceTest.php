@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\GuestActor;
@@ -86,7 +87,18 @@ final class SubmitRaceTest extends RealTableTestCase
         global $wpdb;
         $form = new Form(999999, $this->event, FormPlacement::Registration, null, false, 1);
         $answers = ['name' => 'Teszt Elek', 'email' => 'teszt@example.org'];
-        $useCase = new SubmitRegistration($form, 1, new ValidatedAnswers($answers, $answers), 1, [], false);
+        $useCase = new SubmitRegistration(
+            $form,
+            1,
+            new ValidatedAnswers($answers, $answers),
+            1,
+            [],
+            false,
+            [],
+            (new Forms())->participantFields($this->event),
+        );
+        // The read above opened a transaction (the test runs without autocommit); the runner starts its own.
+        $wpdb->query('COMMIT');
 
         $holder = $this->takeTheLastPlace('00A0');
         $result = (new Runner(new TestClock()))->run(

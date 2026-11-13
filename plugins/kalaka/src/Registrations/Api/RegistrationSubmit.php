@@ -92,6 +92,7 @@ final class RegistrationSubmit
                 $request->roles,
                 $request->passwordGiven,
                 self::fieldTypes($definition),
+                $this->forms->participantFields($form->eventId),
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);
