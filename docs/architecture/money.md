@@ -12,7 +12,9 @@ title: Money
   (at submit, admission or restore); N is configured per event (IVK: 7
   days). A registration admitted from the waitlist counts from its
   admission, and a restore restarts the clock. There are no absolute payment
-  deadlines.
+  deadlines. **Passing payment due never cancels a registration:** an
+  unconfirmed registration stays `registered` until someone withdraws or
+  removes it ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 - **Plugins:** deposits, payment tiers (the price ladder, with its tier
   quotas), late fees, financial aid, sponsor or church support, the
   congregation share and the wallet. Core keeps full support for extending it

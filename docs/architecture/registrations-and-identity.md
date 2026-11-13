@@ -136,7 +136,9 @@ erDiagram
   `registered`, `waitlisted`, `withdrawn` (by the participant) or `removed`
   (by an admin).
 - It is **set at registration by capacity**, then changes only by explicit
-  acts: withdraw, remove, admit from the waitlist, restore. **A withdrawal
+  acts: withdraw, remove, admit from the waitlist, restore. **Nothing
+  cancels or expires a registration automatically:** a `registered`
+  registration that has not paid stays `registered` until someone acts. **A withdrawal
   never automatically admits anyone from the waitlist;** changes to the list
   after it filled up are explicit admin acts.
 - **Only capacity (waitlisted) and withdrawal or removal keep a registration
@@ -210,9 +212,10 @@ reference and check-in barcode.
     wins: access follows the account.
   - The active registration **expires,** and **"kilépés"** clears it.
 - **The participant side is built from blocks** that admins place on any
-  page, not from a fixed portal page: e.g. the registration's status, a
-  picker among an account's registrations, "kilépés", or a small additional
-  form. They show the active registration.
+  page, not from a fixed portal page: e.g. the registration's status, its
+  bank-transfer details, a picker among an account's registrations,
+  "kilépés", or a small additional form. They show the active registration.
+  The exact set of blocks is still to be agreed with the owner.
 - **A page holding a participant block is never cached.**
 - **Forms start from the active registration:** an additional form writes
   to it, and a registration form may prefill from it

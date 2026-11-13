@@ -16,8 +16,10 @@ short. The architecture pages say how things are built; this page says when.
    only the owner builds forms at first); the Divi 4 theme adapter; submit with capacity, the "full"
    latch and the waitlist; reference codes; the **active registration
    from a secret link** (a cookie, then a redirect that drops the token,
-   [Registrations](registrations-and-identity.md#access)) and the **status
-   block** on a page, showing the registration's status and payment status;
+   [Registrations](registrations-and-identity.md#access)), the **status
+   block** on a page, showing the registration's status and payment status,
+   and the **bank-transfer details** as a block of its own (the exact set of
+   participant blocks is still to be agreed with the owner);
    protection against double submits; spam protection; an optional account
    created on the form, offered to people aged 16 or over and activated
    through a set-password mail sent by the queue (the account area itself

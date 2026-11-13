@@ -100,7 +100,8 @@ flowchart TB
 - **When a form is open:**
   - a registration form is open while the slot is: from "registration
     opens" up to "registration closes". It has no period of its own;
-  - **each additional form has its own open period**;
+  - **each additional form has its own open period**, which a form link can
+    bypass ([below](#form-links-and-admin-submissions));
   - an additional form that writes an assignment set's choice follows that
     set's choice window instead
     ([Modules](modules-and-extensions.md#assignment-sets)).
@@ -161,8 +162,9 @@ flowchart TB
   - uses: unlimited or at most N (a single-use link, max 1, is today's
     invitation); a use is spent on a successful submit, not on opening;
   - bypasses, each off by default: the form's requirements, the slot's date
-    range, the event's capacity and "full" latch (an invitation has them all
-    on, so the registration lands as `registered`);
+    range or an additional form's open period, the event's capacity and
+    "full" latch (an invitation has them all on, so the registration lands
+    as `registered`);
   - an expiry, and revocation. Expired links are cleaned up.
 - **Creation, revocation and use are audited.** The link a registration came
   through is stored on it as a fact.
