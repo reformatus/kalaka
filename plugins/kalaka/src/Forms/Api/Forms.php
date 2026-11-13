@@ -9,6 +9,7 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\AnswerValidator;
 use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
+use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -81,6 +82,40 @@ final class Forms
         }
 
         return $refusals;
+    }
+
+    /**
+     * The event's participant fields, in the order they were declared; retired ones only when asked.
+     * It reads Kaláka's own table, so it may run anywhere. [UNAPPROVED N1]
+     *
+     * @return list<ParticipantField>
+     */
+    public function participantFields(int $eventId, bool $includeRetired = false): array
+    {
+        $fields = [];
+        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
+            if ($record->retiredAt !== null && !$includeRetired) {
+                continue;
+            }
+            $options = [];
+            foreach ($record->options ?? [] as $option) {
+                $options[] = [
+                    'value' => $option['value'],
+                    'label' => $option['label'],
+                    'retired' => $option['retired_at'] !== null,
+                ];
+            }
+            $fields[] = new ParticipantField(
+                $record->key,
+                $record->type,
+                $record->title,
+                $options,
+                $record->source,
+                $record->retiredAt !== null,
+            );
+        }
+
+        return $fields;
     }
 
     /**

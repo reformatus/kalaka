@@ -8,6 +8,7 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\FieldKeys;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
 
 /** The base of the Forms tests: forms inserted the way code and WP-CLI do, as block markup in the content. */
@@ -15,12 +16,26 @@ abstract class FormsTestCase extends EventsTestCase
 {
     protected Forms $forms;
 
+    private Runner $production;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
 
         $this->forms = new Forms();
+        // A form save declares the event's participant fields through the production runner: in a test it
+        // has to join the harness's transaction.
+        $this->production = Runner::current();
+        Runner::publish($this->runner);
+    }
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    public function tear_down(): void
+    {
+        Runner::publish($this->production);
+
+        parent::tear_down();
     }
 
     /** @param array<string, mixed> $attributes */
@@ -97,7 +112,7 @@ abstract class FormsTestCase extends EventsTestCase
         try {
             return $this->insertForm($content, $meta);
         } finally {
-            add_filter('wp_insert_post_data', $filter);
+            add_filter('wp_insert_post_data', $filter, 10, 2);
         }
     }
 
