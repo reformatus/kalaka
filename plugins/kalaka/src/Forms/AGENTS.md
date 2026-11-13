@@ -184,6 +184,13 @@ values and conditions, prefill and form links
   walk's errors filtered to that page's shown fields.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
+- The form page's two public routes (`Rest\FormRoutes`, `kalaka-portal/v1`)
+  are registered only through `Boundary::route()` and call
+  `LoadState::requireOpen()` first. The availability route only reads: it
+  never runs a use case or writes. The submit route calls `SubmitGuard` before
+  the submit seam (`Registrations\Api\RegistrationSubmit`). Every answer of
+  both, refusals included, carries `Cache-Control: no-store`. A malformed body
+  is `InvalidInput`, never a WordPress argument error. [UNAPPROVED N1]
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a
