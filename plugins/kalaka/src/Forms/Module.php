@@ -133,6 +133,8 @@ SQL;
         add_filter('add_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
         add_filter('update_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
         add_filter('delete_post_metadata', [FormEvent::class, 'onDelete'], 10, 3);
+        // A form that submissions refer to is never deleted permanently.
+        add_filter('pre_delete_post', [FormDeletion::class, 'onPreDelete'], 10, 3);
         // The event's participant fields follow its forms, once the saved form and its settings are stored.
         add_action('wp_after_insert_post', [ParticipantFieldSync::class, 'onPostChange'], 15, 2);
         add_action('before_delete_post', [ParticipantFieldSync::class, 'beforeDelete'], 10, 2);

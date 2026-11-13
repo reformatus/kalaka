@@ -49,6 +49,19 @@ final class SubmitRaceTest extends RealTableTestCase
         ]);
         $this->event = (int) $wpdb->insert_id;
         self::assertGreaterThan(0, $this->event, (string) $wpdb->last_error);
+        // The event's participant fields the answers below write (#169): declared as a form save would.
+        foreach (['name' => 'kalaka/name-field', 'email' => 'kalaka/email-field'] as $key => $type) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+                'event_id' => $this->event,
+                'field_key' => $key,
+                'version' => 1,
+                'type' => $type,
+                'title' => $key,
+                'source' => 'form',
+                'created_at' => '2026-11-30 07:00:00.000000',
+                'updated_at' => '2026-11-30 07:00:00.000000',
+            ]);
+        }
         $wpdb->query('COMMIT');
         ObjectCache::clear();
     }
@@ -57,7 +70,8 @@ final class SubmitRaceTest extends RealTableTestCase
     public function tear_down(): void
     {
         global $wpdb;
-        foreach (['kalaka_field_values', 'kalaka_submissions', 'kalaka_registrations'] as $table) {
+        $tables = ['kalaka_field_values', 'kalaka_submissions', 'kalaka_registrations', 'kalaka_participant_fields'];
+        foreach ($tables as $table) {
             $wpdb->delete($wpdb->prefix . $table, ['event_id' => $this->event]);
         }
         $wpdb->delete($wpdb->prefix . 'kalaka_events', ['id' => $this->event]);

@@ -16,6 +16,7 @@ use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -447,6 +448,128 @@ final class SubmitRegistrationTest extends FormsTestCase
             ['e_mail_cim', 'teljes_nev'],
             array_map(static fn (array $row): string => (string) $row['field_key'], $this->fieldRows($event))
         );
+    }
+
+    /** @param array<string, mixed> $set */
+    private function changeParticipantField(int $event, string $key, array $set): void
+    {
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_participant_fields', $set, ['event_id' => $event, 'field_key' => $key]);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>|null, string}> the change of `email`'s row, the problem */
+    public static function listDisagreements(): iterable
+    {
+        yield 'a key the event does not declare' => [null, 'undeclared_field_key email'];
+        yield 'a retired key' => [['retired_at' => '2026-11-29 08:00:00.000000'], 'undeclared_field_key email'];
+        // Another type is caught before the run: the form's current version is closed (#169's type check).
+        yield 'another type' => [['type' => 'kalaka/text-field'], 'type_clash email'];
+        yield 'a system field' => [['source' => 'system'], 'system_field email'];
+        yield 'a field no form may write' => [['source' => 'extension', 'form_writable' => 0], 'extension_field email'];
+    }
+
+    /**
+     * N17: field values are written only through the event's participant-field list: a key the list does
+     * not hold as an active field of that type, or a `system` field, fails the submit and writes nothing.
+     *
+     * @dataProvider listDisagreements
+     * @param array<string, mixed>|null $set
+     */
+    public function testAStoredAnswerOutsideTheParticipantFieldListWritesNothing(?array $set, string $problem): void
+    {
+        $form = $this->openForm();
+        $event = $this->eventOf($form);
+        if ($set === null) {
+            global $wpdb;
+            $wpdb->delete($wpdb->prefix . 'kalaka_participant_fields', ['event_id' => $event, 'field_key' => 'email']);
+        } else {
+            $this->changeParticipantField($event, 'email', $set);
+        }
+
+        try {
+            $this->submit($form);
+            self::fail('The submit should have failed.');
+        } catch (SystemFailure $failure) {
+            self::assertStringContainsString($problem, $failure->getMessage());
+        }
+        $this->assertNothingWritten($event);
+    }
+
+    public function testTheParticipantFieldListHoldsTheFormsKeysAndTheSubmitWritesThem(): void
+    {
+        $form = $this->openForm();
+        $event = $this->eventOf($form);
+
+        $keys = array_map(
+            static fn ($field): string => $field->key,
+            (new \Kalaka\Forms\Api\Forms())->participantFields($event)
+        );
+        sort($keys);
+        self::assertSame(['email', 'name'], $keys);
+        $this->submit($form);
+        self::assertCount(2, $this->tableRows('kalaka_field_values', $event));
+    }
+
+    /** N15: a form that submissions refer to is never deleted permanently; the trash stays allowed. */
+    public function testAFormWithSubmissionsIsNeverDeletedPermanently(): void
+    {
+        $form = $this->openForm();
+        $empty = $this->openForm();
+        $this->submit($form);
+
+        self::assertFalse(wp_delete_post($form, true));
+        self::assertInstanceOf(\WP_Post::class, get_post($form));
+        self::assertInstanceOf(\WP_Post::class, wp_trash_post($form));
+        self::assertFalse(wp_delete_post($form, true));
+        self::assertInstanceOf(\WP_Post::class, get_post($form));
+
+        self::assertInstanceOf(\WP_Post::class, wp_delete_post($empty, true));
+        self::assertNull(get_post($empty));
+    }
+
+    public function testARestForcedDeleteOfAFormWithSubmissionsIsRefused(): void
+    {
+        $form = $this->openForm();
+        $this->submit($form);
+        wp_set_current_user($this->fullAccessUser());
+        $base = get_post_type_object('kalaka_form')?->rest_base;
+        $base = is_string($base) && $base !== '' ? $base : 'kalaka_form';
+
+        $request = new \WP_REST_Request('DELETE', '/wp/v2/' . $base . '/' . $form);
+        $request->set_param('force', true);
+        $response = rest_do_request($request);
+
+        self::assertSame(409, $response->get_status());
+        self::assertSame('kalaka_form_has_submissions', $response->as_error()?->get_error_code());
+        self::assertSame('A művelet nem hajtható végre.', $response->as_error()?->get_error_message());
+        self::assertInstanceOf(\WP_Post::class, get_post($form));
+        wp_set_current_user(0);
+    }
+
+    /** N16: the submissions half of #169 N4: a form that submissions refer to keeps its event. */
+    public function testAFormWithSubmissionsKeepsItsEventEvenWithoutFields(): void
+    {
+        global $wpdb;
+        $event = $this->create();
+        $this->update($event);
+        $other = $this->create('Másik tábor');
+        $paragraph = '<!-- wp:paragraph --><p>Teszt</p><!-- /wp:paragraph -->';
+        $form = $this->insertForm($paragraph, ['kalaka_event_id' => $event, 'kalaka_placement' => 'additional']);
+        $free = $this->insertForm($paragraph, ['kalaka_event_id' => $event, 'kalaka_placement' => 'additional']);
+        $wpdb->insert($wpdb->prefix . 'kalaka_submissions', [
+            'event_id' => $event,
+            'code' => '00A0',
+            'number' => 2,
+            'form_id' => $form,
+            'form_version' => 1,
+            'answers' => '{}',
+            'submitted_at' => '2026-11-30 08:00:00.000000',
+        ]);
+
+        self::assertFalse(update_post_meta($form, 'kalaka_event_id', $other));
+        self::assertSame((string) $event, get_post_meta($form, 'kalaka_event_id', true));
+        self::assertNotFalse(update_post_meta($free, 'kalaka_event_id', $other));
+        self::assertSame((string) $other, get_post_meta($free, 'kalaka_event_id', true));
     }
 
     public function testAMalformedTokenIsInvalidInput(): void

@@ -9,6 +9,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
@@ -91,6 +92,7 @@ final class RegistrationSubmit
                 $event->version,
                 $request->roles,
                 $request->passwordGiven,
+                self::fieldTypes($definition),
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);
@@ -108,6 +110,19 @@ final class RegistrationSubmit
             // After the transaction: the after-submit content reads the form's post.
             return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result));
         }
+    }
+
+    /**
+     * @return array<string, string> field key → the field block's name
+     */
+    private static function fieldTypes(FormDefinition $definition): array
+    {
+        $types = [];
+        foreach ($definition->fields as $field) {
+            $types[$field->key] = $field->blockName;
+        }
+
+        return $types;
     }
 
     /**

@@ -53,8 +53,9 @@ values and conditions, prefill and form links
   and the status page show the participant field's labels; a form shows its
   own.
 - A form's event is set when it is created and fixed once the form has
-  fields, on every path that writes the setting, with one known gap: code
-  that sets the first event of a form that has fields but no event through
+  fields or submissions refer to it (`Registrations\Api\FormSubmissions`),
+  on every path that writes the setting, with one known gap: code that sets
+  the first event of a form that has fields but no event through
   `update_post_meta()` directly is let through, because the REST create sets
   the event that way after the post exists (`FormEvent`). A save that changes the
   event is judged before anything is stored, on the stored and the incoming
@@ -78,7 +79,9 @@ values and conditions, prefill and form links
 - A form version is the ID of one of the form's revisions, every usable form
   has at least one, and revisions of forms are never pruned, so a submission's
   version resolves to the definition it was checked against for as long as
-  the form exists; a form that submissions refer to is never deleted.
+  the form exists; a form that submissions refer to is never deleted
+  permanently (`FormDeletion` on `pre_delete_post`, and the REST controller's
+  forced delete); moving it to the trash is allowed.
 - A form with a definition problem (keys, options, an unknown field block, the
   slot's markings, a missing revision, a key that clashes with the event's
   participant field) is unusable; it is never half-accepted.

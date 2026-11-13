@@ -42,6 +42,8 @@ final class SubmitRegistration implements PublicUseCase
     /**
      * @param int $eventVersion the version of the event the answers were checked against
      * @param list<string> $roles the current user's roles
+     * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition: a
+     *     stored value's key must be a participant field of the event with that type
      */
     public function __construct(
         private readonly Form $form,
@@ -50,6 +52,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly int $eventVersion,
         private readonly array $roles,
         private readonly bool $passwordGiven,
+        private readonly array $fieldTypes = [],
         private readonly ReferenceCodeGenerator $codes = new ReferenceCodeGenerator(),
         private readonly EventCapacity $capacity = new EventCapacity(),
         private readonly Forms $forms = new Forms(),
@@ -128,6 +131,8 @@ final class SubmitRegistration implements PublicUseCase
             throw new FormRefused($refusals);
         }
 
+        $values = $this->declaredValues($eventId);
+
         if ($event->capacity === null) {
             $error = new SystemFailure(null, new \LogicException('A published event without a capacity.'));
             throw $error;
@@ -160,11 +165,44 @@ final class SubmitRegistration implements PublicUseCase
             $token,
             $fingerprint,
         ), $context);
-        foreach ($this->answers->stored() as $fieldKey => $value) {
+        foreach ($values as $fieldKey => $value) {
             $this->values->upsert(new FieldValue($key, $fieldKey, $value), $context);
         }
 
         return SubmitResult::created($key, $status);
+    }
+
+    /**
+     * The stored answers, checked against the event's participant fields (#169), before anything is written:
+     * every key must be an active participant field of the event, of the type the form gives it, and never
+     * a `system` field or one a form may not write (`formWritable`), which no submit writes. Anything else
+     * means the form and the event's list disagree (a declaration that has not caught up): a
+     * `SystemFailure`, never a partial write. [UNAPPROVED N17]
+     *
+     * @return array<string, string> field key → the value to store
+     * @throws SystemFailure
+     */
+    private function declaredValues(int $eventId): array
+    {
+        $declared = [];
+        foreach ($this->forms->participantFields($eventId) as $field) {
+            $declared[$field->key] = $field;
+        }
+        foreach (array_keys($this->answers->stored()) as $fieldKey) {
+            $field = $declared[$fieldKey] ?? null;
+            $type = $this->fieldTypes[$fieldKey] ?? null;
+            if ($field === null || ($type !== null && $field->type !== $type)) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+                throw new SystemFailure('undeclared_field_key ' . $fieldKey);
+            }
+            if ($field->source === 'system' || !$field->formWritable) {
+                $problem = $field->source === 'system' ? 'system_field ' : 'extension_field ';
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+                throw new SystemFailure($problem . $fieldKey);
+            }
+        }
+
+        return $this->answers->stored();
     }
 
     /**

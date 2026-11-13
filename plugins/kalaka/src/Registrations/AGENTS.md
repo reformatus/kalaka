@@ -25,6 +25,10 @@ the waitlist and reference codes
   `registered` (submit, admission, restore) and is never recomputed.
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
+- A submit writes field values only through the event's participant-field list
+  (`Forms\Api\Forms::participantFields()`): every key is an active field of
+  the event with the form's type; a `system` field, or one a form may not write,
+  is never written. A disagreement fails the submit before anything is written.
 - The generator issues only codes that pass the validity rule; a code is never
   reused within its event. A collision is a retryable error; an existing
   registration never gets another code.
