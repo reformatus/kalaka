@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Api\Module;
 
+use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 
@@ -15,6 +16,9 @@ final class Contributions
 
     /** @var list<SiteWarning> */
     private array $siteWarnings = [];
+
+    /** @var list<PeriodicStep> */
+    private array $periodicSteps = [];
 
     public function seeder(Seeder $seeder): void
     {
@@ -45,5 +49,23 @@ final class Contributions
     public function siteWarnings(): array
     {
         return $this->siteWarnings;
+    }
+
+    /**
+     * Work to run at the end of every periodic run (foundation.md, "Deferred work").
+     */
+    public function periodicStep(PeriodicStep $step): void
+    {
+        $this->periodicSteps[] = $step;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<PeriodicStep>
+     */
+    public function periodicSteps(): array
+    {
+        return $this->periodicSteps;
     }
 }

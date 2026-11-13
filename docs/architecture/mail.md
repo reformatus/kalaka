@@ -117,6 +117,15 @@ activated.**
 - **Throttle:** an **hourly budget**, a site setting with a default of 240 per
   hour (today's 20 per 5-minute run). Each run sends at most its share of
   what is left. Attempts that end in an error count against it.
+  - **The share:** the hour is the UTC clock hour in twelve 5-minute slots. A
+    run may claim `ceil(L / S) − C`: L is the budget less the hour's claims
+    before the current slot, S the slots left counting the current one, C the
+    claims already made in it. A run that uses up its share nudges itself for
+    the next slot.
+  - **A run stops claiming after 20 seconds** and nudges itself at once, so it
+    stays inside a shared host's `max_execution_time`.
+  - **Only one sender runs at a time** (a named database lock); a run that
+    finds another one running ends at once.
 - **Order:** self-sent and action mails first, then manual mails, reminders
   and scheduled mails.
 

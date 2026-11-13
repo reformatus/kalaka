@@ -34,7 +34,7 @@ short. The architecture pages say how things are built; this page says when.
    staff record a partner's confirmation on its behalf, audited with a
    reason.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
-   sender with its throttle and sending window; staff see which deliveries
+   sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
    sent during an interactive request.
 6. **Organizer side:** full access; the master view with the grid, the detail

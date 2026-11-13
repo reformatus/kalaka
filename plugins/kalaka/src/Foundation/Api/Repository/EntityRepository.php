@@ -59,6 +59,24 @@ abstract class EntityRepository extends Repository
     }
 
     /**
+     * Inserts an entity that was not loaded unless a unique key already holds a row with its values,
+     * in one `INSERT IGNORE`: once-only records whose insert may race (a mail delivery). A concurrent
+     * insert of the same key is no error and is not retried.
+     *
+     * @param TEntity $entity
+     * @return ?TEntity the stored object, or null when the key was already taken
+     */
+    final protected function insertUnlessDuplicate(object $entity, Context $context): ?object
+    {
+        $context->assertOpen();
+        if ($this->loadedCopy($entity) !== null) {
+            throw self::failure('Only a new entity is inserted.');
+        }
+
+        return $this->writeInsertUnlessDuplicate($entity, $context, true, true);
+    }
+
+    /**
      * Deletes the record of a loaded entity if the version is still the one the entity carries.
      *
      * @param TEntity $entity

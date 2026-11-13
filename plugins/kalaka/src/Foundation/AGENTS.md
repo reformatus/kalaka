@@ -70,9 +70,10 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - A 500's context (`SiteClosed` included) never reaches the person: REST,
   rendered output and the admin show `publicMessage()`, its default text;
   only the error log, the audit and WP-CLI (`operatorMessage()`) carry it.
-- Only Foundation's error-log writer calls `error_log()`; a line holds what
-  failed, the correlation ID and the full exception chain (class, code,
-  message).
+- Only Foundation's error-log writer calls `error_log()`; other modules reach
+  it through the boundary (`Boundary::report()` for a failure they handled);
+  a line holds what failed, the correlation ID and the full exception chain
+  (class, code, message).
 - Use cases never read the current user; the delivery layer resolves the
   actor and passes it in.
 - Errors are `KalakaException`s carrying their Hungarian default text; no
@@ -161,6 +162,17 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - A retryable failure while evaluating a registration sets no "evaluation
   failed" flag: `PeriodicEvaluation` returns null, the run counts the
   registration as skipped and keeps its windows for the next run.
+- The periodic run ends with the contributed `PeriodicStep`s, in contribution
+  order, each behind `Boundary::background()`: one that throws is logged
+  unless a run recorded it, and the next step and the last-run write go on.
+  The steps run even when the sweep or the flag retries throw; that run then
+  ends without its last-run time.
+- A once-only insert uses `insertUnlessDuplicate()` (`INSERT IGNORE`): a taken
+  unique key writes nothing, audits nothing and is no error; it is never
+  retried.
+- `NamedLock` is for work outside any use case that must not overlap with
+  itself; its name is scoped to the site's database and table prefix, and it
+  is taken without waiting.
 - WP-Cron timestamps come from the `Clock`, never `time()`; the upgrader lock's
   own stamp is WordPress's and is not ours to set.
 - The periodic run's stall warning (a `SiteWarning` with a Site Health test)
