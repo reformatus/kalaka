@@ -12,7 +12,7 @@ use Kalaka\Events\Api\Event;
  * replaces the form after a successful submit. It never renders in the form itself; the submit renders
  * its inner blocks with `Values::render()` and this document kind's context: the event's keys, and the
  * new registration's reference code and status. Conditions and values inside it read only those.
- * No field block may sit in it. [UNAPPROVED N12]
+ * No field block may sit in it.
  */
 final class AfterSubmit
 {

@@ -94,7 +94,6 @@ final class Forms
      * hidden>…</div>` (`BranchMarkup`); the page shows the one `FormAvailability::$chains` holds. A
      * withheld chain (`FormDefinition::withheldChains()`: it reads an event value or a held fact) ships
      * only the branch the availability holds, without `hidden`, and nothing of the others.
-     * [UNAPPROVED N11]
      *
      * @param FormAvailability|null $availability what shows for the page's answers; without it no branch
      *     of a withheld chain ships

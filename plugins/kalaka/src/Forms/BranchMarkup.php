@@ -15,7 +15,7 @@ use Kalaka\Forms\Value\RenderStack;
  * - In a form page that renders the marked blocks of `Api\Forms::blocks()`: a branch in a wrapper that
  *   carries the chain number and the branch index from `ChainMarks`, hidden by default (events-and-forms.md,
  *   "Forms implementation"); the page shows the branch that `FormAvailability::$chains` holds. The one
- *   branch a withheld chain ships is marked shown and has no `hidden`. [UNAPPROVED N11]
+ *   branch a withheld chain ships is marked shown and has no `hidden`.
  * - Anything else: nothing.
  */
 final class BranchMarkup
