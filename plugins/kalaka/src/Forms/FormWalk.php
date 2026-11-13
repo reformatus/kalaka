@@ -29,8 +29,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * options whose condition holds, and a sent option that is not offered is dropped like a hidden
  * answer. A condition reads an earlier field's valid answer as its value, an earlier field that
  * was not answered, dropped or in error as empty, and the caller's facts (the event's keys) for
- * any other key. A chain that reads a deciding field (a shown, required, single choice) still
- * without a valid answer shows no branch until it is answered (N10, `decides()`). [UNAPPROVED N10]
+ * any other key. No chain is ever pending: an unanswered choice, required or optional, reads as
+ * empty, so a chain on it shows its `else` until an option is picked, and the fields shown at that
+ * moment are checked like any shown field (#156 N10, owner 2026-11-13).
  *
  * Only declared fields are accepted: an undeclared key or a value of the wrong JSON type is
  * `InvalidInput`, the same for a draft as at submit. Pure but for the field types' own checks.
@@ -61,9 +62,6 @@ final class FormWalk
         }
 
         $facts = new FormFacts(new ValueContext(), $base);
-        $this->undecided = [];
-        $this->pending = [];
-        $this->chainKeys = self::chainKeys($definition);
         $shown = [];
         $options = [];
         $submitted = [];
@@ -84,9 +82,6 @@ final class FormWalk
                 }
                 $value = $this->check($field, $type, $sent, $submitted, $stored, $errors);
             }
-            if ($isShown && $value === null && self::decides($field)) {
-                $this->undecided[$field->key] = true;
-            }
             $facts = $facts->with($field->key, $value ?? Value::none($type?->valueType() ?? ValueType::Text));
         }
 
@@ -98,76 +93,15 @@ final class FormWalk
         return new FormWalkResult($shown, array_values($held), $options, $submitted, $stored, $errors);
     }
 
-    /** @var array<string, true> the shown deciding fields (`decides()`) with no valid answer so far */
-    private array $undecided = [];
-
-    /** @var array<int, bool> chain number → whether it waits for a deciding answer, once known */
-    private array $pending = [];
-
-    /** @var array<int, list<string>> chain number → the keys its conditions read */
-    private array $chainKeys = [];
-
     /**
-     * A deciding field (N10): a shown, required choice field with one answer (not `multiple`). Until it
-     * has a valid answer, a chain whose conditions read it is pending: it shows no branch, because one of
-     * them is certain to be chosen once it is answered. Every other unanswered field reads as empty, so a
-     * chain on it shows its `else` (an unticked consent, an empty text, an optional choice, a `multiple`
-     * choice with nothing ticked).
-     */
-    private static function decides(FormField $field): bool
-    {
-        return $field->blockName === ChoiceFieldType::BLOCK_NAME
-            && $field->isRequired()
-            && ($field->attributes['multiple'] ?? false) !== true;
-    }
-
-    /** @return array<int, list<string>> */
-    private static function chainKeys(FormDefinition $definition): array
-    {
-        $keys = [];
-        foreach ($definition->chains as $chain) {
-            $read = [];
-            foreach ($chain->branches as $branch) {
-                if ($branch->own !== null) {
-                    $read = [...$read, ...$branch->own->keys()];
-                }
-            }
-            $keys[$chain->number] = array_values(array_unique($read));
-        }
-
-        return $keys;
-    }
-
-    /**
-     * Whether a chain waits for a deciding answer: some key its conditions read is a deciding field that
-     * shows and has no valid answer. Decided the first time it is asked, which is after every field the
-     * chain reads has been walked (they all come before the chain).
-     */
-    private function isPending(int $chain): bool
-    {
-        if (!isset($this->pending[$chain])) {
-            $this->pending[$chain] = false;
-            foreach ($this->chainKeys[$chain] ?? [] as $key) {
-                if (isset($this->undecided[$key])) {
-                    $this->pending[$chain] = true;
-                    break;
-                }
-            }
-        }
-
-        return $this->pending[$chain];
-    }
-
-    /**
-     * Every branch holds: none of the earlier conditions of its chain, and its own; no branch of a
-     * pending chain holds.
+     * Every branch holds: none of the earlier conditions of its chain, and its own.
      *
      * @param list<FormBranch> $branches
      */
     private function isShown(array $branches, Facts $facts): bool
     {
         foreach ($branches as $branch) {
-            if ($this->isPending($branch->chain) || !$this->holds($branch, $facts)) {
+            if (!$this->holds($branch, $facts)) {
                 return false;
             }
         }
@@ -187,14 +121,13 @@ final class FormWalk
     }
 
     /**
-     * The branch of a chain that shows: none while a branch around the chain does not hold or the chain
-     * is pending. A chain's
-     * conditions read only fields before it and the caller's facts, so the facts after the walk give
-     * the same result as the facts at the chain.
+     * The branch of a chain that shows: none while a branch around the chain does not hold, or when no
+     * branch holds and the chain has no `else`. A chain's conditions read only fields before it and the
+     * caller's facts, so the facts after the walk give the same result as the facts at the chain.
      */
     private function held(FormChain $chain, Facts $facts): ?int
     {
-        if (!$this->isShown($chain->outer, $facts) || $this->isPending($chain->number)) {
+        if (!$this->isShown($chain->outer, $facts)) {
             return null;
         }
         foreach ($chain->branches as $branch) {

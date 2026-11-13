@@ -17,7 +17,8 @@ final readonly class FormAvailability
 {
     /**
      * @param array<string, bool> $fields field key → whether it shows, every field in document order
-     * @param list<int|null> $chains chain number → the index of its branch that shows, or null
+     * @param list<int|null> $chains chain number → the index of its branch that shows; null only when a branch
+     *     around the chain does not hold, or none of its branches holds and it has no `else` (never "pending")
      * @param array<string, list<string>> $options choice field with option conditions → its offered option values
      * @param list<string> $triggers the field keys any condition reads, in document order
      * @param list<int> $withheld the chains whose branches the page gets only when they show (N11): when

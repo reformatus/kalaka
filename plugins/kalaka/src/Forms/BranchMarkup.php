@@ -10,8 +10,8 @@ use Kalaka\Forms\Value\RenderStack;
 /**
  * What a branch block (`kalaka/if`, `kalaka/else-if`, `kalaka/else`) renders.
  *
- * - In a document `Values::render()` renders (mail, portal page): only the held branch's inner blocks,
- *   with no wrapper; any other branch nothing.
+ * - In a document `Values::render()` (a mail) or `Values::renderPage()` (an ordinary page) renders: only
+ *   the held branch's inner blocks, with no wrapper; any other branch nothing.
  * - In a form page that renders the marked blocks of `Api\Forms::blocks()`: a branch in a wrapper that
  *   carries the chain number and the branch index from `ChainMarks`, hidden by default (events-and-forms.md,
  *   "Forms implementation"); the page shows the branch that `FormAvailability::$chains` holds. The one

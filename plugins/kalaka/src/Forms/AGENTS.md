@@ -124,9 +124,12 @@ values and conditions, prefill and form links
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
   blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing
   else, in PHP or JavaScript, recomputes them.
-- A chain that reads a shown, required single choice still unanswered holds
-  no branch (`FormWalk::decides()`); any other unanswered field reads as
-  empty.
+- No chain is ever pending: an unanswered field, a required or optional
+  single choice included, reads as empty, so a chain on it shows its `else`
+  until it is answered. Validation follows what is shown: at submit an
+  unanswered required choice has its own required error, and the fields of
+  any branch shown at that moment (an `else` among them) are checked like any
+  shown field.
 - Only answer-driven chains ship every branch to the page; a chain that reads
   any other key ships only its held branch (`FormDefinition::withheldChains()`,
   `ChainMarks::prune()`).

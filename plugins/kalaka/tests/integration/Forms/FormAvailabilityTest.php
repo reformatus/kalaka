@@ -219,8 +219,9 @@ final class FormAvailabilityTest extends FormsTestCase
             $this->eventFacts()
         );
 
-        // The required track in error is no valid answer: its chain waits for it (N10).
-        self::assertSame([null, null], $availability->chains);
+        // The required track in error is no valid answer: it reads as empty, so the else shows (N10).
+        self::assertSame([1, null], $availability->chains);
+        self::assertTrue($availability->shows('other_question'));
         self::assertSame(['ifi_a', 'ifi_b'], $availability->offeredOptions('first'));
     }
 

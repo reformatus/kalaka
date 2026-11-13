@@ -18,8 +18,8 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Currency;
 
 /**
- * #156 follow-ups: a chain waits for a required single choice (N10), branches on held facts are
- * withheld from the page (N11), and the after-submit section (N12).
+ * #156 follow-ups: no chain is ever pending, an unanswered choice reads as empty (N10, owner
+ * 2026-11-13), branches on held facts are withheld from the page (N11), and the after-submit section (N12).
  */
 final class FormRulesTest extends FormsTestCase
 {
@@ -77,43 +77,36 @@ final class FormRulesTest extends FormsTestCase
             . $this->branch('else', null, $this->field('text', 'other_question'));
     }
 
-    public function testARequiredSingleChoiceUnansweredShowsNoBranchOfTheChainReadingIt(): void
-    {
-        $definition = $this->definition($this->trackChain(true));
-
-        $draft = $this->forms->availability($definition, $this->slot(), $this->facts());
-        self::assertSame([null], $draft->chains);
-        self::assertFalse($draft->shows('pro_question'));
-        self::assertFalse($draft->shows('other_question'));
-
-        $answered = $this->forms->availability($definition, $this->slot() + ['track' => 'alap'], $this->facts());
-        self::assertSame([1], $answered->chains);
-        self::assertTrue($answered->shows('other_question'));
-
-        // An option that is not one of the choice's is no valid answer: still pending.
-        $wrong = $this->forms->availability($definition, $this->slot() + ['track' => ''], $this->facts());
-        self::assertSame([null], $wrong->chains);
-    }
-
     /** @return iterable<string, array{bool, bool}> required, multiple */
-    public static function emptyReadsAsAnswered(): iterable
+    public static function unansweredChoices(): iterable
     {
+        yield 'a required single choice' => [true, false];
         yield 'an optional single choice' => [false, false];
         yield 'an optional multiple choice' => [false, true];
         yield 'a required multiple choice' => [true, true];
     }
 
-    /** @dataProvider emptyReadsAsAnswered */
-    public function testAnyOtherUnansweredChoiceReadsAsEmptyAndTheElseShows(bool $required, bool $multiple): void
+    /** @dataProvider unansweredChoices */
+    public function testAnUnansweredChoiceReadsAsEmptyAndTheElseShows(bool $required, bool $multiple): void
     {
-        $draft = $this->forms->availability(
-            $this->definition($this->trackChain($required, $multiple)),
-            $this->slot(),
+        $definition = $this->definition($this->trackChain($required, $multiple));
+
+        $draft = $this->forms->availability($definition, $this->slot(), $this->facts());
+        self::assertSame([1], $draft->chains);
+        self::assertFalse($draft->shows('pro_question'));
+        self::assertTrue($draft->shows('other_question'));
+
+        // An option that is not one of the choice's is no valid answer: it reads as empty too.
+        $wrong = $this->forms->availability($definition, $this->slot() + ['track' => ''], $this->facts());
+        self::assertSame([1], $wrong->chains);
+
+        $answered = $this->forms->availability(
+            $definition,
+            $this->slot() + ['track' => $multiple ? ['pro'] : 'pro'],
             $this->facts()
         );
-
-        self::assertSame([1], $draft->chains);
-        self::assertTrue($draft->shows('other_question'));
+        self::assertSame([0], $answered->chains);
+        self::assertTrue($answered->shows('pro_question'));
     }
 
     public function testAnUntickedConsentReadsAsEmptyAndTheElseShows(): void
@@ -132,7 +125,7 @@ final class FormRulesTest extends FormsTestCase
         self::assertSame([0], $ticked->chains);
     }
 
-    public function testAChainReadingSeveralFieldsWaitsWhileAnyDecidingOneIsUnanswered(): void
+    public function testAChainReadingSeveralFieldsIsDecidedByTheAnswersGivenSoFar(): void
     {
         $tracks = [['value' => 'alap', 'label' => 'Alap'], ['value' => 'pro', 'label' => 'PRO']];
         $either = [
@@ -149,21 +142,39 @@ final class FormRulesTest extends FormsTestCase
             . $this->branch('else', null, $this->field('text', 'other'))
         );
 
-        $pending = $this->forms->availability($definition, $this->slot() + ['note' => 'Teszt'], $this->facts());
-        self::assertSame([null], $pending->chains);
-        $decided = $this->forms->availability($definition, $this->slot() + ['track' => 'alap'], $this->facts());
-        self::assertSame([1], $decided->chains);
+        $noted = $this->forms->availability($definition, $this->slot() + ['note' => 'Teszt'], $this->facts());
+        self::assertSame([0], $noted->chains);
+        $nothing = $this->forms->availability($definition, $this->slot(), $this->facts());
+        self::assertSame([1], $nothing->chains);
+        $basic = $this->forms->availability($definition, $this->slot() + ['track' => 'alap'], $this->facts());
+        self::assertSame([1], $basic->chains);
     }
 
-    public function testAtSubmitAPendingChainsFieldsAreNotRequiredAndHiddenAnswersAreDropped(): void
+    public function testAtSubmitTheFieldsShownAreValidatedAndHiddenAnswersAreDropped(): void
     {
         $definition = $this->definition($this->trackChain(true));
 
+        // The required choice unanswered has its own error; the `else` shown meanwhile is checked like any
+        // shown field, and the answer of the branch that does not show is dropped.
         try {
             $this->forms->validate($definition, $this->slot() + ['pro_question' => 'Teszt'], $this->facts());
             self::fail('The missing track should have been refused.');
         } catch (InvalidAnswers $invalid) {
             self::assertSame(['track'], array_keys($invalid->fields));
+        }
+        $requiredElse = $this->definition(
+            $this->field('choice', 'track', [
+                'options' => [['value' => 'alap', 'label' => 'Alap'], ['value' => 'pro', 'label' => 'PRO']],
+                'required' => true,
+            ])
+            . $this->branch('if', $this->when('track', 'equals', 'pro'), $this->field('text', 'pro_question'))
+            . $this->branch('else', null, $this->field('text', 'other_question', ['required' => true]))
+        );
+        try {
+            $this->forms->validate($requiredElse, $this->slot(), $this->facts());
+            self::fail('The missing answers should have been refused.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['track', 'other_question'], array_keys($invalid->fields));
         }
 
         // The browser still holds the answer of the branch the person left: it is dropped.
