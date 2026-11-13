@@ -14,11 +14,14 @@ short. The architecture pages say how things are built; this page says when.
 1. **Registering:** an event with its dates and capacity; IVK's registration
    form, built in the block editor (basic editor support with no polish:
    only the owner builds forms at first); the Divi 4 theme adapter; submit with capacity, the "full"
-   latch and the waitlist; reference codes; the secret-link status page;
+   latch and the waitlist; reference codes; the **active registration
+   from a secret link** (a cookie, then a redirect that drops the token,
+   [Registrations](registrations-and-identity.md#access)) and the **status
+   block** on a page, showing the registration's status and payment status;
    protection against double submits; spam protection; an optional account
    created on the form, offered to people aged 16 or over and activated
-   through a set-password mail sent by the queue (the portal itself may only
-   say "Coming soon").
+   through a set-password mail sent by the queue (the account area itself
+   may only say "Coming soon").
 2. **Money core:** the ledger with payers, the tariff snapshot and the
    materializer; IVK's price tiers (examples only: 48 000 Ft with no share,
    42 000 Ft with a declared share, 32 000 Ft with the whole tier as the
@@ -68,8 +71,9 @@ If the date is at risk, these give way, in this order:
 
 ### Not in this release
 
-Presets; the participant blocks beyond "Coming soon", including additional
-forms for changing field values after submit (the module ranking's is needed
+Presets; the participant blocks beyond the status block: the account's
+registration picker, "kilépés", field-value blocks and additional forms for
+changing field values after submit (the module ranking's is needed
 before IVK registration closes, not at opening);
 the privacy tools: WordPress's privacy export and eraser, the audit-diff
 scrub, self-service erasure and the other GDPR features (deferred until a wide

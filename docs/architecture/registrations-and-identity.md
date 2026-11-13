@@ -30,7 +30,7 @@ erDiagram
   REGISTRATION {
     key event_code "event ID + reference code"
     string status "registered / waitlisted / withdrawn / removed"
-    key secret_link "status page without login"
+    key secret_link "makes it the active registration"
     snapshot tariff "price at registration"
   }
 ```
@@ -57,7 +57,8 @@ erDiagram
   tracking is a later, heuristic add-on built from preset links: the system is
   not an outreach CRM.
 - **Registration does not require a WordPress account.** Without one, a
-  personal secret link opens the registration's status page, including its
+  personal secret link makes the registration active and shows its status,
+  including its
   payment status. Guest registration is deliberately semi-anonymous; guests
   are never matched, and organizers get no manual linking tool.
 - **An account is an optional extra layer** that **owns** registrations and
@@ -84,7 +85,7 @@ erDiagram
 - **If the person is logged in,** the registration attaches to their account.
 - **If the email already has an account,** the registration attaches when
   the mail's link is used. The form never reveals whether an account exists.
-- At first the portal may show only a "coming soon" page
+- At first the account area may show only a "coming soon" page
   ([Release plan](release-plan.md)).
 
 ## Presets

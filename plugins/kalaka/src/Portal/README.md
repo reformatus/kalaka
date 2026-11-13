@@ -1,5 +1,5 @@
 # Portal
 
-Registration access by secret link or account, and the account area.
+The active registration (set by a secret link or an account's pick), the participant blocks admins place on any page, and the account area.
 
 Entry points: none yet.

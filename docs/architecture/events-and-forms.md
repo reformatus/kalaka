@@ -321,12 +321,11 @@ is no other participant-side edit.
   - mail: the recipient and the registration;
   - a participant block: the active registration
     ([Registrations](registrations-and-identity.md#access));
-  - form: answers only, for conditions; event values are rendered at page
-    load.
-- **A form's conditions may also read the registration's current field
-  values** for participant fields the form does not hold, e.g. a staff form
-  branching on the camp chosen at registration. Fields the form holds are
-  read from its answers.
+  - form, for conditions: the form's own answers, plus the current field
+    values of the registration it writes to for participant fields the form
+    does not hold (e.g. a staff form branching on the camp chosen at
+    registration). Fields the form holds are always read from its answers.
+    Event values are rendered at page load.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
