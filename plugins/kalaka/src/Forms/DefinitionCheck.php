@@ -59,10 +59,32 @@ final class DefinitionCheck
         return self::problemOf($content, $formId, $placement, $eventId, true);
     }
 
+    /**
+     * The readable refusals of the participant-field checks, `%s` the field key; every other problem keeps
+     * the generic `MESSAGE` with its code. [UNAPPROVED N12]
+     */
+    public const MESSAGES = [
+        FormEvent::PROBLEM => 'Az űrlapot így nem lehet menteni: már vannak mezői, ezért az eseménye nem'
+            . ' módosítható.',
+        SharedKeyCheck::DUPLICATE_KEY => 'Az űrlapot így nem lehet menteni: két mezőjének ugyanaz az azonosítója'
+            . ' („%s”).',
+        SharedKeyCheck::TYPE_CLASH => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítóját az esemény egy más'
+            . ' típusú résztvevői mezője használja („%s”).',
+        SharedKeyCheck::SYSTEM_FIELD => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítója egy olyan'
+            . ' résztvevői mezőé, amelyet a rendszer tölt ki („%s”).',
+        SharedKeyCheck::EXTENSION_FIELD => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítója egy olyan'
+            . ' résztvevői mezőé, amelyet egy bővítmény tölt ki („%s”).',
+    ];
+
     /** The refusal's text for a problem. */
     public static function message(string $code, string $subject): string
     {
-        return sprintf(self::MESSAGE, $code, $subject);
+        $text = self::MESSAGES[$code] ?? null;
+        if ($text === null) {
+            return sprintf(self::MESSAGE, $code, $subject);
+        }
+
+        return str_contains($text, '%s') ? sprintf($text, $subject) : $text;
     }
 
     /**

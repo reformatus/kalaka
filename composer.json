@@ -29,7 +29,7 @@
         }
     },
     "scripts": {
-        "phpstan": "phpstan analyse",
+        "phpstan": "phpstan analyse --memory-limit=1G",
         "deptrac": "deptrac analyse --fail-on-uncovered",
         "phpcs": "phpcs"
     }

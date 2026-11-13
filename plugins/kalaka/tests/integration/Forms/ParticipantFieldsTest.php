@@ -7,9 +7,11 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Forms\Api\ParticipantField;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\DefinitionCheck;
+use Kalaka\Forms\FormEvent;
 use Kalaka\Forms\Module;
 use Kalaka\Forms\ParticipantField\DeclareParticipantFields;
 use Kalaka\Forms\ParticipantField\RenameParticipantField;
+use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
@@ -204,7 +206,7 @@ final class ParticipantFieldsTest extends FormsTestCase
 
         self::assertSame(400, $response->get_status());
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: type_clash („note”).',
+            DefinitionCheck::message(SharedKeyCheck::TYPE_CLASH, 'note'),
             $this->error($response)['message']
         );
         self::assertSame('kalaka/text-field', $this->participantFields()['note']->type);
@@ -218,7 +220,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         $this->saveContent($other, $this->field('text', 'other') . $this->field('date', 'note'));
 
         self::assertSame(['other'], $this->storedKeys($other));
-        self::assertSame('Az űrlapot így nem lehet menteni: type_clash („note”).', $this->notice());
+        self::assertSame(DefinitionCheck::message(SharedKeyCheck::TYPE_CLASH, 'note'), $this->notice());
         self::assertSame('kalaka/text-field', $this->participantFields()['note']->type);
 
         $new = $this->additional($this->field('date', 'note'));
@@ -238,7 +240,10 @@ final class ParticipantFieldsTest extends FormsTestCase
         ]);
 
         self::assertSame(400, $response->get_status());
-        self::assertStringContainsString('system_field („aid_award”)', (string) $this->error($response)['message']);
+        self::assertSame(
+            DefinitionCheck::message(SharedKeyCheck::SYSTEM_FIELD, 'aid_award'),
+            $this->error($response)['message']
+        );
         self::assertSame(['aid_award_1'], $this->storedKeys($this->additional($this->unkeyed('text', 'Aid award'))));
     }
 
@@ -256,7 +261,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         ]);
         self::assertSame(400, $refused->get_status());
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: extension_field („aid_award”).',
+            DefinitionCheck::message(SharedKeyCheck::EXTENSION_FIELD, 'aid_award'),
             $this->error($refused)['message']
         );
 
@@ -371,7 +376,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         $response = $this->rest('POST', '/wp/v2/kalaka_form/' . $id, ['meta' => ['kalaka_event_id' => 8]]);
         self::assertSame(400, $response->get_status());
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: event_fixed („kalaka_event_id”).',
+            DefinitionCheck::message(FormEvent::PROBLEM, 'kalaka_event_id'),
             $this->error($response)['message']
         );
         self::assertSame('7', get_post_meta($id, 'kalaka_event_id', true));
@@ -381,7 +386,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         wp_update_post(['ID' => $id, 'meta_input' => ['kalaka_event_id' => 8]]);
         self::assertSame('7', get_post_meta($id, 'kalaka_event_id', true));
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: event_fixed („kalaka_event_id”).',
+            DefinitionCheck::message(FormEvent::PROBLEM, 'kalaka_event_id'),
             $this->notice()
         );
         self::assertSame([], $this->participantFields(8));
@@ -398,7 +403,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         ]);
         self::assertSame(400, $response->get_status());
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: event_fixed („kalaka_event_id”).',
+            DefinitionCheck::message(FormEvent::PROBLEM, 'kalaka_event_id'),
             $this->error($response)['message']
         );
         self::assertSame($intro, get_post_field('post_content', $id));
@@ -412,7 +417,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         self::assertSame($intro, get_post_field('post_content', $id));
         self::assertSame('7', get_post_meta($id, 'kalaka_event_id', true));
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: event_fixed („kalaka_event_id”).',
+            DefinitionCheck::message(FormEvent::PROBLEM, 'kalaka_event_id'),
             $this->notice()
         );
         self::assertSame([], $this->participantFields(7));
@@ -527,7 +532,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         $response = $this->rest('POST', '/wp/v2/kalaka_form/' . $id, ['content' => $copyAbove]);
         self::assertSame(400, $response->get_status());
         self::assertSame(
-            'Az űrlapot így nem lehet menteni: duplicate_key („note”).',
+            DefinitionCheck::message(SharedKeyCheck::DUPLICATE_KEY, 'note'),
             $this->error($response)['message']
         );
 
@@ -541,7 +546,7 @@ final class ParticipantFieldsTest extends FormsTestCase
 
         $this->saveContent($id, $copyAbove);
         self::assertSame($content, get_post_field('post_content', $id));
-        self::assertSame('Az űrlapot így nem lehet menteni: duplicate_key („note”).', $this->notice());
+        self::assertSame(DefinitionCheck::message(SharedKeyCheck::DUPLICATE_KEY, 'note'), $this->notice());
         self::assertEquals($fields, $this->participantFields());
     }
 
@@ -660,5 +665,34 @@ final class ParticipantFieldsTest extends FormsTestCase
         $unknown = $this->rest('PATCH', $route, ['options' => [['value' => 'xl', 'label' => 'Óriás']]]);
         self::assertSame(400, $unknown->get_status());
         self::assertSame(400, $this->rest('PATCH', $route, [])->get_status());
+    }
+
+    public function testTheParticipantFieldRefusalsReadAsApprovedAndOtherProblemsKeepTheGenericText(): void
+    {
+        $lead = 'Az űrlapot így nem lehet menteni: ';
+        self::assertSame(
+            $lead . 'már vannak mezői, ezért az eseménye nem módosítható.',
+            DefinitionCheck::message(FormEvent::PROBLEM, 'kalaka_event_id')
+        );
+        self::assertSame(
+            $lead . 'két mezőjének ugyanaz az azonosítója („note”).',
+            DefinitionCheck::message(SharedKeyCheck::DUPLICATE_KEY, 'note')
+        );
+        self::assertSame(
+            $lead . 'az egyik mező azonosítóját az esemény egy más típusú résztvevői mezője használja („note”).',
+            DefinitionCheck::message(SharedKeyCheck::TYPE_CLASH, 'note')
+        );
+        self::assertSame(
+            $lead . 'az egyik mező azonosítója egy olyan résztvevői mezőé, amelyet a rendszer tölt ki („note”).',
+            DefinitionCheck::message(SharedKeyCheck::SYSTEM_FIELD, 'note')
+        );
+        self::assertSame(
+            $lead . 'az egyik mező azonosítója egy olyan résztvevői mezőé, amelyet egy bővítmény tölt ki („note”).',
+            DefinitionCheck::message(SharedKeyCheck::EXTENSION_FIELD, 'note')
+        );
+        self::assertSame(
+            $lead . 'unknown_field_block („kalaka/nope-field”).',
+            DefinitionCheck::message('unknown_field_block', 'kalaka/nope-field')
+        );
     }
 }
