@@ -23,6 +23,11 @@ final class Boot
     /** The WP option holding the fingerprint of the load failures last logged. */
     public const FAILURE_OPTION = 'kalaka_load_failure';
 
+    /** A per-event action's name: foundation.md, "Views and grants". */
+    private const ACTION = '/^kalaka_[a-z][a-z0-9_]*$/D';
+
+    private const ACTION_LENGTH = 64;
+
     /** @var list<LoadFailure> */
     private array $failures = [];
 
@@ -77,15 +82,18 @@ final class Boot
         }
 
         $contributions = new Api\Module\Contributions();
+        $booted = [];
         foreach ($upgraded as $module) {
             try {
                 $module->contribute($contributions);
                 $module->boot();
+                $booted[] = $module;
             } catch (\Throwable $e) {
                 $this->fail($module->id(), $e->getMessage(), $e);
             }
         }
         Api\Module\Contributions::record($contributions);
+        $this->publishCatalogue($booted);
 
         foreach ($contributions->siteWarnings() as $warning) {
             $warnings->add($warning);
@@ -128,6 +136,37 @@ final class Boot
         $warnings->add(new PeriodicRunHealth(new WordPressClock(), $binlog));
 
         return $warnings;
+    }
+
+    /**
+     * Records the per-event actions of the booted modules, in boot order. A module that offers a malformed
+     * name (`kalaka_` and a lowercase identifier, at most 64 characters) or a name already offered fails
+     * and offers none.
+     *
+     * @param list<Api\Module\Module> $booted
+     */
+    private function publishCatalogue(array $booted): void
+    {
+        $names = [];
+        foreach ($booted as $module) {
+            try {
+                $offered = [];
+                foreach ($module->capabilities() as $name) {
+                    if (strlen($name) > self::ACTION_LENGTH || preg_match(self::ACTION, $name) !== 1) {
+                        throw new \UnexpectedValueException('Malformed action name.');
+                    }
+                    if (isset($names[$name]) || isset($offered[$name])) {
+                        throw new \UnexpectedValueException('Duplicate action name ' . $name . '.');
+                    }
+                    $offered[$name] = true;
+                }
+                $names += $offered;
+            } catch (\Throwable $e) {
+                $this->fail($module->id(), $e->getMessage(), $e);
+            }
+        }
+
+        Api\Module\ActionCatalogue::record(new Api\Module\ActionCatalogue(array_keys($names)));
     }
 
     /** @return list<LoadFailure> */

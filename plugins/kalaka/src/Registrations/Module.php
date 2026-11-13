@@ -81,6 +81,20 @@ SQL;
         return new Schema(2, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
     }
 
+    /**
+     * The per-event actions grants may carry (foundation.md, "Views and grants").
+     * [UNAPPROVED S36-5]
+     */
+    public function capabilities(): array
+    {
+        return [
+            'kalaka_withdraw_registration',
+            'kalaka_remove_registration',
+            'kalaka_admit_registration',
+            'kalaka_regenerate_link',
+        ];
+    }
+
     public function boot(): void
     {
     }
