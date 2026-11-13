@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 /**
  * A submit whose answers show a terminal page (MP-6): the person could not have reached the submit
  * button, so only a crafted or stale request gets here. Its own code, `kalaka_form_terminal`; the
- * text is `FormRefused`'s (#161 N3), so no new text. Not audited: nothing was attempted. [UNAPPROVED MP-15]
+ * text is `FormRefused`'s (#161 N3), so no new text. Not audited: nothing was attempted.
  */
 final class FormTerminal extends KalakaException
 {

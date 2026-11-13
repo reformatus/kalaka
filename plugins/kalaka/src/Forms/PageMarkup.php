@@ -14,7 +14,6 @@ use Kalaka\Forms\Condition\ChainMarks;
  *
  * The title is the theme's own heading (`h2`), focusable by the script when the page changes; nothing
  * of ours styles it (events-and-forms.md, "Forms implementation": the look follows the theme).
- * [UNAPPROVED MP-17] the title's markup, and the block's title "Űrlapoldal" in its `block.json`.
  */
 final class PageMarkup
 {
