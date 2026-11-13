@@ -137,6 +137,12 @@ final class ParticipantFieldsTest extends FormsTestCase
         self::assertSame(['megjegyzes'], $this->storedKeys($first));
         self::assertSame(['megjegyzes_1'], $this->storedKeys($second));
         self::assertSame(['megjegyzes'], $this->storedKeys($otherEvent));
+
+        // Saved keyless again, each form takes back only the key it held itself, never the other form's.
+        $this->saveContent($second, $this->unkeyed('text', 'Megjegyzés'));
+        $this->saveContent($first, $this->unkeyed('text', 'Megjegyzés'));
+        self::assertSame(['megjegyzes'], $this->storedKeys($first));
+        self::assertSame(['megjegyzes_1'], $this->storedKeys($second));
         self::assertSame(['megjegyzes', 'megjegyzes_1'], array_keys($this->participantFields()));
         self::assertSame('form', $this->participantFields()['megjegyzes']->source);
         self::assertSame('kalaka/text-field', $this->participantFields()['megjegyzes']->type);
@@ -464,6 +470,20 @@ final class ParticipantFieldsTest extends FormsTestCase
             self::assertStringContainsString('type_clash note', $e->getMessage());
         }
         self::assertContains('#' . $stale . ' Regisztráció: type_clash note', BrokenForms::stored());
+    }
+
+    public function testAStoredFieldStillHeldOnlyByAClashingFormIsNotRetired(): void
+    {
+        $first = $this->additional($this->field('text', 'note'));
+        // Written around the save check: `note` as a date.
+        $this->insertForm($this->field('date', 'note'), ['kalaka_placement' => 'additional']);
+
+        // The only form that holds `note` with its type lets it go; the clashing form still holds the key.
+        $this->saveContent($first, $this->field('text', 'other'));
+
+        $fields = $this->participantFields();
+        self::assertFalse($fields['note']->retired);
+        self::assertSame('kalaka/text-field', $fields['note']->type);
     }
 
     public function testDeletingAFormForGoodRetiresTheKeysOnlyItHeld(): void

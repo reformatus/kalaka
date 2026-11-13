@@ -79,7 +79,11 @@ final class ParticipantFieldSync
                 self::actor(),
             );
             foreach (is_array($skipped) ? $skipped : [] as $key) {
-                $conflicts[] = 'key ' . (is_string($key) ? $key : '') . ' (the event field has another type)';
+                if (is_string($key) && str_contains(implode("\n", $conflicts), 'key ' . $key . ' of form ')) {
+                    continue; // Already named with its form.
+                }
+                $conflicts[] = 'key ' . (is_string($key) ? $key : '')
+                    . ' (the event field has another type, or forms may not hold it)';
             }
             if ($conflicts !== []) {
                 // Logged through the boundary: the rest of the list is declared.
@@ -92,7 +96,9 @@ final class ParticipantFieldSync
     /**
      * The fields every form of the event holds, the saved form's first and marked `latest`, and the fields
      * left out because they clash: with the event's stored field of that key, or, for a key not stored yet,
-     * with the form that holds it first.
+     * with the form that holds it first. A field that clashes with the stored field is still passed on with
+     * its own type when no other form holds the key, so the stored field counts as held (not retired); the
+     * use case skips it.
      *
      * @return array{
      *     list<array{
@@ -122,6 +128,7 @@ final class ParticipantFieldSync
 
         $union = [];
         $conflicts = [];
+        $clashing = [];
         foreach ($forms as $form) {
             $latest = $saved !== null && $form->ID === $saved->ID;
             foreach (FieldBlocks::of($form->post_content, $contributions) as $key => $field) {
@@ -129,6 +136,11 @@ final class ParticipantFieldSync
                 if ($field['type'] !== $type) {
                     $conflicts[] = 'key ' . $key . ' of form ' . $form->ID
                         . ' (' . $field['type'] . ', not ' . $type . ')';
+                    if (isset($types[$key])) {
+                        // A form still holds the stored field's key: passed on, so the field is not retired;
+                        // the use case skips it.
+                        $clashing[$key] ??= ['key' => $key] + $field + ['latest' => $latest];
+                    }
                     continue;
                 }
                 $known = $union[$key] ?? null;
@@ -149,6 +161,8 @@ final class ParticipantFieldSync
                 $union[$key] = $known;
             }
         }
+
+        $union += $clashing;
 
         return [array_values($union), $conflicts];
     }
