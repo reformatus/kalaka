@@ -8,4 +8,7 @@
             <directory>.</directory>
         </testsuite>
     </testsuites>
+    <extensions>
+        <extension class="Kalaka\Tests\Integration\ContributionsGuard"/>
+    </extensions>
 </phpunit>

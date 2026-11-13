@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail;
 
+use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Api\BlockHost;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailQueue;
+use Kalaka\Mail\Body\ActionMailComposer;
+use Kalaka\Mail\Body\MailPosts;
+use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Pause\PauseCause;
 use Kalaka\Mail\Pause\PauseWarning;
 use Kalaka\Mail\Pause\RequestState;
@@ -68,6 +73,39 @@ CREATE TABLE {prefix}kalaka_mail_states (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * mail.md, "Configuration": one event's setting of one action mail (`mail` is the action's key); a missing
+     * row is the default (off, no body, wrapped by the layout). `body_id` is the body's `kalaka_mail` post.
+     * // [UNAPPROVED N16] the per-event mail settings live in two Mail-owned tables.
+     */
+    private const ACTION_MAILS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_action_mails (
+  event_id bigint(20) unsigned NOT NULL,
+  mail varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  version int(10) unsigned NOT NULL,
+  enabled tinyint(1) unsigned NOT NULL DEFAULT 0,
+  body_id bigint(20) unsigned DEFAULT NULL,
+  layout tinyint(1) unsigned NOT NULL DEFAULT 1,
+  PRIMARY KEY  (event_id,mail)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
+    /**
+     * mail.md, "Configuration": an event's layout, the raw HTML that wraps its mails, stored as written.
+     * // [UNAPPROVED N21] the layout is raw HTML in a Mail-owned table, stored verbatim.
+     */
+    private const LAYOUTS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_mail_layouts (
+  event_id bigint(20) unsigned NOT NULL,
+  version int(10) unsigned NOT NULL,
+  html longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  PRIMARY KEY  (event_id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
+    /** Kaláka's gated blocks a mail body may hold: the condition blocks (mail.md, "Content"). */
+    public const BODY_BLOCKS = ['kalaka/if', 'kalaka/else-if', 'kalaka/else'];
+
     private ?Sender $sender = null;
 
     public function id(): string
@@ -82,7 +120,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(2, [self::DELIVERIES, self::STATES]);
+        return new Schema(3, [self::DELIVERIES, self::STATES, self::ACTION_MAILS, self::LAYOUTS]);
     }
 
     public function contribute(Contributions $to): void
@@ -91,6 +129,8 @@ SQL;
         $to->siteWarning(new PauseWarning(PauseCause::Errors, $state));
         $to->siteWarning(new PauseWarning(PauseCause::Manual, $state));
         $to->periodicStep($this->sender());
+        // [UNAPPROVED N12] a mail body may hold the condition blocks, never a field block.
+        $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE));
     }
 
     public function boot(): void
@@ -99,11 +139,70 @@ SQL;
         add_action(MailQueue::SEND_HOOK, static function () use ($sender): void {
             Boundary::background('mail sender', static fn (): mixed => $sender->send());
         });
+        add_action('init', [$this, 'register']);
+    }
+
+    /** @internal the `init` callback */
+    public function register(): void
+    {
+        $this->registerPostType();
+        $this->registerMeta();
+
+        // A mail's version is a revision ID, so revisions of mail documents are never pruned.
+        add_filter('wp_' . MailPosts::POST_TYPE . '_revisions_to_keep', static fn (): int => -1);
+        add_action('wp_after_insert_post', [new MailPosts(), 'ensureRevision'], 10, 2);
+    }
+
+    /**
+     * Mail bodies and layouts are edited in the block editor (mail.md, "Content") by full access only, like
+     * forms: every capability, REST reads included (`MailRestController`), needs `kalaka_full_access`. No
+     * admin menu item and no labels of its own.
+     * // [UNAPPROVED N12] `kalaka_mail` is exposed like `kalaka_form`.
+     */
+    private function registerPostType(): void
+    {
+        $full = AdminAccess::FULL_ACCESS;
+        register_post_type(MailPosts::POST_TYPE, [
+            'public' => false,
+            'show_ui' => true,
+            'show_in_menu' => false,
+            'show_in_rest' => true,
+            'rest_controller_class' => MailRestController::class,
+            'supports' => ['title', 'editor', 'revisions', 'custom-fields'],
+            'map_meta_cap' => false,
+            'capabilities' => [
+                'edit_post' => $full,
+                'read_post' => $full,
+                'delete_post' => $full,
+                'edit_posts' => $full,
+                'edit_others_posts' => $full,
+                'delete_posts' => $full,
+                'publish_posts' => $full,
+                'read_private_posts' => $full,
+                'create_posts' => $full,
+            ],
+        ]);
+    }
+
+    /**
+     * The event of a mail document, as post meta in REST for full access only; called by `register()`.
+     *
+     * @internal
+     */
+    public function registerMeta(): void
+    {
+        register_post_meta(MailPosts::POST_TYPE, MailPosts::META_EVENT_ID, [
+            'type' => 'integer',
+            'single' => true,
+            'show_in_rest' => true,
+            'auth_callback' => static fn (bool $allowed, string $metaKey, int $postId, int $userId): bool
+                => user_can($userId, AdminAccess::FULL_ACCESS),
+        ]);
     }
 
     private function sender(): Sender
     {
-        // No composer is bound until the mail bodies are built, so the sender idles.
-        return $this->sender ??= new Sender(static fn (): Runner => Runner::current(), null);
+        // The action mails' composer: the sender runs (mail.md, "Sending").
+        return $this->sender ??= new Sender(static fn (): Runner => Runner::current(), new ActionMailComposer());
     }
 }

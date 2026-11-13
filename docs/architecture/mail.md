@@ -77,13 +77,23 @@ activated.**
 ## Content
 
 - **Every body is edited in the block editor** and stored as a block document
-  (`kalaka_mail` posts). Blocks are used **only for layouts and conditions**.
+  (`kalaka_mail` posts). **Blocks in a mail body are content and
+  conditions;** the layout is a raw HTML wrapper with one content
+  placeholder.
 - **Values and conditions** follow the shared rules
   ([Values and conditions](events-and-forms.md#values-and-conditions)). A
   mail's context is **the recipient and the registration**. Actions and
-  reminders add their own layout blocks (e.g. a payment table).
+  reminders add their own blocks (e.g. a payment table).
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
+- **The body's title is the subject,** as plain text. Mail is sent as HTML
+  only.
+- **The layout** is one raw HTML text per event, written by full access and
+  stored as written. It holds `{{content}}` exactly once and no other
+  placeholder; a layout without exactly one is refused. A new event's layout
+  is exactly `{{content}}`, so mail works with no setup. The rendered body
+  replaces `{{content}}`; everything but the outer design belongs in each
+  mail's body.
 
 ## Sending
 

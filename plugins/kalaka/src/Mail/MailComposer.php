@@ -14,6 +14,8 @@ interface MailComposer
     /**
      * The address to send the delivery to, from current data; null when the registration has none. The
      * sender checks it with `is_email()` before the claim.
+     *
+     * @throws RecipientUnavailable when the address cannot be determined (the delivery fails with its reason)
      */
     public function recipient(Delivery $delivery): ?string;
 

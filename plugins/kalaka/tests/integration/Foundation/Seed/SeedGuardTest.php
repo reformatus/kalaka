@@ -40,7 +40,7 @@ final class SeedGuardTest extends SeedTestCase
     {
         $lines = $this->seeded(false, $type);
 
-        self::assertCount(5 + 1, $lines);
+        self::assertCount(6 + 1, $lines);
         self::assertSame(5, $this->eventCount());
     }
 }

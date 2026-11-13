@@ -99,11 +99,11 @@ abstract class SeedTestCase extends EventsTestCase
         self::fail('The seed should have refused.');
     }
 
-    /** @return list<string> the logins of the five seeded users that exist */
+    /** @return list<string> the logins of the six seeded users that exist */
     protected function seededLogins(): array
     {
         return array_values(array_filter(
-            ['administrator', 'editor', 'author', 'contributor', 'subscriber'],
+            ['administrator', 'editor', 'author', 'contributor', 'subscriber', 'kalaka_admin'],
             static fn (string $login): bool => get_user_by('login', $login) !== false
         ));
     }
