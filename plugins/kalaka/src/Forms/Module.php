@@ -20,6 +20,7 @@ use Kalaka\Forms\FieldType\EmailFieldType;
 use Kalaka\Forms\FieldType\NameFieldType;
 use Kalaka\Forms\FieldType\PhoneFieldType;
 use Kalaka\Forms\FieldType\TextFieldType;
+use Kalaka\Forms\Rest\FormRoutes;
 use Kalaka\Forms\Value\BindingSource;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
@@ -109,6 +110,8 @@ SQL;
             add_action('wp_loaded', [$check, 'run']);
         }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
+        add_action('rest_api_init', [new FormRoutes(), 'register']);
+        add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
         add_shortcode(FormPage::SHORTCODE, [$this, 'shortcode']);
     }
