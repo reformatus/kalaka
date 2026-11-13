@@ -387,12 +387,13 @@ is no other participant-side edit.
   re-fetches it. At submit the server walks the form the same way and keeps
   only answers of fields that show, including only the options that are
   offered; whatever the browser still holds for a hidden field is dropped.
-- **A chain waits for a required single choice.** While a required choice
-  of one option that shows is unanswered, a chain whose conditions read it
-  shows no branch, since one of them will be chosen. Every other unanswered
-  field (an unticked box, an empty text, an optional choice, a multiple
-  choice with nothing ticked) reads as empty, so the branch for "empty"
-  (often `else`) shows at once.
+- **An unanswered field reads as empty; no chain waits.** An unanswered
+  choice, required or optional, reads as empty like an unticked box or an
+  empty text, so the branch for "empty" (often `else`) shows until an
+  answer is given. Validation follows what shows: at submit a required
+  choice left unanswered has its own required error, and the fields of the
+  branch shown at that moment (an `else`, say) are checked like any shown
+  field.
 - **Mid-form availability is advisory.** Seats and capacity are decided only
   at submit, under the lock; the texts say so (approved when built).
 
