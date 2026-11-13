@@ -44,10 +44,13 @@ conditions, prefill and form links
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
   kept.
-- A participant field's title is its own, separate from the labels of the
-  blocks that hold it: set when the field is declared, never from a later
-  block label, and changed only by `RenameParticipantField` (a `form` or
-  `staff` field; a `system` or `extension` field's title is its declarer's).
+- A participant field's title and its choice options' labels are its own,
+  separate from the labels the forms show: each is set when it is first
+  declared (an option is matched by value), never from a later form's label,
+  and changed only by `RenameParticipantField` (a `form` or `staff` field; a
+  `system` or `extension` field's texts are its declarer's). Mails, views
+  and the status page show the participant field's labels; a form shows its
+  own.
 - A form's event is set when it is created and fixed once the form has
   fields, on every path that writes the setting. A save that changes the
   event is judged before anything is stored, on the stored and the incoming
@@ -58,7 +61,9 @@ conditions, prefill and form links
 - A post save never writes Kaláka's tables: the save checks only read and
   refuse (REST 400, else a graceful veto with an admin notice), and
   `DeclareParticipantFields`, run through the runner after the post and its
-  settings are stored, is the only writer of the participant fields.
+  settings are stored, writes the participant fields; besides it only
+  `RenameParticipantField` (an explicit request) does, both through
+  `ParticipantFieldRepository`.
 - A form autosave is never a version: the version is the latest revision that
   is not an autosave.
 - Forms are edited in the block editor by full access only: every capability

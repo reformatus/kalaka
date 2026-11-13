@@ -313,7 +313,7 @@ final class ParticipantFieldsTest extends FormsTestCase
         self::assertSame(
             [
                 ['value' => 's', 'label' => 'Kicsi', 'retired' => false],
-                ['value' => 'm', 'label' => 'Közép', 'retired' => false],
+                ['value' => 'm', 'label' => 'Közepes', 'retired' => false], // the field's own, from its first form
                 ['value' => 'l', 'label' => 'Nagy', 'retired' => false],
             ],
             $this->participantFields()['size']->options
@@ -625,5 +625,40 @@ final class ParticipantFieldsTest extends FormsTestCase
         wp_set_current_user(self::factory()->user->create(['role' => 'editor']));
         self::assertSame(403, $this->rest('PATCH', $route, ['title' => 'Más'])->get_status());
         self::assertSame('Egyéb megjegyzés', $this->participantFields($event)['note']->title);
+    }
+
+    public function testOptionLabelsAreTheFieldsOwnAndChangeOnlyByARename(): void
+    {
+        $event = $this->create();
+        $id = $this->additional(
+            $this->choice('size', [['value' => 's', 'label' => 'Kicsi'], ['value' => 'm', 'label' => 'Közepes']]),
+            $event
+        );
+        // Another form shows its own, longer label for the same value, and adds a value.
+        $this->additional(
+            $this->choice('size', [['value' => 's', 'label' => 'Kicsi (gyerek)'], ['value' => 'l', 'label' => 'Nagy']]),
+            $event
+        );
+        $this->saveContent(
+            $id,
+            $this->choice('size', [['value' => 's', 'label' => 'Pici'], ['value' => 'm', 'label' => 'Közepes']])
+        );
+        self::assertSame(
+            ['Kicsi', 'Közepes', 'Nagy'],
+            array_column($this->participantFields($event)['size']->options, 'label')
+        );
+
+        $route = '/kalaka-admin/v1/events/' . $event . '/participant-fields/size';
+        $renamed = $this->rest('PATCH', $route, ['options' => [['value' => 'l', 'label' => ' L-es ']]]);
+        self::assertSame(200, $renamed->get_status());
+        self::assertSame('L-es', ((array) $renamed->get_data())['options'][2]['label']);
+        self::assertSame(
+            ['Kicsi', 'Közepes', 'L-es'],
+            array_column($this->participantFields($event)['size']->options, 'label')
+        );
+
+        $unknown = $this->rest('PATCH', $route, ['options' => [['value' => 'xl', 'label' => 'Óriás']]]);
+        self::assertSame(400, $unknown->get_status());
+        self::assertSame(400, $this->rest('PATCH', $route, [])->get_status());
     }
 }

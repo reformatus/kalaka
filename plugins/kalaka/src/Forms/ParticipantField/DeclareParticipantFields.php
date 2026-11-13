@@ -16,8 +16,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * - a held key keeps its row and type; one held with a different type, or a field forms may not hold
  *   (`system`, or `extension` not declared form-writable), is skipped and
  *   returned (the save check lets neither through, so only a form written around it gets here) and the
- *   rest goes on; a retired one is active again; the saved form's option labels are the latest, while the
- *   title stays the one the field was declared with (`RenameParticipantField` changes it);
+ *   rest goes on; a retired one is active again; its title and option labels stay the ones it was declared
+ *   with (`RenameParticipantField` changes them); `latest` only orders the union, so a new option takes the
+ *   saved form's label first;
  * - choice options are a union: a new one is added, one no form holds any more is retired with its label
  *   kept (owner ruling 2026-11-13, B3(a)), and one held again is active again;
  * - a `form` field no form holds any more is retired. Its key is never derived again (`FieldKeys`).
@@ -119,7 +120,7 @@ final class DeclareParticipantFields implements AdminUseCase
                     $key,
                     $field['type'],
                     $field['title'],
-                    self::merged(null, $field['options'], true, true, $now),
+                    self::merged(null, $field['options'], true, $now),
                     ParticipantFieldRecord::SOURCE_FORM,
                     null,
                     $now,
@@ -141,7 +142,6 @@ final class DeclareParticipantFields implements AdminUseCase
             $record->options = self::merged(
                 $record->options,
                 $field['options'],
-                $field['latest'],
                 $record->source === ParticipantFieldRecord::SOURCE_FORM,
                 $now,
             );
@@ -180,8 +180,10 @@ final class DeclareParticipantFields implements AdminUseCase
     }
 
     /**
-     * The stored options with the held ones: a held option is active, with the latest form's label; a new
-     * one is added at the end; one no longer held is retired with its label (only when `$retire`).
+     * The stored options with the held ones: a held option is active and keeps its stored label (the
+     * participant field's own, owner ruling 2026-11-13; a form shows its own labels); a new one is added at
+     * the end with the label it is first declared with; one no longer held is retired with its label (only
+     * when `$retire`). [UNAPPROVED N11]
      *
      * @param ?list<array{value: string, label: string, retired_at: ?string}> $stored
      * @param ?list<array{value: string, label: string}> $held
@@ -190,7 +192,6 @@ final class DeclareParticipantFields implements AdminUseCase
     private static function merged(
         ?array $stored,
         ?array $held,
-        bool $latest,
         bool $retire,
         \DateTimeImmutable $now,
     ): ?array {
@@ -209,7 +210,7 @@ final class DeclareParticipantFields implements AdminUseCase
             $known = $options[$value] ?? null;
             $options[$value] = [
                 'value' => $value,
-                'label' => $known === null || $latest ? $option['label'] : $known['label'],
+                'label' => $known === null ? $option['label'] : $known['label'],
                 'retired_at' => null,
             ];
         }

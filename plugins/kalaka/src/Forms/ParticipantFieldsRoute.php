@@ -19,8 +19,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * `GET kalaka-admin/v1/events/{id}/participant-fields`: the event's participant fields for the form editor,
  * which only full access opens. `include_retired` adds the retired ones. [UNAPPROVED N2]
  *
- * `PATCH kalaka-admin/v1/events/{id}/participant-fields/{key}` with `{title}`: renames one, through
- * `RenameParticipantField`, and answers with the field as the read shows it. [UNAPPROVED N10]
+ * `PATCH kalaka-admin/v1/events/{id}/participant-fields/{key}` with `{title?, options?: [{value, label}]}`:
+ * renames one or its options, through `RenameParticipantField`, and answers with the field as the read
+ * shows it. [UNAPPROVED N10] [UNAPPROVED N11]
  */
 final class ParticipantFieldsRoute
 {
@@ -47,7 +48,8 @@ final class ParticipantFieldsRoute
             'args' => [
                 'id' => ['type' => 'integer', 'minimum' => 1, 'required' => true],
                 'key' => ['type' => 'string', 'required' => true],
-                'title' => ['type' => 'string', 'required' => true],
+                'title' => ['type' => 'string'],
+                'options' => ['type' => 'array'],
             ],
         ]);
     }
@@ -88,11 +90,13 @@ final class ParticipantFieldsRoute
         if ((new Events())->find($eventId) === null) {
             throw new NotFound();
         }
-        Runner::current()->run(
-            new RenameParticipantField(),
-            ['event_id' => $eventId, 'key' => $key, 'title' => (string) $request->get_param('title')],
-            new UserActor(get_current_user_id()),
-        );
+        $input = ['event_id' => $eventId, 'key' => $key];
+        foreach (['title', 'options'] as $name) {
+            if ($request->has_param($name)) {
+                $input[$name] = $request->get_param($name);
+            }
+        }
+        Runner::current()->run(new RenameParticipantField(), $input, new UserActor(get_current_user_id()));
         foreach ((new Forms())->participantFields($eventId, true) as $field) {
             if ($field->key === $key) {
                 return new \WP_REST_Response($field->toArray());
