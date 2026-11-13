@@ -18,10 +18,10 @@ title: Events and forms
 
 - **States are admin acts:** draft → published ⇄ unpublished → archived.
   - **Unpublished** pauses all of the event's public interfaces: forms, the
-    portal, payments. It also stops the event's mail: no delivery is
+    participant blocks, payments. It also stops the event's mail: no delivery is
     sent, and the periodic run adds no scheduled or reminder deliveries for
     it. Action mails are still queued, so none is forgotten.
-    The portal is closed too, including "resend my link"; self-sent mails
+    The participant blocks are closed too, including "resend my link"; self-sent mails
     requested before unpublishing stay queued. On republishing, the admin sees the pending count and can clear them.
     This follows from a sound unpublish; the control stays separate from the global mail pause, which
     only pauses sending ([Mail](mail.md#pausing)).
@@ -53,7 +53,8 @@ points (which does not clear the "full" latch).
 
 ## Date references
 
-Wherever a date can be set (mail schedules, field locks, fee rules, …) it can
+Wherever a date can be set (mail schedules, an additional form's open
+period, fee rules, …) it can
 be:
 
 - a fixed date;
@@ -135,8 +136,10 @@ flowchart TB
   affects a form.
 - **Forms start from the active registration**
   ([Registrations](registrations-and-identity.md#access)): an additional
-  form is prefilled from its current field values, as editable values (a
-  type may refuse prefill); a registration form may prefill from it too.
+  form is prefilled from its current field values, as editable values; a
+  registration form may prefill from it too. A type may refuse prefill: its
+  field then opens empty, and left blank it keeps the current value
+  ([Changing participant fields after submit](#changing-participant-fields-after-submit)).
 - **A form link prefills from its record** (below): the server sets the
   values, either locked or as editable prefilled values. Prefill from a
   preset is separate ([Fields](#fields)).
@@ -275,7 +278,10 @@ flowchart TB
 - **A typed key may match on purpose.** A form field given the key of an
   existing participant field is that same field: its answers write the same
   field value. Its field type must be the same; saving a form that gives a
-  key another type is refused. A choice field's options are the union over
+  key another type is refused. A typed key that matches a **retired**
+  participant field revives that same field, with its key and its values,
+  when the type is the same; with another type the save is refused.
+  Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
   keeping its label, so stored values still read.
 - **Explicit markings:** the contact email (exactly one per form in the
@@ -297,8 +303,10 @@ is no other participant-side edit.
 - **Only fields the form shows are written,** plus hidden fields its form
   link sets. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
-  shown field left blank clears its value: the form showed the current
-  value, so blank is the answer.
+  shown field that was prefilled and is left blank clears its value: the
+  form showed the current value, so blank is the answer. A field whose type
+  refuses prefill opens empty, so left blank it keeps the current value:
+  the form never showed it.
 - **The form opens with the current values** of the registration, as
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is

@@ -503,7 +503,8 @@ registration's decisions, money and mail up to date with its facts.
     case, inside its transaction, before the audit entry.
   - The periodic run does the same for work that falls due over time, one
     transaction per registration.
-  - Opening a registration in the portal or admin never evaluates it: a page
+  - Showing a registration in a participant block or the admin never
+    evaluates it: a page
     view writes nothing.
 - **Three phases, in order:**
   1. **decisions** ([Facts, decisions and computed

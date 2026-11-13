@@ -28,7 +28,7 @@ record, the check-in act, and so on.
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
-| **Self-sent** | the registrant asks for it in the portal (e.g. resend my link), addressed to an email address | the portal use case, rate-limited |
+| **Self-sent** | the registrant asks for it through a participant block (e.g. resend my link), addressed to an email address | the portal use case, rate-limited |
 
 ## Configuration
 
@@ -172,6 +172,7 @@ mail is never sent automatically more than twice.
   the UI. It stops the event's sending, and no scheduled or reminder
   deliveries are added to the queue while it is unpublished, so republishing
   does not release outdated mails. Action mails are still queued, so
-  none is forgotten. The portal, including "resend my link", is closed;
+  none is forgotten. The event's participant blocks, including "resend my
+  link", are closed;
   self-sent mails requested before unpublishing stay queued. The admin sees the pending count with the
   option to clear them ([Events](events-and-forms.md#event-lifecycle)).
