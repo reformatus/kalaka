@@ -8,8 +8,9 @@ namespace Kalaka\Forms\Api;
  * One participant field of an event: what the event knows about a participant under one key. Form fields
  * join it by holding its key. `type` is the field block's name (e.g. `kalaka/text-field`) and `typeLabel`
  * the title that block type is registered with (the approved block titles for core's types, an extension's
- * own title for its types, the block name when the type is not registered). `title` is the latest title a
- * form gave it (it may hold the title's inline HTML), `source` one of `form`, `staff`, `extension` and
+ * own title for its types, the block name when the type is not registered). `title` is the field's own:
+ * set when the field is first declared and changed only by `RenameParticipantField` (it may hold the
+ * title's inline HTML), `source` one of `form`, `staff`, `extension` and
  * `system`, `formWritable` whether a form may hold its key, and `forms` the forms of the event that hold it
  * now (trashed ones not).
  */
