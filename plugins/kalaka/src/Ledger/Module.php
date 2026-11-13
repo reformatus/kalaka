@@ -50,6 +50,18 @@ SQL;
         return new Schema(2, [self::LEDGER_LINES]);
     }
 
+    /**
+     * The per-event actions grants may carry (foundation.md, "Views and grants").
+     * [UNAPPROVED S36-5]
+     */
+    public function capabilities(): array
+    {
+        return [
+            'kalaka_record_payment',
+            'kalaka_record_refund',
+        ];
+    }
+
     public function boot(): void
     {
     }
