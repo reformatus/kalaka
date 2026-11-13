@@ -33,7 +33,7 @@ Links are relative to the repository root. Read these sections, not whole pages.
 | Entities, repositories, queries | [Entities, repositories and queries](docs/architecture/foundation.md#entities-repositories-and-queries) |
 | Audit, failures | [Audit](docs/architecture/foundation.md#audit), [Failures](docs/architecture/foundation.md#failures) |
 | Deferred work (no job queue), bulk changes | [Deferred work](docs/architecture/foundation.md#deferred-work), [Bulk changes](docs/architecture/foundation.md#bulk-changes) |
-| Derived facts | [Derived facts](docs/architecture/foundation.md#derived-facts) |
+| Facts, decisions and computed values | [Facts, decisions and computed values](docs/architecture/foundation.md#facts-decisions-and-computed-values) |
 | Cross-cutting rules (storage, time, permissions, personal data, secret links, money type) | [Cross-cutting rules](docs/architecture/foundation.md#cross-cutting-rules) |
 | Module boundaries, packaging, core modules | [Packaging](docs/architecture/modules-and-extensions.md#packaging), [Core modules](docs/architecture/modules-and-extensions.md#core-modules), [The Module interface](docs/architecture/modules-and-extensions.md#the-module-interface) |
 | Schema ownership, identifiers, bundled libraries | [Schema ownership](docs/architecture/modules-and-extensions.md#schema-ownership), [Identifiers](docs/architecture/modules-and-extensions.md#identifiers), [Bundled libraries](docs/architecture/modules-and-extensions.md#bundled-libraries) |

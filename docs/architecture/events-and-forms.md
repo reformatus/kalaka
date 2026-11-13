@@ -318,7 +318,7 @@ is no other participant-side edit.
 - **Admins can correct any field at any time,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
-  period.
+  period and revokes the form's links that bypass it.
 - A resubmit never re-decides "not counted"
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 
