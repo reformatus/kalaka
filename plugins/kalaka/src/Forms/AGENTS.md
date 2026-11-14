@@ -190,7 +190,7 @@ values and conditions, prefill and form links
   never runs a use case or writes. The submit route calls `SubmitGuard` before
   the submit seam (`Registrations\Api\RegistrationSubmit`). Every answer of
   both, refusals included, carries `Cache-Control: no-store`. A malformed body
-  is `InvalidInput`, never a WordPress argument error. [UNAPPROVED N1]
+  is `InvalidInput`, never a WordPress argument error.
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a

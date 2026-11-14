@@ -26,7 +26,7 @@ use Kalaka\Registrations\Api\SubmitRequest;
 /**
  * The public routes of a form's page (S12), in the portal namespace, registered through the error boundary
  * (foundation.md, "Errors"). Both are open to anyone: the form's own access checks (`Forms::refusals()`)
- * decide, with the current user's roles and whether the form's password was given. [UNAPPROVED N1]
+ * decide, with the current user's roles and whether the form's password was given.
  *
  * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?}` → `{availability, parts}`:
  *   what the form shows for the answers (`FormAvailability::toArray()`, with `page`'s errors) and the
@@ -35,10 +35,10 @@ use Kalaka\Registrations\Api\SubmitRequest;
  *   through `SubmitGuard` and the submit seam (`RegistrationSubmit`).
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
- * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`. [UNAPPROVED N2]
+ * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
  * Every answer of both routes, refusals included, carries `Cache-Control: no-store` (`noStore()`).
  * The current user is the one WordPress authenticated for the request; with cookie authentication that
- * needs the `wp_rest` nonce, else the request is a guest's. [UNAPPROVED N3]
+ * needs the `wp_rest` nonce, else the request is a guest's.
  */
 final class FormRoutes
 {
@@ -78,7 +78,7 @@ final class FormRoutes
      * On `rest_request_after_callbacks`: every answer of these routes, refusals included, as a response
      * with `Cache-Control: no-store`. A `WP_Error` (what the boundary makes of a refusal, or a body that is
      * not JSON) becomes its response here, as the server would make it. This filter runs for every request
-     * that reached a route, `rest_do_request()` included, unlike `rest_post_dispatch`. [UNAPPROVED N5]
+     * that reached a route, `rest_do_request()` included, unlike `rest_post_dispatch`.
      *
      * @internal
      */
@@ -98,7 +98,7 @@ final class FormRoutes
 
     /**
      * The re-fetch: the same checks as the form's page, then what shows for the answers. A form that would
-     * not show is `FormRefused` with its refusal codes [UNAPPROVED N7]; a version that is not the latest is
+     * not show is `FormRefused` with its refusal codes; a version that is not the latest is
      * `FormOutdated`.
      *
      * @return array{availability: array<string, mixed>, parts: array<string, string>|\stdClass}
