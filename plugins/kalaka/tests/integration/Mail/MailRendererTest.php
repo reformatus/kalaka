@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Mail;
 
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Body\MailRenderer;
 use Kalaka\Mail\Body\MailValues;
@@ -242,6 +243,33 @@ final class MailRendererTest extends MailBodyTestCase
                 self::assertSame($reason, $e->reason);
             }
         }
+    }
+
+    public function testTheRecipientComesFromTheVersionTheRegistrationWasSubmittedWith(): void
+    {
+        global $wpdb;
+        $event = $this->create();
+        $form = $this->slotForm($event);
+        $key = $this->registration($event, form: $form);
+        // A later save, then the current version broken against the event's fields (a key of another type),
+        // as a form written around the save check is.
+        wp_update_post(['ID' => $form, 'post_title' => 'Jelentkezés 2027']);
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['type' => 'kalaka/text-field'],
+            ['event_id' => $event, 'field_key' => 'email']
+        );
+        $current = (new Forms())->form($form);
+        self::assertNotNull($current);
+        try {
+            (new Forms())->definition($current);
+            self::fail('Expected the current version to be broken.');
+        } catch (SystemFailure) {
+            // The current version is broken; the submitted one is read as it was.
+        }
+
+        self::assertSame('teszt@example.test', (new MailValues())->recipient($key));
+        self::assertSame('teszt@example.test', (new MailValues())->context($key)->get('recipient.email')->text);
     }
 
     /** The text of rendered HTML, its whitespace collapsed. */

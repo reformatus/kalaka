@@ -47,7 +47,7 @@ final class MailValues
      * it before the claim, so a data problem is a `RecipientUnavailable`, never another exception.
      *
      * @throws RecipientUnavailable no registration or first submission (`no_registration`), or a slot form
-     *         that is unpublished or has a problem now (`no_recipient_form`)
+     *         that is unpublished now or whose submitted version has a problem (`no_recipient_form`)
      */
     public function recipient(RegistrationKey $key): ?string
     {
@@ -135,8 +135,13 @@ final class MailValues
     }
 
     /**
+     * The definition of the slot form's version the registration was submitted with: its marked fields are
+     * the ones the answers were given in, and a later save that breaks the current version does not lose the
+     * recipient.
+     *
      * @param array{form_id: int, form_version: int} $record
-     * @throws SystemFailure when the slot form is not usable now (`no_form`) or its definition has a problem
+     * @throws SystemFailure when the slot form is not usable now (`no_form`), or the version is not one of its
+     *         revisions or its definition has a problem
      */
     private function definition(array $record): FormDefinition
     {
@@ -146,7 +151,7 @@ final class MailValues
             throw new SystemFailure('no_form ' . $record['form_id']);
         }
 
-        return $this->forms->definition($form);
+        return $this->forms->definition($form, $record['form_version']);
     }
 
     /** The key of the contact-email field (or the display-name field); null when the form has none. */
