@@ -8,7 +8,7 @@ use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FieldType;
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Cli\FormSeeder;
@@ -113,7 +113,7 @@ SQL;
         add_action('rest_api_init', [new FormRoutes(), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
-        add_shortcode(FormPage::SHORTCODE, [$this, 'shortcode']);
+        add_shortcode(FormCaching::SHORTCODE, [$this, 'shortcode']);
     }
 
     /**
@@ -124,11 +124,11 @@ SQL;
      */
     public function shortcode(array|string $attributes): string
     {
-        FormPage::preventCaching();
+        FormCaching::preventCaching();
         $id = is_array($attributes) ? absint($attributes['id'] ?? 0) : 0;
 
         return render_block([
-            'blockName' => FormPage::BLOCK,
+            'blockName' => FormCaching::BLOCK,
             'attrs' => ['formId' => $id],
             'innerBlocks' => [],
             'innerHTML' => '',
@@ -144,8 +144,8 @@ SQL;
     {
         Boundary::background('form page caching', static function (): void {
             $post = is_singular() ? get_queried_object() : null;
-            if ($post instanceof \WP_Post && FormPage::placesForm($post->post_content)) {
-                FormPage::preventCaching();
+            if ($post instanceof \WP_Post && FormCaching::placesForm($post->post_content)) {
+                FormCaching::preventCaching();
             }
         });
     }
@@ -235,7 +235,7 @@ SQL;
         $attributes = is_array($metadata) && is_array($metadata['attributes'] ?? null)
             ? $metadata['attributes']
             : [];
-        register_block_type(FormPage::BLOCK, [
+        register_block_type(FormCaching::BLOCK, [
             'attributes' => $attributes,
             'render_callback' => static fn (array $given): string => self::renderWithoutBuild($source, $given),
         ]);
@@ -266,7 +266,7 @@ SQL;
      */
     public function editorScriptData(): void
     {
-        $type = \WP_Block_Type_Registry::get_instance()->get_registered(FormPage::BLOCK);
+        $type = \WP_Block_Type_Registry::get_instance()->get_registered(FormCaching::BLOCK);
         $handle = $type === null ? null : ($type->editor_script_handles[0] ?? null);
         if (!is_string($handle)) {
             return;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
@@ -54,7 +54,7 @@ final class BlockGate
     public const HIDING_SCRIPT = 'kalaka-block-gate';
 
     /** The block that embeds a form in a page. */
-    public const FORM_BLOCK = FormPage::BLOCK;
+    public const FORM_BLOCK = FormCaching::BLOCK;
 
     /**
      * The `allowed_block_types_all` filter.

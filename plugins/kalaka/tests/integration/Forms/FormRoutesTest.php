@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\FormPosts;
 use Kalaka\Forms\Rest\FormRoutes;
 use Kalaka\Foundation\Api\Audit\Correlation;
@@ -186,7 +186,7 @@ final class FormRoutesTest extends FormsTestCase
     {
         self::assertSame($status, $response->get_status());
         self::assertSame($code, $this->data($response)['code']);
-        self::assertSame(FormPage::CACHE_CONTROL, $response->get_headers()['Cache-Control'] ?? null);
+        self::assertSame(FormCaching::CACHE_CONTROL, $response->get_headers()['Cache-Control'] ?? null);
     }
 
     private function registrations(int $form): int
@@ -433,7 +433,7 @@ final class FormRoutesTest extends FormsTestCase
 
         $first = $this->post($form, 'submit', $this->submitBody($form));
         self::assertSame(200, $first->get_status());
-        self::assertSame(FormPage::CACHE_CONTROL, $first->get_headers()['Cache-Control'] ?? null);
+        self::assertSame(FormCaching::CACHE_CONTROL, $first->get_headers()['Cache-Control'] ?? null);
         $data = $this->data($first);
         self::assertSame($event, $data['event']);
         self::assertSame('registered', $data['status']);

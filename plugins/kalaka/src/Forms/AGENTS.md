@@ -172,7 +172,7 @@ values and conditions, prefill and form links
   top level outside any branch or page, with no fields; its chains are not the form's (not numbered,
   not walked) and read only `AfterSubmit::TYPES`.
 - A page that places a form (the block `kalaka/form` or the `[kalaka_form]`
-  shortcode) is never cached: `Api\FormPage::preventCaching()` on
+  shortcode) is never cached: `Api\FormCaching::preventCaching()` on
   `template_redirect`; the form renderer, when it comes with the front end,
   calls it again.
 - A form has no page or all its content in top-level `kalaka/form-page`
