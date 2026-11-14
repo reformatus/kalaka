@@ -218,6 +218,16 @@ final class AccountsOnFormTest extends FormsTestCase
         self::assertStringNotContainsString('data-kalaka-account-skip', $html);
     }
 
+    public function testTheShortcodeRendersTheSameStepForDivi(): void
+    {
+        $form = $this->openForm('mandatory');
+
+        $html = do_shortcode('[kalaka_form id="' . $form . '"]');
+
+        self::assertStringContainsString('data-kalaka-account-step', $html);
+        self::assertStringContainsString('<div data-kalaka-form-body hidden>', $html);
+    }
+
     public function testLoggedInNoStepAndTheContactEmailStartsWithTheAccountsAddress(): void
     {
         $form = $this->openForm('mandatory');

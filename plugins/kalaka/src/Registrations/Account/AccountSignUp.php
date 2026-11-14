@@ -73,7 +73,7 @@ final class AccountSignUp
         }
         $login = $base;
         for ($suffix = 2; username_exists($login) !== false; $suffix++) {
-            $login = $suffix <= 100 ? $base . $suffix : $base . wp_rand(101, PHP_INT_MAX);
+            $login = $suffix <= 100 ? $base . $suffix : $base . wp_rand(101, 999999999);
         }
 
         return $login;
