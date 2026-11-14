@@ -219,6 +219,30 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertSame('{{content}}', (new ActionMailSettings())->ofEvent($event)->layoutHtml);
     }
 
+    public function testALayoutWithAnotherPlaceholderIsRefused(): void
+    {
+        $event = $this->create();
+
+        foreach (['{{content}} {{name}}', '<p>{{ nev }}</p>{{content}}', "{{content}}{{\n}}"] as $html) {
+            try {
+                $this->exec(new SetEventMailLayout(), ['event_id' => $event, 'html' => $html]);
+                self::fail('Expected a refusal.');
+            } catch (RuleViolation $e) {
+                self::assertSame(
+                    'A művelet nem hajtható végre. A levélsablonban a {{content}} jelölőn kívül más jelölő nem'
+                        . ' szerepelhet.',
+                    $e->getMessage()
+                );
+            }
+        }
+        self::assertSame('{{content}}', (new ActionMailSettings())->ofEvent($event)->layoutHtml);
+
+        // Braces that are not a placeholder are kept as written.
+        $html = '<style>a{color:red}</style>{{content}}';
+        $this->exec(new SetEventMailLayout(), ['event_id' => $event, 'html' => $html]);
+        self::assertSame($html, (new ActionMailSettings())->ofEvent($event)->layoutHtml);
+    }
+
     public function testOnlyFullAccessSetsTheLayout(): void
     {
         $event = $this->create();

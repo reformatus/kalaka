@@ -34,8 +34,8 @@ bodies, the renderer and the per-event action-mail catalogue.
 - A mail body is a `kalaka_mail` post of one event (`kalaka_event_id`),
   edited in the block editor by full access only; its blocks are content and
   the condition blocks, never a field block. An event's layout is raw HTML
-  with `{{content}}` exactly once (exactly `{{content}}` until set; any other
-  save is refused), stored verbatim (full access is trusted
+  with `{{content}}` exactly once and no other `{{…}}` (exactly `{{content}}`
+  until set; any other save is refused), stored verbatim (full access is trusted
   like `unfiltered_html`) and never escaped. The per-event settings and the
   layout live in Mail's tables (`kalaka_action_mails`, `kalaka_mail_layouts`),
   never in post meta. A body serves one action mail only (mail.md, "Words":

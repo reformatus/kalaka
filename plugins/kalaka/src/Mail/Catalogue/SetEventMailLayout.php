@@ -23,6 +23,7 @@ final class SetEventMailLayout implements AdminUseCase
 {
     // [UNAPPROVED N20] the refusal's text, with the UI's term "Levélsablon".
     public const NO_PLACEHOLDER = 'A levélsablonban a {{content}} jelölőnek pontosan egyszer kell szerepelnie.';
+    public const OTHER_PLACEHOLDER = 'A levélsablonban a {{content}} jelölőn kívül más jelölő nem szerepelhet.';
 
     public function __construct(
         private readonly MailLayoutRepository $layouts = new MailLayoutRepository(),
@@ -66,7 +67,7 @@ final class SetEventMailLayout implements AdminUseCase
     /**
      * @return array<string, mixed> the event's mail settings after the change (`EventMailSettings::toArray()`)
      * @throws NotFound when there is no such event
-     * @throws RuleViolation when the HTML does not hold `{{content}}` exactly once
+     * @throws RuleViolation when the HTML does not hold `{{content}}` exactly once, or holds another `{{…}}`
      */
     public function execute(array $input, Context $context): array
     {
@@ -77,6 +78,10 @@ final class SetEventMailLayout implements AdminUseCase
         if (!MailLayout::isValid($html)) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
             throw new RuleViolation(self::NO_PLACEHOLDER);
+        }
+        if (MailLayout::hasOtherPlaceholder($html)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
+            throw new RuleViolation(self::OTHER_PLACEHOLDER);
         }
 
         $layout = $this->layouts->findForUpdate($eventId, $context) ?? new MailLayout($eventId, $html);

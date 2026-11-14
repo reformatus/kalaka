@@ -26,6 +26,14 @@ final class MailLayout
         return substr_count($html, self::CONTENT) === 1;
     }
 
+    /** Whether the HTML holds any `{{…}}` placeholder besides `{{content}}`. */
+    public static function hasOtherPlaceholder(string $html): bool
+    {
+        preg_match_all('/\{\{.*?\}\}/s', $html, $matches);
+
+        return array_diff($matches[0], [self::CONTENT]) !== [];
+    }
+
     /** The layout with the rendered body in the placeholder's place, the rest as written. */
     public function wrap(string $body): string
     {
