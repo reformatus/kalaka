@@ -17,9 +17,6 @@ interface FeeComponent
 
     public function stage(): FeeStage;
 
-    /** Whether its charges count in the bookkeeper's invoiceable sum per payer (money.md, "Ledger"). */
-    public function isInvoiceable(): bool;
-
     /**
      * What each payer owes for this component now. A payer it leaves out owes zero.
      *

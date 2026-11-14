@@ -12,8 +12,10 @@ use Kalaka\Forms\Api\ValueContext;
 
 /**
  * A registration's fact source after submit (foundation.md, "Facts, decisions and computed values"; the
- * one availability base, S76): the event's values, the registration's code and status, and its submit
- * time. Read by the fee components and, later, by every rule that reads registration facts. Built by
+ * one availability base, S76): the event's values, the registration's code and status, and when it last
+ * became `registered` (null while it is not; a waitlisted registration is not registered). Every
+ * time-dependent rule counts from it, never from the submit: payment due, price-tier deadlines, everything.
+ * Read by the fee components and, later, by every rule that reads registration facts. Built by
  * `Registrations::factsOf()`; it holds values only and reads nothing.
  *
  * TODO(S25, #181): add the field values by participant-field key, typed through
@@ -33,7 +35,7 @@ final readonly class RegistrationFacts implements Facts
     public function __construct(
         public RegistrationKey $registration,
         public RegistrationStatus $status,
-        public \DateTimeImmutable $submittedAt,
+        public ?\DateTimeImmutable $registeredAt,
         Event $event,
     ) {
         $this->values = new ValueContext(EventValues::of($event) + [

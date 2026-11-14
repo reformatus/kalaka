@@ -11,8 +11,8 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * Everything a fee component gets (modules-and-extensions.md, "Contracts": one immutable input per point).
- * `facts` is the registration's fact source (S76's one availability base; the submit time a price deadline
- * is judged against), `before` the totals per payer of the earlier stages only, `currency` the event's.
+ * `facts` is the registration's fact source (S76's one availability base, with `registeredAt`, the anchor of
+ * relative dates), `before` the totals per payer of the earlier stages only, `currency` the event's.
  */
 final readonly class FeeComponentInput
 {

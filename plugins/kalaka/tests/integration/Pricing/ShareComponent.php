@@ -31,11 +31,6 @@ final class ShareComponent implements FeeComponent
         return FeeStage::Share;
     }
 
-    public function isInvoiceable(): bool
-    {
-        return false;
-    }
-
     public function targets(FeeComponentInput $input): FeeTargets
     {
         $base = $input->before->of(FeeStage::Tier, Payer::PARTICIPANT)
