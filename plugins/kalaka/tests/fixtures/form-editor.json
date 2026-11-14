@@ -1,0 +1,31 @@
+{
+  "fieldTypes": {
+    "kalaka/name-field": "text",
+    "kalaka/email-field": "text",
+    "kalaka/phone-field": "text",
+    "kalaka/date-field": "date",
+    "kalaka/text-field": "text",
+    "kalaka/choice-field": "choice",
+    "kalaka/consent-field": "text"
+  },
+  "eventTypes": {
+    "event.name": "text",
+    "event.registration_opens": "date",
+    "event.registration_closes": "date",
+    "event.start": "date",
+    "event.end": "date"
+  },
+  "afterSubmitTypes": {
+    "event.name": "text",
+    "event.registration_opens": "date",
+    "event.registration_closes": "date",
+    "event.start": "date",
+    "event.end": "date",
+    "registration.code": "text",
+    "registration.status": "choice"
+  },
+  "dateReference": {
+    "maxYears": 200,
+    "maxDays": 3660
+  }
+}

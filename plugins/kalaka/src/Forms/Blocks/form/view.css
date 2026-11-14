@@ -1,0 +1,109 @@
+/*
+ * The form's error colour (engineering.md "WordPress surfaces", events-and-forms.md "Required fields"): a
+ * field's message and the bold required asterisk take `--kalaka-error-color`, which render.php sets from the
+ * theme adapter; without an adapter colour a fixed red (WordPress's own alert red) is used.
+ *
+ * The form's loading state (owner ruling 6): while a re-fetch, a page check or a submit
+ * runs (`aria-busy`), the form is dimmed and its fields take no pointer input; Vissza, Tovább and Küldés
+ * still take clicks (they stay `aria-disabled`; the script queues Tovább and Küldés and ignores Vissza,
+ * D6), so the click that blurs a changed field is not lost; after 2 seconds (`data-kalaka-slow`)
+ * a spinner shows over its centre and its text goes into the visually hidden live region. The spinner rebuilds the look of WordPress's Spinner
+ * (@wordpress/components): a 16px track circle and a quarter arc turning once every 1.4s, its strokes
+ * 1.5px. The arc takes the theme's text colour instead of the admin accent, so the form has no colour
+ * of its own.
+ */
+form[data-wp-interactive="kalaka/form"] {
+	position: relative;
+}
+
+form[data-wp-interactive="kalaka/form"] :is(.kalaka-field__error, .kalaka-field__required) {
+	color: var(--kalaka-error-color, #cc1818);
+}
+
+form[data-wp-interactive="kalaka/form"] .kalaka-field__required {
+	font-weight: bold;
+}
+
+/* A hidden navigation button stays hidden even where a theme gives buttons a display of their own (Divi's
+   `.et_pb_button { display: inline-block }`). */
+form[data-wp-interactive="kalaka/form"] :is([data-kalaka-back], [data-kalaka-next], [data-kalaka-send])[hidden] {
+	display: none !important;
+}
+
+form[data-wp-interactive="kalaka/form"][aria-busy="true"] {
+	pointer-events: none;
+}
+
+form[data-wp-interactive="kalaka/form"][aria-busy="true"] :is([data-kalaka-back], [data-kalaka-next], [data-kalaka-send]) {
+	pointer-events: auto;
+}
+
+form[data-wp-interactive="kalaka/form"][aria-busy="true"] > :not([data-kalaka-spinner]) {
+	opacity: 0.5;
+}
+
+form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner] {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
+
+form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
+	display: none;
+}
+
+.kalaka-spinner {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	overflow: visible;
+}
+
+.kalaka-spinner__track,
+.kalaka-spinner__indicator {
+	fill: transparent;
+	stroke-width: 1.5px;
+}
+
+.kalaka-spinner__track {
+	stroke: currentColor;
+	stroke-opacity: 0.2;
+}
+
+.kalaka-spinner__indicator {
+	stroke: currentColor;
+	stroke-linecap: round;
+	transform-origin: 50% 50%;
+	animation: kalaka-spinner-turn 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.kalaka-spinner__indicator {
+		animation: none;
+	}
+}
+
+@keyframes kalaka-spinner-turn {
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Text for screen readers only. */
+.kalaka-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}

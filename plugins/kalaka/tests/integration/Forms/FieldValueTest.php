@@ -60,14 +60,14 @@ final class FieldValueTest extends \WP_UnitTestCase
         self::assertSame('Alfa és Béta', $this->valueOf('choice', 'a', ['options' => $options])->text);
     }
 
-    public function testADateIsADateAndItsTextIsTheStoredDayForNow(): void
+    public function testADateIsADateAndItsTextIsTheDayInHungarian(): void
     {
         $value = $this->valueOf('date', '2010-11-30');
 
         self::assertSame(ValueType::Date, $this->type('date')->valueType());
         self::assertSame(ValueType::Date, $value->type);
         self::assertSame('2010-11-30', $value->data);
-        self::assertSame('2010-11-30', $value->text);
+        self::assertSame('2010. november 30.', $value->text);
     }
 
     public function testNameEmailPhoneTextAndConsentAreTextWithTheStoredStringAsDataAndText(): void

@@ -74,6 +74,19 @@ jobs:
           done
       - run: vendor/bin/phpunit -c plugins/kalaka/phpunit.xml.dist --testdox
 
+  javascript:
+    name: JavaScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:js
+      - run: npm run test:js
+
   integration:
     name: Integration (PHP ${{ matrix.php }}, MariaDB ${{ matrix.mariadb }})
     strategy:
@@ -102,6 +115,11 @@ jobs:
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-8.3-${{ hashFiles('**/composer.lock') }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - run: bin/build.sh
       - uses: actions/upload-artifact@v7
         with:
@@ -150,7 +168,7 @@ jobs:
   result:
     name: CI passed
     if: always()
-    needs: [static, unit, integration, zip, smoke]
+    needs: [static, unit, javascript, integration, zip, smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Every job succeeded

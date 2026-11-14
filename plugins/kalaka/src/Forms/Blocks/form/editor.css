@@ -1,0 +1,98 @@
+/*
+ * Editor only (the form block's editorStyle): control text, which participants never read, set apart from
+ * the content. It uses the editor's own UI font, label size and greys; the content keeps the theme's font.
+ */
+.kalaka-editor-control,
+.wp-block[data-type^="kalaka/"] [data-rich-text-placeholder]::after {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	letter-spacing: normal;
+	text-transform: none;
+}
+
+/* Muted, like the editor's own labels; a notice keeps its own text colour (contrast). */
+.kalaka-editor-control:not(.components-notice),
+.wp-block[data-type^="kalaka/"] [data-rich-text-placeholder]::after {
+	color: #757575;
+}
+
+/* A condition block: a label bar above an outlined region holding the branch's blocks. */
+.kalaka-editor-branch {
+	border: 1px solid #ddd;
+	border-radius: 2px;
+	padding: 0 12px 8px;
+}
+
+.kalaka-editor-branch__label {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin: 0 -12px 8px;
+	padding: 4px 12px;
+	border-bottom: 1px solid #ddd;
+	font-size: 11px;
+	font-weight: 500;
+	text-transform: uppercase;
+}
+
+.kalaka-editor-branch__summary {
+	text-transform: none;
+}
+
+.kalaka-editor-branch > .components-notice.kalaka-editor-control {
+	margin: 0 0 8px;
+}
+
+.kalaka-editor-branch__marker {
+	fill: #cc1818;
+}
+
+/*
+ * A block the server would refuse: a red side rule, beside the marker in its label bar; the problem is
+ * listed beside the form (problems.js).
+ */
+.kalaka-editor-branch.has-kalaka-problem {
+	border-left: 3px solid #cc1818;
+}
+
+.wp-block[data-type^="kalaka/"][data-type$="-field"].has-kalaka-problem {
+	border-left: 3px solid #cc1818;
+	padding-left: 8px;
+}
+
+/* The participant-field UI (participant-ui.js, participant-view.js). */
+.kalaka-pf-status {
+	font-weight: 500;
+	margin-bottom: 4px;
+}
+
+.kalaka-pf-muted {
+	color: #757575;
+}
+
+.kalaka-pf-picker {
+	margin-top: 12px;
+}
+
+.kalaka-pf-list {
+	margin: 0;
+}
+
+.kalaka-pf-item {
+	margin: 0 0 12px;
+}
+
+.kalaka-pf-options {
+	margin: 4px 0 0 1.2em;
+	list-style: disc;
+}
+
+/* A line of control text above a field's title: the marker of its problem. */
+.kalaka-editor-field__bar {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	margin-bottom: 4px;
+}

@@ -136,6 +136,7 @@ plugins/
     src/<Module>/…        Kalaka\<Module>\…
     tests/unit/
     tests/integration/
+    tests/js/             Jest
   kalaka-woocommerce/     an extension plugin, same shape
 VERSION                   the one version number
 bin/                      build, version check, Playground smoke, deptrac helper
@@ -217,8 +218,7 @@ src/Registrations/
 - **One JavaScript build for everything:** a single `@wordpress/scripts`
   build covers all JavaScript, including the Interactivity API `view.js`
   files (built as script modules). There are no buildless modules alongside
-  built scripts. During development `npm start` will run it in watch mode
-  (planned: the build is added with the first JavaScript).
+  built scripts. During development `npm start` runs it in watch mode.
 - **Source maps** are part of the build and ship in the zip, so the shipped
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with
@@ -278,6 +278,8 @@ src/Registrations/
   (e.g. money arithmetic).
 - **`tests/integration`** runs with WordPress loaded, on MariaDB, in wp-env.
   Most tests are integration tests.
+- **`tests/js`** holds the Jest tests of the JavaScript, run with jsdom
+  (`npm run test:js`).
 - **Integration tests run on MariaDB 11.8 and 10.3,** with PHP 8.3 and the
   latest PHP 8.x.
 - **SQLite is only a smoke test:** Playground starts and loads the seed.
@@ -299,6 +301,7 @@ src/Registrations/
   build runs, development files are left out, and the one version, kept in
   the root `VERSION` file, is copied into every plugin header and into
   `KALAKA_VERSION`. A check fails when they differ.
-- **CI on every pull request:** static checks, unit tests, integration tests
-  (the database and PHP matrix above), the Playground smoke test, the zips and
+- **CI on every pull request:** static checks, unit tests, the JavaScript
+  job (ESLint and the Jest tests), integration tests (the database and PHP
+  matrix above), the Playground smoke test, the zips and
   a Playground preview link; the compatibility check joins when alpha ends.

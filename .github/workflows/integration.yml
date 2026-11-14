@@ -45,6 +45,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run build
       - run: npx wp-env start
       - name: Show PHP and database versions
         run: |

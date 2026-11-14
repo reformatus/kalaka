@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\DateText;
 
 /**
  * The event keys of a value context and a fact source (events-and-forms.md, "Values and
@@ -13,7 +14,7 @@ use Kalaka\Events\Api\Event;
  * (S76), e.g. the age at the event's start.
  *
  * Decision N2 (#156): the same keys and `of()` as the form front end's (p04); a date's text is the
- * `YYYY-MM-DD` day until the front end brings the approved Hungarian date text.
+ * Hungarian date text (`DateText`).
  */
 final class EventValues
 {
@@ -56,6 +57,6 @@ final class EventValues
         }
         $day = $point->setTimezone(wp_timezone())->format('Y-m-d');
 
-        return Value::date($day, $day);
+        return Value::date($day, DateText::of($day));
     }
 }

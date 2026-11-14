@@ -39,7 +39,7 @@ removed here.
 | Rate limit for self-sent mail | building the portal |
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |
-| How the form editor edits options, keys, markings and conditions (option rows, condition pickers, value chips), and how it shows that a form field joins an existing participant field | in the form-editor changes |
+| How the form editor edits conditions with pickers and value chips (conditions are written as JSON until then) | in the form-editor changes |
 | How long the active registration lasts before it expires | building the participant blocks |
 | Whether an additional form's submit triggers an action mail | building additional forms |
 | Whether an additional form may hold the contact email or the display name (a "change my email" form) | building additional forms |

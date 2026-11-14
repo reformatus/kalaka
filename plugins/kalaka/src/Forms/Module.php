@@ -5,8 +5,14 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Api\AfterSubmit;
+use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\FormPage;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\ValueType;
+use Kalaka\Forms\Cli\FormSeeder;
+use Kalaka\Forms\Condition\DateReference;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
 use Kalaka\Forms\FieldType\ConsentFieldType;
 use Kalaka\Forms\FieldType\DateFieldType;
@@ -14,6 +20,7 @@ use Kalaka\Forms\FieldType\EmailFieldType;
 use Kalaka\Forms\FieldType\NameFieldType;
 use Kalaka\Forms\FieldType\PhoneFieldType;
 use Kalaka\Forms\FieldType\TextFieldType;
+use Kalaka\Forms\Rest\FormRoutes;
 use Kalaka\Forms\Value\BindingSource;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
@@ -22,8 +29,14 @@ use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
 {
+    /** The embed block, in `Blocks/`. */
+    private const EMBED_BLOCK = 'form';
+
     /** The core field blocks, in `Blocks/`, each with its title in its `block.json`. */
     private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent'];
+
+    /** The handle of the form's view stylesheet, named by the embed block's `viewStyle`. */
+    public const VIEW_STYLE = 'kalaka-form-view';
 
     /** The block category of Kaláka's blocks in the block editor's inserter. */
     public const BLOCK_CATEGORY = 'kalaka';
@@ -52,6 +65,9 @@ SQL;
     /** The condition branch blocks, in `Blocks/`. */
     private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
+    /** The page and after-submit blocks, in `Blocks/`. */
+    private const STRUCTURE_BLOCKS = ['form-page', 'after-submit'];
+
     public function id(): string
     {
         return 'forms';
@@ -78,13 +94,46 @@ SQL;
         $to->fieldType(new ChoiceFieldType());
         $to->fieldType(new ConsentFieldType());
         $to->siteWarning(new BrokenFormsWarning());
+        $to->seeder(new FormSeeder());
     }
 
     public function boot(): void
     {
         add_action('init', [$this, 'register']);
         add_action('rest_api_init', [ParticipantFieldsRoute::class, 'register']);
+
+        // On `wp_loaded`, after `init` has registered the blocks; at once when it has already fired (activation).
+        $check = new FieldBlockCheck();
+        if (did_action('wp_loaded') > 0) {
+            $check->run();
+        } else {
+            add_action('wp_loaded', [$check, 'run']);
+        }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
+        add_action('rest_api_init', [new FormRoutes(), 'register']);
+        add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
+        // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
+        add_shortcode(FormPage::SHORTCODE, [$this, 'shortcode']);
+    }
+
+    /**
+     * The `[kalaka_form id="…"]` shortcode: the embed block's renderer, for the form it names.
+     *
+     * @internal the shortcode callback
+     * @param array<string, string>|string $attributes
+     */
+    public function shortcode(array|string $attributes): string
+    {
+        FormPage::preventCaching();
+        $id = is_array($attributes) ? absint($attributes['id'] ?? 0) : 0;
+
+        return render_block([
+            'blockName' => FormPage::BLOCK,
+            'attrs' => ['formId' => $id],
+            'innerBlocks' => [],
+            'innerHTML' => '',
+            'innerContent' => [],
+        ]);
     }
 
     /**
@@ -106,14 +155,23 @@ SQL;
     {
         $this->registerPostType();
         $this->registerMeta();
+        // The blocks are registered from `build/`, where the JavaScript build writes them (engineering.md, "Builds").
+        $blocks = dirname(KALAKA_FILE) . '/build/Forms/Blocks/';
+        // The form's loading state (dim and spinner): plain CSS, which the build does not copy, so it is
+        // served from `src/` (the zip carries `src/`).
+        wp_register_style(
+            self::VIEW_STYLE,
+            plugins_url('src/Forms/Blocks/form/view.css', KALAKA_FILE),
+            [],
+            KALAKA_VERSION
+        );
+        $this->registerEmbedBlock($blocks . self::EMBED_BLOCK);
         foreach (self::BLOCKS as $name) {
-            register_block_type(__DIR__ . '/Blocks/' . $name . '-field');
+            register_block_type($blocks . $name . '-field');
         }
-        foreach (self::BRANCH_BLOCKS as $name) {
-            register_block_type(__DIR__ . '/Blocks/' . $name);
+        foreach ([...self::BRANCH_BLOCKS, ...self::STRUCTURE_BLOCKS] as $name) {
+            register_block_type($blocks . $name);
         }
-        register_block_type(__DIR__ . '/Blocks/after-submit');
-        register_block_type(__DIR__ . '/Blocks/form-page');
         register_block_bindings_source(BindingSource::NAME, [
             'label' => 'Kaláka-érték',
             'get_value_callback' => [BindingSource::class, 'value'],
@@ -143,6 +201,9 @@ SQL;
         // The broken-form list the site warning reads, kept current on every change of a form.
         add_action('wp_after_insert_post', [BrokenForms::class, 'onPostChange'], 20, 2);
         add_action('deleted_post', [BrokenForms::class, 'onPostChange'], 10, 2);
+        // The cached block names of the site-wide block check, cleared on every change of a form.
+        add_action('wp_after_insert_post', [FieldBlockCheck::class, 'onPostChange'], 20, 2);
+        add_action('deleted_post', [FieldBlockCheck::class, 'onPostChange'], 10, 2);
         foreach (['added_post_meta', 'updated_post_meta', 'deleted_post_meta'] as $hook) {
             add_action($hook, [BrokenForms::class, 'onMetaChange'], 10, 3);
         }
@@ -151,6 +212,92 @@ SQL;
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
+        add_action('enqueue_block_editor_assets', [$this, 'editorScriptData']);
+    }
+
+    /**
+     * The embed block, from `build/`. Without `build/` (D10) the site is closed by `FieldBlockCheck`, and
+     * the block is registered from its source `block.json`'s attributes with its server render only, no
+     * script, so a page or shortcode that places a form still shows the closed site's failure text.
+     *
+     * @internal called by `register()`
+     */
+    public function registerEmbedBlock(string $built): void
+    {
+        if (is_file($built . '/block.json')) {
+            register_block_type($built);
+            return;
+        }
+        $source = __DIR__ . '/Blocks/' . self::EMBED_BLOCK;
+        $metadata = wp_json_file_decode($source . '/block.json', ['associative' => true]);
+        $attributes = is_array($metadata) && is_array($metadata['attributes'] ?? null)
+            ? $metadata['attributes']
+            : [];
+        register_block_type(FormPage::BLOCK, [
+            'attributes' => $attributes,
+            'render_callback' => static fn (array $given): string => self::renderWithoutBuild($source, $given),
+        ]);
+    }
+
+    /**
+     * The embed block's server render, as WordPress runs a `render` file: `$attributes` in scope.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    private static function renderWithoutBuild(string $source, array $attributes): string
+    {
+        ob_start();
+        try {
+            require $source . '/render.php';
+        } finally {
+            $html = (string) ob_get_clean();
+        }
+
+        return $html;
+    }
+
+    /**
+     * The `enqueue_block_editor_assets` action: what the server tells the form editor, printed before the
+     * editor script as `window.kalakaFormEditor` (read by `Blocks/form/server.js`).
+     *
+     * @internal
+     */
+    public function editorScriptData(): void
+    {
+        $type = \WP_Block_Type_Registry::get_instance()->get_registered(FormPage::BLOCK);
+        $handle = $type === null ? null : ($type->editor_script_handles[0] ?? null);
+        if (!is_string($handle)) {
+            return;
+        }
+        $data = wp_json_encode(self::editorData());
+        wp_add_inline_script($handle, 'window.kalakaFormEditor = ' . $data . ';', 'before');
+    }
+
+    /**
+     * What the form editor needs from the server, so it copies none of it: the registered field-type
+     * block names (extension field types included) with the value type of each answer, the keys a form's
+     * and the after-submit section's conditions may read, and a date reference's bounds.
+     *
+     * @return array{
+     *     fieldTypes: array<string, string>,
+     *     eventTypes: array<string, string>,
+     *     afterSubmitTypes: array<string, string>,
+     *     dateReference: array{maxYears: int, maxDays: int}
+     * }
+     */
+    public static function editorData(): array
+    {
+        $value = static fn (ValueType $type): string => $type->value;
+
+        return [
+            'fieldTypes' => array_map(
+                static fn (FieldType $type): string => $type->valueType()->value,
+                Contributions::current()->fieldTypes()
+            ),
+            'eventTypes' => array_map($value, EventValues::TYPES),
+            'afterSubmitTypes' => array_map($value, AfterSubmit::TYPES),
+            'dateReference' => ['maxYears' => DateReference::MAX_YEARS, 'maxDays' => DateReference::MAX_DAYS],
+        ];
     }
 
     /**

@@ -23,5 +23,6 @@
       "default": false
     }
   },
+  "editorScript": "kalaka-form-editor-script",
   "render": "file:./render.php"
 }

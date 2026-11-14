@@ -50,6 +50,34 @@ final class FieldTypeRegistryTest extends FormsTestCase
         }
     }
 
+    public function testTheFormEditorGetsTheJestFixtureOnASiteWithTheCoreTypes(): void
+    {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the tests' own fixture
+        $file = file_get_contents(__DIR__ . '/../../fixtures/form-editor.json');
+        self::assertIsString($file);
+
+        self::assertSame(json_decode($file, true, flags: JSON_THROW_ON_ERROR), \Kalaka\Forms\Module::editorData());
+    }
+
+    public function testTheFormEditorGetsExtensionFieldTypes(): void
+    {
+        $this->bootWithTestTypes();
+
+        $types = \Kalaka\Forms\Module::editorData()['fieldTypes'];
+
+        self::assertSame(array_keys(Contributions::current()->fieldTypes()), array_keys($types));
+        self::assertSame('text', $types['kalaka/test-rating-field']);
+    }
+
+    public function testTheFormEditorDataIsPrintedBeforeTheEditorScript(): void
+    {
+        (new \Kalaka\Forms\Module())->editorScriptData();
+
+        $before = wp_scripts()->get_data('kalaka-form-editor-script', 'before');
+        self::assertIsArray($before);
+        self::assertStringStartsWith('window.kalakaFormEditor = {"fieldTypes":{', (string) end($before));
+    }
+
     public function testTheCoreTypesAreInTheRegistryAndNoneIsMoneyRelevant(): void
     {
         $types = Contributions::current()->fieldTypes();
@@ -160,15 +188,18 @@ final class FieldTypeRegistryTest extends FormsTestCase
     public function testAModuleThatContributesTheSameBlockTwiceFailsToLoad(): void
     {
         $register = static function (\Kalaka\Foundation\Api\Module\Modules $modules): void {
-            $modules->add(new TestFieldTypesModule());
+            $modules->add(new DuplicateFieldTypeModule());
         };
         add_action('kalaka_register_modules', $register);
         $log = ini_set('error_log', '/dev/null');
         try {
-            $boot = new Boot([new \Kalaka\Forms\Module(), new TestFieldTypesModule()]);
+            $boot = new Boot([new \Kalaka\Forms\Module()]);
             $boot->run();
 
-            self::assertNotSame([], $boot->failures());
+            // The failing module is the second contributor, not Forms, and the reason names the block.
+            self::assertCount(1, $boot->failures());
+            self::assertSame('forms_duplicate', $boot->failures()[0]->moduleId);
+            self::assertStringContainsString('kalaka/name-field', $boot->failures()[0]->reason);
             self::assertFalse(LoadState::current()->isOpen());
         } finally {
             remove_action('kalaka_register_modules', $register);
