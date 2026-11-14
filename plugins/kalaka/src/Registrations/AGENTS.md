@@ -69,6 +69,17 @@ the waitlist and reference codes
   run, the submit queues the action mail of the resulting status
   (`registered` or `waitlisted`) through `Mail\Api\ActionMails::due()`, with
   the registration as the cause; a repeat queues nothing.
+- An additional form's submit is `kalaka-portal/submit-additional-form`
+  (`SubmitAdditionalForm`, reached through `Api\RegistrationSubmit` with the
+  target registration): the same checks before the transaction and the same
+  repeat rule, the event row first, then the form's requirements (its open
+  period among them) and the registration row `FOR UPDATE`, which must be
+  `registered` or `waitlisted`. It appends a submission with the next number
+  and writes only the fields that showed: an answer replaces the value, a
+  shown field left blank deletes a value the form showed (one its type
+  prefills), and a money-relevant field's value is never changed once
+  written. It never writes the registration row, its status or
+  `registered_at`, and never reads or changes capacity or the latch.
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
