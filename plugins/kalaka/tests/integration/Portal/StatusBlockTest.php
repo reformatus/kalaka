@@ -98,6 +98,19 @@ final class StatusBlockTest extends PortalTestCase
         self::assertTrue((new StatusRead())->forActive()?->payment?->overdue);
     }
 
+    public function testPaidInFullPastTheDeadlineIsNotOverdue(): void
+    {
+        $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
+        $this->charge($key, '48000');
+        $this->pay($key, '48000');
+        $this->activate($key);
+
+        $html = $this->statusBlock();
+        self::assertStringNotContainsString('Lejárt a fizetési határidő.', $html);
+        self::assertStringNotContainsString('Fizetési határidő:', $html);
+        self::assertFalse((new StatusRead())->forActive()?->payment?->overdue);
+    }
+
     public function testTheDueDayEndsAtMidnightInTheSiteTimeZone(): void
     {
         // Registered 2026-11-22 23:30 UTC = 2026-11-23 00:30 in Budapest: due 2026-11-30, overdue only from
