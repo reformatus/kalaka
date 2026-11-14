@@ -35,7 +35,7 @@ flowchart LR
     AID["Adjudicated aid"]
     SP["Sponsor / church support"]
     CS["Congregation share"]
-    REC["Module ranking · recommender"]
+    REC["Module ranking"]
     MORE["Wallet · attendance sheets · check-in ·<br/>donations · settlement"]
   end
   subgraph CORE["Core plugin"]
@@ -134,19 +134,13 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 
 Besides the money plugins:
 
-- **Module ranking and recommender** (IVK): the ranking field type, the
-  ranking proposer, and a public recommender page. The recommender asks a few
-  questions, scores the modules of the event's module set with an AI decision
-  model (relied on, with no fallback path), shows the best three, and links to
-  the form through a form link of the same shape staff create with
-  `kalaka/create-form-link`: the attribution key locked, the ranking
-  editable, single use, an expiry, no bypasses
-  ([Forms](events-and-forms.md#form-links-and-admin-submissions)). **On a
-  public page the link is created by a portal or system use case with its
-  own rate limit, never an admin use case;** the same holds for any "register
-  for the other camp too" link on a thank-you page. Its answers carry no
-  name or e-mail and stay for statistics after the registration is erased.
-  A consent notice names the AI provider. Its columns join views by the key.
+- **Module ranking** (IVK): the ranking field type and the ranking
+  proposer. Its plugin is `kalaka-ranking`. The module recommender is not
+  part of Kaláka: it is IVK's own quiz on another site, which hands its
+  order to the form as a prefill. **A form link created on a public page**
+  (e.g. a "register for the other camp too" link on a thank-you page) **is
+  created by a portal or system use case with its own rate limit, never an
+  admin use case.**
 - **Attendance sheets** (REFISZ, later): printable sheets participants sign on
   site, for a supporting body or a grant report. Templates per event (header,
   columns from field values plus blank columns such as a signature, optional
