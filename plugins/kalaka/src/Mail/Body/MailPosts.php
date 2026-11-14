@@ -32,6 +32,12 @@ final class MailPosts
         return (int) $eventId;
     }
 
+    /** Whether the post is published now. */
+    public function isPublished(int $id): bool
+    {
+        return $id > 0 && get_post_status($id) === 'publish';
+    }
+
     /**
      * The published document of the event, as it is now, with its version.
      *

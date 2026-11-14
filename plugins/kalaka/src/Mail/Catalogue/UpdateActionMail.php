@@ -17,7 +17,9 @@ use Kalaka\Mail\Body\MailPosts;
 /**
  * Changes one action mail of an event (mail.md, "Configuration"): switches it on or off, assigns its body
  * (a `kalaka_mail` post of the event) and whether the event's layout wraps it. A mail is on only with a
- * body, and a body serves one mail only (mail.md, "Words": one to one). Site-level, like every Mail use case: only full access, WP-CLI and the system run it.
+ * body, a body serves one mail only (mail.md, "Words": one to one), and only a published body is assigned or
+ * switched on (a mail switched off may keep a body that is no longer published). Site-level, like every Mail
+ * use case: only full access, WP-CLI and the system run it.
  * // [UNAPPROVED N16] the command that changes one action mail.
  */
 final class UpdateActionMail implements AdminUseCase
@@ -25,6 +27,7 @@ final class UpdateActionMail implements AdminUseCase
     // [UNAPPROVED N20] the refusals' texts.
     public const NO_BODY = 'Előbb add meg a levél szövegét.';
     public const BODY_TAKEN = 'Ezt a szöveget már egy másik levél használja.';
+    public const BODY_UNPUBLISHED = 'Előbb tedd közzé a levél szövegét.';
 
     public function __construct(
         private readonly ActionMailRepository $mails = new ActionMailRepository(),
@@ -74,7 +77,8 @@ final class UpdateActionMail implements AdminUseCase
      * @return array<string, mixed> the event's mail settings after the change (`EventMailSettings::toArray()`)
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the body is not a `kalaka_mail` post of the event
-     * @throws RuleViolation when the mail would be on without a body, or the body is another mail's
+     * @throws RuleViolation when the mail would be on without a body, the body is another mail's, or the
+     *         body assigned or switched on is not published
      */
     public function execute(array $input, Context $context): array
     {
@@ -108,6 +112,11 @@ final class UpdateActionMail implements AdminUseCase
         if ($entry->enabled && $entry->bodyId === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
             throw new RuleViolation(self::NO_BODY);
+        }
+        $assigned = array_key_exists('body_id', $input) && $entry->bodyId !== null;
+        if (($assigned || $entry->enabled) && $entry->bodyId !== null && !$this->posts->isPublished($entry->bodyId)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
+            throw new RuleViolation(self::BODY_UNPUBLISHED);
         }
 
         $this->mails->upsert($entry, $context);

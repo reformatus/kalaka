@@ -80,6 +80,32 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
     }
 
+    public function testOnlyAPublishedBodyIsAssignedOrSwitchedOn(): void
+    {
+        $event = $this->create();
+        $draft = $this->document($event, $this->paragraph('Szia'));
+        wp_update_post(['ID' => $draft, 'post_status' => 'draft']);
+
+        foreach ([['body_id' => $draft], ['body_id' => $draft, 'enabled' => true]] as $change) {
+            try {
+                $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered'] + $change);
+                self::fail('Expected a refusal.');
+            } catch (RuleViolation $e) {
+                self::assertSame('A művelet nem hajtható végre. Előbb tedd közzé a levél szövegét.', $e->getMessage());
+            }
+        }
+        self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
+
+        // A mail that has a body that is no longer published is switched on only once it is published again,
+        // and may always be switched off.
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+        wp_update_post(['ID' => $body, 'post_status' => 'draft']);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        $this->expectException(RuleViolation::class);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+    }
+
     public function testABodyServesOneMailOnly(): void
     {
         $event = $this->create();

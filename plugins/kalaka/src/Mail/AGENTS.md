@@ -39,7 +39,8 @@ bodies, the renderer and the per-event action-mail catalogue.
   like `unfiltered_html`) and never escaped. The per-event settings and the
   layout live in Mail's tables (`kalaka_action_mails`, `kalaka_mail_layouts`),
   never in post meta. A body serves one action mail only (mail.md, "Words":
-  `UpdateActionMail` refuses another mail's body, and `body_id` is unique).
+  `UpdateActionMail` refuses another mail's body, and `body_id` is unique),
+  and only a published body is assigned or switched on.
   A mail's version is the latest
   non-autosave revision ID; revisions of mail documents are never pruned.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
