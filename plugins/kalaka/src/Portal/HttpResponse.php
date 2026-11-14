@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal;
 
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 
 /** The response of a real request. */
 final class HttpResponse implements Response
@@ -27,7 +27,7 @@ final class HttpResponse implements Response
     /** The one no-cache of Kaláka's pages: `DONOTCACHEPAGE`, and the headers while none are sent. */
     public function noCache(): void
     {
-        FormPage::preventCaching();
+        FormCaching::preventCaching();
     }
 
     public function redirect(string $url): void

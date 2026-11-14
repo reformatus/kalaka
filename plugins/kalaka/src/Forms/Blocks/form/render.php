@@ -26,7 +26,7 @@ defined('ABSPATH') || exit;
 $kalakaFormId = is_int($attributes['formId'] ?? null) ? $attributes['formId'] : 0;
 
 // A page that places a form is never cached (N6): again here, for a form the `template_redirect` check cannot see.
-\Kalaka\Forms\Api\FormPage::preventCaching();
+\Kalaka\Forms\Api\FormCaching::preventCaching();
 
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- the boundary's HTML, WordPress's own form, escaped JSON, blocks WordPress has rendered
 echo (new FormPage())->html($kalakaFormId, static function (FormPageView $kalakaView): void {

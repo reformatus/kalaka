@@ -153,7 +153,7 @@ final class FormPage
             'availabilityUrl' => rest_url('kalaka-portal/v1/forms/' . $form->id . '/availability'),
             'failure' => (new SystemFailure())->getMessage(),
             // (S12 N3) the REST nonce for a logged-in person, so the routes see the account and not a
-            // guest; empty for a guest. The page is never cached (`preventCaching()`).
+            // guest; empty for a guest. The page is never cached (`Api\FormCaching::preventCaching()`).
             'nonce' => is_user_logged_in() ? wp_create_nonce('wp_rest') : '',
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.

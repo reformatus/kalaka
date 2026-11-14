@@ -6,7 +6,7 @@ namespace Kalaka\Forms\Rest;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\EventValues;
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
@@ -90,7 +90,7 @@ final class FormRoutes
         $response = $response instanceof \WP_Error
             ? rest_convert_error_to_response($response)
             : rest_ensure_response($response);
-        $response->header('Cache-Control', FormPage::CACHE_CONTROL);
+        $response->header('Cache-Control', FormCaching::CACHE_CONTROL);
 
         return $response;
     }

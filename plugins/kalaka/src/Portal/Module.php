@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal;
 
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\AbstractModule;
@@ -93,7 +93,7 @@ final class Module extends AbstractModule
         Boundary::background('participant block caching', static function (): void {
             $post = is_singular() ? get_queried_object() : null;
             if ($post instanceof \WP_Post && ParticipantBlocks::placedIn($post->post_content)) {
-                FormPage::preventCaching();
+                FormCaching::preventCaching();
                 wp_enqueue_style(ParticipantBlocks::STYLE);
             }
         });

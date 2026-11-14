@@ -6,9 +6,11 @@
  * Which blocks an editor offers (fields and conditions only in a form) is decided on the server, not here.
  */
 import { store as blockEditorStore } from '@wordpress/block-editor';
-import { __unstableSerializeAndClean, getBlockType, registerBlockType } from '@wordpress/blocks';
+import { __unstableSerializeAndClean, getBlockType, registerBlockType, unregisterBlockType } from '@wordpress/blocks';
 import { dispatch, select } from '@wordpress/data';
+import domReady from '@wordpress/dom-ready';
 import { addFilter } from '@wordpress/hooks';
+import { hiddenBlocks, hide } from './hidden';
 import { beforeSave, plainText, withPatches } from './keys';
 import { branchLabel, branchSave } from './branch';
 import formEdit from './edit';
@@ -80,3 +82,6 @@ addFilter('editor.preSavePost', 'kalaka/form/keys', async (edits, options) => {
 	dispatch('core/editor').editPost({ content }, { undoIgnore: true });
 	return { ...edits, content };
 });
+
+// Outside a form's editor: the gated blocks the server named are not offered (`hidden.js`).
+domReady(() => hide(hiddenBlocks(), { getBlockType, unregisterBlockType }));

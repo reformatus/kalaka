@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal;
 
-use Kalaka\Forms\Api\FormPage;
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Portal\Api\ActiveRegistration;
@@ -70,7 +70,7 @@ final class ParticipantBlocks
      */
     private static function prepare(): void
     {
-        FormPage::preventCaching();
+        FormCaching::preventCaching();
         wp_enqueue_style(self::STYLE);
     }
 }
