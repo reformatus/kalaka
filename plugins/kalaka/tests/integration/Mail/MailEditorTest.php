@@ -56,6 +56,16 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertSame($event, $data['meta']['kalaka_event_id']);
     }
 
+    public function testTheMailTypeHasItsOwnLabels(): void
+    {
+        $type = get_post_type_object('kalaka_mail');
+        self::assertInstanceOf(\WP_Post_Type::class, $type);
+        self::assertSame('Levélszövegek', $type->labels->name);
+        self::assertSame('Levélszöveg', $type->labels->singular_name);
+        self::assertSame('Levélszöveg szerkesztése', $type->labels->edit_item);
+        self::assertSame('Levélszöveg frissítve.', $type->labels->item_updated);
+    }
+
     public function testAMailDocumentHasARevisionAtOnce(): void
     {
         $id = $this->document($this->create(), $this->paragraph('Szia'));

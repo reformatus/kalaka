@@ -170,7 +170,7 @@ SQL;
     /**
      * Mail bodies are edited in the block editor (mail.md, "Content"; the event's layout is raw HTML, not a
      * post) by full access only, like forms: every capability, REST reads included (`MailRestController`),
-     * needs `kalaka_full_access`. No admin menu item and no labels of its own.
+     * needs `kalaka_full_access`. No admin menu item; its labels mirror `kalaka_form`'s.
      * // [UNAPPROVED N12] `kalaka_mail` is exposed like `kalaka_form`.
      */
     private function registerPostType(): void
@@ -178,6 +178,31 @@ SQL;
         $full = AdminAccess::FULL_ACCESS;
         register_post_type(MailPosts::POST_TYPE, [
             'public' => false,
+            // [UNAPPROVED N20] the labels, mirroring kalaka_form's approved ones with "levélszöveg".
+            'labels' => [
+                'name' => 'Levélszövegek',
+                'singular_name' => 'Levélszöveg',
+                'add_new' => 'Új levélszöveg',
+                'add_new_item' => 'Új levélszöveg hozzáadása',
+                'new_item' => 'Új levélszöveg',
+                'edit_item' => 'Levélszöveg szerkesztése',
+                'view_items' => 'Levélszövegek megtekintése',
+                'all_items' => 'Összes levélszöveg',
+                'search_items' => 'Levélszövegek keresése',
+                'not_found' => 'Nem található levélszöveg.',
+                'not_found_in_trash' => 'Nem található levélszöveg a lomtárban.',
+                'insert_into_item' => 'Beszúrás a levélszövegbe',
+                'uploaded_to_this_item' => 'Feltöltve ehhez a levélszöveghez',
+                'filter_items_list' => 'Levélszövegek listájának szűrése',
+                'items_list_navigation' => 'Levélszövegek listájának navigációja',
+                'items_list' => 'Levélszövegek listája',
+                'item_published' => 'Levélszöveg közzétéve.',
+                'item_published_privately' => 'Levélszöveg privátként közzétéve.',
+                'item_reverted_to_draft' => 'Levélszöveg visszaállítva vázlattá.',
+                'item_trashed' => 'Levélszöveg lomtárba helyezve.',
+                'item_scheduled' => 'Levélszöveg időzítve.',
+                'item_updated' => 'Levélszöveg frissítve.',
+            ],
             'show_ui' => true,
             'show_in_menu' => false,
             'show_in_rest' => true,
