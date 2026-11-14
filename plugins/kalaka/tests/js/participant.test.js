@@ -79,6 +79,9 @@ describe('participant-field verdicts', () => {
 });
 
 describe('a field block that arrives (pasted or inserted)', () => {
+	// The event's keys are module state: reset them even when a test fails.
+	afterEach(() => eventKeys.none());
+
 	const arrived = (key, type = T, more = {}) =>
 		arrival({ key, type, fields, formKeys: new Set(), savedKeys: new Set(), ...more });
 
@@ -109,7 +112,6 @@ describe('a field block that arrives (pasted or inserted)', () => {
 			getBlockAttributes: (id) => blocks[id].attributes,
 		};
 		expect(copied(store, 'p')).toEqual({ key: 'telefonszam', options: [{ label: 'Igen', value: 'igen' }] });
-		eventKeys.none();
 	});
 });
 

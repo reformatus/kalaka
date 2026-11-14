@@ -11,7 +11,7 @@ import { Button } from '@wordpress/components';
 import { useDispatch, useSelect } from '@wordpress/data';
 import { PluginDocumentSettingPanel } from '@wordpress/editor';
 import { speak } from '@wordpress/a11y';
-import { createElement as el, useEffect, useRef } from '@wordpress/element';
+import { createElement as el, useEffect, useMemo, useRef } from '@wordpress/element';
 import { registerPlugin } from '@wordpress/plugins';
 import { formProblems, problemRow, problemText, summary } from './branch-condition';
 import { fieldProblems } from './participant-store';
@@ -32,10 +32,12 @@ function useProblemSummary(inForm, count) {
 }
 
 function FormProblems() {
-	const { inForm, problems, fields } = useSelect((select) => {
+	// The selector builds new arrays on every call; it answers a JSON string, so useSelect sees an equal
+	// value while nothing changed (no re-render, no "returns different values" warning).
+	const snapshot = useSelect((select) => {
 		const store = select(blockEditorStore);
 		const inForm = select('core/editor').getCurrentPostType() === 'kalaka_form';
-		return {
+		return JSON.stringify({
 			inForm,
 			problems: formProblems(store, inForm).map(({ clientId, problems }) => {
 				const title = getBlockType(store.getBlockName(clientId))?.title ?? '';
@@ -49,8 +51,9 @@ function FormProblems() {
 			}),
 			// The participant-field problems of the field blocks: "{title}: {problem}".
 			fields: fieldProblems(select),
-		};
+		});
 	}, []);
+	const { inForm, problems, fields } = useMemo(() => JSON.parse(snapshot), [snapshot]);
 	const { selectBlock } = useDispatch(blockEditorStore);
 	useProblemSummary(inForm, problems.reduce((sum, { texts }) => sum + texts.length, 0) + fields.length);
 	if (!inForm) {

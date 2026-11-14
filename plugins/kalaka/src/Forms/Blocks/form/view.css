@@ -24,6 +24,12 @@ form[data-wp-interactive="kalaka/form"] .kalaka-field__required {
 	font-weight: bold;
 }
 
+/* A hidden navigation button stays hidden even where a theme gives buttons a display of their own (Divi's
+   `.et_pb_button { display: inline-block }`). */
+form[data-wp-interactive="kalaka/form"] :is([data-kalaka-back], [data-kalaka-next], [data-kalaka-send])[hidden] {
+	display: none !important;
+}
+
 form[data-wp-interactive="kalaka/form"][aria-busy="true"] {
 	pointer-events: none;
 }

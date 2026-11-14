@@ -216,7 +216,8 @@ flowchart TB
   visible fields are accepted.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
-- **Stable field keys** and pickers for conditions.
+- **Stable field keys**; pickers for conditions come later
+  ([Deferred](deferred.md#design-decisions)).
 - **The block editor is the form builder.** Organizers build and edit forms
   in it directly, with Kaláka's field and condition blocks; there is no
   separate visual builder. Its experience must be good: no polish, but the

@@ -370,6 +370,15 @@ describe('a multi-page form', () => {
 			expect(backButton().hidden).toBe(true);
 			expect(sendButton().hidden).toBe(true);
 			expect(nextButton().hidden).toBe(true);
+
+			// A theme that shows the hidden buttons anyway (Divi) must not move past it or send.
+			const calls = globalThis.fetch.mock.calls.length;
+			nextButton().click();
+			await settle();
+			submit(root());
+			await settle();
+			expect(visible()).toEqual([3]);
+			expect(globalThis.fetch).toHaveBeenCalledTimes(calls);
 		} finally {
 			PAGES.camp = [true, true, false, false, true];
 		}

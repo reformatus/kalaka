@@ -32,7 +32,7 @@
  * check already moves on.
  */
 
-import { store, getContext, getElement } from '@wordpress/interactivity';
+import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
 
 /**
@@ -430,13 +430,18 @@ function stepTo(form, number) {
 }
 
 /**
- * Posts JSON and reads the answer: `{ok, body}`, `body` null when it is not JSON. Never throws.
+ * Posts JSON and reads the answer: `{ok, body}`, `body` null when it is not JSON. Never throws. With a nonce
+ * (a logged-in person) it is sent as `X-WP-Nonce`, so the route sees the account (S12 N3).
  */
-async function post(url, data) {
+async function post(url, data, nonce = '') {
 	try {
+		const headers = { 'Content-Type': 'application/json' };
+		if (nonce) {
+			headers['X-WP-Nonce'] = nonce;
+		}
 		const response = await fetch(url, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers,
 			body: JSON.stringify(data),
 		});
 		let body = null;
@@ -506,7 +511,7 @@ async function run(form) {
 		if (started.checking !== null) {
 			request.page = started.checking;
 		}
-		response = await post(started.availabilityUrl, request);
+		response = await post(started.availabilityUrl, request, started.nonce);
 	} while (started.dirty);
 	started.run = null;
 	started.checking = null;
@@ -620,6 +625,11 @@ function pageOf(element) {
  * focuses the first invalid field; with none, moves to the next page that shows.
  */
 async function next(form) {
+	const started = forms.get(form);
+	// A terminal page has no Tovább; a theme that shows the hidden button anyway must not move past it.
+	if (started !== undefined && isTerminal(form, started.page)) {
+		return;
+	}
 	const target = await checkPage(form);
 	if (target !== null) {
 		stepTo(form, target);
@@ -817,12 +827,13 @@ async function send(form) {
 		await refetch(form);
 		return;
 	}
+	// A terminal page sends nothing and moves nowhere, whichever button a theme lets through.
+	if (hasPages(started) && isTerminal(form, started.page)) {
+		return;
+	}
 	if (hasPages(started) && nextPage(form, started.page) !== null) {
 		// Enter in a field of a page before the last moves on, as Tovább does.
 		await next(form);
-		return;
-	}
-	if (hasPages(started) && isTerminal(form, started.page)) {
 		return;
 	}
 
@@ -832,11 +843,15 @@ async function send(form) {
 	reflect(form);
 
 	const result = outcome(
-		await post(started.url, {
-			version: started.version,
-			answers,
-			token: started.token,
-		}),
+		await post(
+			started.url,
+			{
+				version: started.version,
+				answers,
+				token: started.token,
+			},
+			started.nonce
+		),
 		started.failure
 	);
 	started.sending = false;
@@ -900,10 +915,11 @@ store('kalaka/form', {
 
 			return isTrigger(started, key) ? refetch(form) : undefined;
 		},
-		submit(event) {
+		// Synchronous: preventDefault() must run while the event is dispatched.
+		submit: withSyncEvent((event) => {
 			event.preventDefault();
 			return send(getElement().ref);
-		},
+		}),
 		next() {
 			const form = getElement().ref.closest('form');
 			const started = forms.get(form);

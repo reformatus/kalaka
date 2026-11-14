@@ -13,10 +13,13 @@ import {
 
 /**
  * A block-editor store over a list of blocks in document order: what the editor's selectors answer.
- * `insert` and `update` change it as the editor would.
+ * A block's `innerBlocks` are nested as in the editor: `getClientIdsWithDescendants()` lists them depth first
+ * after their parent. `insert` and `update` change it as the editor would.
  */
+const flatten = (blocks) =>
+	blocks.flatMap(({ innerBlocks = [], ...block }) => [{ ...block }, ...flatten(innerBlocks)]);
 const editor = (blocks = []) => {
-	const list = blocks.map((block) => ({ ...block }));
+	const list = flatten(blocks);
 	return {
 		getClientIdsWithDescendants: () => list.map((block) => block.clientId),
 		getBlockName: (id) => list.find((block) => block.clientId === id)?.name ?? null,
@@ -155,9 +158,9 @@ describe('field keys', () => {
 	test('keys are unique across the form, also inside branches', () => {
 		const store = editor([
 			field('a', 'Név', { key: 'nev' }),
-			{ clientId: 'if', name: 'kalaka/if', attributes: {} },
-			field('b', 'Név'),
+			{ clientId: 'if', name: 'kalaka/if', attributes: {}, innerBlocks: [field('b', 'Név')] },
 		]);
+		expect(store.getClientIdsWithDescendants()).toEqual(['a', 'if', 'b']);
 		mount(createKeeper(), store, 'b');
 		expect(store.attributes('b').key).toBe('nev_1');
 	});

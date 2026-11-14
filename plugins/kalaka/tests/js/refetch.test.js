@@ -288,6 +288,41 @@ describe('a change of a trigger', () => {
 		expect(alert().textContent).toBe(outdated);
 	});
 
+	test('a form the route refuses (403 kalaka_form_refused, S12 N7) shows the text the server gives and keeps the form out of date', async () => {
+		const refused = 'Ez az űrlap most nem küldhető be.';
+		globalThis.fetch.mockResolvedValue(
+			respond(403, {
+				code: 'kalaka_form_refused',
+				message: refused,
+				data: { status: 403, refusals: ['outside_registration_window'] },
+			})
+		);
+		await load(page);
+		choose(root(), 'fee', 'extra_support');
+		await settle();
+		expect(alert().textContent).toBe(refused);
+		expect(document.querySelector('button').getAttribute('aria-disabled')).toBe('true');
+	});
+
+	test('a logged-in person\u2019s requests carry the REST nonce (S12 N3); a guest\u2019s carry none', async () => {
+		globalThis.fetch.mockResolvedValue(respond(200, extraSupport));
+		await load(
+			form(radios('fee', ['basic', 'extra_support']) + branch(1, 0, text('help_note')), {
+				triggers: ['fee'],
+				nonce: 'n0nce',
+			})
+		);
+		choose(root(), 'fee', 'extra_support');
+		await settle();
+		expect(globalThis.fetch.mock.calls[0][1].headers['X-WP-Nonce']).toBe('n0nce');
+
+		globalThis.fetch.mockClear();
+		await load(page);
+		choose(root(), 'fee', 'extra_support');
+		await settle();
+		expect(globalThis.fetch.mock.calls[0][1].headers).not.toHaveProperty('X-WP-Nonce');
+	});
+
 	test('a chain or branch the server withheld from the page is no trouble', async () => {
 		await load(
 			form(radios('fee', ['basic', 'extra_support']) + branch(1, 0, text('help_note')), {
