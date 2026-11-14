@@ -40,7 +40,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   layout live in Mail's tables (`kalaka_action_mails`, `kalaka_mail_layouts`),
   never in post meta. A body serves one action mail only (mail.md, "Words":
   `UpdateActionMail` refuses another mail's body, and `body_id` is unique),
-  and only a published body is assigned or switched on.
+  and only a published body is assigned or switched on. A body a switched-on
+  action mail uses is neither trashed nor deleted (`Body\MailDeletion`, on
+  every path).
   A mail's version is the latest
   non-autosave revision ID; revisions of mail documents are never pruned.
 - An action mail is decided only through `Api\ActionMails::due()` inside the

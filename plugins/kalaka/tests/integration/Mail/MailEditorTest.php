@@ -8,6 +8,7 @@ use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Mail\Body\MailPosts;
+use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Mail\Module;
 
 /** Mail documents in the block editor: full access only, the mail blocks, and the condition blocks inside them. */
@@ -63,6 +64,39 @@ final class MailEditorTest extends MailBodyTestCase
         $revision = wp_get_latest_revision_id_and_total_count($id);
         self::assertIsArray($revision);
         self::assertGreaterThan(0, $revision['latest_id']);
+    }
+
+    public function testABodyASwitchedOnMailUsesIsNeitherTrashedNorDeleted(): void
+    {
+        $event = $this->create();
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+
+        self::assertFalse(wp_trash_post($body));
+        self::assertFalse(wp_delete_post($body, true));
+        self::assertSame('publish', get_post_status($body));
+
+        $full = self::factory()->user->create();
+        $user = get_userdata($full);
+        self::assertInstanceOf(\WP_User::class, $user);
+        $user->add_cap(AdminAccess::FULL_ACCESS);
+        wp_set_current_user($full);
+        foreach ([false, true] as $force) {
+            $request = new \WP_REST_Request('DELETE', '/wp/v2/kalaka_mail/' . $body);
+            $request->set_param('force', $force);
+            $response = rest_do_request($request);
+            self::assertSame(409, $response->get_status());
+            $error = $response->as_error();
+            self::assertInstanceOf(\WP_Error::class, $error);
+            self::assertSame('kalaka_mail_in_use', $error->get_error_code());
+            self::assertSame('A művelet nem hajtható végre.', $error->get_error_message());
+        }
+        self::assertSame('publish', get_post_status($body));
+
+        // Switched off, the body may go.
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        self::assertInstanceOf(\WP_Post::class, wp_trash_post($body));
+        self::assertInstanceOf(\WP_Post::class, wp_delete_post($body, true));
     }
 
     public function testTheVersionSkipsMoreAutosavesThanOneReadFetches(): void

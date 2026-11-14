@@ -32,4 +32,20 @@ final class MailRestController extends \WP_REST_Posts_Controller
     {
         return current_user_can(AdminAccess::FULL_ACCESS) ? parent::get_item_permissions_check($request) : false;
     }
+
+    /**
+     * A body that a switched-on action mail uses is neither trashed nor deleted (`MailDeletion`).
+     *
+     * @param \WP_REST_Request<array<string, mixed>> $request
+     * @return \WP_REST_Response|\WP_Error
+     */
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's method name
+    public function delete_item($request): \WP_REST_Response|\WP_Error
+    {
+        if (MailDeletion::inUse((int) $request->get_param('id'))) {
+            return new \WP_Error(MailDeletion::CODE, MailDeletion::message(), ['status' => 409]);
+        }
+
+        return parent::delete_item($request);
+    }
 }
