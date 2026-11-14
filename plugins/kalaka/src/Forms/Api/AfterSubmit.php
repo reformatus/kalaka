@@ -38,6 +38,8 @@ final class AfterSubmit
     {
         return new ValueContext(EventValues::of($event) + [
             self::CODE => Value::text($code, $code),
+            // [UNAPPROVED N20] the status words: once ticked, this text becomes
+            // `Registrations\Api\RegistrationStatus::from($status)->word()`, the words a mail shows.
             self::STATUS => Value::choice([$status], ''),
         ]);
     }
