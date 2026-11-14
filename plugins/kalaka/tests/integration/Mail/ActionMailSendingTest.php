@@ -157,6 +157,27 @@ final class ActionMailSendingTest extends MailBodyTestCase
         self::assertFalse($report->paused);
     }
 
+    public function testARegistrationWithoutItsFirstSubmissionFailsTheMailAsNoRegistration(): void
+    {
+        global $wpdb;
+        $event = $this->published();
+        $key = $this->registration($event);
+        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
+        $this->act($key, ActionMail::Registered);
+        $wpdb->delete($wpdb->prefix . 'kalaka_submissions', ['event_id' => $event, 'code' => $key->code]);
+
+        $report = $this->realSender()->send();
+
+        self::assertSame([], $this->sent);
+        $row = $this->deliveries()[0];
+        self::assertSame('failed', $row['status']);
+        self::assertSame('0', $row['attempts']);
+        self::assertStringStartsWith('address no_registration (correlation ', (string) $row['error']);
+        self::assertNotNull($report);
+        self::assertSame(1, $report->invalidAddresses);
+        self::assertFalse($report->paused);
+    }
+
     public function testABodyThatCannotRenderIsAnErrorThatNamesNoValue(): void
     {
         $event = $this->published();
