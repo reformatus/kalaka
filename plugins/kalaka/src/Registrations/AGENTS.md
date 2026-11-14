@@ -11,7 +11,8 @@ the waitlist and reference codes
   [Submissions and values](../../../../docs/architecture/registrations-and-identity.md#submissions-and-values),
   the status, sorszám and submit-time capacity decision of [Status, capacity and waitlist](../../../../docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist),
   [Reference codes](../../../../docs/architecture/registrations-and-identity.md#reference-codes),
-  the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access).
+  the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
+  the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
 - foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
 
 ## Invariants
@@ -77,4 +78,18 @@ the waitlist and reference codes
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
   read.
+- The owner account (`owner_user_id`, a WordPress user ID) is set once: by
+  the submit (the logged-in person, or the account a sign-up created) or by
+  `kalaka-portal/attach-registration` (only while there is none, and only
+  for the account the attach link names). Nothing changes or clears it. In
+  the event's account mode `off` a submit records no owner.
+- A sign-up creates the WordPress user only before the submit's
+  transaction (`Account\AccountSignUp`, once per submit), after the answers
+  and the form's requirements were checked. An email that has an account
+  creates none and is answered as a new one is, with the same work (one
+  password hash). The owner and the account mail are written only for a new
+  registration, never for a repeat.
+- The attach link is `<eventId>.<code>.<userId>.<mac>`, issued and verified
+  only by `Api\AttachLinks`: the MAC covers the account and the current
+  secret, so a new secret revokes it. It never carries the secret.
 - Only Registrations writes its tables.

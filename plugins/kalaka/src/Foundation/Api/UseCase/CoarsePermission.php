@@ -61,8 +61,8 @@ final class CoarsePermission
             return;
         }
 
-        // Until S15 records which account owns a registration, an account passes
-        // for account-level actions only.
+        // An account passes for account-level actions only. S15 records the owner account; a use case
+        // that acts on a registration the account owns comes with the account's pick (the portal blocks).
         if ($actor instanceof AccountActor && $registrations === []) {
             return;
         }

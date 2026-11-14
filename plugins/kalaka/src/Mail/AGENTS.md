@@ -3,7 +3,8 @@
 Mail is mails, deliveries and the sender
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
 So far: the delivery queue, the sender, pausing, the mail counts, the mail
-bodies, the renderer and the per-event action-mail catalogue.
+bodies, the renderer and the per-event action-mail catalogue, and beside it
+the two account mails (S15).
 
 ## Sections it implements
 
@@ -54,6 +55,12 @@ bodies, the renderer and the per-event action-mail catalogue.
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
   nothing else in the layout is replaced.
+- The two account mails (`account_set_password`, `account_attach`, S15)
+  are not in the catalogue: `Body\ActionMailComposer` hands them to
+  `AccountMailComposer`, which gives a recipient only with the cause
+  `account` (a WordPress user ID): that user's current address, not a marked
+  field. Their content is built in; the set-password link's reset key is
+  made when the mail is composed, never at submit.
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
@@ -83,7 +90,8 @@ bodies, the renderer and the per-event action-mail catalogue.
   check the keys: a body is checked at its save, and one that goes stale
   later fails per delivery without pausing.
 - The secret link reaches a mail only as the value `registration.link` from
-  `Registrations\Api\SecretLinks::url()`. It is never stored on a
+  `Registrations\Api\SecretLinks::url()` (in the account mails' built-in
+  content, from `SecretLinks::url()` itself). It is never stored on a
   delivery, logged or audited; render failures name a problem code and a
   key, never a value.
 - Before each claim the sender reads the pause fresh (`Pause\MailStateQuery`,
