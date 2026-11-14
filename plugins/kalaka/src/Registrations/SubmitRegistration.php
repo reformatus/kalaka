@@ -17,7 +17,10 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
+use Kalaka\Mail\Api\MailKind;
+use Kalaka\Mail\Api\MailQueue;
 use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\Registrations\Account\AccountOutcome;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
@@ -42,6 +45,11 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * the form's requirements at this moment; then the capacity check, the reference code and the rows, and
  * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
  * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
+ *
+ * Accounts (S15): the owner account and the account mail were decided before the transaction
+ * (`Account\AccountOutcome`, through the constructor). Only a new registration takes them: its row gets the
+ * owner, and the set-password or attach mail is queued as an action mail keyed by the registration and the
+ * account (cause `account`, the WordPress user ID). A repeat writes and queues nothing.
  */
 final class SubmitRegistration implements PublicUseCase
 {
@@ -51,6 +59,7 @@ final class SubmitRegistration implements PublicUseCase
      * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition: a
      *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
+     * @param AccountOutcome|null $account the owner account and the account mail; null for none
      */
     public function __construct(
         private readonly Form $form,
@@ -69,6 +78,8 @@ final class SubmitRegistration implements PublicUseCase
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationCount $count = new RegistrationCount(),
         private readonly ActionMails $mails = new ActionMails(),
+        private readonly ?AccountOutcome $account = null,
+        private readonly MailQueue $mail = new MailQueue(),
     ) {
     }
 
@@ -163,6 +174,7 @@ final class SubmitRegistration implements PublicUseCase
             SecretLink::generate(),
             $now,
             $status === RegistrationStatus::Registered ? $now : null,
+            ownerUserId: $this->account?->ownerUserId,
         ), $context);
         $this->submissions->insert(new Submission(
             $key,
@@ -183,6 +195,15 @@ final class SubmitRegistration implements PublicUseCase
             $key,
             Subject::registration($key),
         );
+        if ($this->account?->mail !== null && $this->account->mailUserId !== null) {
+            $this->mail->add(
+                $context,
+                $key,
+                $this->account->mail,
+                MailKind::Action,
+                new Subject('account', null, (string) $this->account->mailUserId)
+            );
+        }
 
         return SubmitResult::created($key, $status);
     }

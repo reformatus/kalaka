@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\AccountChoice;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -22,6 +27,8 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Account\AccountOutcome;
+use Kalaka\Registrations\Account\AccountSignUp;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
@@ -30,6 +37,12 @@ use Kalaka\Registrations\SubmitRegistration;
  * (`Forms::validate()`, the walk every render uses: answers whose conditions do not hold are dropped);
  * then it runs `kalaka-portal/submit-registration`, which decides the rest under the event's lock.
  * When the event changed between the two, the answers are checked again, up to `ATTEMPTS` times.
+ *
+ * Accounts (S15, by the event's account mode): once the answers are checked the first time, and before any
+ * transaction, it decides what the submit does about accounts (`accountOutcome()`): a logged-in person
+ * owns the registration; someone not logged in must have chosen in the account step, and a sign-up
+ * creates the WordPress user here (`Account\AccountSignUp`), after the form's requirements were checked so
+ * a refused submit creates none. This happens once per submit, not again on a retry.
  */
 final class RegistrationSubmit
 {
@@ -40,6 +53,7 @@ final class RegistrationSubmit
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly ParticipantFields $participantFields = new ParticipantFields(),
+        private readonly AccountSignUp $signUp = new AccountSignUp(),
     ) {
     }
 
@@ -63,6 +77,7 @@ final class RegistrationSubmit
      * @throws \Kalaka\Forms\Api\FormRefused the form cannot be used now (event not open, outside the
      *     registration window, password, role), with the codes
      * @throws RuleViolation the form is not in the registration slot
+     * @throws InvalidInput someone not logged in made no choice the account step offers
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
      */
     public function submit(SubmitRequest $request, Actor $actor): SubmitResult
@@ -79,6 +94,7 @@ final class RegistrationSubmit
         }
         $definition = $this->forms->latestDefinition($form, $request->version);
         $runner = $this->runner ?? Runner::current();
+        $account = null;
 
         for ($attempt = 1;; $attempt++) {
             $event = $this->events->find($form->eventId) ?? throw new NotFound();
@@ -87,6 +103,7 @@ final class RegistrationSubmit
                 $request->answers,
                 new ValueContext(EventValues::of($event))
             );
+            $account ??= $this->accountOutcome($form, $definition, $event, $answers, $request, $actor, $runner);
             $useCase = new SubmitRegistration(
                 $form,
                 $definition->version,
@@ -96,6 +113,7 @@ final class RegistrationSubmit
                 $request->passwordGiven,
                 self::fieldTypes($definition),
                 $this->participantFields->of($form->eventId),
+                account: $account,
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);
@@ -113,6 +131,78 @@ final class RegistrationSubmit
             // After the transaction: the after-submit content reads the form's post.
             return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result));
         }
+    }
+
+    /**
+     * What the submit does about accounts (registrations-and-identity.md, "Accounts on the registration
+     * form"; owner ruling 2026-11-14):
+     *
+     * - mode `off`: nothing, as before accounts, logged in or not ([UNAPPROVED] N-off);
+     * - logged in: the person's account owns the registration;
+     * - not logged in: the account step's choice is required (skip only in `optional` mode), else
+     *   `InvalidInput`. Skip: nothing. Sign-up: the form's requirements are checked now, so a refused submit
+     *   creates no user, then `AccountSignUp` creates the user from the form's contact email and display
+     *   name, or finds the email's account.
+     *
+     * TODO(S15-4): REFISZ's age rule for signing up in `optional` mode lands here, once the owner decides it;
+     * no age is checked.
+     *
+     * @throws InvalidInput
+     * @throws FormRefused
+     */
+    private function accountOutcome(
+        Form $form,
+        FormDefinition $definition,
+        Event $event,
+        ValidatedAnswers $answers,
+        SubmitRequest $request,
+        Actor $actor,
+        Runner $runner
+    ): AccountOutcome {
+        if ($event->accountMode === AccountMode::Off) {
+            return AccountOutcome::none();
+        }
+        if ($actor instanceof AccountActor) {
+            return AccountOutcome::loggedIn($actor->userId);
+        }
+        $choice = $request->account;
+        if ($choice === null || ($choice === AccountChoice::Skip && $event->accountMode !== AccountMode::Optional)) {
+            $error = new InvalidInput();
+            throw $error;
+        }
+        if ($choice === AccountChoice::Skip) {
+            return AccountOutcome::none();
+        }
+
+        $refusals = $this->forms->refusals(
+            $form,
+            $event,
+            $runner->clock()->now(),
+            $request->roles,
+            $request->passwordGiven
+        );
+        if ($refusals !== []) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- enum cases, no input
+            throw new FormRefused($refusals);
+        }
+        $stored = $answers->stored();
+        $email = null;
+        $name = null;
+        foreach ($definition->fields as $field) {
+            if ($field->isContactEmail()) {
+                $email = $stored[$field->key] ?? null;
+            } elseif ($field->isDisplayName()) {
+                $name = $stored[$field->key] ?? null;
+            }
+        }
+        if ($email === null || $email === '' || $name === null || $name === '') {
+            // Both are required and sit outside any branch or conditional page (`SlotRules`).
+            $reason = new \LogicException('A checked submit without its contact email or name.');
+            $error = new SystemFailure(null, $reason);
+            throw $error;
+        }
+
+        return $this->signUp->signUp($email, $name);
     }
 
     /**
