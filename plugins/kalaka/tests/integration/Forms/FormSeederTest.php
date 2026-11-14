@@ -6,7 +6,7 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Cli\FormSeeder;
-use Kalaka\Forms\FormPosts;
+use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Tests\Integration\Foundation\Seed\SeedTestCase;
 
 /** AC10 (D30, D31): the seed's sample form and the page that embeds it. */

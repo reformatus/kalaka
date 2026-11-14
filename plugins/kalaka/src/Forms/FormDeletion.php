@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Registrations\Api\FormSubmissions;
 
 /**

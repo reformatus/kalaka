@@ -6,7 +6,7 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\ThemeAdaptation;
-use Kalaka\Forms\ThemeAdapters;
+use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\LoadState;
@@ -328,7 +328,7 @@ final class FormBlockTest extends FormsTestCase
     {
         $contributions = \Kalaka\Foundation\Api\Module\Contributions::current();
         self::assertArrayHasKey('kalaka/name-field', $contributions->fieldTypes());
-        $page = new \Kalaka\Forms\FormPage();
+        $page = new \Kalaka\Forms\Engine\FormPage();
         $error = '<span id="kalaka-field-r-error" class="kalaka-field__error" hidden></span>';
         $parsed = ['blockName' => 'kalaka/name-field', 'attrs' => ['key' => 'r']];
 

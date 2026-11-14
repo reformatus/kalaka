@@ -13,4 +13,4 @@ declare(strict_types=1);
 defined('ABSPATH') || exit;
 
 // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- blocks WordPress has rendered, in a wrapper of integers and a kses-filtered title
-echo \Kalaka\Forms\PageMarkup::render($block, $content);
+echo \Kalaka\Forms\Engine\PageMarkup::render($block, $content);

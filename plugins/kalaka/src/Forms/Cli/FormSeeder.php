@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Cli;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Forms\FormPosts;
+use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\Seed\Seeding;
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
-use Kalaka\Forms\Condition\Condition;
+use Kalaka\Forms\Engine\Condition\Condition;
 
 /** A field block of a form's definition, with the attributes as authored. */
 final readonly class FormField

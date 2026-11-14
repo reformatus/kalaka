@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
-use Kalaka\Forms\Condition\Condition;
+use Kalaka\Forms\Engine\Condition\Condition;
 
 /**
  * A branch a field sits in: the conditions of the earlier branches of its chain (which must not

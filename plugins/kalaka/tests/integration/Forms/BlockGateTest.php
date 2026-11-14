@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\BlockHost;
-use Kalaka\Forms\BlockGate;
+use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Foundation\Api\Module\Contributions;
 use WP_UnitTestCase;
 

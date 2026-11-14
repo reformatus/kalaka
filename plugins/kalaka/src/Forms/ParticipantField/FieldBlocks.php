@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\ParticipantField;
 
-use Kalaka\Forms\FieldMarkup;
-use Kalaka\Forms\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\FieldMarkup;
+use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Forms\KeyDerivation;
 use Kalaka\Foundation\Api\Module\Contributions;
 

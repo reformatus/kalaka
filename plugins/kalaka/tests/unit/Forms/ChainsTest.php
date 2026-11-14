@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Unit\Forms;
 
-use Kalaka\Forms\Condition\Chain;
-use Kalaka\Forms\Condition\Chains;
+use Kalaka\Forms\Engine\Condition\Chain;
+use Kalaka\Forms\Engine\Condition\Chains;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use PHPUnit\Framework\TestCase;
 
