@@ -89,6 +89,8 @@ final class UpdateActionMail implements AdminUseCase
         $entry = $this->mails->findForUpdate(['eventId' => $eventId, 'action' => $action], $context)
             ?? new ActionMailEntry($eventId, $action);
         $context->touch(ActionMailRepository::subjectOf($eventId, $action));
+        $wasEnabled = $entry->enabled;
+        $storedBody = $entry->bodyId;
 
         if (array_key_exists('body_id', $input)) {
             $bodyId = $input['body_id'] === null ? null : (int) $input['body_id'];
@@ -113,8 +115,10 @@ final class UpdateActionMail implements AdminUseCase
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
             throw new RuleViolation(self::NO_BODY);
         }
-        $assigned = array_key_exists('body_id', $input) && $entry->bodyId !== null;
-        if (($assigned || $entry->enabled) && $entry->bodyId !== null && !$this->posts->isPublished($entry->bodyId)) {
+        // Judged only for what this input changes: a body newly assigned, or the mail switched on. Another edit
+        // (the layout switch) of a mail that is on passes.
+        $changed = $entry->bodyId !== $storedBody || ($entry->enabled && !$wasEnabled);
+        if ($changed && $entry->bodyId !== null && !$this->posts->isPublished($entry->bodyId)) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
             throw new RuleViolation(self::BODY_UNPUBLISHED);
         }

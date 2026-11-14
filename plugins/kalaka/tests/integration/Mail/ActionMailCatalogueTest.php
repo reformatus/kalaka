@@ -106,6 +106,24 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
     }
 
+    public function testALayoutOnlyEditOfAMailThatIsOnPassesWhateverItsBodysStatus(): void
+    {
+        global $wpdb;
+        $event = $this->create();
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+        // Written around BodyInUse, straight in the table.
+        $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => $body]);
+        clean_post_cache($body);
+
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+
+        $mail = (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0];
+        self::assertFalse($mail['layout']);
+        self::assertTrue($mail['enabled']);
+    }
+
     public function testABodyServesOneMailOnly(): void
     {
         $event = $this->create();
