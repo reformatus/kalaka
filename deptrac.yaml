@@ -37,6 +37,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Forms\\Api\\'
+    - name: ParticipantFields
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\ParticipantFields\\(?!Api\\)'
+    - name: ParticipantFields Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\ParticipantFields\\Api\\'
     - name: Assignments
       collectors:
         - type: classLike
@@ -132,6 +140,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -146,6 +155,7 @@ deptrac:
       - Foundation Api
       - Foundation Api Money
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -158,9 +168,25 @@ deptrac:
       - WordPress
       - Bundled brick/math
       - Forms Api
+      - ParticipantFields Api
       - Foundation Api
       - Foundation Api Money
       - Events Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    ParticipantFields:
+      - WordPress
+      - ParticipantFields Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -176,6 +202,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -190,6 +217,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Pricing Api
       - Ledger Api
@@ -204,6 +232,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Ledger Api
@@ -218,6 +247,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -232,6 +262,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -246,6 +277,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -260,6 +292,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -274,6 +307,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -288,6 +322,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -303,6 +338,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -317,6 +353,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -336,6 +373,7 @@ deptrac:
       - Foundation Api
       - Foundation Api Money
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -347,9 +385,25 @@ deptrac:
     Forms Api:
       - WordPress
       - Forms
+      - ParticipantFields Api
       - Foundation Api
       - Foundation Api Money
       - Events Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    ParticipantFields Api:
+      - WordPress
+      - ParticipantFields
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -365,6 +419,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Registrations Api
       - Pricing Api
       - Ledger Api
@@ -379,6 +434,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Pricing Api
       - Ledger Api
@@ -393,6 +449,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Ledger Api
@@ -407,6 +464,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -421,6 +479,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -435,6 +494,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -449,6 +509,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -463,6 +524,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -477,6 +539,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -492,6 +555,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Pricing Api

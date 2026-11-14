@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Forms\ParticipantField;
+namespace Kalaka\ParticipantFields;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;

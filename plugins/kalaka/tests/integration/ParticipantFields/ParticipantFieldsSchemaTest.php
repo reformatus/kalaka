@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Tests\Integration\Forms;
+namespace Kalaka\Tests\Integration\ParticipantFields;
 
-use Kalaka\Forms\Module;
-use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
+use Kalaka\ParticipantFields\Module;
+use Kalaka\ParticipantFields\ParticipantFieldQuery;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
 /** The participant-field table: its columns, collations and key, and its read stays inside its event. */
-final class FormsSchemaTest extends PerEventCostTestCase
+final class ParticipantFieldsSchemaTest extends PerEventCostTestCase
 {
     private const COLUMNS = [
         'event_id' => 'bigint(20) unsigned',
@@ -33,7 +33,7 @@ final class FormsSchemaTest extends PerEventCostTestCase
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_forms'));
+        self::assertSame(1, (int) get_option('kalaka_schema_participant_fields'));
         $columns = $wpdb->get_results($wpdb->prepare(
             'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, CHARACTER_SET_NAME, COLLATION_NAME'
             . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s'

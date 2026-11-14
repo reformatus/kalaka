@@ -507,7 +507,7 @@ final class SubmitRegistrationTest extends FormsTestCase
 
         $keys = array_map(
             static fn ($field): string => $field->key,
-            (new \Kalaka\Forms\Api\Forms())->participantFields($event)
+            (new \Kalaka\ParticipantFields\Api\ParticipantFields())->of($event)
         );
         sort($keys);
         self::assertSame(['email', 'name'], $keys);

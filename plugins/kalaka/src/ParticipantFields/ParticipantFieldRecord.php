@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Forms\ParticipantField;
+namespace Kalaka\ParticipantFields;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Time\Instant;
+use Kalaka\ParticipantFields\Api\ParticipantField;
 
 /**
  * One participant field of an event: a row of `kalaka_participant_fields`, keyed by (event ID, field key).
@@ -19,10 +20,10 @@ final class ParticipantFieldRecord
 {
     public const TABLE = 'kalaka_participant_fields';
 
-    public const SOURCE_FORM = 'form';
-    public const SOURCE_STAFF = 'staff';
-    public const SOURCE_EXTENSION = 'extension';
-    public const SOURCE_SYSTEM = 'system';
+    public const SOURCE_FORM = ParticipantField::SOURCE_FORM;
+    public const SOURCE_STAFF = ParticipantField::SOURCE_STAFF;
+    public const SOURCE_EXTENSION = ParticipantField::SOURCE_EXTENSION;
+    public const SOURCE_SYSTEM = ParticipantField::SOURCE_SYSTEM;
 
     public const SOURCES = [self::SOURCE_FORM, self::SOURCE_STAFF, self::SOURCE_EXTENSION, self::SOURCE_SYSTEM];
 

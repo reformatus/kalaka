@@ -9,13 +9,13 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\ParticipantField;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
+use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
@@ -31,8 +31,8 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * waitlist", "Reference codes", "Submissions and values".
  *
  * The answers were checked before the transaction (`Forms::validate()` reads WordPress), against the
- * event as read then, and the event's participant fields were read then too (`Forms::participantFields()`
- * reads WordPress posts); both come in through the constructor, the input names only the form and the
+ * event as read then, and the event's participant fields were read then too (`ParticipantFields::of()`,
+ * a read outside the transaction); both come in through the constructor, the input names only the form and the
  * token. Inside, in this order: the event row `FOR UPDATE` (the first read, the lock order's first
  * level); a submission with the same token and the same answers is a repeat that writes nothing and
  * names the registration only to the after-submit content (N13), the same token with other answers is

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Forms\ParticipantField;
+namespace Kalaka\ParticipantFields;
 
 use Kalaka\Foundation\Api\Query\Query;
 

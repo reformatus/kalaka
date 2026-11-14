@@ -11,12 +11,13 @@ use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\DefinitionParser;
 use Kalaka\Forms\FormPosts;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
-use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Forms\FormWalk;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
@@ -193,9 +194,9 @@ final class Forms
     }
 
     /**
-     * The event's participant fields, in the order they were declared (`position`); retired ones only when
-     * asked. Each names the forms of the event that hold it now and its type's label. It reads Kaláka's own
-     * table and the event's form posts, so it runs outside a use case's transaction.
+     * The event's participant fields (`ParticipantFields::of()`), each with the forms of the event that hold
+     * it now (`ParticipantField::$forms`). It reads Kaláka's own table and the event's form posts, so it runs
+     * outside a use case's transaction.
      *
      * @return list<ParticipantField>
      */
@@ -207,36 +208,11 @@ final class Forms
                 $holders[$key][] = ['form_id' => $post->ID, 'title' => $post->post_title];
             }
         }
-        $blocks = \WP_Block_Type_Registry::get_instance();
 
-        $fields = [];
-        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
-            if ($record->retiredAt !== null && !$includeRetired) {
-                continue;
-            }
-            $options = [];
-            foreach ($record->options ?? [] as $option) {
-                $options[] = [
-                    'value' => $option['value'],
-                    'label' => $option['label'],
-                    'retired' => $option['retired_at'] !== null,
-                ];
-            }
-            $title = $blocks->get_registered($record->type)?->title;
-            $fields[] = new ParticipantField(
-                $record->key,
-                $record->type,
-                $record->title,
-                $options,
-                $record->source,
-                $record->retiredAt !== null,
-                is_string($title) && $title !== '' ? $title : $record->type,
-                $record->writableFromForms(),
-                $holders[$record->key] ?? [],
-            );
-        }
-
-        return $fields;
+        return array_map(
+            static fn (ParticipantField $field): ParticipantField => $field->withForms($holders[$field->key] ?? []),
+            (new ParticipantFields())->of($eventId, $includeRetired)
+        );
     }
 
     /**

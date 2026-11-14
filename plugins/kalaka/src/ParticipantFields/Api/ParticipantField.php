@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Forms\Api;
+namespace Kalaka\ParticipantFields\Api;
 
 /**
  * One participant field of an event: what the event knows about a participant under one key. Form fields
@@ -12,10 +12,16 @@ namespace Kalaka\Forms\Api;
  * set when the field is first declared and changed only by `RenameParticipantField` (it may hold the
  * title's inline HTML), `source` one of `form`, `staff`, `extension` and
  * `system`, `formWritable` whether a form may hold its key, and `forms` the forms of the event that hold it
- * now (trashed ones not).
+ * now (trashed ones not): `ParticipantFields::of()` names none, `Forms::participantFields()` adds them
+ * (`withForms()`).
  */
 final readonly class ParticipantField
 {
+    public const SOURCE_FORM = 'form';
+    public const SOURCE_STAFF = 'staff';
+    public const SOURCE_EXTENSION = 'extension';
+    public const SOURCE_SYSTEM = 'system';
+
     /**
      * @param list<array{value: string, label: string, retired: bool}> $options empty for a field without options
      * @param list<array{form_id: int, title: string}> $forms
@@ -31,6 +37,26 @@ final readonly class ParticipantField
         public bool $formWritable = true,
         public array $forms = [],
     ) {
+    }
+
+    /**
+     * The same field with the forms that hold it.
+     *
+     * @param list<array{form_id: int, title: string}> $forms
+     */
+    public function withForms(array $forms): self
+    {
+        return new self(
+            $this->key,
+            $this->type,
+            $this->title,
+            $this->options,
+            $this->source,
+            $this->retired,
+            $this->typeLabel,
+            $this->formWritable,
+            $forms,
+        );
     }
 
     /**

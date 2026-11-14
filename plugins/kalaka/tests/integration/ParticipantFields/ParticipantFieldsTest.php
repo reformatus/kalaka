@@ -2,17 +2,18 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Tests\Integration\Forms;
+namespace Kalaka\Tests\Integration\ParticipantFields;
 
-use Kalaka\Forms\Api\ParticipantField;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\FormEvent;
 use Kalaka\Forms\Module;
-use Kalaka\Forms\ParticipantField\DeclareParticipantFields;
-use Kalaka\Forms\ParticipantField\RenameParticipantField;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\DeclareParticipantFields;
+use Kalaka\ParticipantFields\RenameParticipantField;
+use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
  * The event's participant fields: keys derived across the event and never reused, shared keys of one type,

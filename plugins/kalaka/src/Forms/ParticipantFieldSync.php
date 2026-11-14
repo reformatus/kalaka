@@ -4,24 +4,22 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
-use Kalaka\Forms\ParticipantField\DeclareParticipantFields;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
-use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Declares an event's participant fields after one of its forms changes. A post save is
  * WordPress's write, so it never touches Kaláka's tables itself: once the post and its settings are stored
  * (`wp_after_insert_post`, which the REST controller fires after the meta too, and which a trash or a
  * restore fires as well), or once a form is deleted for good (`deleted_post`), the forms of the event are
- * read here, outside any transaction, and `DeclareParticipantFields` runs as an audited use case, as the
- * saving user (the CLI, or the system when nobody is logged in).
+ * read here, outside any transaction, and `ParticipantFields::declare()` runs `DeclareParticipantFields` as
+ * an audited use case, as the saving user (the CLI, or the system when nobody is logged in).
  *
  * The input is the union of every form of the event that is not trashed, so a run that failed, or two forms
  * saved at the same moment (the later insert of a new key fails on the primary key), is healed by the next
@@ -73,17 +71,12 @@ final class ParticipantFieldSync
         $what = 'participant fields of event ' . $eventId;
         Boundary::background($what, static function () use ($eventId, $saved, $what): void {
             [$fields, $conflicts] = self::fields($eventId, $saved);
-            $skipped = Runner::current()->run(
-                new DeclareParticipantFields(),
-                ['event_id' => $eventId, 'fields' => $fields],
-                self::actor(),
-            );
-            foreach (is_array($skipped) ? $skipped : [] as $key) {
-                if (is_string($key) && str_contains(implode("\n", $conflicts), 'key ' . $key . ' of form ')) {
+            $skipped = (new ParticipantFields())->declare($eventId, $fields, self::actor());
+            foreach ($skipped as $key) {
+                if (str_contains(implode("\n", $conflicts), 'key ' . $key . ' of form ')) {
                     continue; // Already named with its form.
                 }
-                $conflicts[] = 'key ' . (is_string($key) ? $key : '')
-                    . ' (the event field has another type, or forms may not hold it)';
+                $conflicts[] = 'key ' . $key . ' (the event field has another type, or forms may not hold it)';
             }
             if ($conflicts !== []) {
                 // Handled here (the rest of the list is declared), so only logged.
@@ -124,8 +117,8 @@ final class ParticipantFieldSync
             }
         }
         $types = [];
-        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
-            $types[$record->key] = $record->type;
+        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
+            $types[$field->key] = $field->type;
         }
 
         $union = [];

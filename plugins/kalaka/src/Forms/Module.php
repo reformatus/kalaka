@@ -25,7 +25,6 @@ use Kalaka\Forms\Value\BindingSource;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
 {
@@ -41,27 +40,6 @@ final class Module extends AbstractModule
     /** The block category of Kaláka's blocks in the block editor's inserter. */
     public const BLOCK_CATEGORY = 'kalaka';
 
-    /**
-     * The event's participant fields, keyed by (event ID, field key). `field_key` and `type`
-     * are compared exactly (`utf8mb4_nopad_bin`); `options` is JSON; times are UTC `datetime(6)`.
-     */
-    private const PARTICIPANT_FIELDS = <<<'SQL'
-CREATE TABLE {prefix}kalaka_participant_fields (
-  event_id bigint(20) unsigned NOT NULL,
-  field_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
-  version int(10) unsigned NOT NULL,
-  type varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
-  title text CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  options longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
-  source varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  retired_at datetime(6) DEFAULT NULL,
-  created_at datetime(6) NOT NULL,
-  updated_at datetime(6) NOT NULL,
-  position int(10) unsigned NOT NULL,
-  form_writable tinyint(1) NOT NULL,
-  PRIMARY KEY  (event_id,field_key)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
-SQL;
     /** The condition branch blocks, in `Blocks/`. */
     private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
@@ -71,11 +49,6 @@ SQL;
     public function id(): string
     {
         return 'forms';
-    }
-
-    public function schema(): Schema
-    {
-        return new Schema(1, [self::PARTICIPANT_FIELDS]);
     }
 
     public function requiresApi(): string
