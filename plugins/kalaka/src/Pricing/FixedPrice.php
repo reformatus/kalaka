@@ -37,11 +37,6 @@ final class FixedPrice implements FeeComponent
         return FeeStage::Tier;
     }
 
-    public function isInvoiceable(): bool
-    {
-        return true;
-    }
-
     public function targets(FeeComponentInput $input): FeeTargets
     {
         $price = $this->proposed ?? $this->prices->find($input->registration->eventId)?->amount;

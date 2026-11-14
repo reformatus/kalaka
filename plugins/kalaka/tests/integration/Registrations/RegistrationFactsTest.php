@@ -18,7 +18,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 /** The registration fact source and the open registrations of an event. */
 final class RegistrationFactsTest extends RegistrationsTestCase
 {
-    public function testTheFactsHoldTheEventValuesTheCodeTheStatusAndTheSubmitTime(): void
+    public function testTheFactsHoldTheEventValuesTheCodeTheStatusAndNoRegisteredTimeWhileWaitlisted(): void
     {
         $event = $this->event();
         $this->insertRegistration(
@@ -31,7 +31,7 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         self::assertSame('00A0', $facts->get(RegistrationFacts::CODE)->data);
         self::assertSame(['waitlisted'], $facts->get(RegistrationFacts::STATUS)->data);
         self::assertSame('Teszt tábor', $facts->get(EventValues::NAME)->data);
-        self::assertSame('2026-12-10 09:30:00', $facts->submittedAt->format('Y-m-d H:i:s'));
+        self::assertNull($facts->registeredAt);
         self::assertNull((new Registrations())->factsOf(new RegistrationKey($event->id, '00A2'), $event));
 
         $this->expectException(SystemFailure::class);

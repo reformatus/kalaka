@@ -69,9 +69,10 @@ title: Money
   due, below zero is overpaid.
 - **Lines are append-only.** Every change is a new, explained line with a
   source reference and an idempotency key.
-- **Each fee component declares whether it is invoiceable** (e.g. the fixed
-  price, tiers and lunch are; a donation, support, the share and aid are
-  not). Views sum invoiceable charges per payer.
+- **An invoice shows every line that makes up its total, and the lines add
+  up.** No component's lines are hidden: support, the share and aid show
+  whoever the invoice is issued to (the participant or the congregation), and
+  the invoice marks the part the other party pays, from the split per payer.
 - **Ledger lines and decision records survive erasure**
   ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
 
@@ -253,11 +254,14 @@ such as lunch or a donation.
   current settings plus the registration's field values and facts. A fee
   component reads its own current settings; a registration admitted from the
   waitlist pays today's price.
-- **Price deadlines are judged against the registration's own submit time,**
-  a personal fact, never against "now": a registration submitted before an
-  early price ended keeps that price at every later evaluation, an admission
-  from the waitlist included. The deadline's day ends at midnight in the site
-  time zone ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
+- **Every time-dependent rule for a registration counts from the moment it
+  last became `registered`** (`registered_at`, a personal fact), never from
+  "now" and never from the submit: price-tier deadlines, payment due,
+  everything. A registration that became `registered` before an early price
+  ended keeps that price at every later evaluation. A waitlisted registration
+  is not registered, so an admission from the waitlist counts from its
+  admission. A deadline's day ends at midnight in the site time zone
+  ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, the aid award, staff status (a field value written by the staff
   form, an additional form), a passed deadline.

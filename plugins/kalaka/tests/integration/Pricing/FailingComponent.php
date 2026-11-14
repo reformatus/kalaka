@@ -28,11 +28,6 @@ final class FailingComponent implements FeeComponent
         return FeeStage::Extras;
     }
 
-    public function isInvoiceable(): bool
-    {
-        return false;
-    }
-
     public function targets(FeeComponentInput $input): FeeTargets
     {
         if ($this->failing && $input->registration->code === $this->code) {

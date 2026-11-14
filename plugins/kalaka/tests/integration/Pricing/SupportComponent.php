@@ -28,11 +28,6 @@ final class SupportComponent implements FeeComponent
         return FeeStage::Support;
     }
 
-    public function isInvoiceable(): bool
-    {
-        return false;
-    }
-
     public function targets(FeeComponentInput $input): FeeTargets
     {
         return new FeeTargets([Payer::PARTICIPANT => Money::of('-' . $this->amount, $input->currency)]);

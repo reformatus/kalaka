@@ -76,7 +76,7 @@ final class Registrations
             return null;
         }
 
-        return new RegistrationFacts($key, $registration->status, $registration->createdAt, $event);
+        return new RegistrationFacts($key, $registration->status, $registration->registeredAt, $event);
     }
 
     /**

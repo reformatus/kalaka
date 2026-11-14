@@ -9,7 +9,7 @@ retention and the materializer
 - money.md: the fixed price of [Core money scope](../../../../docs/architecture/money.md#core-money-scope),
   [Money settings apply](../../../../docs/architecture/money.md#money-settings-apply),
   [Materializer](../../../../docs/architecture/money.md#materializer),
-  the invoiceable declaration of [Ledger](../../../../docs/architecture/money.md#ledger),
+  the split per payer that [Ledger](../../../../docs/architecture/money.md#ledger)'s invoices show,
   the composition order that [Congregation share](../../../../docs/architecture/money.md#congregation-share)
   relies on. Confirmation and retention come later (S20, S23).
 - foundation.md: the money phase of [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
