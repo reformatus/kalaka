@@ -38,7 +38,8 @@ values and conditions, prefill and form links
   a form holding one was unusable and stored nothing. A key repeated within one
   form is never derived again: the save check refuses it (`duplicate_key`).
 - A form's fields are its event's participant fields
-  (`kalaka_participant_fields`, owned by Forms). A derived key is unique
+  (`kalaka_participant_fields`, owned by `ParticipantFields`; Forms reads and
+  writes them only through `ParticipantFields\Api\ParticipantFields`). A derived key is unique
   across the event and never takes a key the event ever had, retired ones
   included. A key the form holds on purpose that another form of the event
   holds too is the same participant field and must have its type; an
@@ -51,7 +52,7 @@ values and conditions, prefill and form links
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
-  and changed only by `RenameParticipantField` (a `form` or `staff` field; a
+  and changed only by `ParticipantFields::rename()` (a `form` or `staff` field; a
   `system` or `extension` field's texts are its declarer's). Mails, views
   and the status page show the participant field's labels; a form shows its
   own.
@@ -68,10 +69,10 @@ values and conditions, prefill and form links
   with the event's field is unusable and named in the broken-form warning.
 - A post save never writes Kaláka's tables: the save checks only read and
   refuse (REST 400, else a graceful veto with an admin notice), and
-  `DeclareParticipantFields`, run through the runner after the post and its
-  settings are stored, writes the participant fields; besides it only
-  `RenameParticipantField` (an explicit request) does, both through
-  `ParticipantFieldRepository`.
+  `ParticipantFieldSync`, after the post and its settings are stored, writes
+  the participant fields through `ParticipantFields::declare()`; besides it
+  only the rename route (an explicit request) does, through
+  `ParticipantFields::rename()`.
 - The form editor derives a key unique across the form's event: against the
   event's participant fields, retired ones included, read when the editor
   knows the event and again after every save (`Blocks/form/event-keys.js`),

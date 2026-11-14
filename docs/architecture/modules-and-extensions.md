@@ -64,7 +64,8 @@ flowchart LR
 |---|---|
 | Foundation | runner, audit, clock, Money, evaluation, module registry |
 | Events | events, states, timeline points, date types, capacity and the "full" latch; later the participant phase tracker |
-| Forms | forms, the registration slot, the event's participant fields, field types, field definitions, values and conditions, prefill, form links |
+| Forms | forms, the registration slot, field types, field definitions, values and conditions, prefill, form links |
+| ParticipantFields | the event's participant fields: the list, its sources, titles and option labels, retired fields |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
