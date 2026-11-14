@@ -52,7 +52,7 @@ final class Seed
 
         (new SeedUsers())->run($report);
 
-        $seeding = new Seeding(($this->runner)(), $this->clock);
+        $seeding = new Seeding(($this->runner)(), $this->clock, $drop);
         foreach ($this->contributions->seeders() as $seeder) {
             $report('Running seeder ' . $seeder::class . '.');
             $seeder->seed($seeding);

@@ -13,10 +13,14 @@ use Kalaka\Foundation\Api\Seed\Seeding;
  * One registration-slot form for the first sample event (the Events seeder's open one; seeders run in
  * contribution order) and a page that embeds it, so the seeded site shows a form. There is no form use
  * case yet, so the posts are written with WordPress functions, as the seed writes WordPress data. The
- * texts are seed data (events-and-forms.md, "Forms implementation").
+ * texts are seed data (events-and-forms.md, "Forms implementation"). Both carry the marker meta
+ * `MARKER`; after `wp kalaka seed --drop` the earlier sample form and page are deleted first (dev only).
  */
 final class FormSeeder implements Seeder
 {
+    /** The meta key that marks the sample form and its page. */
+    public const MARKER = '_kalaka_seed_sample';
+
     public function __construct(private readonly Events $events = new Events())
     {
     }
@@ -27,6 +31,9 @@ final class FormSeeder implements Seeder
         if ($published === []) {
             throw new \LogicException('The form seeder needs the published sample event of the event seeder.');
         }
+        if ($seeding->dropped()) {
+            $this->dropSamples();
+        }
 
         $formId = wp_insert_post([
             'post_type' => FormPosts::POST_TYPE,
@@ -36,6 +43,7 @@ final class FormSeeder implements Seeder
             'meta_input' => [
                 FormPosts::META_EVENT_ID => $published[0]->id,
                 FormPosts::META_PLACEMENT => 'registration',
+                self::MARKER => '1',
             ],
         ], true);
         if (is_wp_error($formId)) {
@@ -47,9 +55,25 @@ final class FormSeeder implements Seeder
             'post_status' => 'publish',
             'post_title' => 'Jelentkezés',
             'post_content' => $this->block('kalaka/form', ['formId' => $formId]),
+            'meta_input' => [self::MARKER => '1'],
         ], true);
         if (is_wp_error($pageId)) {
             throw new \RuntimeException('The sample page could not be written.');
+        }
+    }
+
+    /** Deletes the sample forms and pages an earlier seed wrote, in any status, the trash included. */
+    private function dropSamples(): void
+    {
+        $ids = get_posts([
+            'post_type' => [FormPosts::POST_TYPE, 'page'],
+            'post_status' => array_keys(get_post_stati()),
+            'meta_key' => self::MARKER, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- dev-only seed
+            'numberposts' => -1,
+            'fields' => 'ids',
+        ]);
+        foreach ($ids as $id) {
+            wp_delete_post((int) $id, true);
         }
     }
 

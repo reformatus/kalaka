@@ -14,8 +14,18 @@ use Kalaka\Foundation\Api\Entry\CommandFailure;
 /** What a seeder gets: the way to run use cases as the command line without a user, and the seed day. */
 final class Seeding
 {
-    public function __construct(private readonly Runner $runner, private readonly Clock $clock)
+    /** @param bool $dropped whether the seed dropped and recreated the schema first (`--drop`) */
+    public function __construct(
+        private readonly Runner $runner,
+        private readonly Clock $clock,
+        private readonly bool $dropped = false,
+    ) {
+    }
+
+    /** Whether the seed dropped and recreated the schema first (`wp kalaka seed --drop`). */
+    public function dropped(): bool
     {
+        return $this->dropped;
     }
 
     /**

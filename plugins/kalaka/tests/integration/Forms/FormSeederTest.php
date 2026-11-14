@@ -96,6 +96,30 @@ final class FormSeederTest extends SeedTestCase
         self::assertSame([], $forms->refusals($form, $event, $this->seedClock->now(), [], false));
     }
 
+    public function testASeedWithDropDeletesTheEarlierSampleFormAndPage(): void
+    {
+        $this->seeded();
+        $other = self::factory()->post->create(['post_type' => 'page', 'post_title' => 'Teszt oldal']);
+        $this->seeded(true);
+
+        $forms = $this->posts(FormPosts::POST_TYPE);
+        $pages = $this->posts('page');
+        self::assertCount(1, $forms);
+        self::assertSame([$other, $pages[1]->ID], array_map(static fn (\WP_Post $page): int => $page->ID, $pages));
+        self::assertSame('<!-- wp:kalaka/form {"formId":' . $forms[0]->ID . '} /-->', $pages[1]->post_content);
+        self::assertSame('1', get_post_meta($forms[0]->ID, FormSeeder::MARKER, true));
+        self::assertSame('1', get_post_meta($pages[1]->ID, FormSeeder::MARKER, true));
+    }
+
+    public function testASeedWithoutDropKeepsTheEarlierSampleFormAndPage(): void
+    {
+        $this->seeded();
+        $this->seeded();
+
+        self::assertCount(2, $this->posts(FormPosts::POST_TYPE));
+        self::assertCount(2, $this->posts('page'));
+    }
+
     public function testTheFormSeederNeedsAPublishedEvent(): void
     {
         $this->expectException(\LogicException::class);
