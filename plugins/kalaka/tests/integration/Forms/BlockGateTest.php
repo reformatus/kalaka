@@ -112,7 +112,7 @@ final class BlockGateTest extends WP_UnitTestCase
         }
     }
 
-    public function testThePostEditorNamesTheGatedBlocksToTheEditorScriptAndAFormsEditorDoesNot(): void
+    public function testThePostEditorSendsTheGatedBlocksWithTheEditorDataAndAFormsEditorDoesNot(): void
     {
         $handle = BlockGate::editorHandle();
         self::assertIsString($handle);
@@ -120,25 +120,23 @@ final class BlockGateTest extends WP_UnitTestCase
         $before = $scripts->get_data($handle, 'before');
         try {
             set_current_screen('kalaka_form');
-            BlockGate::enqueueHiding();
-            self::assertStringNotContainsString('kalakaHiddenBlocks', $this->before($handle));
+            self::assertSame([], BlockGate::hiddenHere());
 
             set_current_screen('post');
-            BlockGate::enqueueHiding();
-            $inline = $this->before($handle);
-            self::assertStringContainsString('window.kalakaHiddenBlocks = ', $inline);
-            self::assertStringContainsString('"kalaka\\/text-field"', $inline);
-            self::assertStringNotContainsString('"kalaka\\/form"', $inline);
-            self::assertStringNotContainsString('unregisterBlockType', $inline);
+            $hidden = BlockGate::hiddenHere();
+            self::assertContains('kalaka/text-field', $hidden);
+            self::assertNotContains(BlockGate::FORM_BLOCK, $hidden);
+
+            (new \Kalaka\Forms\Module())->editorScriptData();
+            $lines = (array) $scripts->get_data($handle, 'before');
+            $printed = (string) end($lines);
+            self::assertStringStartsWith('window.kalakaFormEditor = {', $printed);
+            self::assertStringContainsString('"hidden":["', $printed);
+            self::assertStringContainsString('"kalaka\\/text-field"', $printed);
         } finally {
             $scripts->add_data($handle, 'before', $before === false ? [] : $before);
             set_current_screen('front');
         }
-    }
-
-    private function before(string $handle): string
-    {
-        return implode("\n", (array) wp_scripts()->get_data($handle, 'before'));
     }
 
     public function testAListFromAnotherFilterIsNarrowedElsewhereAndGetsTheFieldsBackInAForm(): void

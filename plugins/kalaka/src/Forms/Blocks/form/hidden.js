@@ -1,18 +1,10 @@
 /**
  * Outside a form's editor, where the allowed blocks stay `true`, the gated blocks (the field, page and
  * after-submit blocks no `BlockHost` names there) are not offered: they are unregistered on the client once
- * every editor script has registered its blocks (`Kalaka\Forms\Engine\BlockGate::enqueueHiding()`, which
- * prints the names before this script as `window.kalakaHiddenBlocks`). The server list stays untouched, so a block
- * registered only in JavaScript survives.
- *
- * Read when used, never at import, so the rule stays testable on its own.
+ * every editor script has registered its blocks. The names come from the server with the editor's other data
+ * (`hidden` in `window.kalakaFormEditor`, read by `server.js`; `Kalaka\Forms\Engine\BlockGate::hiddenHere()`).
+ * The server list stays untouched, so a block registered only in JavaScript survives.
  */
-
-/** The block names the server hides in this editor; none when it printed nothing. */
-export const hiddenBlocks = () => {
-	const names = globalThis.kalakaHiddenBlocks;
-	return Array.isArray(names) ? names.filter((name) => typeof name === 'string') : [];
-};
 
 /**
  * Unregisters each of the names that is registered; a name that is not is left alone.

@@ -70,7 +70,7 @@ final class BlockGate
      * What an editor may insert. A form's editor: the allow-list (narrowed by another filter's list). Any
      * other editor: `true` and `false` stay as they are, because turning "everything" into the server's
      * list would hide blocks registered only in JavaScript, site-wide; a list loses the gated blocks no
-     * host allows there. With `true`, the gated blocks are hidden on the client (`enqueueHiding()`).
+     * host allows there. With `true`, the gated blocks are hidden on the client (`hiddenHere()`).
      *
      * @param bool|array<string> $allowed
      * @return bool|list<string>
@@ -123,13 +123,15 @@ final class BlockGate
     }
 
     /**
-     * `enqueue_block_editor_assets`: in an editor other than a form's, where the allowed blocks stay
-     * `true`, the names of the gated blocks are printed before the Kaláka editor script (the form block's) as
-     * `window.kalakaHiddenBlocks`; that built script unregisters them once every editor script has
-     * registered its blocks (`Blocks/form/hidden.js`), so the inserter does not offer them. Only data is
-     * printed here. The server list stays untouched.
+     * The gated blocks to hide on the client in the current editor: in an editor other than a form's, where
+     * the allowed blocks stay `true`. `Forms\Module::editorScriptData()` sends them to the Kaláka editor script
+     * as `hidden` in `window.kalakaFormEditor`; that built script unregisters them once every editor script has
+     * registered its blocks (`Blocks/form/hidden.js`), so the inserter does not offer them. The server list
+     * stays untouched.
+     *
+     * @return list<string>
      */
-    public static function enqueueHiding(): void
+    public static function hiddenHere(): array
     {
         $screen = function_exists('get_current_screen') ? get_current_screen() : null;
         $postType = $screen instanceof \WP_Screen && $screen->post_type !== '' ? $screen->post_type : null;
@@ -140,16 +142,8 @@ final class BlockGate
             'customize' => 'core/customize-widgets',
             default => null,
         };
-        $hidden = self::hidden($postType, $editor, Contributions::current());
-        if ($hidden === []) {
-            return;
-        }
-        $handle = self::editorHandle();
-        if ($handle === null) {
-            return;
-        }
-        $names = (string) wp_json_encode($hidden);
-        wp_add_inline_script($handle, 'window.kalakaHiddenBlocks = ' . $names . ';', 'before');
+
+        return self::hidden($postType, $editor, Contributions::current());
     }
 
     /** The handle of the Kaláka editor script, the one every Kaláka block's `block.json` names; null before registration. */

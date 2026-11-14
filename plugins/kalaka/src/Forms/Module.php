@@ -187,7 +187,6 @@ final class Module extends AbstractModule
         add_action('publish_future_post', [DefinitionCheck::class, 'onPublishFuture'], 5);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
-        add_action('enqueue_block_editor_assets', [BlockGate::class, 'enqueueHiding']);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
         add_action('enqueue_block_editor_assets', [$this, 'editorScriptData']);
     }
@@ -241,12 +240,12 @@ final class Module extends AbstractModule
      */
     public function editorScriptData(): void
     {
-        $type = \WP_Block_Type_Registry::get_instance()->get_registered(FormCaching::BLOCK);
-        $handle = $type === null ? null : ($type->editor_script_handles[0] ?? null);
-        if (!is_string($handle)) {
+        $handle = BlockGate::editorHandle();
+        if ($handle === null) {
             return;
         }
-        $data = wp_json_encode(self::editorData());
+        // The editor's own data, then the gated blocks to hide in this editor (none in a form's).
+        $data = wp_json_encode([...self::editorData(), 'hidden' => BlockGate::hiddenHere()]);
         wp_add_inline_script($handle, 'window.kalakaFormEditor = ' . $data . ';', 'before');
     }
 
