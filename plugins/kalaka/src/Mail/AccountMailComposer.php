@@ -42,9 +42,9 @@ final class AccountMailComposer implements MailComposer
     public const ATTACH_SUBJECT = 'Jelentkezés hozzáadása a fiókodhoz';
 
     public const ATTACH_TEXT = 'Ezzel az e-mail-címmel jelentkeztek egy eseményre, és a címhez már tartozik '
-        . 'fiók. Ha a jelentkezést a fiókodhoz szeretnéd adni, nyisd meg ezt a linket, és jelentkezz be:';
+        . 'fiók. Ha a jelentkezést hozzá szeretnéd adni a fiókodhoz, nyisd meg ezt a linket, és jelentkezz be:';
 
-    public const ATTACH_LINK = 'Jelentkezés hozzáadása a fiókhoz';
+    public const ATTACH_LINK = 'Jelentkezés hozzáadása a fiókodhoz';
 
     public const ATTACH_NOT_YOU = 'Ha nem te jelentkeztél, ezt a levelet figyelmen kívül hagyhatod.';
 

@@ -39,6 +39,7 @@ final class CreateEventTest extends EventsTestCase
                 ['is_full', null, '0'],
                 ['points', null, '[]'],
                 ['next_point_id', null, '1'],
+                ['account_mode', null, 'off'],
             ],
             array_map(
                 static fn (array $change): array => [$change['field'], $change['before'], $change['after']],
