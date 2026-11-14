@@ -574,10 +574,12 @@ sort on the first two ([Views and grants](#views-and-grants)).
 - one transaction per item;
 - a result report linking to each failed record, with options to retry or
   skip it;
-- a preview that surfaces problems first, where one exists (e.g. re-price).
+- a preview that surfaces problems first, where one exists (e.g. a money
+  settings change).
 
-Because registrations keep their tariff snapshot, saving event settings never
-touches existing registrations ([Money](money.md#tariff-snapshot-and-re-price)).
+There is no tariff snapshot, so saving money settings reaches every open
+registration through a preview and an apply, one transaction each
+([Money](money.md#money-settings-apply)).
 
 ## Cross-cutting rules
 

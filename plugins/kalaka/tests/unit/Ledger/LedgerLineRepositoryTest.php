@@ -45,6 +45,7 @@ final class LedgerLineRepositoryTest extends TestCase
         self::assertSame(
             [
                 'Ledger/BalanceQuery.php',
+                'Ledger/ChargeTotalQuery.php',
                 'Ledger/LedgerLineRepository.php',
                 'Ledger/Module.php',
                 'Ledger/PaymentFactQuery.php',

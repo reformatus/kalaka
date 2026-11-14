@@ -13,11 +13,13 @@ use Kalaka\Foundation\Decision\DecisionRecord;
 use Kalaka\Foundation\Decision\DecisionRepository;
 use Kalaka\Foundation\Decision\DecisionRule;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
- * Brings the touched registrations' decisions up to date with their facts, in the outermost
+ * Brings the touched registrations' decisions and money up to date with their facts, in the outermost
  * use case's transaction. foundation.md, "Evaluation".
  */
 final class Evaluation
@@ -28,6 +30,7 @@ final class Evaluation
         private readonly DecisionQuery $query = new DecisionQuery(),
         private readonly EvaluationFailureRepository $failures = new EvaluationFailureRepository(),
         private readonly Registrations $registrations = new Registrations(),
+        private readonly ?Materializer $money = null,
     ) {
     }
 
@@ -68,9 +71,27 @@ final class Evaluation
                 $evaluated[self::identity($key)] = true;
                 if (!isset($missing[self::identity($key)])) {
                     $this->decide($key, $context);
+                    $this->materialize($key, $context);
                 }
                 $this->clearFlag($key, $context);
             }
+        }
+    }
+
+    /**
+     * The money phase, after the decisions phase, so the fee reads the decisions recorded in this pass
+     * (money.md, "Materializer"). A failing fee component fails the use case as the rule `money/<id>`.
+     */
+    private function materialize(RegistrationKey $key, Context $context): void
+    {
+        if ($this->money === null) {
+            return;
+        }
+        try {
+            $this->money->materialize($key, $context);
+        } catch (FeeComponentFailed $failed) {
+            $error = new SystemFailure(null, new RuleFailed('money/' . $failed->componentId, $failed));
+            throw $error;
         }
     }
 
