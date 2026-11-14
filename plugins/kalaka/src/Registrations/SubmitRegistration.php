@@ -15,6 +15,8 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
+use Kalaka\Mail\Api\ActionMail;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -37,7 +39,10 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * level); a submission with the same token and the same answers is a repeat that writes nothing and
  * names the registration only to the after-submit content (N13), the same token with other answers is
  * `SubmitTokenReused` (N6); the event must still be the version the answers were checked against;
- * the form's requirements at this moment; then the capacity check, the reference code and the rows.
+ * the form's requirements at this moment; then the capacity check, the reference code and the rows, and
+ * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
+ * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
+ * // [UNAPPROVED N18] the submit's two action mails.
  */
 final class SubmitRegistration implements PublicUseCase
 {
@@ -64,6 +69,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationCount $count = new RegistrationCount(),
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
@@ -172,6 +178,12 @@ final class SubmitRegistration implements PublicUseCase
         foreach ($values as $fieldKey => $value) {
             $this->values->upsert(new FieldValue($key, $fieldKey, $value), $context);
         }
+        $this->mails->due(
+            $context,
+            $status === RegistrationStatus::Registered ? ActionMail::Registered : ActionMail::Waitlisted,
+            $key,
+            Subject::registration($key),
+        );
 
         return SubmitResult::created($key, $status);
     }

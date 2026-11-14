@@ -64,7 +64,10 @@ the waitlist and reference codes
   registration) and otherwise `SubmitTokenReused`, the event must still be
   the version the answers were checked against, and the status follows from
   the latch and the count of `registered` registrations read under that lock.
-  The latch is set before the registration row is written.
+  The latch is set before the registration row is written. Last, in the same
+  run, the submit queues the action mail of the resulting status
+  (`registered` or `waitlisted`) through `Mail\Api\ActionMails::due()`, with
+  the registration as the cause; a repeat queues nothing.
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
