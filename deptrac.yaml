@@ -3,6 +3,7 @@ deptrac:
     - plugins/kalaka/src
     - plugins/kalaka-support/src
     - plugins/kalaka-divi4/src
+    - plugins/kalaka-ranking/src
   layers:
     - name: Foundation
       collectors:
@@ -181,6 +182,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Divi4\\Api\\'
+    - name: Ranking
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Ranking\\(?!Api\\)'
+    - name: Ranking Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Ranking\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -439,6 +448,25 @@ deptrac:
     Divi4:
       - WordPress
       - Divi4 Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    Ranking:
+      - WordPress
+      - Ranking Api
       - Foundation Api
       - Foundation Api Money
       - Events Api
@@ -769,6 +797,25 @@ deptrac:
       - Portal Api
       - View query
       - Registration data
+    Ranking Api:
+      - WordPress
+      - Ranking
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
     Decision tables: []
 
 # A base class in a module's Api may use its own module (S3's D16).

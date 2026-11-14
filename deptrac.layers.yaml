@@ -3,6 +3,7 @@ deptrac:
     - plugins/kalaka/src
     - plugins/kalaka-support/src
     - plugins/kalaka-divi4/src
+    - plugins/kalaka-ranking/src
   layers:
     - name: Repositories
       collectors:

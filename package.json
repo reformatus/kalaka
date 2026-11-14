@@ -3,9 +3,10 @@
 	"private": true,
 	"scripts": {
 		"env": "wp-env",
-		"build": "wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka/src --output-path=plugins/kalaka/build --webpack--devtool=source-map",
+		"build": "wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka/src --output-path=plugins/kalaka/build --webpack--devtool=source-map && wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-ranking/src --output-path=plugins/kalaka-ranking/build --webpack--devtool=source-map",
 		"start": "wp-scripts start --experimental-modules --webpack-copy-php --source-path=plugins/kalaka/src --output-path=plugins/kalaka/build --webpack--devtool=source-map",
-		"lint:js": "wp-scripts lint-js plugins/kalaka/src plugins/kalaka/tests/js",
+		"start:ranking": "wp-scripts start --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-ranking/src --output-path=plugins/kalaka-ranking/build --webpack--devtool=source-map",
+		"lint:js": "wp-scripts lint-js plugins/kalaka/src plugins/kalaka/tests/js plugins/kalaka-ranking/src plugins/kalaka-ranking/tests/js",
 		"test:js": "wp-scripts test-unit-jest"
 	},
 	"devDependencies": {
@@ -23,7 +24,8 @@
 	"jest": {
 		"testEnvironment": "jsdom",
 		"testMatch": [
-			"<rootDir>/plugins/kalaka/tests/js/**/*.test.js"
+			"<rootDir>/plugins/kalaka/tests/js/**/*.test.js",
+			"<rootDir>/plugins/kalaka-ranking/tests/js/**/*.test.js"
 		],
 		"moduleNameMapper": {
 			"^@wordpress/interactivity$": "<rootDir>/node_modules/@wordpress/interactivity/build-module/index.mjs"

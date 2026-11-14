@@ -9,9 +9,13 @@
     <file>plugins/kalaka-divi4/src</file>
     <file>plugins/kalaka-divi4/kalaka-divi4.php</file>
     <file>plugins/kalaka-divi4/uninstall.php</file>
+    <file>plugins/kalaka-ranking/src</file>
+    <file>plugins/kalaka-ranking/kalaka-ranking.php</file>
+    <file>plugins/kalaka-ranking/uninstall.php</file>
     <file>plugins/kalaka/tests</file>
     <file>plugins/kalaka-support/tests</file>
     <file>plugins/kalaka-divi4/tests</file>
+    <file>plugins/kalaka-ranking/tests</file>
     <file>bin</file>
     <arg name="extensions" value="php"/>
     <exclude-pattern>*/vendor/*</exclude-pattern>
