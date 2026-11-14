@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
-use Kalaka\Forms\DateText;
 
 /**
  * The event keys of a value context and a fact source (events-and-forms.md, "Values and

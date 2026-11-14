@@ -219,7 +219,8 @@ reference and check-in barcode.
   - **An account** picks the active registration among the registrations it
     owns. When the account owns the registration a cookie names, the account
     wins: access follows the account.
-  - The active registration **expires,** and **"kilépés"** clears it.
+  - The active registration **expires** 24 hours after its link was
+    followed (following it again starts anew), and **"kilépés"** clears it.
 - **The participant side is built from blocks** that admins place on any
   page, not from a fixed portal page: e.g. the registration's status, its
   bank-transfer details, a picker among an account's registrations,

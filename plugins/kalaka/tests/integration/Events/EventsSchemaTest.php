@@ -14,7 +14,7 @@ final class EventsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(2, (int) get_option('kalaka_schema_events'));
+        self::assertSame(3, (int) get_option('kalaka_schema_events'));
         self::assertSame([], LoadState::current()->failures);
 
         $name = $wpdb->prefix . 'kalaka_events';
@@ -61,6 +61,10 @@ final class EventsSchemaTest extends WP_UnitTestCase
                 'points' => 'longtext',
                 'next_point_id' => 'int(10) unsigned',
                 'archived_at' => 'datetime(6) null',
+                'transfer_beneficiary' => 'varchar(191) null',
+                'transfer_account' => 'varchar(64) null',
+                'transfer_reference_prefix' => 'varchar(32) null',
+                'payment_due_days' => 'smallint(5) unsigned null',
             ],
             $declared
         );
