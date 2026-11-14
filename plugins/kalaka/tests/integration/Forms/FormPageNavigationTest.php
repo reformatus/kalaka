@@ -5,12 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
-use Kalaka\Forms\FormPage;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
- * The form page of a multi-page form (#167's pages): the navigation buttons, the context's pages and the
- * re-fetch stub passing the page whose errors Tovább asks for.
+ * The form page of a multi-page form (#167's pages): the navigation buttons and the context's pages. The
+ * re-fetch with the page whose errors Tovább asks for is `FormRoutesTest`'s.
  */
 final class FormPageNavigationTest extends FormsTestCase
 {
@@ -61,28 +60,6 @@ final class FormPageNavigationTest extends FormsTestCase
                 'condition' => $this->when('mode', 'young'),
             ])
             . $this->page($this->field('text', 'note'));
-    }
-
-    public function testTheRefetchPassesThePageAndAnswersItsErrors(): void
-    {
-        $event = $this->create();
-        $day = static fn (int $offset): string => Runner::current()->clock()->now()
-            ->setTimezone(wp_timezone())->setTime(0, 0)
-            ->modify(sprintf('%+d days', $offset))->format('Y-m-d H:i');
-        $this->update($event, [
-            'registration_opens_at' => $day(-1),
-            'registration_closes_at' => $day(10),
-            'starts_at' => $day(30),
-            'ends_at' => $day(36),
-        ]);
-        $this->transition(new PublishEvent(), $event);
-        $id = $this->insertForm($this->content(), ['kalaka_event_id' => $event]);
-        $version = $this->readForm($id)->version;
-
-        $answer = (new FormPage())->refetch($id, $version, ['mode' => 'camp'], 0);
-
-        self::assertSame([true, true, false, false, true], $answer['availability']['pages']);
-        self::assertSame(['name', 'email'], array_keys((array) $answer['availability']['errors']));
     }
 
     public function testEveryPageRendersHiddenWithItsNumberTitleAndTerminalMarkAndTheNavigationButtons(): void

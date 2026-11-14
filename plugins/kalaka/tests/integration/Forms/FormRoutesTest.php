@@ -72,6 +72,33 @@ final class FormRoutesTest extends FormsTestCase
         ]]);
     }
 
+    /** A choice of fee, and a choice of modules whose PRO options show only for the fee `extra`. */
+    private function feeAndModules(): string
+    {
+        $extra = $this->when('fee', 'extra');
+
+        return $this->field('choice', 'fee', ['options' => [
+            ['value' => 'basic', 'label' => 'Alap'],
+            ['value' => 'extra', 'label' => 'Támogatott'],
+        ]]) . '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $extra]) . ' -->'
+            . $this->field('text', 'supporter') . '<!-- /wp:kalaka/if -->'
+            . $this->field('choice', 'modules', ['multiple' => true, 'options' => [
+                ['value' => 'ifi_a', 'label' => 'IFI A'],
+                ['value' => 'pro_a', 'label' => 'PRO A', 'condition' => $extra],
+                ['value' => 'pro_b', 'label' => 'PRO B', 'condition' => $extra],
+            ]]);
+    }
+
+    /** The after-submit section: a thank-you with the reference code, and a line for the waitlist. */
+    private function afterSubmit(): string
+    {
+        return '<!-- wp:kalaka/after-submit --><!-- wp:paragraph --><p>Köszönjük! Kódod: '
+            . '<span data-kalaka-value="registration.code">kód</span></p><!-- /wp:paragraph -->'
+            . '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $this->when('registration.status', 'waitlisted')])
+            . ' --><!-- wp:paragraph --><p>Most várólistára kerültél.</p><!-- /wp:paragraph -->'
+            . '<!-- /wp:kalaka/if --><!-- /wp:kalaka/after-submit -->';
+    }
+
     /**
      * Two pages, then a terminal page for the young: page 0 the basics and the mode, page 1 a required
      * room for camp, page 2 terminal for young.
@@ -201,6 +228,36 @@ final class FormRoutesTest extends FormsTestCase
         $pro = $this->data($this->post($form, 'availability', $this->availabilityBody($form, ['track' => 'pro'])));
         self::assertSame(['ifi_a', 'pro_a'], $pro['availability']['options']['module']);
         self::assertStringContainsString('value="pro_a"', (string) ((array) $pro['parts'])['module']);
+    }
+
+    public function testTheChoiceFieldPartIsTheFieldsBlockWithItsErrorElementAndABranchShowsForItsTrigger(): void
+    {
+        $form = $this->openForm($this->slotFields() . $this->feeAndModules());
+
+        $extra = $this->data($this->post(
+            $form,
+            'availability',
+            $this->availabilityBody($form, ['fee' => 'extra', 'supporter' => 'x'])
+        ));
+
+        self::assertSame(['fee'], $extra['availability']['triggers']);
+        self::assertSame([0], $extra['availability']['chains']);
+        self::assertTrue($extra['availability']['fields']['supporter']);
+        self::assertSame(['modules' => ['ifi_a', 'pro_a', 'pro_b']], $extra['availability']['options']);
+        self::assertSame(['modules'], array_keys((array) $extra['parts']));
+        $part = (string) ((array) $extra['parts'])['modules'];
+        self::assertStringStartsWith('<div class="kalaka-field wp-block-kalaka-choice-field"', trim($part));
+        self::assertStringContainsString('data-kalaka-field="modules"', $part);
+        self::assertStringContainsString('value="pro_b"', $part);
+        self::assertStringContainsString(
+            '<span id="kalaka-field-modules-error" class="kalaka-field__error" hidden></span>',
+            $part
+        );
+
+        $basic = $this->data($this->post($form, 'availability', $this->availabilityBody($form, ['fee' => 'basic'])));
+        self::assertSame([null], $basic['availability']['chains']);
+        self::assertFalse($basic['availability']['fields']['supporter']);
+        self::assertStringNotContainsString('value="pro_a"', (string) ((array) $basic['parts'])['modules']);
     }
 
     public function testAFormWithoutOptionConditionsHasNoPartsAndTheJsonHasObjects(): void
@@ -351,6 +408,9 @@ final class FormRoutesTest extends FormsTestCase
     {
         $form = $this->openForm('', 10, [FormPosts::META_REQUIRED_ROLE => 'editor']);
 
+        $guestAvailability = $this->post($form, 'availability', $this->availabilityBody($form));
+        $this->assertRefused($guestAvailability, 403, 'kalaka_form_refused');
+        self::assertSame(['role_required'], $this->data($guestAvailability)['data']['refusals']);
         $guest = $this->post($form, 'submit', $this->submitBody($form));
         $this->assertRefused($guest, 403, 'kalaka_form_refused');
         self::assertSame(['role_required'], $this->data($guest)['data']['refusals']);
@@ -377,7 +437,8 @@ final class FormRoutesTest extends FormsTestCase
         self::assertSame('registered', $data['status']);
         self::assertFalse($data['repeated']);
         self::assertSame(self::REGISTERED_TEXT, $data['after_submit']);
-        self::assertIsString($data['code']);
+        self::assertMatchesRegularExpression('/\A[0-9A-Z]{4}\z/', $data['code']);
+        self::assertArrayNotHasKey('html', $data);
 
         $second = $this->data($this->post($form, 'submit', $this->submitBody($form, [
             'name' => 'Második Elek',
@@ -409,6 +470,40 @@ final class FormRoutesTest extends FormsTestCase
             'Ez az űrlap már nem küldhető be. Töltsd újra az oldalt, ha új jelentkezést szeretnél küldeni.',
             $this->data($reused)['message']
         );
+        self::assertSame(1, $this->registrations($form));
+    }
+
+    public function testTheAfterSubmitSectionRendersWithTheCodeAndAWaitlistLineOnlyOnTheWaitlist(): void
+    {
+        $form = $this->openForm($this->slotFields() . $this->afterSubmit(), 1);
+
+        $first = $this->data($this->post($form, 'submit', $this->submitBody($form)));
+        self::assertSame('registered', $first['status']);
+        self::assertStringContainsString('Köszönjük!', $first['after_submit']);
+        self::assertStringContainsString('Kódod: ' . $first['code'], wp_strip_all_tags($first['after_submit']));
+        self::assertStringNotContainsString('várólistára', $first['after_submit']);
+        self::assertStringNotContainsString('data-kalaka-value', $first['after_submit']);
+
+        $second = $this->data($this->post($form, 'submit', $this->submitBody($form, [
+            'name' => 'Második Elek',
+            'email' => 'masodik@example.org',
+        ])));
+        self::assertSame('waitlisted', $second['status']);
+        self::assertStringContainsString('várólistára', $second['after_submit']);
+    }
+
+    public function testARepeatAnswersOnlyTheFirstRegistrationsAfterSubmitSection(): void
+    {
+        $form = $this->openForm($this->slotFields() . $this->afterSubmit());
+        $body = $this->submitBody($form);
+
+        $first = $this->data($this->post($form, 'submit', $body));
+        $repeat = $this->data($this->post($form, 'submit', $body));
+
+        self::assertSame(['repeated', 'after_submit'], array_keys($repeat));
+        self::assertTrue($repeat['repeated']);
+        self::assertSame($first['after_submit'], $repeat['after_submit']);
+        self::assertStringContainsString('Kódod: ' . $first['code'], wp_strip_all_tags($repeat['after_submit']));
         self::assertSame(1, $this->registrations($form));
     }
 

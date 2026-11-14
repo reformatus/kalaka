@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Registrations\Api\SubmitToken;
 
 /** AC2, AC3: the embed block on a page: the form, or the one refusal that keeps it from showing. */
 final class FormBlockTest extends FormsTestCase
@@ -129,6 +130,14 @@ final class FormBlockTest extends FormsTestCase
         self::assertGreaterThan(0, $controls, $key);
 
         return true;
+    }
+
+    /** An after-submit section: a thank-you with the reference code. */
+    private function afterSubmit(): string
+    {
+        return '<!-- wp:kalaka/after-submit --><!-- wp:paragraph --><p>Köszönjük! Kódod: '
+            . '<span data-kalaka-value="registration.code">kód</span></p><!-- /wp:paragraph -->'
+            . '<!-- /wp:kalaka/after-submit -->';
     }
 
     /** A choice field whose second and third options are offered only for the fee `extra`. */
@@ -269,58 +278,6 @@ final class FormBlockTest extends FormsTestCase
         self::assertStringNotContainsString('value="pro_a"', $html);
         self::assertStringNotContainsString('value="pro_b"', $html);
         self::assertStringContainsString('value="extra"', $html);
-    }
-
-    public function testTheRefetchAnswersTheAvailabilityAndTheReRenderedChoiceFieldsForTheAnswers(): void
-    {
-        $id = $this->formOf(
-            $this->sizes()
-            . $this->branch('if', $this->compare('fee', 'extra'), $this->field('text', 'supporter'))
-            . $this->modules()
-        );
-        $version = $this->readForm($id)->version;
-
-        $answer = (new \Kalaka\Forms\FormPage())->refetch($id, $version, ['fee' => 'extra', 'supporter' => 'x']);
-
-        self::assertSame(['fee'], $answer['availability']['triggers']);
-        self::assertSame([0], $answer['availability']['chains']);
-        self::assertTrue($answer['availability']['fields']['supporter']);
-        self::assertSame(['modules' => ['ifi_a', 'pro_a', 'pro_b']], $answer['availability']['options']);
-        self::assertSame(['modules'], array_keys($answer['parts']));
-        $part = $answer['parts']['modules'];
-        self::assertStringStartsWith('<div class="kalaka-field wp-block-kalaka-choice-field"', trim($part));
-        self::assertStringContainsString('data-kalaka-field="modules"', $part);
-        self::assertStringContainsString('value="pro_b"', $part);
-        self::assertStringContainsString(
-            '<span id="kalaka-field-modules-error" class="kalaka-field__error" hidden></span>',
-            $part
-        );
-
-        $none = (new \Kalaka\Forms\FormPage())->refetch($id, $version, ['fee' => 'basic']);
-        self::assertSame([null], $none['availability']['chains']);
-        self::assertFalse($none['availability']['fields']['supporter']);
-        self::assertStringNotContainsString('value="pro_a"', $none['parts']['modules']);
-    }
-
-    public function testTheRefetchIsRefusedWhereThePageIsRefused(): void
-    {
-        $page = new \Kalaka\Forms\FormPage();
-        $id = $this->formOf('', null, ['kalaka_required_role' => 'editor']);
-        $version = $this->readForm($id)->version;
-
-        try {
-            $page->refetch($id, $version, []);
-            self::fail('A form the user may not fill in was re-fetched.');
-        } catch (\Kalaka\Foundation\Api\Error\PermissionDenied) {
-        }
-        try {
-            $page->refetch(999999, $version, []);
-            self::fail('An unknown form was re-fetched.');
-        } catch (\Kalaka\Foundation\Api\Error\NotFound) {
-        }
-        LoadState::record([new LoadFailure('x', 'y')]);
-        $this->expectException(\Kalaka\Foundation\Api\Error\SiteClosed::class);
-        $page->refetch($id, $version, []);
     }
 
     public function testTheContextCarriesTheVersionTheUrlsTheFailureTextAndTheTriggers(): void
@@ -578,5 +535,26 @@ final class FormBlockTest extends FormsTestCase
         $id = $this->formOf('', null, ['kalaka_required_role' => 'editor'], ['post_password' => 'titok']);
         self::assertStringContainsString('name="post_password"', $this->render($id));
         self::assertStringNotContainsString('jogosult', $this->render($id));
+    }
+
+    public function testTheAfterSubmitBlockNeverRendersWithTheForm(): void
+    {
+        $html = $this->render($this->formOf($this->afterSubmit()));
+
+        self::assertStringContainsString('<form', $html);
+        self::assertStringNotContainsString('Köszönjük!', $html);
+        self::assertStringNotContainsString('Kódod', $html);
+    }
+
+    public function testThePageCarriesAFreshSubmitTokenInAHiddenField(): void
+    {
+        $id = $this->formOf();
+
+        preg_match('/<input type="hidden" data-kalaka-token value="([^"]*)">/', $this->render($id), $first);
+        preg_match('/<input type="hidden" data-kalaka-token value="([^"]*)">/', $this->render($id), $second);
+
+        self::assertTrue(SubmitToken::isValid($first[1] ?? ''));
+        self::assertTrue(SubmitToken::isValid($second[1] ?? ''));
+        self::assertNotSame($first[1], $second[1]);
     }
 }

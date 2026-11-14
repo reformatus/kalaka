@@ -16,18 +16,11 @@ use Kalaka\Forms\Condition\ChainMarks;
 use Kalaka\Forms\FieldType\ChoiceFieldType;
 use Kalaka\Forms\Value\InlineValues;
 use Kalaka\Forms\Value\RenderStack;
-use Kalaka\Foundation\Api\Actor\AccountActor;
-use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
-use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Registrations\Api\RegistrationSubmit;
-use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 
 /**
@@ -36,7 +29,7 @@ use Kalaka\Registrations\Api\SubmitToken;
  * availability (S76): every branch renders, the held one of each chain shown and the others hidden; the
  * controls of a field that does not show are disabled; a choice field renders only the options it
  * offers. The event values are filled in as the value API fills them in a mail. The script holds no
- * condition: it re-fetches the availability and the re-rendered choice fields (`refetch()`). The chains
+ * condition: it re-fetches the availability and the re-rendered choice fields (`Rest\FormRoutes`). The chains
  * and pages are numbered once, by `Condition\ChainMarks` (`Forms::blocks()`); this page renumbers nothing.
  * A multi-page form renders every page, each hidden (`PageMarkup`): the script shows the current one.
  */
@@ -46,14 +39,11 @@ final class FormPage
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly InlineValues $inline = new InlineValues(),
-        private readonly RegistrationSubmit $submit = new RegistrationSubmit(),
     ) {
     }
 
     /** @var list<FormAvailability> the availability of each form page rendering, innermost last */
     private static array $rendering = [];
-
-
 
     /**
      * The whole form, or its one refusal, inside one error boundary (foundation.md, "Errors"): a form
@@ -104,81 +94,6 @@ final class FormPage
         }
 
         return $this->view($form, $event);
-    }
-
-    /**
-     * What the form shows for the answers sent from its page, and its choice fields with option conditions
-     * re-rendered for them (S76): `{"availability": FormAvailability::toArray(), "parts": {key: html}}`.
-     * The same checks as the page: a form that would not show is refused, and a version that is not the
-     * latest is `FormOutdated` (409 `kalaka_form_outdated`). With `$page` (Tovább, (#167, MP-9)) the
-     * availability carries that page's errors.
-     *
-     * [STUB S12] the body of the re-fetch route `POST kalaka-portal/v1/forms/<id>/availability`, which S12
-     * builds (registered through `Boundary::route()`). No route is registered here.
-     *
-     * @param array<array-key, mixed> $answers field key → the answer as sent
-     * @return array{availability: array<string, mixed>, parts: array<string, string>}
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException
-     */
-    public function refetch(int $formId, int $version, array $answers, ?int $page = null): array
-    {
-        LoadState::current()->requireOpen();
-        $form = $formId > 0 ? $this->forms->form($formId) : null;
-        $event = $form === null ? null : $this->events->find($form->eventId);
-        $post = $form === null ? null : get_post($form->id);
-        if ($form === null || $event === null || !$post instanceof \WP_Post) {
-            throw new NotFound();
-        }
-        if ($this->refusals($form, $event, $post, Runner::current()->clock()->now()) !== []) {
-            throw new PermissionDenied();
-        }
-
-        $definition = $this->forms->latestDefinition($form, $version);
-        $values = new ValueContext(EventValues::of($event));
-        $availability = $this->forms->availability($definition, $answers, $values, $page);
-        $parts = [];
-        foreach ($this->choiceBlocks($this->blocks($form, $version, $availability), $availability) as $key => $block) {
-            $parts[$key] = $this->render([$block], $values, $availability);
-        }
-
-        return ['availability' => $availability->toArray(), 'parts' => $parts];
-    }
-
-    /**
-     * Submits the form's answers as the page sends them, `{"version": <form version>, "answers": {key: answer},
-     * "token": "<SubmitToken>"}`, through the submit seam (`RegistrationSubmit`), as a guest or as the
-     * logged-in account, with the user's roles and whether the form's password was given. The answer is the
-     * seam's result as it gives it (`SubmitResult::toArray()`): `{"event", "code", "status", "repeated": false,
-     * "after_submit"}`, or for a repeat (the same token and answers) `{"repeated": true, "after_submit"}`.
-     * Refusals are thrown as the seam throws them.
-     *
-     * [STUB S12] the body of the submit route `POST kalaka-portal/v1/forms/<id>/submit` (#161's N1), which
-     * S12 builds (registered through `Boundary::route()`). No route is registered here.
-     *
-     * @param array<array-key, mixed> $body the request's JSON body
-     * @return array<string, mixed>
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException
-     */
-    public function submit(int $formId, array $body): array
-    {
-        $answers = $body['answers'] ?? null;
-        $token = $body['token'] ?? null;
-        $version = $body['version'] ?? null;
-        if (!is_array($answers) || !is_string($token) || !is_int($version)) {
-            throw new InvalidInput();
-        }
-        $post = $formId > 0 ? get_post($formId) : null;
-        $user = wp_get_current_user();
-        $request = new SubmitRequest(
-            $formId,
-            $version,
-            $answers,
-            $token,
-            array_values($user->roles),
-            $post instanceof \WP_Post && !post_password_required($post),
-        );
-        $actor = $user->ID > 0 ? new AccountActor($user->ID) : new GuestActor();
-        return $this->submit->submit($request, $actor)->toArray();
     }
 
     /** @return list<AccessRefusal> */
@@ -234,9 +149,9 @@ final class FormPage
         return new FormPageView(null, $content, [
             'formId' => $form->id,
             'version' => $form->version,
-            // [STUB S12] the submit route (#161's N1); `submit()` is its body.
+            // The submit route (#161's N1), `Rest\FormRoutes::submit()`.
             'url' => rest_url('kalaka-portal/v1/forms/' . $form->id . '/submit'),
-            // [STUB S12] the re-fetch route; `refetch()` is its body.
+            // The re-fetch route, `Rest\FormRoutes::availability()`.
             'availabilityUrl' => rest_url('kalaka-portal/v1/forms/' . $form->id . '/availability'),
             'failure' => (new SystemFailure())->getMessage(),
             'triggers' => $availability->triggers,
@@ -315,34 +230,6 @@ final class FormPage
         ));
 
         return $block;
-    }
-
-    /**
-     * The prepared choice field blocks whose field has option conditions, by key, wherever they sit.
-     *
-     * @param list<array<string, mixed>|string> $blocks
-     * @return array<string, array<string, mixed>>
-     */
-    private function choiceBlocks(array $blocks, FormAvailability $availability): array
-    {
-        $found = [];
-        foreach ($blocks as $block) {
-            if (!is_array($block)) {
-                continue;
-            }
-            $key = $block['attrs']['key'] ?? null;
-            if (
-                ($block['blockName'] ?? null) === ChoiceFieldType::BLOCK_NAME
-                && is_string($key)
-                && $availability->offeredOptions($key) !== null
-            ) {
-                $found[$key] = $block;
-            }
-            $inner = is_array($block['innerBlocks'] ?? null) ? array_values($block['innerBlocks']) : [];
-            $found += $this->choiceBlocks($inner, $availability);
-        }
-
-        return $found;
     }
 
     /**
