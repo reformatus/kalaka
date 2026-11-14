@@ -31,7 +31,6 @@ erDiagram
     key event_code "event ID + reference code"
     string status "registered / waitlisted / withdrawn / removed"
     key secret_link "makes it the active registration"
-    snapshot tariff "price at registration"
   }
 ```
 
