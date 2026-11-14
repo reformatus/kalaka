@@ -274,8 +274,7 @@ such as lunch or a donation.
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
   one converges on its next evaluation, since the settings are saved.
-  Withdrawn and removed registrations are left out. `adjustment` lines stay
-  for manual corrections with a reason.
+  `adjustment` lines stay for manual corrections with a reason.
 
 ## Materializer
 

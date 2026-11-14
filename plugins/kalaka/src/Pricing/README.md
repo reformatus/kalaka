@@ -1,6 +1,6 @@
 # Pricing
 
-The fixed price, the fee-component framework, confirmation, retention, the materializer and the money settings apply.
+The fixed price, the fee-component framework, the materializer and the money settings apply. Confirmation (S20) and retention (S23) come later.
 
 At the module root: `FixedPrice` (core's fee component, at the tier stage, invoiceable), `FixedPriceRepository` and `FixedPriceRecord` (the only writer of `kalaka_fixed_prices`), `FeeComposer` (composes the components stage by stage; shared by the materializer and the preview), `CoreFeeComponents` (the components registered now), and the use cases `SetFixedPrice` (`kalaka/set-fixed-price`) and `ApplyMoneySettings` (`kalaka/apply-money-settings`, one registration of an apply).
 
