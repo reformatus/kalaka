@@ -34,7 +34,7 @@ final class MailRestController extends \WP_REST_Posts_Controller
     }
 
     /**
-     * A body that a switched-on action mail uses is neither trashed nor deleted (`MailDeletion`).
+     * A body that a switched-on action mail uses is neither trashed nor deleted (`BodyInUse`).
      *
      * @param \WP_REST_Request<array<string, mixed>> $request
      * @return \WP_REST_Response|\WP_Error
@@ -42,8 +42,8 @@ final class MailRestController extends \WP_REST_Posts_Controller
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's method name
     public function delete_item($request): \WP_REST_Response|\WP_Error
     {
-        if (MailDeletion::inUse((int) $request->get_param('id'))) {
-            return new \WP_Error(MailDeletion::CODE, MailDeletion::message(), ['status' => 409]);
+        if (BodyInUse::inUse((int) $request->get_param('id'))) {
+            return BodyInUse::error();
         }
 
         return parent::delete_item($request);

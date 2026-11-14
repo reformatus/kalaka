@@ -210,7 +210,10 @@ final class MailRendererTest extends MailBodyTestCase
         $key = $this->registration($event);
         $body = $this->document($event, $this->paragraph('Szia'));
         $this->switchOn($event, 'registered', $body);
-        wp_update_post(['ID' => $body, 'post_status' => 'draft']);
+        // Written around BodyInUse (which keeps a body in use published), straight in the table.
+        global $wpdb;
+        $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => $body]);
+        clean_post_cache($body);
 
         $this->expectException(SystemFailure::class);
         (new MailRenderer())->render($event, 'registered', $key);

@@ -13,7 +13,7 @@ use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Body\ActionMailComposer;
-use Kalaka\Mail\Body\MailDeletion;
+use Kalaka\Mail\Body\BodyInUse;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Pause\PauseCause;
@@ -154,8 +154,13 @@ SQL;
         // A mail's version is a revision ID, so revisions of mail documents are never pruned.
         add_filter('wp_' . MailPosts::POST_TYPE . '_revisions_to_keep', static fn (): int => -1);
         add_action('wp_after_insert_post', [new MailPosts(), 'ensureRevision'], 10, 2);
-        add_filter('pre_trash_post', [MailDeletion::class, 'onPreTrash'], 10, 2);
-        add_filter('pre_delete_post', [MailDeletion::class, 'onPreDelete'], 10, 2);
+        add_filter('pre_trash_post', [BodyInUse::class, 'onPreTrash'], 10, 2);
+        add_filter('pre_delete_post', [BodyInUse::class, 'onPreDelete'], 10, 2);
+        add_filter('wp_insert_post_data', [BodyInUse::class, 'onInsertData'], 10, 2);
+        add_filter('rest_pre_insert_' . MailPosts::POST_TYPE, [BodyInUse::class, 'onRestInsert'], 10, 2);
+        add_filter('add_post_metadata', [BodyInUse::class, 'onMetaWrite'], 10, 4);
+        add_filter('update_post_metadata', [BodyInUse::class, 'onMetaWrite'], 10, 4);
+        add_filter('delete_post_metadata', [BodyInUse::class, 'onMetaDelete'], 10, 3);
     }
 
     /**

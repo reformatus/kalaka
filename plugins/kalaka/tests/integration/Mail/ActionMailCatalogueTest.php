@@ -96,12 +96,12 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         }
         self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
 
-        // A mail that has a body that is no longer published is switched on only once it is published again,
-        // and may always be switched off.
+        // A mail switched off keeps a body that is then unpublished, and is switched on again only once the
+        // body is published again.
         $body = $this->document($event, $this->paragraph('Szia'));
         $this->switchOn($event, 'registered', $body);
-        wp_update_post(['ID' => $body, 'post_status' => 'draft']);
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        wp_update_post(['ID' => $body, 'post_status' => 'draft']);
         $this->expectException(RuleViolation::class);
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
     }

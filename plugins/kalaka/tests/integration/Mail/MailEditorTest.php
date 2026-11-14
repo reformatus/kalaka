@@ -102,6 +102,71 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertInstanceOf(\WP_Post::class, wp_delete_post($body, true));
     }
 
+    public function testABodyInUseStaysPublishedAndKeepsItsEventInCode(): void
+    {
+        $event = $this->create();
+        $other = $this->create('Másik');
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+
+        foreach (['draft', 'pending', 'private', 'trash'] as $status) {
+            wp_update_post(['ID' => $body, 'post_status' => $status]);
+            self::assertSame('publish', get_post_status($body), $status);
+        }
+        self::assertFalse(update_post_meta($body, 'kalaka_event_id', $other));
+        self::assertFalse(delete_post_meta($body, 'kalaka_event_id'));
+        wp_update_post(['ID' => $body, 'meta_input' => ['kalaka_event_id' => $other]]);
+        self::assertSame((string) $event, get_post_meta($body, 'kalaka_event_id', true));
+        // A save that changes only the text goes on.
+        wp_update_post(['ID' => $body, 'post_content' => $this->paragraph('Szia újra')]);
+        self::assertStringContainsString('Szia újra', (string) get_post_field('post_content', $body));
+
+        // Switched off, the body may change.
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        wp_update_post(['ID' => $body, 'post_status' => 'draft']);
+        self::assertSame('draft', get_post_status($body));
+        self::assertTrue((bool) update_post_meta($body, 'kalaka_event_id', $other));
+    }
+
+    public function testABodyInUseStaysPublishedAndKeepsItsEventInRest(): void
+    {
+        $event = $this->create();
+        $other = $this->create('Másik');
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+        $full = self::factory()->user->create();
+        $user = get_userdata($full);
+        self::assertInstanceOf(\WP_User::class, $user);
+        $user->add_cap(AdminAccess::FULL_ACCESS);
+        wp_set_current_user($full);
+
+        $changes = [['status' => 'draft'], ['status' => 'private'], ['meta' => ['kalaka_event_id' => $other]]];
+        foreach ($changes as $change) {
+            $request = new \WP_REST_Request('POST', '/wp/v2/kalaka_mail/' . $body);
+            $request->set_body_params($change);
+            $response = rest_do_request($request);
+            self::assertSame(409, $response->get_status());
+            $error = $response->as_error();
+            self::assertInstanceOf(\WP_Error::class, $error);
+            self::assertSame('kalaka_mail_in_use', $error->get_error_code());
+            self::assertSame(
+                'A művelet nem hajtható végre. Ezt a szöveget egy bekapcsolt levél használja.',
+                $error->get_error_message()
+            );
+        }
+        self::assertSame('publish', get_post_status($body));
+        self::assertSame((string) $event, get_post_meta($body, 'kalaka_event_id', true));
+
+        // An edit of the text, the same event and the same status go on.
+        $request = new \WP_REST_Request('POST', '/wp/v2/kalaka_mail/' . $body);
+        $request->set_body_params([
+            'content' => $this->paragraph('Szia újra'),
+            'status' => 'publish',
+            'meta' => ['kalaka_event_id' => $event],
+        ]);
+        self::assertSame(200, rest_do_request($request)->get_status());
+    }
+
     public function testTheVersionSkipsMoreAutosavesThanOneReadFetches(): void
     {
         $event = $this->create();
