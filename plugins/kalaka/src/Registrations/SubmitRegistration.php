@@ -199,7 +199,7 @@ final class SubmitRegistration implements PublicUseCase
             $this->mail->add(
                 $context,
                 $key,
-                $this->account->mail,
+                $this->account->mail->value,
                 MailKind::Action,
                 new Subject('account', null, (string) $this->account->mailUserId)
             );

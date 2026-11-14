@@ -15,8 +15,7 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\ObjectCache;
-use Kalaka\Mail\AccountMailComposer;
-use Kalaka\Registrations\Account\AccountOutcome;
+use Kalaka\Mail\Api\AccountMail;
 use Kalaka\Registrations\Account\AccountSignUp;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationSubmit;
@@ -314,7 +313,7 @@ final class AccountsOnFormTest extends FormsTestCase
 
         $deliveries = $this->deliveries();
         self::assertCount(1, $deliveries);
-        self::assertSame(AccountOutcome::SET_PASSWORD, $deliveries[0]['mail']);
+        self::assertSame(AccountMail::SetPassword->value, $deliveries[0]['mail']);
         self::assertSame('action', $deliveries[0]['kind']);
         self::assertSame('pending', $deliveries[0]['status']);
         self::assertSame('account', $deliveries[0]['cause_type']);
@@ -353,7 +352,7 @@ final class AccountsOnFormTest extends FormsTestCase
         self::assertSame(1, $this->passwords);
 
         $attach = $this->deliveries()[1];
-        self::assertSame(AccountOutcome::ATTACH, $attach['mail']);
+        self::assertSame(AccountMail::Attach->value, $attach['mail']);
         self::assertSame('account', $attach['cause_type']);
         self::assertSame((string) $holder, $attach['cause_key']);
         self::assertSame($existing->registration->code, $attach['code']);
@@ -420,12 +419,6 @@ final class AccountsOnFormTest extends FormsTestCase
 
         self::assertSame('teszt.anna2', AccountSignUp::login('teszt.anna@example.org'));
         self::assertSame('resztvevo', AccountSignUp::login('!!!@example.org'));
-    }
-
-    public function testTheComposerAndTheQueueAgreeOnTheMailKeys(): void
-    {
-        self::assertSame(AccountOutcome::SET_PASSWORD, AccountMailComposer::SET_PASSWORD);
-        self::assertSame(AccountOutcome::ATTACH, AccountMailComposer::ATTACH);
     }
 
     public function testTheRegistrationsKeyIsTheResultsKey(): void

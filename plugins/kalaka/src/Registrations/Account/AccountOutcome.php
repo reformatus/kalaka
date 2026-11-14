@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Account;
 
+use Kalaka\Mail\Api\AccountMail;
+
 /**
  * What a submit does about accounts (registrations-and-identity.md, "Accounts on the registration form"),
  * decided before the transaction (`AccountSignUp`, `RegistrationSubmit`) and written by
@@ -16,15 +18,9 @@ namespace Kalaka\Registrations\Account;
  */
 final readonly class AccountOutcome
 {
-    /** The set-password mail: its link sets the new account's password, which activates it. */
-    public const SET_PASSWORD = 'account_set_password';
-
-    /** The attach mail: its link attaches the registration to the account once its holder logs in. */
-    public const ATTACH = 'account_attach';
-
     private function __construct(
         public ?int $ownerUserId,
-        public ?string $mail,
+        public ?AccountMail $mail,
         public ?int $mailUserId,
     ) {
     }
@@ -44,12 +40,12 @@ final readonly class AccountOutcome
     /** The sign-up created the account: it owns the registration and gets the set-password mail. */
     public static function created(int $userId): self
     {
-        return new self($userId, self::SET_PASSWORD, $userId);
+        return new self($userId, AccountMail::SetPassword, $userId);
     }
 
     /** The sign-up's email already has an account: no owner yet, and the attach mail to that account. */
     public static function existing(int $holderUserId): self
     {
-        return new self(null, self::ATTACH, $holderUserId);
+        return new self(null, AccountMail::Attach, $holderUserId);
     }
 }

@@ -55,11 +55,11 @@ the two account mails (S15).
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
   nothing else in the layout is replaced.
-- The two account mails (`account_set_password`, `account_attach`, S15)
-  are not in the catalogue: `Body\ActionMailComposer` hands them to
-  `AccountMailComposer`, which gives a recipient only with the cause
-  `account` (a WordPress user ID): that user's current address, not a marked
-  field. Their content is built in; the set-password link's reset key is
+- The two account mails (`Api\AccountMail`: `account_set_password`,
+  `account_attach`, S15; their keys are defined only there) are not in the
+  catalogue: `Body\ActionMailComposer` hands them to `AccountMailComposer`,
+  which gives a recipient only with the cause `account` (a WordPress user
+  ID): that user's current address, not a marked field. Their content is built in; the set-password link's reset key is
   made when the mail is composed, never at submit.
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only

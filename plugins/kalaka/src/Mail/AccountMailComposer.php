@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Mail;
 
 use Kalaka\Events\Api\Events;
+use Kalaka\Mail\Api\AccountMail;
 use Kalaka\Registrations\Api\AttachLinks;
 use Kalaka\Registrations\Api\SecretLinks;
 
@@ -25,10 +26,6 @@ use Kalaka\Registrations\Api\SecretLinks;
  */
 final class AccountMailComposer implements MailComposer
 {
-    public const SET_PASSWORD = 'account_set_password';
-
-    public const ATTACH = 'account_attach';
-
     /** The version of the built-in bodies. */
     public const VERSION = 'kalaka-account-1';
 
@@ -60,7 +57,7 @@ final class AccountMailComposer implements MailComposer
     /** Whether the delivery is one of the two account mails. */
     public static function handles(Delivery $delivery): bool
     {
-        return in_array($delivery->mail, [self::SET_PASSWORD, self::ATTACH], true);
+        return AccountMail::tryFrom($delivery->mail) !== null;
     }
 
     /** @throws RecipientUnavailable when the registration is gone */
@@ -87,7 +84,7 @@ final class AccountMailComposer implements MailComposer
         $event = $this->events->find($delivery->registration->eventId);
         $suffix = $event === null ? '' : ' – ' . $event->name;
 
-        if ($delivery->mail === self::SET_PASSWORD) {
+        if ($delivery->mail === AccountMail::SetPassword->value) {
             $key = get_password_reset_key($user);
             if ($key instanceof \WP_Error) {
                 $error = new \RuntimeException('No password reset key: ' . $key->get_error_code());
@@ -120,7 +117,7 @@ final class AccountMailComposer implements MailComposer
     private function user(Delivery $delivery): ?\WP_User
     {
         if (
-            !in_array($delivery->mail, [self::SET_PASSWORD, self::ATTACH], true)
+            !self::handles($delivery)
             || $delivery->causeType !== 'account'
             || preg_match('/\A[1-9][0-9]{0,18}\z/D', $delivery->causeKey) !== 1
         ) {
