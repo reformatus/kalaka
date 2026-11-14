@@ -35,6 +35,11 @@ final readonly class FormPageView
      * @param array<string, mixed> $context the form element's Interactivity context, empty for a refusal
      * @param \WP_Post|null $post the form post of a password refusal
      * @param string $token the page's `SubmitToken`, for its hidden field; empty for a refusal
+     * @param array{skip: bool, loginUrl: string, email: array{key: string, label: string},
+     *     name: array{key: string, label: string}}|null $account the account step before the form's first
+     *     page (`FormHost::accountStep()`), for someone not logged in: whether it offers skip, WordPress's login
+     *     page returning to this page, and the form's contact email and display name, which signing up
+     *     fills in; null when no step shows
      */
     public function __construct(
         public ?string $refusal,
@@ -42,6 +47,7 @@ final readonly class FormPageView
         public array $context = [],
         public ?\WP_Post $post = null,
         public string $token = '',
+        public ?array $account = null,
     ) {
     }
 

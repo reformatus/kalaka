@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Engine;
 
 use Kalaka\Forms\Api\AccessRefusal;
+use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
@@ -31,6 +33,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * choice fields (`Rest\FormRoutes`). The chains
  * and pages are numbered once, by `Condition\ChainMarks` (`FormEngine::blocks()`); this page renumbers nothing.
  * A multi-page form renders every page, each hidden (`PageMarkup`): the script shows the current one.
+ *
+ * A form whose host gives an account step (`FormHost::accountStep()`, S15) begins with it for someone not
+ * logged in: the view carries the step, and the script shows the form only after the person signs up or
+ * skips; logging in goes to WordPress's login page and back to this page, where no step shows. For someone
+ * logged in, the form's contact email is filled in with the account's address and stays editable.
  */
 final class FormPage
 {
@@ -46,6 +53,9 @@ final class FormPage
 
     /** @var list<FormAvailability> the availability of each form page rendering, innermost last */
     private static array $rendering = [];
+
+    /** @var list<array<string, string>> the filled-in values of each form page rendering, by field key */
+    private static array $filled = [];
 
     /**
      * The whole form, or its one refusal, inside one error boundary (foundation.md, "Errors"): a form
@@ -139,6 +149,20 @@ final class FormPage
     private function view(Form $form, ValueContext $values): FormPageView
     {
         $definition = $this->forms->definition($form);
+        // TODO(S73): a prefill handed off across the login (`PrefillHandoff::PARAMETER` on the request) is
+        // taken here (`PrefillHandoff::take()`) and becomes the form's prefill. Nothing reads it before S73.
+        $step = $this->host->accountStep($form);
+        $account = null;
+        $filled = [];
+        if ($step !== null && !is_user_logged_in()) {
+            $account = self::accountStep($step, $definition);
+        } elseif ($step !== null) {
+            $contact = self::marked($definition, true);
+            $email = wp_get_current_user()->user_email;
+            if ($contact !== null && $email !== '') {
+                $filled[$contact->key] = $email;
+            }
+        }
 
         // What the form opens with: the host's stored values as answers (none for a new registration),
         // and what the form shows for them.
@@ -147,7 +171,8 @@ final class FormPage
         $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(
             $this->blocks($form, $form->version, $availability),
             $values,
-            $availability
+            $availability,
+            $filled
         ));
 
         return new FormPageView(null, $content, [
@@ -164,7 +189,54 @@ final class FormPage
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, $this->host->submitToken());
+            // (S15) the account step: whether it offers skip, and the fields signing up fills in; null for none.
+            'account' => $account === null ? null : [
+                'skip' => $account['skip'],
+                'email' => $account['email']['key'],
+                'name' => $account['name']['key'],
+            ],
+        ], null, $this->host->submitToken(), $account);
+    }
+
+    /**
+     * The account step of the view: what it offers, the login page returning to this page, and the form's
+     * contact email and display name (a form of the registration slot has exactly one of each, `SlotRules`).
+     *
+     * @return array{skip: bool, loginUrl: string, email: array{key: string, label: string},
+     *     name: array{key: string, label: string}}
+     * @throws SystemFailure
+     */
+    private static function accountStep(AccountStep $step, FormDefinition $definition): array
+    {
+        $email = self::marked($definition, true);
+        $name = self::marked($definition, false);
+        if ($email === null || $name === null) {
+            $error = new SystemFailure(null, new \LogicException('An account step on a form without its markings.'));
+            throw $error;
+        }
+        // TODO(S73): when the page holds a prefill (the quiz's POST), it is kept under a short-lived token
+        // (`PrefillHandoff::keep()`) and only the token goes into the return address
+        // (`add_query_arg(PrefillHandoff::PARAMETER, $token, $return)`), so logging in does not lose it.
+        $return = is_singular() ? get_permalink() : false;
+
+        return [
+            'skip' => $step === AccountStep::Offered,
+            'loginUrl' => wp_login_url(is_string($return) ? $return : home_url('/')),
+            'email' => ['key' => $email->key, 'label' => $email->label()],
+            'name' => ['key' => $name->key, 'label' => $name->label()],
+        ];
+    }
+
+    /** The form's contact email (`$email`) or display name field; null when it has none. */
+    private static function marked(FormDefinition $definition, bool $email): ?FormField
+    {
+        foreach ($definition->fields as $field) {
+            if ($email ? $field->isContactEmail() : $field->isDisplayName()) {
+                return $field;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -208,14 +280,21 @@ final class FormPage
     }
 
     /**
-     * The blocks rendered in form mode, each field with its error element, then the inline values.
+     * The blocks rendered in form mode, each field with its error element and any value filled in, then the
+     * inline values.
      *
      * @param list<array<string, mixed>|string> $blocks
+     * @param array<string, string> $filled field key → the value its control starts with
      */
-    private function render(array $blocks, ValueContext $context, FormAvailability $availability): string
-    {
+    private function render(
+        array $blocks,
+        ValueContext $context,
+        FormAvailability $availability,
+        array $filled = []
+    ): string {
         RenderStack::push($context);
         self::$rendering[] = $availability;
+        self::$filled[] = $filled;
         add_filter('render_block', [$this, 'forFormPage'], 10, 2);
         try {
             $html = '';
@@ -229,6 +308,7 @@ final class FormPage
         } finally {
             remove_filter('render_block', [$this, 'forFormPage'], 10);
             array_pop(self::$rendering);
+            array_pop(self::$filled);
             RenderStack::pop();
         }
     }
@@ -316,6 +396,10 @@ final class FormPage
         if ($availability !== null && !$availability->shows($key)) {
             $html = $this->disabled($html);
         }
+        $filled = self::$filled === [] ? [] : self::$filled[array_key_last(self::$filled)];
+        if (isset($filled[$key])) {
+            $html = self::filledIn($html, $key, $filled[$key]);
+        }
 
         $first = new \WP_HTML_Tag_Processor($html);
         $wrapper = $first->next_tag() && $first->get_attribute('data-kalaka-field') === $key
@@ -360,6 +444,20 @@ final class FormPage
     private static function current(): ?FormAvailability
     {
         return self::$rendering === [] ? null : self::$rendering[array_key_last(self::$rendering)];
+    }
+
+    /** The field's text control (`name` = its key) starting with the value. */
+    private static function filledIn(string $html, string $key, string $value): string
+    {
+        $tags = new \WP_HTML_Tag_Processor($html);
+        while ($tags->next_tag(['tag_name' => 'INPUT'])) {
+            if ($tags->get_attribute('name') === $key) {
+                $tags->set_attribute('value', $value);
+                break;
+            }
+        }
+
+        return $tags->get_updated_html();
     }
 
     private function disabled(string $html): string

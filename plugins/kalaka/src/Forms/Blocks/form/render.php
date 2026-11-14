@@ -7,6 +7,10 @@
  * form, shown by the script) and the loading spinner, which the script shows after 2 seconds. Without
  * JavaScript the form stays as the server rendered it for its prefilled answers (none for a new
  * registration) and the buttons stay disabled; the script enables them when it starts.
+ * A form with an account step for someone not logged in (`FormPageView::$account`, S15) begins with it, and
+ * the rest of the form stays hidden until the person signs up or skips (the script); "log in" is a link
+ * to WordPress's login page, which returns to this page. Signing up asks for the form's contact email and
+ * display name under the fields' own titles; the script fills them into those fields and locks them.
  * All of it renders inside the form's one error boundary (`FormPage::html()`).
  *
  * @var array<string, mixed> $attributes
@@ -57,6 +61,48 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
         <?php echo $kalakaStyle; ?> data-wp-init="callbacks.start" data-wp-on--change="actions.update"
     data-wp-on--submit="actions.submit">
     <input type="hidden" data-kalaka-token value="<?php echo esc_attr($kalakaView->token); ?>">
+        <?php
+        $kalakaAccount = $kalakaView->account;
+        if ($kalakaAccount !== null) :
+            $kalakaTag = FieldMarkup::wrapperTag(true);
+            $kalakaFieldClass = FieldMarkup::classAttribute(ElementRole::Field, 'kalaka-field');
+            $kalakaLabelClass = FieldMarkup::classAttribute(ElementRole::Label);
+            $kalakaControlClass = FieldMarkup::classAttribute(ElementRole::TextControl);
+            $kalakaStepFields = [
+                'email' => ['email', 'email', $kalakaAccount['email']['label']],
+                'name' => ['text', 'name', $kalakaAccount['name']['label']],
+            ];
+            ?>
+    <div class="kalaka-account-step" data-kalaka-account-step>
+        <p>
+            <button type="button"<?php echo $kalakaButtonClass; ?> data-kalaka-account-signup
+                data-wp-on--click="actions.signUp" disabled><?php echo esc_html('Regisztrálok'); ?></button>
+            <a<?php echo $kalakaButtonClass; ?> href="<?php echo esc_url($kalakaAccount['loginUrl']); ?>"
+                data-kalaka-account-login><?php echo esc_html('Bejelentkezem'); ?></a>
+            <?php if ($kalakaAccount['skip']) : ?>
+            <button type="button"<?php echo $kalakaButtonClass; ?> data-kalaka-account-skip
+                data-wp-on--click="actions.skipAccount" disabled>
+                <?php echo esc_html('Fiók nélkül folytatom'); ?></button>
+            <?php endif; ?>
+        </p>
+        <div data-kalaka-account-form hidden>
+            <?php foreach ($kalakaStepFields as $kalakaPart => [$kalakaType, $kalakaAutocomplete, $kalakaLabel]) : ?>
+                <?php $kalakaStepId = 'kalaka-account-' . $kalakaPart; ?>
+            <<?php echo $kalakaTag . $kalakaFieldClass; ?>>
+                <label for="<?php echo esc_attr($kalakaStepId); ?>"<?php echo $kalakaLabelClass; ?>>
+                    <?php echo FieldMarkup::title($kalakaLabel) . FieldMarkup::requiredMarker(true); ?></label>
+                <input type="<?php echo esc_attr($kalakaType); ?>" id="<?php echo esc_attr($kalakaStepId); ?>"
+                    data-kalaka-account-<?php echo esc_attr($kalakaPart); ?>
+                    autocomplete="<?php echo esc_attr($kalakaAutocomplete); ?>"
+                    <?php echo $kalakaControlClass; ?> required>
+            </<?php echo $kalakaTag; ?>>
+            <?php endforeach; ?>
+            <button type="button"<?php echo $kalakaButtonClass; ?> data-kalaka-account-next
+                data-wp-on--click="actions.signUpNext"><?php echo esc_html('Tovább'); ?></button>
+        </div>
+    </div>
+    <div data-kalaka-form-body hidden>
+        <?php endif; ?>
         <?php echo $kalakaView->content; ?>
     <div role="alert" data-kalaka-alert></div>
         <?php if ($kalakaView->context['pages'] !== []) : ?>
@@ -67,6 +113,9 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
         <?php endif; ?>
     <button type="submit"<?php echo $kalakaButtonClass; ?>
         data-kalaka-send disabled><?php echo esc_html('Küldés'); ?></button>
+        <?php if ($kalakaAccount !== null) : ?>
+    </div>
+        <?php endif; ?>
     <div data-kalaka-spinner hidden>
         <svg class="kalaka-spinner" viewBox="0 0 100 100" width="16" height="16" role="presentation"
             focusable="false" aria-hidden="true">

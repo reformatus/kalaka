@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\Api\AccessRefusal;
+use Kalaka\Forms\Api\AccountChoice;
+use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
@@ -26,7 +29,8 @@ use Kalaka\Registrations\Api\SubmitToken;
  * (`Form::$eventId`). The conditions read the event's keys (`EventValues`), the access refusals are the
  * event's (`refusalsOf()`), a field key is unique across the event's participant fields
  * (`ParticipantField\SharedKeyCheck`), a submit is a registration (`Registrations\Api\RegistrationSubmit`),
- * and the after-submit section reads the event's keys and the new registration's (`AfterSubmit`).
+ * the after-submit section reads the event's keys and the new registration's (`AfterSubmit`), and a
+ * registration form begins with the account step by the event's account mode (`accountStepOf()`).
  */
 final class EventFormHost implements FormHost
 {
@@ -123,9 +127,10 @@ final class EventFormHost implements FormHost
         string $token,
         array $roles,
         bool $passwordGiven,
-        Actor $actor
+        Actor $actor,
+        ?AccountChoice $account = null
     ): array {
-        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven);
+        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven, $account);
 
         return ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
     }
@@ -133,6 +138,31 @@ final class EventFormHost implements FormHost
     public function afterSubmitTypes(): array
     {
         return AfterSubmit::TYPES;
+    }
+
+    public function accountStep(Form $form): ?AccountStep
+    {
+        $event = $this->event($form);
+
+        return $event === null ? null : self::accountStepOf($form, $event);
+    }
+
+    /**
+     * The account step of a form of the event (owner ruling 2026-11-14): a registration form begins with it
+     * in `mandatory` (sign up or log in) and `optional` mode (or skip); an additional form never does, and
+     * in `off` mode no form has accounts.
+     */
+    public static function accountStepOf(Form $form, Event $event): ?AccountStep
+    {
+        if ($form->placement !== FormPlacement::Registration) {
+            return null;
+        }
+
+        return match ($event->accountMode) {
+            AccountMode::Mandatory => AccountStep::Required,
+            AccountMode::Optional => AccountStep::Offered,
+            AccountMode::Off => null,
+        };
     }
 
     private function event(Form $form): ?Event
