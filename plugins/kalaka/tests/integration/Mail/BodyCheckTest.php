@@ -44,6 +44,16 @@ final class BodyCheckTest extends MailBodyTestCase
             ],
             ['invalid_condition („”)', $this->branch('if', $this->paragraph('A'), ['match' => 'all'])],
             ['orphan_branch („kalaka/else”)', $this->branch('else', $this->paragraph('A'))],
+            // Never a field block or a form-only block, not even inside a branch.
+            [
+                'field_in_document („kalaka/text-field”)',
+                $this->block('kalaka/text-field', ['key' => 'x', 'label' => 'X']),
+            ],
+            [
+                'field_in_document („kalaka/email-field”)',
+                $this->branch('if', $this->block('kalaka/email-field', ['key' => 'y']), $this->is('registration.code')),
+            ],
+            ['form_block_in_document („kalaka/form-page”)', '<!-- wp:kalaka/form-page /-->'],
         ];
     }
 

@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Engine\Value;
 
 use Kalaka\Forms\Api\ValueType;
+use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Forms\Engine\Condition\Chain;
 use Kalaka\Forms\Engine\Condition\Chains;
 use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
  * Checks a document's block markup (a mail body) when it is saved, against the keys and types its context
@@ -29,12 +31,26 @@ final class DocumentCheck
     /**
      * @param array<string, ValueType> $declared
      * @throws SystemFailure the first problem, `<code> <subject>`: `orphan_branch`, `invalid_condition <key>`,
-     *     `unknown_value_key <key>`
+     *     `unknown_value_key <key>`, `field_in_document <block>`, `form_block_in_document <block>`
      */
     public function check(string $content, array $declared): void
     {
         $scope = new DeclaredScope($declared);
-        $this->walk(array_values(parse_blocks($content)), $scope, true);
+        $fieldTypes = Contributions::current()->fieldTypes();
+        // A document never holds a field block or a form-only block (a page, the after-submit section), as a
+        // form's after-submit section holds no field block (`field_in_after_submit`).
+        $refuse = static function (array $block) use ($fieldTypes): void {
+            $name = $block['blockName'] ?? null;
+            if (is_string($name) && isset($fieldTypes[$name])) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name, never output
+                throw new SystemFailure('field_in_document ' . $name);
+            }
+            if (is_string($name) && in_array($name, BlockGate::FORM_ONLY_BLOCKS, true)) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name, never output
+                throw new SystemFailure('form_block_in_document ' . $name);
+            }
+        };
+        $this->walk(array_values(parse_blocks($content)), $scope, true, $refuse);
         $this->inline($content, $scope);
     }
 

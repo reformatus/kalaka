@@ -20,7 +20,8 @@ final class Values
     /**
      * Checks a document's block markup (a mail body) when it is saved, against the keys and types its
      * context will declare: every chain's placement and condition, in every branch, and every binding and
-     * inline value. What passes renders for any context with those keys.
+     * inline value; and it holds no field block and no form-only block. What passes renders for any context
+     * with those keys.
      * // [UNAPPROVED N24] a document is checked at save against its declared keys.
      *
      * @param array<string, ValueType> $declared

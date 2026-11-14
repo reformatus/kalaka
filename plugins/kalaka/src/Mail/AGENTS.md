@@ -33,7 +33,8 @@ bodies, the renderer and the per-event action-mail catalogue.
   pending. The module binds `Body\ActionMailComposer`.
 - A mail body is a `kalaka_mail` post of one event (`kalaka_event_id`),
   edited in the block editor by full access only; its blocks are content and
-  the condition blocks, never a field block. An event's layout is raw HTML
+  the condition blocks, never a field block or a form-only block (refused
+  at save, `field_in_document`, `form_block_in_document`). An event's layout is raw HTML
   with `{{content}}` exactly once and no other `{{…}}` (exactly `{{content}}`
   until set; any other save is refused), stored verbatim (full access is trusted
   like `unfiltered_html`) and never escaped. The per-event settings and the
