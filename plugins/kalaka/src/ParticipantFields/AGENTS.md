@@ -32,6 +32,7 @@ keeps of what it knows about its participants
   declared (an option matched by value), changed only by
   `RenameParticipantField`, for a `form` or `staff` field; a `system` or
   `extension` field's texts are its declarer's.
-- A field's `type` is an opaque block name to this module, and it reads
+- A field's `type` is a block name. The module reads only that block's
+  registered title from WordPress's block registry (the type label) and
   nothing of Forms: which forms hold a field is Forms' to add
   (`ParticipantField::withForms()`).
