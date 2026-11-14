@@ -63,6 +63,7 @@ final class EventRepository extends EntityRepository
             'transfer_account' => $entity->transferAccount,
             'transfer_reference_prefix' => $entity->transferReferencePrefix,
             'payment_due_days' => $entity->paymentDueDays,
+            'account_mode' => $entity->accountMode->value,
         ];
     }
 

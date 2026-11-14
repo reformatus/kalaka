@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Events;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventPoint;
 use Kalaka\Events\Api\EventState;
@@ -36,6 +37,7 @@ final class EventRecord
         public ?string $transferAccount = null,
         public ?string $transferReferencePrefix = null,
         public ?int $paymentDueDays = null,
+        public AccountMode $accountMode = AccountMode::Off,
     ) {
     }
 
@@ -64,6 +66,7 @@ final class EventRecord
             $row['transfer_account'] ?? null,
             $row['transfer_reference_prefix'] ?? null,
             isset($row['payment_due_days']) ? (int) $row['payment_due_days'] : null,
+            AccountMode::from((string) ($row['account_mode'] ?? AccountMode::Off->value)),
         );
     }
 
@@ -91,6 +94,7 @@ final class EventRecord
             $this->transferAccount,
             $this->transferReferencePrefix,
             $this->paymentDueDays,
+            $this->accountMode,
         );
     }
 

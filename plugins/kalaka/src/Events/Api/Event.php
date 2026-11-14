@@ -10,7 +10,8 @@ use Kalaka\Foundation\Api\Money\Currency;
 /**
  * A read of an event. The points are UTC instants. The payment settings are null until set: the
  * bank-transfer beneficiary and account number as entered (SB-1), the prefix of the transfer reference
- * (SB-2) and the payment-due N in days (money.md, "Core money scope").
+ * (SB-2) and the payment-due N in days (money.md, "Core money scope"). The account mode (S15) is `Off` until
+ * set.
  */
 final readonly class Event
 {
@@ -32,6 +33,7 @@ final readonly class Event
         public ?string $transferAccount = null,
         public ?string $transferReferencePrefix = null,
         public ?int $paymentDueDays = null,
+        public AccountMode $accountMode = AccountMode::Off,
     ) {
     }
 
