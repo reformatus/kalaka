@@ -345,6 +345,7 @@ final class FormRoutesTest extends FormsTestCase
                 ['submit', ['version' => $version, 'answers' => self::ANSWERS]],
                 ['submit', ['version' => $version, 'answers' => self::ANSWERS, 'token' => 'short']],
                 ['submit', ['version' => $version, 'token' => SubmitToken::generate()]],
+                ['submit', ['answers' => self::ANSWERS, 'token' => SubmitToken::generate()]],
             ] as [$what, $body]
         ) {
             $this->assertRefused($this->post($form, $what, $body), 400, 'kalaka_invalid_input');
