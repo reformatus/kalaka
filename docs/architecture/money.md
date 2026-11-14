@@ -84,7 +84,7 @@ title: Money
 | `manual_refund` (money returned by transfer or cash) | + | the "record refund" use case |
 | `transfer` (a payment moved to another registration of the same event) | ± | the "move payment" use case |
 | `adjustment` (correction with a reason) | ± | an admin use case |
-| feature lines (aid award, sponsor support, wallet, …) | ± | feature plugins, through an extension point |
+| feature lines (the wallet, deferred) | ± | feature plugins, through an extension point |
 
 ## Recording payments by hand
 
@@ -116,9 +116,10 @@ title: Money
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 - **The threshold** is a target per payer. Each payer with something owed must
   reach its own target. In core the target is the full amount; the deposit
-  extension lowers it to the deposit through a typed point. The threshold is
-  kept in the [tariff snapshot](#tariff-snapshot-and-re-price). Confirmation
-  reads payment facts, never charge lines.
+  extension lowers it to the deposit through a typed point. Like every
+  amount, it follows the event's current settings
+  ([Money settings apply](#money-settings-apply)). Confirmation reads payment
+  facts, never charge lines.
 - **"The congregation part is required for confirmation"** is a per-event
   switch, on by default. Off, only the participant's target counts.
 - **The manual flag** ("may come without paying") is a fact: set with a
@@ -134,7 +135,7 @@ title: Money
   payment that reached the last required target (the paid time for online
   payments), or the set time of the manual flag.
 - **A later charge or a higher threshold changes nothing:** the registration
-  stays confirmed. A lower threshold can confirm more registrations at the
+  stays confirmed, also when a money settings apply raises its amounts. A lower threshold can confirm more registrations at the
   next evaluation.
 - **Withdrawal or removal closes the sequence.** Restore or admission writes a
   new record if the registration qualifies; the old one is never revived.
@@ -206,7 +207,7 @@ such as lunch or a donation.
   pair, participant −X′ and congregation +X′, where
   X′ = max(0, min(share, base price − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.
-- It reads the share, the tariff snapshot and, at its fixed stage in the
+- It reads the share, its current settings and, at its fixed stage in the
   [fee sequence](#materializer), the base price after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
@@ -236,8 +237,9 @@ such as lunch or a donation.
   one. Offers are evaluated from the congregation upwards, and a higher offer
   takes a quota place ([Quota places](#quota-places)) only if it ends up
   applying.
-- **Each applying offer is one participant-side feature line,** labelled with
-  its granting node.
+- **Each applying offer is one participant-side `charge` line** of the
+  support stage, written by the materializer and labelled with its granting
+  node.
 - **Support is capped at the base price,** all applying offers together, so
   the fee never goes negative and support never pays for extras such as
   lunch.
@@ -245,13 +247,17 @@ such as lunch or a donation.
   support lines by granting node. It is a view, not a payer, and is separate
   from the congregation share.
 
-## Tariff snapshot and re-price
+## Money settings apply
 
-- **Each registration keeps the tariff snapshot** it registered under, one
-  entry per fee component, keyed by its id. Each component snapshots its own
-  configuration at submit and at re-price and gets its entry back in
-  `FeeComponentInput`. The price and the confirmation threshold are entries
-  like any other.
+- **There is no tariff snapshot.** Money is always computed from the event's
+  current settings plus the registration's field values and facts. A fee
+  component reads its own current settings; a registration admitted from the
+  waitlist pays today's price.
+- **Price deadlines are judged against the registration's own submit time,**
+  a personal fact, never against "now": a registration submitted before an
+  early price ended keeps that price at every later evaluation, an admission
+  from the waitlist included. The deadline's day ends at midnight in the site
+  time zone ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, the aid award, staff status (a field value written by the staff
   form, an additional form), a passed deadline.
@@ -260,17 +266,22 @@ such as lunch or a donation.
   later submit that would overwrite it is refused
   ([Changing participant fields after submit](events-and-forms.md#changing-participant-fields-after-submit)).
   Every write is evaluated, so a change re-materializes the money.
-- **Event configuration edits reach existing registrations only through an
-  explicit re-price** action with a preview. It replaces the snapshot, and the
-  materializer writes the difference as `charge` lines; `adjustment` lines
-  stay for manual corrections with a reason. Saving event settings never
-  touches existing registrations.
+- **Saving money settings is preview → confirm → apply**
+  ([Bulk changes](foundation.md#bulk-changes)). The preview composes every
+  `registered` and `waitlisted` registration with the proposed settings and
+  writes nothing, showing what each payer owes now and would owe. The apply
+  saves the settings, then re-evaluates each of them in its own transaction,
+  and the materializer writes the difference as `charge` lines. Its report
+  lists the failed registrations, with retry and skip; a failed or skipped
+  one converges on its next evaluation, since the settings are saved.
+  Withdrawn and removed registrations are left out. `adjustment` lines stay
+  for manual corrections with a reason.
 
 ## Materializer
 
 ```mermaid
 flowchart LR
-  S["Registration snapshot<br/>tariff, choices"] --> R
+  S["Current money settings<br/>fixed price, extension settings"] --> R
   F["Registration facts<br/>status, field values from every form"] --> R
   X["Extension-written field values<br/>aid award, …"] --> R
   PF["Payment facts<br/>read from payment lines only"] --> R

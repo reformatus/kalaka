@@ -295,8 +295,9 @@ flowchart LR
   points. Anything that shapes behavior or money goes through these typed PHP
   interfaces.
 - **Each point is documented as running inside or outside the transaction:**
-  - **Inside** (fee component, payment guard, ledger line source, rule or
-    mail condition, date type, confirmation threshold, retention rule,
+  - **Inside** (fee component, payment guard, ledger line source (only the
+    deferred wallet's), rule or mail condition, date type, confirmation
+    threshold, retention rule,
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
