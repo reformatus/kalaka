@@ -161,7 +161,12 @@ final class AccountsOnFormTest extends FormsTestCase
         $user = $this->holder();
 
         $guest = $this->submit($form, null);
-        $loggedIn = $this->submit($form, null, new AccountActor($user), ['name' => 'Teszt Csilla', 'email' => 'x@example.org']);
+        $loggedIn = $this->submit(
+            $form,
+            null,
+            new AccountActor($user),
+            ['name' => 'Teszt Csilla', 'email' => 'teszt.csilla2@example.org']
+        );
 
         self::assertNull($this->ownerOf($guest));
         self::assertNull($this->ownerOf($loggedIn));

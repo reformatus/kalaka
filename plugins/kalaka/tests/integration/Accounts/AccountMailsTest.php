@@ -97,6 +97,14 @@ final class AccountMailsTest extends FormsTestCase
         (new Sender(fn () => $this->runner, new AccountMailComposer()))->send();
     }
 
+    /** @return array<array-key, mixed> the URL's query parameters */
+    private static function query(string $url): array
+    {
+        parse_str((string) wp_parse_url($url, PHP_URL_QUERY), $query);
+
+        return $query;
+    }
+
     /** The first link of the mail's body whose address contains the text. */
     private static function linkIn(string $body, string $contains): string
     {
@@ -123,14 +131,15 @@ final class AccountMailsTest extends FormsTestCase
         self::assertSame(AccountMailComposer::SET_PASSWORD_SUBJECT . ' – Nyári tábor', $mail['subject']);
         $link = self::linkIn((string) $mail['message'], 'action=rp');
         self::assertStringContainsString('wp-login.php', $link);
-        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $query = self::query($link);
         $user = get_user_by('email', 'teszt.anna@example.org');
         self::assertInstanceOf(\WP_User::class, $user);
         self::assertSame($user->user_login, $query['login']);
         // WordPress's own check of the key accepts it: the "set new password" screen opens.
         self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
         $key = $result->registration;
-        self::assertStringContainsString('kalaka_link=' . $key->eventId . '.' . $key->code . '.', (string) $mail['message']);
+        $secretLink = 'kalaka_link=' . $key->eventId . '.' . $key->code . '.';
+        self::assertStringContainsString($secretLink, (string) $mail['message']);
 
         global $wpdb;
         $status = $wpdb->get_var("SELECT status FROM {$wpdb->prefix}kalaka_deliveries");
@@ -149,7 +158,7 @@ final class AccountMailsTest extends FormsTestCase
         self::assertSame('teszt.csilla@example.org', $this->mails[0]['to']);
         self::assertSame(AccountMailComposer::ATTACH_SUBJECT . ' – Nyári tábor', $this->mails[0]['subject']);
         $link = self::linkIn((string) $this->mails[0]['message'], AttachLinks::PARAMETER . '=');
-        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $query = self::query($link);
         $value = (string) $query[AttachLinks::PARAMETER];
 
         $attach = new RegistrationAttach($this->runner);
@@ -184,9 +193,10 @@ final class AccountMailsTest extends FormsTestCase
 
         $link = (new AttachLinks())->url($result->registration, $holder, home_url('/'));
         self::assertNotNull($link);
-        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $query = self::query($link);
 
-        self::assertFalse((new RegistrationAttach($this->runner))->attach((string) $query[AttachLinks::PARAMETER], $holder));
+        $value = (string) $query[AttachLinks::PARAMETER];
+        self::assertFalse((new RegistrationAttach($this->runner))->attach($value, $holder));
         self::assertSame($first, (new Registrations())->find($result->registration)?->ownerUserId);
     }
 
@@ -196,7 +206,7 @@ final class AccountMailsTest extends FormsTestCase
         $result = $this->signUp($this->openForm(), 'Teszt Csilla', 'teszt.csilla@example.org');
         $link = (new AttachLinks())->url($result->registration, $holder, home_url('/'));
         self::assertNotNull($link);
-        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $query = self::query($link);
         global $wpdb;
         $wpdb->update(
             $wpdb->prefix . 'kalaka_registrations',
@@ -214,7 +224,7 @@ final class AccountMailsTest extends FormsTestCase
         $holder = self::factory()->user->create(['user_email' => 'teszt.csilla@example.org']);
         $result = $this->signUp($this->openForm(), 'Teszt Csilla', 'teszt.csilla@example.org');
         $link = (string) (new AttachLinks())->url($result->registration, $holder, '/');
-        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $query = self::query($link);
         $url = '/?' . AttachLinks::PARAMETER . '=' . $query[AttachLinks::PARAMETER];
 
         $response = new RecordingResponse();
@@ -237,7 +247,7 @@ final class AccountMailsTest extends FormsTestCase
         $other = self::factory()->user->create();
         $result = $this->signUp($this->openForm(), 'Teszt Csilla', 'teszt.csilla@example.org');
         $link = (string) (new AttachLinks())->url($result->registration, $holder, '/');
-        parse_str((string) parse_url($link, PHP_URL_QUERY), $query);
+        $query = self::query($link);
 
         $response = new RecordingResponse();
         (new AttachHandler($response, new RegistrationAttach($this->runner)))
