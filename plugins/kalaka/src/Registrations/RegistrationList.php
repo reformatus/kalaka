@@ -6,6 +6,7 @@ namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\RegistrationTables;
 
 /** The registrations of an event with their sorszám, which is computed here and never stored. */
 final class RegistrationList extends Query
@@ -24,9 +25,9 @@ final class RegistrationList extends Query
         return $this->scope(function () use ($eventId): array {
             $rows = $this->select(
                 'registration',
-                "SELECT code, status, created_at, registered_at FROM %i WHERE event_id = %d
-                 ORDER BY CASE WHEN status = 'registered' THEN registered_at ELSE created_at END, code",
-                [$this->table('kalaka_registrations'), $eventId]
+                'SELECT code, status, created_at, registered_at FROM %i WHERE event_id = %d ORDER BY '
+                . RegistrationTables::serialOrder(),
+                [$this->table(RegistrationTables::REGISTRATIONS), $eventId]
             );
 
             $counted = [];

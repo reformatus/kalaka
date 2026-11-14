@@ -6,7 +6,7 @@ namespace Kalaka\Admin;
 
 use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Cli\FullAccessCommand;
-use Kalaka\Admin\GrantFullAccess;
+use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\FullAccess\UsersColumn;

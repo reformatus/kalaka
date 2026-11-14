@@ -6,7 +6,7 @@ namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Admin\GrantFullAccess;
+use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\FullAccessQuery;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;

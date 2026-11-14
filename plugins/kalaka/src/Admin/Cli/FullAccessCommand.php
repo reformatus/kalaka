@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\Cli;
 
-use Kalaka\Admin\GrantFullAccess;
+use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;

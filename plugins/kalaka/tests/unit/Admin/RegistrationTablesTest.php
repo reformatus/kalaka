@@ -8,8 +8,9 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * On the admin side registration data is read only through the view query (foundation.md, "Views and
- * grants"; engineering.md, "Static checks"). deptrac keeps Admin from the Registrations classes; this
- * keeps it from their tables, which a query names in a string: only `Admin\Api\ViewQuery` names them.
+ * grants"; engineering.md, "Static checks"). deptrac keeps Admin from the Registrations classes and lets
+ * only `Admin\Api\ViewQuery` use `Registrations\Api\RegistrationTables`; this second guard catches a table
+ * named in a string: only `Admin\Api\ViewQuery` names them.
  *
  * [UNAPPROVED S36-7]
  */

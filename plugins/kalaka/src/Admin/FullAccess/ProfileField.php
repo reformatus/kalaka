@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Admin\FullAccess;
 
 use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Admin\GrantFullAccess;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\UseCase\Runner;

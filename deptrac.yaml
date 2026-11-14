@@ -74,8 +74,19 @@ deptrac:
           value: '^Kalaka\\Registrations\\(?!Api\\)'
     - name: Registrations Api
       collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Kalaka\\Registrations\\Api\\'
+          must_not:
+            - type: classLike
+              value: '^Kalaka\\Registrations\\Api\\RegistrationTables$'
+    # Registrations' tables by name and the sorszám order: only Registrations and the admin view query
+    # (engineering.md, "Static checks"; RegistrationTablesTest is the second guard, for table names in strings).
+    - name: Registration tables
+      collectors:
         - type: classLike
-          value: '^Kalaka\\Registrations\\Api\\'
+          value: '^Kalaka\\Registrations\\Api\\RegistrationTables$'
     - name: Pricing
       collectors:
         - type: classLike
@@ -122,8 +133,17 @@ deptrac:
           value: '^Kalaka\\Admin\\(?!Api\\)'
     - name: Admin Api
       collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Kalaka\\Admin\\Api\\'
+          must_not:
+            - type: classLike
+              value: '^Kalaka\\Admin\\Api\\ViewQuery$'
+    - name: View query
+      collectors:
         - type: classLike
-          value: '^Kalaka\\Admin\\Api\\'
+          value: '^Kalaka\\Admin\\Api\\ViewQuery$'
     - name: Support
       collectors:
         - type: classLike
@@ -165,6 +185,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Events:
       - WordPress
       - Events Api
@@ -181,6 +202,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Forms:
       - WordPress
       - Forms Engine
@@ -223,6 +245,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Assignments:
       - WordPress
       - Assignments Api
@@ -239,6 +262,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Registrations:
       - WordPress
       - Registrations Api
@@ -255,6 +279,8 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
+      - Registration tables
     Pricing:
       - WordPress
       - Pricing Api
@@ -271,6 +297,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Ledger:
       - WordPress
       - Ledger Api
@@ -287,6 +314,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Payments:
       - WordPress
       - Payments Api
@@ -303,6 +331,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Mail:
       - WordPress
       - Mail Api
@@ -319,6 +348,7 @@ deptrac:
       - Payments Api
       - Portal Api
       - Admin Api
+      - View query
     Portal:
       - WordPress
       - Portal Api
@@ -335,6 +365,7 @@ deptrac:
       - Payments Api
       - Mail Api
       - Admin Api
+      - View query
     Admin:
       - WordPress
       - Admin Api
@@ -351,6 +382,7 @@ deptrac:
       - Payments Api
       - Mail Api
       - Portal Api
+      - View query
     Support:
       - WordPress
       - Support Api
@@ -368,6 +400,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Divi4:
       - WordPress
       - Divi4 Api
@@ -385,6 +418,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Foundation Api:
       - WordPress
       - Foundation
@@ -401,6 +435,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Foundation Api Money:
       - WordPress
       - Foundation
@@ -422,6 +457,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Forms Api:
       - WordPress
       - Forms
@@ -453,6 +489,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Assignments Api:
       - WordPress
       - Assignments
@@ -469,6 +506,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Registrations Api:
       - WordPress
       - Registrations
@@ -485,6 +523,8 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
+      - Registration tables
     Pricing Api:
       - WordPress
       - Pricing
@@ -501,6 +541,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Ledger Api:
       - WordPress
       - Ledger
@@ -517,6 +558,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Payments Api:
       - WordPress
       - Payments
@@ -533,6 +575,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Mail Api:
       - WordPress
       - Mail
@@ -549,6 +592,7 @@ deptrac:
       - Payments Api
       - Portal Api
       - Admin Api
+      - View query
     Portal Api:
       - WordPress
       - Portal
@@ -565,6 +609,7 @@ deptrac:
       - Payments Api
       - Mail Api
       - Admin Api
+      - View query
     Admin Api:
       - WordPress
       - Admin
@@ -581,6 +626,7 @@ deptrac:
       - Payments Api
       - Mail Api
       - Portal Api
+      - View query
     Support Api:
       - WordPress
       - Support
@@ -598,6 +644,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
     Divi4 Api:
       - WordPress
       - Divi4
@@ -615,6 +662,24 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+      - View query
+    View query:
+      - WordPress
+      - Admin
+      - Admin Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Assignments Api
+      - Registrations Api
+      - Registration tables
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+    Registration tables: []
 # A base class in a module's Api may use its own module (S3's D16).
 services:
   KalakaDev\Deptrac\DeptracApiInheritanceSubscriber:

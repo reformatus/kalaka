@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Admin;
+namespace Kalaka\Admin\FullAccess;
 
-use Kalaka\Admin\FullAccess\FullAccessQuery;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\UseCase\Runner;

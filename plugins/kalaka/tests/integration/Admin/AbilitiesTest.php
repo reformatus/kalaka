@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\Access;
-use Kalaka\Admin\GrantFullAccess;
+use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\Grant\DeleteGrant;
 use Kalaka\Admin\Grant\SaveGrant;

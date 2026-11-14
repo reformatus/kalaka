@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Admin;
+namespace Kalaka\Admin\FullAccess;
 
-use Kalaka\Admin\FullAccess\FullAccessChange;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 

@@ -8,6 +8,7 @@ use Kalaka\Admin\View\ViewShape;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationTables;
 use Kalaka\Registrations\Api\Serials;
 
 /**
@@ -49,7 +50,7 @@ final class ViewQuery extends Query
             $rows = $this->select(
                 'count',
                 'SELECT COUNT(*) AS found FROM %i r WHERE r.event_id = %d' . $conditions,
-                [$this->table('kalaka_registrations'), $view->eventId, ...$args]
+                [$this->table(RegistrationTables::REGISTRATIONS), $view->eventId, ...$args]
             );
 
             return (int) ($rows[0]['found'] ?? 0);
@@ -84,19 +85,20 @@ final class ViewQuery extends Query
         [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
         $eventId = $view->eventId;
         $direction = $descending ? ' DESC' : ' ASC';
-        $orderingTime = "CASE WHEN r.status = 'registered' THEN r.registered_at ELSE r.created_at END";
+        // The sorszám order is Registrations' (RegistrationTables), so this grid and the sorszám cannot drift.
+        $serialOrder = RegistrationTables::serialOrder('r');
 
         /** @var literal-string $order */
-        $order = $orderingTime . $direction . ', r.code' . $direction;
+        $order = RegistrationTables::serialOrder('r', $descending);
         $sortArgs = [];
         if ($sort === 'status') {
-            $order = 'r.status' . $direction . ', ' . $orderingTime . ', r.code';
+            $order = 'r.status' . $direction . ', ' . $serialOrder;
         } elseif ($sort !== null && str_starts_with($sort, 'field:')) {
             $order = '(SELECT s.value FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code'
-                . ' AND s.field_key = %s)' . $direction . ', ' . $orderingTime . ', r.code';
-            $sortArgs = [$this->table('kalaka_field_values'), substr($sort, 6)];
+                . ' AND s.field_key = %s)' . $direction . ', ' . $serialOrder;
+            $sortArgs = [$this->table(RegistrationTables::FIELD_VALUES), substr($sort, 6)];
         } elseif ($sort !== null && str_starts_with($sort, 'decision:')) {
-            $order = self::LATEST_STATE_SORT . $direction . ', ' . $orderingTime . ', r.code';
+            $order = self::LATEST_STATE_SORT . $direction . ', ' . $serialOrder;
             $sortArgs = [$this->table('kalaka_decisions'), $this->table('kalaka_decisions'), substr($sort, 9)];
         }
 
@@ -117,7 +119,14 @@ final class ViewQuery extends Query
                 'registration',
                 'SELECT r.code, r.status FROM %i r WHERE r.event_id = %d' . $conditions
                 . ' ORDER BY ' . $order . ' LIMIT %d OFFSET %d',
-                [$this->table('kalaka_registrations'), $eventId, ...$conditionArgs, ...$sortArgs, $limit, $offset]
+                [
+                    $this->table(RegistrationTables::REGISTRATIONS),
+                    $eventId,
+                    ...$conditionArgs,
+                    ...$sortArgs,
+                    $limit,
+                    $offset,
+                ]
             );
             $codes = array_map(static fn (array $row): string => (string) $row['code'], $registrations);
 
@@ -184,7 +193,7 @@ final class ViewQuery extends Query
                 'count',
                 'SELECT COUNT(*) AS found FROM %i r WHERE r.event_id = %d AND r.code IN ('
                 . implode(', ', array_fill(0, count($codes), '%s')) . ')' . $conditions,
-                [$this->table('kalaka_registrations'), $eventId, ...$codes, ...$conditionArgs]
+                [$this->table(RegistrationTables::REGISTRATIONS), $eventId, ...$codes, ...$conditionArgs]
             );
 
             return (int) ($rows[0]['found'] ?? 0) === count($codes);
@@ -203,7 +212,7 @@ final class ViewQuery extends Query
             $keys = $this->select(
                 'field_key',
                 'SELECT DISTINCT field_key FROM %i WHERE event_id = %d',
-                [$this->table('kalaka_field_values'), $eventId]
+                [$this->table(RegistrationTables::FIELD_VALUES), $eventId]
             );
             $kinds = $this->select(
                 'decision_kind',
@@ -236,7 +245,7 @@ final class ViewQuery extends Query
             'SELECT code, field_key, value FROM %i WHERE event_id = %d AND code IN ('
             . implode(', ', array_fill(0, count($codes), '%s')) . ') AND field_key IN ('
             . implode(', ', array_fill(0, count($fieldKeys), '%s')) . ')',
-            [$this->table('kalaka_field_values'), $eventId, ...$codes, ...$fieldKeys]
+            [$this->table(RegistrationTables::FIELD_VALUES), $eventId, ...$codes, ...$fieldKeys]
         );
 
         $values = [];
@@ -317,7 +326,7 @@ final class ViewQuery extends Query
             } elseif (str_starts_with($column, 'field:')) {
                 $fragments[] = ' AND EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
                     . ' AND f.field_key = %s AND f.value IN (' . $in . '))';
-                array_push($args, $this->table('kalaka_field_values'), substr($column, 6), ...$values);
+                array_push($args, $this->table(RegistrationTables::FIELD_VALUES), substr($column, 6), ...$values);
             } else {
                 $fragments[] = ' AND ' . self::LATEST_STATE_FILTER . ' IN (' . $in . ')';
                 array_push(
