@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
 use Kalaka\Mail\Catalogue\SetEventMailLayout;
 use Kalaka\Mail\Catalogue\MailBody;
@@ -157,6 +158,32 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
         self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
+    }
+
+    public function testAStoredRowWithAnUnknownKeyIsSkippedAndLogged(): void
+    {
+        global $wpdb;
+        $event = $this->create();
+        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $event,
+            'mail' => 'checked_in',
+            'version' => 1,
+            'enabled' => 1,
+            'body_id' => null,
+            'layout' => 1,
+        ]);
+
+        $log = $this->capturedErrorLog(function () use ($event): void {
+            $mails = (new ActionMailSettings())->ofEvent($event)->toArray()['mails'];
+            self::assertSame(
+                array_column(ActionMail::cases(), 'value'),
+                array_column($mails, 'mail')
+            );
+            self::assertTrue($mails[0]['enabled']);
+        });
+
+        self::assertStringContainsString('A stored action mail with an unknown key: checked_in', $log);
     }
 
     public function testABodyServesOneMailOnly(): void

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Catalogue;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 use Kalaka\Mail\Api\ActionMail;
 
@@ -15,11 +16,24 @@ use Kalaka\Mail\Api\ActionMail;
  */
 final class ActionMailRepository extends EntityRepository
 {
-    /** @return array<string, ActionMailEntry> one event's stored settings, by action key, in one statement */
+    /**
+     * One event's stored settings, by action key, in one statement. A row whose key is no action of the
+     * catalogue is skipped and logged, never an error: an extension's action mails come with their own
+     * act point (deferred).
+     *
+     * @return array<string, ActionMailEntry>
+     */
     public function ofEvent(int $eventId): array
     {
         $entries = [];
         foreach ($this->findWhere('event_id = %d', [$eventId]) as $entry) {
+            if ($entry->action === null) {
+                Boundary::report(
+                    'action mails of event ' . $eventId,
+                    new \UnexpectedValueException('A stored action mail with an unknown key: ' . $entry->mail)
+                );
+                continue;
+            }
             $entries[$entry->action->value] = $entry;
         }
 
@@ -55,7 +69,7 @@ final class ActionMailRepository extends EntityRepository
     {
         return [
             'event_id' => $entity->eventId,
-            'mail' => $entity->action->value,
+            'mail' => $entity->mail,
             'version' => $entity->version,
             'enabled' => $entity->enabled ? 1 : 0,
             'body_id' => $entity->bodyId,
@@ -67,16 +81,17 @@ final class ActionMailRepository extends EntityRepository
     {
         return new ActionMailEntry(
             (int) $row['event_id'],
-            ActionMail::from((string) $row['mail']),
+            ActionMail::tryFrom((string) $row['mail']),
             (int) $row['enabled'] === 1,
             $row['body_id'] === null ? null : (int) $row['body_id'],
             (int) $row['layout'] === 1,
             (int) $row['version'],
+            (string) $row['mail'],
         );
     }
 
     protected function subject(object $record): Subject
     {
-        return self::subjectOf($record->eventId, $record->action);
+        return new Subject('action_mail', $record->eventId, $record->mail);
     }
 }
