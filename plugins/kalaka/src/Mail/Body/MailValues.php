@@ -95,21 +95,9 @@ final class MailValues
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
             self::CODE => self::text($key->code),
-            self::STATUS => Value::choice([$record['status']->value], self::statusText($record['status'])),
+            self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
         ]);
-    }
-
-    /** The word for a status in a mail. */
-    public static function statusText(RegistrationStatus $status): string
-    {
-        // [UNAPPROVED N20] the status words.
-        return match ($status) {
-            RegistrationStatus::Registered => 'rögzített',
-            RegistrationStatus::Waitlisted => 'várólistás',
-            RegistrationStatus::Withdrawn => 'visszavont',
-            RegistrationStatus::Removed => 'törölt',
-        };
     }
 
     /**

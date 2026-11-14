@@ -21,7 +21,10 @@ final class AfterSubmit
 
     public const CODE = 'registration.code';
 
-    /** A choice of one: `registered` or `waitlisted`. Its display text is empty until a label is approved. */
+    /**
+     * A choice of one: `registered` or `waitlisted`. Its display text is empty until the status words
+     * (`Registrations\Api\RegistrationStatus::word()`, N20 of #162) are approved; then it reads them.
+     */
     public const STATUS = 'registration.status';
 
     /** Every key of the after-submit context and its type. */
