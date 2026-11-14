@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Unit\Forms;
 
-use Kalaka\Forms\DateText;
+use Kalaka\Forms\Api\DateText;
 use PHPUnit\Framework\TestCase;
 
 /** D6, D25: the text of a day. */

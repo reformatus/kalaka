@@ -100,10 +100,10 @@ title: Engineering
 - **Participant pages have no look of their own: they follow the site's
   theme.** Kaláka content is authored only in the block editor (forms,
   field definitions, mails, participant pages); a page builder only places a
-  form, through the shortcode
+  form or a participant block, through its shortcode
   ([Forms](events-and-forms.md#forms-implementation)). Kaláka adds logic and
-  dynamic data through its own blocks, and the block and the shortcode
-  render a form the same way. Markup is
+  dynamic data through its own blocks, and a block and its shortcode render
+  the same way. Markup is
   semantic (`label`, `fieldset`, `input`, `button`) and uses WordPress's
   element classes such as `wp-element-button`; blocks declare the standard
   block supports; Kaláka's CSS is structural only (layout, hidden branches,

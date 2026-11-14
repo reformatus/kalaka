@@ -36,7 +36,8 @@ and moving payments
 - Payment facts are the lines of kinds `payment`, `refund`, `manual_payment`,
   `manual_refund` and `transfer`; `charge` and `adjustment` lines are not
   payment facts. Rules never read charge lines: the Ledger `Api` gives them
-  payment facts, read from payment lines only.
+  payment facts, read from payment lines only. `Ledger::summaryOf()` reads
+  every line for display (the participant blocks); no rule calls it.
 - A payment-fact line carries exactly one time, a UTC instant: `paid_at` on
   `payment` and `refund`; `value_date` on `manual_payment`, `manual_refund`
   and `transfer`, entered as a day and stored as 00:00 of it in the site

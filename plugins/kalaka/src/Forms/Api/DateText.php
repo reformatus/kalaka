@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Forms;
+namespace Kalaka\Forms\Api;
 
 /**
  * The text of a calendar day in a document: `<year>. <month name> <day>.` with the Hungarian month in
