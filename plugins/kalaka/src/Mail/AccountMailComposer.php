@@ -10,9 +10,9 @@ use Kalaka\Registrations\Api\SecretLinks;
 
 /**
  * The composer of the two account mails (S15), with plain built-in content beside the action-mail
- * catalogue (S33's `Body\ActionMailComposer` hands them here; the bodies are re-asked in S33/S34). Both are action mails queued by the submit, with the cause
- * `account` and the WordPress user ID as its key (`Registrations\Account\AccountOutcome`), and go to that
- * account's current address:
+ * catalogue (S33's `Body\ActionMailComposer` hands them here; the bodies are re-asked in S33/S34). Both
+ * are action mails queued by the submit, with the cause `account` and the WordPress user ID as its key
+ * (`Registrations\Account\AccountOutcome`), and go to that account's current address:
  *
  * - `account_set_password`: the link to WordPress's own "set new password" screen
  *   (`wp-login.php?action=rp`) with a fresh reset key, made here at send time so a wait in the queue does not

@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Mail\AccountMailComposer;
 use Kalaka\Mail\Api\MailQueue;
+use Kalaka\Mail\Body\ActionMailComposer;
 use Kalaka\Mail\Sender;
 use Kalaka\Portal\AttachHandler;
 use Kalaka\Registrations\Api\AttachLinks;
@@ -94,7 +95,8 @@ final class AccountMailsTest extends FormsTestCase
 
     private function send(): void
     {
-        (new Sender(fn () => $this->runner, new AccountMailComposer()))->send();
+        // The one bound composer: it hands the account mails to `AccountMailComposer`.
+        (new Sender(fn () => $this->runner, new ActionMailComposer()))->send();
     }
 
     /** @return array<array-key, mixed> the URL's query parameters */
