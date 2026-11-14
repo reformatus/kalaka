@@ -128,6 +128,11 @@ final class RankingFieldFormTest extends FormsTestCase
             substr_count($html, '<button type="button" data-kalaka-move="down" hidden>Lejjebb</button>')
         );
         self::assertStringContainsString('id="kalaka-field-modulok-error" class="kalaka-field__error" hidden', $html);
+        // The live region that tells a screen reader an option's new place after a move.
+        self::assertStringContainsString(
+            '<span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span>',
+            $html
+        );
 
         // The options keep their authored order among the unranked ones.
         self::assertLessThan(strpos($html, 'modul_b'), strpos($html, 'modul_a'));

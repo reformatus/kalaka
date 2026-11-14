@@ -9,6 +9,7 @@ const browser = {
 	document: 'readonly',
 	Element: 'readonly',
 	Event: 'readonly',
+	MouseEvent: 'readonly',
 	fetch: 'readonly',
 	performance: 'readonly',
 	PopStateEvent: 'readonly',

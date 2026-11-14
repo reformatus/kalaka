@@ -39,7 +39,10 @@ It holds the ranking field type now and the ranking proposer later (S77).
   assignment sets exist; every option is offered until then (TODO(S76)).
 - The markup is core's field markup (`Forms\Api\FieldMarkup`): the browser's
   own checkboxes named `<key>[]` in a choice group, ranked ones first in an
-  ordered list, so the form sends them in rank order. The script holds no
-  rule and changes only the order and the place of the options; the server
-  checks everything at submit.
+  ordered list, so the form sends them in rank order. A ranked option moves
+  by a drag (pointer events: mouse, pen, touch) or by its Feljebb and Lejjebb
+  buttons (the keyboard's way); every move fires `change` and is announced in
+  the field's live region. The script holds no rule and changes only the
+  order and the place of the options; the server checks everything at
+  submit.
 - The plugin stores nothing of its own.

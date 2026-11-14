@@ -6,7 +6,8 @@
  * theme adapter's classes: a choice group whose options are the browser's own checkboxes, named
  * `<key>[]`, so the form sends the ticked ones in document order. The ticked options sit first, in rank
  * order, in an ordered list; the others follow in authored order. `view.js` moves an option between the
- * two lists when it is ticked or unticked, and up or down the ranked list with its two buttons.
+ * two lists when it is ticked or unticked, and up or down the ranked list by a drag or its two buttons;
+ * the live region (WordPress's `screen-reader-text`) tells a screen reader an option's new place.
  *
  * @var array<string, mixed> $attributes
  */
@@ -61,6 +62,7 @@ foreach ($kalakaLabels as $kalakaValue => $kalakaLabel) {
         <ol data-kalaka-ranked><?php echo $kalakaRankedItems; ?></ol>
         <ul data-kalaka-unranked><?php echo $kalakaOtherItems; ?></ul>
     </fieldset>
+    <span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span>
     <?php echo FieldMarkup::errorElement($kalakaKey); ?>
 </div>
 <?php
