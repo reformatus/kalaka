@@ -110,13 +110,13 @@ export default function Edit({ name, attributes, setAttributes }) {
 					__nextHasNoMarginBottom: true,
 				}),
 				el(Count, {
-					label: 'Legalább',
+					label: 'Legkevesebb választás',
 					value: attributes.min,
 					fallback: 1,
 					onChange: (min) => setAttributes({ min }),
 				}),
 				el(Count, {
-					label: 'Legfeljebb',
+					label: 'Legtöbb választás',
 					value: attributes.max,
 					fallback: 3,
 					onChange: (max) => setAttributes({ max }),
