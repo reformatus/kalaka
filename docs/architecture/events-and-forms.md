@@ -193,6 +193,10 @@ flowchart TB
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
 - The public page uses WordPress's **Interactivity API**.
+- **The account step:** in the event's mandatory and optional account mode,
+  a registration form opened by someone not logged in begins with the
+  account step before its first page
+  ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
   (UI text approved when built). A multi-page form shows none of its pages

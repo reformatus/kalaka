@@ -76,15 +76,22 @@ erDiagram
 
 ## Accounts on the registration form
 
-- **Creating an account is an opt-in on the registration form,** offered
-  only to people aged 16 or over (Hungary's age of digital consent; IVK's
-  participants are all adults).
+- **Each event has one account mode:** mandatory, optional or off, for all
+  its registration forms. In mandatory and optional mode, a registration
+  form opened by someone not logged in begins, before any question, with a
+  step that code adds: sign up, log in, or (in optional mode only) skip.
+  Skip lands the registration with no account, as a guest's. Off is the form
+  without accounts. Additional forms show no step.
+- Whether signing up in optional mode is offered only to people aged 16 or
+  over (Hungary's age of digital consent) is still open; IVK's participants
+  are all adults.
 - **The form never asks for a password.** The account is activated through
   a set-password mail sent by the queue, which also verifies the address.
 - **The registration does not wait for the account:** it lands at submit,
   takes its place in capacity and gets its reference code before the
   set-password mail is used.
-- **If the person is logged in,** the registration attaches to their account.
+- **If the person is logged in,** the registration attaches to their
+  account, unless the event's account mode is off.
 - **If the email already has an account,** the registration attaches when
   the mail's link is used. The form never reveals whether an account exists.
 - At first the account area may show only a "coming soon" page

@@ -20,8 +20,8 @@ short. The architecture pages say how things are built; this page says when.
    block** on a page, showing the registration's status and payment status,
    and the **bank-transfer details** as a block of its own (the exact set of
    participant blocks is still to be agreed with the owner);
-   protection against double submits; spam protection; an optional account
-   created on the form, offered to people aged 16 or over and activated
+   protection against double submits; spam protection; an account created
+   on the form (mandatory for IVK) and activated
    through a set-password mail sent by the queue (the account area itself
    may only say "Coming soon").
 2. **Money core:** the ledger with payers, the materializer and the money
