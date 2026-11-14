@@ -17,13 +17,14 @@ use Kalaka\Mail\Body\MailPosts;
 /**
  * Changes one action mail of an event (mail.md, "Configuration"): switches it on or off, assigns its body
  * (a `kalaka_mail` post of the event) and whether the event's layout wraps it. A mail is on only with a
- * body. Site-level, like every Mail use case: only full access, WP-CLI and the system run it.
+ * body, and a body serves one mail only (mail.md, "Words": one to one). Site-level, like every Mail use case: only full access, WP-CLI and the system run it.
  * // [UNAPPROVED N16] the command that changes one action mail.
  */
 final class UpdateActionMail implements AdminUseCase
 {
-    // [UNAPPROVED N20] the refusal's text.
+    // [UNAPPROVED N20] the refusals' texts.
     public const NO_BODY = 'Előbb add meg a levél szövegét.';
+    public const BODY_TAKEN = 'Ezt a szöveget már egy másik levél használja.';
 
     public function __construct(
         private readonly ActionMailRepository $mails = new ActionMailRepository(),
@@ -73,7 +74,7 @@ final class UpdateActionMail implements AdminUseCase
      * @return array<string, mixed> the event's mail settings after the change (`EventMailSettings::toArray()`)
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the body is not a `kalaka_mail` post of the event
-     * @throws RuleViolation when the mail would be on without a body
+     * @throws RuleViolation when the mail would be on without a body, or the body is another mail's
      */
     public function execute(array $input, Context $context): array
     {
@@ -89,6 +90,12 @@ final class UpdateActionMail implements AdminUseCase
             $bodyId = $input['body_id'] === null ? null : (int) $input['body_id'];
             if ($bodyId !== null && $this->posts->eventOf($bodyId) !== $eventId) {
                 throw new InvalidInput();
+            }
+            foreach ($this->mails->ofEvent($eventId) as $other) {
+                if ($bodyId !== null && $other->action !== $action && $other->bodyId === $bodyId) {
+                    // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
+                    throw new RuleViolation(self::BODY_TAKEN);
+                }
             }
             $entry->bodyId = $bodyId;
         }

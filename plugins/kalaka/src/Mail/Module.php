@@ -75,7 +75,8 @@ SQL;
 
     /**
      * mail.md, "Configuration": one event's setting of one action mail (`mail` is the action's key); a missing
-     * row is the default (off, no body, wrapped by the layout). `body_id` is the body's `kalaka_mail` post.
+     * row is the default (off, no body, wrapped by the layout). `body_id` is the body's `kalaka_mail` post, one
+     * to one (mail.md, "Words"): a body serves at most one action mail.
      * // [UNAPPROVED N16] the per-event mail settings live in two Mail-owned tables.
      */
     private const ACTION_MAILS = <<<'SQL'
@@ -86,7 +87,8 @@ CREATE TABLE {prefix}kalaka_action_mails (
   enabled tinyint(1) unsigned NOT NULL DEFAULT 0,
   body_id bigint(20) unsigned DEFAULT NULL,
   layout tinyint(1) unsigned NOT NULL DEFAULT 1,
-  PRIMARY KEY  (event_id,mail)
+  PRIMARY KEY  (event_id,mail),
+  UNIQUE KEY body_id (body_id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
@@ -120,7 +122,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::DELIVERIES, self::STATES, self::ACTION_MAILS, self::LAYOUTS]);
+        return new Schema(4, [self::DELIVERIES, self::STATES, self::ACTION_MAILS, self::LAYOUTS]);
     }
 
     public function contribute(Contributions $to): void

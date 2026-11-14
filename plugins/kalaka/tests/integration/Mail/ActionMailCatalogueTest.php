@@ -80,6 +80,28 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
     }
 
+    public function testABodyServesOneMailOnly(): void
+    {
+        $event = $this->create();
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'waitlisted', 'enabled' => false]);
+
+        try {
+            $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'waitlisted', 'body_id' => $body]);
+            self::fail('Expected a refusal.');
+        } catch (RuleViolation $e) {
+            self::assertSame(
+                'A művelet nem hajtható végre. Ezt a szöveget már egy másik levél használja.',
+                $e->getMessage()
+            );
+        }
+        self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][1]['body_id']);
+
+        // The same mail may be given its own body again.
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => $body]);
+    }
+
     public function testABodyOfAnotherEventOrAnotherPostTypeIsRefused(): void
     {
         $event = $this->create();
