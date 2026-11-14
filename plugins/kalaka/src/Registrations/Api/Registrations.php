@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
+use Kalaka\Events\Api\Event;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
+use Kalaka\Registrations\RegistrationList;
 use Kalaka\Registrations\RegistrationRepository;
 use Kalaka\Registrations\Submission\SubmissionRepository;
 
 /**
  * What other modules may do with a registration: read it (the row, its first submission's form and version,
- * its field values), or lock it. Never the secret.
+ * its field values, its facts, an event's open ones), or lock it. Never the secret.
  */
 final class Registrations
 {
@@ -20,6 +22,7 @@ final class Registrations
         private readonly RegistrationRepository $repository = new RegistrationRepository(),
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
+        private readonly RegistrationList $list = new RegistrationList(),
     ) {
     }
 
@@ -60,6 +63,39 @@ final class Registrations
         }
 
         return $values;
+    }
+
+    /**
+     * The registration's fact source, from a plain read without a lock (inside the evaluation the run already
+     * holds the row). Null when there is no such registration.
+     */
+    public function factsOf(RegistrationKey $key, Event $event): ?RegistrationFacts
+    {
+        $registration = $this->repository->find($key);
+        if ($registration === null) {
+            return null;
+        }
+
+        return new RegistrationFacts($key, $registration->status, $registration->createdAt, $event);
+    }
+
+    /**
+     * The event's `registered` and `waitlisted` registrations, in the list's order: the ones a money settings
+     * apply re-evaluates (withdrawn and removed are left out). One statement.
+     *
+     * @return list<RegistrationKey>
+     */
+    public function openOf(int $eventId): array
+    {
+        $keys = [];
+        foreach ($this->list->forEvent($eventId) as $row) {
+            $status = $row['status'];
+            if ($status === RegistrationStatus::Registered || $status === RegistrationStatus::Waitlisted) {
+                $keys[] = new RegistrationKey($eventId, $row['code']);
+            }
+        }
+
+        return $keys;
     }
 
     /**
