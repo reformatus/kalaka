@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
- * [UNAPPROVED N2] When the plugin is activated and no user holds `kalaka_full_access`, the activating user
+ * When the plugin is activated and no user holds `kalaka_full_access`, the activating user
  * gets it (`GrantFullAccess`, run as the system, so it is audited). That covers the first activation and
  * the recovery when every holder is gone; while anyone holds it, activating again gives nobody anything.
  */

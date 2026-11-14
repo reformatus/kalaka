@@ -67,6 +67,22 @@ final class FullAccessOnActivationTest extends AuditTestCase
         self::assertSame([], $this->entries());
     }
 
+    public function testNobodyGetsItWhileARoleCarriesItForSomeone(): void
+    {
+        add_role('kalaka_teszt_role', 'Teszt szerep', [AdminAccess::FULL_ACCESS => true]);
+        try {
+            self::factory()->user->create(['role' => 'kalaka_teszt_role']);
+            $user = self::factory()->user->create();
+
+            FullAccessOnActivation::grant($user);
+
+            self::assertFalse(user_can($user, AdminAccess::FULL_ACCESS));
+            self::assertSame([], $this->entries());
+        } finally {
+            remove_role('kalaka_teszt_role');
+        }
+    }
+
     public function testNoUserNoGrant(): void
     {
         FullAccessOnActivation::grant(0);

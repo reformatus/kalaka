@@ -14,7 +14,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * embeds a form). In any other editor a gated block is allowed only when a `BlockHost` that applies to it
  * names it; the condition blocks, the form block and every other block are left as they are. What another
  * filter allowed is kept: a list is only narrowed, except that a form's editor always gets its gated and
- * condition blocks back. Outside a form's editor an allow-all `true` stays `true` ([UNAPPROVED N1]): the
+ * condition blocks back. Outside a form's editor an allow-all `true` stays `true`: the
  * gated blocks are hidden there on the client.
  */
 final class BlockGate
@@ -49,9 +49,6 @@ final class BlockGate
         'core/image',
         'core/group',
     ];
-
-    /** The handle of the inline script that hides the gated blocks outside a form's editor. */
-    public const HIDING_SCRIPT = 'kalaka-block-gate';
 
     /** The block that embeds a form in a page. */
     public const FORM_BLOCK = FormCaching::BLOCK;
@@ -127,8 +124,10 @@ final class BlockGate
 
     /**
      * `enqueue_block_editor_assets`: in an editor other than a form's, where the allowed blocks stay
-     * `true`, a small inline script unregisters the gated blocks on the client once the editor scripts have
-     * registered theirs, so the inserter does not offer them. The server list stays untouched.
+     * `true`, the names of the gated blocks are printed before the Kaláka editor script (the form block's) as
+     * `window.kalakaHiddenBlocks`; that built script unregisters them once every editor script has
+     * registered its blocks (`Blocks/form/hidden.js`), so the inserter does not offer them. Only data is
+     * printed here. The server list stays untouched.
      */
     public static function enqueueHiding(): void
     {
@@ -145,16 +144,21 @@ final class BlockGate
         if ($hidden === []) {
             return;
         }
-        wp_register_script(self::HIDING_SCRIPT, false, ['wp-blocks', 'wp-dom-ready'], KALAKA_VERSION, true);
-        wp_enqueue_script(self::HIDING_SCRIPT);
-        wp_add_inline_script(self::HIDING_SCRIPT, self::hidingScript($hidden));
+        $handle = self::editorHandle();
+        if ($handle === null) {
+            return;
+        }
+        $names = (string) wp_json_encode($hidden);
+        wp_add_inline_script($handle, 'window.kalakaHiddenBlocks = ' . $names . ';', 'before');
     }
 
-    /** @param list<string> $hidden */
-    public static function hidingScript(array $hidden): string
+    /** The handle of the Kaláka editor script, the one every Kaláka block's `block.json` names; null before registration. */
+    public static function editorHandle(): ?string
     {
-        return 'wp.domReady(function () { ' . (string) wp_json_encode($hidden) . '.forEach(function (name) { '
-            . 'if (wp.blocks.getBlockType(name)) { wp.blocks.unregisterBlockType(name); } }); });';
+        $type = \WP_Block_Type_Registry::get_instance()->get_registered(self::FORM_BLOCK);
+        $handle = $type === null ? null : ($type->editor_script_handles[0] ?? null);
+
+        return is_string($handle) ? $handle : null;
     }
 
     /** @return list<string> */

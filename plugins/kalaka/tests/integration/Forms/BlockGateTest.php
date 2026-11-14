@@ -112,26 +112,33 @@ final class BlockGateTest extends WP_UnitTestCase
         }
     }
 
-    public function testThePostEditorHidesTheGatedBlocksOnTheClientAndAFormsEditorDoesNot(): void
+    public function testThePostEditorNamesTheGatedBlocksToTheEditorScriptAndAFormsEditorDoesNot(): void
     {
+        $handle = BlockGate::editorHandle();
+        self::assertIsString($handle);
         $scripts = wp_scripts();
+        $before = $scripts->get_data($handle, 'before');
         try {
             set_current_screen('kalaka_form');
             BlockGate::enqueueHiding();
-            self::assertFalse(wp_script_is(BlockGate::HIDING_SCRIPT, 'registered'));
+            self::assertStringNotContainsString('kalakaHiddenBlocks', $this->before($handle));
 
             set_current_screen('post');
             BlockGate::enqueueHiding();
-            self::assertTrue(wp_script_is(BlockGate::HIDING_SCRIPT, 'enqueued'));
-            $inline = implode("\n", (array) $scripts->get_data(BlockGate::HIDING_SCRIPT, 'after'));
-            self::assertStringContainsString('unregisterBlockType', $inline);
+            $inline = $this->before($handle);
+            self::assertStringContainsString('window.kalakaHiddenBlocks = ', $inline);
             self::assertStringContainsString('"kalaka\\/text-field"', $inline);
             self::assertStringNotContainsString('"kalaka\\/form"', $inline);
+            self::assertStringNotContainsString('unregisterBlockType', $inline);
         } finally {
-            wp_dequeue_script(BlockGate::HIDING_SCRIPT);
-            wp_deregister_script(BlockGate::HIDING_SCRIPT);
+            $scripts->add_data($handle, 'before', $before === false ? [] : $before);
             set_current_screen('front');
         }
+    }
+
+    private function before(string $handle): string
+    {
+        return implode("\n", (array) wp_scripts()->get_data($handle, 'before'));
     }
 
     public function testAListFromAnotherFilterIsNarrowedElsewhereAndGetsTheFieldsBackInAForm(): void
