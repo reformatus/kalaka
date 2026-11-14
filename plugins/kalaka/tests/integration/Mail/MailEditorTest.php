@@ -8,7 +8,6 @@ use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Mail\Body\MailPosts;
-use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Mail\Module;
 
 /** Mail documents in the block editor: full access only, the mail blocks, and the condition blocks inside them. */
@@ -97,7 +96,7 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertSame('publish', get_post_status($body));
 
         // Switched off, the body may go.
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
         self::assertInstanceOf(\WP_Post::class, wp_trash_post($body));
         self::assertInstanceOf(\WP_Post::class, wp_delete_post($body, true));
     }
@@ -122,7 +121,7 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertStringContainsString('Szia újra', (string) get_post_field('post_content', $body));
 
         // Switched off, the body may change.
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
         wp_update_post(['ID' => $body, 'post_status' => 'draft']);
         self::assertSame('draft', get_post_status($body));
         self::assertTrue((bool) update_post_meta($body, 'kalaka_event_id', $other));

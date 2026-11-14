@@ -69,7 +69,11 @@ bodies, the renderer and the per-event action-mail catalogue.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):
   REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
   gracefully (a published body keeps its content, another stays unpublished)
-  and tells the saving user in an admin notice. `UpdateActionMail` does not
+  and tells the saving user in an admin notice.
+- No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
+  gets the body's facts (`Catalogue\MailBody`: its event, whether it is
+  published) read before the run by its entry, `Api\ActionMailSettings::update()`;
+  run without them it refuses a body assignment or a switch-on. It does not
   check the keys: a body is checked at its save, and one that goes stale
   later fails per delivery without pausing.
 - The secret link reaches a mail only as the value `registration.link` from

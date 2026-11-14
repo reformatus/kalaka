@@ -6,7 +6,8 @@ namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Catalogue\SetEventMailLayout;
-use Kalaka\Mail\Catalogue\UpdateActionMail;
+use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Mail\Api\ActionMailSettings;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -184,13 +185,20 @@ abstract class MailBodyTestCase extends MailTestCase
      */
     protected function switchOn(int $event, string $mail, int $body, bool $layout = true): array
     {
-        $settings = $this->exec(
-            new UpdateActionMail(),
+        return $this->updateMail(
             ['event_id' => $event, 'mail' => $mail, 'body_id' => $body, 'enabled' => true, 'layout' => $layout]
         );
-        self::assertIsArray($settings);
+    }
 
-        return $settings;
+    /**
+     * Changes an action mail through its entry, which reads the body's facts before the run.
+     *
+     * @param array<string, mixed> $input
+     * @return array<string, mixed>
+     */
+    protected function updateMail(array $input, ?Actor $actor = null): array
+    {
+        return (new ActionMailSettings())->update($input, $actor ?? $this->admin, $this->runner);
     }
 
     protected function setLayout(int $event, string $html): void

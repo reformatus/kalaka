@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Mail\Api\ActionMailSettings;
 use Kalaka\Mail\Catalogue\SetEventMailLayout;
+use Kalaka\Mail\Catalogue\MailBody;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 
 /** The per-event action-mail catalogue and the event's layout. mail.md, "Configuration". */
@@ -63,7 +64,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $event = $this->create();
 
         try {
-            $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+            $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
             self::fail('Expected a refusal.');
         } catch (RuleViolation $e) {
             self::assertSame('A művelet nem hajtható végre. Előbb add meg a levél szövegét.', $e->getMessage());
@@ -77,7 +78,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
 
         $this->expectException(RuleViolation::class);
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
     }
 
     public function testOnlyAPublishedBodyIsAssignedOrSwitchedOn(): void
@@ -88,7 +89,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
 
         foreach ([['body_id' => $draft], ['body_id' => $draft, 'enabled' => true]] as $change) {
             try {
-                $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered'] + $change);
+                $this->updateMail(['event_id' => $event, 'mail' => 'registered'] + $change);
                 self::fail('Expected a refusal.');
             } catch (RuleViolation $e) {
                 self::assertSame('A művelet nem hajtható végre. Előbb tedd közzé a levél szövegét.', $e->getMessage());
@@ -100,10 +101,10 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         // body is published again.
         $body = $this->document($event, $this->paragraph('Szia'));
         $this->switchOn($event, 'registered', $body);
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
         wp_update_post(['ID' => $body, 'post_status' => 'draft']);
         $this->expectException(RuleViolation::class);
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
     }
 
     public function testALayoutOnlyEditOfAMailThatIsOnPassesWhateverItsBodysStatus(): void
@@ -116,12 +117,46 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => $body]);
         clean_post_cache($body);
 
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
 
         $mail = (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0];
         self::assertFalse($mail['layout']);
         self::assertTrue($mail['enabled']);
+    }
+
+    public function testWithoutThePreReadBodyAnAssignmentOrASwitchOnIsRefused(): void
+    {
+        $event = $this->create();
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
+
+        // A run of the use case alone, as a generic dispatch makes it, cannot read the body in its transaction.
+        $changes = [['body_id' => $body], ['enabled' => true], ['body_id' => $body, 'enabled' => true]];
+        foreach ($changes as $change) {
+            try {
+                $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered'] + $change);
+                self::fail('Expected a refusal.');
+            } catch (RuleViolation $e) {
+                self::assertSame('A művelet nem hajtható végre.', $e->getMessage());
+            }
+        }
+        // A body of another post's facts does not count either.
+        try {
+            $this->exec(
+                new UpdateActionMail(new MailBody($body + 1, $event, true)),
+                ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]
+            );
+            self::fail('Expected a refusal.');
+        } catch (RuleViolation) {
+            self::assertFalse((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled']);
+        }
+
+        // What needs no body facts passes.
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'layout' => false]);
+        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
+        self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
     }
 
     public function testABodyServesOneMailOnly(): void
@@ -129,10 +164,10 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $event = $this->create();
         $body = $this->document($event, $this->paragraph('Szia'));
         $this->switchOn($event, 'registered', $body);
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'waitlisted', 'enabled' => false]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'waitlisted', 'enabled' => false]);
 
         try {
-            $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'waitlisted', 'body_id' => $body]);
+            $this->updateMail(['event_id' => $event, 'mail' => 'waitlisted', 'body_id' => $body]);
             self::fail('Expected a refusal.');
         } catch (RuleViolation $e) {
             self::assertSame(
@@ -143,7 +178,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][1]['body_id']);
 
         // The same mail may be given its own body again.
-        $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => $body]);
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => $body]);
     }
 
     public function testABodyOfAnotherEventOrAnotherPostTypeIsRefused(): void
@@ -154,7 +189,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
 
         foreach ([$this->document($other, $this->paragraph('Szia')), $page] as $body) {
             try {
-                $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered', 'body_id' => $body]);
+                $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => $body]);
                 self::fail('Expected a refusal.');
             } catch (InvalidInput) {
                 self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
@@ -166,13 +201,13 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
     {
         $event = $this->create();
         try {
-            $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'checked_in', 'enabled' => false]);
+            $this->updateMail(['event_id' => $event, 'mail' => 'checked_in', 'enabled' => false]);
             self::fail('Expected a refusal.');
         } catch (InvalidInput) {
         }
 
         $this->expectException(NotFound::class);
-        $this->exec(new UpdateActionMail(), ['event_id' => $event + 100, 'mail' => 'registered', 'enabled' => false]);
+        $this->updateMail(['event_id' => $event + 100, 'mail' => 'registered', 'enabled' => false]);
     }
 
     public function testOnlyFullAccessChangesTheSettings(): void
@@ -181,11 +216,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         $user = self::factory()->user->create(['role' => 'editor']);
 
         $this->expectException(PermissionDenied::class);
-        $this->exec(
-            new UpdateActionMail(),
-            ['event_id' => $event, 'mail' => 'registered', 'enabled' => false],
-            new UserActor($user)
-        );
+        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => false], new UserActor($user));
     }
 
     public function testALayoutWithOneContentPlaceholderIsStoredAsWritten(): void
