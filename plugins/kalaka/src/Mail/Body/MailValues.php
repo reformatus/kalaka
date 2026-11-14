@@ -14,8 +14,7 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
-use Kalaka\Registrations\Api\RegistrationLookup;
-use Kalaka\Registrations\Api\RegistrationRecord;
+use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SecretLinks;
 
@@ -36,7 +35,7 @@ final class MailValues
     public const LINK = 'registration.link';
 
     public function __construct(
-        private readonly RegistrationLookup $registrations = new RegistrationLookup(),
+        private readonly Registrations $registrations = new Registrations(),
         private readonly SecretLinks $links = new SecretLinks(),
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
@@ -52,7 +51,7 @@ final class MailValues
      */
     public function recipient(RegistrationKey $key): ?string
     {
-        $record = $this->registrations->find($key);
+        $record = $this->read($key);
         if ($record === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a machine code, never output
             throw new RecipientUnavailable(RecipientUnavailable::NO_REGISTRATION);
@@ -64,7 +63,7 @@ final class MailValues
             throw new RecipientUnavailable(RecipientUnavailable::NO_RECIPIENT_FORM);
         }
         $field = $this->marked($definition, true);
-        $email = $field === null ? null : ($record->values[$field] ?? null);
+        $email = $field === null ? null : ($record['values'][$field] ?? null);
 
         return $email === null || $email === '' ? null : $email;
     }
@@ -75,7 +74,7 @@ final class MailValues
      */
     public function context(RegistrationKey $key): ValueContext
     {
-        $record = $this->registrations->find($key);
+        $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));
         if ($record === null || $link === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
@@ -91,12 +90,12 @@ final class MailValues
         $name = $this->marked($definition, false);
 
         return new ValueContext([
-            ...$this->forms->participantValues($key->eventId, $record->values),
+            ...$this->forms->participantValues($key->eventId, $record['values']),
             ...EventValues::of($event),
-            self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record->values[$email] ?? '')),
-            self::RECIPIENT_NAME => self::text($name === null ? '' : ($record->values[$name] ?? '')),
+            self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
+            self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
             self::CODE => self::text($key->code),
-            self::STATUS => Value::choice([$record->status->value], self::statusText($record->status)),
+            self::STATUS => Value::choice([$record['status']->value], self::statusText($record['status'])),
             self::LINK => self::text($link),
         ]);
     }
@@ -113,13 +112,38 @@ final class MailValues
         };
     }
 
-    /** @throws SystemFailure when the slot form is not usable now (`no_form`) or its definition has a problem */
-    private function definition(RegistrationRecord $record): FormDefinition
+    /**
+     * The registration through `Registrations`: its status, the form of its first submission and its field
+     * values; null when there is no such registration or it has no first submission.
+     *
+     * @return array{
+     *     status: RegistrationStatus,
+     *     form_id: int,
+     *     form_version: int,
+     *     values: array<string, string>,
+     * }|null
+     */
+    private function read(RegistrationKey $key): ?array
     {
-        $form = $this->forms->form($record->formId);
+        $registration = $this->registrations->find($key);
+        $first = $this->registrations->firstSubmission($key);
+        if ($registration === null || $first === null) {
+            return null;
+        }
+
+        return ['status' => $registration->status, ...$first, 'values' => $this->registrations->values($key)];
+    }
+
+    /**
+     * @param array{form_id: int, form_version: int} $record
+     * @throws SystemFailure when the slot form is not usable now (`no_form`) or its definition has a problem
+     */
+    private function definition(array $record): FormDefinition
+    {
+        $form = $this->forms->form($record['form_id']);
         if ($form === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
-            throw new SystemFailure('no_form ' . $record->formId);
+            throw new SystemFailure('no_form ' . $record['form_id']);
         }
 
         return $this->forms->definition($form);
