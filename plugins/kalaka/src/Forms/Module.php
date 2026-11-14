@@ -85,7 +85,7 @@ final class Module extends AbstractModule
             add_action('wp_loaded', [$check, 'run']);
         }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
-        add_action('rest_api_init', [new FormRoutes(), 'register']);
+        add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
         add_shortcode(FormCaching::SHORTCODE, [$this, 'shortcode']);

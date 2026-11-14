@@ -6,7 +6,6 @@ namespace Kalaka\Forms\Engine;
 
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
-use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Forms\Engine\Value\InlineValues;
@@ -14,15 +13,15 @@ use Kalaka\Forms\Engine\Value\RenderStack;
 
 /**
  * The choice fields with option conditions, re-rendered with only the options they offer for the answers
- * (S76 seam: the re-fetch's `parts`). Each is the field block of the form's version as `Forms::blocks()`
- * gives it, rendered alone with `render_block()` and the event's values filled in, keyed by field key.
+ * (S76 seam: the re-fetch's `parts`). Each is the field block of the form's version as `FormEngine::blocks()`
+ * gives it, rendered alone with `render_block()` and the host's values filled in, keyed by field key.
  * A field that does not show is rendered too, with no option (`[]`); the page disables its controls
  * from `fields`.
  */
 final class ChoiceParts
 {
     public function __construct(
-        private readonly Forms $forms = new Forms(),
+        private readonly FormEngine $forms,
         private readonly InlineValues $inline = new InlineValues(),
     ) {
     }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Condition;
 
-use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
@@ -13,19 +12,20 @@ use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
  * In a form, a condition reads the answers of the fields that come before it in document order
- * (events-and-forms.md, "Values and conditions") and the event's keys (`EventValues`, S76): never a
+ * (events-and-forms.md, "Values and conditions") and the host's keys (`FormHost::factTypes()`; in an
+ * event form the event's, `EventValues`, S76): never a
  * later field, a field of its own branch or any other key.
  */
 final readonly class FormScope implements ConditionScope
 {
     /**
      * @param list<FormField> $fields the fields before the condition
-     * @param array<string, ValueType> $declared the other keys a form's condition may read
+     * @param array<string, ValueType> $declared the other keys a form's condition may read (`FormHost::factTypes()`)
      */
     public function __construct(
         private array $fields,
         private Contributions $contributions,
-        private array $declared = EventValues::TYPES,
+        private array $declared,
     ) {
     }
 

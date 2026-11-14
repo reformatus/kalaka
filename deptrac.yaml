@@ -32,11 +32,26 @@ deptrac:
     - name: Forms
       collectors:
         - type: classLike
-          value: '^Kalaka\\Forms\\(?!Api\\)'
+          value: '^Kalaka\\Forms\\(?!Api\\|Engine\\)'
+    # Forms' host side of its Api: the facade and the event's values (Forms/AGENTS.md).
     - name: Forms Api
       collectors:
         - type: classLike
-          value: '^Kalaka\\Forms\\Api\\'
+          value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit)$'
+    # The form engine (Forms\Engine) and its contract: every other Forms\Api type, at its FQCN.
+    - name: Forms Engine
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Forms\\Engine\\'
+    - name: Forms Engine Api
+      collectors:
+        - type: bool
+          must:
+            - type: classLike
+              value: '^Kalaka\\Forms\\Api\\'
+          must_not:
+            - type: classLike
+              value: '^Kalaka\\Forms\\Api\\(Forms|EventValues|AfterSubmit)$'
     - name: ParticipantFields
       collectors:
         - type: classLike
@@ -140,6 +155,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -155,6 +171,7 @@ deptrac:
       - Foundation Api
       - Foundation Api Money
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -166,8 +183,10 @@ deptrac:
       - Admin Api
     Forms:
       - WordPress
+      - Forms Engine
       - Bundled brick/math
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Foundation Api
       - Foundation Api Money
@@ -180,6 +199,16 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+    # The engine asks its host (Api\FormHost) for everything about the event; it may use only these.
+    Forms Engine:
+      - WordPress
+      - Bundled brick/math
+      - Forms Engine Api
+      - Foundation Api
+    Forms Engine Api:
+      - WordPress
+      - Forms Engine
+      - Foundation Api
     ParticipantFields:
       - WordPress
       - ParticipantFields Api
@@ -187,6 +216,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -202,6 +232,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Registrations Api
       - Pricing Api
@@ -217,6 +248,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Pricing Api
@@ -232,6 +264,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -247,6 +280,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -262,6 +296,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -277,6 +312,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -292,6 +328,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -307,6 +344,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -322,6 +360,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -338,6 +377,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -353,6 +393,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -373,6 +414,7 @@ deptrac:
       - Foundation Api
       - Foundation Api Money
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -385,6 +427,8 @@ deptrac:
     Forms Api:
       - WordPress
       - Forms
+      - Forms Engine
+      - Forms Engine Api
       - ParticipantFields Api
       - Foundation Api
       - Foundation Api Money
@@ -404,6 +448,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - Assignments Api
       - Registrations Api
       - Pricing Api
@@ -419,6 +464,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Registrations Api
       - Pricing Api
@@ -434,6 +480,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Pricing Api
@@ -449,6 +496,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -464,6 +512,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -479,6 +528,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -494,6 +544,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -509,6 +560,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -524,6 +576,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -539,6 +592,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
@@ -555,6 +609,7 @@ deptrac:
       - Foundation Api Money
       - Events Api
       - Forms Api
+      - Forms Engine Api
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api

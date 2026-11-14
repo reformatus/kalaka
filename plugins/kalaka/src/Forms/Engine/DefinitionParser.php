@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine;
 
-use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
+use Kalaka\Forms\Api\FormHost;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Engine\Condition\Chain;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
@@ -49,6 +50,12 @@ final class DefinitionParser
     /** Whether the form's after-submit section was met. */
     private bool $afterSubmit = false;
 
+    /** @var array<string, ValueType> the keys besides the answers a condition may read (`FormHost::factTypes()`) */
+    private array $factTypes = [];
+
+    /** @var array<string, ValueType> the keys the after-submit section reads (`FormHost::afterSubmitTypes()`) */
+    private array $afterSubmitTypes = [];
+
     /** the page whose blocks are being collected; null outside pages */
     private ?int $page = null;
 
@@ -59,8 +66,15 @@ final class DefinitionParser
     public const PAGE_BLOCK = ChainMarks::PAGE_BLOCK;
 
     /** @throws SystemFailure */
-    public function parse(Form $form, int $version, string $content, Contributions $contributions): FormDefinition
-    {
+    public function parse(
+        Form $form,
+        int $version,
+        string $content,
+        Contributions $contributions,
+        FormHost $host
+    ): FormDefinition {
+        $this->factTypes = $host->factTypes();
+        $this->afterSubmitTypes = $host->afterSubmitTypes();
         $this->chains = [];
         $this->read = [];
         $this->afterSubmit = false;
@@ -101,13 +115,13 @@ final class DefinitionParser
         foreach ($blocks as $block) {
             $name = $block['blockName'] ?? null;
             $hasPages = $hasPages || $name === self::PAGE_BLOCK;
-            if ($name === AfterSubmit::BLOCK) {
+            if ($name === ChainMarks::AFTER_SUBMIT_BLOCK) {
                 $this->afterSubmit($block, $contributions);
             }
         }
         $rest = array_values(array_filter(
             $blocks,
-            static fn (array $block): bool => ($block['blockName'] ?? null) !== AfterSubmit::BLOCK
+            static fn (array $block): bool => ($block['blockName'] ?? null) !== ChainMarks::AFTER_SUBMIT_BLOCK
         ));
         if (!$hasPages) {
             $this->collect($rest, $contributions, $fields, []);
@@ -146,7 +160,7 @@ final class DefinitionParser
         $data = $attributes['condition'] ?? null;
         $condition = $data === null
             ? null
-            : $this->read($this->conditions->parse($data, new FormScope($fields, $contributions)));
+            : $this->read($this->conditions->parse($data, new FormScope($fields, $contributions, $this->factTypes)));
         $terminal = ($attributes['terminal'] ?? false) === true;
         if ($index === 0 && $condition !== null) {
             $this->fail('first_page_condition');
@@ -204,7 +218,7 @@ final class DefinitionParser
      */
     private function chain(Chain $chain, Contributions $contributions, array &$fields, array $branches): void
     {
-        $scope = new FormScope($fields, $contributions);
+        $scope = new FormScope($fields, $contributions, $this->factTypes);
         $conditions = [];
         foreach ($chain->branches as $branch) {
             $attributes = is_array($branch['attrs'] ?? null) ? $branch['attrs'] : [];
@@ -267,7 +281,7 @@ final class DefinitionParser
         if ($name === self::PAGE_BLOCK) {
             $this->fail('page_not_top_level');
         }
-        if ($name === AfterSubmit::BLOCK) {
+        if ($name === ChainMarks::AFTER_SUBMIT_BLOCK) {
             $this->fail('after_submit_not_top_level');
         }
         if (is_string($name)) {
@@ -321,7 +335,7 @@ final class DefinitionParser
         }
 
         $optionConditions = $name === ChoiceFieldType::BLOCK_NAME
-            ? $this->optionConditions($attributes, new FormScope($fields, $contributions))
+            ? $this->optionConditions($attributes, new FormScope($fields, $contributions, $this->factTypes))
             : [];
 
         return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page);
@@ -330,7 +344,7 @@ final class DefinitionParser
     /**
      * The after-submit section (N12): at most one, at the top level (outside any branch or page, MP-13),
      * with no field block in it, its conditions reading only the after-submit context
-     * (`AfterSubmit::TYPES`). Its fields and chains are not the form's: nothing in it is collected or
+     * (`FormHost::afterSubmitTypes()`). Its fields and chains are not the form's: nothing in it is collected or
      * numbered.
      *
      * @param array<string, mixed> $block
@@ -342,7 +356,7 @@ final class DefinitionParser
             throw new SystemFailure('after_submit_count');
         }
         $this->afterSubmit = true;
-        $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, new DeclaredScope(AfterSubmit::TYPES));
+        $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, new DeclaredScope($this->afterSubmitTypes));
     }
 
     /**
@@ -359,7 +373,7 @@ final class DefinitionParser
                     // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name, never output
                     throw new SystemFailure('field_in_after_submit ' . $name);
                 }
-                if ($name === AfterSubmit::BLOCK) {
+                if ($name === ChainMarks::AFTER_SUBMIT_BLOCK) {
                     throw new SystemFailure('after_submit_count');
                 }
                 if ($item instanceof Chain && $name !== Chains::ELSE_BLOCK) {

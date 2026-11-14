@@ -4,13 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Rest;
 
-use Kalaka\Events\Api\Events;
-use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormCaching;
+use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormRefused;
-use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\ChoiceParts;
+use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPage as FormsPage;
 use Kalaka\Forms\Engine\SubmitAttempt;
 use Kalaka\Forms\Engine\SubmitGuard;
@@ -22,19 +20,18 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Registrations\Api\RegistrationSubmit;
-use Kalaka\Registrations\Api\SubmitRequest;
 
 /**
  * The public routes of a form's page (S12), in the portal namespace, registered through the error boundary
- * (foundation.md, "Errors"). Both are open to anyone: the form's own access checks (`Forms::refusals()`)
+ * (foundation.md, "Errors"). Both are open to anyone: the form's own access checks (`FormHost::refusals()`)
  * decide, with the current user's roles and whether the form's password was given.
  *
  * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?}` → `{availability, parts}`:
  *   what the form shows for the answers (`FormAvailability::toArray()`, with `page`'s errors) and the
  *   choice fields with option conditions re-rendered (`ChoiceParts`). It reads only; it never writes.
  * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
- *   through `SubmitGuard` and the submit seam (`RegistrationSubmit`).
+ *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
+ *   `Registrations\Api\RegistrationSubmit`).
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
@@ -49,13 +46,17 @@ final class FormRoutes
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';
 
+    private readonly FormEngine $forms;
+
+    private readonly ChoiceParts $parts;
+
     public function __construct(
-        private readonly Forms $forms = new Forms(),
-        private readonly Events $events = new Events(),
-        private readonly ChoiceParts $parts = new ChoiceParts(),
+        private readonly FormHost $host,
+        ?FormEngine $engine = null,
         private readonly SubmitGuard $guard = new SubmitGuard(),
-        private readonly ?RegistrationSubmit $submit = null,
     ) {
+        $this->forms = $engine ?? new FormEngine($host);
+        $this->parts = new ChoiceParts($this->forms);
     }
 
     /** On `rest_api_init`. */
@@ -114,15 +115,14 @@ final class FormRoutes
         }
 
         $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
-        $event = $this->events->find($form->eventId) ?? throw new NotFound();
+        $values = $this->host->facts($form) ?? throw new NotFound();
         $post = get_post($form->id);
         if (!$post instanceof \WP_Post) {
             $error = new NotFound();
             throw $error;
         }
-        $refusals = $this->forms->refusals(
+        $refusals = $this->host->refusals(
             $form,
-            $event,
             Runner::current()->clock()->now(),
             FormsPage::currentRoles(),
             !post_password_required($post)
@@ -133,7 +133,6 @@ final class FormRoutes
         }
 
         $definition = $this->forms->latestDefinition($form, $this->version($body));
-        $values = new ValueContext(EventValues::of($event));
         $availability = $this->forms->availability($definition, $this->answers($body), $values, $page);
         $parts = $this->parts->of($form, $definition->version, $availability, $values);
 
@@ -141,7 +140,7 @@ final class FormRoutes
     }
 
     /**
-     * The submit: `SubmitGuard`, then the submit seam as the current user or a guest. A repeat (the same
+     * The submit: `SubmitGuard`, then the host's submit as the current user or a guest. A repeat (the same
      * token and answers) answers `{repeated: true, after_submit}`.
      *
      * @return array<string, mixed>
@@ -163,16 +162,16 @@ final class FormRoutes
         $this->guard->check(new SubmitAttempt($formId, $version, $answers, $token, $actor));
 
         $post = get_post($formId);
-        $submitRequest = new SubmitRequest(
+
+        return $this->host->submit(
             $formId,
             $version,
             $answers,
             $token,
             FormsPage::currentRoles(),
             $post instanceof \WP_Post && !post_password_required($post),
+            $actor
         );
-
-        return ($this->submit ?? new RegistrationSubmit())->submit($submitRequest, $actor)->toArray();
     }
 
     /**

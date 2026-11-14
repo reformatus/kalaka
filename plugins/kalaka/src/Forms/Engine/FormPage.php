@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine;
 
-use Kalaka\Events\Api\Event;
-use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\AccessRefusal;
-use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
-use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
@@ -21,25 +18,28 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Registrations\Api\SubmitToken;
 
 /**
  * The public page of a form (events-and-forms.md, "Forms implementation" and "Conditions"): decides
  * whether the form shows and, if it does, renders its content for its current answers from the form's
  * availability (S76): every branch renders, the held one of each chain shown and the others hidden; the
  * controls of a field that does not show are disabled; a choice field renders only the options it
- * offers. The event values are filled in as the value API fills them in a mail. The script holds no
- * condition: it re-fetches the availability and the re-rendered choice fields (`Rest\FormRoutes`). The chains
- * and pages are numbered once, by `Condition\ChainMarks` (`Forms::blocks()`); this page renumbers nothing.
+ * offers. The host's values (`FormHost::facts()`, the event's) are filled in as the value API fills
+ * them in a mail. The script holds no condition: it re-fetches the availability and the re-rendered
+ * choice fields (`Rest\FormRoutes`). The chains
+ * and pages are numbered once, by `Condition\ChainMarks` (`FormEngine::blocks()`); this page renumbers nothing.
  * A multi-page form renders every page, each hidden (`PageMarkup`): the script shows the current one.
  */
 final class FormPage
 {
+    private readonly FormEngine $forms;
+
     public function __construct(
-        private readonly Forms $forms = new Forms(),
-        private readonly Events $events = new Events(),
+        private readonly FormHost $host,
+        ?FormEngine $engine = null,
         private readonly InlineValues $inline = new InlineValues(),
     ) {
+        $this->forms = $engine ?? new FormEngine($host);
     }
 
     /** @var list<FormAvailability> the availability of each form page rendering, innermost last */
@@ -75,52 +75,51 @@ final class FormPage
      */
     public function open(int $formId): FormPageView
     {
-        // `refusals()` returns `event_not_open` for a closed site too, so the load state is read first.
+        // An event form's `refusals()` returns `event_not_open` for a closed site too, so the load state is read first.
         if (!LoadState::current()->isOpen()) {
             return FormPageView::refused(FormPageView::SYSTEM_FAILURE);
         }
 
         $form = $formId > 0 ? $this->forms->form($formId) : null;
-        $event = $form === null ? null : $this->events->find($form->eventId);
+        $facts = $form === null ? null : $this->host->facts($form);
         $post = $form === null ? null : get_post($form->id);
-        if ($form === null || $event === null || !$post instanceof \WP_Post) {
+        if ($form === null || $facts === null || !$post instanceof \WP_Post) {
             return FormPageView::refused(FormPageView::UNAVAILABLE);
         }
 
         $now = Runner::current()->clock()->now();
-        $refusals = $this->refusals($form, $event, $post, $now);
+        $refusals = $this->refusals($form, $post, $now);
         if ($refusals !== []) {
-            return $this->refusal($refusals[0], $event, $now, $post);
+            return $this->refusal($refusals[0], $form, $now, $post);
         }
 
-        return $this->view($form, $event);
+        return $this->view($form, $facts);
     }
 
     /** @return list<AccessRefusal> */
-    private function refusals(Form $form, Event $event, \WP_Post $post, \DateTimeImmutable $now): array
+    private function refusals(Form $form, \WP_Post $post, \DateTimeImmutable $now): array
     {
-        return $this->forms->refusals($form, $event, $now, self::currentRoles(), !post_password_required($post));
+        return $this->host->refusals($form, $now, self::currentRoles(), !post_password_required($post));
     }
 
     private function refusal(
         AccessRefusal $refusal,
-        Event $event,
+        Form $form,
         \DateTimeImmutable $now,
         \WP_Post $post
     ): FormPageView {
         return match ($refusal) {
             AccessRefusal::PasswordRequired => FormPageView::refused(FormPageView::PASSWORD_REQUIRED, $post),
             AccessRefusal::RoleRequired => FormPageView::refused(FormPageView::ROLE_REQUIRED),
-            AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($event, $now)),
+            AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             AccessRefusal::EventNotOpen => FormPageView::refused(FormPageView::UNAVAILABLE),
         };
     }
 
     /** Before the opening instant, from the closing instant on, or, with no opening or closing point, neither. */
-    private function outsideWindow(Event $event, \DateTimeImmutable $now): string
+    private function outsideWindow(Form $form, \DateTimeImmutable $now): string
     {
-        $opens = $event->registrationOpens;
-        $closes = $event->registrationCloses;
+        ['opens' => $opens, 'closes' => $closes] = $this->host->window($form);
         if ($opens !== null && $closes !== null) {
             if ($now < $opens) {
                 return FormPageView::NOT_STARTED;
@@ -135,12 +134,11 @@ final class FormPage
     }
 
     /** @throws SystemFailure */
-    private function view(Form $form, Event $event): FormPageView
+    private function view(Form $form, ValueContext $values): FormPageView
     {
         $definition = $this->forms->definition($form);
 
         // No answers yet: what the form shows before anything is filled in.
-        $values = new ValueContext(EventValues::of($event));
         $availability = $this->forms->availability($definition, [], $values);
         $content = $this->render($this->blocks($form, $form->version, $availability), $values, $availability);
 
@@ -158,11 +156,11 @@ final class FormPage
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, SubmitToken::generate());
+        ], null, $this->host->submitToken());
     }
 
     /**
-     * The blocks of the form's version as `Forms::blocks()` marks them (chains and pages numbered once, by
+     * The blocks of the form's version as `FormEngine::blocks()` marks them (chains and pages numbered once, by
      * `ChainMarks`), each choice field with option conditions keeping only its offered options.
      *
      * @return list<array<string, mixed>>
@@ -247,7 +245,7 @@ final class FormPage
     }
 
     /**
-     * The current user's roles, as the form's access checks (`Forms::refusals()`) read them: on the form's
+     * The current user's roles, as the form's access checks (`FormHost::refusals()`) read them: on the form's
      * page and on its routes (`Rest\FormRoutes`).
      *
      * @return list<string>

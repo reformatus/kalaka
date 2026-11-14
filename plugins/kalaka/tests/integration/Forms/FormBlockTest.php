@@ -328,7 +328,7 @@ final class FormBlockTest extends FormsTestCase
     {
         $contributions = \Kalaka\Foundation\Api\Module\Contributions::current();
         self::assertArrayHasKey('kalaka/name-field', $contributions->fieldTypes());
-        $page = new \Kalaka\Forms\Engine\FormPage();
+        $page = new \Kalaka\Forms\Engine\FormPage(new \Kalaka\Forms\EventFormHost());
         $error = '<span id="kalaka-field-r-error" class="kalaka-field__error" hidden></span>';
         $parsed = ['blockName' => 'kalaka/name-field', 'attrs' => ['key' => 'r']];
 

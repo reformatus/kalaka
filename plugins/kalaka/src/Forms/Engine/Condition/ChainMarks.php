@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Condition;
 
-use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
@@ -25,6 +24,9 @@ final class ChainMarks
 
     /** The page block; only a top-level one is numbered. */
     public const PAGE_BLOCK = 'kalaka/form-page';
+
+    /** The after-submit section (`Api\AfterSubmit`): at most one, at the top level; its chains are not the form's. */
+    public const AFTER_SUBMIT_BLOCK = 'kalaka/after-submit';
 
     private int $next = 0;
 
@@ -195,7 +197,7 @@ final class ChainMarks
     private function block(array $block): array
     {
         // The after-submit section's chains are not the form's: rendered by `Values::render()` alone.
-        if (($block['innerBlocks'] ?? []) === [] || ($block['blockName'] ?? null) === AfterSubmit::BLOCK) {
+        if (($block['innerBlocks'] ?? []) === [] || ($block['blockName'] ?? null) === self::AFTER_SUBMIT_BLOCK) {
             return $block;
         }
 

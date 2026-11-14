@@ -297,7 +297,7 @@ final class DefinitionCheck
         }
         try {
             $form = new Form($formId, 0, $placement, null, false, 0);
-            (new DefinitionParser())->parse($form, 0, $content, $contributions);
+            (new DefinitionParser())->parse($form, 0, $content, $contributions, new EventFormHost());
         } catch (SystemFailure $e) {
             return self::split($e);
         }
