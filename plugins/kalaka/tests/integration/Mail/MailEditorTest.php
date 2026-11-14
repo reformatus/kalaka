@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Forms\Engine\BlockGate;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Mail\Module;
 
 /** Mail documents in the block editor: full access only, the mail blocks, and the condition blocks inside them. */
@@ -62,23 +64,31 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertGreaterThan(0, $revision['latest_id']);
     }
 
-    public function testTheEditorOffersAMailTheConditionBlocksButNoFieldBlockAndAPageNeither(): void
+    public function testTheEditorOffersAMailTheConditionBlocksButNoFieldOrPageBlock(): void
     {
         $mail = get_post($this->document($this->create(), $this->paragraph('Szia')));
-        $page = get_post(self::factory()->post->create(['post_type' => 'page']));
+        self::assertInstanceOf(\WP_Post::class, $mail);
 
-        $allowed = get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $mail]));
-
-        self::assertIsArray($allowed);
-        foreach (['kalaka/if', 'kalaka/else-if', 'kalaka/else', 'core/paragraph'] as $name) {
-            self::assertContains($name, $allowed);
+        // Outside a form's editor an allow-all stays allow-all; the gated blocks are hidden on the client.
+        self::assertTrue(get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $mail])));
+        $hidden = BlockGate::hidden($mail->post_type, 'core/edit-post', Contributions::current());
+        foreach (array_keys(Contributions::current()->fieldTypes()) as $name) {
+            self::assertContains($name, $hidden);
         }
-        self::assertSame([], array_values(array_filter(
-            $allowed,
-            static fn (string $name): bool => str_ends_with($name, '-field')
-        )));
-        $onPage = get_allowed_block_types(new \WP_Block_Editor_Context(['post' => $page]));
-        self::assertIsArray($onPage);
-        self::assertNotContains('kalaka/if', $onPage);
+        self::assertContains('kalaka/form-page', $hidden);
+        foreach (Module::BODY_BLOCKS as $name) {
+            self::assertNotContains($name, $hidden);
+        }
+
+        // A list from another filter keeps the condition blocks and loses the field blocks.
+        self::assertSame(
+            ['core/paragraph', ...Module::BODY_BLOCKS],
+            BlockGate::allowed(
+                ['core/paragraph', ...Module::BODY_BLOCKS, 'kalaka/text-field', 'kalaka/form-page'],
+                $mail->post_type,
+                'core/edit-post',
+                Contributions::current()
+            )
+        );
     }
 }
