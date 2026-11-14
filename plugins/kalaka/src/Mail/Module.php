@@ -154,9 +154,9 @@ SQL;
     }
 
     /**
-     * Mail bodies and layouts are edited in the block editor (mail.md, "Content") by full access only, like
-     * forms: every capability, REST reads included (`MailRestController`), needs `kalaka_full_access`. No
-     * admin menu item and no labels of its own.
+     * Mail bodies are edited in the block editor (mail.md, "Content"; the event's layout is raw HTML, not a
+     * post) by full access only, like forms: every capability, REST reads included (`MailRestController`),
+     * needs `kalaka_full_access`. No admin menu item and no labels of its own.
      * // [UNAPPROVED N12] `kalaka_mail` is exposed like `kalaka_form`.
      */
     private function registerPostType(): void
