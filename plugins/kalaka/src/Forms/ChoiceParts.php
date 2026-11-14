@@ -69,11 +69,7 @@ final class ChoiceParts
             $offered = is_string($key) ? $availability->offeredOptions($key) : null;
             if (($block['blockName'] ?? null) === ChoiceFieldType::BLOCK_NAME && is_string($key) && $offered !== null) {
                 $options = is_array($block['attrs']['options'] ?? null) ? $block['attrs']['options'] : [];
-                $block['attrs']['options'] = array_values(array_filter(
-                    $options,
-                    static fn (mixed $option): bool => is_array($option)
-                        && in_array($option['value'] ?? null, $offered, true)
-                ));
+                $block['attrs']['options'] = FormPage::offeredOptions($options, $offered);
                 /** @var array<string, mixed> $block */
                 $found[$key] = $block;
                 continue;

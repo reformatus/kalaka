@@ -99,9 +99,7 @@ final class FormPage
     /** @return list<AccessRefusal> */
     private function refusals(Form $form, Event $event, \WP_Post $post, \DateTimeImmutable $now): array
     {
-        $roles = array_values(wp_get_current_user()->roles);
-
-        return $this->forms->refusals($form, $event, $now, $roles, !post_password_required($post));
+        return $this->forms->refusals($form, $event, $now, self::currentRoles(), !post_password_required($post));
     }
 
     private function refusal(
@@ -224,12 +222,36 @@ final class FormPage
         if ($offered === null) {
             return $block;
         }
-        $block['attrs']['options'] = array_values(array_filter(
+        $block['attrs']['options'] = self::offeredOptions($options, $offered);
+
+        return $block;
+    }
+
+    /**
+     * The options of a choice field block that its field offers, in their order; the form's page and the
+     * re-fetch's `parts` (`ChoiceParts`) both keep only these.
+     *
+     * @param array<array-key, mixed> $options
+     * @param list<string> $offered
+     * @return list<mixed>
+     */
+    public static function offeredOptions(array $options, array $offered): array
+    {
+        return array_values(array_filter(
             $options,
             static fn (mixed $option): bool => is_array($option) && in_array($option['value'] ?? null, $offered, true)
         ));
+    }
 
-        return $block;
+    /**
+     * The current user's roles, as the form's access checks (`Forms::refusals()`) read them: on the form's
+     * page and on its routes (`Rest\FormRoutes`).
+     *
+     * @return list<string>
+     */
+    public static function currentRoles(): array
+    {
+        return array_values(wp_get_current_user()->roles);
     }
 
     /**

@@ -6,10 +6,12 @@ namespace Kalaka\Forms\Rest;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Api\FormPage;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ChoiceParts;
+use Kalaka\Forms\FormPage as FormsPage;
 use Kalaka\Forms\SubmitAttempt;
 use Kalaka\Forms\SubmitGuard;
 use Kalaka\Foundation\Api\Actor\AccountActor;
@@ -46,9 +48,6 @@ final class FormRoutes
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';
-
-    /** The value of `Cache-Control` on every answer of these routes, as on the form's page (`FormPage`). */
-    public const CACHE_CONTROL = 'no-cache, must-revalidate, max-age=0, no-store, private';
 
     public function __construct(
         private readonly Forms $forms = new Forms(),
@@ -91,7 +90,7 @@ final class FormRoutes
         $response = $response instanceof \WP_Error
             ? rest_convert_error_to_response($response)
             : rest_ensure_response($response);
-        $response->header('Cache-Control', self::CACHE_CONTROL);
+        $response->header('Cache-Control', FormPage::CACHE_CONTROL);
 
         return $response;
     }
@@ -125,7 +124,7 @@ final class FormRoutes
             $form,
             $event,
             Runner::current()->clock()->now(),
-            $this->roles(),
+            FormsPage::currentRoles(),
             !post_password_required($post)
         );
         if ($refusals !== []) {
@@ -169,7 +168,7 @@ final class FormRoutes
             $version,
             $answers,
             $token,
-            $this->roles(),
+            FormsPage::currentRoles(),
             $post instanceof \WP_Post && !post_password_required($post),
         );
 
@@ -238,11 +237,5 @@ final class FormRoutes
         $user = wp_get_current_user();
 
         return $user->ID > 0 ? new AccountActor($user->ID) : new GuestActor();
-    }
-
-    /** @return list<string> */
-    private function roles(): array
-    {
-        return array_values(wp_get_current_user()->roles);
     }
 }

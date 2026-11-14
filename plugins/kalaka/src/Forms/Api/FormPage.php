@@ -21,6 +21,9 @@ final class FormPage
 
     public const SHORTCODE = 'kalaka_form';
 
+    /** The value of `Cache-Control` on the form's page and on every answer of its routes (`Rest\FormRoutes`). */
+    public const CACHE_CONTROL = 'no-cache, must-revalidate, max-age=0, no-store, private';
+
     /** `DONOTCACHEPAGE`, and while no output is sent `nocache_headers()` with `Cache-Control: no-store`. */
     public static function preventCaching(): void
     {
@@ -31,7 +34,7 @@ final class FormPage
             return;
         }
         nocache_headers();
-        header('Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private');
+        header('Cache-Control: ' . self::CACHE_CONTROL);
     }
 
     /**
