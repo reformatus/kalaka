@@ -147,7 +147,7 @@ flowchart LR
   functions that fire hooks or fill WordPress caches.
 - **WordPress-owned data is changed before or after our transaction, never
   inside it,** ordered so that a failure leaves a harmless state:
-  - Creating a WordPress account, when the person opts in on the form, runs
+  - Creating a WordPress account, when the person signs up on the form, runs
     *before* the transaction. If the registration then fails, the account
     simply exists, as after a plain sign-up. The set-password mail that
     activates it is queued by the registration itself

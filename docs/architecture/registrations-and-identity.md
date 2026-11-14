@@ -55,12 +55,15 @@ erDiagram
   data; the same real person's data may differ between events. Year-to-year
   tracking is a later, heuristic add-on built from preset links: the system is
   not an outreach CRM.
-- **Registration does not require a WordPress account.** Without one, a
+- **Registration does not require a WordPress account,** unless the event's
+  account mode is mandatory
+  ([below](#accounts-on-the-registration-form)). Without one, a
   personal secret link makes the registration active and shows its status,
   including its
   payment status. Guest registration is deliberately semi-anonymous; guests
   are never matched, and organizers get no manual linking tool.
-- **An account is an optional extra layer** that **owns** registrations and
+- **An account is an extra layer,** optional unless the event's account
+  mode is mandatory, that **owns** registrations and
   **presets**. It can hold registrations for several people (a guardian, a
   youth leader registering a group), for several events; it sees all
   outstanding balances together and can **pay them at once**
@@ -68,8 +71,9 @@ erDiagram
 - **A guest can attach a registration to an account** through its secret link.
   This triggers the same side effects as registering with a new account (e.g.
   creating a preset from that registration).
-- **Default flows are seamless:** guest registration, and registration with
-  an account created on the form
+- **Default flows are seamless:** guest registration where the event's
+  account mode allows it, and registration with an account created on the
+  form
   ([below](#accounts-on-the-registration-form)). Flows with several
   registrations under one account may ask more of the user, with short
   explanations.
