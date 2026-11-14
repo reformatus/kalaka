@@ -103,16 +103,17 @@ final class Sender implements PeriodicStep
 
         $sent = 0;
         $invalid = 0;
+        $unusable = 0;
         $claimed = 0;
         foreach ($candidates as $delivery) {
             if ($claimed >= $share) {
-                return [new SendReport($sent, 0, $invalid), Throttle::nextSlotStart($now)];
+                return [new SendReport($sent, 0, $invalid, false, $unusable), Throttle::nextSlotStart($now)];
             }
             if ($this->stopwatch->capReached()) {
-                return [new SendReport($sent, 0, $invalid), $runner->clock()->now()];
+                return [new SendReport($sent, 0, $invalid, false, $unusable), $runner->clock()->now()];
             }
             if ($this->state->current()->isPaused()) {
-                return [new SendReport($sent, 0, $invalid), null];
+                return [new SendReport($sent, 0, $invalid, false, $unusable), null];
             }
 
             $reason = 'invalid_address';
@@ -122,17 +123,30 @@ final class Sender implements PeriodicStep
                 [$to, $reason] = [null, $e->reason];
             }
             if ($to === null || !is_email($to)) {
-                if ($this->fail($runner, $delivery, $reason)) {
+                if ($this->fail($runner, $delivery, DeliveryError::ADDRESS, $reason)) {
                     $invalid++;
                 }
                 continue;
+            }
+            // Composed before the claim (N23): a body that cannot render for its own reason fails with no
+            // attempt and does not count toward pausing; any other failure is an error after the claim.
+            [$message, $thrown] = [null, null];
+            try {
+                $message = $composer->compose($delivery, $to);
+            } catch (BodyUnusable $e) {
+                if ($this->fail($runner, $delivery, DeliveryError::BODY, $e->problem)) {
+                    $unusable++;
+                }
+                continue;
+            } catch (\Throwable $e) {
+                $thrown = $e;
             }
             if (!$this->claim($runner, $delivery)) {
                 continue;
             }
             $claimed++;
 
-            [$version, $error] = $this->attempt($composer, $delivery, $to);
+            [$version, $error] = $this->attempt($delivery, $to, $message, $thrown);
             $paused = $runner->run(
                 new RecordDelivery(),
                 $this->identity($delivery) + ['mail_version' => $version, 'error' => $error?->text()],
@@ -140,7 +154,7 @@ final class Sender implements PeriodicStep
             ) === true;
             if ($error !== null) {
                 // mail.md, "Failures": on an error the run stops; the next run tries this delivery first.
-                return [new SendReport($sent, 1, $invalid, $paused), null];
+                return [new SendReport($sent, 1, $invalid, $paused, $unusable), null];
             }
             $sent++;
         }
@@ -148,7 +162,7 @@ final class Sender implements PeriodicStep
         // Every candidate was handled, but invalid addresses used no share: more may be waiting.
         $left = count($candidates) === $limit && $limit > 1;
 
-        return [new SendReport($sent, 0, $invalid), $left ? $runner->clock()->now() : null];
+        return [new SendReport($sent, 0, $invalid, false, $unusable), $left ? $runner->clock()->now() : null];
     }
 
     /** @return bool whether this run claimed it; false when it is gone or no longer pending */
@@ -163,12 +177,13 @@ final class Sender implements PeriodicStep
     }
 
     /**
-     * @param string $reason `invalid_address`, or a `RecipientUnavailable` reason
+     * @param string $stage `DeliveryError::ADDRESS` or `DeliveryError::BODY`
+     * @param string $reason `invalid_address`, a `RecipientUnavailable` reason, or a `BodyUnusable` problem
      * @return bool whether this run marked it failed
      */
-    private function fail(Runner $runner, Delivery $delivery, string $reason): bool
+    private function fail(Runner $runner, Delivery $delivery, string $stage, string $reason): bool
     {
-        $error = new DeliveryError(DeliveryError::ADDRESS, $reason, null, Correlation::id());
+        $error = new DeliveryError($stage, $reason, null, Correlation::id());
         try {
             return $runner->run(
                 new FailDelivery(),
@@ -181,16 +196,16 @@ final class Sender implements PeriodicStep
     }
 
     /**
-     * Renders and sends one claimed delivery. The error is stored as reported, and the error log gets the
-     * same failure under the same correlation ID.
+     * Sends one claimed delivery, composed before the claim. The error is stored as reported, and the error
+     * log gets the same failure under the same correlation ID.
      *
+     * @param ?\Throwable $thrown what composing it threw, an error of this attempt
      * @return array{?string, ?DeliveryError} the rendered body's version, and the error, if one was reported
      */
-    private function attempt(MailComposer $composer, Delivery $delivery, string $to): array
+    private function attempt(Delivery $delivery, string $to, ?MailMessage $message, ?\Throwable $thrown): array
     {
-        try {
-            $message = $composer->compose($delivery, $to);
-        } catch (\Throwable $e) {
+        if ($message === null) {
+            $e = $thrown ?? new \LogicException('No message and no failure.');
             $this->report($delivery, $e);
 
             return [null, DeliveryError::thrown(DeliveryError::COMPOSE, $e, Correlation::id())];

@@ -178,25 +178,54 @@ final class ActionMailSendingTest extends MailBodyTestCase
         self::assertFalse($report->paused);
     }
 
-    public function testABodyThatCannotRenderIsAnErrorThatNamesNoValue(): void
+    public function testABodyThatCannotRenderFailsWithItsProblemWithoutAnAttemptAndDoesNotPause(): void
     {
         $event = $this->published();
         $key = $this->registration($event);
-        $this->switchOn($event, 'registered', $this->document(
+        $this->switchOn($event, 'registered', $this->brokenDocument(
             $event,
             $this->paragraph(
                 '<span data-kalaka-value="registration.link">l</span> <span data-kalaka-value="nincs">x</span>'
             )
         ));
         $this->act($key, ActionMail::Registered);
+        $this->act($this->registration($event, '00A0'), ActionMail::Registered);
 
-        $this->realSender()->send();
+        $report = $this->realSender()->send();
+
+        self::assertSame([], $this->sent);
+        foreach ($this->deliveries() as $row) {
+            self::assertSame('failed', $row['status']);
+            self::assertSame('0', $row['attempts']);
+            self::assertStringStartsWith('body unknown_value_key nincs (correlation ', (string) $row['error']);
+        }
+        self::assertNotNull($report);
+        self::assertSame(2, $report->unusableBodies);
+        self::assertSame(0, $report->errors);
+        self::assertFalse($report->paused);
+        self::assertNull($this->stateRow()['paused_at'] ?? null);
+        $this->assertSecretNowhereStored();
+    }
+
+    public function testAnyOtherRenderFailureIsAnErrorAfterTheClaimThatCounts(): void
+    {
+        global $wpdb;
+        $event = $this->published();
+        $key = $this->registration($event);
+        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
+        $this->act($key, ActionMail::Registered);
+        // A stored layout written around its use case: the render throws, not the body's own problem.
+        $wpdb->insert($wpdb->prefix . 'kalaka_mail_layouts', ['event_id' => $event, 'version' => 1, 'html' => 'x']);
+
+        $report = $this->realSender()->send();
 
         self::assertSame([], $this->sent);
         $row = $this->deliveries()[0];
         self::assertSame('pending', $row['status']);
-        self::assertStringContainsString('unknown_value_key nincs', (string) $row['error']);
-        $this->assertSecretNowhereStored();
+        self::assertSame('1', $row['attempts']);
+        self::assertStringStartsWith('compose ', (string) $row['error']);
+        self::assertNotNull($report);
+        self::assertSame(1, $report->errors);
     }
 
     /** The secret is in no delivery row and in no audit entry. */

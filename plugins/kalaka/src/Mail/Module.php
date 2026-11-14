@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Body\ActionMailComposer;
+use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\BodyInUse;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
@@ -161,6 +162,9 @@ SQL;
         add_filter('add_post_metadata', [BodyInUse::class, 'onMetaWrite'], 10, 4);
         add_filter('update_post_metadata', [BodyInUse::class, 'onMetaWrite'], 10, 4);
         add_filter('delete_post_metadata', [BodyInUse::class, 'onMetaDelete'], 10, 3);
+        add_filter('wp_insert_post_data', [BodyCheck::class, 'onInsert'], 20, 2);
+        add_filter('rest_pre_insert_' . MailPosts::POST_TYPE, [BodyCheck::class, 'onRestInsert'], 20, 2);
+        add_action('admin_notices', [BodyCheck::class, 'notice']);
     }
 
     /**

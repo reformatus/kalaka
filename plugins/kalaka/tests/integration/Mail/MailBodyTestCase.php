@@ -123,6 +123,20 @@ abstract class MailBodyTestCase extends MailTestCase
         return new RegistrationKey($event, $code);
     }
 
+    /**
+     * A published document whose content was written around the save check (`BodyCheck`), straight in the
+     * table: what a body is when a key it reads goes away after its save.
+     */
+    protected function brokenDocument(int $event, string $inner): int
+    {
+        global $wpdb;
+        $id = $this->document($event, $this->paragraph('Szia'));
+        $wpdb->update($wpdb->posts, ['post_content' => $inner], ['ID' => $id]);
+        clean_post_cache($id);
+
+        return $id;
+    }
+
     /** A published `kalaka_mail` document of the event. */
     protected function document(int $event, string $inner, string $title = 'Sikeres jelentkezés'): int
     {

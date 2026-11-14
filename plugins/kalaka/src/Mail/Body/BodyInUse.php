@@ -91,8 +91,11 @@ final class BodyInUse
      * @internal
      * @param \WP_REST_Request<array<string, mixed>> $request
      */
-    public static function onRestInsert(\stdClass $prepared, \WP_REST_Request $request): \stdClass|\WP_Error
+    public static function onRestInsert(\stdClass|\WP_Error $prepared, \WP_REST_Request $request): \stdClass|\WP_Error
     {
+        if ($prepared instanceof \WP_Error) {
+            return $prepared;
+        }
         $id = (int) ($prepared->ID ?? 0);
         if ($id <= 0 || !self::inUse($id)) {
             return $prepared;

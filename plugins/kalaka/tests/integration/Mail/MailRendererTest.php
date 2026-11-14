@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Mail;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Body\MailRenderer;
+use Kalaka\Mail\BodyUnusable;
 use Kalaka\Mail\Body\MailValues;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -194,14 +195,14 @@ final class MailRendererTest extends MailBodyTestCase
     {
         $event = $this->create();
         $key = $this->registration($event);
-        $body = $this->document($event, $this->paragraph('<span data-kalaka-value="event.place">x</span>'));
+        $body = $this->brokenDocument($event, $this->paragraph('<span data-kalaka-value="event.place">x</span>'));
         $this->switchOn($event, 'registered', $body);
 
         try {
             (new MailRenderer())->render($event, 'registered', $key);
             self::fail('Expected a failure.');
-        } catch (SystemFailure $e) {
-            self::assertStringContainsString('unknown_value_key event.place', $e->getMessage());
+        } catch (BodyUnusable $e) {
+            self::assertSame('unknown_value_key event.place', $e->problem);
         }
     }
 

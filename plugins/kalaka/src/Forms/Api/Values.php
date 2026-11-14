@@ -5,13 +5,30 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Forms\Engine\Value\Renderer;
 
 /** The value API's facade: renders a document's block markup with a context's values. */
 final class Values
 {
-    public function __construct(private readonly Renderer $renderer = new Renderer())
+    public function __construct(
+        private readonly Renderer $renderer = new Renderer(),
+        private readonly DocumentCheck $check = new DocumentCheck(),
+    ) {
+    }
+
+    /**
+     * Checks a document's block markup (a mail body) when it is saved, against the keys and types its
+     * context will declare: every chain's placement and condition, in every branch, and every binding and
+     * inline value. What passes renders for any context with those keys.
+     * // [UNAPPROVED N24] a document is checked at save against its declared keys.
+     *
+     * @param array<string, ValueType> $declared
+     * @throws SystemFailure `<code> <subject>`: a misplaced branch, an invalid condition, an undeclared key
+     */
+    public function check(string $content, array $declared): void
     {
+        $this->check->check($content, $declared);
     }
 
     /**

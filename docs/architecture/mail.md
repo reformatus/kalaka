@@ -126,6 +126,10 @@ activated.**
   without a valid address is marked failed with that error and no attempt is
   made; it does not count as an error for pausing, because retrying cannot
   fix it.
+- **The mail is rendered before the claim too.** A body that cannot render
+  for its own reason (a key the mail does not have, an invalid condition)
+  fails the same way: marked failed with that error, no attempt, not counted
+  for pausing.
 - **It renders the body at send time from current data** and records the
   mail's version and send time, not the content. The content can be recovered
   by re-rendering, and may be incomplete after a privacy erase. Exact copies
@@ -147,8 +151,9 @@ activated.**
 
 ### Failures
 
-An **error** is any failure after the claim: `wp_mail` returns false,
-`wp_mail_failed` fires, or rendering the mail throws. Delivery itself is never
+An **error** is any failure of an attempt, recorded after the claim:
+`wp_mail` returns false, `wp_mail_failed` fires, or rendering the mail throws
+for any reason other than the body's own ([Sending](#sending)). Delivery itself is never
 known, only whether an error was reported; a reported error may still have
 been delivered, so a retry may send a second copy. The rule bounds that: a
 mail is never sent automatically more than twice.

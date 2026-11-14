@@ -43,6 +43,28 @@ final class MailValues
     }
 
     /**
+     * The keys and types a mail of the event may read: the context's keys, as `context()` declares them. A
+     * body is checked against them at save (`BodyCheck`) and before the claim (`MailRenderer::check()`).
+     *
+     * @return array<string, ValueType>
+     */
+    public function types(int $eventId): array
+    {
+        return [
+            ...array_map(
+                static fn (Value $value): ValueType => $value->type,
+                $this->forms->participantValues($eventId, [])
+            ),
+            ...EventValues::TYPES,
+            self::RECIPIENT_EMAIL => ValueType::Text,
+            self::RECIPIENT_NAME => ValueType::Text,
+            self::CODE => ValueType::Text,
+            self::STATUS => ValueType::Choice,
+            self::LINK => ValueType::Text,
+        ];
+    }
+
+    /**
      * The registration's contact email; null when its contact-email field has no answer. The sender asks for
      * it before the claim, so a data problem is a `RecipientUnavailable`, never another exception.
      *

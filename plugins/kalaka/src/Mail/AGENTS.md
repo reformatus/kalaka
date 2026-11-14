@@ -59,8 +59,19 @@ bodies, the renderer and the per-event action-mail catalogue.
   registration: `no_registration`; slot form unpublished, or the version the
   registration was submitted with broken: `no_recipient_form`); the sender
   fails the delivery with that reason, with no attempt and no count toward
-  pausing. Only `compose()` throws otherwise. The recipient and the display
-  name are the marked fields of that submitted version, never the current one.
+  pausing. The recipient and the display name are the marked fields of that
+  submitted version, never the current one.
+- The sender composes before the claim. `compose()` throws `BodyUnusable`
+  when the body cannot render for its own reason (`Values::check()` against
+  `MailValues::types()`: an undeclared key, an invalid condition, a misplaced
+  branch); the delivery is failed with `body <problem>`, no attempt and no
+  count toward pausing. Any other throw is an error, recorded after the claim.
+- A body saved as published or scheduled is checked first (`Body\BodyCheck`):
+  REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
+  gracefully (a published body keeps its content, another stays unpublished)
+  and tells the saving user in an admin notice. `UpdateActionMail` does not
+  check the keys: a body is checked at its save, and one that goes stale
+  later fails per delivery without pausing.
 - The secret link reaches a mail only as the value `registration.link` from
   `Registrations\Api\SecretLinks::url()`. It is never stored on a
   delivery, logged or audited; render failures name a problem code and a

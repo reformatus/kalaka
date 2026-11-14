@@ -8,6 +8,7 @@ use Kalaka\Forms\Api\Values;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
+use Kalaka\Mail\BodyUnusable;
 use Kalaka\Mail\Catalogue\MailLayout;
 use Kalaka\Mail\Catalogue\MailLayoutRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -38,6 +39,8 @@ final class MailRenderer
      * @throws SystemFailure an unknown mail (`unknown_mail`), no body (`no_body`), a body that is not a
      *         published document of the event, a stored layout without its one placeholder (`layout`), or
      *         what `Values::render()` and the context throw
+     * @throws BodyUnusable the body's own problem, checked first against the mail's keys (`Values::check()`):
+     *         an undeclared key, an invalid condition, a misplaced branch
      */
     public function render(int $eventId, string $mail, RegistrationKey $registration): RenderedMail
     {
@@ -54,6 +57,12 @@ final class MailRenderer
         }
 
         $body = $this->posts->published($setting->bodyId, $eventId);
+        try {
+            $this->renderer->check($body->content, $this->values->types($eventId));
+        } catch (SystemFailure $e) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+            throw BodyUnusable::of($e);
+        }
         $html = $this->renderer->render($body->content, $this->values->context($registration));
         $version = 'b' . $body->revision;
         $layout = $setting->layout ? $this->layouts->of($eventId) : null;

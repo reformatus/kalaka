@@ -13,8 +13,10 @@ namespace Kalaka\Mail;
  */
 final readonly class DeliveryError
 {
-    /** Stages: before the claim (the address), rendering, and `wp_mail`. */
+    /** Stages: before the claim (the address, the body's own problem), rendering, and `wp_mail`. */
     public const ADDRESS = 'address';
+
+    public const BODY = 'body';
 
     public const COMPOSE = 'compose';
 
