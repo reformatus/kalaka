@@ -82,7 +82,8 @@ activated.**
   placeholder.
 - **Values and conditions** follow the shared rules
   ([Values and conditions](events-and-forms.md#values-and-conditions)). A
-  mail's context is **the recipient and the registration**. The
+  mail's context is **the recipient, the registration and its event**
+  (`event.*`). The
   registration's keys are **the event's participant fields**
   ([Fields](events-and-forms.md#fields)), not the fields of the form it
   came through; a field with no value for that registration reads as none,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Body;
 
+use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\Value;
@@ -18,9 +20,10 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SecretLinks;
 
 /**
- * A mail's value context: the recipient and the registration (events-and-forms.md, "Values and
- * conditions"), from current data. The registration's fields are the event's participant fields: a key
- * that only another form of the event holds reads as none. The recipient comes from the marked fields of
+ * A mail's value context: the recipient, the registration and its event (events-and-forms.md, "Values and
+ * conditions"), from current data. The event's keys are `EventValues::of()`, as in a form. The
+ * registration's fields are the event's participant fields: a key that only another form of the event holds
+ * reads as none. The recipient comes from the marked fields of
  * the slot form (the form of the first submission). It reads WordPress posts, so it runs outside any use case.
  * // [UNAPPROVED N14] the keys a mail may read.
  */
@@ -36,6 +39,7 @@ final class MailValues
         private readonly RegistrationLookup $registrations = new RegistrationLookup(),
         private readonly SecretLinks $links = new SecretLinks(),
         private readonly Forms $forms = new Forms(),
+        private readonly Events $events = new Events(),
     ) {
     }
 
@@ -66,8 +70,8 @@ final class MailValues
     }
 
     /**
-     * @throws SystemFailure no such registration (`no_registration`), a slot form that is not usable now, or
-     *         a field of a type no longer contributed
+     * @throws SystemFailure no such registration (`no_registration`) or event (`no_event`), a slot form that
+     *         is not usable now, or a field of a type no longer contributed
      */
     public function context(RegistrationKey $key): ValueContext
     {
@@ -77,12 +81,18 @@ final class MailValues
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('no_registration ' . $key->eventId . ' ' . $key->code);
         }
+        $event = $this->events->find($key->eventId);
+        if ($event === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
+            throw new SystemFailure('no_event ' . $key->eventId);
+        }
         $definition = $this->definition($record);
         $email = $this->marked($definition, true);
         $name = $this->marked($definition, false);
 
         return new ValueContext([
             ...$this->forms->participantValues($key->eventId, $record->values),
+            ...EventValues::of($event),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record->values[$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record->values[$name] ?? '')),
             self::CODE => self::text($key->code),

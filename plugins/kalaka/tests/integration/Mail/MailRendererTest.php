@@ -55,6 +55,48 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertSame('b' . $revision['latest_id'], $mail->version);
     }
 
+    public function testTheBodyReadsTheEventsValuesAndAConditionOnThem(): void
+    {
+        $event = $this->filled();
+        $key = $this->registration($event);
+        $body = $this->document(
+            $event,
+            $this->paragraph('<span data-kalaka-value="event.name">esemény</span>: '
+                . '<span data-kalaka-value="event.start">kezdés</span> – '
+                . '<span data-kalaka-value="event.end">vége</span>.')
+            . "\n" . $this->branch(
+                'if',
+                $this->paragraph('Nyári tábor.'),
+                [
+                    'match' => 'all',
+                    'items' => [['key' => 'event.start', 'operator' => 'greaterThan', 'value' => '2027-06-01']],
+                ]
+            ) . "\n" . $this->branch('else', $this->paragraph('Téli tábor.'))
+        );
+        $this->switchOn($event, 'registered', $body);
+
+        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+
+        self::assertStringContainsString('Tábor: 2027. július 5. – 2027. július 12.', self::text($html));
+        self::assertStringContainsString('Nyári tábor.', $html);
+        self::assertStringNotContainsString('Téli tábor.', $html);
+    }
+
+    public function testAnEventDateThatIsNotSetReadsAsNone(): void
+    {
+        $event = $this->create('Teszt tábor');
+        $key = $this->registration($event);
+        $body = $this->document(
+            $event,
+            $this->paragraph('Kezdés: <span data-kalaka-value="event.start">kezdés</span>.')
+        );
+        $this->switchOn($event, 'registered', $body);
+
+        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+
+        self::assertStringContainsString('Kezdés: .', self::text($html));
+    }
+
     public function testAKeyThatOnlyAnotherFormOfTheEventHoldsRendersEmptyWithoutFailing(): void
     {
         $event = $this->create();
@@ -151,14 +193,14 @@ final class MailRendererTest extends MailBodyTestCase
     {
         $event = $this->create();
         $key = $this->registration($event);
-        $body = $this->document($event, $this->paragraph('<span data-kalaka-value="event.start">x</span>'));
+        $body = $this->document($event, $this->paragraph('<span data-kalaka-value="event.place">x</span>'));
         $this->switchOn($event, 'registered', $body);
 
         try {
             (new MailRenderer())->render($event, 'registered', $key);
             self::fail('Expected a failure.');
         } catch (SystemFailure $e) {
-            self::assertStringContainsString('unknown_value_key event.start', $e->getMessage());
+            self::assertStringContainsString('unknown_value_key event.place', $e->getMessage());
         }
     }
 
