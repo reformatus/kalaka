@@ -48,6 +48,7 @@ final class RegistrationRepository extends EntityRepository
             'secret' => $entity->secret,
             'created_at' => self::stored($entity->createdAt),
             'registered_at' => $entity->registeredAt === null ? null : self::stored($entity->registeredAt),
+            'owner_user_id' => $entity->ownerUserId,
         ];
     }
 
@@ -60,6 +61,7 @@ final class RegistrationRepository extends EntityRepository
             self::instant((string) $row['created_at']),
             $row['registered_at'] === null ? null : self::instant($row['registered_at']),
             (int) $row['version'],
+            isset($row['owner_user_id']) ? (int) $row['owner_user_id'] : null,
         );
     }
 

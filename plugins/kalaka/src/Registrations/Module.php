@@ -12,7 +12,9 @@ final class Module extends AbstractModule
     /**
      * registrations-and-identity.md, "Registrations". Keyed by (event ID, reference code); times are
      * UTC `datetime(6)`; `secret` is `utf8mb4_nopad_bin`, compared exactly. `KEY code` serves the site-wide
-     * `code IN (…)` of `ReferenceCodeQuery`.
+     * `code IN (…)` of `ReferenceCodeQuery`. `owner_user_id` is the owner account (S15): the WordPress user
+     * the registration belongs to, null while it has none; set once, by the submit or the attach link, and
+     * never changed after.
      */
     private const REGISTRATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_registrations (
@@ -23,6 +25,7 @@ CREATE TABLE {prefix}kalaka_registrations (
   secret varchar(22) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
   created_at datetime(6) NOT NULL,
   registered_at datetime(6) DEFAULT NULL,
+  owner_user_id bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY  (event_id,code),
   KEY code (code)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
@@ -78,7 +81,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(2, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
+        return new Schema(3, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
     }
 
     /**
