@@ -89,7 +89,10 @@ final class MailEditorTest extends MailBodyTestCase
             $error = $response->as_error();
             self::assertInstanceOf(\WP_Error::class, $error);
             self::assertSame('kalaka_mail_in_use', $error->get_error_code());
-            self::assertSame('A művelet nem hajtható végre.', $error->get_error_message());
+            self::assertSame(
+                'A művelet nem hajtható végre. Ezt a szöveget egy bekapcsolt levél használja.',
+                $error->get_error_message()
+            );
         }
         self::assertSame('publish', get_post_status($body));
 

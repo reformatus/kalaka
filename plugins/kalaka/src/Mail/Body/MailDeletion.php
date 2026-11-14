@@ -15,17 +15,20 @@ use Kalaka\Mail\Catalogue\ActionMailRepository;
  *   `pre_delete_post`: the change is refused, `wp_trash_post()` and `wp_delete_post()` return false, and the
  *   body stays as it is.
  * - The REST controller refuses both before that (`MailRestController::delete_item()`), with
- *   `kalaka_mail_in_use` (409) and `RuleViolation`'s approved text: no new text.
+ *   `kalaka_mail_in_use` (409) and `RuleViolation`'s text with the reason `IN_USE`.
  * A body whose mail is switched off may go.
  */
 final class MailDeletion
 {
     public const CODE = 'kalaka_mail_in_use';
 
-    /** `RuleViolation`'s approved text. */
+    // [UNAPPROVED N20] the refusal's reason.
+    public const IN_USE = 'Ezt a szöveget egy bekapcsolt levél használja.';
+
+    /** `RuleViolation`'s text with the reason. */
     public static function message(): string
     {
-        return (new RuleViolation())->getMessage();
+        return (new RuleViolation(self::IN_USE))->getMessage();
     }
 
     /**
