@@ -173,8 +173,7 @@ values and conditions, prefill and form links
   not walked) and read only `AfterSubmit::TYPES`.
 - A page that places a form (the block `kalaka/form` or the `[kalaka_form]`
   shortcode) is never cached: `Api\FormCaching::preventCaching()` on
-  `template_redirect`; the form renderer, when it comes with the front end,
-  calls it again.
+  `template_redirect`, and again from the form renderer.
 - A form has no page or all its content in top-level `kalaka/form-page`
   blocks (with the one top-level `kalaka/after-submit` beside them); pages
   are numbered once, by `Condition\ChainMarks`, like chains. A page's
