@@ -262,6 +262,23 @@ final class FormPostTest extends FormsTestCase
         self::assertCount(7, $this->revisionIds($id));
     }
 
+    public function testTheVersionSkipsMoreAutosavesThanOneReadFetches(): void
+    {
+        $id = $this->slotForm();
+        wp_update_post(['ID' => $id, 'post_content' => $this->slotFields() . $this->field('text', 'note')]);
+        $version = $this->readForm($id)->version;
+        $post = get_post($id, ARRAY_A);
+        self::assertIsArray($post);
+
+        // More autosaves than one read of the latest revision fetches, all newer than the version.
+        for ($i = 0; $i < 7; $i++) {
+            $content = $this->slotFields() . $this->field('text', 'x' . $i);
+            _wp_put_post_revision(['post_content' => $content] + $post, true);
+        }
+
+        self::assertSame($version, $this->readForm($id)->version);
+    }
+
     public function testDeletingAFormDeletesItsRevisions(): void
     {
         $id = $this->slotForm();

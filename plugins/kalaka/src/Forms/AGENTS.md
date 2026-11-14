@@ -112,20 +112,23 @@ values and conditions, prefill and form links
   slot's markings, a missing revision, a key that clashes with the event's
   participant field) is unusable; it is never half-accepted.
 - A published form never goes from working to broken through an edit: saving a
-  form as published runs the live form's definition check (`DefinitionCheck`,
-  through `DefinitionParser` and `SharedKeyCheck`) and refuses a broken one on
-  every save path. The definition check has two homes, and both the save check
+  form as published or scheduled runs the live form's definition check
+  (`DefinitionCheck`, through `DefinitionParser` and `SharedKeyCheck`) and
+  refuses a broken one on every save path. The definition check has two homes, and both the save check
   and `Forms::definition()` run both (`Forms::definition()` runs the event
   check on the current version only; an earlier version is read as it was): a check of the form alone goes into
   `DefinitionParser`, a check against the event's participant fields into
   `ParticipantField\SharedKeyCheck`. A form broken before the check stays
   closed and is named in a site warning; it is never rendered from another
-  revision.
+  revision. A scheduled form is checked again when WordPress publishes it, and
+  a broken one goes back to draft instead.
 - Kaláka's form blocks are gated by post type (`BlockGate` on
   `allowed_block_types_all`), never by `ancestor`: a form's editor gets the
-  allow-list, any other editor only what a `BlockHost` names. Forms never names
-  another module's post type; that module contributes the host. The condition
-  blocks are not gated: every block editor offers them.
+  allow-list, any other editor only what a `BlockHost` names. Outside a form's
+  editor an allow-all `true` stays `true` (blocks registered only in JavaScript
+  must survive); the gated blocks are hidden there on the client. Forms never
+  names another module's post type; that module contributes the host. The
+  condition blocks are not gated: every block editor offers them.
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
 - Access checks are pure: they read no current user, cookie or request; the

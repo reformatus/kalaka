@@ -83,15 +83,54 @@ final class BlockGateTest extends WP_UnitTestCase
         self::assertNotContains('core/table', $allowed);
     }
 
-    public function testAPostAndAPageAllowTheFormBlockButNoFieldBlock(): void
+    public function testAPostAndAPageKeepAllowAllAndHideOnlyTheGatedBlocks(): void
     {
         foreach (['post', 'page'] as $postType) {
-            $allowed = $this->allowedIn($postType);
+            // `true` stays `true`: a server list would drop blocks registered only in JavaScript.
+            self::assertTrue($this->allowedIn($postType), $postType);
 
-            self::assertIsArray($allowed, $postType);
-            self::assertContains(BlockGate::FORM_BLOCK, $allowed, $postType);
-            self::assertContains('core/paragraph', $allowed, $postType);
-            self::assertSame([], array_values(array_intersect(self::FIELDS, $allowed)), $postType);
+            $hidden = BlockGate::hidden($postType, 'core/edit-post', Contributions::current());
+            self::assertEqualsCanonicalizing(
+                [...self::FIELDS, 'kalaka/form-page', 'kalaka/after-submit'],
+                $hidden,
+                $postType
+            );
+            self::assertNotContains(BlockGate::FORM_BLOCK, $hidden, $postType);
+        }
+        self::assertSame([], BlockGate::hidden('kalaka_form', 'core/edit-post', Contributions::current()));
+    }
+
+    public function testAListElsewhereKeepsABlockRegisteredOnlyInJavaScript(): void
+    {
+        self::assertFalse(\WP_Block_Type_Registry::get_instance()->is_registered('acme/js-only'));
+        $list = static fn (): array => ['acme/js-only', 'kalaka/text-field', BlockGate::FORM_BLOCK];
+        add_filter('allowed_block_types_all', $list, 5);
+        try {
+            self::assertSame(['acme/js-only', BlockGate::FORM_BLOCK], $this->allowedIn('post'));
+        } finally {
+            remove_filter('allowed_block_types_all', $list, 5);
+        }
+    }
+
+    public function testThePostEditorHidesTheGatedBlocksOnTheClientAndAFormsEditorDoesNot(): void
+    {
+        $scripts = wp_scripts();
+        try {
+            set_current_screen('kalaka_form');
+            BlockGate::enqueueHiding();
+            self::assertFalse(wp_script_is(BlockGate::HIDING_SCRIPT, 'registered'));
+
+            set_current_screen('post');
+            BlockGate::enqueueHiding();
+            self::assertTrue(wp_script_is(BlockGate::HIDING_SCRIPT, 'enqueued'));
+            $inline = implode("\n", (array) $scripts->get_data(BlockGate::HIDING_SCRIPT, 'after'));
+            self::assertStringContainsString('unregisterBlockType', $inline);
+            self::assertStringContainsString('"kalaka\\/text-field"', $inline);
+            self::assertStringNotContainsString('"kalaka\\/form"', $inline);
+        } finally {
+            wp_dequeue_script(BlockGate::HIDING_SCRIPT);
+            wp_deregister_script(BlockGate::HIDING_SCRIPT);
+            set_current_screen('front');
         }
     }
 

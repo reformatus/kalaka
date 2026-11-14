@@ -209,8 +209,10 @@ SQL;
         }
         add_action('admin_init', [BrokenForms::class, 'ensure']);
         add_action('admin_notices', [DefinitionCheck::class, 'notice']);
+        add_action('publish_future_post', [DefinitionCheck::class, 'onPublishFuture'], 5);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
+        add_action('enqueue_block_editor_assets', [BlockGate::class, 'enqueueHiding']);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
         add_action('enqueue_block_editor_assets', [$this, 'editorScriptData']);
     }
