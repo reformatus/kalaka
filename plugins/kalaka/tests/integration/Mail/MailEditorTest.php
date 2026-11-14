@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Mail;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Module;
 
 /** Mail documents in the block editor: full access only, the mail blocks, and the condition blocks inside them. */
@@ -62,6 +63,22 @@ final class MailEditorTest extends MailBodyTestCase
         $revision = wp_get_latest_revision_id_and_total_count($id);
         self::assertIsArray($revision);
         self::assertGreaterThan(0, $revision['latest_id']);
+    }
+
+    public function testTheVersionSkipsMoreAutosavesThanOneReadFetches(): void
+    {
+        $event = $this->create();
+        $id = $this->document($event, $this->paragraph('Szia'));
+        $version = (new MailPosts())->published($id, $event)->revision;
+        $post = get_post($id, ARRAY_A);
+        self::assertIsArray($post);
+
+        // More autosaves than one read of the latest revision fetches, all newer than the version.
+        for ($i = 0; $i < 7; $i++) {
+            _wp_put_post_revision(['post_content' => $this->paragraph('Vázlat ' . $i)] + $post, true);
+        }
+
+        self::assertSame($version, (new MailPosts())->published($id, $event)->revision);
     }
 
     public function testTheEditorOffersAMailTheConditionBlocksButNoFieldOrPageBlock(): void
