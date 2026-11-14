@@ -35,6 +35,15 @@ final class BodyCheck
 
     private const LIVE = ['publish', 'future'];
 
+    /**
+     * The event the REST check used, by post ID (0: a new body), for this request's `wp_insert_post_data`
+     * that follows it: the REST controller saves the meta only after the post, so the stored event is still
+     * the old one there (as `Forms\DefinitionCheck` carries the placement).
+     *
+     * @var array<int, ?int>
+     */
+    private static array $restEvents = [];
+
     /** The problem of a body's content in its event, `<code> <subject>`, or null when it has none. */
     public static function problem(string $content, ?int $eventId): ?string
     {
@@ -85,8 +94,12 @@ final class BodyCheck
             ? self::eventId($meta[MailPosts::META_EVENT_ID])
             : (new MailPosts())->eventOf($id);
         $problem = self::problem($content, $event);
+        if ($problem !== null) {
+            return new \WP_Error(self::CODE, self::message($problem), ['status' => 400]);
+        }
+        self::$restEvents[$id] = $event;
 
-        return $problem === null ? $prepared : new \WP_Error(self::CODE, self::message($problem), ['status' => 400]);
+        return $prepared;
     }
 
     /**
@@ -99,18 +112,22 @@ final class BodyCheck
      */
     public static function onInsert(array $data, array $postarr): array
     {
-        if (
-            ($data['post_type'] ?? null) !== MailPosts::POST_TYPE
-            || !in_array($data['post_status'] ?? null, self::LIVE, true)
-            || !is_string($data['post_content'] ?? null)
-        ) {
+        if (($data['post_type'] ?? null) !== MailPosts::POST_TYPE) {
             return $data;
         }
         $id = (int) ($postarr['ID'] ?? 0);
+        $fromRest = array_key_exists($id, self::$restEvents);
+        $restEvent = self::$restEvents[$id] ?? null;
+        unset(self::$restEvents[$id]);
+        if (!in_array($data['post_status'] ?? null, self::LIVE, true) || !is_string($data['post_content'] ?? null)) {
+            return $data;
+        }
         $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
-        $event = array_key_exists(MailPosts::META_EVENT_ID, $meta)
-            ? self::eventId($meta[MailPosts::META_EVENT_ID])
-            : (new MailPosts())->eventOf($id);
+        $event = match (true) {
+            $fromRest => $restEvent,
+            array_key_exists(MailPosts::META_EVENT_ID, $meta) => self::eventId($meta[MailPosts::META_EVENT_ID]),
+            default => (new MailPosts())->eventOf($id),
+        };
         $problem = self::problem(wp_unslash($data['post_content']), $event);
         if ($problem === null) {
             return $data;

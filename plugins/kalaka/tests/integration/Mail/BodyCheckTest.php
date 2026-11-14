@@ -110,6 +110,23 @@ final class BodyCheckTest extends MailBodyTestCase
         self::assertSame(200, $draft->get_status());
     }
 
+    public function testARestSaveIsCheckedAgainstTheEventItSetsOnBothChecks(): void
+    {
+        $event = $this->create();
+        $other = $this->create('Másik');
+        $this->slotForm($other);
+        $id = $this->document($event, $this->paragraph('Szia'));
+        // `camps` is a participant field of the other event only.
+        $inner = $this->paragraph('<span data-kalaka-value="camps">t</span>');
+
+        $response = $this->restSave($id, ['content' => $inner, 'meta' => ['kalaka_event_id' => $other]]);
+
+        self::assertSame(200, $response->get_status());
+        self::assertSame($inner, get_post_field('post_content', $id));
+        self::assertSame((string) $other, get_post_meta($id, 'kalaka_event_id', true));
+        self::assertFalse(get_transient(BodyCheck::NOTICE . $this->user));
+    }
+
     public function testAnyOtherPathVetoesGracefullyAndTellsTheSavingUser(): void
     {
         $event = $this->create();
