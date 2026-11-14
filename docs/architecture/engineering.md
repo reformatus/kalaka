@@ -204,8 +204,10 @@ src/Registrations/
     `render.php`, `edit.js`, `view.js`, laid out as `create-block` does).
 - Repositories are named `<Entity>Repository`.
 - Extension plugins have the same shape.
-- **Layers are not folders.** Today deptrac checks only the boundary between
-  modules: a module uses another only through its `Api` namespace. As use
+- **Layers are not folders.** Today deptrac checks the boundary between
+  modules (a module uses another only through its `Api` namespace) and one
+  boundary inside a module: Forms' form engine (`Forms\Engine`) uses only
+  Foundation's `Api`, its own contract and WordPress. As use
   cases and repositories appear, layers by interface, base class and name join
   (use cases implement `UseCase`, repositories extend the repository base), so
   it can then enforce, for example, that `Rest/`, `Cli/` and `Blocks/` never
