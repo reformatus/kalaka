@@ -61,4 +61,9 @@ the waitlist and reference codes
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
+- `Api\RegistrationFacts` is a registration's fact source after submit (the
+  one availability base): the event's values, the code, the status and the
+  submit time (`created_at`), which price deadlines are judged against. It
+  holds values only; field values join in S25, over #181's participant-field
+  read.
 - Only Registrations writes its tables.
