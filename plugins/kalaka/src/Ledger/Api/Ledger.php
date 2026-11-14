@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
+use Kalaka\Ledger\ChargeTotalQuery;
 use Kalaka\Ledger\LedgerLineRepository;
 use Kalaka\Ledger\PaymentFactQuery;
 use Kalaka\Ledger\SummaryQuery;
@@ -21,6 +22,7 @@ final class Ledger
         private readonly BalanceQuery $balances = new BalanceQuery(),
         private readonly PaymentFactQuery $facts = new PaymentFactQuery(),
         private readonly SummaryQuery $summaries = new SummaryQuery(),
+        private readonly ChargeTotalQuery $charges = new ChargeTotalQuery(),
     ) {
     }
 
@@ -91,6 +93,18 @@ final class Ledger
     public function summaryOf(RegistrationKey $registration): Summary
     {
         return $this->summaries->of($registration);
+    }
+
+    /**
+     * The registration's `charge` lines summed per source and payer: the materializer's read of what it
+     * has recorded. Only `Pricing\Api\Materializer` calls it (a test checks this); rules never read charge
+     * lines. A plain read, without a lock: the materializer runs under the registration's row lock.
+     *
+     * @return list<ChargeTotal>
+     */
+    public function chargeTotalsOf(RegistrationKey $registration): array
+    {
+        return $this->charges->of($registration);
     }
 
     private function check(NewLine $line): void
