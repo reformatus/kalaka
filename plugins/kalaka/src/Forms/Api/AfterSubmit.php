@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Engine\Condition\ChainMarks;
 
 /**
  * The after-submit section of a form (events-and-forms.md, "Forms implementation"): the block
@@ -16,7 +17,7 @@ use Kalaka\Events\Api\Event;
  */
 final class AfterSubmit
 {
-    public const BLOCK = 'kalaka/after-submit';
+    public const BLOCK = ChainMarks::AFTER_SUBMIT_BLOCK;
 
     public const CODE = 'registration.code';
 

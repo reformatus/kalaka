@@ -6,8 +6,8 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\FormCaching;
-use Kalaka\Forms\FormPosts;
-use Kalaka\Forms\Rest\FormRoutes;
+use Kalaka\Forms\Engine\FormPosts;
+use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Foundation\Api\Audit\Correlation;
 use Kalaka\Foundation\Api\LoadFailure;
 use Kalaka\Foundation\Api\LoadState;

@@ -6,8 +6,8 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormDefinition;
-use Kalaka\Forms\Condition\Comparison;
-use Kalaka\Forms\Condition\Operator;
+use Kalaka\Forms\Engine\Condition\Comparison;
+use Kalaka\Forms\Engine\Condition\Operator;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /** AC5: the branches a form's fields sit in, and the definition problems of conditions (D6, D8, D9, D10). */

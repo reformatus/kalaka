@@ -7,7 +7,7 @@ namespace Kalaka\Tests\Unit\Forms;
 use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormPlacement;
-use Kalaka\Forms\SlotRules;
+use Kalaka\Forms\Engine\SlotRules;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use PHPUnit\Framework\TestCase;
 

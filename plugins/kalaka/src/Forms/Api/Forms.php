@@ -5,18 +5,15 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
-use Kalaka\Events\Api\EventState;
-use Kalaka\Forms\AnswerValidator;
-use Kalaka\Forms\Condition\ChainMarks;
-use Kalaka\Forms\DefinitionParser;
-use Kalaka\Forms\FormPosts;
+use Kalaka\Forms\Engine\FormEngine;
+use Kalaka\Forms\Engine\FormPosts;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
-use Kalaka\Forms\ParticipantField\ParticipantFieldQuery;
-use Kalaka\Forms\ParticipantField\SharedKeyCheck;
-use Kalaka\Forms\FormWalk;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
@@ -26,10 +23,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
 final class Forms
 {
     public function __construct(
+        private readonly FormEngine $engine = new FormEngine(new EventFormHost()),
         private readonly FormPosts $posts = new FormPosts(),
-        private readonly DefinitionParser $parser = new DefinitionParser(),
-        private readonly AnswerValidator $validator = new AnswerValidator(),
-        private readonly FormWalk $walk = new FormWalk(),
     ) {
     }
 
@@ -41,7 +36,7 @@ final class Forms
      */
     public function form(int $id): ?Form
     {
-        return $this->posts->form($id);
+        return $this->engine->form($id);
     }
 
     /**
@@ -54,18 +49,7 @@ final class Forms
      */
     public function definition(Form $form, ?int $version = null): FormDefinition
     {
-        $version ??= $form->version;
-        $content = $this->posts->content($form, $version);
-        $definition = $this->parser->parse($form, $version, $content, Contributions::current());
-        if ($version === $form->version) {
-            $problem = SharedKeyCheck::problem($content, $form->eventId, Contributions::current());
-            if ($problem !== null) {
-                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
-                throw new SystemFailure($problem[0] . ' ' . $problem[1]);
-            }
-        }
-
-        return $definition;
+        return $this->engine->definition($form, $version);
     }
 
     /**
@@ -77,17 +61,12 @@ final class Forms
      */
     public function latestDefinition(Form $form, int $version): FormDefinition
     {
-        if ($version !== $form->version) {
-            $error = new FormOutdated();
-            throw $error;
-        }
-
-        return $this->definition($form, $version);
+        return $this->engine->latestDefinition($form, $version);
     }
 
     /**
      * The parsed blocks of the form's version with every branch block marked with its chain number and
-     * branch index (`Condition\ChainMarks`, the numbering the definition reads): what a form page renders,
+     * branch index (`Engine\Condition\ChainMarks`, the numbering the definition reads): what a form page renders,
      * block by block with `render_block()`, outside `Values::render()`. A top-level page renders as
      * `<div data-kalaka-page="N" [data-kalaka-terminal] hidden>…</div>` (`PageMarkup`); the after-submit
      * section is left out.
@@ -104,18 +83,7 @@ final class Forms
      */
     public function blocks(Form $form, ?int $version = null, ?FormAvailability $availability = null): array
     {
-        $version ??= $form->version;
-        $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
-        $withheld = [];
-        foreach ($this->definition($form, $version)->withheldChains() as $number) {
-            $withheld[$number] = $availability?->heldBranch($number);
-        }
-
-        // The after-submit section is never rendered with the form.
-        return array_values(array_filter(
-            ChainMarks::prune($marked, $withheld),
-            static fn (array $block): bool => ($block['blockName'] ?? null) !== AfterSubmit::BLOCK
-        ));
+        return $this->engine->blocks($form, $version, $availability);
     }
 
     /**
@@ -127,36 +95,7 @@ final class Forms
      */
     public function afterSubmit(Form $form, int $version, ValueContext $context): ?string
     {
-        $section = self::findAfterSubmit(parse_blocks($this->posts->content($form, $version)));
-        if ($section === null) {
-            return null;
-        }
-        $inner = is_array($section['innerBlocks'] ?? null) ? array_values($section['innerBlocks']) : [];
-
-        return (new Values())->render(serialize_blocks($inner), $context);
-    }
-
-    /**
-     * @param array<array-key, mixed> $blocks
-     * @return array<string, mixed>|null
-     */
-    private static function findAfterSubmit(array $blocks): ?array
-    {
-        foreach ($blocks as $block) {
-            if (!is_array($block)) {
-                continue;
-            }
-            if (($block['blockName'] ?? null) === AfterSubmit::BLOCK) {
-                /** @var array<string, mixed> $block */
-                return $block;
-            }
-            $found = self::findAfterSubmit(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : []);
-            if ($found !== null) {
-                return $found;
-            }
-        }
-
-        return null;
+        return $this->engine->afterSubmit($form, $version, $context);
     }
 
     /**
@@ -174,28 +113,13 @@ final class Forms
         array $roles,
         bool $passwordGiven
     ): array {
-        if ($event->state() !== EventState::Published) {
-            return [AccessRefusal::EventNotOpen];
-        }
-
-        $refusals = [];
-        if ($form->placement === FormPlacement::Registration && !$event->registrationWindowContains($now)) {
-            $refusals[] = AccessRefusal::OutsideRegistrationWindow;
-        }
-        if ($form->hasPassword && !$passwordGiven) {
-            $refusals[] = AccessRefusal::PasswordRequired;
-        }
-        if ($form->requiredRole !== null && !in_array($form->requiredRole, $roles, true)) {
-            $refusals[] = AccessRefusal::RoleRequired;
-        }
-
-        return $refusals;
+        return EventFormHost::refusalsOf($form, $event, $now, $roles, $passwordGiven);
     }
 
     /**
-     * The event's participant fields, in the order they were declared (`position`); retired ones only when
-     * asked. Each names the forms of the event that hold it now and its type's label. It reads Kaláka's own
-     * table and the event's form posts, so it runs outside a use case's transaction.
+     * The event's participant fields (`ParticipantFields::of()`), each with the forms of the event that hold
+     * it now (`ParticipantField::$forms`). It reads Kaláka's own table and the event's form posts, so it runs
+     * outside a use case's transaction.
      *
      * @return list<ParticipantField>
      */
@@ -207,36 +131,11 @@ final class Forms
                 $holders[$key][] = ['form_id' => $post->ID, 'title' => $post->post_title];
             }
         }
-        $blocks = \WP_Block_Type_Registry::get_instance();
 
-        $fields = [];
-        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
-            if ($record->retiredAt !== null && !$includeRetired) {
-                continue;
-            }
-            $options = [];
-            foreach ($record->options ?? [] as $option) {
-                $options[] = [
-                    'value' => $option['value'],
-                    'label' => $option['label'],
-                    'retired' => $option['retired_at'] !== null,
-                ];
-            }
-            $title = $blocks->get_registered($record->type)?->title;
-            $fields[] = new ParticipantField(
-                $record->key,
-                $record->type,
-                $record->title,
-                $options,
-                $record->source,
-                $record->retiredAt !== null,
-                is_string($title) && $title !== '' ? $title : $record->type,
-                $record->writableFromForms(),
-                $holders[$record->key] ?? [],
-            );
-        }
-
-        return $fields;
+        return array_map(
+            static fn (ParticipantField $field): ParticipantField => $field->withForms($holders[$field->key] ?? []),
+            (new ParticipantFields())->of($eventId, $includeRetired)
+        );
     }
 
     /**
@@ -253,7 +152,7 @@ final class Forms
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->validator->validate($definition, $answers, Contributions::current(), $facts);
+        return $this->engine->validate($definition, $answers, $facts);
     }
 
     /**
@@ -274,29 +173,6 @@ final class Forms
         Facts $facts,
         ?int $page = null
     ): FormAvailability {
-        if ($page !== null && !isset($definition->pages[$page])) {
-            // a page out of range, or any page of a form without pages.
-            $error = new InvalidInput();
-            throw $error;
-        }
-        $result = $this->walk->run($definition, $answers, $facts, Contributions::current());
-        $errors = [];
-        if ($page !== null && ($result->pages[$page] ?? false) && !$definition->pages[$page]->terminal) {
-            foreach ($result->errors as $key => $message) {
-                if ($definition->field($key)?->page === $page) {
-                    $errors[$key] = $message;
-                }
-            }
-        }
-
-        return new FormAvailability(
-            $result->shown,
-            $result->held,
-            $result->options,
-            $definition->triggers,
-            $definition->withheldChains(),
-            $result->pages,
-            $errors
-        );
+        return $this->engine->availability($definition, $answers, $facts, $page);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Forms\Engine\BlockGate;
+use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
@@ -12,20 +14,19 @@ use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Cli\FormSeeder;
-use Kalaka\Forms\Condition\DateReference;
-use Kalaka\Forms\FieldType\ChoiceFieldType;
-use Kalaka\Forms\FieldType\ConsentFieldType;
-use Kalaka\Forms\FieldType\DateFieldType;
-use Kalaka\Forms\FieldType\EmailFieldType;
-use Kalaka\Forms\FieldType\NameFieldType;
-use Kalaka\Forms\FieldType\PhoneFieldType;
-use Kalaka\Forms\FieldType\TextFieldType;
-use Kalaka\Forms\Rest\FormRoutes;
-use Kalaka\Forms\Value\BindingSource;
+use Kalaka\Forms\Engine\Condition\DateReference;
+use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
+use Kalaka\Forms\Engine\FieldType\DateFieldType;
+use Kalaka\Forms\Engine\FieldType\EmailFieldType;
+use Kalaka\Forms\Engine\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
+use Kalaka\Forms\Engine\FieldType\TextFieldType;
+use Kalaka\Forms\Engine\Rest\FormRoutes;
+use Kalaka\Forms\Engine\Value\BindingSource;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
 {
@@ -41,27 +42,6 @@ final class Module extends AbstractModule
     /** The block category of Kaláka's blocks in the block editor's inserter. */
     public const BLOCK_CATEGORY = 'kalaka';
 
-    /**
-     * The event's participant fields, keyed by (event ID, field key). `field_key` and `type`
-     * are compared exactly (`utf8mb4_nopad_bin`); `options` is JSON; times are UTC `datetime(6)`.
-     */
-    private const PARTICIPANT_FIELDS = <<<'SQL'
-CREATE TABLE {prefix}kalaka_participant_fields (
-  event_id bigint(20) unsigned NOT NULL,
-  field_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
-  version int(10) unsigned NOT NULL,
-  type varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
-  title text CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  options longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
-  source varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  retired_at datetime(6) DEFAULT NULL,
-  created_at datetime(6) NOT NULL,
-  updated_at datetime(6) NOT NULL,
-  position int(10) unsigned NOT NULL,
-  form_writable tinyint(1) NOT NULL,
-  PRIMARY KEY  (event_id,field_key)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
-SQL;
     /** The condition branch blocks, in `Blocks/`. */
     private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
@@ -71,11 +51,6 @@ SQL;
     public function id(): string
     {
         return 'forms';
-    }
-
-    public function schema(): Schema
-    {
-        return new Schema(1, [self::PARTICIPANT_FIELDS]);
     }
 
     public function requiresApi(): string
@@ -110,7 +85,7 @@ SQL;
             add_action('wp_loaded', [$check, 'run']);
         }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
-        add_action('rest_api_init', [new FormRoutes(), 'register']);
+        add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
         add_shortcode(FormCaching::SHORTCODE, [$this, 'shortcode']);
@@ -212,7 +187,6 @@ SQL;
         add_action('publish_future_post', [DefinitionCheck::class, 'onPublishFuture'], 5);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
-        add_action('enqueue_block_editor_assets', [BlockGate::class, 'enqueueHiding']);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
         add_action('enqueue_block_editor_assets', [$this, 'editorScriptData']);
     }
@@ -266,12 +240,12 @@ SQL;
      */
     public function editorScriptData(): void
     {
-        $type = \WP_Block_Type_Registry::get_instance()->get_registered(FormCaching::BLOCK);
-        $handle = $type === null ? null : ($type->editor_script_handles[0] ?? null);
-        if (!is_string($handle)) {
+        $handle = BlockGate::editorHandle();
+        if ($handle === null) {
             return;
         }
-        $data = wp_json_encode(self::editorData());
+        // The editor's own data, then the gated blocks to hide in this editor (none in a form's).
+        $data = wp_json_encode([...self::editorData(), 'hidden' => BlockGate::hiddenHere()]);
         wp_add_inline_script($handle, 'window.kalakaFormEditor = ' . $data . ';', 'before');
     }
 

@@ -35,7 +35,9 @@ Kaláka is a WordPress plugin: an integrated registration system for events and 
 |---|---|---|
 | Foundation | `Kalaka\Foundation` | `plugins_loaded` boot, `kalaka_register_modules` |
 | Events | `Kalaka\Events` | none yet |
+| ParticipantFields | `Kalaka\ParticipantFields` | none (its route stays in Forms) |
 | Forms | `Kalaka\Forms` | `init` (blocks, form post type), `wp_loaded` (field block check), block `kalaka/form`, `wp kalaka seed` |
+| Assignments | `Kalaka\Assignments` | none yet |
 | Registrations | `Kalaka\Registrations` | none yet |
 | Pricing | `Kalaka\Pricing` | none yet |
 | Ledger | `Kalaka\Ledger` | none yet |
