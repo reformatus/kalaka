@@ -162,8 +162,10 @@ final class Sender implements PeriodicStep
         }
     }
 
-    /** @return bool whether this run marked it failed */
-    /** @param string $reason `invalid_address`, or a `RecipientUnavailable` reason */
+    /**
+     * @param string $reason `invalid_address`, or a `RecipientUnavailable` reason
+     * @return bool whether this run marked it failed
+     */
     private function fail(Runner $runner, Delivery $delivery, string $reason): bool
     {
         $error = new DeliveryError(DeliveryError::ADDRESS, $reason, null, Correlation::id());
