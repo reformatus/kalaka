@@ -14,9 +14,17 @@ use Kalaka\Pricing\Api\ProposedMoneySettings;
  */
 final class CoreFeeComponents
 {
+    /**
+     * @param list<FeeComponent> $more components besides core's, composed after them within their stage: the
+     *     place the extension point takes in S25 (tests use it now)
+     */
+    public function __construct(private readonly array $more = [])
+    {
+    }
+
     /** @return list<FeeComponent> with the proposed settings in place of the stored ones, when given */
     public function list(?ProposedMoneySettings $proposed = null): array
     {
-        return [new FixedPrice(proposed: $proposed?->fixedPrice)];
+        return [new FixedPrice(proposed: $proposed?->fixedPrice), ...$this->more];
     }
 }
