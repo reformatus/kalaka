@@ -15,8 +15,8 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  * Checks a document's block markup (a mail body) when it is saved, against the keys and types its context
  * will declare: every chain's placement and every condition in it, in every branch whether it would hold or
  * not, every `kalaka/value` binding and every inline value. What it accepts, `Renderer` renders for any
- * context with those keys; it is the check `DefinitionParser` makes of a form's after-submit section, for
- * values too.
+ * context with those keys. Its walk (`walk()`) is also `DefinitionParser`'s check of a form's after-submit
+ * section, which refuses some blocks there and does not check values.
  */
 final class DocumentCheck
 {
@@ -34,22 +34,35 @@ final class DocumentCheck
     public function check(string $content, array $declared): void
     {
         $scope = new DeclaredScope($declared);
-        $this->sequence(array_values(parse_blocks($content)), $scope);
+        $this->walk(array_values(parse_blocks($content)), $scope, true);
         $this->inline($content, $scope);
     }
 
-    /** @param list<array<string, mixed>|string> $sequence */
-    private function sequence(array $sequence, DeclaredScope $scope): void
+    /**
+     * The save walk of parsed blocks: every chain's placement and every condition in every branch, every
+     * block's inner blocks, and, when asked, every block's `kalaka/value` bindings.
+     *
+     * @param list<array<string, mixed>|string> $sequence
+     * @param (\Closure(array<string, mixed>): void)|null $visit called with every block first; it throws to
+     *     refuse one
+     * @throws SystemFailure
+     */
+    public function walk(array $sequence, DeclaredScope $scope, bool $bindings, ?\Closure $visit = null): void
     {
         foreach (Chains::split($sequence) as $item) {
             $blocks = $item instanceof Chain ? $item->branches : (is_array($item) ? [$item] : []);
             foreach ($blocks as $block) {
+                if ($visit !== null) {
+                    $visit($block);
+                }
                 $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
                 if ($item instanceof Chain && ($block['blockName'] ?? null) !== Chains::ELSE_BLOCK) {
                     $this->parser->parse($attributes['condition'] ?? null, $scope);
                 }
-                $this->bindings($attributes, $scope);
-                $this->sequence(Chains::sequenceOf($block), $scope);
+                if ($bindings) {
+                    $this->bindings($attributes, $scope);
+                }
+                $this->walk(Chains::sequenceOf($block), $scope, $bindings, $visit);
             }
         }
     }
