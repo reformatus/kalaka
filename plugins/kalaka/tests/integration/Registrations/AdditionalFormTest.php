@@ -183,6 +183,11 @@ final class AdditionalFormTest extends FormsTestCase
 
         self::assertArrayNotHasKey('note', $this->values());
         self::assertSame('marad', $this->values()['other']);
+        // The clear is audited like any write; the kept value is not.
+        $entries = $this->entriesOf('kalaka-portal/submit-additional-form');
+        self::assertCount(1, $entries);
+        self::assertContains('field:note', $this->changedFields($entries[0]));
+        self::assertNotContains('field:other', $this->changedFields($entries[0]));
     }
 
     public function testAWaitlistedRegistrationMaySubmitAndAWithdrawnOneMayNot(): void
