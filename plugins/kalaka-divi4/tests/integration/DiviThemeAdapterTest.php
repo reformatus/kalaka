@@ -94,4 +94,47 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
             remove_filter('template', $template);
         }
     }
+
+    public function testUnderDivi4APageWithAFormGetsTheBrowsersOwnCheckboxesAndRadiosBackOnAnIphone(): void
+    {
+        $post = self::factory()->post->create(['post_content' => '[kalaka_form id="8"]']);
+        $this->go_to((string) get_permalink($post));
+        // A fresh style queue: the tests share WordPress's global one.
+        $GLOBALS['wp_styles'] = null;
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            (new Module(self::divi('4.27.4')))->enqueue();
+        } finally {
+            remove_filter('template', $template);
+        }
+
+        self::assertTrue(wp_style_is('kalaka-divi4', 'enqueued'));
+        $css = implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'));
+        self::assertStringContainsString(Module::IPHONE_CONTROLS, $css);
+        // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons.
+        self::assertSame(
+            '.iphone .et_pb_contact_form .kalaka-field input[type=checkbox],'
+                . '.iphone .et_pb_contact_form .kalaka-field input[type=radio]'
+                . '{-webkit-appearance:auto;appearance:auto}',
+            Module::IPHONE_CONTROLS
+        );
+    }
+
+    public function testAPageWithoutAFormGetsNoStylesheet(): void
+    {
+        $post = self::factory()->post->create(['post_content' => 'Nincs itt űrlap.']);
+        $this->go_to((string) get_permalink($post));
+        // A fresh style queue: the tests share WordPress's global one.
+        $GLOBALS['wp_styles'] = null;
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            (new Module(self::divi('4.27.4')))->enqueue();
+        } finally {
+            remove_filter('template', $template);
+        }
+
+        self::assertFalse(wp_style_is('kalaka-divi4', 'enqueued'));
+    }
 }
