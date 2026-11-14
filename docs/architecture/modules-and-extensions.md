@@ -43,6 +43,7 @@ flowchart LR
     FD["Foundation"]
     EV["Events"]
     FO["Forms"]
+    PF["ParticipantFields"]
     AS["Assignments"]
     RE["Registrations"]
     RU["Pricing"]
