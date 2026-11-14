@@ -21,6 +21,7 @@ use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Foundation\Seed\Seed;
+use Kalaka\Pricing\Api\Materializer;
 
 final class Module extends AbstractModule
 {
@@ -151,7 +152,8 @@ SQL;
     {
         $clock = new WordPressClock();
         $binlog = new BinlogCheck();
-        $runner = new Runner($clock, evaluation: new Evaluation(new DecisionRules()), binlog: $binlog);
+        $evaluation = new Evaluation(new DecisionRules(), money: new Materializer());
+        $runner = new Runner($clock, evaluation: $evaluation, binlog: $binlog);
         Runner::publish($runner);
 
         $periodicRun = new PeriodicRun(
