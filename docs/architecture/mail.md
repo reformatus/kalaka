@@ -127,7 +127,8 @@ activated.**
   made; it does not count as an error for pausing, because retrying cannot
   fix it.
 - **The mail is rendered before the claim too.** A body that cannot render
-  for its own reason (a key the mail does not have, an invalid condition)
+  for its own reason (no body, a body removed, unpublished or moved, a key
+  the mail does not have, an invalid condition)
   fails the same way: marked failed with that error, no attempt, not counted
   for pausing.
 - **It renders the body at send time from current data** and records the

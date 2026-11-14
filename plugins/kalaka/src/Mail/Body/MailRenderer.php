@@ -36,11 +36,12 @@ final class MailRenderer
 
     /**
      * @param string $mail the mail's key: an action mail's key
-     * @throws SystemFailure an unknown mail (`unknown_mail`), no body (`no_body`), a body that is not a
-     *         published document of the event, a stored layout without its one placeholder (`layout`), or
+     * @throws SystemFailure an unknown mail (`unknown_mail`), a body without a revision, a stored layout
+     *         without its one placeholder (`layout`), or
      *         what `Values::render()` and the context throw
-     * @throws BodyUnusable the body's own problem, checked first against the mail's keys (`Values::check()`):
-     *         an undeclared key, an invalid condition, a misplaced branch
+     * @throws BodyUnusable the body's own problem: none assigned (`no_body`), gone, unpublished or of another
+     *         event (`MailPosts::published()`), or, checked against the mail's keys (`Values::check()`), an
+     *         undeclared key, an invalid condition, a misplaced branch
      */
     public function render(int $eventId, string $mail, RegistrationKey $registration): RenderedMail
     {
@@ -53,7 +54,7 @@ final class MailRenderer
         $setting = $settings->mail($action);
         if ($setting->bodyId === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
-            throw new SystemFailure('no_body ' . $mail);
+            throw new BodyUnusable('no_body ' . $mail);
         }
 
         $body = $this->posts->published($setting->bodyId, $eventId);

@@ -217,8 +217,12 @@ final class MailRendererTest extends MailBodyTestCase
         $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => $body]);
         clean_post_cache($body);
 
-        $this->expectException(SystemFailure::class);
-        (new MailRenderer())->render($event, 'registered', $key);
+        try {
+            (new MailRenderer())->render($event, 'registered', $key);
+            self::fail('Expected a failure.');
+        } catch (BodyUnusable $e) {
+            self::assertSame('unpublished ' . $body, $e->problem);
+        }
     }
 
     public function testTheRecipientIsTheContactEmailOrNoneOrUnavailableWithItsReason(): void

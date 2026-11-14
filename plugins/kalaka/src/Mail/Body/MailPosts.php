@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Body;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Mail\BodyUnusable;
 
 /**
  * Reads the `kalaka_mail` posts: the bodies of mails, edited in the block editor (mail.md,
@@ -41,19 +42,24 @@ final class MailPosts
     /**
      * The published document of the event, as it is now, with its version.
      *
-     * @throws SystemFailure when it is no published `kalaka_mail` post of the event (problem `mail_document`)
-     *         or has no revision (problem `no_revision`)
+     * @throws BodyUnusable when it is no `kalaka_mail` post any more (`missing`), not published
+     *         (`unpublished`) or of another event (`other_event`): the body's own problem
+     * @throws SystemFailure when it has no revision (problem `no_revision`)
      */
     public function published(int $id, int $eventId): MailDocument
     {
         $post = get_post($id);
-        if (
-            !$post instanceof \WP_Post
-            || $post->post_status !== 'publish'
-            || $this->eventOf($id) !== $eventId
-        ) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
-            throw new SystemFailure('mail_document ' . $id);
+        if (!$post instanceof \WP_Post || $post->post_type !== self::POST_TYPE) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
+            throw new BodyUnusable('missing ' . $id);
+        }
+        if ($post->post_status !== 'publish') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
+            throw new BodyUnusable('unpublished ' . $id);
+        }
+        if ($this->eventOf($id) !== $eventId) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
+            throw new BodyUnusable('other_event ' . $id);
         }
 
         return new MailDocument($post->ID, $post->post_title, $post->post_content, $this->latestRevision($post->ID));

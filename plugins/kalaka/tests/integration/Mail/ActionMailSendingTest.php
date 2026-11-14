@@ -207,6 +207,60 @@ final class ActionMailSendingTest extends MailBodyTestCase
         $this->assertSecretNowhereStored();
     }
 
+    /** @return iterable<string, array{\Closure(int, int, int): void, string}> what happens to the body, the problem */
+    public static function bodyChanges(): iterable
+    {
+        yield 'removed' => [static function (int $body): void {
+            wp_delete_post($body, true);
+        }, 'missing'];
+        yield 'unpublished' => [static function (int $body): void {
+            wp_update_post(['ID' => $body, 'post_status' => 'draft']);
+        }, 'unpublished'];
+        yield 'moved' => [static function (int $body, int $event, int $other): void {
+            update_post_meta($body, 'kalaka_event_id', $other);
+        }, 'other_event'];
+        yield 'unassigned' => [static function (): void {
+        }, 'no_body'];
+    }
+
+    /**
+     * A delivery queued while its mail was on, whose body then changes after a switch-off (when the body
+     * may change): the delivery fails with the body's problem, no attempt, and sending does not pause.
+     *
+     * @dataProvider bodyChanges
+     */
+    public function testABodyChangedAfterASwitchOffFailsItsQueuedDeliveriesWithoutPausing(
+        \Closure $change,
+        string $problem
+    ): void {
+        $event = $this->published();
+        $other = $this->create('Másik');
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->switchOn($event, 'registered', $body);
+        $this->act($this->registration($event), ActionMail::Registered);
+        $this->act($this->registration($event, '00A0'), ActionMail::Registered);
+        $this->updateMail([
+            'event_id' => $event,
+            'mail' => 'registered',
+            'enabled' => false,
+        ] + ($problem === 'no_body' ? ['body_id' => null] : []));
+        $change($body, $event, $other);
+
+        $report = $this->realSender()->send();
+
+        self::assertSame([], $this->sent);
+        $expected = $problem === 'no_body' ? 'no_body registered' : $problem . ' ' . $body;
+        foreach ($this->deliveries() as $row) {
+            self::assertSame('failed', $row['status']);
+            self::assertSame('0', $row['attempts']);
+            self::assertStringStartsWith('body ' . $expected . ' (correlation ', (string) $row['error']);
+        }
+        self::assertNotNull($report);
+        self::assertSame(2, $report->unusableBodies);
+        self::assertSame(0, $report->errors);
+        self::assertFalse($report->paused);
+    }
+
     public function testAnyOtherRenderFailureIsAnErrorAfterTheClaimThatCounts(): void
     {
         global $wpdb;
