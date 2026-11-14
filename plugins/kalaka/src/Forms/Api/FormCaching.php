@@ -15,7 +15,7 @@ namespace Kalaka\Forms\Api;
  * already, but `DONOTCACHEPAGE` still stops the page-cache plugins, which read it at the end of the
  * request.
  */
-final class FormPage
+final class FormCaching
 {
     public const BLOCK = 'kalaka/form';
 

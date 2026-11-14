@@ -7,6 +7,7 @@ namespace Kalaka\Forms;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
@@ -19,10 +20,11 @@ use Kalaka\Foundation\Api\Module\Contributions;
  *   the event's participant fields a shared key has the same type (`type_clash`) and no form holds a
  *   `system` field's key (`system_field`). This runs on every save but an autosave, drafts included,
  *   because every form of the event declares its fields;
- * - when the form is saved as published, the definition check `DefinitionParser` runs on the live form
- *   (keys, options, unknown blocks, the slot's markings, and whatever the parser checks later on). A draft
- *   is not parsed: it can be half built. A form whose placement is not set yet is not parsed either: it
- *   cannot be used anyway.
+ * - when the form is saved as published or scheduled, the definition check `DefinitionParser` runs on the
+ *   live form (keys, options, unknown blocks, the slot's markings, and whatever the parser checks later
+ *   on). A draft is not parsed: it can be half built. A form whose placement is not set yet is not parsed
+ *   either: it cannot be used anyway. A scheduled form is checked again when WordPress publishes it
+ *   (`onPublishFuture`), so it never publishes itself broken.
  *
  * Each runs over the content as it will be stored (keys and option values derived first, across the event).
  *
@@ -45,6 +47,9 @@ final class DefinitionCheck
 
     /** The refusal: `{problem}` is the problem code, `{subject}` the field key or block. */
     public const MESSAGE = 'Az űrlapot így nem lehet menteni: %1$s („%2$s”).';
+
+    /** The statuses that are, or will become, live: a scheduled form publishes itself later. */
+    private const LIVE = ['publish', 'future'];
 
     /** The transient that holds a vetoed save's message, per user: this prefix and the user ID. */
     public const NOTICE = 'kalaka_form_refused_';
@@ -127,7 +132,7 @@ final class DefinitionCheck
 
         $problem = $fixed
             ? [FormEvent::PROBLEM, FormPosts::META_EVENT_ID]
-            : self::problemOf($content, $id, $placement, $eventId, $status === 'publish');
+            : self::problemOf($content, $id, $placement, $eventId, in_array($status, self::LIVE, true));
         if ($problem === null) {
             if ($placement !== null) {
                 self::$restPlacements[$id] = $placement;
@@ -196,7 +201,7 @@ final class DefinitionCheck
             }
         }
 
-        if (($data['post_status'] ?? null) === 'publish') {
+        if (in_array($data['post_status'] ?? null, self::LIVE, true)) {
             $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
             $placement = $fromRest ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
             $broken = $placement !== null
@@ -204,7 +209,7 @@ final class DefinitionCheck
                 : null;
             if ($broken !== null) {
                 $problem ??= $broken;
-                if ($stored instanceof \WP_Post && $stored->post_status === 'publish') {
+                if ($stored instanceof \WP_Post && in_array($stored->post_status, self::LIVE, true)) {
                     $data['post_content'] = wp_slash($stored->post_content);
                 } else {
                     $data['post_status'] = $stored instanceof \WP_Post ? $stored->post_status : 'draft';
@@ -217,6 +222,39 @@ final class DefinitionCheck
         }
 
         return $data;
+    }
+
+    /**
+     * `publish_future_post`, before WordPress publishes a scheduled form (priority 5; core's
+     * `check_and_publish_future_post()` runs at 10): a scheduled form whose definition is broken now
+     * (e.g. a field type that is gone) goes back to draft instead of live, and its author gets the notice.
+     * Core then finds it no longer scheduled and publishes nothing. Nothing throws out of the hook: what
+     * escapes is logged (`Boundary::background`).
+     */
+    public static function onPublishFuture(int $postId): void
+    {
+        Boundary::background('checking a scheduled form', static function () use ($postId): void {
+            $post = get_post($postId);
+            if (
+                !$post instanceof \WP_Post
+                || $post->post_type !== FormPosts::POST_TYPE
+                || $post->post_status !== 'future'
+            ) {
+                return;
+            }
+            $placement = self::placement(null, $postId);
+            $problem = $placement !== null
+                ? self::problem($post->post_content, $postId, $placement, FormEvent::stored($postId))
+                : null;
+            if ($problem === null) {
+                return;
+            }
+            wp_update_post(['ID' => $postId, 'post_status' => 'draft']);
+            $author = (int) $post->post_author;
+            if ($author > 0) {
+                set_transient(self::NOTICE . $author, self::message(...$problem), DAY_IN_SECONDS);
+            }
+        });
     }
 
     /** `admin_notices`: the saving user's vetoed save, once. */

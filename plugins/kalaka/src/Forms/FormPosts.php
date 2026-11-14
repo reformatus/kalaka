@@ -114,24 +114,35 @@ final class FormPosts
         }
     }
 
+    /** How many revisions one read of the latest revision fetches: autosaves are at most one per user. */
+    private const REVISION_PAGE = 5;
+
     /**
      * The latest saved revision, never an autosave: the block editor autosaves a form being edited
-     * as a revision too, and an autosave is not a version anybody published.
+     * as a revision too, and an autosave is not a version anybody published. Reads the newest revisions
+     * a few at a time, so a form with many revisions costs one small query.
      */
     private function latestRevision(int $postId): int
     {
-        $revisions = get_posts([
-            'post_parent' => $postId,
-            'post_type' => 'revision',
-            'post_status' => 'inherit',
-            'orderby' => ['date' => 'DESC', 'ID' => 'DESC'],
-            'posts_per_page' => -1,
-            'fields' => 'ids',
-            'suppress_filters' => true,
-        ]);
-        foreach ($revisions as $revision) {
-            if (wp_is_post_autosave($revision) === false) {
-                return $revision;
+        for ($page = 1;; $page++) {
+            $revisions = get_posts([
+                'post_parent' => $postId,
+                'post_type' => 'revision',
+                'post_status' => 'inherit',
+                'orderby' => ['date' => 'DESC', 'ID' => 'DESC'],
+                'posts_per_page' => self::REVISION_PAGE,
+                'paged' => $page,
+                'fields' => 'ids',
+                'suppress_filters' => true,
+                'no_found_rows' => true,
+            ]);
+            foreach ($revisions as $revision) {
+                if (wp_is_post_autosave($revision) === false) {
+                    return $revision;
+                }
+            }
+            if (count($revisions) < self::REVISION_PAGE) {
+                break;
             }
         }
 

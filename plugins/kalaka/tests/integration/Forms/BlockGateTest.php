@@ -83,16 +83,62 @@ final class BlockGateTest extends WP_UnitTestCase
         self::assertNotContains('core/table', $allowed);
     }
 
-    public function testAPostAndAPageAllowTheFormBlockButNoFieldBlock(): void
+    public function testAPostAndAPageKeepAllowAllAndHideOnlyTheGatedBlocks(): void
     {
         foreach (['post', 'page'] as $postType) {
-            $allowed = $this->allowedIn($postType);
+            // `true` stays `true`: a server list would drop blocks registered only in JavaScript.
+            self::assertTrue($this->allowedIn($postType), $postType);
 
-            self::assertIsArray($allowed, $postType);
-            self::assertContains(BlockGate::FORM_BLOCK, $allowed, $postType);
-            self::assertContains('core/paragraph', $allowed, $postType);
-            self::assertSame([], array_values(array_intersect(self::FIELDS, $allowed)), $postType);
+            $hidden = BlockGate::hidden($postType, 'core/edit-post', Contributions::current());
+            self::assertEqualsCanonicalizing(
+                [...self::FIELDS, 'kalaka/form-page', 'kalaka/after-submit'],
+                $hidden,
+                $postType
+            );
+            self::assertNotContains(BlockGate::FORM_BLOCK, $hidden, $postType);
         }
+        self::assertSame([], BlockGate::hidden('kalaka_form', 'core/edit-post', Contributions::current()));
+    }
+
+    public function testAListElsewhereKeepsABlockRegisteredOnlyInJavaScript(): void
+    {
+        self::assertFalse(\WP_Block_Type_Registry::get_instance()->is_registered('acme/js-only'));
+        $list = static fn (): array => ['acme/js-only', 'kalaka/text-field', BlockGate::FORM_BLOCK];
+        add_filter('allowed_block_types_all', $list, 5);
+        try {
+            self::assertSame(['acme/js-only', BlockGate::FORM_BLOCK], $this->allowedIn('post'));
+        } finally {
+            remove_filter('allowed_block_types_all', $list, 5);
+        }
+    }
+
+    public function testThePostEditorNamesTheGatedBlocksToTheEditorScriptAndAFormsEditorDoesNot(): void
+    {
+        $handle = BlockGate::editorHandle();
+        self::assertIsString($handle);
+        $scripts = wp_scripts();
+        $before = $scripts->get_data($handle, 'before');
+        try {
+            set_current_screen('kalaka_form');
+            BlockGate::enqueueHiding();
+            self::assertStringNotContainsString('kalakaHiddenBlocks', $this->before($handle));
+
+            set_current_screen('post');
+            BlockGate::enqueueHiding();
+            $inline = $this->before($handle);
+            self::assertStringContainsString('window.kalakaHiddenBlocks = ', $inline);
+            self::assertStringContainsString('"kalaka\\/text-field"', $inline);
+            self::assertStringNotContainsString('"kalaka\\/form"', $inline);
+            self::assertStringNotContainsString('unregisterBlockType', $inline);
+        } finally {
+            $scripts->add_data($handle, 'before', $before === false ? [] : $before);
+            set_current_screen('front');
+        }
+    }
+
+    private function before(string $handle): string
+    {
+        return implode("\n", (array) wp_scripts()->get_data($handle, 'before'));
     }
 
     public function testAListFromAnotherFilterIsNarrowedElsewhereAndGetsTheFieldsBackInAForm(): void

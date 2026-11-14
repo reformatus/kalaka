@@ -10,6 +10,7 @@ use Kalaka\Forms\BrokenFormsWarning;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\UseCase\Runner;
 
 /** A published form never goes from working to broken through an edit; one that is broken stays closed. */
 final class DefinitionCheckTest extends FormsTestCase
@@ -234,5 +235,110 @@ final class DefinitionCheckTest extends FormsTestCase
         $this->insertChecked($this->slotFields());
 
         self::assertNull((new BrokenFormsWarning())->check());
+    }
+
+    /**
+     * A date for a scheduled form, from the runner's clock (the tests run at a fixed instant, TestClock).
+     * WordPress compares a scheduled date with the real time, so it lies years after the clock.
+     */
+    private function later(): string
+    {
+        return $this->fromClock('+10 years');
+    }
+
+    /** The runner's clock moved by `$shift`, as a GMT post date. */
+    private function fromClock(string $shift): string
+    {
+        return Runner::current()->clock()->now()->setTimezone(new \DateTimeZone('UTC'))->modify($shift)
+            ->format('Y-m-d H:i:s');
+    }
+
+    /** @return array<string, mixed> a scheduled form's status and date */
+    private function scheduled(): array
+    {
+        return ['post_status' => 'future', 'post_date_gmt' => $this->later()];
+    }
+
+    /** Moves a scheduled form's date into the past, so WordPress publishes it when its event fires. */
+    private function due(int $id): void
+    {
+        global $wpdb;
+        // From the runner's clock too; WordPress publishes only a date before the real time, so a year back.
+        $past = $this->fromClock('-1 year');
+        $wpdb->update($wpdb->posts, ['post_date' => $past, 'post_date_gmt' => $past], ['ID' => $id]);
+        clean_post_cache($id);
+    }
+
+    public function testTheEditorCannotScheduleABrokenForm(): void
+    {
+        $response = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'future',
+            'date_gmt' => $this->later(),
+            'content' => $this->slotFields() . $this->unknownBlock(),
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+
+        self::assertSame(400, $response->get_status());
+        self::assertSame([], get_posts(['post_type' => 'kalaka_form', 'post_status' => 'any']));
+    }
+
+    public function testCodeCannotScheduleABrokenFormEitherItIsKeptAsADraft(): void
+    {
+        $id = $this->insertChecked(
+            $this->slotFields() . $this->unknownBlock(),
+            [],
+            ['post_status' => 'future', 'post_date_gmt' => $this->later()]
+        );
+
+        self::assertSame('draft', get_post_status($id));
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: unknown_field_block („kalaka/nope-field”).',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
+    }
+
+    public function testAnEditThatWouldBreakAScheduledFormKeepsItsStoredContent(): void
+    {
+        $id = $this->insertChecked($this->slotFields(), [], $this->scheduled());
+        self::assertSame('future', get_post_status($id));
+
+        wp_update_post(['ID' => $id, 'post_content' => wp_slash($this->slotFields() . $this->unknownBlock())]);
+
+        self::assertSame('future', get_post_status($id));
+        self::assertStringNotContainsString('nope-field', (string) get_post_field('post_content', $id));
+    }
+
+    public function testAWorkingScheduledFormIsPublishedWhenItsTimeComes(): void
+    {
+        $id = $this->insertChecked($this->slotFields(), [], $this->scheduled());
+        $this->due($id);
+
+        do_action('publish_future_post', $id);
+
+        self::assertSame('publish', get_post_status($id));
+        self::assertCount(2, $this->forms->definition($this->readForm($id))->fields);
+    }
+
+    public function testAScheduledFormBrokenSinceGoesBackToDraftAndItsAuthorIsTold(): void
+    {
+        $author = self::factory()->user->create();
+        // Broken after it was scheduled (as by a field type that is gone): written around the save check.
+        $id = $this->insertForm(
+            $this->slotFields() . $this->unknownBlock(),
+            [],
+            ['post_status' => 'future', 'post_date_gmt' => $this->later(), 'post_author' => $author]
+        );
+        self::assertSame('future', get_post_status($id));
+        $this->due($id);
+
+        do_action('publish_future_post', $id);
+
+        self::assertSame('draft', get_post_status($id));
+        self::assertNull($this->forms->form($id));
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: unknown_field_block („kalaka/nope-field”).',
+            get_transient(DefinitionCheck::NOTICE . $author)
+        );
     }
 }

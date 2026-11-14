@@ -412,7 +412,7 @@ final class FormBlockTest extends FormsTestCase
 
         self::assertStringContainsString('<form novalidate data-wp-interactive="kalaka/form"', $html);
         self::assertStringContainsString('"formId":' . $id . ',', $html);
-        // `FormPage::preventCaching()` ran from the renderer: the page-cache plugins' constant is set.
+        // `FormCaching::preventCaching()` ran from the renderer: the page-cache plugins' constant is set.
         self::assertTrue(defined('DONOTCACHEPAGE'));
         self::assertSame(
             'Ez az űrlap jelenleg nem érhető el.',

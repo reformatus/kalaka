@@ -20,6 +20,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   actions are carried by grants; they are never WordPress capabilities and are
   never added to roles. Only the full-access capability and the minimal role
   touch WordPress roles.
+- Activation gives the activating user full access, as that user's own
+  capability through `GrantFullAccess` (audited, as the system), and only while
+  no user holds it.
 - The view is the only place permissions on data are defined. A grant never
   lists registrations: it covers what its view's filter matches when access is
   checked.
