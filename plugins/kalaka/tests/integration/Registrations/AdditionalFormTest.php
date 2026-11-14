@@ -1,0 +1,311 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Tests\Integration\Registrations;
+
+use Kalaka\Events\PublishEvent;
+use Kalaka\Forms\Api\AccessRefusal;
+use Kalaka\Forms\Api\FormRefused;
+use Kalaka\Forms\EventFormHost;
+use Kalaka\Forms\Module as FormsModule;
+use Kalaka\Foundation\Api\Actor\GuestActor;
+use Kalaka\Foundation\Api\Actor\SecretLinkActor;
+use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Portal\ActiveRegistrationState;
+use Kalaka\Registrations\Api\FieldValues;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SubmitRequest;
+use Kalaka\Registrations\Api\SubmitToken;
+use Kalaka\Registrations\Api\SubmitTokenReused;
+use Kalaka\Tests\Integration\Forms\FormsTestCase;
+
+/**
+ * S60: an additional form writes a supplementary submission to the active registration of its event. It
+ * opens with the current values, writes only the fields that show (a shown blank clears), appends a
+ * submission each time, and never creates a registration.
+ */
+final class AdditionalFormTest extends FormsTestCase
+{
+    private const ANSWERS = ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org'];
+
+    private int $event;
+
+    private RegistrationKey $registration;
+
+    private int $slot;
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    public function set_up(): void
+    {
+        parent::set_up();
+        (new FormsModule())->registerMeta();
+
+        $this->event = $this->create();
+        $this->update($this->event, ['capacity' => 10]);
+        $this->transition(new PublishEvent(), $this->event);
+        $this->slot = $slot = $this->insertForm(
+            $this->slotFields() . $this->field('text', 'note') . $this->field('text', 'other'),
+            ['kalaka_event_id' => $this->event]
+        );
+        $this->registration = $this->submitter()->submit(
+            new SubmitRequest(
+                $slot,
+                $this->readForm($slot)->version,
+                self::ANSWERS + ['note' => 'első', 'other' => 'marad'],
+                SubmitToken::generate()
+            ),
+            new GuestActor()
+        )->registration;
+        ActiveRegistrationState::set($this->registration, false);
+    }
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    public function tear_down(): void
+    {
+        ActiveRegistrationState::set(null, false);
+        parent::tear_down();
+    }
+
+    private function submitter(): RegistrationSubmit
+    {
+        return new RegistrationSubmit($this->runner);
+    }
+
+    private function host(): EventFormHost
+    {
+        return new EventFormHost(registrationSubmit: $this->submitter());
+    }
+
+    /** @param array<string, mixed> $meta */
+    private function additional(string $content, array $meta = []): int
+    {
+        return $this->insertForm(
+            $content,
+            $meta + ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional']
+        );
+    }
+
+    /**
+     * Submits as the form page's route does: through the host, with the active registration.
+     *
+     * @param array<string, mixed> $answers
+     * @return array<string, mixed>
+     */
+    private function send(int $form, array $answers, ?string $token = null): array
+    {
+        return $this->host()->submit(
+            $form,
+            $this->readForm($form)->version,
+            $answers,
+            $token ?? SubmitToken::generate(),
+            [],
+            false,
+            new GuestActor()
+        );
+    }
+
+    /** @return array<string, string> */
+    private function values(): array
+    {
+        return (new FieldValues())->of($this->registration);
+    }
+
+    private function rowCount(string $table): int
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var(
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test inspection; table prefix and constants only
+            $wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}{$table} WHERE event_id = %d", $this->event)
+        );
+    }
+
+    private function setStatus(string $status): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => $status],
+            ['event_id' => $this->registration->eventId, 'code' => $this->registration->code]
+        );
+    }
+
+    private function render(int $formId): string
+    {
+        return render_block([
+            'blockName' => 'kalaka/form',
+            'attrs' => ['formId' => $formId],
+            'innerBlocks' => [],
+            'innerHTML' => '',
+            'innerContent' => [],
+        ]);
+    }
+
+    public function testASubmitAppendsASubmissionAndTheLatestWriteWins(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+
+        $answer = $this->send($form, ['note' => 'második']);
+
+        self::assertSame(
+            [
+                'event' => $this->event,
+                'code' => $this->registration->code,
+                'status' => 'registered',
+                'repeated' => false,
+                'after_submit' => '<p>' . RegistrationSubmit::DEFAULT_SUPPLEMENT . '</p>',
+            ],
+            $answer
+        );
+        self::assertSame('második', $this->values()['note']);
+        self::assertSame('marad', $this->values()['other']);
+        self::assertSame(1, $this->rowCount('kalaka_registrations'));
+        self::assertSame(2, $this->rowCount('kalaka_submissions'));
+
+        $this->send($form, ['note' => 'harmadik']);
+        self::assertSame('harmadik', $this->values()['note']);
+        self::assertSame(3, $this->rowCount('kalaka_submissions'));
+        self::assertCount(2, $this->entriesOf('kalaka-portal/submit-additional-form'));
+    }
+
+    public function testAShownFieldLeftBlankClearsItsValueAndAHiddenOneKeepsIt(): void
+    {
+        $branch = '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => [
+            'match' => 'all',
+            'items' => [['key' => 'note', 'operator' => 'equals', 'value' => 'mutasd']],
+        ]]) . ' -->' . $this->field('text', 'other') . '<!-- /wp:kalaka/if -->';
+        $form = $this->additional($this->field('text', 'note') . $branch);
+
+        // `other` sits in a branch that does not hold: whatever is sent for it is dropped, its value kept.
+        $this->send($form, ['other' => 'eldobva']);
+
+        self::assertArrayNotHasKey('note', $this->values());
+        self::assertSame('marad', $this->values()['other']);
+    }
+
+    public function testAWaitlistedRegistrationMaySubmitAndAWithdrawnOneMayNot(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+
+        $this->setStatus('waitlisted');
+        self::assertSame('waitlisted', $this->send($form, ['note' => 'várólistán'])['status']);
+
+        $this->setStatus('withdrawn');
+        try {
+            $this->send($form, ['note' => 'visszalépve']);
+            self::fail('A withdrawn registration submitted an additional form.');
+        } catch (FormRefused $e) {
+            self::assertSame([AccessRefusal::RegistrationMayNotSubmit], $e->refusals);
+        }
+        self::assertSame('várólistán', $this->values()['note']);
+    }
+
+    public function testWithoutAnActiveRegistrationOfTheEventNothingIsWritten(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+
+        foreach ([null, new RegistrationKey($this->event + 1000, $this->registration->code)] as $active) {
+            ActiveRegistrationState::set($active, false);
+            try {
+                $this->send($form, ['note' => 'senki']);
+                self::fail('An additional form was submitted without its event\'s active registration.');
+            } catch (FormRefused $e) {
+                self::assertSame([AccessRefusal::NoActiveRegistration], $e->refusals);
+            }
+        }
+        self::assertSame('első', $this->values()['note']);
+        self::assertSame(1, $this->rowCount('kalaka_submissions'));
+    }
+
+    public function testTheSecretLinkActsOnlyOnItsOwnRegistration(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        $other = $this->submitter()->submit(
+            new SubmitRequest(
+                $this->slot,
+                $this->readForm($this->slot)->version,
+                self::ANSWERS,
+                SubmitToken::generate()
+            ),
+            new GuestActor()
+        )->registration;
+
+        $this->expectException(PermissionDenied::class);
+        $this->submitter()->submit(
+            new SubmitRequest(
+                $form,
+                $this->readForm($form)->version,
+                ['note' => 'más'],
+                SubmitToken::generate(),
+                [],
+                false,
+                $this->registration
+            ),
+            new SecretLinkActor($other)
+        );
+    }
+
+    public function testARepeatWritesNothingAndTheSameTokenWithOtherAnswersIsRefused(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        $token = SubmitToken::generate();
+
+        $this->send($form, ['note' => 'egyszer'], $token);
+        $repeat = $this->send($form, ['note' => 'egyszer'], $token);
+
+        self::assertTrue($repeat['repeated']);
+        self::assertSame(2, $this->rowCount('kalaka_submissions'));
+
+        $this->expectException(SubmitTokenReused::class);
+        $this->send($form, ['note' => 'máskor'], $token);
+    }
+
+    public function testOutsideItsOpenPeriodTheFormIsRefused(): void
+    {
+        $form = $this->additional(
+            $this->field('text', 'note'),
+            ['kalaka_closes' => wp_json_encode(['kind' => 'fixed', 'at' => '2000-01-01 00:00:00'])]
+        );
+
+        try {
+            $this->send($form, ['note' => 'késő']);
+            self::fail('A closed additional form was submitted.');
+        } catch (FormRefused $e) {
+            self::assertSame([AccessRefusal::OutsideOpenPeriod], $e->refusals);
+        }
+        self::assertStringContainsString('Ez az űrlap jelenleg nem érhető el.', $this->render($form));
+    }
+
+    public function testTheFormOpensWithTheCurrentValues(): void
+    {
+        $choice = $this->field('choice', 'size', ['options' => [
+            ['value' => 's', 'label' => 'Kicsi'],
+            ['value' => 'm', 'label' => 'Nagy'],
+        ]]);
+        $form = $this->additional($this->field('text', 'note') . $choice . $this->field('consent', 'ok'));
+        $this->send($form, ['note' => 'első <b>"idézet"</b>', 'size' => 'm', 'ok' => true]);
+
+        $html = $this->render($form);
+
+        self::assertStringContainsString('value="első &lt;b&gt;&quot;idézet&quot;&lt;/b&gt;"', $html);
+        self::assertMatchesRegularExpression('/value="m"[^>]* checked/', $html);
+        self::assertDoesNotMatchRegularExpression('/value="s"[^>]* checked/', $html);
+        self::assertMatchesRegularExpression('/name="ok" value="1"[^>]* checked/', $html);
+    }
+
+    public function testWithoutAnActiveRegistrationThePageAsksForTheLink(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        ActiveRegistrationState::set(null, false);
+
+        $html = $this->render($form);
+
+        self::assertStringContainsString(
+            'Az űrlap kitöltéséhez nyisd meg a jelentkezés után kapott e-mailben lévő linket.',
+            $html
+        );
+        self::assertStringNotContainsString('<form', $html);
+    }
+}

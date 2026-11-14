@@ -41,6 +41,8 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
             FormPageView::NOT_STARTED => 'A jelentkezés még nem kezdődött el.',
             FormPageView::CLOSED => 'A jelentkezés lezárult.',
             FormPageView::ROLE_REQUIRED => 'Az űrlap kitöltéséhez jelentkezz be egy megfelelő jogosultságú fiókkal.',
+            FormPageView::NO_ACTIVE_REGISTRATION =>
+                'Az űrlap kitöltéséhez nyisd meg a jelentkezés után kapott e-mailben lévő linket.',
         ];
         echo '<p>' . esc_html($kalakaTexts[$kalakaView->refusal] ?? $kalakaTexts[FormPageView::UNAVAILABLE]) . '</p>';
         if ($kalakaView->loginUrl !== '') {

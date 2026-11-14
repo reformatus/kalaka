@@ -7,6 +7,7 @@ namespace Kalaka\Registrations\Api;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
@@ -26,6 +27,7 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Account\AccountOutcome;
+use Kalaka\Registrations\SubmitAdditionalForm;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
@@ -61,6 +63,9 @@ final class RegistrationSubmit
     public const DEFAULT_WAITLISTED = 'Köszönjük a jelentkezésedet! Jelenleg nincs szabad hely, ezért várólistára '
         . 'kerültél. Figyeld az e-maileidet: értesítünk, ha be tudunk hívni az eseményre.';
 
+    /** The default after-submit text of an additional form's submission (S60), whatever the status. */
+    public const DEFAULT_SUPPLEMENT = 'Köszönjük, a válaszaidat elmentettük.';
+
     /**
      * @param Actor $actor the person: `GuestActor`, or `AccountActor` when logged in
      * @throws NotFound no published form with that ID, or its event is gone
@@ -71,7 +76,7 @@ final class RegistrationSubmit
      * @throws \Kalaka\Forms\Api\FormTerminal a terminal page shows for the answers
      * @throws \Kalaka\Forms\Api\FormRefused the form cannot be used now (event not open, outside the
      *     registration window, password, role), with the codes
-     * @throws RuleViolation the form is not in the registration slot
+     * @throws RuleViolation a money-relevant field's value would be overwritten (an additional form)
      * @throws FormRefused also `account_required`: someone not logged in, in `mandatory` mode (from the use case)
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
      */
@@ -82,10 +87,9 @@ final class RegistrationSubmit
             throw $error;
         }
         $form = $this->forms->form($request->formId) ?? throw new NotFound();
-        if ($form->placement !== FormPlacement::Registration) {
-            // Additional forms attach a supplementary submission: a use case of their own.
-            $error = new RuleViolation();
-            throw $error;
+        if ($form->placement === FormPlacement::Additional && $request->target === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
+            throw new FormRefused([AccessRefusal::NoActiveRegistration]);
         }
         $definition = $this->forms->latestDefinition($form, $request->version);
         $runner = $this->runner ?? Runner::current();
@@ -101,19 +105,40 @@ final class RegistrationSubmit
                 $request->answers,
                 new ValueContext(EventValues::form($event, $loggedIn))
             );
-            $useCase = new SubmitRegistration(
-                $form,
-                $definition->version,
-                $answers,
-                $event->version,
-                $request->roles,
-                $request->passwordGiven,
-                self::fieldTypes($definition),
-                $this->participantFields->of($form->eventId),
-                account: $account,
-            );
+            $target = $request->target;
+            if ($form->placement === FormPlacement::Additional && $target !== null) {
+                // An additional form writes a supplementary submission to the registration (S60).
+                $useCase = new SubmitAdditionalForm(
+                    $form,
+                    $definition,
+                    $answers,
+                    $event->version,
+                    $request->roles,
+                    $request->passwordGiven,
+                    $this->participantFields->of($form->eventId),
+                );
+                $input = [
+                    'form' => $form->id,
+                    'token' => $request->token,
+                    'event' => $target->eventId,
+                    'code' => $target->code,
+                ];
+            } else {
+                $useCase = new SubmitRegistration(
+                    $form,
+                    $definition->version,
+                    $answers,
+                    $event->version,
+                    $request->roles,
+                    $request->passwordGiven,
+                    self::fieldTypes($definition),
+                    $this->participantFields->of($form->eventId),
+                    account: $account,
+                );
+                $input = ['form' => $form->id, 'token' => $request->token];
+            }
             try {
-                $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);
+                $result = $runner->run($useCase, $input, $actor);
             } catch (VersionConflict $conflict) {
                 if ($attempt >= self::ATTEMPTS) {
                     throw $conflict;
@@ -184,9 +209,11 @@ final class RegistrationSubmit
         if (is_string($html)) {
             return $html;
         }
-        $text = $result->status === RegistrationStatus::Waitlisted
-            ? self::DEFAULT_WAITLISTED
-            : self::DEFAULT_REGISTERED;
+        $text = match (true) {
+            $result->supplementary => self::DEFAULT_SUPPLEMENT,
+            $result->status === RegistrationStatus::Waitlisted => self::DEFAULT_WAITLISTED,
+            default => self::DEFAULT_REGISTERED,
+        };
 
         return '<p>' . esc_html($text) . '</p>';
     }

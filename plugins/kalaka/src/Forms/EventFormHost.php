@@ -15,11 +15,18 @@ use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Registrations\Api\FieldValues;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -31,12 +38,19 @@ use Kalaka\Registrations\Api\SubmitToken;
  * (`ParticipantField\SharedKeyCheck`), a submit is a registration (`Registrations\Api\RegistrationSubmit`),
  * the after-submit section reads the event's keys and the new registration's (`AfterSubmit`), and a
  * registration form needs or offers an account by the event's account mode (`accountStepOf()`).
+ *
+ * An additional form (S60) writes to the active registration (`Portal\Api\ActiveRegistration`, set by the
+ * registration's secret link) when it belongs to the form's event and is `registered` or `waitlisted`; it
+ * opens with that registration's current field values, and its submit runs as the secret link's actor.
  */
 final class EventFormHost implements FormHost
 {
     public function __construct(
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
+        private readonly Registrations $registrations = new Registrations(),
+        private readonly FieldValues $fieldValues = new FieldValues(),
+        private readonly ?\Closure $active = null,
     ) {
     }
 
@@ -61,9 +75,42 @@ final class EventFormHost implements FormHost
     {
         $event = $this->event($form);
 
-        return $event === null
-            ? [AccessRefusal::EventNotOpen]
-            : self::refusalsOf($form, $event, $now, $roles, $passwordGiven, is_user_logged_in());
+        if ($event === null) {
+            return [AccessRefusal::EventNotOpen];
+        }
+        $refusals = self::refusalsOf($form, $event, $now, $roles, $passwordGiven, is_user_logged_in());
+        if ($refusals === [AccessRefusal::EventNotOpen] || $form->placement !== FormPlacement::Additional) {
+            return $refusals;
+        }
+
+        $target = $this->target($form);
+        if ($target === null) {
+            $refusals[] = AccessRefusal::NoActiveRegistration;
+        } elseif (!self::maySubmit($this->registrations->find($target)?->status)) {
+            $refusals[] = AccessRefusal::RegistrationMayNotSubmit;
+        }
+
+        return $refusals;
+    }
+
+    /**
+     * The registration an additional form writes to: the active registration, when it belongs to the
+     * form's event; null for a registration form or without one.
+     */
+    public function target(Form $form): ?RegistrationKey
+    {
+        if ($form->placement !== FormPlacement::Additional) {
+            return null;
+        }
+        $active = $this->active === null ? ActiveRegistration::current() : ($this->active)();
+
+        return $active instanceof RegistrationKey && $active->eventId === $form->eventId ? $active : null;
+    }
+
+    /** Only a `registered` or `waitlisted` registration may submit an additional form. */
+    public static function maySubmit(?RegistrationStatus $status): bool
+    {
+        return $status === RegistrationStatus::Registered || $status === RegistrationStatus::Waitlisted;
     }
 
     /**
@@ -91,6 +138,9 @@ final class EventFormHost implements FormHost
         if ($form->placement === FormPlacement::Registration && !$event->registrationWindowContains($now)) {
             $refusals[] = AccessRefusal::OutsideRegistrationWindow;
         }
+        if ($form->placement === FormPlacement::Additional && !OpenPeriod::contains($form, $event, $now)) {
+            $refusals[] = AccessRefusal::OutsideOpenPeriod;
+        }
         if ($form->hasPassword && !$passwordGiven) {
             $refusals[] = AccessRefusal::PasswordRequired;
         }
@@ -111,6 +161,9 @@ final class EventFormHost implements FormHost
     public function window(Form $form): array
     {
         $event = $this->event($form);
+        if ($event !== null && $form->placement === FormPlacement::Additional) {
+            return OpenPeriod::window($form, $event);
+        }
 
         return ['opens' => $event?->registrationOpens, 'closes' => $event?->registrationCloses];
     }
@@ -123,10 +176,15 @@ final class EventFormHost implements FormHost
     /**
      * What a form opens with: on a form with an account step, the logged-in account's address in the contact email
      * field (it stays editable; the page and the re-fetch's block fill it only while the field is empty, never over
-     * an answer typed). Nothing else yet: an additional form's current values (S60) and a draft (S74) come here.
+     * an answer typed). An additional form opens with its registration's current field values (S60). A draft (S74)
+     * comes here.
      */
     public function prefill(Form $form): array
     {
+        $target = $this->target($form);
+        if ($target !== null) {
+            return $this->fieldValues->of($target);
+        }
         $event = $this->event($form);
         if ($event === null || self::accountStepOf($form, $event) === null || !is_user_logged_in()) {
             return [];
@@ -163,7 +221,17 @@ final class EventFormHost implements FormHost
         bool $passwordGiven,
         Actor $actor
     ): array {
-        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven);
+        $form = (new Forms())->form($formId);
+        $target = $form === null ? null : $this->target($form);
+        if ($form !== null && $form->placement === FormPlacement::Additional) {
+            if ($target === null) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
+                throw new FormRefused([AccessRefusal::NoActiveRegistration]);
+            }
+            // The secret link's registration acts: the runner lets it act on that registration only.
+            $actor = new SecretLinkActor($target);
+        }
+        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven, $target);
 
         return ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
     }
