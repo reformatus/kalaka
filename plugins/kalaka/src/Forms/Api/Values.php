@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
-use Kalaka\Forms\Value\Renderer;
+use Kalaka\Forms\Engine\Value\Renderer;
 
 /** The value API's facade: renders a document's block markup with a context's values. */
 final class Values

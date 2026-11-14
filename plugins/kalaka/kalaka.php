@@ -24,6 +24,7 @@ $kalakaBoot = static function (): void {
     (new \Kalaka\Foundation\Boot([
         new \Kalaka\Foundation\Module(),
         new \Kalaka\Events\Module(),
+        new \Kalaka\ParticipantFields\Module(),
         new \Kalaka\Forms\Module(),
         new \Kalaka\Assignments\Module(),
         new \Kalaka\Registrations\Module(),

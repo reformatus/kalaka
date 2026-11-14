@@ -10,7 +10,8 @@ import { __unstableSerializeAndClean, getBlockType, registerBlockType, unregiste
 import { dispatch, select } from '@wordpress/data';
 import domReady from '@wordpress/dom-ready';
 import { addFilter } from '@wordpress/hooks';
-import { hiddenBlocks, hide } from './hidden';
+import { hide } from './hidden';
+import { hiddenBlocks } from './server';
 import { beforeSave, plainText, withPatches } from './keys';
 import { branchLabel, branchSave } from './branch';
 import formEdit from './edit';

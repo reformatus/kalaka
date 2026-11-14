@@ -38,7 +38,8 @@ values and conditions, prefill and form links
   a form holding one was unusable and stored nothing. A key repeated within one
   form is never derived again: the save check refuses it (`duplicate_key`).
 - A form's fields are its event's participant fields
-  (`kalaka_participant_fields`, owned by Forms). A derived key is unique
+  (`kalaka_participant_fields`, owned by `ParticipantFields`; Forms reads and
+  writes them only through `ParticipantFields\Api\ParticipantFields`). A derived key is unique
   across the event and never takes a key the event ever had, retired ones
   included. A key the form holds on purpose that another form of the event
   holds too is the same participant field and must have its type; an
@@ -51,7 +52,7 @@ values and conditions, prefill and form links
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
-  and changed only by `RenameParticipantField` (a `form` or `staff` field; a
+  and changed only by `ParticipantFields::rename()` (a `form` or `staff` field; a
   `system` or `extension` field's texts are its declarer's). Mails, views
   and the status page show the participant field's labels; a form shows its
   own.
@@ -68,10 +69,10 @@ values and conditions, prefill and form links
   with the event's field is unusable and named in the broken-form warning.
 - A post save never writes Kaláka's tables: the save checks only read and
   refuse (REST 400, else a graceful veto with an admin notice), and
-  `DeclareParticipantFields`, run through the runner after the post and its
-  settings are stored, writes the participant fields; besides it only
-  `RenameParticipantField` (an explicit request) does, both through
-  `ParticipantFieldRepository`.
+  `ParticipantFieldSync`, after the post and its settings are stored, writes
+  the participant fields through `ParticipantFields::declare()`; besides it
+  only the rename route (an explicit request) does, through
+  `ParticipantFields::rename()`.
 - The form editor derives a key unique across the form's event: against the
   event's participant fields, retired ones included, read when the editor
   knows the event and again after every save (`Blocks/form/event-keys.js`),
@@ -142,7 +143,7 @@ values and conditions, prefill and form links
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
   branches, pages, choice options, set options, tiers, offers, aid) is
-  decided by one condition through `Condition\ConditionEvaluator`, reached
+  decided by one condition through `Engine\Condition\ConditionEvaluator`, reached
   through `FormWalk` (a form) or `Api\Availability` (anything another module
   owns). No second evaluator anywhere, and JavaScript never evaluates a
   condition (the editor only checks one against the server's rules to show
@@ -155,7 +156,7 @@ values and conditions, prefill and form links
   and the event's keys (`Api\EventValues`). At submit, an answer in a branch
   that does not hold, or an option that is not offered, is dropped: never
   stored, never required, never an error.
-- A form's chains are numbered once, by `Condition\ChainMarks`, on the parsed
+- A form's chains are numbered once, by `Engine\Condition\ChainMarks`, on the parsed
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
   blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing
   else, in PHP or JavaScript, recomputes them.
@@ -176,7 +177,7 @@ values and conditions, prefill and form links
   `template_redirect`, and again from the form renderer.
 - A form has no page or all its content in top-level `kalaka/form-page`
   blocks (with the one top-level `kalaka/after-submit` beside them); pages
-  are numbered once, by `Condition\ChainMarks`, like chains. A page's
+  are numbered once, by `Engine\Condition\ChainMarks`, like chains. A page's
   condition reads only earlier pages and `event.*`; page 0 has none; a
   terminal page has one and holds no field. A page is one more gate in
   `FormWalk`: a skipped page's fields and chains do not show and its answers
@@ -189,11 +190,12 @@ values and conditions, prefill and form links
   walk's errors filtered to that page's shown fields.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
-- The form page's two public routes (`Rest\FormRoutes`, `kalaka-portal/v1`)
+- The form page's two public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`)
   are registered only through `Boundary::route()` and call
   `LoadState::requireOpen()` first. The availability route only reads: it
   never runs a use case or writes. The submit route calls `SubmitGuard` before
-  the submit seam (`Registrations\Api\RegistrationSubmit`). Every answer of
+  the host's submit (`FormHost::submit()`; for an event form the submit seam
+  `Registrations\Api\RegistrationSubmit`). Every answer of
   both, refusals included, carries `Cache-Control: no-store`. A malformed body
   is `InvalidInput`, never a WordPress argument error.
 - Reading a key that a value context does not declare is a failure, never an
@@ -206,14 +208,29 @@ values and conditions, prefill and form links
 - A value is plain text, escaped where it renders; inline values are replaced
   with the HTML API.
 - Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`
-  in the evaluator (deptrac: the `Forms` layer); no `Forms\Api` signature takes
+  in the evaluator (deptrac: the `Forms Engine` layer); no `Forms\Api` signature takes
   or returns a brick/math type.
 - The script keeps every answer while the page is open and sends only the
   answers of fields that show; it keeps nothing across a reload.
-- The submit token (`Registrations\Api\SubmitToken`) is issued by the server
-  on every render of a form page, into a hidden field, and sent back
+- The submit token (`FormHost::submitToken()`; for an event form
+  `Registrations\Api\SubmitToken`) is issued by the server on every render of a form page, into a hidden field, and sent back
   unchanged on every send of that page; it never goes into a cookie,
   storage, a URL or a log line.
+- The form engine is `Forms\Engine` (parse, walk, validate, conditions, field
+  types, values and markup, theme adapters, `BlockGate`, `ChainMarks`, the form
+  posts, the form page and its two routes) with its contract, every
+  `Forms\Api` type but the facade `Forms`, `EventValues` and `AfterSubmit`,
+  which stay at their names (deptrac: the layers `Forms Engine` and
+  `Forms Engine Api`). It may use only Foundation Api, its own Api, WordPress
+  and brick/math: never Events, Registrations, ParticipantFields, Admin or
+  Forms outside the engine.
+- The engine asks one host, `Api\FormHost`, for everything about what a form
+  belongs to: the facts a condition reads and their types, the access
+  refusals and the window, the key problem against keys beyond the form, the
+  submit token and the submit, and the after-submit section's keys. Kaláka's
+  event form, `EventFormHost`, is the first host; `Api\Forms` and the form
+  page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
+  engine.
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.

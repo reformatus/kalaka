@@ -7,12 +7,12 @@ namespace Kalaka\Tests\Unit\Forms;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\FieldTypeInput;
-use Kalaka\Forms\FieldType\ConsentFieldType;
-use Kalaka\Forms\FieldType\DateFieldType;
-use Kalaka\Forms\FieldType\EmailFieldType;
-use Kalaka\Forms\FieldType\NameFieldType;
-use Kalaka\Forms\FieldType\PhoneFieldType;
-use Kalaka\Forms\FieldType\TextFieldType;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
+use Kalaka\Forms\Engine\FieldType\DateFieldType;
+use Kalaka\Forms\Engine\FieldType\EmailFieldType;
+use Kalaka\Forms\Engine\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
+use Kalaka\Forms\Engine\FieldType\TextFieldType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use PHPUnit\Framework\TestCase;
 

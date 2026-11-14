@@ -72,6 +72,7 @@ abstract class SeedTestCase extends EventsTestCase
         return [
             new \Kalaka\Foundation\Module(),
             new \Kalaka\Events\Module(),
+            new \Kalaka\ParticipantFields\Module(),
             new \Kalaka\Forms\Module(),
             new \Kalaka\Assignments\Module(),
             new \Kalaka\Registrations\Module(),

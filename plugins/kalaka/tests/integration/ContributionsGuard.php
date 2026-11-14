@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration;
 
-use Kalaka\Forms\ThemeAdapters;
+use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Foundation\Api\Module\Contributions;
 use PHPUnit\Runner\AfterTestHook;
 use PHPUnit\Runner\BeforeTestHook;

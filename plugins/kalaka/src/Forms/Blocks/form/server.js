@@ -5,6 +5,7 @@
  *   types included), each with the value type of its answer (`valueType()`);
  * - `eventTypes`: the event's keys a form's condition may read (`Api\EventValues::TYPES`);
  * - `afterSubmitTypes`: what the after-submit section's conditions may read (`Api\AfterSubmit::TYPES`);
+ * - `hidden`: the gated blocks to hide in this editor (`Engine\BlockGate::hiddenHere()`; none in a form's).
  * - `dateReference`: the bounds of a date reference's moves (`Condition\DateReference::MAX_YEARS`,
  *   `MAX_DAYS`).
  *
@@ -32,4 +33,10 @@ export const dateReferenceBounds = () => {
 		maxYears: Number.isInteger(bounds.maxYears) ? bounds.maxYears : 0,
 		maxDays: Number.isInteger(bounds.maxDays) ? bounds.maxDays : 0,
 	};
+};
+
+/** The gated block names to hide in this editor; none when the server sent none. */
+export const hiddenBlocks = () => {
+	const names = data().hidden;
+	return Array.isArray(names) ? names.filter((name) => typeof name === 'string') : [];
 };

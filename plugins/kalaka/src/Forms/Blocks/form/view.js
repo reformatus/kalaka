@@ -478,7 +478,7 @@ function refusalMessage(body, failure) {
  * meanwhile; so the server sees no burst and the latest answers win. A page asked for while a re-fetch runs
  * is carried by that follow-up (and every later one of the run).
  *
- * The route is S12's `Forms/Rest/FormRoutes` (`POST kalaka-portal/v1/forms/<id>/availability`).
+ * The route is S12's `Forms/Engine/Rest/FormRoutes` (`POST kalaka-portal/v1/forms/<id>/availability`).
  *
  * @param {HTMLFormElement} form
  * @param {number|null}     page The page to check, or null.

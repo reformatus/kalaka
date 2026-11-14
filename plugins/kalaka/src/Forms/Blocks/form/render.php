@@ -15,10 +15,11 @@
 declare(strict_types=1);
 
 use Kalaka\Forms\Api\ElementRole;
-use Kalaka\Forms\FieldMarkup;
-use Kalaka\Forms\FormPage;
-use Kalaka\Forms\ThemeAdapters;
-use Kalaka\Forms\FormPageView;
+use Kalaka\Forms\Engine\FieldMarkup;
+use Kalaka\Forms\Engine\FormPage;
+use Kalaka\Forms\Engine\FormPageView;
+use Kalaka\Forms\Engine\ThemeAdapters;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 defined('ABSPATH') || exit;
@@ -29,7 +30,7 @@ $kalakaFormId = is_int($attributes['formId'] ?? null) ? $attributes['formId'] : 
 \Kalaka\Forms\Api\FormCaching::preventCaching();
 
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- the boundary's HTML, WordPress's own form, escaped JSON, blocks WordPress has rendered
-echo (new FormPage())->html($kalakaFormId, static function (FormPageView $kalakaView): void {
+echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (FormPageView $kalakaView): void {
     if ($kalakaView->refusal === FormPageView::PASSWORD_REQUIRED && $kalakaView->post !== null) {
         echo get_the_password_form($kalakaView->post);
     } elseif ($kalakaView->refusal !== null) {

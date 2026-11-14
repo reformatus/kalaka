@@ -7,21 +7,20 @@ namespace Kalaka\Forms;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\ParticipantField;
-use Kalaka\Forms\ParticipantField\RenameParticipantField;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
-use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * `GET kalaka-admin/v1/events/{id}/participant-fields`: the event's participant fields for the form editor,
  * which only full access opens. `include_retired` adds the retired ones.
  *
  * `PATCH kalaka-admin/v1/events/{id}/participant-fields/{key}` with `{title?, options?: [{value, label}]}`:
- * renames one or its options, through `RenameParticipantField`, and answers with the field as the read
- * shows it.
+ * renames one or its options, through `ParticipantFields::rename()` (`RenameParticipantField`), and answers
+ * with the field as the read shows it.
  */
 final class ParticipantFieldsRoute
 {
@@ -90,13 +89,13 @@ final class ParticipantFieldsRoute
         if ((new Events())->find($eventId) === null) {
             throw new NotFound();
         }
-        $input = ['event_id' => $eventId, 'key' => $key];
+        $changes = [];
         foreach (['title', 'options'] as $name) {
             if ($request->has_param($name)) {
-                $input[$name] = $request->get_param($name);
+                $changes[$name] = $request->get_param($name);
             }
         }
-        Runner::current()->run(new RenameParticipantField(), $input, new UserActor(get_current_user_id()));
+        (new ParticipantFields())->rename($eventId, $key, $changes, new UserActor(get_current_user_id()));
         foreach ((new Forms())->participantFields($eventId, true) as $field) {
             if ($field->key === $key) {
                 return new \WP_REST_Response($field->toArray());

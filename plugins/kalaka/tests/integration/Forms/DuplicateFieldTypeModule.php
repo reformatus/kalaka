@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Forms;
 
-use Kalaka\Forms\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\NameFieldType;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 

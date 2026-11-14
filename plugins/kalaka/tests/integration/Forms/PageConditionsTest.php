@@ -7,7 +7,7 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
-use Kalaka\Forms\BlockGate;
+use Kalaka\Forms\Engine\BlockGate;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 

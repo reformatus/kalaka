@@ -7,12 +7,12 @@ namespace Kalaka\Tests\Unit\Forms;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
-use Kalaka\Forms\Condition\Comparison;
-use Kalaka\Forms\Condition\Condition;
-use Kalaka\Forms\Condition\ConditionParser;
-use Kalaka\Forms\Condition\ContextScope;
-use Kalaka\Forms\Condition\MatchMode;
-use Kalaka\Forms\Condition\Operator;
+use Kalaka\Forms\Engine\Condition\Comparison;
+use Kalaka\Forms\Engine\Condition\Condition;
+use Kalaka\Forms\Engine\Condition\ConditionParser;
+use Kalaka\Forms\Engine\Condition\ContextScope;
+use Kalaka\Forms\Engine\Condition\MatchMode;
+use Kalaka\Forms\Engine\Condition\Operator;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use PHPUnit\Framework\TestCase;
 

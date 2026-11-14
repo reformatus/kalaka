@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
-use Kalaka\Forms\Condition\ConditionEvaluator;
-use Kalaka\Forms\Condition\ConditionParser;
-use Kalaka\Forms\Condition\ContextScope;
-use Kalaka\Forms\Condition\DeclaredScope;
+use Kalaka\Forms\Engine\Condition\ConditionEvaluator;
+use Kalaka\Forms\Engine\Condition\ConditionParser;
+use Kalaka\Forms\Engine\Condition\ContextScope;
+use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**

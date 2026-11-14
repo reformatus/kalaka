@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Forms\Api\Form;
-use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\ObjectCache;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -95,7 +95,7 @@ final class SubmitRaceTest extends RealTableTestCase
             [],
             false,
             [],
-            (new Forms())->participantFields($this->event),
+            (new ParticipantFields())->of($this->event),
         );
         // The read above opened a transaction (the test runs without autocommit); the runner starts its own.
         $wpdb->query('COMMIT');

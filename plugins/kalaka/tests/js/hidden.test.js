@@ -1,15 +1,19 @@
-import { hiddenBlocks, hide } from '../../src/Forms/Blocks/form/hidden';
+import { hide } from '../../src/Forms/Blocks/form/hidden';
+import { hiddenBlocks } from '../../src/Forms/Blocks/form/server';
 
 describe('hidden blocks outside a form editor', () => {
+	const saved = globalThis.kalakaFormEditor;
 	afterEach(() => {
-		delete globalThis.kalakaHiddenBlocks;
+		globalThis.kalakaFormEditor = saved;
 	});
 
 	test('reads the names the server printed, none when it printed nothing', () => {
+		globalThis.kalakaFormEditor = { ...saved };
+		delete globalThis.kalakaFormEditor.hidden;
 		expect(hiddenBlocks()).toEqual([]);
-		globalThis.kalakaHiddenBlocks = ['kalaka/text-field', 7, 'kalaka/form-page'];
+		globalThis.kalakaFormEditor = { ...saved, hidden: ['kalaka/text-field', 7, 'kalaka/form-page'] };
 		expect(hiddenBlocks()).toEqual(['kalaka/text-field', 'kalaka/form-page']);
-		globalThis.kalakaHiddenBlocks = 'kalaka/text-field';
+		globalThis.kalakaFormEditor = { ...saved, hidden: 'kalaka/text-field' };
 		expect(hiddenBlocks()).toEqual([]);
 	});
 

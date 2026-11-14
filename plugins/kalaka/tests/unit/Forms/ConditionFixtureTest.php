@@ -7,9 +7,9 @@ namespace Kalaka\Tests\Unit\Forms;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
-use Kalaka\Forms\Condition\ConditionEvaluator;
-use Kalaka\Forms\Condition\ConditionParser;
-use Kalaka\Forms\Condition\ContextScope;
+use Kalaka\Forms\Engine\Condition\ConditionEvaluator;
+use Kalaka\Forms\Engine\Condition\ConditionParser;
+use Kalaka\Forms\Engine\Condition\ContextScope;
 use PHPUnit\Framework\TestCase;
 
 /**

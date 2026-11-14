@@ -21,6 +21,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
@@ -38,6 +39,7 @@ final class RegistrationSubmit
         private readonly ?Runner $runner = null,
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
+        private readonly ParticipantFields $participantFields = new ParticipantFields(),
     ) {
     }
 
@@ -93,7 +95,7 @@ final class RegistrationSubmit
                 $request->roles,
                 $request->passwordGiven,
                 self::fieldTypes($definition),
-                $this->forms->participantFields($form->eventId),
+                $this->participantFields->of($form->eventId),
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);

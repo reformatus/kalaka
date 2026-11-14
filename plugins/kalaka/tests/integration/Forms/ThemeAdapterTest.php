@@ -7,7 +7,7 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Forms\Api\ElementRole;
 use Kalaka\Forms\Api\FieldWrapper;
 use Kalaka\Forms\Api\ThemeAdaptation;
-use Kalaka\Forms\ThemeAdapters;
+use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Foundation\Api\Module\Contributions;
 use WP_UnitTestCase;
 

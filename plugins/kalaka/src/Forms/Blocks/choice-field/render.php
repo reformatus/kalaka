@@ -2,7 +2,7 @@
 
 /**
  * Server render of the choice field: events-and-forms.md, "Forms implementation". The markup is
- * `Kalaka\Forms\FieldMarkup`'s, with the theme adapter's classes and wrapper.
+ * `Kalaka\Forms\Engine\FieldMarkup`'s, with the theme adapter's classes and wrapper.
  *
  * @var array<string, mixed> $attributes
  */
@@ -10,7 +10,7 @@
 declare(strict_types=1);
 
 use Kalaka\Forms\Api\ElementRole;
-use Kalaka\Forms\FieldMarkup;
+use Kalaka\Forms\Engine\FieldMarkup;
 
 defined('ABSPATH') || exit;
 

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Forms\ParticipantField;
 
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * The save check of a form's keys against its event's participant fields. A form field that holds the key
@@ -43,18 +45,19 @@ final class SharedKeyCheck
             return null;
         }
         $declared = [];
-        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
-            $declared[$record->key] = $record;
+        // Retired fields included: a retired field's values keep their meaning, so its type holds too.
+        foreach ((new ParticipantFields())->of($eventId, true) as $declaredField) {
+            $declared[$declaredField->key] = $declaredField;
         }
         foreach ($fields as $key => $field) {
             $record = $declared[$key] ?? null;
             if ($record === null) {
                 continue;
             }
-            if ($record->source === ParticipantFieldRecord::SOURCE_SYSTEM) {
+            if ($record->source === ParticipantField::SOURCE_SYSTEM) {
                 return [self::SYSTEM_FIELD, $key];
             }
-            if (!$record->writableFromForms()) {
+            if (!$record->formWritable) {
                 return [self::EXTENSION_FIELD, $key];
             }
             if ($record->type !== $field['type']) {
@@ -76,8 +79,8 @@ final class SharedKeyCheck
             return [];
         }
         $taken = [];
-        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
-            $taken[$record->key] = true;
+        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
+            $taken[$field->key] = true;
         }
 
         return $taken;

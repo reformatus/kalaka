@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Unit\Forms;
 
-use Kalaka\Forms\Condition\ChainMarks;
+use Kalaka\Forms\Engine\Condition\ChainMarks;
 use PHPUnit\Framework\TestCase;
 
 /** S76 follow-up (N7): one numbering of the chains, on the blocks the page renders. */
