@@ -7,7 +7,9 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
+use Kalaka\Forms\BlockGate;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
  * #53 N4 (owner 2026-11-13): every block editor offers the condition blocks, and an ordinary page renders
@@ -94,19 +96,26 @@ final class PageConditionsTest extends \WP_UnitTestCase
 
     public function testEveryBlockEditorOffersTheConditionBlocksButNotTheFormOnlyOnes(): void
     {
-        foreach (['post', 'page', 'kalaka_form'] as $postType) {
-            $allowed = $this->allowedIn($postType);
-
-            self::assertIsArray($allowed, $postType);
-            self::assertSame([], array_values(array_diff(self::CONDITION_BLOCKS, $allowed)), $postType);
-        }
+        $allowed = $this->allowedIn('kalaka_form');
+        self::assertIsArray($allowed);
+        self::assertSame([], array_values(array_diff(self::CONDITION_BLOCKS, $allowed)));
         foreach (['post', 'page'] as $postType) {
-            $allowed = $this->allowedIn($postType);
+            // An allow-all `true` stays `true` there (N1); the gated blocks are hidden on the client.
+            self::assertTrue($this->allowedIn($postType), $postType);
+            $hidden = BlockGate::hidden($postType, 'core/edit-post', Contributions::current());
 
-            self::assertIsArray($allowed, $postType);
-            self::assertNotContains('kalaka/text-field', $allowed, $postType);
-            self::assertNotContains('kalaka/form-page', $allowed, $postType);
-            self::assertNotContains('kalaka/after-submit', $allowed, $postType);
+            self::assertSame([], array_values(array_intersect(self::CONDITION_BLOCKS, $hidden)), $postType);
+            self::assertContains('kalaka/text-field', $hidden, $postType);
+            self::assertContains('kalaka/form-page', $hidden, $postType);
+            self::assertContains('kalaka/after-submit', $hidden, $postType);
+        }
+        // A list from another filter keeps the condition blocks and loses the gated ones.
+        $list = static fn (): array => [...self::CONDITION_BLOCKS, 'kalaka/text-field', 'kalaka/form-page'];
+        add_filter('allowed_block_types_all', $list, 5);
+        try {
+            self::assertSame(self::CONDITION_BLOCKS, $this->allowedIn('post'));
+        } finally {
+            remove_filter('allowed_block_types_all', $list, 5);
         }
     }
 
