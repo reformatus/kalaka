@@ -49,6 +49,12 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Locks are taken in the lock order; the guard refuses a lower level after a
   higher one, and a lower key within the event, quota or registration level,
   for every repository read `FOR UPDATE` and write.
+- The boot records every booted module's per-event actions
+  (`Module::capabilities()`) as the `ActionCatalogue`, in boot order; a
+  malformed name (`kalaka_` and a lowercase identifier, at most 64
+  characters) or one already offered fails that module's load.
+- A query reads WordPress's users tables only through `usersTable()` and
+  `capabilitiesMetaKey()`, with plain statements that fire no hook.
 - The admin-side coarse permission check is Admin's (`Admin\Api\AdminAccess`),
   called by the runner before the transaction; Foundation holds no interface
   or default for it and decides only the side match and the portal side itself.

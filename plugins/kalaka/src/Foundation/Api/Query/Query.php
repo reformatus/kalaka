@@ -54,6 +54,21 @@ abstract class Query
     }
 
     /**
+     * A WordPress users table (`users` or `usermeta`) by its site-wide name. A plain read of it fires no
+     * hook and fills no cache, so it may run inside a use case.
+     */
+    final protected function usersTable(string $name): string
+    {
+        return $this->statements->usersTable($name);
+    }
+
+    /** The `usermeta` key that holds a user's roles and per-user capabilities on this site. */
+    final protected function capabilitiesMetaKey(): string
+    {
+        return $this->statements->capabilitiesMetaKey();
+    }
+
+    /**
      * A prepared `SELECT` under a label naming the record type it loads (`registration`, `count`).
      *
      * @param literal-string $sql
