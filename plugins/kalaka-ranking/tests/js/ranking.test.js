@@ -18,8 +18,8 @@ function render() {
 	const items = OPTIONS.map(
 		(value, index) =>
 			`<li data-kalaka-option="${index}"><label><input type="checkbox" name="modulok[]" value="${value}" autocomplete="off"> ${value}</label>` +
-			` <button type="button" data-kalaka-move="up" hidden>Feljebb</button>` +
-			` <button type="button" data-kalaka-move="down" hidden>Lejjebb</button></li>`
+			` <button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden>Feljebb</button>` +
+			` <button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden>Lejjebb</button></li>`
 	).join('');
 	document.body.innerHTML =
 		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking><fieldset><legend>Modulok</legend>` +
@@ -155,7 +155,8 @@ describe('the drop place', () => {
 describe('dragging a ranked option', () => {
 	/** A pointer event as a browser sends it (jsdom may lack PointerEvent). */
 	function pointer(type, target, y, extra = {}) {
-		const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientY: y, button: 0 });
+		const buttons = extra.buttons ?? (type === 'pointerup' ? 0 : 1);
+		const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientY: y, button: 0, buttons });
 		Object.defineProperty(event, 'pointerId', { value: 1 });
 		Object.defineProperty(event, 'pointerType', { value: extra.pointerType ?? 'touch' });
 		target.dispatchEvent(event);
@@ -243,6 +244,140 @@ describe('dragging a ranked option', () => {
 
 		expect(ranked(field)).toEqual(['modul_a']);
 		expect(unranked(field)).toEqual(['modul_b', 'modul_c']);
+	});
+
+	test('a press released outside the list ends there, and a later hover reorders nothing', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		layOut(field);
+		const changes = [];
+		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
+		const label = itemOf(field, 'modul_a').querySelector('label');
+
+		pointer('pointerdown', label, 10, { pointerType: 'mouse' });
+		// Released outside the list (sideways, under the threshold): only the window hears it.
+		pointer('pointerup', document.body, 12, { pointerType: 'mouse' });
+		pointer('pointermove', label, 70, { pointerType: 'mouse', buttons: 0 });
+		pointer('pointermove', label, 70, { pointerType: 'mouse', buttons: 1 });
+
+		expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
+		expect(changes).toEqual([]);
+	});
+
+	test('a move with no button held ends the drag where it is', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		layOut(field);
+		const label = itemOf(field, 'modul_a').querySelector('label');
+
+		pointer('pointerdown', label, 10, { pointerType: 'mouse' });
+		pointer('pointermove', label, 45, { pointerType: 'mouse' });
+		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(true);
+		pointer('pointermove', label, 70, { pointerType: 'mouse', buttons: 0 });
+
+		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
+		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
+		pointer('pointermove', label, 10, { pointerType: 'mouse', buttons: 1 });
+		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
+	});
+
+	test('a lost pointer capture ends the drag', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		layOut(field);
+		const label = itemOf(field, 'modul_a').querySelector('label');
+
+		pointer('pointerdown', label, 10);
+		pointer('pointermove', label, 45);
+		pointer('lostpointercapture', field.querySelector('[data-kalaka-ranked]'), 45);
+		pointer('pointermove', label, 70);
+
+		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
+		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
+	});
+
+	test('a drag that ends where it started tells nothing', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		layOut(field);
+		const changes = [];
+		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
+		field.querySelector('[data-kalaka-announce]').textContent = '';
+		const label = itemOf(field, 'modul_a').querySelector('label');
+
+		pointer('pointerdown', label, 10);
+		pointer('pointermove', label, 45);
+		pointer('pointermove', label, 5);
+		pointer('pointerup', label, 5);
+
+		expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
+		expect(changes).toEqual([]);
+		expect(field.querySelector('[data-kalaka-announce]').textContent).toBe('');
+	});
+});
+
+describe('the keyboard and the screen reader', () => {
+	test('ticking and unticking keeps the focus on the checkbox', () => {
+		const field = render();
+		const input = box(field, 'modul_b');
+		input.focus();
+
+		tick(field, 'modul_b');
+		expect(document.activeElement).toBe(input);
+		expect(ranked(field)).toEqual(['modul_b']);
+
+		tick(field, 'modul_b');
+		expect(document.activeElement).toBe(input);
+		expect(unranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
+	});
+
+	test('a tick tells its place, and an untick empties the live region', () => {
+		const field = render();
+		const region = field.querySelector('[data-kalaka-announce]');
+
+		tick(field, 'modul_c');
+		expect(region.textContent).toBe('modul_c, 1. hely');
+		tick(field, 'modul_a');
+		expect(region.textContent).toBe('modul_a, 2. hely');
+		tick(field, 'modul_c');
+		expect(region.textContent).toBe('');
+	});
+
+	test('the edge buttons are aria-disabled, stay focusable and do nothing', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		const disabled = () =>
+			[...field.querySelectorAll('[data-kalaka-ranked] [aria-disabled="true"]')].map(
+				(button) => `${button.closest('li').querySelector('input').value}:${button.getAttribute('data-kalaka-move')}`
+			);
+		expect(disabled()).toEqual(['modul_a:up', 'modul_c:down']);
+
+		const down = itemOf(field, 'modul_b').querySelector('[data-kalaka-move="down"]');
+		down.focus();
+		down.click();
+		// modul_b is now last: its down button is the edge, and keeps the focus.
+		expect(ranked(field)).toEqual(['modul_a', 'modul_c', 'modul_b']);
+		expect(disabled()).toEqual(['modul_a:up', 'modul_b:down']);
+		expect(document.activeElement).toBe(down);
+		expect(down.disabled).toBe(false);
+
+		const changes = [];
+		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
+		down.click();
+		expect(changes).toEqual([]);
+		expect(ranked(field)).toEqual(['modul_a', 'modul_c', 'modul_b']);
+	});
+
+	test('an unranked option has no aria-disabled button, and a ranked row selects no text', () => {
+		const field = render();
+		tick(field, 'modul_a');
+		tick(field, 'modul_a');
+
+		expect(field.querySelectorAll('[data-kalaka-unranked] [aria-disabled]').length).toBe(0);
+		tick(field, 'modul_b');
+		expect(itemOf(field, 'modul_b').style.userSelect).toBe('none');
+		tick(field, 'modul_b');
+		expect(itemOf(field, 'modul_b').style.userSelect).toBeFalsy();
 	});
 });
 

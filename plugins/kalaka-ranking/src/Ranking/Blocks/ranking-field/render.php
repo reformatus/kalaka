@@ -33,10 +33,11 @@ $kalakaItem = static function (string $value, string $label, int $index, bool $r
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'
         . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl) . ($ranked ? ' checked' : '')
         . '> ' . esc_html($label) . '</label>'
-        . ' <button type="button" data-kalaka-move="up"' . ($ranked ? '' : ' hidden') . '>'
-        . esc_html('Feljebb') . '</button>'
-        . ' <button type="button" data-kalaka-move="down"' . ($ranked ? '' : ' hidden') . '>'
-        . esc_html('Lejjebb') . '</button>'
+        // Each button's accessible name names its option, in the editor's pattern ("… feljebb mozgatása").
+        . ' <button type="button" data-kalaka-move="up" aria-label="' . esc_attr($label . ' feljebb mozgatása') . '"'
+        . ($ranked ? '' : ' hidden') . '>' . esc_html('Feljebb') . '</button>'
+        . ' <button type="button" data-kalaka-move="down" aria-label="' . esc_attr($label . ' lejjebb mozgatása') . '"'
+        . ($ranked ? '' : ' hidden') . '>' . esc_html('Lejjebb') . '</button>'
         . '</li>';
 };
 $kalakaPositions = array_flip(array_map(strval(...), array_keys($kalakaLabels)));

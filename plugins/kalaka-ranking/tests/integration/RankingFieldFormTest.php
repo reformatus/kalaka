@@ -122,10 +122,21 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame(0, substr_count($html, ' checked'));
         self::assertStringContainsString('value="modul_b" autocomplete="off">', $html);
         // An unranked option's two buttons are hidden.
-        self::assertSame(3, substr_count($html, '<button type="button" data-kalaka-move="up" hidden>Feljebb</button>'));
+        self::assertSame(3, substr_count($html, 'feljebb mozgatása" hidden>Feljebb</button>'));
+        // Each button's accessible name names its option.
+        self::assertStringContainsString(
+            '<button type="button" data-kalaka-move="up" aria-label="Modul B feljebb mozgatása" hidden>'
+                . 'Feljebb</button>',
+            $html
+        );
+        self::assertStringContainsString(
+            '<button type="button" data-kalaka-move="down" aria-label="Modul C lejjebb mozgatása" hidden>'
+                . 'Lejjebb</button>',
+            $html
+        );
         self::assertSame(
             3,
-            substr_count($html, '<button type="button" data-kalaka-move="down" hidden>Lejjebb</button>')
+            substr_count($html, 'lejjebb mozgatása" hidden>Lejjebb</button>')
         );
         self::assertStringContainsString('id="kalaka-field-modulok-error" class="kalaka-field__error" hidden', $html);
         // The live region that tells a screen reader an option's new place after a move.

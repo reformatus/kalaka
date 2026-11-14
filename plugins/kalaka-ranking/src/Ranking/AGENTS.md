@@ -42,7 +42,11 @@ It holds the ranking field type now and the ranking proposer later (S77).
   ordered list, so the form sends them in rank order. A ranked option moves
   by a drag (pointer events: mouse, pen, touch) or by its Feljebb and Lejjebb
   buttons (the keyboard's way); every move fires `change` and is announced in
-  the field's live region. The script holds no rule and changes only the
+  the field's live region, as is a tick, and an untick empties it. A press ends
+  wherever its pointer is released or cancelled, and nothing reorders without a
+  held pointer. A tick, an untick or a move keeps the focus where it was; the
+  edge buttons are `aria-disabled`, never `disabled`. Each button's accessible
+  name names its option. The script holds no rule and changes only the
   order and the place of the options; the server checks everything at
   submit.
 - The plugin stores nothing of its own.

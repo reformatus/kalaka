@@ -2,13 +2,17 @@
  * The ranking field on the form page (`render.php`): its options are the browser's own checkboxes, named
  * `<key>[]`, and the form sends the ticked ones in document order, so the order of the ranked list is the
  * answer. Ticking an option adds it at the end of the ranked list (`data-kalaka-ranked`); unticking it puts
- * it back among the others (`data-kalaka-unranked`) at its authored place.
+ * it back among the others (`data-kalaka-unranked`) at its authored place. The focus stays on the checkbox
+ * that was ticked or unticked.
  *
  * A ranked option is reordered by dragging it (pointer events: a mouse, a pen or a finger) or by its two
- * buttons, the keyboard's way; the focus stays on a pressed button. After a move the option's checkbox
- * fires `change`, which bubbles to the form like any answer's change, and the field's live region tells a
- * screen reader the option's new place. Dragging needs no library: WordPress ships no drag support for a
- * view script (its `Draggable` is a React component of the editor), so it is a few pointer handlers.
+ * buttons, the keyboard's way; the focus stays on a pressed button. The first option's up button and the
+ * last one's down button are `aria-disabled` (they stay focusable, so a move that makes a button an edge
+ * leaves the focus where it was). After a move the option's checkbox fires `change`, which bubbles to the
+ * form like any answer's change. The field's live region tells a screen reader an option's place after a
+ * tick or a move, and is emptied after an untick, so it never holds a place that is no longer true.
+ * Dragging needs no library: WordPress ships no drag support for a view script (its `Draggable` is a React
+ * component of the editor), so it is a few pointer handlers.
  *
  * It holds no rule: which options are offered, and how many may be ranked, the server checks at submit.
  */
@@ -19,7 +23,7 @@ const UNRANKED = '[data-kalaka-unranked]';
 /** How far, in CSS pixels, a pointer moves before a press on a ranked option becomes a drag. */
 export const DRAG_THRESHOLD = 6;
 
-/** What the live region says after a move: the option's label and its new place (text in N9). */
+/** What the live region says after a tick or a move: the option's label and its place (text in N9). */
 export const announcement = (label, place) => `${label}, ${place}. hely`;
 
 function checkboxOf(item) {
@@ -38,38 +42,95 @@ function labelOf(item) {
 	return (item.querySelector('label')?.textContent ?? '').trim();
 }
 
-/** A ranked option shows its buttons and takes a drag without scrolling the page; an unranked one neither. */
+function placeOf(item) {
+	return [...item.parentElement.children].indexOf(item) + 1;
+}
+
+/**
+ * A ranked option shows its buttons, takes a drag without scrolling the page, and a long press on it
+ * selects no text and opens no callout; an unranked one none of these.
+ */
 function setRanked(item, ranked) {
 	for (const button of buttonsOf(item)) {
 		button.hidden = !ranked;
 	}
-	item.style.touchAction = ranked ? 'none' : '';
+	const value = ranked ? 'none' : '';
+	item.style.touchAction = value;
+	item.style.userSelect = value;
+	item.style.webkitUserSelect = value;
+	item.style.webkitTouchCallout = value;
+}
+
+/** The edge buttons of the ranked list are `aria-disabled`: up on the first option, down on the last. */
+export function markEdges(field) {
+	const items = [...field.querySelector(RANKED).children];
+	items.forEach((item, index) => {
+		for (const button of buttonsOf(item)) {
+			const direction = button.getAttribute('data-kalaka-move');
+			const edge = (direction === 'up' && index === 0) || (direction === 'down' && index === items.length - 1);
+			if (edge) {
+				button.setAttribute('aria-disabled', 'true');
+			} else {
+				button.removeAttribute('aria-disabled');
+			}
+		}
+	});
+	for (const item of field.querySelector(UNRANKED).children) {
+		for (const button of buttonsOf(item)) {
+			button.removeAttribute('aria-disabled');
+		}
+	}
+}
+
+/** Runs a move of the option, keeping the focus on the element inside it that held it. */
+function keepingFocus(item, change) {
+	const focused = item.ownerDocument.activeElement;
+	change();
+	if (focused instanceof HTMLElement && item.contains(focused) && item.ownerDocument.activeElement !== focused) {
+		focused.focus({ preventScroll: true });
+	}
 }
 
 /** Puts an unticked option back among the others, at its authored place. */
 function unrank(field, item) {
 	const others = field.querySelector(UNRANKED);
 	const after = [...others.children].find((other) => position(other) > position(item));
-	others.insertBefore(item, after ?? null);
+	keepingFocus(item, () => others.insertBefore(item, after ?? null));
 	setRanked(item, false);
+	markEdges(field);
 }
 
 /** Adds a ticked option at the end of the ranked list. */
 function rank(field, item) {
-	field.querySelector(RANKED).appendChild(item);
+	const list = field.querySelector(RANKED);
+	keepingFocus(item, () => list.appendChild(item));
 	setRanked(item, true);
+	markEdges(field);
+}
+
+function regionOf(field) {
+	return field.querySelector('[data-kalaka-announce]');
 }
 
 /** Tells a screen reader where the option now is (1 = most wanted). */
 function announce(field, item) {
-	const region = field.querySelector('[data-kalaka-announce]');
+	const region = regionOf(field);
 	if (region !== null) {
-		region.textContent = announcement(labelOf(item), [...item.parentElement.children].indexOf(item) + 1);
+		region.textContent = announcement(labelOf(item), placeOf(item));
+	}
+}
+
+/** Empties the live region: an unranked option has no place to tell. */
+function silence(field) {
+	const region = regionOf(field);
+	if (region !== null) {
+		region.textContent = '';
 	}
 }
 
 /** The form learns the new order: a `change` of the option's checkbox. */
 function moved(field, item) {
+	markEdges(field);
 	announce(field, item);
 	checkboxOf(item).dispatchEvent(new Event('change', { bubbles: true }));
 }
@@ -120,12 +181,16 @@ function onControl(target) {
 }
 
 /**
- * Dragging within the ranked list. The list holds the pointer capture, since the option itself moves in
- * the document while it is dragged. A press that moves less than `DRAG_THRESHOLD` stays a click (a label's
- * click ticks its checkbox); after a drag, the click that follows is swallowed.
+ * Dragging within the ranked list. The list holds the pointer capture once a press becomes a drag, since
+ * the option itself moves in the document while it is dragged. A press that moves less than
+ * `DRAG_THRESHOLD` stays a click (a label's click ticks its checkbox); after a drag, the click that follows
+ * is swallowed. A press ends wherever its pointer is released or cancelled (the window's `pointerup` and
+ * `pointercancel`, the list's `lostpointercapture`), and a move with no button held ends it too, so
+ * nothing reorders without a held pointer. A drag that ends where it started tells nothing.
  */
 function startDragging(field) {
 	const list = field.querySelector(RANKED);
+	const view = field.ownerDocument.defaultView ?? window;
 	let press = null;
 	let swallowClick = false;
 
@@ -142,6 +207,27 @@ function startDragging(field) {
 		{ capture: true }
 	);
 
+	const end = (event) => {
+		if (press === null || (event.pointerId !== undefined && event.pointerId !== press.id)) {
+			return;
+		}
+		const { item, dragging, from } = press;
+		press = null;
+		if (!dragging) {
+			return;
+		}
+		item.removeAttribute('data-kalaka-dragging');
+		item.style.opacity = '';
+		swallowClick = true;
+		// A drag that ended outside the option is followed by no click on it.
+		setTimeout(() => {
+			swallowClick = false;
+		}, 0);
+		if (item.parentElement === list && placeOf(item) !== from) {
+			moved(field, item);
+		}
+	};
+
 	list.addEventListener('pointerdown', (event) => {
 		const item = event.target?.closest?.('[data-kalaka-option]');
 		if (press !== null || item == null || item.parentElement !== list || onControl(event.target)) {
@@ -154,11 +240,16 @@ function startDragging(field) {
 			// No text selection while a mouse drags; the click that follows a press still ticks.
 			event.preventDefault();
 		}
-		press = { id: event.pointerId, item, startY: event.clientY, dragging: false, changed: false };
+		press = { id: event.pointerId, item, startY: event.clientY, dragging: false, from: placeOf(item) };
 	});
 
 	list.addEventListener('pointermove', (event) => {
 		if (press === null || event.pointerId !== press.id) {
+			return;
+		}
+		if (event.buttons === 0) {
+			// The button was released where no `pointerup` reached us: the press is over.
+			end(event);
 			return;
 		}
 		if (!press.dragging) {
@@ -176,33 +267,12 @@ function startDragging(field) {
 			const box = other.getBoundingClientRect();
 			return box.top + box.height / 2;
 		});
-		if (placeAt(press.item, dropIndex(middles, event.clientY))) {
-			press.changed = true;
-		}
+		placeAt(press.item, dropIndex(middles, event.clientY));
 	});
 
-	const end = (event) => {
-		if (press === null || event.pointerId !== press.id) {
-			return;
-		}
-		const { item, dragging, changed } = press;
-		press = null;
-		if (!dragging) {
-			return;
-		}
-		item.removeAttribute('data-kalaka-dragging');
-		item.style.opacity = '';
-		swallowClick = true;
-		// A drag that ended outside the option is followed by no click on it.
-		setTimeout(() => {
-			swallowClick = false;
-		}, 0);
-		if (changed) {
-			moved(field, item);
-		}
-	};
-	list.addEventListener('pointerup', end);
-	list.addEventListener('pointercancel', end);
+	list.addEventListener('lostpointercapture', end);
+	view.addEventListener('pointerup', end, true);
+	view.addEventListener('pointercancel', end, true);
 }
 
 /** Wires one ranking field (the element with `data-kalaka-ranking`). */
@@ -216,13 +286,15 @@ export function start(field) {
 		const inRanked = item.parentElement === field.querySelector(RANKED);
 		if (box.checked && !inRanked) {
 			rank(field, item);
+			announce(field, item);
 		} else if (!box.checked && inRanked) {
 			unrank(field, item);
+			silence(field);
 		}
 	});
 	field.addEventListener('click', (event) => {
 		const button = event.target?.closest?.('[data-kalaka-move]');
-		if (button === null || button === undefined) {
+		if (button === null || button === undefined || button.getAttribute('aria-disabled') === 'true') {
 			return;
 		}
 		const item = button.closest('[data-kalaka-option]');
@@ -233,6 +305,7 @@ export function start(field) {
 	for (const item of field.querySelectorAll(`${RANKED} > [data-kalaka-option]`)) {
 		setRanked(item, true);
 	}
+	markEdges(field);
 	startDragging(field);
 }
 
