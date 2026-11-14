@@ -62,6 +62,14 @@ final class LedgerCostTest extends PerEventCostTestCase
         );
     }
 
+    public function testTheChargeTotalsStayInsideTheirEvent(): void
+    {
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event) => (new Ledger())->chargeTotalsOf(new RegistrationKey($event, '00A0'))
+        );
+    }
+
     public function testTheLookupByKeyStaysInsideItsEvent(): void
     {
         $this->assertPerEventCost(
@@ -80,6 +88,7 @@ final class LedgerCostTest extends PerEventCostTestCase
 
         self::assertCount(1, $this->selectsDuring(fn () => $ledger->balancesOf($registration)));
         self::assertCount(1, $this->selectsDuring(fn () => $ledger->paymentFactsOf($registration)));
+        self::assertCount(1, $this->selectsDuring(fn () => $ledger->chargeTotalsOf($registration)));
     }
 
     /** @return list<string> */
