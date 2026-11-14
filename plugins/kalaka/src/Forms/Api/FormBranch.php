@@ -14,8 +14,8 @@ use Kalaka\Forms\Engine\Condition\Condition;
  * `chain` is the chain's number in the form, from 0 in document order (a chain before the chains
  * inside its branches), and `index` the branch's place in its chain, from 0.
  *
- * The conditions are parsed `Condition` objects of the Forms root; outside Forms a branch is passed along,
- * never inspected (N1).
+ * The conditions are parsed `Condition` objects of the form engine (`Engine\Condition`); outside the engine a
+ * branch is passed along, never inspected (N1).
  */
 final readonly class FormBranch
 {

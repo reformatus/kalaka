@@ -8,9 +8,9 @@ use Kalaka\Forms\Engine\Condition\Condition;
 
 /**
  * a page of a form's definition (`kalaka/form-page`, top level only): its number
- * (from 0 in document order, as `Condition\ChainMarks` marks it), its optional title, whether it is a
- * terminal page and its condition (none for page 0). The condition is a parsed `Condition` of the Forms
- * root; outside Forms a page is passed along, never inspected.
+ * (from 0 in document order, as `Engine\Condition\ChainMarks` marks it), its optional title, whether it is a
+ * terminal page and its condition (none for page 0). The condition is a parsed `Condition` of the form
+ * engine (`Engine\Condition`); outside the engine a page is passed along, never inspected.
  */
 final readonly class PageDefinition
 {
