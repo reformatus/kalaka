@@ -14,8 +14,8 @@ use Kalaka\Foundation\Api\Actor\Actor;
  *
  * The six ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), and what the after-submit section reads
- * (`afterSubmitTypes()`).
+ * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), and
+ * what the after-submit section reads (`afterSubmitTypes()`).
  */
 interface FormHost
 {
