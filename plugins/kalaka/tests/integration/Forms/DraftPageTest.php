@@ -170,6 +170,38 @@ final class DraftPageTest extends FormsTestCase
         self::assertStringNotContainsString('régi', $html);
     }
 
+    public function testAHalfTypedTextOfTheOwnDraftOpensAsTyped(): void
+    {
+        $user = $this->logIn();
+        (new Drafts($this->runner))->save(
+            $this->event,
+            $this->form,
+            $this->version(),
+            new AnswerSet(['email' => 'teszt.anna@']),
+            0,
+            new AccountActor($user)
+        );
+
+        self::assertMatchesRegularExpression('#name="email"[^>]* value="teszt.anna@"#', $this->render());
+    }
+
+    public function testOnlyAPrefillOrALoggedInClaimCookieGivesAPageViewAnythingToDo(): void
+    {
+        self::assertFalse(DraftHandoff::hasWork(null, 0, null));
+        self::assertFalse(DraftHandoff::hasWork(null, 7, null));
+        self::assertFalse(DraftHandoff::hasWork(null, 0, DraftClaim::generate()));
+        self::assertTrue(DraftHandoff::hasWork(null, 7, DraftClaim::generate()));
+        self::assertTrue(DraftHandoff::hasWork(['note' => 'x'], 0, null));
+    }
+
+    public function testTheRedirectDropsTheWholePrefillParameter(): void
+    {
+        self::assertSame(
+            '/jelentkezes/?x=1',
+            remove_query_arg(DraftHandoff::PARAMETER, '/jelentkezes/?kalaka%5Bsize%5D=m&kalaka%5Bnote%5D=a&x=1')
+        );
+    }
+
     public function testAGuestHasNoAutosaveRoute(): void
     {
         self::assertArrayNotHasKey('draftUrl', $this->context($this->render()));
