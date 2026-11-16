@@ -241,7 +241,19 @@ values and conditions, prefill and form links
   an extension's through `Api\FieldMarkup::prefilled()`).
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
-  answers of fields that show; it keeps nothing across a reload.
+  answers of fields that show. It keeps nothing across a reload itself: a
+  logged-in person's answers survive only as their draft, which the autosave
+  sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
+  once a send starts.
+- A form opens with its host's draft (`FormHost::draft()`) over its stored
+  values. The engine keeps only the draft answers the form's types accept,
+  each checked alone (`FormEngine::accepted()`); the rest open empty.
+- Public prefill (`kalaka[<key>]`) is read only by `DraftHandoff`, on `wp`,
+  for a page placing one usable registration form: its answers pass
+  `Forms::accepted()`, become a guest draft, and the request ends in an
+  uncached 303 without them. No value of the request is logged. A logged-in
+  request to that page claims the cookie's guest draft there, never in the
+  render.
 - The submit token (`FormHost::submitToken()`; for an event form
   `Registrations\Api\SubmitToken`) is issued by the server on every render of a form page, into a hidden field, and sent back
   unchanged on every send of that page; it never goes into a cookie,

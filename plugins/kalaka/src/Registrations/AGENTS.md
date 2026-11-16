@@ -111,4 +111,15 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- Drafts (`kalaka_drafts`, S74) are keyed event first: a user draft is one
+  per event, form and user; a guest draft is found only by the SHA-256 of
+  its claim token (`Api\DraftClaim`), which is never stored, logged or
+  audited. A draft's answers and claim hash are secret columns: the audit
+  names the draft, never their values.
+- A draft is written only by its use cases: `kalaka-portal/save-draft` (a
+  logged-in person only), `kalaka-portal/hand-over-prefill`,
+  `kalaka-portal/claim-draft`, `kalaka-portal/resolve-draft-claim`,
+  `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
+  the cookie's guest draft of the form in its own transaction. A draft never
+  creates a registration and holds no place.
 - Only Registrations writes its tables.
