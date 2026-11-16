@@ -88,17 +88,18 @@ erDiagram
   its hooks; logging in is WordPress's own, and any WordPress user counts.
   Skipping lands the registration with no account, as a guest's. Off is the
   form without accounts. Additional forms never send anyone to sign up.
-- Whether signing up in optional mode is offered only to people aged 16 or
-  over (Hungary's age of digital consent) is still open; IVK's participants
+- In optional mode the registration page says signing up is for people aged
+  16 or over (Hungary's age of digital consent), and that younger people
+  continue without an account. Nobody's age is checked. IVK's participants
   are all adults.
 - **Kaláka never asks for or handles a password.** Signing up creates the
   account and logs it in at once. It is verified when its password is set
-  through WordPress's own link, from a set-password mail sent by the queue;
-  until then it is marked unverified, which limits only what Kaláka does
+  through WordPress's own link, which travels in the registration's mail
+  ([Mail](mail.md#configuration)); until then it is marked unverified, which limits only what Kaláka does
   with it.
 - **The registration does not wait for the account's verification:** it
   lands at submit, takes its place in capacity and gets its reference code
-  before the set-password mail is used.
+  before the set-password link is used.
 - **If the person is logged in,** the registration attaches to their
   account, unless the event's account mode is off.
 - **If the email already has an account,** WordPress's registration page

@@ -37,12 +37,15 @@ record, the check-in act, and so on.
   flagged as a validation error.
 - **Action mails are defined in code.** Per event each one is switched on or
   off and has its own body.
-- **The set-password mail**
+- **The set-password link**
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form))
-  is a system mail outside the action-mail catalogue: defined in code with
-  built-in content, with no body, no layout and no switch. A registration
-  submitted by an account that is still unverified queues it, keyed by the
-  registration and the account.
+  has no mail of its own. A body places it, as the key
+  `account.password_link`, in a branch on `account.unverified`, which holds
+  while the registration's account is still unverified and the mail goes to
+  that account's own address. While an event's account mode is mandatory or
+  optional, its "registered" mail must contain the key and cannot be switched
+  off. WordPress keeps one such link per account, so each new one replaces
+  the last.
 - **Scheduled mails are defined freely by admins** at a date reference
   ([Events](events-and-forms.md#date-references)): a fixed date and time, a
   point on the event's timeline (e.g. 2 days before the start, 5 days after

@@ -150,8 +150,8 @@ flowchart LR
   - Creating a WordPress account happens on WordPress's own registration
     page, before the form is shown, outside any of our transactions. If the
     registration then fails, the account simply exists, as after a plain
-    sign-up. The set-password mail that
-    activates it is queued by the registration itself
+    sign-up. The set-password link that
+    activates it travels in the registration's own mail
     ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
   - Steps *after* commit run in the same request and must be safe to repeat.
     A step is one of two kinds:

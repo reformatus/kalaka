@@ -22,8 +22,8 @@ short. The architecture pages say how things are built; this page says when.
    participant blocks is still to be agreed with the owner);
    protection against double submits; spam protection; an account created
    on WordPress's registration page on the way to the form (mandatory for
-   IVK) and activated through a set-password mail sent by the queue (the
-   account area itself may only say "Coming soon").
+   IVK) and activated through a set-password link in the registration's
+   mail (the account area itself may only say "Coming soon").
 2. **Money core:** the ledger with payers, the materializer and the money
    settings apply; IVK's price tiers (examples only: 48 000 Ft with no share,
    42 000 Ft with a declared share, 32 000 Ft with the whole tier as the

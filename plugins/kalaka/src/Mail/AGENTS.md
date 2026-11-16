@@ -3,8 +3,7 @@
 Mail is mails, deliveries and the sender
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
 So far: the delivery queue, the sender, pausing, the mail counts, the mail
-bodies, the renderer and the per-event action-mail catalogue, and beside it
-the set-password mail (S15).
+bodies, the renderer and the per-event action-mail catalogue.
 
 ## Sections it implements
 
@@ -55,12 +54,16 @@ the set-password mail (S15).
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
   nothing else in the layout is replaced.
-- The set-password mail (`Api\AccountMail`, `account_set_password`, S15; its
-  key is defined only there) is not in the catalogue: `Body\ActionMailComposer`
-  hands it to `AccountMailComposer`, which gives a recipient only with the
-  cause `account` (a WordPress user ID): that user's current address, not a
-  marked field. Its content is built in; the reset key is made when the
-  mail is composed, never at submit.
+- The set-password link (S15) has no mail of its own: it is the value
+  `account.password_link` of a body, from
+  `Registrations\Api\Accounts::passwordLink()`, made only when the body
+  being rendered reads it, and only while `account.unverified` holds: the
+  registration's owner is unverified and the recipient is that account's own
+  address. Each one replaces the account's last link.
+- While an event's account mode is not `off`, its "registered" mail must
+  read `account.password_link` and cannot be switched off
+  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in
+  `UpdateActionMail`.
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
@@ -85,13 +88,12 @@ the set-password mail (S15).
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
   gets the body's facts (`Catalogue\MailBody`: its event, whether it is
-  published) read before the run by its entry, `Api\ActionMailSettings::update()`;
+  published, whether it reads `account.password_link`) read before the run by its entry, `Api\ActionMailSettings::update()`;
   run without them it refuses a body assignment or a switch-on. It does not
   check the keys: a body is checked at its save, and one that goes stale
   later fails per delivery without pausing.
 - The secret link reaches a mail only as the value `registration.link` from
-  `Registrations\Api\SecretLinks::url()` (in the set-password mail's
-  built-in content, from `SecretLinks::url()` itself). It is never stored on a
+  `Registrations\Api\SecretLinks::url()`. It is never stored on a
   delivery, logged or audited; render failures name a problem code and a
   key, never a value.
 - Before each claim the sender reads the pause fresh (`Pause\MailStateQuery`,

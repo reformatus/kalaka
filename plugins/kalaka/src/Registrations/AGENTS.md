@@ -82,8 +82,8 @@ the waitlist and reference codes
   the submit of a logged-in person, and nothing changes or clears it. In
   the event's account mode `off` a submit records no owner; in `mandatory`
   mode someone not logged in cannot submit (`account_required`). The owner
-  and the set-password mail are written only for a new registration, never
-  for a repeat.
+  is written only for a new registration, never for a repeat. A submit
+  queues no mail of its own for the account.
 - Accounts are created only on WordPress's own registration page
   (`Account\SignUpPage`), never by a submit; Kaláka never handles a
   password. Its native-sign-up flag is set only on a POST to
