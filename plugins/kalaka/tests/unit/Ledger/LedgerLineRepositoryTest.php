@@ -48,6 +48,7 @@ final class LedgerLineRepositoryTest extends TestCase
                 'Ledger/LedgerLineRepository.php',
                 'Ledger/Module.php',
                 'Ledger/PaymentFactQuery.php',
+            'Ledger/SummaryQuery.php',
             ],
             $named
         );

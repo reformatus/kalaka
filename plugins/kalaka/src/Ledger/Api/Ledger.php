@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
 use Kalaka\Ledger\LedgerLineRepository;
 use Kalaka\Ledger\PaymentFactQuery;
+use Kalaka\Ledger\SummaryQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /** The ledger's contract: the only way to write a line, and the plain reads. */
@@ -19,6 +20,7 @@ final class Ledger
         private readonly LedgerLineRepository $lines = new LedgerLineRepository(),
         private readonly BalanceQuery $balances = new BalanceQuery(),
         private readonly PaymentFactQuery $facts = new PaymentFactQuery(),
+        private readonly SummaryQuery $summaries = new SummaryQuery(),
     ) {
     }
 
@@ -80,6 +82,15 @@ final class Ledger
     public function paymentFactsOf(RegistrationKey $registration): array
     {
         return $this->facts->of($registration);
+    }
+
+    /**
+     * A plain read, without a lock, for display (the participant blocks): each payer's charged, paid and
+     * balance, and its lines that are not payment facts. Rules never read it; they read payment facts.
+     */
+    public function summaryOf(RegistrationKey $registration): Summary
+    {
+        return $this->summaries->of($registration);
     }
 
     private function check(NewLine $line): void

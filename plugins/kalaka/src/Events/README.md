@@ -6,7 +6,7 @@ Table, created by the schema in `Module.php`: `kalaka_events` (the core points `
 
 At the root: `EventRecord` (the stored event), `EventRepository`, `EventQuery` (the published events, for the periodic run's sweep), and the admin use cases `CreateEvent`, `UpdateEvent`, `PublishEvent`, `UnpublishEvent`, `ArchiveEvent` and `ReopenEvent` (`kalaka/create-event`, `kalaka/update-event`, `kalaka/publish-event`, `kalaka/unpublish-event`, `kalaka/archive-event`, `kalaka/reopen-event`; all need full access).
 
-`Api/` holds `Events` (`find()`, `published()`), `Event` (a read of an event, with its `currency`, `state()` as seen and `registrationWindowContains()`), `EventPoint`, `EventState`, and `EventCapacity` (`lockForRegistration()`, the first lock of a submit, and `markFull()`, the only way to set the latch).
+`Api/` holds `Events` (`find()`, `published()`), `Event` (a read of an event, with its `currency`, its payment settings (bank-transfer beneficiary and account, transfer-reference prefix, payment-due N; null until set), `state()` as seen and `registrationWindowContains()`), `EventPoint`, `EventState`, and `EventCapacity` (`lockForRegistration()`, the first lock of a submit, and `markFull()`, the only way to set the latch).
 
 `Cli/EventSeeder` contributes five sample events to `wp kalaka seed`, written through the use cases above.
 

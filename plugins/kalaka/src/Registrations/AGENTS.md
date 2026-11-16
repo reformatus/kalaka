@@ -44,6 +44,11 @@ the waitlist and reference codes
   compared in SQL; the link carries the registration key beside it. Only
   Registrations reads the stored secret: another module presents a secret and
   asks whether it matches.
+- The active-registration token is `v1.<eventId>.<code>.<issuedAt>.<mac>`,
+  issued and verified only by `Api\SecretLinks`: the MAC covers the current
+  secret, so a new secret revokes every token issued before it, and a token
+  is good for 24 hours from its issue, checked against the clock. The token
+  never carries the secret.
 - `secret` and `field_key` are `utf8mb4_nopad_bin`: compared exactly.
 - Registration rows are locked at `LockLevel::Registration`: after the event
   row and quota rows, before everything else.

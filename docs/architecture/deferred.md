@@ -12,7 +12,7 @@ removed here.
 
 | Item | Settle when |
 |---|---|
-| Participant phase tracker (core default phases, configurable, extensions add phases); participants see one sequence: waitlisted → awaiting payment → confirmed, or withdrawn / removed | designing the participant status block |
+| Participant phase tracker: configurable phases, and phases extensions add. The core default phases participants see (one sequence: waitlisted → awaiting payment → confirmed, or withdrawn / removed) are built with the participant status block | when an extension needs a phase of its own |
 | Unactivated accounts (the set-password link never used, or the registration failed after the account was created): whether and when they are removed | building the registration UI |
 | Retention of guest data and of the audit, including failed entries (ledger lines are kept at least 8 years, [Registrations and identity](registrations-and-identity.md#attribution-and-erasure)) | before a wide release (privacy policy) |
 | The privacy tools: WordPress's privacy export and eraser for registrations and presets, the audit-diff scrub, IP address and user agent declared to WordPress's privacy tools, self-service erasure and the other GDPR features. Not needed at launch: the 2026 systems had none | before a wide release |
@@ -40,7 +40,6 @@ removed here.
 | Post-camp settlement extension | later |
 | A view of the frozen submission | later, low priority |
 | How the form editor edits conditions with pickers and value chips (conditions are written as JSON until then) | in the form-editor changes |
-| How long the active registration lasts before it expires | building the participant blocks |
 | Whether an additional form's submit triggers an action mail | building additional forms |
 | Whether an additional form may hold the contact email or the display name (a "change my email" form) | building additional forms |
 | Whether the explicit markings (contact email, display name) move to the participant-field list | building additional forms |

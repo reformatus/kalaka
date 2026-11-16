@@ -32,6 +32,10 @@ final class EventRecord
         public ?\DateTimeImmutable $archivedAt = null,
         public int $id = 0,
         public int $version = 0,
+        public ?string $transferBeneficiary = null,
+        public ?string $transferAccount = null,
+        public ?string $transferReferencePrefix = null,
+        public ?int $paymentDueDays = null,
     ) {
     }
 
@@ -56,6 +60,10 @@ final class EventRecord
             $instant($row['archived_at']),
             (int) $row['id'],
             (int) $row['version'],
+            $row['transfer_beneficiary'] ?? null,
+            $row['transfer_account'] ?? null,
+            $row['transfer_reference_prefix'] ?? null,
+            isset($row['payment_due_days']) ? (int) $row['payment_due_days'] : null,
         );
     }
 
@@ -79,6 +87,10 @@ final class EventRecord
             $this->startsAt,
             $this->endsAt,
             $customPoints,
+            $this->transferBeneficiary,
+            $this->transferAccount,
+            $this->transferReferencePrefix,
+            $this->paymentDueDays,
         );
     }
 

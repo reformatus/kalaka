@@ -59,6 +59,10 @@ final class EventRepository extends EntityRepository
             'points' => self::encodePoints($entity->points),
             'next_point_id' => $entity->nextPointId,
             'archived_at' => self::instant($entity->archivedAt),
+            'transfer_beneficiary' => $entity->transferBeneficiary,
+            'transfer_account' => $entity->transferAccount,
+            'transfer_reference_prefix' => $entity->transferReferencePrefix,
+            'payment_due_days' => $entity->paymentDueDays,
         ];
     }
 
