@@ -9,7 +9,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the three tables of the module. */
+/** AC1: the tables of the module (S74 adds the drafts). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -41,6 +41,20 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'submit_token' => 'varchar(22) null',
             'answers_hash' => 'varchar(64) null',
         ],
+        'kalaka_drafts' => [
+            'event_id' => 'bigint(20) unsigned',
+            'id' => 'bigint(20) unsigned',
+            'version' => 'int(10) unsigned',
+            'form_id' => 'bigint(20) unsigned',
+            'form_version' => 'bigint(20) unsigned',
+            'user_id' => 'bigint(20) unsigned null',
+            'claim_hash' => 'char(64) null',
+            'answers' => 'longtext',
+            'page' => 'smallint(5) unsigned',
+            'created_at' => 'datetime(6)',
+            'updated_at' => 'datetime(6)',
+            'expires_at' => 'datetime(6) null',
+        ],
     ];
 
     /** The columns compared exactly (#42, D1). */
@@ -49,6 +63,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.submit_token' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.answers_hash' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.claim_hash' => 'utf8mb4_nopad_bin',
     ];
 
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
@@ -96,7 +111,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(3, $tables);
+        self::assertCount(4, $tables);
         foreach ($tables as $statement) {
             $statement = str_replace('{prefix}', $wpdb->prefix, $statement);
             self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));
@@ -116,6 +131,26 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             [
                 'PRIMARY:event_id:0', 'PRIMARY:code:0', 'PRIMARY:number:0',
                 'submit_token:event_id:0', 'submit_token:submit_token:0',
+            ],
+            array_map(
+                static fn (array $row): string
+                    => $row['Key_name'] . ':' . $row['Column_name'] . ':' . $row['Non_unique'],
+                $keys
+            )
+        );
+    }
+
+    public function testADraftIsKeyedEventFirstWithOneDraftPerFormAndPersonAndOneClaim(): void
+    {
+        global $wpdb;
+
+        $keys = $wpdb->get_results("SHOW INDEX FROM {$wpdb->prefix}kalaka_drafts", ARRAY_A);
+        self::assertIsArray($keys);
+        self::assertSame(
+            [
+                'PRIMARY:event_id:0', 'PRIMARY:id:0',
+                'owner:event_id:0', 'owner:form_id:0', 'owner:user_id:0',
+                'claim:claim_hash:0', 'id:id:1', 'expires:expires_at:1',
             ],
             array_map(
                 static fn (array $row): string
