@@ -26,7 +26,7 @@ final class BodyInUse
     public const CODE = 'kalaka_mail_in_use';
 
     // [UNAPPROVED N20] the refusal's reason.
-    public const IN_USE = 'Ezt a szöveget egy bekapcsolt levél használja.';
+    public const IN_USE = 'Ezt a levélsablont egy bekapcsolt levél használja.';
 
     /** `RuleViolation`'s text with the reason. */
     public static function message(): string

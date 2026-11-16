@@ -60,10 +60,10 @@ final class MailEditorTest extends MailBodyTestCase
     {
         $type = get_post_type_object('kalaka_mail');
         self::assertInstanceOf(\WP_Post_Type::class, $type);
-        self::assertSame('Levélszövegek', $type->labels->name);
-        self::assertSame('Levélszöveg', $type->labels->singular_name);
-        self::assertSame('Levélszöveg szerkesztése', $type->labels->edit_item);
-        self::assertSame('Levélszöveg frissítve.', $type->labels->item_updated);
+        self::assertSame('Levélsablonok', $type->labels->name);
+        self::assertSame('Levélsablon', $type->labels->singular_name);
+        self::assertSame('Levélsablon szerkesztése', $type->labels->edit_item);
+        self::assertSame('Levélsablon frissítve.', $type->labels->item_updated);
     }
 
     public function testAMailDocumentHasARevisionAtOnce(): void
@@ -99,7 +99,7 @@ final class MailEditorTest extends MailBodyTestCase
             self::assertInstanceOf(\WP_Error::class, $error);
             self::assertSame('kalaka_mail_in_use', $error->get_error_code());
             self::assertSame(
-                'A művelet nem hajtható végre. Ezt a szöveget egy bekapcsolt levél használja.',
+                'A művelet nem hajtható végre. Ezt a levélsablont egy bekapcsolt levél használja.',
                 $error->get_error_message()
             );
         }
@@ -159,7 +159,7 @@ final class MailEditorTest extends MailBodyTestCase
             self::assertInstanceOf(\WP_Error::class, $error);
             self::assertSame('kalaka_mail_in_use', $error->get_error_code());
             self::assertSame(
-                'A művelet nem hajtható végre. Ezt a szöveget egy bekapcsolt levél használja.',
+                'A művelet nem hajtható végre. Ezt a levélsablont egy bekapcsolt levél használja.',
                 $error->get_error_message()
             );
         }

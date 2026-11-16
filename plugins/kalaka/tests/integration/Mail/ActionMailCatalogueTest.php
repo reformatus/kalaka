@@ -68,7 +68,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
             self::fail('Expected a refusal.');
         } catch (RuleViolation $e) {
-            self::assertSame('A művelet nem hajtható végre. Előbb add meg a levél szövegét.', $e->getMessage());
+            self::assertSame('A művelet nem hajtható végre. Előbb add meg a sablon szövegét.', $e->getMessage());
         }
         self::assertFalse((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled']);
     }
@@ -93,7 +93,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 $this->updateMail(['event_id' => $event, 'mail' => 'registered'] + $change);
                 self::fail('Expected a refusal.');
             } catch (RuleViolation $e) {
-                self::assertSame('A művelet nem hajtható végre. Előbb tedd közzé a levél szövegét.', $e->getMessage());
+                self::assertSame('A művelet nem hajtható végre. Előbb tedd közzé a levélsablont.', $e->getMessage());
             }
         }
         self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
@@ -198,7 +198,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             self::fail('Expected a refusal.');
         } catch (RuleViolation $e) {
             self::assertSame(
-                'A művelet nem hajtható végre. Ezt a szöveget már egy másik levél használja.',
+                'A művelet nem hajtható végre. Ezt a levélsablont már egy másik levél használja.',
                 $e->getMessage()
             );
         }
@@ -287,7 +287,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 self::fail('Expected a refusal.');
             } catch (RuleViolation $e) {
                 self::assertSame(
-                    'A művelet nem hajtható végre. A levélsablonban a {{content}} jelölőn kívül más jelölő nem'
+                    'A művelet nem hajtható végre. A levélkeretben a {{content}} jelölőn kívül más jelölő nem'
                         . ' szerepelhet.',
                     $e->getMessage()
                 );

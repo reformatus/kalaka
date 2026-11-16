@@ -21,9 +21,9 @@ use Kalaka\Mail\Api\ActionMailSettings;
  */
 final class SetEventMailLayout implements AdminUseCase
 {
-    // [UNAPPROVED N20] the refusal's text, with the UI's term "Levélsablon".
-    public const NO_PLACEHOLDER = 'A levélsablonban a {{content}} jelölőnek pontosan egyszer kell szerepelnie.';
-    public const OTHER_PLACEHOLDER = 'A levélsablonban a {{content}} jelölőn kívül más jelölő nem szerepelhet.';
+    // Owner 2026-11-16: the layout is the "levélkeret".
+    public const NO_PLACEHOLDER = 'A levélkeretben a {{content}} jelölőnek pontosan egyszer kell szerepelnie.';
+    public const OTHER_PLACEHOLDER = 'A levélkeretben a {{content}} jelölőn kívül más jelölő nem szerepelhet.';
 
     public function __construct(
         private readonly MailLayoutRepository $layouts = new MailLayoutRepository(),

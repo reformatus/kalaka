@@ -28,7 +28,7 @@ final class BodyCheck
     public const CODE = 'kalaka_mail_body';
 
     // [UNAPPROVED N20] the refusal: `%1$s` the problem code, `%2$s` its key; the mirror of Forms' refusal.
-    public const MESSAGE = 'A levél szövegét így nem lehet menteni: %1$s („%2$s”).';
+    public const MESSAGE = 'A sablon szövegét így nem lehet menteni: %1$s („%2$s”).';
 
     /** The transient that holds a vetoed save's message, per user: this prefix and the user ID. */
     public const NOTICE = 'kalaka_mail_refused_';

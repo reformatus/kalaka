@@ -29,9 +29,9 @@ use Kalaka\Mail\Api\ActionMailSettings;
 final class UpdateActionMail implements AdminUseCase
 {
     // [UNAPPROVED N20] the refusals' texts.
-    public const NO_BODY = 'Előbb add meg a levél szövegét.';
-    public const BODY_TAKEN = 'Ezt a szöveget már egy másik levél használja.';
-    public const BODY_UNPUBLISHED = 'Előbb tedd közzé a levél szövegét.';
+    public const NO_BODY = 'Előbb add meg a sablon szövegét.';
+    public const BODY_TAKEN = 'Ezt a levélsablont már egy másik levél használja.';
+    public const BODY_UNPUBLISHED = 'Előbb tedd közzé a levélsablont.';
 
     public function __construct(
         private readonly ?MailBody $body = null,

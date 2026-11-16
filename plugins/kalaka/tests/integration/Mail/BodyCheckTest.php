@@ -107,7 +107,7 @@ final class BodyCheckTest extends MailBodyTestCase
             self::assertInstanceOf(\WP_Error::class, $error);
             self::assertSame(BodyCheck::CODE, $error->get_error_code());
             self::assertSame(
-                'A levél szövegét így nem lehet menteni: ' . $why . '.',
+                'A sablon szövegét így nem lehet menteni: ' . $why . '.',
                 $error->get_error_message(),
                 $why
             );
@@ -148,7 +148,7 @@ final class BodyCheckTest extends MailBodyTestCase
         self::assertSame($this->paragraph('Szia'), get_post_field('post_content', $id));
         self::assertSame('publish', get_post_status($id));
         self::assertSame(
-            'A levél szövegét így nem lehet menteni: unknown_value_key („nincs”).',
+            'A sablon szövegét így nem lehet menteni: unknown_value_key („nincs”).',
             get_transient(BodyCheck::NOTICE . $this->user)
         );
 
