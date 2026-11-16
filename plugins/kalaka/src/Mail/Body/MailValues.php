@@ -13,6 +13,7 @@ use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
+use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -24,6 +25,14 @@ use Kalaka\Registrations\Api\SecretLinks;
  * registration's fields are the event's participant fields: a key that only another form of the event holds
  * reads as none. The recipient comes from the marked fields of
  * the slot form (the form of the first submission). It reads WordPress posts, so it runs outside any use case.
+ *
+ * The owner account's keys (S15, owner ruling 2026-11-16): `account.unverified`, `1` while the registration's
+ * owner is an account Kaláka created whose password was never set, and `account.password_link`, that
+ * account's set-password link, made when the mail is rendered (`Registrations\Api\Accounts::passwordLink()`;
+ * the newest link wins), and only for a body that reads it. Both are none for a guest's registration, an
+ * owner who is verified (a social sign-up among them), or a recipient other than the account's own address,
+ * so a link to set someone's password never goes to another address.
+ * // [UNAPPROVED #191 N22] the two account keys; `account.unverified` is `1` or none, like a consent.
  */
 final class MailValues
 {
@@ -32,6 +41,8 @@ final class MailValues
     public const CODE = 'registration.code';
     public const STATUS = 'registration.status';
     public const LINK = 'registration.link';
+    public const ACCOUNT_UNVERIFIED = 'account.unverified';
+    public const ACCOUNT_PASSWORD_LINK = 'account.password_link';
 
     /**
      * Whether the registration was admitted from the waitlist: a choice of `yes` or `no`, with no display text,
@@ -45,7 +56,20 @@ final class MailValues
         private readonly SecretLinks $links = new SecretLinks(),
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
+        private readonly Accounts $accounts = new Accounts(),
     ) {
+    }
+
+    /**
+     * Whether a body reads the set-password link: an inline value or a `kalaka/value` binding naming
+     * `account.password_link`. The save check of the "Jelentkezés rögzítve" mail asks it (S15).
+     */
+    public static function readsPasswordLink(string $content): bool
+    {
+        $key = preg_quote(self::ACCOUNT_PASSWORD_LINK, '/');
+
+        return preg_match('/data-kalaka-value=(["\'])' . $key . '\1/', $content) === 1
+            || preg_match('/"key"\s*:\s*"' . $key . '"/', $content) === 1;
     }
 
     /**
@@ -69,6 +93,8 @@ final class MailValues
             self::STATUS => ValueType::Choice,
             self::LINK => ValueType::Text,
             self::FROM_WAITLIST => ValueType::Choice,
+            self::ACCOUNT_UNVERIFIED => ValueType::Text,
+            self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
         ];
     }
 
@@ -99,10 +125,11 @@ final class MailValues
     }
 
     /**
+     * @param bool $passwordLink whether the body reads `account.password_link`: only then is a link made
      * @throws SystemFailure no such registration (`no_registration`) or event (`no_event`), a slot form that
      *         is not usable now, or a field of a type no longer contributed
      */
-    public function context(RegistrationKey $key): ValueContext
+    public function context(RegistrationKey $key, bool $passwordLink = false): ValueContext
     {
         $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));
@@ -118,6 +145,10 @@ final class MailValues
         $definition = $this->definition($record);
         $email = $this->marked($definition, true);
         $name = $this->marked($definition, false);
+        $recipient = $email === null ? '' : ($record['values'][$email] ?? '');
+        $owner = $this->registrations->find($key)?->ownerUserId;
+        $unverified = $owner !== null && $this->ownAddress($owner, $recipient) && $this->accounts->isUnverified($owner);
+        $setPassword = $unverified && $passwordLink ? $this->accounts->passwordLink($owner) : null;
 
         return new ValueContext([
             ...$this->forms->participantValues($key->eventId, $record['values']),
@@ -128,6 +159,8 @@ final class MailValues
             self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
             self::FROM_WAITLIST => Value::choice(['no'], ''),
+            self::ACCOUNT_UNVERIFIED => self::text($unverified ? '1' : ''),
+            self::ACCOUNT_PASSWORD_LINK => self::text($setPassword ?? ''),
         ]);
     }
 
@@ -183,6 +216,14 @@ final class MailValues
         }
 
         return null;
+    }
+
+    /** Whether the recipient's address is the account's own, as WordPress compares e-mails. */
+    private function ownAddress(int $userId, string $recipient): bool
+    {
+        $user = get_userdata($userId);
+
+        return $user instanceof \WP_User && $recipient !== '' && strcasecmp($user->user_email, $recipient) === 0;
     }
 
     private static function text(string $text): Value

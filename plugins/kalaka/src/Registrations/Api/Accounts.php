@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Registrations\Api;
+
+use Kalaka\Registrations\Account\SignUpPage;
+
+/**
+ * What another module may know of an owner account (S15): whether it is one Kaláka created whose password
+ * was never set (`kalaka_unverified`), and its set-password link. The mail's context reads them
+ * (`account.unverified`, `account.password_link`).
+ */
+final class Accounts
+{
+    /** Whether the account is one Kaláka created whose password was never set through a reset link. */
+    public function isUnverified(int $userId): bool
+    {
+        return SignUpPage::isUnverified($userId);
+    }
+
+    /**
+     * A fresh link to WordPress's own "set new password" screen for the account
+     * (`wp-login.php?action=rp&key=…&login=…`), from `get_password_reset_key()`. WordPress keeps one key per
+     * user, so making one replaces the last: the newest link wins. It writes WordPress's user row, so it
+     * runs outside any use case (the sender renders a mail outside one). Null when there is no such user or
+     * WordPress refuses a key.
+     */
+    public function passwordLink(int $userId): ?string
+    {
+        $user = get_userdata($userId);
+        if (!$user instanceof \WP_User) {
+            return null;
+        }
+        $key = get_password_reset_key($user);
+        if ($key instanceof \WP_Error) {
+            return null;
+        }
+
+        return network_site_url(
+            'wp-login.php?action=rp&key=' . rawurlencode($key) . '&login=' . rawurlencode($user->user_login),
+            'login'
+        );
+    }
+}

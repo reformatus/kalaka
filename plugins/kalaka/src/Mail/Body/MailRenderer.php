@@ -63,7 +63,8 @@ final class MailRenderer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
         }
-        $html = $this->renderer->render($body->content, $this->values->context($registration));
+        $context = $this->values->context($registration, MailValues::readsPasswordLink($body->content));
+        $html = $this->renderer->render($body->content, $context);
         $version = 'b' . $body->revision;
         $layout = $setting->layout ? $this->layouts->of($eventId) : null;
         if ($layout !== null) {
