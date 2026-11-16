@@ -209,6 +209,51 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertFalse(SignUpPage::isUnverified($second));
     }
 
+    public function testTheFirstPasswordOfASignUpSendsTheAdminNoMailALaterResetDoes(): void
+    {
+        update_option('admin_email', 'teszt.admin@example.org');
+        $user = get_userdata($this->unverifiedUser('teszt.anna@example.org'));
+        $admin = static fn (array $mail): bool => $mail['to'] === 'teszt.admin@example.org';
+
+        reset_password($user, 'Teszt-jelszo-2026!');
+
+        self::assertSame([], array_values(array_filter($this->mails, $admin)));
+        self::assertFalse(SignUpPage::isUnverified($user->ID));
+        // Core's notification is back on its hook for the next reset.
+        self::assertNotFalse(has_action('after_password_reset', 'wp_password_change_notification'));
+
+        reset_password(get_userdata($user->ID), 'Masik-jelszo-2026!');
+
+        self::assertCount(1, array_values(array_filter($this->mails, $admin)));
+    }
+
+    public function testWooCommercesResetPathFiresTheSameActionsAndIsCoveredToo(): void
+    {
+        update_option('admin_email', 'teszt.admin@example.org');
+        $user = get_userdata($this->unverifiedUser('teszt.anna@example.org'));
+        $admin = static fn (array $mail): bool => $mail['to'] === 'teszt.admin@example.org';
+
+        // WooCommerce's My Account reset: `password_reset`, its own password set, `after_password_reset`.
+        do_action('password_reset', $user, 'Teszt-jelszo-2026!');
+        wp_set_password('Teszt-jelszo-2026!', $user->ID);
+        do_action('after_password_reset', $user, 'Teszt-jelszo-2026!');
+
+        self::assertSame([], array_values(array_filter($this->mails, $admin)));
+        self::assertFalse(SignUpPage::isUnverified($user->ID));
+    }
+
+    public function testTheSixteenPlusNoticeShowsOnlyInOptionalModeWithTheSkip(): void
+    {
+        $page = new SignUpPage();
+        $notice = 'A regisztráció 16 éves kortól lehetséges. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
+
+        $_REQUEST = [SignUp::MARKER => (string) $this->openForm('optional'), 'redirect_to' => self::back()];
+        self::assertStringContainsString($notice, $this->captured(static fn () => $page->formFields()));
+
+        $_REQUEST = [SignUp::MARKER => (string) $this->openForm('mandatory'), 'redirect_to' => self::back()];
+        self::assertStringNotContainsString($notice, $this->captured(static fn () => $page->formFields()));
+    }
+
     public function testTheResetLinkLastsSevenDaysOnlyForAnUnverifiedAccount(): void
     {
         $unverified = get_userdata($this->unverifiedUser('teszt.anna@example.org'));

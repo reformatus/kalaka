@@ -12,16 +12,11 @@ use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Foundation\Api\Actor\AccountActor;
-use Kalaka\Mail\AccountMailComposer;
-use Kalaka\Mail\Api\AccountMail;
-use Kalaka\Mail\Body\ActionMailComposer;
-use Kalaka\Mail\Sender;
-use Kalaka\Registrations\Api\SubmitToken;
 
 /**
  * S15: the event's account mode on its forms and their submits. Off changes nothing; in mandatory mode
  * someone not logged in is sent to sign up and cannot submit; in optional mode they may skip; a logged-in
- * person owns the registration, and an unverified account gets the set-password mail with it, queued only.
+ * person owns the registration.
  */
 final class AccountModesTest extends AccountsTestCase
 {
@@ -89,36 +84,18 @@ final class AccountModesTest extends AccountsTestCase
         self::assertSame([], $this->accountMails());
     }
 
-    public function testAnUnverifiedAccountOwnsItAndTheSetPasswordMailIsQueuedOnly(): void
+    public function testAnUnverifiedAccountOwnsItWithNoMailOfItsOwnAndNoKeyYet(): void
     {
         $user = $this->unverifiedUser();
 
         $result = $this->submit($this->openForm('mandatory'), new AccountActor($user));
 
         self::assertSame($user, $this->ownerOf($result));
-        $mails = $this->accountMails();
-        self::assertCount(1, $mails);
-        self::assertSame(AccountMail::SetPassword->value, $mails[0]['mail']);
-        self::assertSame('action', $mails[0]['kind']);
-        self::assertSame('account', $mails[0]['cause_type']);
-        self::assertSame((string) $user, $mails[0]['cause_key']);
-        self::assertSame($result->registration->code, $mails[0]['code']);
-        // No mail inside the request, and no reset key before the mail is composed.
+        // The set-password link travels in the status mail itself (S15-10): no mail of its own, and no key
+        // before that mail is rendered.
+        self::assertSame([], $this->accountMails());
         self::assertSame([], $this->mails);
         self::assertSame('', get_userdata($user)->user_activation_key);
-    }
-
-    public function testARepeatedSubmitQueuesNothingMore(): void
-    {
-        $form = $this->openForm('mandatory');
-        $user = $this->unverifiedUser();
-        $token = SubmitToken::generate();
-
-        $this->submit($form, new AccountActor($user), self::ANSWERS, $token);
-        $repeat = $this->submit($form, new AccountActor($user), self::ANSWERS, $token);
-
-        self::assertTrue($repeat->repeated);
-        self::assertCount(1, $this->accountMails());
     }
 
     public function testTheFormPageLinksToSignUpForSomeoneNotLoggedIn(): void
@@ -169,33 +146,5 @@ final class AccountModesTest extends AccountsTestCase
         $form = $this->openForm('mandatory', 'additional');
 
         self::assertNotSame(FormPageView::ACCOUNT_REQUIRED, (new FormPage(new EventFormHost()))->open($form)->refusal);
-    }
-
-    public function testTheSenderSendsTheSetPasswordMailWithAKeyWordPressAccepts(): void
-    {
-        $user = get_userdata($this->unverifiedUser());
-        self::assertInstanceOf(\WP_User::class, $user);
-        $result = $this->submit($this->openForm('mandatory'), new AccountActor($user->ID));
-
-        // The one bound composer hands the set-password mail to `AccountMailComposer`.
-        (new Sender(fn () => $this->runner, new ActionMailComposer()))->send();
-
-        $subject = AccountMailComposer::SET_PASSWORD_SUBJECT;
-        $sent = array_values(array_filter(
-            $this->mails,
-            static fn (array $mail): bool => str_starts_with((string) $mail['subject'], $subject)
-        ));
-        self::assertCount(1, $sent);
-        self::assertSame('teszt.anna@example.org', $sent[0]['to']);
-        self::assertSame(AccountMailComposer::SET_PASSWORD_SUBJECT . ' – Nyári tábor', $sent[0]['subject']);
-        self::assertSame(1, preg_match('/href="([^"]*action=rp[^"]*)"/', (string) $sent[0]['message'], $link));
-        parse_str((string) wp_parse_url(html_entity_decode($link[1]), PHP_URL_QUERY), $query);
-        self::assertSame($user->user_login, $query['login']);
-        self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
-        $key = $result->registration;
-        self::assertStringContainsString(
-            'kalaka_link=' . $key->eventId . '.' . $key->code . '.',
-            (string) $sent[0]['message']
-        );
     }
 }

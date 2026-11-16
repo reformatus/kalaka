@@ -20,7 +20,7 @@ final class AccountLinkRule
 {
     // [UNAPPROVED #191 T6] the two refusals.
     public const NEEDS_LINK = 'Ennél az eseménynél fiókkal lehet jelentkezni, ezért a „Jelentkezés rögzítve” '
-        . 'levélsablonjának tartalmaznia kell a jelszóbeállító linket (account.password_link).';
+        . 'levél sablonjának tartalmaznia kell a jelszóbeállító linket (account.password_link).';
 
     public const NO_SWITCH_OFF = 'Ennél az eseménynél fiókkal lehet jelentkezni, ezért a „Jelentkezés rögzítve” '
         . 'levél nem kapcsolható ki.';
