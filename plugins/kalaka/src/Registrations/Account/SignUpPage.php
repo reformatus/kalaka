@@ -69,6 +69,7 @@ final class SignUpPage
         add_filter('wp_send_new_user_notification_to_admin', [$this, 'sendWordPressMail']);
         add_action('register_new_user', [$this, 'logIn'], 20);
         add_filter('login_url', [$this, 'loginUrl'], 10, 2);
+        add_action('password_reset', [self::class, 'firstPassword'], 1);
         add_action('password_reset', [self::class, 'verified']);
         add_action('after_password_reset', [self::class, 'verified']);
         add_filter('password_reset_expiration', [$this, 'expiration']);
@@ -136,6 +137,12 @@ final class SignUpPage
         );
         $return = self::returnUrl();
         if ($mode === AccountMode::Optional && $return !== '') {
+            // S15-4 (ii), owner ruling 2026-11-16: the sign-up is for 16 and over, younger people skip; unchecked.
+            // [UNAPPROVED T7] the notice.
+            printf(
+                '<p class="kalaka-sign-up-age">%s</p>',
+                esc_html('A regisztráció 16 éves kortól lehetséges. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
+            );
             // [UNAPPROVED T2] the skip link.
             printf(
                 '<p class="kalaka-sign-up-skip"><a href="%s">%s</a></p>',
@@ -147,7 +154,7 @@ final class SignUpPage
 
     /**
      * `login_enqueue_scripts`: on the registration page, the username field and the "confirmation will be
-     * emailed" line hidden, and the focus on the e-mail. [UNAPPROVED N-hide-scope, N-passmail]
+     * emailed" line hidden, and the focus on the e-mail (S15-8, S15-9, owner 2026-11-16).
      *
      * @internal
      */
@@ -217,8 +224,8 @@ final class SignUpPage
     }
 
     /**
-     * `wp_send_new_user_notification_to_user` and `…_to_admin`: none for a native sign-up. Kaláka queues its
-     * own set-password mail; admins get none ([UNAPPROVED N-admin-mail]).
+     * `wp_send_new_user_notification_to_user` and `…_to_admin`: none for a native sign-up. The set-password
+     * link travels in the registration's own mail; admins get none (S15-7, owner 2026-11-16).
      *
      * @internal
      */
@@ -256,6 +263,31 @@ final class SignUpPage
         $return = self::returnUrl();
 
         return $return === '' ? $url : add_query_arg('redirect_to', rawurlencode($return), $url);
+    }
+
+    /**
+     * `password_reset`, priority 1 (before `verified()` clears the mark): the first password of a Kaláka
+     * sign-up sends the admin no "password changed" mail. Core's `wp_password_change_notification` is taken off
+     * `after_password_reset` for this one reset and put back after it; a verified account's reset still
+     * notifies. WooCommerce's reset fires the same two actions (S15-7, decided by Master 2026-11-16).
+     *
+     * @internal
+     */
+    public static function firstPassword(mixed $user): void
+    {
+        if (!$user instanceof \WP_User || !self::isUnverified($user->ID)) {
+            return;
+        }
+        $priority = has_action('after_password_reset', 'wp_password_change_notification');
+        if ($priority === false) {
+            return;
+        }
+        remove_action('after_password_reset', 'wp_password_change_notification', $priority);
+        $restore = static function () use (&$restore, $priority): void {
+            add_action('after_password_reset', 'wp_password_change_notification', $priority);
+            remove_action('after_password_reset', $restore, PHP_INT_MAX);
+        };
+        add_action('after_password_reset', $restore, PHP_INT_MAX);
     }
 
     /** @internal `password_reset` and `after_password_reset`: the password was set through a reset link. */
