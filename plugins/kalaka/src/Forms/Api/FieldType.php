@@ -33,7 +33,6 @@ interface FieldType
      * string, and the answer is what the field's controls hold, of the JSON type `answer()` takes. Null
      * opens the field empty: a type that refuses prefill always returns null, and its field left blank then
      * keeps its value (events-and-forms.md, "Changing participant fields after submit").
-     * [UNAPPROVED N1] (#189's N1, the field-type contract)
      */
     public function prefill(FieldTypeInput $input): mixed;
 }

@@ -62,7 +62,7 @@ interface FormHost
      * The stored values the form opens with, by field key (events-and-forms.md, "Prefill from a link"),
      * e.g. for an additional form the current field values of the registration it writes to. The engine turns
      * each into its field's answer (`FieldType::prefill()`) and renders the form for those answers. Read
-     * when the page renders, outside any transaction. [UNAPPROVED N2] (#189's N2, the engine contract)
+     * when the page renders, outside any transaction.
      *
      * @return array<string, string>
      */
