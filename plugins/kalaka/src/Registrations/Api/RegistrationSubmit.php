@@ -27,7 +27,6 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Account\AccountOutcome;
-use Kalaka\Registrations\Account\SignUpPage;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
@@ -132,16 +131,11 @@ final class RegistrationSubmit
 
     /**
      * What the submit does about accounts (registrations-and-identity.md, "Accounts on the registration
-     * form"; owner ruling 2026-11-14):
+     * form"; owner ruling 2026-11-14, S15-6 approved 2026-11-16):
      *
-     * - mode `off`: nothing, as before accounts, logged in or not ([UNAPPROVED] N-off);
-     * - logged in: the person's account owns the registration, and while that account is one Kaláka created
-     *   and its password was never set (`SignUpPage::isUnverified()`), the set-password mail is queued with
-     *   it ([UNAPPROVED] N-mail-timing);
+     * - mode `off`: nothing, as before accounts, logged in or not;
+     * - logged in: the person's account owns the registration;
      * - not logged in: refused in `mandatory` mode (`account_required`); in `optional` mode (the skip) nothing.
-     *
-     * TODO(S15-4): REFISZ's age rule for accounts in `optional` mode lands where the owner decides it; no age
-     * is checked.
      *
      * @throws FormRefused
      */
@@ -151,7 +145,7 @@ final class RegistrationSubmit
             return AccountOutcome::none();
         }
         if ($actor instanceof AccountActor) {
-            return AccountOutcome::loggedIn($actor->userId, SignUpPage::isUnverified($actor->userId));
+            return AccountOutcome::loggedIn($actor->userId);
         }
         if ($event->accountMode === AccountMode::Mandatory) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- enum cases, no input
