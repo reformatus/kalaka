@@ -45,6 +45,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'event_id' => 'bigint(20) unsigned',
             'id' => 'bigint(20) unsigned',
             'version' => 'int(10) unsigned',
+            'claims' => 'int(10) unsigned',
             'form_id' => 'bigint(20) unsigned',
             'form_version' => 'bigint(20) unsigned',
             'user_id' => 'bigint(20) unsigned null',

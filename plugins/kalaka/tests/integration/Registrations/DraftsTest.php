@@ -11,6 +11,7 @@ use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\DraftClaimOutcome;
@@ -18,6 +19,7 @@ use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
+use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\DraftSweep;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
@@ -64,14 +66,15 @@ final class DraftsTest extends FormsTestCase
     /** @param array<string, mixed> $answers */
     private function save(AccountActor $actor, array $answers, int $page = 0): void
     {
-        $this->drafts->save($this->event, $this->form, $this->version(), new AnswerSet($answers), $page, $actor);
+        $this->drafts->save($this->event, $this->form, $this->version(), new AnswerSet($answers), $page, 0, $actor);
     }
 
     /** A draft of another event's form. */
     private function saveFor(int $event, int $form): void
     {
         $version = $this->readForm($form)->version;
-        (new Drafts($this->runner))->save($event, $form, $version, new AnswerSet(['name' => 'x']), 0, $this->person());
+        $answers = new AnswerSet(['name' => 'x']);
+        (new Drafts($this->runner))->save($event, $form, $version, $answers, 0, 0, $this->person());
     }
 
     /** @param array<string, mixed> $answers */
@@ -98,6 +101,15 @@ final class DraftsTest extends FormsTestCase
         self::assertIsArray($rows);
 
         return $rows;
+    }
+
+    /** @return array<string, mixed> the answers of the event's only draft */
+    private function onlyAnswers(): array
+    {
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+
+        return AnswerSet::fromJson((string) $rows[0]['answers'])->answers;
     }
 
     public function testTheAutosaveKeepsOneDraftPerPersonAndFormAndUpdatesIt(): void
@@ -130,6 +142,7 @@ final class DraftsTest extends FormsTestCase
             $this->form,
             $this->version(),
             new AnswerSet(['name' => 'x']),
+            0,
             0,
             new GuestActor()
         );
@@ -203,6 +216,54 @@ final class DraftsTest extends FormsTestCase
         $opening = $this->drafts->opening($this->event, $this->form, $anna->userId, $token);
         self::assertSame(self::ANSWERS, $opening->answers->answers);
         self::assertTrue($opening->claimConflict);
+    }
+
+    public function testAClaimWhoseAnswersTheOwnDraftAlreadyHoldsIsSettledAsKeepDraft(): void
+    {
+        $anna = $this->person();
+        $this->save($anna, self::ANSWERS + ['note' => 'a kvízből']);
+        $token = $this->handOver(['note' => 'a kvízből', 'name' => 'Teszt Anna']);
+
+        self::assertSame(DraftClaimOutcome::Settled, $this->drafts->claim($this->form, $token, $anna));
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame((string) $anna->userId, $rows[0]['user_id']);
+        self::assertSame('0', $rows[0]['claims']);
+        self::assertFalse($this->drafts->holds($token));
+        self::assertFalse($this->drafts->opening($this->event, $this->form, $anna->userId, $token)->claimConflict);
+    }
+
+    public function testOnlyTheKeysTheLinkSetsDifferentlyAreItsChanges(): void
+    {
+        $anna = $this->person();
+        $this->save($anna, self::ANSWERS + ['note' => 'saját']);
+        $token = $this->handOver(['note' => 'a kvízből', 'name' => 'Teszt Anna']);
+        $repository = new DraftRepository();
+        $own = $repository->ofUser($this->event, $this->form, $anna->userId);
+        $guest = $repository->ofClaim(DraftClaim::hash($token));
+        self::assertNotNull($own);
+        self::assertNotNull($guest);
+
+        self::assertSame(['note'], $this->drafts->linkChanges($this->form, $own, $guest));
+    }
+
+    public function testAClaimThatMakesTheGuestDraftThePersonsRefusesASaveFromBefore(): void
+    {
+        $anna = $this->person();
+        $token = $this->handOver(['note' => 'a kvízből']);
+        $this->drafts->claim($this->form, $token, $anna);
+
+        try {
+            $this->save($anna, ['note' => 'régi lap']);
+            self::fail('A save from before the claim went in.');
+        } catch (VersionConflict) {
+            // Refused.
+        }
+
+        self::assertSame(['note' => 'a kvízből'], $this->onlyAnswers());
+        $this->drafts->save($this->event, $this->form, $this->version(), new AnswerSet(['note' => 'új']), 0, 1, $anna);
+        self::assertSame(['note' => 'új'], $this->onlyAnswers());
     }
 
     public function testAGuestDraftOfAnotherFormOrAnExpiredOneIsNotClaimed(): void

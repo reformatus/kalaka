@@ -2,6 +2,8 @@ import { form, load, respond, settle, submit, text, type } from './helpers';
 
 const DRAFT_URL = 'http://example.test/wp-json/kalaka-portal/v1/forms/12/draft';
 
+const CLAIM_URL = DRAFT_URL + '/claim';
+
 const root = () => document.querySelector('form');
 
 const draftCalls = () =>
@@ -33,7 +35,20 @@ describe('the autosave', () => {
 			version: 34,
 			answers: { name: 'Teszt Anna' },
 			page: 0,
+			claims: 0,
 		});
+	});
+
+	test('carries the claim count the page opened with', async () => {
+		await load(
+			form(text('name'), { draftUrl: DRAFT_URL, draftClaims: 2 })
+		);
+		jest.useFakeTimers();
+
+		type(root(), 'name', 'Teszt Anna');
+		jest.advanceTimersByTime(3000);
+
+		expect(JSON.parse(draftCalls()[0][1].body).claims).toBe(2);
 	});
 
 	test('saves once for changes made close together', async () => {
@@ -78,5 +93,67 @@ describe('the autosave', () => {
 		await new Promise((resolve) => setTimeout(resolve, 3100));
 
 		expect(draftCalls()).toHaveLength(0);
+	});
+});
+
+// S74, pass 2: a save from before a claim must never write over what the claim brought.
+describe('the autosave and the claim', () => {
+	const claimCalls = () =>
+		globalThis.fetch.mock.calls.filter(([url]) => url === CLAIM_URL);
+
+	// What the popup (UX) binds to the choice: here a bare button, no markup of Kaláka's.
+	const choice = (value) =>
+		`<button type="button" value="${value}" data-wp-on--click="actions.resolveDraftClaim">${value}</button>`;
+
+	test('stops once the choice is sent: nothing waiting, due or sent when the page is left', async () => {
+		await load(
+			form(text('name') + choice('merge'), {
+				draftUrl: DRAFT_URL,
+				draftClaimUrl: CLAIM_URL,
+				nonce: 'n0nce',
+			})
+		);
+
+		type(root(), 'name', 'Teszt Anna');
+		root().querySelector('button[value="merge"]').click();
+		await settle();
+
+		expect(claimCalls()).toHaveLength(1);
+		expect(JSON.parse(claimCalls()[0][1].body)).toEqual({ choice: 'merge' });
+		expect(claimCalls()[0][1].headers['X-WP-Nonce']).toBe('n0nce');
+
+		window.dispatchEvent(new Event('pagehide'));
+		type(root(), 'name', 'Teszt Anna Mária');
+		await new Promise((resolve) => setTimeout(resolve, 3100));
+		window.dispatchEvent(new Event('pagehide'));
+
+		expect(draftCalls()).toHaveLength(0);
+	});
+
+	test('sends no choice without a claim route', async () => {
+		await load(form(text('name') + choice('keep_link'), { draftUrl: DRAFT_URL }));
+
+		root().querySelector('button[value="keep_link"]').click();
+		await settle();
+
+		expect(claimCalls()).toHaveLength(0);
+	});
+
+	test('stops once a save is refused as from before a claim (409)', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValue(
+			respond(409, { code: 'kalaka_version_conflict', message: 'x' })
+		);
+		await load(form(text('name'), { draftUrl: DRAFT_URL }));
+
+		type(root(), 'name', 'Teszt Anna');
+		window.dispatchEvent(new Event('pagehide'));
+		await settle();
+		expect(draftCalls()).toHaveLength(1);
+
+		type(root(), 'name', 'Teszt Anna Mária');
+		await new Promise((resolve) => setTimeout(resolve, 3100));
+		window.dispatchEvent(new Event('pagehide'));
+
+		expect(draftCalls()).toHaveLength(1);
 	});
 });

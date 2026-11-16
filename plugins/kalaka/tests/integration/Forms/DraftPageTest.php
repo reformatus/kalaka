@@ -25,6 +25,14 @@ final class DraftPageTest extends FormsTestCase
 {
     private const SIZES = [['value' => 's', 'label' => 'Kicsi'], ['value' => 'm', 'label' => 'Nagy']];
 
+    private const STAY = [['value' => 'igen', 'label' => 'Igen'], ['value' => 'nem', 'label' => 'Nem']];
+
+    private const SHIRTS = [
+        ['value' => 's', 'label' => 'S'],
+        ['value' => 'm', 'label' => 'M'],
+        ['value' => 'l', 'label' => 'L'],
+    ];
+
     private Runner $previous;
 
     private int $event;
@@ -44,7 +52,9 @@ final class DraftPageTest extends FormsTestCase
         $this->transition(new PublishEvent(), $this->event);
         $this->form = $this->insertForm(
             $this->slotFields() . $this->field('choice', 'size', ['options' => self::SIZES])
-                . $this->field('text', 'note'),
+                . $this->field('text', 'note')
+                . $this->field('choice', 'szallas', ['options' => self::STAY])
+                . $this->field('choice', 'polo', ['options' => self::SHIRTS]),
             ['kalaka_event_id' => $this->event]
         );
     }
@@ -139,6 +149,7 @@ final class DraftPageTest extends FormsTestCase
             $this->version(),
             new AnswerSet(['name' => 'Teszt Anna', 'size' => 'm', 'note' => 'félkész']),
             0,
+            0,
             new AccountActor($user)
         );
 
@@ -161,6 +172,7 @@ final class DraftPageTest extends FormsTestCase
             $this->version(),
             new AnswerSet(['size' => 'x', 'gone' => 'régi']),
             0,
+            0,
             new AccountActor($user)
         );
 
@@ -178,6 +190,7 @@ final class DraftPageTest extends FormsTestCase
             $this->form,
             $this->version(),
             new AnswerSet(['email' => 'teszt.anna@']),
+            0,
             0,
             new AccountActor($user)
         );
@@ -267,6 +280,7 @@ final class DraftPageTest extends FormsTestCase
             $this->version(),
             new AnswerSet(['name' => 'Teszt Anna', 'note' => 'saját']),
             0,
+            0,
             new AccountActor($user)
         );
         (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new AccountActor($user));
@@ -297,6 +311,7 @@ final class DraftPageTest extends FormsTestCase
             'version' => $this->version(),
             'answers' => ['name' => 'Teszt Anna', 'stranger' => 'x'],
             'page' => 0,
+            'claims' => 0,
         ]);
 
         self::assertSame(200, $response->get_status());
@@ -310,7 +325,10 @@ final class DraftPageTest extends FormsTestCase
 
     public function testTheAutosaveRouteRefusesAGuestAndATooLargeBody(): void
     {
-        $guest = $this->post('draft', ['version' => $this->version(), 'answers' => ['name' => 'x'], 'page' => 0]);
+        $guest = $this->post(
+            'draft',
+            ['version' => $this->version(), 'answers' => ['name' => 'x'], 'page' => 0, 'claims' => 0]
+        );
         self::assertGreaterThanOrEqual(400, $guest->get_status());
 
         $this->logIn();
@@ -318,8 +336,133 @@ final class DraftPageTest extends FormsTestCase
             'version' => $this->version(),
             'answers' => ['note' => str_repeat('x', FormRoutes::DRAFT_LIMIT)],
             'page' => 0,
+            'claims' => 0,
         ]);
         self::assertSame(400, $large->get_status());
+        self::assertSame([], $this->draftRows());
+    }
+
+    /**
+     * The person's own draft, kept through the autosave route as the page's script sends it.
+     *
+     * @param array<string, mixed> $answers
+     */
+    private function autosave(array $answers, int $claims = 0): \WP_REST_Response
+    {
+        return $this->post('draft', [
+            'version' => $this->version(),
+            'answers' => $answers,
+            'page' => 0,
+            'claims' => $claims,
+        ]);
+    }
+
+    /** @return array<string, mixed> the stored answers of the only draft */
+    private function storedAnswers(): array
+    {
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+
+        return AnswerSet::fromJson((string) $rows[0]['answers'])->answers;
+    }
+
+    public function testALinkThatChangesNothingInTheDraftIsSettledWithNoChoiceAndTheCookieCleared(): void
+    {
+        $user = $this->logIn();
+        $saved = $this->autosave(['name' => 'Teszt Anna', 'szallas' => 'igen', 'polo' => 'l']);
+        self::assertSame(200, $saved->get_status());
+
+        // The link (`?kalaka[szallas]=igen&kalaka[polo]=l`) sets exactly what the draft holds.
+        self::assertTrue((new DraftHandoff())->handle(
+            $this->page(),
+            ['szallas' => 'igen', 'polo' => 'l'],
+            new AccountActor($user)
+        ));
+        self::assertNotNull(DraftClaim::current());
+        self::assertCount(2, $this->draftRows());
+        // Even before the claim settles it, the page offers no choice.
+        self::assertArrayNotHasKey('draftClaimUrl', $this->context($this->render()));
+
+        self::assertFalse((new DraftHandoff())->handle($this->page(), null, new AccountActor($user)));
+
+        self::assertNull(DraftClaim::current());
+        self::assertSame(['name' => 'Teszt Anna', 'szallas' => 'igen', 'polo' => 'l'], $this->storedAnswers());
+        $context = $this->context($this->render());
+        self::assertArrayNotHasKey('draftClaimUrl', $context);
+        self::assertSame(0, $context['draftClaims']);
+    }
+
+    public function testALinkThatChangesOneValueOfTheDraftWaitsForTheChoice(): void
+    {
+        $user = $this->logIn();
+        $this->autosave(['name' => 'Teszt Anna', 'szallas' => 'igen', 'polo' => 'l']);
+
+        (new DraftHandoff())->handle($this->page(), ['szallas' => 'igen', 'polo' => 'm'], new AccountActor($user));
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+
+        self::assertNotNull(DraftClaim::current());
+        self::assertCount(2, $this->draftRows());
+        self::assertArrayHasKey('draftClaimUrl', $this->context($this->render()));
+    }
+
+    /** @return iterable<string, array{string, int}> the choice and the status of a save from before it */
+    public static function staleSaves(): iterable
+    {
+        yield 'merge: refused' => ['merge', 409];
+        yield 'keep the link: refused' => ['keep_link', 409];
+        yield 'keep the draft: the draft is unchanged, the save goes in' => ['keep_draft', 200];
+    }
+
+    /** @dataProvider staleSaves */
+    public function testASaveFromBeforeAChoiceThatChangedTheDraftIsRefusedAndTheDraftKept(
+        string $choice,
+        int $status
+    ): void {
+        $user = $this->logIn();
+        $this->autosave(['name' => 'Teszt Anna', 'note' => 'saját']);
+        (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new AccountActor($user));
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+        $before = $this->context($this->render());
+        self::assertSame(0, $before['draftClaims']);
+
+        self::assertSame(200, $this->post('draft/claim', ['choice' => $choice])->get_status());
+        $chosen = $this->storedAnswers();
+
+        // The page's keepalive save of the answers it showed before the choice.
+        $stale = $this->autosave(['name' => 'Teszt Anna', 'note' => 'saját, gépelés közben'], $before['draftClaims']);
+
+        self::assertSame($status, $stale->get_status());
+        if ($status === 409) {
+            self::assertSame('kalaka_version_conflict', $stale->get_data()['code']);
+            self::assertSame($chosen, $this->storedAnswers());
+            // The page as it reloads carries the new count, and its saves go in.
+            $after = $this->context($this->render());
+            self::assertSame(1, $after['draftClaims']);
+            self::assertSame(200, $this->autosave(['note' => 'új'], $after['draftClaims'])->get_status());
+            self::assertSame(['note' => 'új'], $this->storedAnswers());
+        }
+    }
+
+    public function testASaveFromATabOpenedBeforeTheGuestDraftBecameThePersonsIsRefused(): void
+    {
+        (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
+        $user = $this->logIn();
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+
+        $stale = $this->autosave(['note' => 'másik lapon'], 0);
+
+        self::assertSame(409, $stale->get_status());
+        self::assertSame(['note' => 'a kvízből'], $this->storedAnswers());
+        self::assertSame(1, $this->context($this->render())['draftClaims']);
+    }
+
+    public function testTheAutosaveRouteNeedsTheClaimCount(): void
+    {
+        $this->logIn();
+
+        $response = $this->post('draft', ['version' => $this->version(), 'answers' => ['note' => 'x'], 'page' => 0]);
+
+        self::assertSame(400, $response->get_status());
         self::assertSame([], $this->draftRows());
     }
 }

@@ -56,9 +56,15 @@ final class PrefillingHost implements FormHost
         return $this->inner->draft($form);
     }
 
-    public function saveDraft(Form $form, int $version, AnswerSet $answers, int $page, Actor $actor): void
-    {
-        $this->inner->saveDraft($form, $version, $answers, $page, $actor);
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void {
+        $this->inner->saveDraft($form, $version, $answers, $page, $claims, $actor);
     }
 
     public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
