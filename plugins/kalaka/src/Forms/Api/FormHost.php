@@ -15,7 +15,7 @@ use Kalaka\Foundation\Api\Actor\Actor;
  * The seven ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
  * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), what
- * the after-submit section reads (`afterSubmitTypes()`), and whether the form begins with the account step
+ * the after-submit section reads (`afterSubmitTypes()`), and whether the form needs an account
  * (`accountStep()`).
  */
 interface FormHost
@@ -77,7 +77,6 @@ interface FormHost
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param list<string> $roles
-     * @param AccountChoice|null $account what was chosen in the account step; null when none showed
      * @return array<string, mixed> the submit route's answer
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
@@ -88,8 +87,7 @@ interface FormHost
         string $token,
         array $roles,
         bool $passwordGiven,
-        Actor $actor,
-        ?AccountChoice $account = null
+        Actor $actor
     ): array;
 
     /**
@@ -100,9 +98,9 @@ interface FormHost
     public function afterSubmitTypes(): array;
 
     /**
-     * Whether the form begins with the account step for someone not logged in, and what it offers; null
-     * when the form has no accounts (then a logged-in person is not the owner either). Reads no current user:
-     * the form page shows the step only to someone not logged in.
+     * Whether the form needs an account for someone not logged in (`Required`), or offers one with a skip
+     * (`Offered`); null when the form has no accounts (then a logged-in person is not the owner either).
+     * Reads no current user: the form page and the sign-up redirect ask only for someone not logged in.
      */
     public function accountStep(Form $form): ?AccountStep;
 }

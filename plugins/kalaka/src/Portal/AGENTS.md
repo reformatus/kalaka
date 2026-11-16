@@ -21,10 +21,6 @@ page, and the account area
   `Registrations\Api\SecretLinks` issues and verifies; Portal never reads or
   stores a secret. Being logged in without the cookie gives no active
   registration.
-- An attach link (`kalaka_attach`) is handled at `init` and always
-  answered with a 302, never cached: to WordPress's login page (returning
-  to the same URL) for someone not logged in, else to the same URL without
-  the link, after `Registrations\Api\RegistrationAttach` ran as that account.
 - A secret link is handled at `init`, before any output, and always answered
   with a 302 to the same URL without the token, never cached. A link that
   does not match clears the cookie and sets the one-shot bad-link flag.

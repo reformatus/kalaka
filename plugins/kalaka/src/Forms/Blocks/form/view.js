@@ -30,21 +30,10 @@
  * lost: Tovább's page check takes the place of the follow-up, and Küldés waits for the re-fetch and sends.
  * Vissza is ignored while busy. A second Tovább, or Enter, during a page check is ignored too: the running
  * check already moves on.
- *
- * A form with an account step (S15, `account-step.js`) sends nothing while the step shows; Enter in the
- * step's fields is its Tovább. The choice made there is sent with the submit.
  */
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
-import {
-	chooseSignUp,
-	signUpNext,
-	skip,
-	startStep,
-	stepPending,
-	unlock,
-} from './account-step';
 
 /**
  * What each form on the page started from (its context and its submit token), with its state: the
@@ -824,11 +813,6 @@ async function send(form) {
 	) {
 		return;
 	}
-	if (stepPending(started)) {
-		// Enter in a field of the account step: its Tovább.
-		afterSignUp(form, signUpNext(form, started));
-		return;
-	}
 	if (started.run !== null) {
 		// A re-fetch runs (the click blurred a changed field): wait for it, so what is sent is what shows.
 		started.waiting = true;
@@ -865,8 +849,6 @@ async function send(form) {
 				version: started.version,
 				answers,
 				token: started.token,
-				// The account step's choice; absent (undefined is not sent) when no step showed.
-				account: started.accountChoice ?? undefined,
 			},
 			started.nonce
 		),
@@ -894,7 +876,6 @@ async function send(form) {
 	}
 	alertOf(form).textContent = result.message;
 	const fields = result.fields ?? {};
-	unlock(form, started, fields);
 	if (hasPages(started)) {
 		// Jump to the earliest page with an error.
 		const pages = Object.keys(fields)
@@ -918,33 +899,8 @@ async function send(form) {
 	}
 }
 
-/** After the sign-up's Tovább filled fields in: a filled trigger re-fetches, as a change would. */
-function afterSignUp(form, filled) {
-	const started = forms.get(form);
-	if (filled.length > 0 && filled.some((key) => isTrigger(started, key))) {
-		refetch(form);
-	}
-}
-
 store('kalaka/form', {
 	actions: {
-		signUp() {
-			chooseSignUp(getElement().ref.closest('form'));
-		},
-		signUpNext() {
-			const form = getElement().ref.closest('form');
-			const started = forms.get(form);
-			if (started !== undefined) {
-				afterSignUp(form, signUpNext(form, started));
-			}
-		},
-		skipAccount() {
-			const form = getElement().ref.closest('form');
-			const started = forms.get(form);
-			if (started !== undefined) {
-				skip(form, started);
-			}
-		},
 		update(event) {
 			const form = getElement().ref;
 			const started = forms.get(form);
@@ -1000,13 +956,11 @@ store('kalaka/form', {
 				refusedTo: null,
 				ticks: new Map(),
 				timer: null,
-				accountChoice: null,
 			};
 			forms.set(form, started);
 			for (const button of buttonsOf(form)) {
 				button.disabled = false;
 			}
-			startStep(form);
 			// The ticks the browser restored are remembered like ticks made here.
 			for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
 				remember(form, wrapper.getAttribute('data-kalaka-field'));

@@ -12,6 +12,7 @@ use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
+use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
@@ -34,10 +35,10 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * and pages are numbered once, by `Condition\ChainMarks` (`FormEngine::blocks()`); this page renumbers nothing.
  * A multi-page form renders every page, each hidden (`PageMarkup`): the script shows the current one.
  *
- * A form whose host gives an account step (`FormHost::accountStep()`, S15) begins with it for someone not
- * logged in: the view carries the step, and the script shows the form only after the person signs up or
- * skips; logging in goes to WordPress's login page and back to this page, where no step shows. For someone
- * logged in, the form's contact email is filled in with the account's address and stays editable.
+ * A form whose host gives an account step (`FormHost::accountStep()`, S15) is not shown to someone not
+ * logged in (unless they skipped, in `optional` mode): the sign-up redirect sends them to WordPress's
+ * registration page first, and a page it could not see shows the link to it instead. For someone logged
+ * in, the form's contact email is filled in with the account's address and stays editable.
  */
 final class FormPage
 {
@@ -104,8 +105,14 @@ final class FormPage
         if ($refusals !== []) {
             return $this->refusal($refusals[0], $form, $now, $post);
         }
+        $step = $this->host->accountStep($form);
+        if ($step !== null && !is_user_logged_in() && !$this->skipped($step, $form)) {
+            // The sign-up redirect (`Forms\SignUpRedirect`) sends the visitor to sign up first; a page it could
+            // not see (a theme's or a builder's template) shows the link instead of a form that cannot be sent.
+            return FormPageView::refused(FormPageView::ACCOUNT_REQUIRED, null, SignUp::url($form->id, self::here()));
+        }
 
-        return $this->view($form, $facts);
+        return $this->view($form, $facts, $step);
     }
 
     /** @return list<AccessRefusal> */
@@ -125,6 +132,8 @@ final class FormPage
             AccessRefusal::RoleRequired => FormPageView::refused(FormPageView::ROLE_REQUIRED),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             AccessRefusal::EventNotOpen => FormPageView::refused(FormPageView::UNAVAILABLE),
+            // Never from `FormHost::refusals()`: the submit's own refusal (S15).
+            AccessRefusal::AccountRequired => FormPageView::refused(FormPageView::UNAVAILABLE),
         };
     }
 
@@ -145,18 +154,31 @@ final class FormPage
         return FormPageView::UNAVAILABLE;
     }
 
+    /**
+     * In `optional` mode, the form shows to someone not logged in when the request carries its skip marker
+     * (`SignUp::skipUrl()`, the registration page's skip link).
+     */
+    private function skipped(AccountStep $step, Form $form): bool
+    {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a link back from the registration page; no form
+        return $step === AccountStep::Offered && SignUp::skipped($form->id, wp_unslash($_GET));
+    }
+
+    /** The page the form is on: the singular page's permalink, else the home page. */
+    public static function here(): string
+    {
+        $permalink = is_singular() ? get_permalink() : false;
+
+        return is_string($permalink) ? $permalink : home_url('/');
+    }
+
     /** @throws SystemFailure */
-    private function view(Form $form, ValueContext $values): FormPageView
+    private function view(Form $form, ValueContext $values, ?AccountStep $step = null): FormPageView
     {
         $definition = $this->forms->definition($form);
-        // TODO(S73): a prefill handed off across the login (`PrefillHandoff::PARAMETER` on the request) is
-        // taken here (`PrefillHandoff::take()`) and becomes the form's prefill. Nothing reads it before S73.
-        $step = $this->host->accountStep($form);
-        $account = null;
         $filled = [];
-        if ($step !== null && !is_user_logged_in()) {
-            $account = self::accountStep($step, $definition);
-        } elseif ($step !== null) {
+        if ($step !== null && is_user_logged_in()) {
+            // Logged in, the contact email starts with the account's address and stays editable.
             $contact = self::marked($definition, true);
             $email = wp_get_current_user()->user_email;
             if ($contact !== null && $email !== '') {
@@ -189,42 +211,7 @@ final class FormPage
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-            // (S15) the account step: whether it offers skip, and the fields signing up fills in; null for none.
-            'account' => $account === null ? null : [
-                'skip' => $account['skip'],
-                'email' => $account['email']['key'],
-                'name' => $account['name']['key'],
-            ],
-        ], null, $this->host->submitToken(), $account);
-    }
-
-    /**
-     * The account step of the view: what it offers, the login page returning to this page, and the form's
-     * contact email and display name (a form of the registration slot has exactly one of each, `SlotRules`).
-     *
-     * @return array{skip: bool, loginUrl: string, email: array{key: string, label: string},
-     *     name: array{key: string, label: string}}
-     * @throws SystemFailure
-     */
-    private static function accountStep(AccountStep $step, FormDefinition $definition): array
-    {
-        $email = self::marked($definition, true);
-        $name = self::marked($definition, false);
-        if ($email === null || $name === null) {
-            $error = new SystemFailure(null, new \LogicException('An account step on a form without its markings.'));
-            throw $error;
-        }
-        // TODO(S73): when the page holds a prefill (the quiz's POST), it is kept under a short-lived token
-        // (`PrefillHandoff::keep()`) and only the token goes into the return address
-        // (`add_query_arg(PrefillHandoff::PARAMETER, $token, $return)`), so logging in does not lose it.
-        $return = is_singular() ? get_permalink() : false;
-
-        return [
-            'skip' => $step === AccountStep::Offered,
-            'loginUrl' => wp_login_url(is_string($return) ? $return : home_url('/')),
-            'email' => ['key' => $email->key, 'label' => $email->label()],
-            'name' => ['key' => $name->key, 'label' => $name->label()],
-        ];
+        ], null, $this->host->submitToken());
     }
 
     /** The form's contact email (`$email`) or display name field; null when it has none. */

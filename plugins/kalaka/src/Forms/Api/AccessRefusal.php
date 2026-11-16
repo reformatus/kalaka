@@ -11,4 +11,6 @@ enum AccessRefusal: string
     case OutsideRegistrationWindow = 'outside_registration_window';
     case PasswordRequired = 'password_required';
     case RoleRequired = 'role_required';
+    /** S15: someone not logged in submits a form whose event's account mode is mandatory. */
+    case AccountRequired = 'account_required';
 }

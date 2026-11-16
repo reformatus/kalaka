@@ -87,6 +87,8 @@ final class Module extends AbstractModule
             add_action('wp_loaded', [$check, 'run']);
         }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
+        // S15: someone not logged in is sent to sign up before a form that needs an account.
+        add_action('template_redirect', [$this, 'signUpRedirect'], 9);
         add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
@@ -124,6 +126,14 @@ final class Module extends AbstractModule
             if ($post instanceof \WP_Post && FormCaching::placesForm($post->post_content)) {
                 FormCaching::preventCaching();
             }
+        });
+    }
+
+    /** @internal the `template_redirect` callback (priority 9): `SignUpRedirect` */
+    public function signUpRedirect(): void
+    {
+        Boundary::background('sign-up redirect', static function (): void {
+            (new SignUpRedirect())->redirect();
         });
     }
 

@@ -26,7 +26,6 @@ final class Module extends AbstractModule
     {
         // Before any output or third-party asset, so the secret link's token never reaches a `Referer`.
         add_action('init', [$this, 'resolveActiveRegistration'], 0);
-        add_action('init', [$this, 'followAttachLink'], 0);
         add_action('wp_logout', [$this, 'logout']);
         add_action('init', [$this, 'register']);
         add_action('template_redirect', [$this, 'preventCaching']);
@@ -50,22 +49,6 @@ final class Module extends AbstractModule
                 ? Runner::current()->clock()->now()
                 : new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
             (new LinkHandler())->handle(wp_unslash($_GET), wp_unslash($_COOKIE), $method, $url, $now);
-            // phpcs:enable
-        });
-    }
-
-    /** @internal the `init` callback (priority 0): the attach mail's link (S15) */
-    public function followAttachLink(): void
-    {
-        if (is_admin() || wp_doing_ajax() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
-            return;
-        }
-        Boundary::background('attach link', static function (): void {
-            // phpcs:disable WordPress.Security.NonceVerification.Recommended -- the link is followed from a mail; no form
-            // phpcs:disable WordPress.Security.ValidatedSanitizedInput -- verified as a whole by AttachLinks
-            $method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper((string) $_SERVER['REQUEST_METHOD']) : 'GET';
-            $url = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '/';
-            (new AttachHandler())->handle(wp_unslash($_GET), $method, $url, get_current_user_id());
             // phpcs:enable
         });
     }

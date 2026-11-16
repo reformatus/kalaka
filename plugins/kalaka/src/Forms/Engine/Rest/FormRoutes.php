@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Rest;
 
-use Kalaka\Forms\Api\AccountChoice;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormRefused;
@@ -30,10 +29,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?}` → `{availability, parts}`:
  *   what the form shows for the answers (`FormAvailability::toArray()`, with `page`'s errors) and the
  *   choice fields with option conditions re-rendered (`ChoiceParts`). It reads only; it never writes.
- * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token, account?}` → `SubmitResult::toArray()`,
+ * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
- *   `Registrations\Api\RegistrationSubmit`). `account` is the account step's choice (`AccountChoice`),
- *   absent when no step showed.
+ *   `Registrations\Api\RegistrationSubmit`).
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
@@ -160,7 +158,6 @@ final class FormRoutes
         $formId = $this->formId($request);
         $version = $this->version($body);
         $answers = $this->answers($body);
-        $account = $this->account($body);
         $actor = $this->actor();
         $this->guard->check(new SubmitAttempt($formId, $version, $answers, $token, $actor));
 
@@ -173,30 +170,8 @@ final class FormRoutes
             $token,
             FormsPage::currentRoles(),
             $post instanceof \WP_Post && !post_password_required($post),
-            $actor,
-            $account
+            $actor
         );
-    }
-
-    /**
-     * The account step's choice: absent (or null) when no step showed.
-     *
-     * @param array<array-key, mixed> $body
-     * @throws InvalidInput
-     */
-    private function account(array $body): ?AccountChoice
-    {
-        $account = $body['account'] ?? null;
-        if ($account === null) {
-            return null;
-        }
-        $choice = is_string($account) ? AccountChoice::tryFrom($account) : null;
-        if ($choice === null) {
-            $error = new InvalidInput();
-            throw $error;
-        }
-
-        return $choice;
     }
 
     /**
