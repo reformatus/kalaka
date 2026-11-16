@@ -48,6 +48,13 @@ final class SignUpPage
     /** How long a reset link lasts for an unverified account: 7 days. [UNAPPROVED N14] */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
 
+    /** The registration page's script: the error tied to the e-mail field, then the focus on it. */
+    public const FOCUS_SCRIPT = 'window.addEventListener("load",function(){'
+        . 'var e=document.getElementById("user_email");if(!e){return;}'
+        . 'if(document.getElementById("login_error")){'
+        . 'e.setAttribute("aria-invalid","true");e.setAttribute("aria-describedby","login_error");}'
+        . 'e.focus();});';
+
     /** Whether this request is a native sign-up POST (not a social one). */
     private static bool $flag = false;
 
@@ -159,7 +166,9 @@ final class SignUpPage
 
     /**
      * `login_enqueue_scripts`: on the registration page, the username field and the "confirmation will be
-     * emailed" line hidden, and the focus on the e-mail (S15-8, S15-9, owner 2026-11-16).
+     * emailed" line hidden, and the focus on the e-mail (S15-8, S15-9, owner 2026-11-16). When WordPress shows
+     * an error (`#login_error`), the e-mail field is marked invalid and described by it before it takes the
+     * focus, so a screen reader reads the error with the field (S15 UX review 9).
      *
      * @internal
      */
@@ -179,7 +188,7 @@ final class SignUpPage
         wp_enqueue_script('kalaka-sign-up');
         wp_add_inline_script(
             'kalaka-sign-up',
-            'window.addEventListener("load",function(){var e=document.getElementById("user_email");if(e){e.focus();}});'
+            self::FOCUS_SCRIPT
         );
     }
 

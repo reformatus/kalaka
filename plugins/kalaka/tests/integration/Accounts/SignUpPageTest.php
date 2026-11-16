@@ -268,6 +268,19 @@ final class SignUpPageTest extends AccountsTestCase
         }
     }
 
+    public function testTheRegistrationPageTiesWordPresssErrorToTheEmailField(): void
+    {
+        $_REQUEST = ['action' => 'register'];
+
+        (new SignUpPage())->styles();
+
+        $after = implode('', (array) wp_scripts()->get_data('kalaka-sign-up', 'after'));
+        self::assertStringContainsString(SignUpPage::FOCUS_SCRIPT, $after);
+        foreach (['login_error', 'aria-invalid', 'aria-describedby', 'focus()'] as $part) {
+            self::assertStringContainsString($part, SignUpPage::FOCUS_SCRIPT);
+        }
+    }
+
     public function testTheSixteenPlusNoticeShowsOnlyInOptionalModeWithTheSkip(): void
     {
         $page = new SignUpPage();
