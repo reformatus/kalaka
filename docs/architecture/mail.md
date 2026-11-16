@@ -37,11 +37,12 @@ record, the check-in act, and so on.
   flagged as a validation error.
 - **Action mails are defined in code.** Per event each one is switched on or
   off and has its own body.
-- **The two account mails** (set-password and attach,
-  [Registrations](registrations-and-identity.md#accounts-on-the-registration-form))
-  are system mails outside the action-mail catalogue: defined in code with
-  built-in content, with no body, no layout and no switch. The account
-  step's sign-up queues them, keyed by the registration and the account.
+- **The set-password mail**
+  ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form))
+  is a system mail outside the action-mail catalogue: defined in code with
+  built-in content, with no body, no layout and no switch. A registration
+  submitted by an account that is still unverified queues it, keyed by the
+  registration and the account.
 - **Scheduled mails are defined freely by admins** at a date reference
   ([Events](events-and-forms.md#date-references)): a fixed date and time, a
   point on the event's timeline (e.g. 2 days before the start, 5 days after

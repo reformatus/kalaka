@@ -72,8 +72,8 @@ erDiagram
   This triggers the same side effects as registering with a new account (e.g.
   creating a preset from that registration).
 - **Default flows are seamless:** guest registration where the event's
-  account mode allows it, and registration with an account created on the
-  form
+  account mode allows it, and registration with an account created on
+  WordPress's registration page on the way to the form
   ([below](#accounts-on-the-registration-form)). Flows with several
   registrations under one account may ask more of the user, with short
   explanations.
@@ -81,23 +81,28 @@ erDiagram
 ## Accounts on the registration form
 
 - **Each event has one account mode:** mandatory, optional or off, for all
-  its registration forms. In mandatory and optional mode, a registration
-  form opened by someone not logged in begins, before any question, with a
-  step that code adds: sign up, log in, or (in optional mode only) skip.
-  Skip lands the registration with no account, as a guest's. Off is the form
-  without accounts. Additional forms show no step.
+  its registration forms. In mandatory and optional mode, someone not logged
+  in who opens a registration form is sent first to WordPress's own
+  registration page, which returns to the form; in optional mode that page
+  links back to the form without an account. Kaláka extends the page through
+  its hooks; logging in is WordPress's own, and any WordPress user counts.
+  Skipping lands the registration with no account, as a guest's. Off is the
+  form without accounts. Additional forms never send anyone to sign up.
 - Whether signing up in optional mode is offered only to people aged 16 or
   over (Hungary's age of digital consent) is still open; IVK's participants
   are all adults.
-- **The form never asks for a password.** The account is activated through
-  a set-password mail sent by the queue, which also verifies the address.
-- **The registration does not wait for the account:** it lands at submit,
-  takes its place in capacity and gets its reference code before the
-  set-password mail is used.
+- **Kaláka never asks for or handles a password.** Signing up creates the
+  account and logs it in at once. It is verified when its password is set
+  through WordPress's own link, from a set-password mail sent by the queue;
+  until then it is marked unverified, which limits only what Kaláka does
+  with it.
+- **The registration does not wait for the account's verification:** it
+  lands at submit, takes its place in capacity and gets its reference code
+  before the set-password mail is used.
 - **If the person is logged in,** the registration attaches to their
   account, unless the event's account mode is off.
-- **If the email already has an account,** the registration attaches when
-  the mail's link is used. The form never reveals whether an account exists.
+- **If the email already has an account,** WordPress's registration page
+  says so, with a link to log in that returns to the form.
 - At first the account area may show only a "coming soon" page
   ([Release plan](release-plan.md)).
 
