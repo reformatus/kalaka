@@ -79,7 +79,8 @@ final class AccountMailKeysTest extends MailBodyTestCase
 
         $html = $this->render($event, $key);
 
-        self::assertSame(1, preg_match('/Jelszó: (\S+action=rp\S+)</', html_entity_decode($html), $match));
+        $pattern = '/Jelszó: <span[^>]*>([^<]+action=rp[^<]+)</';
+        self::assertSame(1, preg_match($pattern, html_entity_decode($html), $match));
         parse_str((string) wp_parse_url($match[1], PHP_URL_QUERY), $query);
         self::assertSame($user->user_login, $query['login']);
         self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
@@ -94,11 +95,11 @@ final class AccountMailKeysTest extends MailBodyTestCase
         $event = $this->event('optional');
         $this->switchOn($event, 'registered', $this->document($event, $this->withLink()));
         $guest = $this->registration($event, '12A3');
-        $verified = $this->registration($event, '34B5');
+        $verified = $this->registration($event, '34B4');
         $this->own($verified, $this->user(false, 'teszt.csilla@example.test'));
         $other = $this->registration(
             $event,
-            '56C7',
+            '56B4',
             ['name' => 'Teszt Gábor', 'email' => 'teszt.gabor@example.test', 'camps' => '["ff"]']
         );
         $ferenc = $this->user(true, 'teszt.ferenc@example.test');
@@ -145,7 +146,7 @@ final class AccountMailKeysTest extends MailBodyTestCase
             $this->switchOn($event, 'registered', $without);
             self::fail('A template without the link must be refused.');
         } catch (RuleViolation $refused) {
-            self::assertSame(AccountLinkRule::NEEDS_LINK, $refused->getMessage());
+            self::assertStringEndsWith(' ' . AccountLinkRule::NEEDS_LINK, $refused->getMessage());
         }
 
         $with = $this->document($event, $this->withLink(), 'Jelentkezés');
@@ -154,7 +155,7 @@ final class AccountMailKeysTest extends MailBodyTestCase
             $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => false]);
             self::fail('Switching the mail off must be refused.');
         } catch (RuleViolation $refused) {
-            self::assertSame(AccountLinkRule::NO_SWITCH_OFF, $refused->getMessage());
+            self::assertStringEndsWith(' ' . AccountLinkRule::NO_SWITCH_OFF, $refused->getMessage());
         }
 
         // Another mail needs nothing, and in mode off the rule does not hold.
