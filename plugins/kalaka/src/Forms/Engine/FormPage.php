@@ -243,6 +243,8 @@ final class FormPage
         if ($draft->autosave) {
             // `Rest\FormRoutes::saveDraft()`.
             $data['draftUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft');
+            // The draft's claim count, sent back with every save: a save from before a claim is refused.
+            $data['draftClaims'] = $draft->claims;
         }
         if ($draft->claimConflict) {
             // `Rest\FormRoutes::resolveDraftClaim()`; the choice is the person's (the popup, UX).

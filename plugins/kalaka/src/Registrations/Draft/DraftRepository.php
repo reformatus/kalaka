@@ -102,6 +102,7 @@ final class DraftRepository extends EntityRepository
             'event_id' => $entity->eventId,
             'id' => $entity->id,
             'version' => $entity->version,
+            'claims' => $entity->claims,
             'form_id' => $entity->formId,
             'form_version' => $entity->formVersion,
             'user_id' => $entity->userId,
@@ -129,6 +130,7 @@ final class DraftRepository extends EntityRepository
             $row['expires_at'] === null ? null : Instant::fromStorage((string) $row['expires_at']),
             (int) $row['id'],
             (int) $row['version'],
+            (int) $row['claims'],
         );
     }
 

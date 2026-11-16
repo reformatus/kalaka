@@ -80,9 +80,18 @@ interface FormHost
      * logged-in person has a draft that is saved; anyone else is refused.
      *
      * @param int $version the form version the answers were given against
+     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`)
+     * @throws \Kalaka\Foundation\Api\Error\VersionConflict when a claim changed the draft since
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
-    public function saveDraft(Form $form, int $version, AnswerSet $answers, int $page, Actor $actor): void;
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void;
 
     /**
      * Settles a link's answers against the person's own draft with the person's choice (S74).

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations;
 
+use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -14,13 +16,23 @@ use Kalaka\Registrations\Draft\DraftRepository;
 /**
  * A logged-in person claims the guest draft their cookie names (S74): after signing up or logging in on
  * the way from a link or the quiz, or opening the form logged in. With no draft of their own for the form,
- * the guest draft becomes theirs. With one, nothing changes: the link's answers wait for the person's
- * choice (`ResolveDraftClaim`). A guest draft that is gone, expired or for another form claims nothing.
+ * the guest draft becomes theirs. With one, the link's answers wait for the person's choice
+ * (`ResolveDraftClaim`) only when they set a value the draft does not hold (`Forms::changedKeys()`, against
+ * the form's latest definition, read before the run); when they change nothing, it is settled as keep_draft
+ * at once: the guest draft is deleted, and there is nothing to choose. A guest draft that is gone, expired or
+ * for another form claims nothing.
+ *
+ * When the guest draft becomes theirs, the draft's `claims` count goes up, so an autosave sent from a page
+ * opened before (`SaveDraft`) cannot write over it.
  */
 final class ClaimDraft implements PortalUseCase
 {
-    public function __construct(private readonly DraftRepository $drafts = new DraftRepository())
-    {
+    /** @param ?FormDefinition $definition the form's latest definition; null when the form is gone */
+    public function __construct(
+        private readonly ?FormDefinition $definition,
+        private readonly Forms $forms,
+        private readonly DraftRepository $drafts = new DraftRepository(),
+    ) {
     }
 
     public static function name(): string
@@ -65,13 +77,22 @@ final class ClaimDraft implements PortalUseCase
         if ($guest->formId !== (int) $input['form_id']) {
             return DraftClaimOutcome::OtherForm;
         }
-        if ($this->drafts->ofUser($guest->eventId, $guest->formId, $actor->userId, $context) !== null) {
-            return DraftClaimOutcome::Conflict;
+        $own = $this->drafts->ofUser($guest->eventId, $guest->formId, $actor->userId, $context);
+        if ($own !== null) {
+            $changed = $this->definition === null
+                || $this->forms->changedKeys($this->definition, $own->answers, $guest->answers) !== [];
+            if ($changed) {
+                return DraftClaimOutcome::Conflict;
+            }
+            $this->drafts->delete($guest, $context);
+
+            return DraftClaimOutcome::Settled;
         }
         $guest->userId = $actor->userId;
         $guest->claimHash = null;
         $guest->expiresAt = null;
         $guest->updatedAt = $context->now();
+        ++$guest->claims;
         $this->drafts->upsert($guest, $context);
 
         return DraftClaimOutcome::Claimed;

@@ -10,8 +10,17 @@ enum DraftClaimOutcome: string
     /** The guest draft is the person's draft now: the cookie is done. */
     case Claimed = 'claimed';
 
-    /** The person has a draft of the form: the link's answers wait for their choice; the cookie stays. */
+    /**
+     * The person has a draft of the form, and the link's answers change at least one of its values: they wait
+     * for the person's choice; the cookie stays.
+     */
     case Conflict = 'conflict';
+
+    /**
+     * The person has a draft of the form, and the link's answers change none of its values: settled as
+     * keep_draft, with no choice to make; the guest draft is deleted, and the cookie is done.
+     */
+    case Settled = 'settled';
 
     /** The guest draft is for another form: the cookie stays for that one. */
     case OtherForm = 'other_form';

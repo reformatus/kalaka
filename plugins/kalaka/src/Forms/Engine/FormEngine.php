@@ -203,6 +203,27 @@ final class FormEngine
     }
 
     /**
+     * The keys whose accepted value `$over` sets differently from `$base` (`Api\Forms::changedKeys()`): a key
+     * `$over` answers and `$base` does not, or answers with another value. Compared as the values they would
+     * be stored as, so what the types read alike (spaces around a text) is no change; an answer of `$over`
+     * the types do not accept changes nothing. For a link's answers against the person's draft (S74).
+     *
+     * @return list<string>
+     */
+    public function changedKeys(FormDefinition $definition, AnswerSet $base, AnswerSet $over): array
+    {
+        $before = $this->acceptedValues($definition, $base);
+        $changed = [];
+        foreach ($this->acceptedValues($definition, $over) as $key => $value) {
+            if (($before[$key] ?? null) !== $value) {
+                $changed[] = (string) $key;
+            }
+        }
+
+        return $changed;
+    }
+
+    /**
      * The text answers its fields' types find an error in, as typed: what a person had half typed into a
      * text-like control (an e-mail address without its domain) when the autosave kept it. The form opens
      * with it in the control, in error until it is corrected, rather than empty. [UNAPPROVED N10]

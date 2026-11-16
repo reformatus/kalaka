@@ -12,6 +12,10 @@ use Kalaka\Forms\Api\AnswerSet;
  * A **guest draft** (`$userId` null) holds only what a link or the quiz handed over, under the SHA-256 of a
  * claim token in the visitor's cookie, until `$expiresAt`; a guest's own typing is never kept. Logged in,
  * the person claims it: it becomes their user draft, or waits for their choice against the one they have.
+ *
+ * `$claims` counts the claims that changed what a user draft holds (the guest draft became it, or a merge or
+ * keep_link). The autosave carries the count its page opened with, so a save sent before a claim never
+ * writes over what the claim brought (`SaveDraft`). The row's `$version` cannot tell: every save bumps it.
  */
 final class Draft
 {
@@ -28,6 +32,7 @@ final class Draft
         public ?\DateTimeImmutable $expiresAt,
         public readonly ?int $id = null,
         public readonly int $version = 1,
+        public int $claims = 0,
     ) {
     }
 }

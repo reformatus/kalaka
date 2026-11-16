@@ -16,6 +16,11 @@ use Kalaka\Registrations\Draft\DraftRepository;
  * own draft of the form (S74, owner ruling 2026-11-14): merge, the link's answers written over the draft's
  * and the rest kept; keep the draft and drop the link; or keep the link and drop the draft. The guest draft
  * is deleted whatever the choice. With no draft of the person's own, the guest draft simply becomes theirs.
+ *
+ * When the claim changes what the person's draft holds (merge, keep_link, or the guest draft becoming
+ * theirs), the draft's `claims` count goes up: an autosave sent from the page before the choice carries the
+ * old count and is refused (`SaveDraft`), so it never brings back the answers the choice replaced. keep_draft
+ * changes nothing, and the count stays.
  */
 final class ResolveDraftClaim implements PortalUseCase
 {
@@ -71,6 +76,7 @@ final class ResolveDraftClaim implements PortalUseCase
             $guest->claimHash = null;
             $guest->expiresAt = null;
             $guest->updatedAt = $now;
+            ++$guest->claims;
             $this->drafts->upsert($guest, $context);
 
             return null;
@@ -82,6 +88,7 @@ final class ResolveDraftClaim implements PortalUseCase
                 : $guest->answers;
             $own->formVersion = max($own->formVersion, $guest->formVersion);
             $own->updatedAt = $now;
+            ++$own->claims;
             $this->drafts->upsert($own, $context);
         }
         $this->drafts->delete($guest, $context);

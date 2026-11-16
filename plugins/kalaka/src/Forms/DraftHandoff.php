@@ -32,8 +32,10 @@ use Kalaka\Registrations\Api\Drafts;
  *   the cookie, and the request is answered with a 303 to the page without `kalaka`, never cached. Nothing
  *   of the request is logged.
  * - **The claim.** A logged-in request to such a page whose cookie names a guest draft of its form claims
- *   it: it becomes the person's draft, and the cookie is cleared; with a draft of their own, it waits for
- *   their choice (the popup) and the cookie stays. A guest draft that is gone clears the cookie.
+ *   it: it becomes the person's draft, and the cookie is cleared. With a draft of their own, it waits for
+ *   their choice (the popup) and the cookie stays, but only when the link sets a value the draft does not
+ *   hold; when it changes nothing, the guest draft is dropped (keep_draft) and the cookie is cleared. A
+ *   guest draft that is gone clears the cookie.
  *
  * Any other page view (no `kalaka`, and no claim cookie of a logged-in visitor) returns before any read.
  * [UNAPPROVED N6] [UNAPPROVED N7]
@@ -151,7 +153,8 @@ final class DraftHandoff
             return;
         }
         $outcome = $this->drafts->claim($form->id, $token, $actor);
-        if (in_array($outcome, [DraftClaimOutcome::Claimed, DraftClaimOutcome::Gone], true)) {
+        $done = [DraftClaimOutcome::Claimed, DraftClaimOutcome::Settled, DraftClaimOutcome::Gone];
+        if (in_array($outcome, $done, true)) {
             DraftClaim::setCookie(null);
         }
     }

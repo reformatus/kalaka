@@ -47,9 +47,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
  *   `Registrations\Api\RegistrationSubmit`).
- * - `POST kalaka-portal/v1/forms/{id}/draft` `{version, answers, page}` → `{saved: true}` (S74, the
+ * - `POST kalaka-portal/v1/forms/{id}/draft` `{version, answers, page, claims}` → `{saved: true}` (S74, the
  *   autosave): the host keeps the answers as the logged-in person's draft (`FormHost::saveDraft()`). The
- *   body is at most `DRAFT_LIMIT` bytes; only the form's own keys are kept, as sent.
+ *   body is at most `DRAFT_LIMIT` bytes; only the form's own keys are kept, as sent. `claims` is the
+ *   draft's claim count the page opened with: after a claim changed the draft, the save is a
+ *   `kalaka_version_conflict` (409).
  * - `POST kalaka-portal/v1/forms/{id}/draft/claim` `{choice}` → `{resolved: true}` (S74): the person's
  *   choice between a link's answers and their own draft (`FormHost::resolveDraftClaim()`).
  *
@@ -329,7 +331,8 @@ final class FormRoutes
         }
         $body = $this->body($request);
         $page = $body['page'] ?? 0;
-        if (!is_int($page) || $page < 0) {
+        $claims = $body['claims'] ?? null;
+        if (!is_int($page) || $page < 0 || !is_int($claims) || $claims < 0) {
             $error = new InvalidInput();
             throw $error;
         }
@@ -341,7 +344,8 @@ final class FormRoutes
                 $answers[(string) $key] = $answer;
             }
         }
-        $this->host->saveDraft($form, $definition->version, new AnswerSet($answers), $page, $this->actor());
+        $answerSet = new AnswerSet($answers);
+        $this->host->saveDraft($form, $definition->version, $answerSet, $page, $claims, $this->actor());
 
         return ['saved' => true];
     }

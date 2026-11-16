@@ -174,13 +174,19 @@ final class EventFormHost implements FormHost
         return $this->drafts->opening($form->eventId, $form->id, $user > 0 ? $user : null, DraftClaim::current());
     }
 
-    public function saveDraft(Form $form, int $version, AnswerSet $answers, int $page, Actor $actor): void
-    {
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void {
         if ($form->placement !== FormPlacement::Registration) {
             $error = new RuleViolation();
             throw $error;
         }
-        $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $actor);
+        $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
     }
 
     public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void

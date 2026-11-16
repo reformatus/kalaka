@@ -685,11 +685,17 @@ function applyAccount(form, account) {
  * The autosave (S74): while the page has a draft route (a logged-in person on a registration form), the
  * answers that show are kept as the person's draft once they rest for `DRAFT_DELAY`, on every page move,
  * and when the page is left (`keepalive`). It shows nothing: a failed save is tried again with the next
- * change. A send takes what waits: the submit deletes the draft.
+ * change. A send takes what waits: the submit deletes the draft. Each save carries the draft's claim count
+ * the page opened with (`draftClaims`).
+ *
+ * The autosave stops for good once the person's choice on a link's answers is sent
+ * (`resolveDraftClaim()`), or once the server refuses a save as from before a claim (409): the page's
+ * answers are then older than the draft, and nothing waiting or sent when the page is left may bring them
+ * back.
  */
 function draftChanged(form) {
 	const started = forms.get(form);
-	if (!started?.draftUrl) {
+	if (!started?.draftUrl || started.draftStopped) {
 		return;
 	}
 	started.draftDirty = true;
@@ -697,9 +703,20 @@ function draftChanged(form) {
 	started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
 }
 
+function stopDraft(form) {
+	const started = forms.get(form);
+	if (started === undefined) {
+		return;
+	}
+	started.draftStopped = true;
+	started.draftDirty = false;
+	clearTimeout(started.draftTimer);
+	started.draftTimer = null;
+}
+
 function saveDraft(form, keepalive = false) {
 	const started = forms.get(form);
-	if (!started?.draftUrl) {
+	if (!started?.draftUrl || started.draftStopped) {
 		return;
 	}
 	clearTimeout(started.draftTimer);
@@ -721,10 +738,13 @@ function saveDraft(form, keepalive = false) {
 				version: started.version,
 				answers: answersOf(form),
 				page: started.page,
+				claims: started.draftClaims ?? 0,
 			}),
 		})
 			.then((response) => {
-				if (!response.ok) {
+				if (response.status === 409) {
+					stopDraft(form);
+				} else if (!response.ok) {
 					started.draftDirty = true;
 				}
 			})
@@ -734,6 +754,23 @@ function saveDraft(form, keepalive = false) {
 	} catch {
 		started.draftDirty = true;
 	}
+}
+
+/**
+ * Sends the person's choice on a link's answers that differ from their draft (S74: `merge`, `keep_draft` or
+ * `keep_link`) to the page's claim route, after stopping the autosave: no save waiting, due or sent when
+ * the page is left goes after it. What the page does with the answer is the popup's (UX).
+ *
+ * @return {Promise<{ok: boolean, body: *}>} The route's answer.
+ */
+function resolveDraftClaim(form, choice) {
+	const started = forms.get(form);
+	if (!started?.draftClaimUrl) {
+		return Promise.resolve({ ok: false, body: null });
+	}
+	stopDraft(form);
+
+	return post(started.draftClaimUrl, { choice }, started.nonce);
 }
 
 /** The message of a refusal: Kaláka's own (a `kalaka_` code) as it comes, anything else the failure text. */
@@ -1333,6 +1370,12 @@ store('kalaka/form', {
 				}
 			}
 		}),
+		// S74: the choice of the element it is bound to (its `value`), for the popup UX builds.
+		resolveDraftClaim() {
+			const element = getElement().ref;
+
+			return resolveDraftClaim(element.closest('form'), element.value);
+		},
 	},
 	callbacks: {
 		start() {
@@ -1364,6 +1407,7 @@ store('kalaka/form', {
 				retry: null,
 				draftDirty: false,
 				draftTimer: null,
+				draftStopped: false,
 			};
 			forms.set(form, started);
 			if (started.account) {
