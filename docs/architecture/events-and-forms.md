@@ -134,7 +134,9 @@ flowchart TB
 ## Prefill from a link
 
 - **There is no public prefill:** no URL argument other than the link token
-  affects a form.
+  affects a form, except the skip marker of an event's optional account
+  mode, which only lets someone not logged in see the form and sets no
+  value ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
 - **Forms start from the active registration**
   ([Registrations](registrations-and-identity.md#access)): an additional
   form is prefilled from its current field values, as editable values; a

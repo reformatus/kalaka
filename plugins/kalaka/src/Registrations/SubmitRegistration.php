@@ -48,8 +48,8 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  *
  * Accounts (S15): the owner account and the account mail were decided before the transaction
  * (`Account\AccountOutcome`, through the constructor). Only a new registration takes them: its row gets the
- * owner, and the set-password or attach mail is queued as an action mail keyed by the registration and the
- * account (cause `account`, the WordPress user ID). A repeat writes and queues nothing.
+ * owner, and the set-password mail (for an unverified account) is queued as an action mail keyed by the
+ * registration and the account (cause `account`, the WordPress user ID). A repeat writes and queues nothing.
  */
 final class SubmitRegistration implements PublicUseCase
 {
