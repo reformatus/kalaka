@@ -130,7 +130,8 @@ final class AccountMailKeysTest extends MailBodyTestCase
     {
         self::assertTrue(MailValues::readsPasswordLink('<span data-kalaka-value="account.password_link">x</span>'));
         $binding = '{"url":{"source":"kalaka/value","args":{"key":"account.password_link"}}}';
-        self::assertTrue(MailValues::readsPasswordLink('<!-- wp:button {"metadata":{"bindings":' . $binding . '}} /-->'));
+        $button = '<!-- wp:button {"metadata":{"bindings":' . $binding . '}} /-->';
+        self::assertTrue(MailValues::readsPasswordLink($button));
         self::assertFalse(MailValues::readsPasswordLink('<p>account.password_link</p>'));
         self::assertFalse(MailValues::readsPasswordLink('<span data-kalaka-value="registration.link">x</span>'));
     }

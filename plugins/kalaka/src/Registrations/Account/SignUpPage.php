@@ -51,6 +51,9 @@ final class SignUpPage
     /** Whether this request is a native sign-up POST (not a social one). */
     private static bool $flag = false;
 
+    /** The account whose first password the current reset sets, or null (`firstPassword()`). */
+    private static ?int $firstPassword = null;
+
     public function __construct(
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
@@ -70,6 +73,7 @@ final class SignUpPage
         add_action('register_new_user', [$this, 'logIn'], 20);
         add_filter('login_url', [$this, 'loginUrl'], 10, 2);
         add_action('password_reset', [self::class, 'firstPassword'], 1);
+        add_filter('woocommerce_disable_password_change_notification', [self::class, 'wooCommerceNotification']);
         add_action('password_reset', [self::class, 'verified']);
         add_action('after_password_reset', [self::class, 'verified']);
         add_filter('password_reset_expiration', [$this, 'expiration']);
@@ -92,6 +96,7 @@ final class SignUpPage
     public static function reset(): void
     {
         self::$flag = false;
+        self::$firstPassword = null;
     }
 
     /**
@@ -267,18 +272,20 @@ final class SignUpPage
 
     /**
      * `password_reset`, priority 1 (before `verified()` clears the mark): the first password of a Kaláka
-     * sign-up sends the admin no "password changed" mail. Core's `wp_password_change_notification` is taken off
-     * `after_password_reset` for this one reset and put back after it; a verified account's reset still
-     * notifies. WooCommerce's reset fires the same two actions (S15-7, decided by Master 2026-11-16).
+     * sign-up sends the admin no "password changed" mail; a verified account's reset still notifies (S15-7,
+     * decided by Master 2026-11-16).
+     * - WordPress's reset: core's `wp_password_change_notification` is taken off `after_password_reset` for
+     *   this one reset and put back after it.
+     * - WooCommerce's reset calls that notification itself after `after_password_reset`, unless
+     *   `woocommerce_disable_password_change_notification` says not to (`wooCommerceNotification()`).
      *
      * @internal
      */
     public static function firstPassword(mixed $user): void
     {
-        if (!$user instanceof \WP_User || !self::isUnverified($user->ID)) {
-            return;
-        }
-        $priority = has_action('after_password_reset', 'wp_password_change_notification');
+        $first = $user instanceof \WP_User && self::isUnverified($user->ID);
+        self::$firstPassword = $first ? $user->ID : null;
+        $priority = $first ? has_action('after_password_reset', 'wp_password_change_notification') : false;
         if ($priority === false) {
             return;
         }
@@ -288,6 +295,20 @@ final class SignUpPage
             remove_action('after_password_reset', $restore, PHP_INT_MAX);
         };
         add_action('after_password_reset', $restore, PHP_INT_MAX);
+    }
+
+    /**
+     * `woocommerce_disable_password_change_notification`: disabled for the first password of a Kaláka
+     * sign-up (`firstPassword()`), once.
+     *
+     * @internal
+     */
+    public static function wooCommerceNotification(mixed $disabled): bool
+    {
+        $first = self::$firstPassword !== null;
+        self::$firstPassword = null;
+
+        return $first || (bool) $disabled;
     }
 
     /** @internal `password_reset` and `after_password_reset`: the password was set through a reset link. */

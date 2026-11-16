@@ -227,19 +227,45 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertCount(1, array_values(array_filter($this->mails, $admin)));
     }
 
-    public function testWooCommercesResetPathFiresTheSameActionsAndIsCoveredToo(): void
+    public function testWooCommercesResetSendsTheAdminNoMailOnTheFirstPasswordALaterOneDoes(): void
     {
         update_option('admin_email', 'teszt.admin@example.org');
         $user = get_userdata($this->unverifiedUser('teszt.anna@example.org'));
         $admin = static fn (array $mail): bool => $mail['to'] === 'teszt.admin@example.org';
 
-        // WooCommerce's My Account reset: `password_reset`, its own password set, `after_password_reset`.
-        do_action('password_reset', $user, 'Teszt-jelszo-2026!');
-        wp_set_password('Teszt-jelszo-2026!', $user->ID);
-        do_action('after_password_reset', $user, 'Teszt-jelszo-2026!');
+        self::wooCommerceReset($user, 'Teszt-jelszo-2026!');
 
         self::assertSame([], array_values(array_filter($this->mails, $admin)));
         self::assertFalse(SignUpPage::isUnverified($user->ID));
+        self::assertNotFalse(has_action('after_password_reset', 'wp_password_change_notification'));
+
+        self::wooCommerceReset(get_userdata($user->ID), 'Masik-jelszo-2026!');
+
+        self::assertCount(1, array_values(array_filter($this->mails, $admin)));
+    }
+
+    /**
+     * WooCommerce's `WC_Shortcode_My_Account::reset_password()` (11.3), step by step: WooCommerce is not
+     * loaded in these tests.
+     */
+    private static function wooCommerceReset(\WP_User $user, string $password): void
+    {
+        do_action('password_reset', $user, $password);
+        wp_set_password($password, $user->ID);
+        $priority = has_action('after_password_reset', 'wp_password_change_notification');
+        if ($priority !== false) {
+            remove_action('after_password_reset', 'wp_password_change_notification', $priority);
+        }
+        try {
+            do_action('after_password_reset', $user, $password);
+        } finally {
+            if ($priority !== false) {
+                add_action('after_password_reset', 'wp_password_change_notification', $priority);
+            }
+        }
+        if (!apply_filters('woocommerce_disable_password_change_notification', false)) {
+            wp_password_change_notification($user);
+        }
     }
 
     public function testTheSixteenPlusNoticeShowsOnlyInOptionalModeWithTheSkip(): void
