@@ -211,7 +211,9 @@ values and conditions, prefill and form links
   the host's submit (`FormHost::submit()`; for an event form the submit seam
   `Registrations\Api\RegistrationSubmit`). Every answer of
   both, refusals included, carries `Cache-Control: no-store`. A malformed body
-  is `InvalidInput`, never a WordPress argument error.
+  is `InvalidInput`, never a WordPress argument error. WordPress's refusal of
+  a stale `wp_rest` nonce on them becomes `kalaka_session_ended`, which the
+  page shows with its link to log in again, never as the system failure.
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a
