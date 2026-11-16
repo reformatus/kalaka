@@ -1,3 +1,4 @@
+/* global __dirname */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -17,7 +18,6 @@ function script() {
 
 function run(markup) {
 	document.body.innerHTML = markup;
-	// eslint-disable-next-line no-new-func
 	new Function(script())();
 	window.dispatchEvent(new Event('load'));
 
