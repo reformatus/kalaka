@@ -84,6 +84,30 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertStringNotContainsString('Téli tábor.', $html);
     }
 
+    public function testABodyMayBranchOnWhetherTheRegistrationCameFromTheWaitlist(): void
+    {
+        $event = $this->create();
+        $key = $this->registration($event);
+        $body = $this->document(
+            $event,
+            $this->branch(
+                'if',
+                $this->paragraph('Felkerültél a várólistáról.'),
+                [
+                    'match' => 'all',
+                    'items' => [['key' => 'registration.from_waitlist', 'operator' => 'equals', 'value' => 'yes']],
+                ]
+            ) . "\n" . $this->paragraph('Szia')
+        );
+        $this->switchOn($event, 'registered', $body);
+
+        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+
+        // No admission act exists yet: every registration reads `no`.
+        self::assertStringContainsString('Szia', $html);
+        self::assertStringNotContainsString('várólistáról', $html);
+    }
+
     public function testAnEventDateThatIsNotSetReadsAsNone(): void
     {
         $event = $this->create('Teszt tábor');

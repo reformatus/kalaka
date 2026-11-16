@@ -34,6 +34,14 @@ final class MailValues
     public const STATUS = 'registration.status';
     public const LINK = 'registration.link';
 
+    /**
+     * Whether the registration was admitted from the waitlist: a choice of `yes` or `no`, with no display text,
+     * for a condition in the "registered" mail, which admission sends too (owner 2026-11-16). No admission act
+     * exists yet, so it reads `no`; the admission slice gives Registrations the fact and this reads it.
+     * // [UNAPPROVED N14] the key `registration.from_waitlist`.
+     */
+    public const FROM_WAITLIST = 'registration.from_waitlist';
+
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly SecretLinks $links = new SecretLinks(),
@@ -61,6 +69,7 @@ final class MailValues
             self::CODE => ValueType::Text,
             self::STATUS => ValueType::Choice,
             self::LINK => ValueType::Text,
+            self::FROM_WAITLIST => ValueType::Choice,
         ];
     }
 
@@ -119,6 +128,7 @@ final class MailValues
             self::CODE => self::text($key->code),
             self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
+            self::FROM_WAITLIST => Value::choice(['no'], ''),
         ]);
     }
 
