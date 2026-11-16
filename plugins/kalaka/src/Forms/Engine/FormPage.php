@@ -191,13 +191,13 @@ final class FormPage
         $definition = $this->forms->definition($form, null, true);
 
         // What the form opens with: the host's stored values (none for a new registration) with the person's
-        // draft over them (S74), as answers, and what the form shows for them. A draft answer this version's
-        // types do not accept opens empty.
+        // draft over them (S74), as answers, and what the form shows for them. A draft's text its type finds an
+        // error in opens as typed; any other draft answer this version's types do not accept opens empty.
         $draft = $this->host->draft($form);
         $answers = $this->prefilled(
             $definition,
             array_replace($this->host->prefill($form), $this->forms->acceptedValues($definition, $draft->answers))
-        );
+        ) + $this->forms->rejectedText($definition, $draft->answers);
         $availability = $this->forms->availability($definition, $answers, $values);
         $here = self::here();
         $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(

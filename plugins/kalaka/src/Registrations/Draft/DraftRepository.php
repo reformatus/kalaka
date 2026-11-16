@@ -13,7 +13,11 @@ use Kalaka\Foundation\Api\UseCase\Context;
 /**
  * The only writer of `kalaka_drafts` (S74). A draft is the audit subject `draft` (event, ID). Its answers
  * and its claim hash are secret columns: the audit records that they changed, never their values, so no
- * answer a link or the quiz handed over reaches the audit.
+ * answer a link or the quiz handed over reaches the audit. [UNAPPROVED N4]
+ *
+ * The lookups lock with `FOR UPDATE` by their own condition (`findWhere()`), not by key: a draft is found
+ * by its person or its claim hash, never by its ID. Every writer locks a guest draft before the person's
+ * own, so a claim and a submit of the same person cannot wait on each other.
  *
  * @extends EntityRepository<array{eventId: int, id: int}, Draft>
  */

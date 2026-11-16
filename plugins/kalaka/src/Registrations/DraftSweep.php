@@ -15,6 +15,7 @@ use Kalaka\Registrations\Draft\DraftRepository;
  * The periodic run's step that deletes drafts that are done (S74): every draft of an event whose
  * registration has closed (its closing instant has passed), that is archived or gone, one run per event;
  * then the guest drafts whose lifetime has passed. An unpublished event keeps its drafts: it may open again.
+ * [UNAPPROVED N8]
  */
 final class DraftSweep implements PeriodicStep
 {

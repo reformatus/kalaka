@@ -216,17 +216,18 @@ final class SubmitRegistration implements PublicUseCase
      */
     private function deleteDrafts(Context $context): void
     {
+        // The guest draft first, then the person's own: the order every draft writer locks them in.
+        if ($this->draftClaimHash !== null) {
+            $guest = $this->drafts->ofClaim($this->draftClaimHash, $context);
+            if ($guest !== null && $guest->userId === null && $guest->formId === $this->form->id) {
+                $this->drafts->delete($guest, $context);
+            }
+        }
         $actor = $context->actor();
         if ($actor instanceof AccountActor) {
             $own = $this->drafts->ofUser($this->form->eventId, $this->form->id, $actor->userId, $context);
             if ($own !== null) {
                 $this->drafts->delete($own, $context);
-            }
-        }
-        if ($this->draftClaimHash !== null) {
-            $guest = $this->drafts->ofClaim($this->draftClaimHash, $context);
-            if ($guest !== null && $guest->userId === null && $guest->formId === $this->form->id) {
-                $this->drafts->delete($guest, $context);
             }
         }
     }

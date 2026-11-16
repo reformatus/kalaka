@@ -87,7 +87,7 @@ const NONCE = /^[0-9a-f]{10}$/;
 /** How long a request runs before the spinner shows. */
 export const SPINNER_DELAY = 2000;
 
-/** How long the answers rest before the autosave keeps them (S74). */
+/** How long the answers rest before the autosave keeps them (S74). [UNAPPROVED N5] */
 export const DRAFT_DELAY = 3000;
 
 function plain(data) {

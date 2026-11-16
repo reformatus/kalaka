@@ -74,7 +74,7 @@ final class FormRoutes
     public const SESSION_ENDED_TEXT
         = 'Ebben a böngészőben már nem vagy bejelentkezve. Jelentkezz be újra.';
 
-    /** The largest autosave body, in bytes (S74). */
+    /** The largest autosave body, in bytes (S74). [UNAPPROVED N5] */
     public const DRAFT_LIMIT = 65536;
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */

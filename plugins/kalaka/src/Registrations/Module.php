@@ -74,7 +74,7 @@ SQL;
      * S74: a form's answers kept before its submit, keyed by event first. A user draft has `user_id`
      * (one per event, form and user: MariaDB lets the guest drafts' NULLs repeat under `owner`); a guest
      * draft has the SHA-256 of its claim token and `expires_at` instead. `answers` is a JSON object
-     * (`Forms\Api\AnswerSet`); `page` is the last page shown.
+     * (`Forms\Api\AnswerSet`); `page` is the last page shown, not read yet. [UNAPPROVED N1]
      */
     private const DRAFTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_drafts (

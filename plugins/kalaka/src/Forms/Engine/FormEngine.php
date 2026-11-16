@@ -202,6 +202,36 @@ final class FormEngine
         return array_map(static fn (array $checked): string => $checked[1], $this->checked($definition, $answers));
     }
 
+    /**
+     * The text answers its fields' types find an error in, as typed: what a person had half typed into a
+     * text-like control (an e-mail address without its domain) when the autosave kept it. The form opens
+     * with it in the control, in error until it is corrected, rather than empty. [UNAPPROVED N10]
+     *
+     * @return array<string, string> field key → the text as typed
+     */
+    public function rejectedText(FormDefinition $definition, AnswerSet $answers): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $rejected = [];
+        foreach ($definition->fields as $field) {
+            $sent = $answers->answers[$field->key] ?? null;
+            $type = $types[$field->blockName] ?? null;
+            if (!is_string($sent) || $type === null) {
+                continue;
+            }
+            try {
+                $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
+            } catch (InvalidInput) {
+                continue;
+            }
+            if ($answer->error !== null) {
+                $rejected[$field->key] = $sent;
+            }
+        }
+
+        return $rejected;
+    }
+
     /** @return array<string, array{mixed, string}> field key → the answer as sent and the value to store */
     private function checked(FormDefinition $definition, AnswerSet $answers): array
     {

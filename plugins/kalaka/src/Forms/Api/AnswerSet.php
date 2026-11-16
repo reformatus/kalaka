@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  * A set of answers by field key, each as the form's controls send it (registrations-and-identity.md,
  * "Submissions and values"): the shape a submission keeps frozen and a draft keeps while it is filled in
  * (S74). Stored as one JSON object, never through `wp_json_encode()`, which would repair what it cannot
- * encode.
+ * encode. [UNAPPROVED N2]
  */
 final readonly class AnswerSet
 {

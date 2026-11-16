@@ -34,6 +34,9 @@ use Kalaka\Registrations\Api\Drafts;
  * - **The claim.** A logged-in request to such a page whose cookie names a guest draft of its form claims
  *   it: it becomes the person's draft, and the cookie is cleared; with a draft of their own, it waits for
  *   their choice (the popup) and the cookie stays. A guest draft that is gone clears the cookie.
+ *
+ * Any other page view (no `kalaka`, and no claim cookie of a logged-in visitor) returns before any read.
+ * [UNAPPROVED N6] [UNAPPROVED N7]
  */
 final class DraftHandoff
 {
@@ -68,12 +71,26 @@ final class DraftHandoff
         $url = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '/';
         // phpcs:enable
         $user = get_current_user_id();
+        if (!self::hasWork($prefill, $user, DraftClaim::current())) {
+            return;
+        }
         $redirect = $this->handle($post, $prefill, $user > 0 ? new AccountActor($user) : new GuestActor());
         if ($redirect) {
             FormCaching::preventCaching();
             wp_safe_redirect(remove_query_arg(self::PARAMETER, $url), 303);
             exit;
         }
+    }
+
+    /**
+     * Whether a page view has anything to do here: a prefill, or a logged-in visitor holding a claim cookie.
+     * Every other page view of the site stops before any read.
+     *
+     * @param ?array<array-key, mixed> $prefill
+     */
+    public static function hasWork(?array $prefill, int $userId, ?string $claimToken): bool
+    {
+        return $prefill !== null || ($userId > 0 && $claimToken !== null);
     }
 
     /**
@@ -142,6 +159,9 @@ final class DraftHandoff
     /** The one registration form the page places, when it can be used now; null otherwise. */
     private function registrationForm(\WP_Post $post): ?Form
     {
+        if (!FormCaching::placesForm($post->post_content)) {
+            return null;
+        }
         $found = null;
         foreach (PlacedForms::in($post->post_content) as $id) {
             $form = $this->forms->form($id);
