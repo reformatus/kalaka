@@ -14,8 +14,8 @@ use Kalaka\Mail\MailMessage;
  * rendered by `MailRenderer` (mail.md, "Sending": rendered at send time from current data). A secret link
  * in the mail is only ever in the message; the sender stores the version, never the content.
  *
- * The two account mails (S15, `account_set_password` and `account_attach`) are not in the catalogue: they
- * go to the account, with their own built-in content, through `AccountMailComposer`, beside the catalogue.
+ * The set-password mail (S15, `Api\AccountMail`) is not in the catalogue: it goes to the account, with its
+ * own built-in content, through `AccountMailComposer`, beside the catalogue.
  * // [UNAPPROVED N9] one bound composer for both sets.
  */
 final class ActionMailComposer implements MailComposer

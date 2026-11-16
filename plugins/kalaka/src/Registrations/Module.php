@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -97,7 +98,14 @@ SQL;
         ];
     }
 
+    public function contribute(Contributions $to): void
+    {
+        $to->siteWarning(new Account\SettingsWarning());
+    }
+
     public function boot(): void
     {
+        // S15: WordPress's own registration page as Kaláka's sign-up.
+        (new Account\SignUpPage())->register();
     }
 }

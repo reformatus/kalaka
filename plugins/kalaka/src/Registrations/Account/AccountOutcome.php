@@ -8,13 +8,13 @@ use Kalaka\Mail\Api\AccountMail;
 
 /**
  * What a submit does about accounts (registrations-and-identity.md, "Accounts on the registration form"),
- * decided before the transaction (`AccountSignUp`, `RegistrationSubmit`) and written by
- * `SubmitRegistration` only for a new registration, never for a repeat:
+ * decided before the transaction (`RegistrationSubmit`) and written by `SubmitRegistration` only for a new
+ * registration, never for a repeat:
  *
- * - the owner account the registration gets: the logged-in person, or the account the sign-up created;
- *   null for none (mode off, skip, or a sign-up with an email that already has an account);
- * - the account mail it queues, an action mail to that account: the set-password mail to the new account,
- *   or the attach mail to the account that already holds the email; null for none.
+ * - the owner account the registration gets: the logged-in person; null for none (mode off, or someone not
+ *   logged in in `optional` mode);
+ * - the set-password mail to that account, while it is one Kaláka created whose password was never set
+ *   (`kalaka_unverified`); null for none.
  */
 final readonly class AccountOutcome
 {
@@ -25,27 +25,17 @@ final readonly class AccountOutcome
     ) {
     }
 
-    /** No account: mode off, or skip. */
+    /** No account: mode off, or someone not logged in in `optional` mode. */
     public static function none(): self
     {
         return new self(null, null, null);
     }
 
-    /** The logged-in person owns the registration; no mail. */
-    public static function loggedIn(int $userId): self
+    /** The logged-in person owns the registration; an unverified account also gets the set-password mail. */
+    public static function loggedIn(int $userId, bool $unverified = false): self
     {
-        return new self($userId, null, null);
-    }
-
-    /** The sign-up created the account: it owns the registration and gets the set-password mail. */
-    public static function created(int $userId): self
-    {
-        return new self($userId, AccountMail::SetPassword, $userId);
-    }
-
-    /** The sign-up's email already has an account: no owner yet, and the attach mail to that account. */
-    public static function existing(int $holderUserId): self
-    {
-        return new self(null, AccountMail::Attach, $holderUserId);
+        return $unverified
+            ? new self($userId, AccountMail::SetPassword, $userId)
+            : new self($userId, null, null);
     }
 }
