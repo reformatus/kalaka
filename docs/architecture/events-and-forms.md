@@ -133,8 +133,16 @@ flowchart TB
 
 ## Prefill from a link
 
-- **There is no public prefill:** no URL argument other than the link token
-  affects a form.
+- **Public prefill comes as a guest draft.** A request to a page that
+  places one registration form may carry answers as `kalaka[<field key>]`
+  (the quiz's POST body, or a static GET link). They are untrusted: each is
+  checked alone with its field's type, and an unknown key or an answer the
+  type does not accept is dropped, silently. What is left is kept as a guest
+  draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
+  under a claim token in a cookie, and the request is answered with a 303 to
+  the page without them. The form then opens with them, as editable values.
+  A link-only field never takes public prefill. Nothing of the request is
+  logged.
 - **Forms start from the active registration**
   ([Registrations](registrations-and-identity.md#access)): an additional
   form is prefilled from its current field values, as editable values; a
@@ -250,7 +258,9 @@ flowchart TB
   no request. A terminal page holds no fields and has a condition: it shows
   its content and cannot be sent, and the server refuses a submit while one
   shows. The contact email and the display name never sit on a conditional
-  page. Answers are not kept across a reload.
+  page. A guest's answers are not kept across a reload; a logged-in
+  person's are, in their draft
+  ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
   message): one block per form, at the top level outside any branch or
