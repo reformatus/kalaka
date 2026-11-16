@@ -40,8 +40,10 @@ It holds the ranking field type now and the ranking proposer later (S77).
 - The markup is core's field markup (`Forms\Api\FieldMarkup`): the browser's
   own checkboxes named `<key>[]` in a choice group, ranked ones first in an
   ordered list, so the form sends them in rank order. A ranked option moves
-  by a drag (pointer events: mouse, pen, touch) or by its Feljebb and Lejjebb
-  buttons (the keyboard's way); every move fires `change` and is announced in
+  by a drag of its handle (pointer events: mouse, pen, touch; only the handle
+  drags and only it takes `touch-action: none`, so the rest of the row scrolls
+  and taps as usual; owner 2026-11-16) or by its Feljebb and Lejjebb buttons
+  (the keyboard's and the screen reader's way; the handle is `aria-hidden`); every move fires `change` and is announced in
   the field's live region, as is a tick, and an untick empties it. A press ends
   wherever its pointer is released or cancelled, and nothing reorders without a
   held pointer. A tick, an untick or a move keeps the focus where it was; the

@@ -34,6 +34,16 @@ final class RankingFieldType extends AbstractFieldType
     public const DEFAULT_MAX = 3;
 
     public const NOT_OFFERED = 'Válassz a megadott lehetőségek közül.';
+
+    /** The drag handle's grip, shown on every ranked option (owner 2026-11-16). */
+    public const HANDLE = '⠿';
+
+    /**
+     * What dragging needs on the handle, and only there: a pointer drag instead of a scroll, no text
+     * selection or callout on a long press, and the grab cursor.
+     */
+    public const HANDLE_STYLE = 'touch-action:none;user-select:none;-webkit-user-select:none;'
+        . '-webkit-touch-callout:none;cursor:grab';
     public const TOO_FEW = 'Legalább %d lehetőséget válassz.';
     public const TOO_MANY = 'Legfeljebb %d lehetőséget válassz.';
 

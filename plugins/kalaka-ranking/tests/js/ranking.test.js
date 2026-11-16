@@ -17,7 +17,7 @@ const OPTIONS = ['modul_a', 'modul_b', 'modul_c'];
 function render() {
 	const items = OPTIONS.map(
 		(value, index) =>
-			`<li data-kalaka-option="${index}"><label><input type="checkbox" name="modulok[]" value="${value}" autocomplete="off"> ${value}</label>` +
+			`<li data-kalaka-option="${index}"><span data-kalaka-handle aria-hidden="true" style="touch-action:none" hidden>⠿</span> <label><input type="checkbox" name="modulok[]" value="${value}" autocomplete="off"> ${value}</label>` +
 			` <button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden>Feljebb</button>` +
 			` <button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden>Lejjebb</button></li>`
 	).join('');
@@ -119,14 +119,15 @@ describe('the ranking field', () => {
 		expect(announcement('Modul A', 1)).toBe('Modul A, 1. hely');
 	});
 
-	test('a ranked option takes a drag without scrolling; an unranked one does not', () => {
+	test('a ranked option shows its handle; an unranked one hides it; the row itself scrolls as usual', () => {
 		const field = render();
 		tick(field, 'modul_a');
 
-		expect(itemOf(field, 'modul_a').style.touchAction).toBe('none');
-		expect(itemOf(field, 'modul_b').style.touchAction).toBeFalsy();
-		tick(field, 'modul_a');
+		expect(itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]').hidden).toBe(false);
+		expect(itemOf(field, 'modul_b').querySelector('[data-kalaka-handle]').hidden).toBe(true);
 		expect(itemOf(field, 'modul_a').style.touchAction).toBeFalsy();
+		tick(field, 'modul_a');
+		expect(itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]').hidden).toBe(true);
 	});
 });
 
@@ -180,15 +181,15 @@ describe('dragging a ranked option', () => {
 		layOut(field);
 		const changes = [];
 		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
-		const label = itemOf(field, 'modul_a').querySelector('label');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10);
-		pointer('pointermove', label, 12);
+		pointer('pointerdown', handle, 10);
+		pointer('pointermove', handle, 12);
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
-		pointer('pointermove', label, 45);
+		pointer('pointermove', handle, 45);
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(true);
-		pointer('pointermove', label, 70);
-		pointer('pointerup', label, 70);
+		pointer('pointermove', handle, 70);
+		pointer('pointerup', handle, 70);
 
 		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 		expect(changes).toEqual(['modul_a']);
@@ -201,32 +202,37 @@ describe('dragging a ranked option', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
 		layOut(field);
-		const label = itemOf(field, 'modul_a').querySelector('label');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10, { pointerType: 'mouse' });
-		pointer('pointermove', label, 70, { pointerType: 'mouse' });
-		pointer('pointerup', label, 70, { pointerType: 'mouse' });
-		label.click();
+		pointer('pointerdown', handle, 10, { pointerType: 'mouse' });
+		pointer('pointermove', handle, 70, { pointerType: 'mouse' });
+		pointer('pointerup', handle, 70, { pointerType: 'mouse' });
+		handle.click();
 
 		expect(box(field, 'modul_a').checked).toBe(true);
 		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 	});
 
-	test('a short press is no drag, and a press on a button or checkbox never drags', () => {
+	test('a short press is no drag, and a press on the handle, a button or a checkbox never drags', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
 		layOut(field);
 		const changes = [];
 		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
 
-		const label = itemOf(field, 'modul_a').querySelector('label');
-		pointer('pointerdown', label, 10);
-		pointer('pointermove', label, 13);
-		pointer('pointerup', label, 13);
-		const button = itemOf(field, 'modul_a').querySelector('[data-kalaka-move="down"]');
-		pointer('pointerdown', button, 10);
-		pointer('pointermove', button, 70);
-		pointer('pointerup', button, 70);
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
+		pointer('pointerdown', handle, 10);
+		pointer('pointermove', handle, 13);
+		pointer('pointerup', handle, 13);
+		for (const other of [
+			itemOf(field, 'modul_a').querySelector('label'),
+			itemOf(field, 'modul_a').querySelector('[data-kalaka-move="down"]'),
+			box(field, 'modul_a'),
+		]) {
+			pointer('pointerdown', other, 10);
+			pointer('pointermove', other, 70);
+			pointer('pointerup', other, 70);
+		}
 
 		expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
 		expect(changes).toEqual([]);
@@ -236,11 +242,11 @@ describe('dragging a ranked option', () => {
 		const field = render();
 		tick(field, 'modul_a');
 		layOut(field);
-		const label = itemOf(field, 'modul_b').querySelector('label');
+		const handle = itemOf(field, 'modul_b').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10);
-		pointer('pointermove', label, 70);
-		pointer('pointerup', label, 70);
+		pointer('pointerdown', handle, 10);
+		pointer('pointermove', handle, 70);
+		pointer('pointerup', handle, 70);
 
 		expect(ranked(field)).toEqual(['modul_a']);
 		expect(unranked(field)).toEqual(['modul_b', 'modul_c']);
@@ -252,13 +258,13 @@ describe('dragging a ranked option', () => {
 		layOut(field);
 		const changes = [];
 		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
-		const label = itemOf(field, 'modul_a').querySelector('label');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10, { pointerType: 'mouse' });
+		pointer('pointerdown', handle, 10, { pointerType: 'mouse' });
 		// Released outside the list (sideways, under the threshold): only the window hears it.
 		pointer('pointerup', document.body, 12, { pointerType: 'mouse' });
-		pointer('pointermove', label, 70, { pointerType: 'mouse', buttons: 0 });
-		pointer('pointermove', label, 70, { pointerType: 'mouse', buttons: 1 });
+		pointer('pointermove', handle, 70, { pointerType: 'mouse', buttons: 0 });
+		pointer('pointermove', handle, 70, { pointerType: 'mouse', buttons: 1 });
 
 		expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
 		expect(changes).toEqual([]);
@@ -268,16 +274,16 @@ describe('dragging a ranked option', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
 		layOut(field);
-		const label = itemOf(field, 'modul_a').querySelector('label');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10, { pointerType: 'mouse' });
-		pointer('pointermove', label, 45, { pointerType: 'mouse' });
+		pointer('pointerdown', handle, 10, { pointerType: 'mouse' });
+		pointer('pointermove', handle, 45, { pointerType: 'mouse' });
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(true);
-		pointer('pointermove', label, 70, { pointerType: 'mouse', buttons: 0 });
+		pointer('pointermove', handle, 70, { pointerType: 'mouse', buttons: 0 });
 
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
 		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
-		pointer('pointermove', label, 10, { pointerType: 'mouse', buttons: 1 });
+		pointer('pointermove', handle, 10, { pointerType: 'mouse', buttons: 1 });
 		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
 	});
 
@@ -285,12 +291,12 @@ describe('dragging a ranked option', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
 		layOut(field);
-		const label = itemOf(field, 'modul_a').querySelector('label');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10);
-		pointer('pointermove', label, 45);
+		pointer('pointerdown', handle, 10);
+		pointer('pointermove', handle, 45);
 		pointer('lostpointercapture', field.querySelector('[data-kalaka-ranked]'), 45);
-		pointer('pointermove', label, 70);
+		pointer('pointermove', handle, 70);
 
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
 		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
@@ -303,12 +309,12 @@ describe('dragging a ranked option', () => {
 		const changes = [];
 		document.querySelector('form').addEventListener('change', (event) => changes.push(event.target.value));
 		field.querySelector('[data-kalaka-announce]').textContent = '';
-		const label = itemOf(field, 'modul_a').querySelector('label');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
 
-		pointer('pointerdown', label, 10);
-		pointer('pointermove', label, 45);
-		pointer('pointermove', label, 5);
-		pointer('pointerup', label, 5);
+		pointer('pointerdown', handle, 10);
+		pointer('pointermove', handle, 45);
+		pointer('pointermove', handle, 5);
+		pointer('pointerup', handle, 5);
 
 		expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
 		expect(changes).toEqual([]);
@@ -368,16 +374,22 @@ describe('the keyboard and the screen reader', () => {
 		expect(ranked(field)).toEqual(['modul_a', 'modul_c', 'modul_b']);
 	});
 
-	test('an unranked option has no aria-disabled button, and a ranked row selects no text', () => {
+	test('an unranked option has no aria-disabled button', () => {
 		const field = render();
 		tick(field, 'modul_a');
 		tick(field, 'modul_a');
 
 		expect(field.querySelectorAll('[data-kalaka-unranked] [aria-disabled]').length).toBe(0);
-		tick(field, 'modul_b');
-		expect(itemOf(field, 'modul_b').style.userSelect).toBe('none');
-		tick(field, 'modul_b');
-		expect(itemOf(field, 'modul_b').style.userSelect).toBeFalsy();
+	});
+
+	test('a tap on the label of a ranked option still unticks it: only the handle drags', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		const label = itemOf(field, 'modul_b').querySelector('label');
+
+		label.click();
+
+		expect(box(field, 'modul_b').checked).toBe(false);
+		expect(ranked(field)).toEqual(['modul_a', 'modul_c']);
 	});
 });
-

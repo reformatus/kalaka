@@ -5,8 +5,9 @@
  * it back among the others (`data-kalaka-unranked`) at its authored place. The focus stays on the checkbox
  * that was ticked or unticked.
  *
- * A ranked option is reordered by dragging it (pointer events: a mouse, a pen or a finger) or by its two
- * buttons, the keyboard's way; the focus stays on a pressed button. The first option's up button and the
+ * A ranked option is reordered by dragging its handle (pointer events: a mouse, a pen or a finger; owner
+ * 2026-11-16: only the handle drags, the rest of the row scrolls and taps as usual) or by its two
+ * buttons, the keyboard's and the screen reader's way; the focus stays on a pressed button. The first option's up button and the
  * last one's down button are `aria-disabled` (they stay focusable, so a move that makes a button an edge
  * leaves the focus where it was). After a move the option's checkbox fires `change`, which bubbles to the
  * form like any answer's change. The field's live region tells a screen reader an option's place after a
@@ -34,6 +35,10 @@ function buttonsOf(item) {
 	return [...item.querySelectorAll('[data-kalaka-move]')];
 }
 
+function handleOf(item) {
+	return item.querySelector('[data-kalaka-handle]');
+}
+
 function position(item) {
 	return Number(item.getAttribute('data-kalaka-option'));
 }
@@ -47,18 +52,17 @@ function placeOf(item) {
 }
 
 /**
- * A ranked option shows its buttons, takes a drag without scrolling the page, and a long press on it
- * selects no text and opens no callout; an unranked one none of these.
+ * A ranked option shows its handle and its buttons; an unranked one neither. What a drag needs (no
+ * scrolling, no selection, no callout) is the handle's own, in its markup.
  */
 function setRanked(item, ranked) {
 	for (const button of buttonsOf(item)) {
 		button.hidden = !ranked;
 	}
-	const value = ranked ? 'none' : '';
-	item.style.touchAction = value;
-	item.style.userSelect = value;
-	item.style.webkitUserSelect = value;
-	item.style.webkitTouchCallout = value;
+	const handle = handleOf(item);
+	if (handle !== null) {
+		handle.hidden = !ranked;
+	}
 }
 
 /** The edge buttons of the ranked list are `aria-disabled`: up on the first option, down on the last. */
@@ -175,15 +179,12 @@ export function placeAt(item, index) {
 	return true;
 }
 
-/** Whether a press starts on a control of its own (the checkbox, a button), which never drags. */
-function onControl(target) {
-	return target?.closest?.('input, button') != null;
-}
 
 /**
- * Dragging within the ranked list. The list holds the pointer capture once a press becomes a drag, since
+ * Dragging within the ranked list, by an option's handle only. The list holds the pointer capture once a
+ * press becomes a drag, since
  * the option itself moves in the document while it is dragged. A press that moves less than
- * `DRAG_THRESHOLD` stays a click (a label's click ticks its checkbox); after a drag, the click that follows
+ * `DRAG_THRESHOLD` stays a click; after a drag, the click that follows
  * is swallowed. A press ends wherever its pointer is released or cancelled (the window's `pointerup` and
  * `pointercancel`, the list's `lostpointercapture`), and a move with no button held ends it too, so
  * nothing reorders without a held pointer. A drag that ends where it started tells nothing.
@@ -229,15 +230,16 @@ function startDragging(field) {
 	};
 
 	list.addEventListener('pointerdown', (event) => {
-		const item = event.target?.closest?.('[data-kalaka-option]');
-		if (press !== null || item == null || item.parentElement !== list || onControl(event.target)) {
+		const handle = event.target?.closest?.('[data-kalaka-handle]');
+		const item = handle?.closest('[data-kalaka-option]');
+		if (press !== null || item == null || item.parentElement !== list) {
 			return;
 		}
 		if (event.pointerType === 'mouse' && event.button !== 0) {
 			return;
 		}
 		if (event.pointerType === 'mouse') {
-			// No text selection while a mouse drags; the click that follows a press still ticks.
+			// No text selection while a mouse drags.
 			event.preventDefault();
 		}
 		press = { id: event.pointerId, item, startY: event.clientY, dragging: false, from: placeOf(item) };

@@ -6,8 +6,11 @@
  * theme adapter's classes: a choice group whose options are the browser's own checkboxes, named
  * `<key>[]`, so the form sends the ticked ones in document order. The ticked options sit first, in rank
  * order, in an ordered list; the others follow in authored order. `view.js` moves an option between the
- * two lists when it is ticked or unticked, and up or down the ranked list by a drag or its two buttons;
- * the live region (WordPress's `screen-reader-text`) tells a screen reader an option's new place.
+ * two lists when it is ticked or unticked, and up or down the ranked list by a drag of its handle or its
+ * two buttons; the live region (WordPress's `screen-reader-text`) tells a screen reader an option's new
+ * place. The handle (owner 2026-11-16) is the only part of a row that drags: a grip glyph, pointer-only
+ * and hidden from screen readers, whose two buttons do the same. It alone takes `touch-action: none`,
+ * so the rest of the row scrolls and taps as usual, and selects no text and opens no callout.
  *
  * @var array<string, mixed> $attributes
  */
@@ -29,6 +32,8 @@ $kalakaLabels = RankingFieldType::labels($attributes);
 $kalakaRanked = [];
 $kalakaItem = static function (string $value, string $label, int $index, bool $ranked) use ($kalakaKey): string {
     return '<li data-kalaka-option="' . esc_attr((string) $index) . '">'
+        . '<span data-kalaka-handle aria-hidden="true" style="' . esc_attr(RankingFieldType::HANDLE_STYLE) . '"'
+        . ($ranked ? '' : ' hidden') . '>' . esc_html(RankingFieldType::HANDLE) . '</span> '
         . '<label' . FieldMarkup::classAttribute(ElementRole::Option) . '>'
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'
         . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl) . ($ranked ? ' checked' : '')

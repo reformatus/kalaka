@@ -121,6 +121,14 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame(3, substr_count($html, 'type="checkbox" name="modulok[]"'));
         self::assertSame(0, substr_count($html, ' checked'));
         self::assertStringContainsString('value="modul_b" autocomplete="off">', $html);
+        // Each option's drag handle: hidden from screen readers (the buttons do the same), shown once ranked,
+        // and the only part of the row that takes what a drag needs.
+        self::assertSame(3, substr_count(
+            $html,
+            '<span data-kalaka-handle aria-hidden="true" style="touch-action:none;user-select:none;'
+                . '-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab" hidden>⠿</span>'
+        ));
+        self::assertStringNotContainsString('<li data-kalaka-option="0" style', $html);
         // An unranked option's two buttons are hidden.
         self::assertSame(3, substr_count($html, 'feljebb mozgatása" hidden>Feljebb</button>'));
         // Each button's accessible name names its option.
