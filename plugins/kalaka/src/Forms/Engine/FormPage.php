@@ -208,6 +208,11 @@ final class FormPage
             // (S12 N3) the REST nonce for a logged-in person, so the routes see the account and not a
             // guest; empty for a guest. The page is never cached (`Api\FormCaching::preventCaching()`).
             'nonce' => is_user_logged_in() ? wp_create_nonce('wp_rest') : '',
+            // S15: when that nonce stops working (`Rest\FormRoutes::SESSION_ENDED`), the way back: logging in
+            // again, back to this page. [UNAPPROVED #191 T8] the link's text, placeholder: empty, the page shows
+            // the address in its place.
+            'loginUrl' => is_user_logged_in() ? wp_login_url(self::here()) : '',
+            'logIn' => '',
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,

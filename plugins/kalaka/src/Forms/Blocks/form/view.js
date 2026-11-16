@@ -30,6 +30,9 @@
  * lost: Tovább's page check takes the place of the follow-up, and Küldés waits for the re-fetch and sends.
  * Vissza is ignored while busy. A second Tovább, or Enter, during a page check is ignored too: the running
  * check already moves on.
+ *
+ * A request refused because the person's session ended (S15, `kalaka_session_ended`) shows its own message
+ * with the page's link to log in again, not the system failure text.
  */
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
@@ -45,6 +48,12 @@ const forms = new WeakMap();
 
 /** Kaláka's own error codes: only their messages are shown as they come. */
 const OWN_CODE = /^kalaka_/;
+
+/**
+ * The refusal of a request whose session ended (S15, `FormRoutes::SESSION_ENDED`): the person was logged out
+ * meanwhile, say by setting the password on another device. A retry never helps; logging in again does.
+ */
+const SESSION_ENDED = 'kalaka_session_ended';
 
 /** How long a request runs before the spinner shows. */
 export const SPINNER_DELAY = 2000;
@@ -457,6 +466,27 @@ async function post(url, data, nonce = '') {
 	}
 }
 
+/**
+ * Shows that the session ended: the refusal's message, or its code while that text is a placeholder
+ * ([UNAPPROVED #191 T8]), and the page's link to log in again and come back (`loginUrl`), named by `logIn`
+ * or, while that is a placeholder, by its address.
+ */
+function showSessionEnded(form, message) {
+	const started = forms.get(form);
+	const alert = alertOf(form);
+	alert.textContent =
+		typeof message === 'string' && message !== '' ? message : SESSION_ENDED;
+	if (typeof started.loginUrl === 'string' && started.loginUrl !== '') {
+		const link = document.createElement('a');
+		link.href = started.loginUrl;
+		link.textContent =
+			typeof started.logIn === 'string' && started.logIn !== ''
+				? started.logIn
+				: started.loginUrl;
+		alert.append(' ', link);
+	}
+}
+
 /** The message of a refusal: Kaláka's own (a `kalaka_` code) as it comes, anything else the failure text. */
 function refusalMessage(body, failure) {
 	return typeof body?.code === 'string' &&
@@ -526,9 +556,13 @@ async function run(form) {
 		body.availability === null ||
 		typeof body.availability !== 'object'
 	) {
-		alertOf(form).textContent = ok
-			? started.failure
-			: refusalMessage(body, started.failure);
+		if (!ok && body?.code === SESSION_ENDED) {
+			showSessionEnded(form, body.message);
+		} else {
+			alertOf(form).textContent = ok
+				? started.failure
+				: refusalMessage(body, started.failure);
+		}
 		started.stale = true;
 	} else {
 		if (started.stale) {
@@ -763,6 +797,9 @@ function outcome({ ok, body }, failure) {
 			? { html: body.after_submit }
 			: { message: failure };
 	}
+	if (body?.code === SESSION_ENDED) {
+		return { sessionEnded: true, message: body.message };
+	}
 	const fields = body?.data?.fields;
 	const hasFields = fields !== null && typeof fields === 'object';
 	const own = typeof body?.code === 'string' && OWN_CODE.test(body.code);
@@ -867,6 +904,11 @@ async function send(form) {
 		return;
 	}
 	reflect(form);
+	if (result.sessionEnded) {
+		showSessionEnded(form, result.message);
+		focusOn(alertOf(form));
+		return;
+	}
 	if (
 		hasPages(started) &&
 		result.code === 'kalaka_form_terminal' &&

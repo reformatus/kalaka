@@ -214,6 +214,35 @@ describe('the answer to a send', () => {
 		expect(alert().textContent).toBe('Ütközés.');
 	});
 
+	test('an ended session shows its own message and the link to log in again (S15)', async () => {
+		const loginUrl = 'http://example.test/wp-login.php?redirect_to=x';
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(401, { code: 'kalaka_session_ended', message: 'Lépj be újra.', data: { status: 401 } })
+		);
+		await load(form(text('name'), { nonce: 'n0nce', loginUrl, logIn: 'Bejelentkezés' }));
+
+		submit(root());
+		await settle();
+
+		expect(alert().textContent).toBe('Lépj be újra. Bejelentkezés');
+		expect(alert().querySelector('a').getAttribute('href')).toBe(loginUrl);
+		expect(document.activeElement).toBe(alert());
+	});
+
+	test('while its texts are placeholders, an ended session shows the code and the address', async () => {
+		const loginUrl = 'http://example.test/wp-login.php?redirect_to=x';
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(401, { code: 'kalaka_session_ended', message: '', data: { status: 401 } })
+		);
+		await load(form(text('name'), { nonce: 'n0nce', loginUrl, logIn: '' }));
+
+		submit(root());
+		await settle();
+
+		expect(alert().textContent).toBe(`kalaka_session_ended ${loginUrl}`);
+		expect(alert().querySelector('a').textContent).toBe(loginUrl);
+	});
+
 	test('a network failure shows the system failure text the page passes in', async () => {
 		globalThis.fetch.mockRejectedValueOnce(new TypeError('network'));
 		await load(page);

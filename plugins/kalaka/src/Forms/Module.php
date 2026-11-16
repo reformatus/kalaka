@@ -91,6 +91,7 @@ final class Module extends AbstractModule
         add_action('template_redirect', [$this, 'signUpRedirect'], 9);
         add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
+        add_filter('rest_post_dispatch', [FormRoutes::class, 'sessionEnded'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
         add_shortcode(FormCaching::SHORTCODE, [$this, 'shortcode']);
     }

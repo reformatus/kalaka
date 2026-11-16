@@ -37,11 +37,20 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
  * Every answer of both routes, refusals included, carries `Cache-Control: no-store` (`noStore()`).
  * The current user is the one WordPress authenticated for the request; with cookie authentication that
- * needs the `wp_rest` nonce, else the request is a guest's.
+ * needs the `wp_rest` nonce, else the request is a guest's. A nonce WordPress no longer accepts (the
+ * session ended: say the password was set on another device, which logs out every session) is refused
+ * before any route runs, as `rest_cookie_invalid_nonce`; for these routes that answer becomes
+ * `kalaka_session_ended` (`sessionEnded()`), which the page shows with a link to log in again.
  */
 final class FormRoutes
 {
     public const NAMESPACE = 'kalaka-portal/v1';
+
+    /** The refusal of a request whose session ended: logging in again is the way on. [UNAPPROVED #191 N24] */
+    public const SESSION_ENDED = 'kalaka_session_ended';
+
+    // [UNAPPROVED #191 T8] placeholder, empty until the owner's text: the page shows the code in its place.
+    public const SESSION_ENDED_TEXT = '';
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';
@@ -94,6 +103,33 @@ final class FormRoutes
         $response->header('Cache-Control', FormCaching::CACHE_CONTROL);
 
         return $response;
+    }
+
+    /**
+     * On `rest_post_dispatch`: for these routes, WordPress's refusal of a stale `wp_rest` nonce
+     * (`rest_cookie_invalid_nonce`, made before any route runs, so neither the boundary nor `noStore()` sees
+     * it) becomes `kalaka_session_ended` (401), with `Cache-Control: no-store`. A retry never helps: only
+     * logging in again does. Anything else passes unchanged.
+     *
+     * @internal
+     */
+    public static function sessionEnded(mixed $response, mixed $server, mixed $request): mixed
+    {
+        unset($server);
+        if (
+            !$response instanceof \WP_REST_Response
+            || !$request instanceof \WP_REST_Request
+            || !str_starts_with($request->get_route(), self::PREFIX)
+            || $response->as_error()?->get_error_code() !== 'rest_cookie_invalid_nonce'
+        ) {
+            return $response;
+        }
+        $ended = rest_convert_error_to_response(
+            new \WP_Error(self::SESSION_ENDED, self::SESSION_ENDED_TEXT, ['status' => 401])
+        );
+        $ended->header('Cache-Control', FormCaching::CACHE_CONTROL);
+
+        return $ended;
     }
 
     /**
