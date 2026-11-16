@@ -244,7 +244,8 @@ values and conditions, prefill and form links
   answers of fields that show. It keeps nothing across a reload itself: a
   logged-in person's answers survive only as their draft, which the autosave
   sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
-  once a send starts.
+  once a send starts, once the person's choice on a link's answers is sent,
+  or once the route refuses a save as from before a claim.
 - A form opens with its host's draft (`FormHost::draft()`) over its stored
   values. The engine keeps only the draft answers the form's types accept,
   each checked alone (`FormEngine::accepted()`); the rest open empty.

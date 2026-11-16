@@ -138,10 +138,13 @@ erDiagram
   device. A guest's typing is never saved. A **guest draft** holds only the
   answers a link or the quiz handed over, under a claim token in a cookie,
   for seven days; once its holder is logged in it becomes their draft, or,
-  when they have one, they choose: merge (the link's answers win), keep the
-  draft, or keep the link. The submit deletes the draft in its transaction,
-  and the periodic run deletes the drafts of an event whose registration has
-  closed or that is archived.
+  when they have one and the link changes one of its values, they choose:
+  merge (the link's answers win), keep the draft, or keep the link. A link
+  that changes none of its values leaves their draft as it is. A save from a
+  page opened before a claim that changed the draft is refused, never written
+  over it. The submit deletes the draft in its transaction, and the periodic
+  run deletes the drafts of an event whose registration has closed or that
+  is archived.
 - **A registration has one or more submissions.** A registration form's
   submission creates it; each submit of an additional form appends another
   ([Forms](events-and-forms.md#forms-and-the-registration-slot)). A

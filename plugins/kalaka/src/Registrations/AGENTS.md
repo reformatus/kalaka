@@ -122,4 +122,9 @@ the waitlist and reference codes
   `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
   the cookie's guest draft of the form in its own transaction. A draft never
   creates a registration and holds no place.
+- A claim that changes what a user draft holds (the guest draft becomes it,
+  merge, keep_link) raises its `claims` count, and nothing else does. An
+  autosave carries the count its page opened with; a different count is a
+  `VersionConflict`, never a write. A link that changes none of the draft's
+  values is settled as keep_draft, with no choice.
 - Only Registrations writes its tables.
