@@ -10,7 +10,9 @@
  * two buttons; the live region (WordPress's `screen-reader-text`) tells a screen reader an option's new
  * place. The handle (owner 2026-11-16) is the only part of a row that drags: a grip glyph, pointer-only
  * and hidden from screen readers, whose two buttons do the same. It alone takes `touch-action: none`,
- * so the rest of the row scrolls and taps as usual, and selects no text and opens no callout.
+ * so the rest of the row scrolls and taps as usual, and selects no text and opens no callout. It is a box
+ * of its own beside the label, at least 44 by 44 pixels (`RankingFieldType::HANDLE_STYLE`), whose
+ * `display` is set only while it is shown, so the `hidden` of an unranked option's handle holds.
  *
  * @var array<string, mixed> $attributes
  */
@@ -32,7 +34,8 @@ $kalakaLabels = RankingFieldType::labels($attributes);
 $kalakaRanked = [];
 $kalakaItem = static function (string $value, string $label, int $index, bool $ranked) use ($kalakaKey): string {
     return '<li data-kalaka-option="' . esc_attr((string) $index) . '">'
-        . '<span data-kalaka-handle aria-hidden="true" style="' . esc_attr(RankingFieldType::HANDLE_STYLE) . '"'
+        . '<span data-kalaka-handle aria-hidden="true" style="' . esc_attr(RankingFieldType::HANDLE_STYLE
+            . ($ranked ? ';display:' . RankingFieldType::HANDLE_DISPLAY : '')) . '"'
         . ($ranked ? '' : ' hidden') . '>' . esc_html(RankingFieldType::HANDLE) . '</span> '
         . '<label' . FieldMarkup::classAttribute(ElementRole::Option) . '>'
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'

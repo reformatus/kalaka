@@ -4,6 +4,7 @@
  */
 import { readAnswer } from '../../../kalaka/src/Forms/Blocks/form/answers';
 import {
+	HANDLE_DISPLAY,
 	announcement,
 	dropIndex,
 	move,
@@ -13,11 +14,19 @@ import {
 
 const OPTIONS = ['modul_a', 'modul_b', 'modul_c'];
 
+/** `RankingFieldType::HANDLE_STYLE`, which `RankingFieldFormTest` checks in the rendered markup. */
+const HANDLE_STYLE =
+	'touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;' +
+	'box-sizing:border-box;min-width:44px;min-height:44px;align-items:center;justify-content:center;' +
+	'vertical-align:middle';
+
 /** The field as `render.php` renders it, with no option ranked. */
 function render() {
 	const items = OPTIONS.map(
 		(value, index) =>
-			`<li data-kalaka-option="${index}"><span data-kalaka-handle aria-hidden="true" style="touch-action:none" hidden>⠿</span> <label><input type="checkbox" name="modulok[]" value="${value}" autocomplete="off"> ${value}</label>` +
+			`<li data-kalaka-option="${index}">` +
+			`<span data-kalaka-handle aria-hidden="true" style="${HANDLE_STYLE}" hidden>⠿</span> ` +
+			`<label><input type="checkbox" name="modulok[]" value="${value}" autocomplete="off"> ${value}</label>` +
 			` <button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden>Feljebb</button>` +
 			` <button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden>Lejjebb</button></li>`
 	).join('');
@@ -128,6 +137,42 @@ describe('the ranking field', () => {
 		expect(itemOf(field, 'modul_a').style.touchAction).toBeFalsy();
 		tick(field, 'modul_a');
 		expect(itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]').hidden).toBe(true);
+	});
+
+	test('a shown handle is a box of at least 44 by 44 pixels; a hidden one has no display to override hidden', () => {
+		const field = render();
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
+		expect(handle.style.display).toBe('');
+
+		tick(field, 'modul_a');
+		const shown = window.getComputedStyle(handle);
+		expect(HANDLE_DISPLAY).toBe('inline-flex');
+		expect(shown.display).toBe('inline-flex');
+		expect(shown.minWidth).toBe('44px');
+		expect(shown.minHeight).toBe('44px');
+		expect(shown.alignItems).toBe('center');
+		expect(shown.justifyContent).toBe('center');
+		// Only the handle takes what a drag needs: not the label beside it, nor the row.
+		expect(itemOf(field, 'modul_a').querySelector('label').hasAttribute('style')).toBe(false);
+		expect(handle.contains(itemOf(field, 'modul_a').querySelector('label'))).toBe(false);
+		expect(handle.closest('label')).toBeNull();
+
+		tick(field, 'modul_a');
+		expect(handle.hidden).toBe(true);
+		expect(handle.style.display).toBe('');
+	});
+
+	test('a tap on the handle is its own click, and neither ticks nor unticks the option', () => {
+		const field = render();
+		tick(field, 'modul_a');
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
+		const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+
+		handle.dispatchEvent(click);
+
+		expect(click.defaultPrevented).toBe(true);
+		expect(box(field, 'modul_a').checked).toBe(true);
+		expect(ranked(field)).toEqual(['modul_a']);
 	});
 });
 
@@ -300,6 +345,23 @@ describe('dragging a ranked option', () => {
 
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
 		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'modul_c']);
+	});
+
+	test('a touch on the handle drags, though the list takes the capture the handle held', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		layOut(field);
+		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
+
+		pointer('pointerdown', handle, 10);
+		pointer('pointermove', handle, 45);
+		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(true);
+		// A touch is captured by the handle it starts on; the list taking the capture makes the handle lose it.
+		pointer('lostpointercapture', handle, 45);
+		pointer('pointermove', handle, 70);
+		pointer('pointerup', handle, 70);
+
+		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 	});
 
 	test('a drag that ends where it started tells nothing', () => {

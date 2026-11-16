@@ -7,9 +7,12 @@
  *
  * A ranked option is reordered by dragging its handle (pointer events: a mouse, a pen or a finger; owner
  * 2026-11-16: only the handle drags, the rest of the row scrolls and taps as usual) or by its two
- * buttons, the keyboard's and the screen reader's way; the focus stays on a pressed button. The first option's up button and the
- * last one's down button are `aria-disabled` (they stay focusable, so a move that makes a button an edge
- * leaves the focus where it was). After a move the option's checkbox fires `change`, which bubbles to the
+ * buttons, the keyboard's and the screen reader's way. The handle is a box of at least 44 by 44 pixels
+ * beside the label, and it listens for its own clicks, so a touch browser takes it as a target of its own
+ * and does not move a finger at its edge to the label (UX on a phone, 2026-11-16); a tap on it does
+ * nothing. The focus stays on a pressed button. The first option's up button and the last one's down
+ * button are `aria-disabled` (they stay focusable, so a move that makes a button an edge leaves the focus
+ * where it was). After a move the option's checkbox fires `change`, which bubbles to the
  * form like any answer's change. The field's live region tells a screen reader an option's place after a
  * tick or a move, and is emptied after an untick, so it never holds a place that is no longer true.
  * Dragging needs no library: WordPress ships no drag support for a view script (its `Draggable` is a React
@@ -20,6 +23,12 @@
 
 const RANKED = '[data-kalaka-ranked]';
 const UNRANKED = '[data-kalaka-unranked]';
+
+/**
+ * The shown handle's `display` (`RankingFieldType::HANDLE_DISPLAY`): set only while it is shown, since an
+ * inline `display` overrides `hidden`.
+ */
+export const HANDLE_DISPLAY = 'inline-flex';
 
 /** How far, in CSS pixels, a pointer moves before a press on a ranked option becomes a drag. */
 export const DRAG_THRESHOLD = 6;
@@ -62,6 +71,7 @@ function setRanked(item, ranked) {
 	const handle = handleOf(item);
 	if (handle !== null) {
 		handle.hidden = !ranked;
+		handle.style.display = ranked ? HANDLE_DISPLAY : '';
 	}
 }
 
@@ -182,12 +192,11 @@ export function placeAt(item, index) {
 
 /**
  * Dragging within the ranked list, by an option's handle only. The list holds the pointer capture once a
- * press becomes a drag, since
- * the option itself moves in the document while it is dragged. A press that moves less than
- * `DRAG_THRESHOLD` stays a click; after a drag, the click that follows
- * is swallowed. A press ends wherever its pointer is released or cancelled (the window's `pointerup` and
- * `pointercancel`, the list's `lostpointercapture`), and a move with no button held ends it too, so
- * nothing reorders without a held pointer. A drag that ends where it started tells nothing.
+ * press becomes a drag, since the option itself moves in the document while it is dragged. A press that
+ * moves less than `DRAG_THRESHOLD` stays a click; after a drag, the click that follows is swallowed. A
+ * press ends wherever its pointer is released or cancelled (the window's `pointerup` and `pointercancel`,
+ * the list's loss of its own capture), and a move with no button held ends it too, so nothing reorders
+ * without a held pointer. A drag that ends where it started tells nothing.
  */
 function startDragging(field) {
 	const list = field.querySelector(RANKED);
@@ -272,7 +281,13 @@ function startDragging(field) {
 		placeAt(press.item, dropIndex(middles, event.clientY));
 	});
 
-	list.addEventListener('lostpointercapture', end);
+	// Only the list's own capture: a touch's implicit capture by the handle is lost when the list takes it,
+	// and that loss, bubbling up from the handle, is no end of the press.
+	list.addEventListener('lostpointercapture', (event) => {
+		if (event.target === list) {
+			end(event);
+		}
+	});
 	view.addEventListener('pointerup', end, true);
 	view.addEventListener('pointercancel', end, true);
 }
@@ -309,6 +324,11 @@ export function start(field) {
 	}
 	markEdges(field);
 	startDragging(field);
+	// A handle that listens for clicks is a tap target of its own: a touch at its edge stays on it and is
+	// not moved to the label next to it. A tap on it does nothing.
+	for (const handle of field.querySelectorAll('[data-kalaka-handle]')) {
+		handle.addEventListener('click', (event) => event.preventDefault());
+	}
 }
 
 for (const field of document.querySelectorAll('[data-kalaka-ranking]')) {

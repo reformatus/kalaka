@@ -40,10 +40,20 @@ final class RankingFieldType extends AbstractFieldType
 
     /**
      * What dragging needs on the handle, and only there: a pointer drag instead of a scroll, no text
-     * selection or callout on a long press, and the grab cursor.
+     * selection or callout on a long press, and the grab cursor. The handle is a box of its own beside the
+     * label, at least 44 by 44 pixels with the grip in its middle, so that a finger on it lands on it and
+     * not on the label next to it (UX on a phone, 2026-11-16: the bare grip, 10 by 19 pixels, lost the
+     * touch to the label). No colour, border or other look of its own.
      */
     public const HANDLE_STYLE = 'touch-action:none;user-select:none;-webkit-user-select:none;'
-        . '-webkit-touch-callout:none;cursor:grab';
+        . '-webkit-touch-callout:none;cursor:grab;box-sizing:border-box;min-width:44px;min-height:44px;'
+        . 'align-items:center;justify-content:center;vertical-align:middle';
+
+    /**
+     * The shown handle's `display`, set only while it is shown: an inline `display` would override the
+     * `hidden` of an unranked option's handle.
+     */
+    public const HANDLE_DISPLAY = 'inline-flex';
     public const TOO_FEW = 'Legalább %d lehetőséget válassz.';
     public const TOO_MANY = 'Legfeljebb %d lehetőséget válassz.';
 

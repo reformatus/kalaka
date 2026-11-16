@@ -42,7 +42,9 @@ It holds the ranking field type now and the ranking proposer later (S77).
   ordered list, so the form sends them in rank order. A ranked option moves
   by a drag of its handle (pointer events: mouse, pen, touch; only the handle
   drags and only it takes `touch-action: none`, so the rest of the row scrolls
-  and taps as usual; owner 2026-11-16) or by its Feljebb and Lejjebb buttons
+  and taps as usual; owner 2026-11-16; it is a box of its own beside the label,
+  at least 44 by 44 pixels, that listens for its own clicks, so a touch on it
+  is not moved to the label, and a tap on it does nothing) or by its Feljebb and Lejjebb buttons
   (the keyboard's and the screen reader's way; the handle is `aria-hidden`); every move fires `change` and is announced in
   the field's live region, as is a tick, and an untick empties it. A press ends
   wherever its pointer is released or cancelled, and nothing reorders without a
