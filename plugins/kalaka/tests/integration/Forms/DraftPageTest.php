@@ -43,7 +43,8 @@ final class DraftPageTest extends FormsTestCase
         $this->update($this->event);
         $this->transition(new PublishEvent(), $this->event);
         $this->form = $this->insertForm(
-            $this->slotFields() . $this->field('choice', 'size', ['options' => self::SIZES]) . $this->field('text', 'note'),
+            $this->slotFields() . $this->field('choice', 'size', ['options' => self::SIZES])
+                . $this->field('text', 'note'),
             ['kalaka_event_id' => $this->event]
         );
     }

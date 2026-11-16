@@ -67,6 +67,13 @@ final class DraftsTest extends FormsTestCase
         $this->drafts->save($this->event, $this->form, $this->version(), new AnswerSet($answers), $page, $actor);
     }
 
+    /** A draft of another event's form. */
+    private function saveFor(int $event, int $form): void
+    {
+        $version = $this->readForm($form)->version;
+        (new Drafts($this->runner))->save($event, $form, $version, new AnswerSet(['name' => 'x']), 0, $this->person());
+    }
+
     /** @param array<string, mixed> $answers */
     private function handOver(array $answers, ?string $earlier = null): string
     {
@@ -118,7 +125,14 @@ final class DraftsTest extends FormsTestCase
     {
         $this->expectException(PermissionDenied::class);
 
-        $this->drafts->save($this->event, $this->form, $this->version(), new AnswerSet(['name' => 'x']), 0, new GuestActor());
+        $this->drafts->save(
+            $this->event,
+            $this->form,
+            $this->version(),
+            new AnswerSet(['name' => 'x']),
+            0,
+            new GuestActor()
+        );
     }
 
     public function testTheAuditNamesTheDraftButNeverItsAnswers(): void
@@ -129,7 +143,10 @@ final class DraftsTest extends FormsTestCase
         self::assertSame('kalaka-portal/save-draft', $entry['action']);
         self::assertStringNotContainsString('Teszt Anna', (string) $entry['changes']);
         self::assertStringContainsString('"masked":true', (string) $entry['changes']);
-        self::assertSame(['draft/' . $this->event . '/' . $this->draftRows()[0]['id']], $this->subjectsOf((int) $entry['id']));
+        self::assertSame(
+            ['draft/' . $this->event . '/' . $this->draftRows()[0]['id']],
+            $this->subjectsOf((int) $entry['id'])
+        );
     }
 
     public function testAHandoffKeepsAGuestDraftUnderTheTokensHashForSevenDays(): void
@@ -208,7 +225,10 @@ final class DraftsTest extends FormsTestCase
             DraftClaimChoice::Merge,
             ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org', 'note' => 'a kvízből'],
         ];
-        yield 'keep the draft' => [DraftClaimChoice::KeepDraft, ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org', 'note' => 'saját']];
+        yield 'keep the draft' => [
+            DraftClaimChoice::KeepDraft,
+            ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org', 'note' => 'saját'],
+        ];
         yield 'keep the link' => [DraftClaimChoice::KeepLink, ['note' => 'a kvízből']];
     }
 
@@ -216,8 +236,10 @@ final class DraftsTest extends FormsTestCase
      * @dataProvider choices
      * @param array<string, string> $expected
      */
-    public function testTheChoiceSettlesTheConflictAndDeletesTheGuestDraft(DraftClaimChoice $choice, array $expected): void
-    {
+    public function testTheChoiceSettlesTheConflictAndDeletesTheGuestDraft(
+        DraftClaimChoice $choice,
+        array $expected
+    ): void {
         $anna = $this->person();
         $this->save($anna, self::ANSWERS + ['note' => 'saját']);
         $token = $this->handOver(['note' => 'a kvízből']);
@@ -275,19 +297,18 @@ final class DraftsTest extends FormsTestCase
         self::assertSame([], $this->draftRows());
     }
 
-    public function testTheSweepKeepsOpenAndUnpublishedEventsDraftsAndDeletesAnArchivedEventsAndExpiredGuestDrafts(): void
+    public function testTheSweepKeepsOpenAndUnpublishedDraftsAndDeletesArchivedAndExpiredOnes(): void
     {
         $this->save($this->person(), self::ANSWERS);
         $archived = $this->published();
         $archivedForm = $this->insertForm($this->slotFields(), ['kalaka_event_id' => $archived]);
-        (new Drafts($this->runner))->save($archived, $archivedForm, $this->readForm($archivedForm)->version, new AnswerSet(['name' => 'x']), 0, $this->person());
+        $this->saveFor($archived, $archivedForm);
         $this->transition(new UnpublishEvent(), $archived);
         $this->transition(new ArchiveEvent(), $archived);
         $this->handOver(['note' => 'x']);
         $paused = $this->published();
         $pausedForm = $this->insertForm($this->slotFields(), ['kalaka_event_id' => $paused]);
-        $version = $this->readForm($pausedForm)->version;
-        (new Drafts($this->runner))->save($paused, $pausedForm, $version, new AnswerSet(['name' => 'x']), 0, $this->person());
+        $this->saveFor($paused, $pausedForm);
         $this->transition(new UnpublishEvent(), $paused);
 
         $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-08 08:00:00', new \DateTimeZone('UTC'))));
