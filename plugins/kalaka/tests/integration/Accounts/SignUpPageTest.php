@@ -32,7 +32,7 @@ final class SignUpPageTest extends AccountsTestCase
      */
     private function signUp(string $email, array $more = []): int|\WP_Error
     {
-        // phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- a test sets the request
+        // phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- a test
         $_SERVER['REQUEST_METHOD'] = 'POST';
         $_POST = ['user_login' => 'amit-a-latogato-irt', 'user_email' => $email, 'redirect_to' => self::back()] + $more;
         $_REQUEST = $_POST;

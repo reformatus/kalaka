@@ -160,7 +160,7 @@ final class FormPage
      */
     private function skipped(AccountStep $step, Form $form): bool
     {
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a link back from the registration page; no form
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a link back from sign-up
         return $step === AccountStep::Offered && SignUp::skipped($form->id, wp_unslash($_GET));
     }
 

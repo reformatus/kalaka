@@ -28,7 +28,7 @@ abstract class AccountsTestCase extends FormsTestCase
     /** @var list<array<string, mixed>> what `wp_mail` was called with */
     protected array $mails = [];
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's name
     public function set_up(): void
     {
         parent::set_up();
@@ -41,7 +41,7 @@ abstract class AccountsTestCase extends FormsTestCase
         wp_set_current_user(0);
     }
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's name
     public function tear_down(): void
     {
         remove_filter('pre_wp_mail', [$this, 'recordMail'], 10);

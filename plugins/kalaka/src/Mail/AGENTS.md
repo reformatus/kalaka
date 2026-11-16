@@ -88,7 +88,8 @@ bodies, the renderer and the per-event action-mail catalogue.
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
   gets the body's facts (`Catalogue\MailBody`: its event, whether it is
-  published, whether it reads `account.password_link`) read before the run by its entry, `Api\ActionMailSettings::update()`;
+  published, whether it reads `account.password_link`) read before the
+  run by its entry, `Api\ActionMailSettings::update()`;
   run without them it refuses a body assignment or a switch-on. It does not
   check the keys: a body is checked at its save, and one that goes stale
   later fails per delivery without pausing.

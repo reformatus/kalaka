@@ -59,7 +59,7 @@ final class SignUpRedirect
         if (!$post instanceof \WP_Post) {
             return;
         }
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a link back from the registration page; no form
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a link back from sign-up
         $target = $this->target($post, is_user_logged_in(), wp_unslash($_GET), FormPage::here());
         if ($target !== null) {
             FormCaching::preventCaching();

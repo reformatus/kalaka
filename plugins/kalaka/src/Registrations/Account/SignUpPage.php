@@ -120,7 +120,7 @@ final class SignUpPage
         }
         self::$flag = true;
         $email = sanitize_email(self::input('post', 'user_email') ?? '');
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- the login name core reads next; WordPress's registration form has no nonce
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- core's form has no nonce
         $_POST['user_login'] = LoginName::from($email);
     }
 
@@ -419,7 +419,7 @@ final class SignUpPage
      */
     private static function input(string $source, string $name, bool $text = true): ?string
     {
-        // phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- see above; sanitized below
+        // phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- see above
         $values = match ($source) {
             'get' => $_GET,
             'post' => $_POST,
@@ -427,7 +427,7 @@ final class SignUpPage
             'cookie' => $_COOKIE,
             'server' => $_SERVER,
         };
-        // phpcs:enable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+        // phpcs:enable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
         $value = $values[$name] ?? null;
         if (!is_string($value)) {
             return null;

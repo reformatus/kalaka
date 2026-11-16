@@ -16,7 +16,7 @@ use Kalaka\Forms\Engine\Rest\FormRoutes;
  */
 final class SessionEndedTest extends \WP_UnitTestCase
 {
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's name
     public function tear_down(): void
     {
         unset($GLOBALS['wp_rest_auth_cookie'], $_SERVER['HTTP_X_WP_NONCE']);
