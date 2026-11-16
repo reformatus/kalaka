@@ -22,7 +22,8 @@ $kalakaRequired = FieldMarkup::flag($attributes, 'required');
 <div <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?>>
     <label<?php echo FieldMarkup::classAttribute(ElementRole::Label); ?>>
         <input type="checkbox" name="<?php echo esc_attr($kalakaKey); ?>" value="1"<?php
-            echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : ''; ?>>
+            echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : '',
+                FieldMarkup::prefilled($kalakaKey) === true ? ' checked' : ''; ?>>
         <?php
         echo FieldMarkup::title(FieldMarkup::text($attributes, 'label')), FieldMarkup::requiredMarker($kalakaRequired);
         ?>

@@ -102,6 +102,15 @@ final class EventFormHost implements FormHost
         return SharedKeyCheck::problem($content, $form->eventId, Contributions::current());
     }
 
+    /**
+     * Nothing yet: a registration form opens empty. An additional form's current values (S60) and a draft
+     * (S74) come here.
+     */
+    public function prefill(Form $form): array
+    {
+        return [];
+    }
+
     public function submitToken(): string
     {
         return SubmitToken::generate();

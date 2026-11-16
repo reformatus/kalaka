@@ -80,6 +80,17 @@ final class ChoiceFieldType extends AbstractFieldType
         return FieldAnswer::stored($multiple ? (string) wp_json_encode($chosen) : $chosen[0]);
     }
 
+    /** The chosen option value, or the list of them when `multiple`; null for none. */
+    public function prefill(FieldTypeInput $input): mixed
+    {
+        $data = $this->value($input)->data;
+        if (!is_array($data) || $data === []) {
+            return null;
+        }
+
+        return ($input->attributes['multiple'] ?? false) === true ? $data : $data[0];
+    }
+
     public function valueType(): ValueType
     {
         return ValueType::Choice;

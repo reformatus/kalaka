@@ -36,11 +36,13 @@ $kalakaOptions = is_array($attributes['options'] ?? null) ? $attributes['options
     <?php if ($kalakaMultiple) : ?>
             <input type="checkbox" name="<?php echo esc_attr($kalakaKey); ?>[]"
                 value="<?php echo esc_attr($kalakaValue); ?>"<?php
-                echo FieldMarkup::classAttribute(ElementRole::ChoiceControl); ?>>
+                echo FieldMarkup::classAttribute(ElementRole::ChoiceControl),
+                    FieldMarkup::prefilledHas($kalakaKey, $kalakaValue) ? ' checked' : ''; ?>>
     <?php else : ?>
             <input type="radio" name="<?php echo esc_attr($kalakaKey); ?>"
                 value="<?php echo esc_attr($kalakaValue); ?>"<?php
-                echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : ''; ?>>
+                echo FieldMarkup::classAttribute(ElementRole::ChoiceControl), $kalakaRequired ? ' required' : '',
+                    FieldMarkup::prefilledHas($kalakaKey, $kalakaValue) ? ' checked' : ''; ?>>
     <?php endif; ?>
             <?php echo FieldMarkup::title(FieldMarkup::text($kalakaOption, 'label')); ?>
         </label>

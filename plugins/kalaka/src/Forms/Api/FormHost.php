@@ -12,9 +12,9 @@ use Kalaka\Foundation\Api\Actor\Actor;
  * never imports Events, Registrations, ParticipantFields or Admin; it asks here (deptrac: the
  * `Forms Engine` layer). Like `BlockHost`, it lets the engine work without knowing the module behind it.
  *
- * The five ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
+ * The six ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * what a submit does (`submitToken()`, `submit()`), and what the after-submit section reads
+ * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), and what the after-submit section reads
  * (`afterSubmitTypes()`).
  */
 interface FormHost
@@ -57,6 +57,16 @@ interface FormHost
      * @return array{string, string}|null the problem code and the field key
      */
     public function keyProblem(Form $form, string $content): ?array;
+
+    /**
+     * The stored values the form opens with, by field key (events-and-forms.md, "Prefill from a link"),
+     * e.g. for an additional form the current field values of the registration it writes to. The engine turns
+     * each into its field's answer (`FieldType::prefill()`) and renders the form for those answers. Read
+     * when the page renders, outside any transaction. [UNAPPROVED N2] (#189's N2, the engine contract)
+     *
+     * @return array<string, string>
+     */
+    public function prefill(Form $form): array;
 
     /** A new submit token, issued on every render of the form's page into its hidden field. */
     public function submitToken(): string;

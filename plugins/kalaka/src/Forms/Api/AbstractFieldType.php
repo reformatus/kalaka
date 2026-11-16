@@ -27,6 +27,12 @@ abstract class AbstractFieldType implements FieldType
         return Value::text($stored, $stored);
     }
 
+    /** The stored string, as a text control holds it; null for none. */
+    public function prefill(FieldTypeInput $input): mixed
+    {
+        return is_string($input->value) && $input->value !== '' ? $input->value : null;
+    }
+
     /**
      * The text without the whitespace at either end.
      *

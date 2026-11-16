@@ -26,4 +26,14 @@ interface FieldType
 
     /** The value of a stored answer: `$input->value` is the stored string. */
     public function value(FieldTypeInput $input): Value;
+
+    /**
+     * The answer a form opens with for a stored value (events-and-forms.md, "Prefill from a link"; an
+     * additional form opens with the registration's current values): `$input->value` is the stored
+     * string, and the answer is what the field's controls hold, of the JSON type `answer()` takes. Null
+     * opens the field empty: a type that refuses prefill always returns null, and its field left blank then
+     * keeps its value (events-and-forms.md, "Changing participant fields after submit").
+     * [UNAPPROVED N1] (#189's N1, the field-type contract)
+     */
+    public function prefill(FieldTypeInput $input): mixed;
 }
