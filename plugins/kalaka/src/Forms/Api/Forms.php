@@ -212,6 +212,15 @@ final class Forms
     }
 
     /**
+     * The answers the form's field types accept, each checked alone; the rest are dropped silently
+     * (`Engine\FormEngine::accepted()`): for a link's or the quiz's prefill, and a draft (S74).
+     */
+    public function accepted(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    {
+        return $this->engine->accepted($definition, $answers);
+    }
+
+    /**
      * What the form shows for answers as they stand (a draft, "if submitted now"; S76): the read model
      * every render and re-render of the form's page builds from. Pure; errors in the answers are not
      * reported here, an answer in error reads as empty.

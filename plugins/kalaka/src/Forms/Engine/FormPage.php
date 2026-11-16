@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
@@ -189,9 +190,14 @@ final class FormPage
     {
         $definition = $this->forms->definition($form, null, true);
 
-        // What the form opens with: the host's stored values as answers (none for a new registration),
-        // and what the form shows for them.
-        $answers = $this->prefilled($definition, $this->host->prefill($form));
+        // What the form opens with: the host's stored values (none for a new registration) with the person's
+        // draft over them (S74), as answers, and what the form shows for them. A draft answer this version's
+        // types do not accept opens empty.
+        $draft = $this->host->draft($form);
+        $answers = $this->prefilled(
+            $definition,
+            array_replace($this->host->prefill($form), $this->forms->acceptedValues($definition, $draft->answers))
+        );
         $availability = $this->forms->availability($definition, $answers, $values);
         $here = self::here();
         $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(
@@ -222,7 +228,28 @@ final class FormPage
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, $this->host->submitToken());
+        ] + self::draftData($form, $draft), null, $this->host->submitToken());
+    }
+
+    /**
+     * The script's part of the draft (S74): the autosave route while the person's draft is saved, and the
+     * claim route while a link's answers wait for the person's choice against the draft. Nothing otherwise.
+     *
+     * @return array<string, mixed>
+     */
+    private static function draftData(Form $form, FormDraft $draft): array
+    {
+        $data = [];
+        if ($draft->autosave) {
+            // `Rest\FormRoutes::saveDraft()`.
+            $data['draftUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft');
+        }
+        if ($draft->claimConflict) {
+            // `Rest\FormRoutes::resolveDraftClaim()`; the choice is the person's (the popup, UX).
+            $data['draftClaimUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft/claim');
+        }
+
+        return $data;
     }
 
     /**

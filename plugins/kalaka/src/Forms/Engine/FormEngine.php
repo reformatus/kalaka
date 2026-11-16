@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine;
 
+use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\Facts;
+use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
@@ -172,6 +174,59 @@ final class FormEngine
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
         return $this->validator->validate($definition, $answers, Contributions::current(), $facts);
+    }
+
+    /**
+     * The answers its fields' types accept, each checked alone (`Api\Forms::accepted()`): an answer to a key
+     * the form does not hold, one of the wrong JSON type, one its type finds an error in or makes nothing of
+     * is dropped, silently. Conditions are not walked here: what does not show is dropped by the walk of
+     * whoever reads the answers. For answers no person typed into this form: a draft kept from an earlier
+     * version, or a link's or the quiz's prefill (S74).
+     */
+    public function accepted(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    {
+        return new AnswerSet(array_map(
+            static fn (array $checked): mixed => $checked[0],
+            $this->checked($definition, $answers)
+        ));
+    }
+
+    /**
+     * The accepted answers (`accepted()`) as the values they would be stored as: what the form opens with
+     * for them, through `FieldType::prefill()` like its host's stored values.
+     *
+     * @return array<string, string> field key → the value to store
+     */
+    public function acceptedValues(FormDefinition $definition, AnswerSet $answers): array
+    {
+        return array_map(static fn (array $checked): string => $checked[1], $this->checked($definition, $answers));
+    }
+
+    /** @return array<string, array{mixed, string}> field key → the answer as sent and the value to store */
+    private function checked(FormDefinition $definition, AnswerSet $answers): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $checked = [];
+        foreach ($definition->fields as $field) {
+            if (!array_key_exists($field->key, $answers->answers)) {
+                continue;
+            }
+            $type = $types[$field->blockName] ?? null;
+            if ($type === null) {
+                continue;
+            }
+            $sent = $answers->answers[$field->key];
+            try {
+                $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
+            } catch (InvalidInput) {
+                continue;
+            }
+            if ($answer->error === null && $answer->value !== null) {
+                $checked[$field->key] = [$sent, $answer->value];
+            }
+        }
+
+        return $checked;
     }
 
     /**

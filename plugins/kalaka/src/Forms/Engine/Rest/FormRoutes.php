@@ -6,6 +6,8 @@ namespace Kalaka\Forms\Engine\Rest;
 
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AccountStep;
+use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormCaching;
@@ -45,6 +47,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
  *   `Registrations\Api\RegistrationSubmit`).
+ * - `POST kalaka-portal/v1/forms/{id}/draft` `{version, answers, page}` → `{saved: true}` (S74, the
+ *   autosave): the host keeps the answers as the logged-in person's draft (`FormHost::saveDraft()`). The
+ *   body is at most `DRAFT_LIMIT` bytes; only the form's own keys are kept, as sent.
+ * - `POST kalaka-portal/v1/forms/{id}/draft/claim` `{choice}` → `{resolved: true}` (S74): the person's
+ *   choice between a link's answers and their own draft (`FormHost::resolveDraftClaim()`).
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
@@ -66,6 +73,9 @@ final class FormRoutes
     // #191 T8 (the owner's ruling 2026-11-18, shortened).
     public const SESSION_ENDED_TEXT
         = 'Ebben a böngészőben már nem vagy bejelentkezve. Jelentkezz be újra.';
+
+    /** The largest autosave body, in bytes (S74). */
+    public const DRAFT_LIMIT = 65536;
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';
@@ -94,6 +104,16 @@ final class FormRoutes
         Boundary::route(self::NAMESPACE, '/forms/(?P<id>\d+)/submit', [
             'methods' => 'POST',
             'callback' => [$this, 'submit'],
+            'permission_callback' => '__return_true',
+        ]);
+        Boundary::route(self::NAMESPACE, '/forms/(?P<id>\d+)/draft', [
+            'methods' => 'POST',
+            'callback' => [$this, 'saveDraft'],
+            'permission_callback' => '__return_true',
+        ]);
+        Boundary::route(self::NAMESPACE, '/forms/(?P<id>\d+)/draft/claim', [
+            'methods' => 'POST',
+            'callback' => [$this, 'resolveDraftClaim'],
             'permission_callback' => '__return_true',
         ]);
     }
@@ -291,6 +311,85 @@ final class FormRoutes
             $post instanceof \WP_Post && !post_password_required($post),
             $actor
         );
+    }
+
+    /**
+     * The autosave (S74): the form's own keys of the answers, as sent, kept as the logged-in person's draft
+     * while the form can be used. A guest is refused by the host (its answers stay in the page).
+     *
+     * @return array{saved: true}
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function saveDraft(\WP_REST_Request $request): array
+    {
+        LoadState::current()->requireOpen();
+        if (strlen((string) $request->get_body()) > self::DRAFT_LIMIT) {
+            $error = new InvalidInput();
+            throw $error;
+        }
+        $body = $this->body($request);
+        $page = $body['page'] ?? 0;
+        if (!is_int($page) || $page < 0) {
+            $error = new InvalidInput();
+            throw $error;
+        }
+        $form = $this->usableForm($request);
+        $definition = $this->forms->latestDefinition($form, $this->version($body));
+        $answers = [];
+        foreach ($this->answers($body) as $key => $answer) {
+            if ($definition->field((string) $key) !== null) {
+                $answers[(string) $key] = $answer;
+            }
+        }
+        $this->host->saveDraft($form, $definition->version, new AnswerSet($answers), $page, $this->actor());
+
+        return ['saved' => true];
+    }
+
+    /**
+     * The person's choice between a link's answers and their own draft (S74).
+     *
+     * @return array{resolved: true}
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function resolveDraftClaim(\WP_REST_Request $request): array
+    {
+        LoadState::current()->requireOpen();
+        $choice = DraftClaimChoice::tryFrom((string) ($this->body($request)['choice'] ?? ''));
+        if ($choice === null) {
+            $error = new InvalidInput();
+            throw $error;
+        }
+        $this->host->resolveDraftClaim($this->usableForm($request), $choice, $this->actor());
+
+        return ['resolved' => true];
+    }
+
+    /**
+     * The form of the route, when it can be used now: the same checks as its page.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    private function usableForm(\WP_REST_Request $request): Form
+    {
+        $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
+        $post = get_post($form->id);
+        if ($this->host->facts($form) === null || !$post instanceof \WP_Post) {
+            $error = new NotFound();
+            throw $error;
+        }
+        $refusals = $this->host->refusals(
+            $form,
+            Runner::current()->clock()->now(),
+            FormsPage::currentRoles(),
+            !post_password_required($post)
+        );
+        if ($refusals !== []) {
+            $error = new FormRefused($refusals);
+            throw $error;
+        }
+
+        return $form;
     }
 
     /**

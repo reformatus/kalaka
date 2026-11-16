@@ -87,6 +87,10 @@ final class Module extends AbstractModule
             add_action('wp_loaded', [$check, 'run']);
         }
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
+        // S74: a link's or the quiz's answers handed to a registration form, before `template_redirect`.
+        add_action('wp', static function (): void {
+            (new DraftHandoff())->onWp();
+        });
         add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
         add_filter('rest_post_dispatch', [FormRoutes::class, 'sessionEnded'], 10, 3);

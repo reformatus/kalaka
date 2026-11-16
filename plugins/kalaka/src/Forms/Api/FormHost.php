@@ -14,9 +14,9 @@ use Kalaka\Foundation\Api\Actor\Actor;
  *
  * The seven ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), what
- * the after-submit section reads (`afterSubmitTypes()`), and whether the form needs an account
- * (`accountStep()`).
+ * the values the form opens with (`prefill()`), the person's draft (`draft()`, `saveDraft()`,
+ * `resolveDraftClaim()`), what a submit does (`submitToken()`, `submit()`), what the after-submit section
+ * reads (`afterSubmitTypes()`), and whether the form needs an account (`accountStep()`).
  */
 interface FormHost
 {
@@ -68,6 +68,28 @@ interface FormHost
      * @return array<string, string>
      */
     public function prefill(Form $form): array;
+
+    /**
+     * The person's draft the form opens with (S74), read when the page renders, outside any transaction:
+     * its answers are laid over `prefill()`'s. An empty `FormDraft` when there is none.
+     */
+    public function draft(Form $form): FormDraft;
+
+    /**
+     * Keeps the answers as the person's draft of the form (S74, the autosave), as a use case. Only a
+     * logged-in person has a draft that is saved; anyone else is refused.
+     *
+     * @param int $version the form version the answers were given against
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function saveDraft(Form $form, int $version, AnswerSet $answers, int $page, Actor $actor): void;
+
+    /**
+     * Settles a link's answers against the person's own draft with the person's choice (S74).
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void;
 
     /** A new submit token, issued on every render of the form's page into its hidden field. */
     public function submitToken(): string;

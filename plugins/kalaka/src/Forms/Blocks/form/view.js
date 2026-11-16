@@ -87,6 +87,9 @@ const NONCE = /^[0-9a-f]{10}$/;
 /** How long a request runs before the spinner shows. */
 export const SPINNER_DELAY = 2000;
 
+/** How long the answers rest before the autosave keeps them (S74). */
+export const DRAFT_DELAY = 3000;
+
 function plain(data) {
 	return JSON.parse(JSON.stringify(data));
 }
@@ -442,6 +445,7 @@ function showButtons(form) {
 function showPage(form, number, move = true) {
 	const started = forms.get(form);
 	started.page = number;
+	saveDraft(form);
 	if (started.refusedTo !== number) {
 		started.refusedTo = null;
 	}
@@ -674,6 +678,61 @@ function applyAccount(form, account) {
 	}
 	if (trigger) {
 		refetch(form);
+	}
+}
+
+/**
+ * The autosave (S74): while the page has a draft route (a logged-in person on a registration form), the
+ * answers that show are kept as the person's draft once they rest for `DRAFT_DELAY`, on every page move,
+ * and when the page is left (`keepalive`). It shows nothing: a failed save is tried again with the next
+ * change. A send takes what waits: the submit deletes the draft.
+ */
+function draftChanged(form) {
+	const started = forms.get(form);
+	if (!started?.draftUrl) {
+		return;
+	}
+	started.draftDirty = true;
+	clearTimeout(started.draftTimer);
+	started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
+}
+
+function saveDraft(form, keepalive = false) {
+	const started = forms.get(form);
+	if (!started?.draftUrl) {
+		return;
+	}
+	clearTimeout(started.draftTimer);
+	started.draftTimer = null;
+	if (!started.draftDirty || started.sending || started.done) {
+		return;
+	}
+	started.draftDirty = false;
+	const headers = { 'Content-Type': 'application/json' };
+	if (started.nonce) {
+		headers['X-WP-Nonce'] = started.nonce;
+	}
+	try {
+		fetch(started.draftUrl, {
+			method: 'POST',
+			keepalive,
+			headers,
+			body: JSON.stringify({
+				version: started.version,
+				answers: answersOf(form),
+				page: started.page,
+			}),
+		})
+			.then((response) => {
+				if (!response.ok) {
+					started.draftDirty = true;
+				}
+			})
+			.catch(() => {
+				started.draftDirty = true;
+			});
+	} catch {
+		started.draftDirty = true;
 	}
 }
 
@@ -1085,6 +1144,13 @@ async function toTerminal(form) {
 
 async function send(form) {
 	const started = forms.get(form);
+	if (started !== undefined) {
+		// What waits for the autosave goes with the send, which deletes the draft (S74): nothing is
+		// saved after it but a change made after a send that failed.
+		clearTimeout(started.draftTimer);
+		started.draftTimer = null;
+		started.draftDirty = false;
+	}
 	if (
 		started === undefined ||
 		started.sending ||
@@ -1230,6 +1296,7 @@ store('kalaka/form', {
 			if (isChoice(event.target)) {
 				remember(form, key);
 			}
+			draftChanged(form);
 
 			return isTrigger(started, key) ? refetch(form) : undefined;
 		},
@@ -1295,6 +1362,8 @@ store('kalaka/form', {
 				refreshing: null,
 				wantAccount: false,
 				retry: null,
+				draftDirty: false,
+				draftTimer: null,
 			};
 			forms.set(form, started);
 			if (started.account) {
@@ -1314,6 +1383,9 @@ store('kalaka/form', {
 				};
 				window.addEventListener('focus', wake);
 				document.addEventListener('visibilitychange', wake);
+			}
+			if (started.draftUrl) {
+				window.addEventListener('pagehide', () => saveDraft(form, true));
 			}
 			for (const button of buttonsOf(form)) {
 				button.disabled = false;
