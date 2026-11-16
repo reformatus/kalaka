@@ -78,18 +78,24 @@ the waitlist and reference codes
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
   read.
-- The owner account (`owner_user_id`, a WordPress user ID) is set once: by
-  the submit (the logged-in person, or the account a sign-up created) or by
-  `kalaka-portal/attach-registration` (only while there is none, and only
-  for the account the attach link names). Nothing changes or clears it. In
-  the event's account mode `off` a submit records no owner.
-- A sign-up creates the WordPress user only before the submit's
-  transaction (`Account\AccountSignUp`, once per submit), after the answers
-  and the form's requirements were checked. An email that has an account
-  creates none and is answered as a new one is, with the same work (one
-  password hash). The owner and the account mail are written only for a new
-  registration, never for a repeat.
-- The attach link is `<eventId>.<code>.<userId>.<mac>`, issued and verified
-  only by `Api\AttachLinks`: the MAC covers the account and the current
-  secret, so a new secret revokes it. It never carries the secret.
+- The owner account (`owner_user_id`, a WordPress user ID) is set once, by
+  the submit of a logged-in person, and nothing changes or clears it. In
+  the event's account mode `off` a submit records no owner; in `mandatory`
+  mode someone not logged in cannot submit (`account_required`). The owner
+  and the set-password mail are written only for a new registration, never
+  for a repeat.
+- Accounts are created only on WordPress's own registration page
+  (`Account\SignUpPage`), never by a submit; Kaláka never handles a
+  password. Its native-sign-up flag is set only on a POST to
+  `action=register` without `loginSocial`, never from
+  `did_action('login_form_register')`. The flag alone decides the hidden
+  login name (`Account\LoginName`: `[a-z0-9._-]`, never empty, at most 60,
+  free and not illegal), the opaque nicename, `kalaka_unverified`, the
+  login at once and the suppressed WordPress mails; the marker
+  (`kalaka_form`, a registration form whose event has accounts) alone
+  decides the hidden marker field, the reminder opt-in, the skip link and
+  the login URL's return.
+- `kalaka_unverified` is cleared only on `password_reset` and
+  `after_password_reset`; it limits only what Kaláka does with the account.
+  A reset link lasts 7 days only for such an account.
 - Only Registrations writes its tables.

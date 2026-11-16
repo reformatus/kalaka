@@ -248,21 +248,19 @@ values and conditions, prefill and form links
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
   stored values the form opens with, the submit token and the submit, the
-  after-submit section's keys, and the account step (`accountStep()`). Kaláka's
+  after-submit section's keys, and whether the form needs an account
+  (`accountStep()`). Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form
   page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
   engine.
-- The account step is code, not a block: the form page shows it only to
-  someone not logged in, before the first page, for a form whose host gives
-  one (`FormHost::accountStep()`), and keeps the form's body hidden until
-  the person signs up or skips. Its fields carry no `name` and are never
-  answers: signing up fills the form's contact email and display name and
-  locks them `readOnly` (never `disabled`, so they are sent). The submit
-  carries the choice (`AccountChoice`); the host decides what it means.
-  Logged in, the contact email starts with the account's address.
-- `Engine\PrefillHandoff` keeps a prefill only under a random, single-use
-  token stored as its hash, good for 30 minutes on the runner's clock;
-  nothing reads it before S73.
+- A form whose host gives an account step (`FormHost::accountStep()`) is
+  never shown to someone not logged in: `SignUpRedirect` sends them, on
+  `template_redirect`, to WordPress's registration page with the form's
+  marker and the page as `redirect_to` (`Api\SignUp`), and a page it cannot
+  see shows the link instead (`FormPageView::ACCOUNT_REQUIRED`). Only the
+  form's skip marker (`kalaka_skip`, `optional` mode) shows it to a guest;
+  it fills nothing in. Logged in, the contact email starts with the
+  account's address.
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.
