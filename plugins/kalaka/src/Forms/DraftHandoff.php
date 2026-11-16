@@ -60,7 +60,7 @@ final class DraftHandoff
         if (!$post instanceof \WP_Post) {
             return;
         }
-        // phpcs:disable WordPress.Security.NonceVerification -- a cross-site handoff from the quiz or a link: no nonce exists
+        // phpcs:disable WordPress.Security.NonceVerification -- a cross-site handoff (quiz, link): no nonce
         // phpcs:disable WordPress.Security.ValidatedSanitizedInput -- every value is checked by its field type
         $method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper((string) $_SERVER['REQUEST_METHOD']) : 'GET';
         $prefill = $method === 'POST' ? ($_POST[self::PARAMETER] ?? null) : ($_GET[self::PARAMETER] ?? null);
