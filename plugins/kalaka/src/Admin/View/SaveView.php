@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Admin\View;
 
 use Kalaka\Admin\Grant\GrantQuery;
+use Kalaka\Admin\Grant\GrantRepository;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
@@ -16,8 +16,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Stores a new view of an event, or replaces the name, filter and columns of a stored one (with its
  * `id` and current `version`). A site-level use case: only full access. Returns the view's id.
  *
- * An edit never widens access silently: while a grant binds a value to the view's parameter, the
- * parameter term may not be removed or moved to another column.
+ * Removing the parameter term or moving it to another column takes the bound value from every grant of
+ * the view, each audited; those holders then see the whole view (S36-4, owner ruling 2026-11-16).
  */
 final class SaveView implements AdminUseCase
 {
@@ -25,6 +25,7 @@ final class SaveView implements AdminUseCase
         private readonly ViewRepository $repository = new ViewRepository(),
         private readonly Events $events = new Events(),
         private readonly GrantQuery $grants = new GrantQuery(),
+        private readonly GrantRepository $grantRepository = new GrantRepository(),
     ) {
     }
 
@@ -90,14 +91,18 @@ final class SaveView implements AdminUseCase
             throw new NotFound();
         }
 
-        // [UNAPPROVED S36-4] Removing or moving the parameter term would widen every bound grant.
+        // S36-4 (owner ruling 2026-11-16, (c)): when the parameter term is removed or moved to another column,
+        // the values bound to it lose their meaning; each grant loses its bound value (audited) and its
+        // holder sees the whole view.
         $parameter = $view->shape->parameterColumn();
-        if (
-            $parameter !== null
-            && $parameter !== $shape->parameterColumn()
-            && $this->grants->boundToView($eventId, $view->id)
-        ) {
-            throw new RuleViolation();
+        if ($parameter !== null && $parameter !== $shape->parameterColumn()) {
+            foreach ($this->grants->boundToView($eventId, $view->id) as $grantId) {
+                $grant = $this->grantRepository->findForUpdate($grantId, $context);
+                if ($grant !== null) {
+                    $grant->boundValue = null;
+                    $this->grantRepository->upsert($grant, $context);
+                }
+            }
         }
 
         $view->name = $name;

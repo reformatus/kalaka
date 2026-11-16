@@ -12,10 +12,9 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 
-/** S36-4 (hole A2), deleting a view and S36-8, copying the views of an event. */
+/** S36-4 (owner ruling 2026-11-16, (c)): editing and deleting a view with grants; S36-8, copying the views of an event. */
 final class ViewEditTest extends GrantTestCase
 {
     private int $event;
@@ -45,32 +44,44 @@ final class ViewEditTest extends GrantTestCase
     }
 
     /** @return iterable<string, array{list<array<string, mixed>>}> */
-    public static function widening(): iterable
+    public static function parameterGone(): iterable
     {
         yield 'the parameter removed' => [[]];
         yield 'the parameter made a fixed term' => [[['column' => 'field:module', 'in' => ['építő', 'konyha']]]];
         yield 'the parameter moved to another column' => [[['column' => 'field:team', 'parameter' => true]]];
     }
 
-    /** @dataProvider widening */
-    public function testAnEditThatWouldWidenABoundGrantIsRefused(array $filter): void
+    /**
+     * S36-4 (owner ruling 2026-11-16, (c)): removing or moving the parameter is allowed; every bound grant
+     * of the view loses its bound value, audited in the same entry, and its holder sees the whole view.
+     *
+     * @dataProvider parameterGone
+     */
+    public function testRemovingOrMovingTheParameterTakesTheBoundValuesAudited(array $filter): void
     {
         $view = $this->parameterView($this->event);
-        $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'építő']);
-        $before = $this->viewRow($view);
+        $grant = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'építő']);
+        $other = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'konyha']);
+        $count = count($this->entries());
 
-        try {
-            $this->exec(new SaveView(), $this->edit($view, $filter));
-            self::fail('The edit should have been refused.');
-        } catch (RuleViolation) {
-            self::assertSame($before, $this->viewRow($view));
-        }
+        $this->exec(new SaveView(), $this->edit($view, $filter));
+
+        self::assertSame((string) wp_json_encode($filter, JSON_UNESCAPED_UNICODE), $this->viewRow($view)['filter']);
+        self::assertNull($this->grantRow($grant)['bound_value']);
+        self::assertNull($this->grantRow($other)['bound_value']);
+        $entries = $this->entries();
+        self::assertCount($count + 1, $entries);
+        $entry = end($entries);
+        self::assertSame('kalaka/save-view', $entry['action']);
+        $subjects = $this->subjectsOf($entry['id']);
+        self::assertContains("grant/{$this->event}/{$grant}", $subjects);
+        self::assertContains("grant/{$this->event}/{$other}", $subjects);
     }
 
-    public function testAnEditThatKeepsTheParameterPasses(): void
+    public function testAnEditThatKeepsTheParameterKeepsTheBoundValues(): void
     {
         $view = $this->parameterView($this->event);
-        $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'építő']);
+        $grant = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'építő']);
 
         $this->exec(new SaveView(), $this->edit($view, [
             ['column' => 'status', 'in' => ['registered']],
@@ -81,6 +92,7 @@ final class ViewEditTest extends GrantTestCase
             '[{"column":"status","in":["registered"]},{"column":"field:module","parameter":true}]',
             $this->viewRow($view)['filter']
         );
+        self::assertSame('építő', $this->grantRow($grant)['bound_value']);
     }
 
     public function testOnceTheBoundGrantIsDeletedTheParameterMayGo(): void
@@ -107,17 +119,36 @@ final class ViewEditTest extends GrantTestCase
         self::assertSame('kalaka/delete-view', end($entries)['action']);
     }
 
-    public function testAViewAGrantUsesIsNotDeleted(): void
+    /** S36-4 (owner ruling 2026-11-16, (c)): the view's grants are deleted with it, each with its own entry. */
+    public function testDeletingAViewDeletesItsGrantsEachAudited(): void
     {
-        $view = $this->plainView($this->event);
-        $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view]);
+        $view = $this->parameterView($this->event);
+        $kept = $this->plainView($this->event);
+        $first = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'építő']);
+        $second = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'konyha']);
+        $other = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $kept]);
+        $count = count($this->entries());
 
-        $this->expectException(RuleViolation::class);
-        try {
-            $this->exec(new DeleteView(), ['id' => $view, 'version' => 1]);
-        } finally {
-            self::assertSame(1, $this->viewCount());
+        $this->exec(new DeleteView(), ['id' => $view, 'version' => 1]);
+
+        self::assertSame(1, $this->viewCount());
+        self::assertSame(1, $this->grantCount());
+        self::assertSame((string) $kept, (string) $this->grantRow($other)['view_id']);
+        $entries = array_slice($this->entries(), $count);
+        $of = static fn (string $action): array => array_values(
+            array_filter($entries, static fn (array $e): bool => $e['action'] === $action)
+        );
+        $views = $of('kalaka/delete-view');
+        $grants = $of('kalaka/delete-grant');
+        self::assertCount(1, $views);
+        self::assertCount(2, $grants);
+        $deleted = [];
+        foreach ($grants as $entry) {
+            self::assertSame($views[0]['id'], $entry['parent_id']);
+            array_push($deleted, ...$this->subjectsOf($entry['id']));
         }
+        sort($deleted);
+        self::assertSame(["grant/{$this->event}/{$first}", "grant/{$this->event}/{$second}"], $deleted);
     }
 
     public function testDeletingAStaleOrMissingViewOrWithoutFullAccessChangesNothing(): void

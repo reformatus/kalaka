@@ -68,7 +68,7 @@ final class GrantQueryCostTest extends PerEventCostTestCase
             fn (int $event) => $this->seedEvent($event),
             fn (int $event): array => [
                 (new GrantQuery())->boundToView($event, $this->firstViews[$event]),
-                (new GrantQuery())->usesView($event, $this->firstViews[$event]),
+                (new GrantQuery())->usingView($event, $this->firstViews[$event]),
             ]
         );
     }

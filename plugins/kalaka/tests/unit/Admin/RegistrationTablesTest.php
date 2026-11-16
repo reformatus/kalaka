@@ -11,8 +11,6 @@ use PHPUnit\Framework\TestCase;
  * grants"; engineering.md, "Static checks"). deptrac keeps Admin from the Registrations classes and lets
  * only `Admin\Api\ViewQuery` use `Registrations\Api\RegistrationTables`; this second guard catches a table
  * named in a string: only `Admin\Api\ViewQuery` names them.
- *
- * [UNAPPROVED S36-7]
  */
 final class RegistrationTablesTest extends TestCase
 {

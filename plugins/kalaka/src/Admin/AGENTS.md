@@ -37,9 +37,13 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - A grant holds a call only by name: an action the grant carries, or a field
   change with at least one target, every target inside the grant's view. An
   event use case with neither is full access only.
-- A view edit never widens access: `SaveView` refuses to remove or move the
-  parameter term while a grant binds a value to it, and a grant whose bound
-  value does not fit its view holds nothing (the view query matches nothing).
+- Editing or deleting a view with grants is allowed (S36-4, owner ruling
+  2026-11-16): removing or moving the parameter term takes the bound value
+  from each of the view's grants (`SaveView`, audited); the parameter term
+  applies only with a bound value, so a grant without one sees the whole
+  view (`ViewQuery`); `DeleteView` deletes the view's grants, each through a
+  nested `kalaka/delete-grant`. A grant holds nothing only when its view is
+  missing or unreadable.
 - The view is the only place permissions on data are defined. A grant never
   lists registrations: it covers what its view's filter matches when access is
   checked.

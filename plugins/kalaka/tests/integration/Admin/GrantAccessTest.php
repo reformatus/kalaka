@@ -134,8 +134,8 @@ final class GrantAccessTest extends GrantTestCase
         self::assertTrue($this->passes($this->probe(self::WITHDRAW, $this->event, [])));
     }
 
-    /** A2, S36-4: a bound grant whose view lost its parameter holds nothing; it never widens. */
-    public function testABoundGrantWhoseViewLostItsParameterHoldsNothing(): void
+    /** S36-4 (owner ruling 2026-11-16, (c)): a bound value with no parameter term left is ignored: the whole view. */
+    public function testABoundGrantWhoseViewLostItsParameterSeesTheWholeView(): void
     {
         $this->moduleGrant('építő');
         self::assertTrue($this->passes($this->probe(self::EDIT, $this->event, ['00A0'])));
@@ -147,8 +147,8 @@ final class GrantAccessTest extends GrantTestCase
             $this->event
         ));
 
-        self::assertFalse($this->passes($this->probe(self::EDIT, $this->event, ['00A0'])));
-        self::assertFalse($this->passes($this->probe(self::EDIT, $this->event, ['00A2'])));
+        self::assertTrue($this->passes($this->probe(self::EDIT, $this->event, ['00A0'])));
+        self::assertTrue($this->passes($this->probe(self::EDIT, $this->event, ['00A2'])));
     }
 
     public function testASecondGrantOfTheUserCanCarryWhatTheFirstDoesNot(): void
@@ -202,7 +202,8 @@ final class GrantAccessTest extends GrantTestCase
         self::assertFalse($this->passes($this->probe(null, null, []), $cli));
     }
 
-    public function testAGrantWhoseViewGainedAParameterHoldsNothing(): void
+    /** S36-4 (owner ruling 2026-11-16, (c)), C2-1: an unbound grant on a view that gained a parameter sees the whole view. */
+    public function testAGrantWhoseViewGainedAParameterSeesTheWholeView(): void
     {
         $view = $this->plainView($this->event);
         $this->saveGrant($this->event, $this->user, ['view_id' => $view]);
@@ -215,7 +216,8 @@ final class GrantAccessTest extends GrantTestCase
             ['id' => $view]
         );
 
-        self::assertFalse($this->passes($this->probe(self::EDIT, $this->event, ['00A0'])));
+        self::assertTrue($this->passes($this->probe(self::EDIT, $this->event, ['00A0'])));
+        self::assertTrue($this->passes($this->probe(self::EDIT, $this->event, ['00A2'])));
     }
 
     public function testAUserWithoutAnyGrantOrWithFullAccessBehavesAsBefore(): void

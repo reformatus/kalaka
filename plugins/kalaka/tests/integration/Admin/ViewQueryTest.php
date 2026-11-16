@@ -242,8 +242,11 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame([], $this->codes($this->viewRows($this->held($shape, 'c'))));
     }
 
-    /** A2, S36-4: a filter and a bound value that do not fit each other match nothing (fail closed). */
-    public function testAParameterWithoutABoundValueOrABoundValueWithoutAParameterMatchesNothing(): void
+    /**
+     * S36-4 (owner ruling 2026-11-16, (c)): the parameter term applies only with a bound value; without one
+     * the grant sees the whole view, and a bound value with no parameter term is ignored.
+     */
+    public function testAParameterWithoutABoundValueOrABoundValueWithoutAParameterSeesTheWholeView(): void
     {
         $this->seedStatuses();
         $this->addValue(self::EVENT, '00A0', 'module', 'a');
@@ -252,13 +255,16 @@ final class ViewQueryTest extends AdminTestCase
         $fixed = $this->shape([['column' => 'field:module', 'in' => ['a']]], [['column' => 'code', 'write' => false]]);
         $key = [new RegistrationKey(self::EVENT, '00A0')];
 
-        self::assertSame([], $this->viewRows($this->held($parameter)));
-        self::assertSame(0, $this->query->count($this->held($parameter)));
-        self::assertFalse($this->query->contains($this->held($parameter), $key));
-        self::assertSame([], $this->viewRows($this->held($fixed, 'a')));
-        self::assertFalse($this->query->contains($this->held($fixed, 'a'), $key));
-        self::assertSame([], $this->viewRows($this->held(null, 'a')));
+        $whole = $this->codes($this->viewRows($this->held($this->shape([], $code))));
+        self::assertNotSame([], $whole);
+        self::assertSame($whole, $this->codes($this->viewRows($this->held($parameter))));
+        self::assertSame(count($whole), $this->query->count($this->held($parameter)));
+        self::assertTrue($this->query->contains($this->held($parameter), $key));
+        self::assertSame(['00A0'], $this->codes($this->viewRows($this->held($fixed, 'a'))));
+        self::assertTrue($this->query->contains($this->held($fixed, 'a'), $key));
+        self::assertSame(count($whole), count($this->viewRows($this->held(null, 'a'))));
         self::assertSame(['00A0'], $this->codes($this->viewRows($this->held($fixed))));
+        self::assertSame([], $this->codes($this->viewRows($this->held($parameter, 'b'))));
     }
 
     /** S36-6: the default order, a sort by a listed column, paging with a total. */

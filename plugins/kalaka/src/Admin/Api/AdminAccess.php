@@ -74,7 +74,7 @@ final class AdminAccess
      * Whether one grant of the user on the use case's event holds the call. A site-level use case is
      * never held by a grant.
      *
-     * [UNAPPROVED S36-3] Deny by default: the use case names an action the grant carries, or it is a
+     * Deny by default: the use case names an action the grant carries, or it is a
      * field change (no action) with at least one target; in both cases the grant's view, with its bound
      * value, holds every target as the registrations are now. A use case with no action and no target is
      * full access only.

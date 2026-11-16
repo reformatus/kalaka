@@ -80,7 +80,6 @@ SQL;
 
     /**
      * The per-event actions grants may carry (foundation.md, "Views and grants").
-     * [UNAPPROVED S36-5]
      */
     public function capabilities(): array
     {
@@ -90,9 +89,9 @@ SQL;
     public function boot(): void
     {
         Abilities::registerCategory();
-        // [UNAPPROVED S36-10] The labels of the trial's three abilities; [UNAPPROVED N7] the three new ones.
+        // [UNAPPROVED N7] The labels of the three new abilities.
         Abilities::register(new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.');
-        Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény hozzáférés nélküli nézetének törlése.');
+        Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
         Abilities::register(
             new SaveGrant(),
             'Hozzáférés mentése',
@@ -125,7 +124,7 @@ SQL;
 
     /**
      * Schema step 1: the minimal role of outside grant holders, which can read and nothing more. Safe to
-     * run again. [UNAPPROVED S36-10] Its name.
+     * run again.
      */
     private static function addGranteeRole(): void
     {

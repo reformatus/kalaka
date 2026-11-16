@@ -53,24 +53,41 @@ final class GrantQuery extends Query
         });
     }
 
-    /** Whether any grant binds a value to the view's parameter: one statement on `event_view`. */
-    public function boundToView(int $eventId, int $viewId): bool
+    /**
+     * The ids of the grants that bind a value to the view's parameter, ascending: one statement on
+     * `event_view`.
+     *
+     * @return list<int>
+     */
+    public function boundToView(int $eventId, int $viewId): array
     {
-        return $this->scope(fn (): bool => $this->select(
-            'grant',
-            'SELECT 1 AS found FROM %i WHERE event_id = %d AND view_id = %d AND bound_value IS NOT NULL LIMIT 1',
-            [$this->table('kalaka_grants'), $eventId, $viewId]
-        ) !== []);
+        return $this->ids(
+            'SELECT id FROM %i WHERE event_id = %d AND view_id = %d AND bound_value IS NOT NULL ORDER BY id',
+            $eventId,
+            $viewId
+        );
     }
 
-    /** Whether any grant uses the view: one statement on `event_view`. */
-    public function usesView(int $eventId, int $viewId): bool
+    /**
+     * The ids of the grants that use the view, ascending: one statement on `event_view`.
+     *
+     * @return list<int>
+     */
+    public function usingView(int $eventId, int $viewId): array
     {
-        return $this->scope(fn (): bool => $this->select(
-            'grant',
-            'SELECT 1 AS found FROM %i WHERE event_id = %d AND view_id = %d LIMIT 1',
-            [$this->table('kalaka_grants'), $eventId, $viewId]
-        ) !== []);
+        return $this->ids('SELECT id FROM %i WHERE event_id = %d AND view_id = %d ORDER BY id', $eventId, $viewId);
+    }
+
+    /**
+     * @param literal-string $sql
+     * @return list<int>
+     */
+    private function ids(string $sql, int $eventId, int $viewId): array
+    {
+        return $this->scope(fn (): array => array_map(
+            static fn (array $row): int => (int) $row['id'],
+            $this->select('grant', $sql, [$this->table('kalaka_grants'), $eventId, $viewId])
+        ));
     }
 
     /**

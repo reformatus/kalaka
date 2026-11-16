@@ -100,9 +100,11 @@ reached; the grant defines who holds the view.**
   the grant carries, or it is a field change with at least one target; in
   both cases every target is inside the grant's view. An event use case with
   neither is for full access only.
-- **A view edit never widens access silently:** while a grant binds a value
-  to a view's parameter, the parameter cannot be removed or moved to another
-  column. A grant whose bound value no longer fits its view holds nothing.
+- **Editing or deleting a view with grants is allowed.** A grant's bound
+  value applies only to the view's parameter: when the parameter is removed
+  or moved to another column, the view's grants lose their bound values, and
+  a grant without a bound value sees the whole view. Deleting a view deletes
+  its grants. Each change is audited.
 - Core ships a **minimal WordPress role** that only opens the Kaláka admin
   app, for outside grantees.
 - **Enforced in one place:** on the admin side, registration data is read

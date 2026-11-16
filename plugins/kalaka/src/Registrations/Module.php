@@ -83,7 +83,6 @@ SQL;
 
     /**
      * The per-event actions grants may carry (foundation.md, "Views and grants").
-     * [UNAPPROVED S36-5]
      */
     public function capabilities(): array
     {

@@ -46,7 +46,7 @@ final class AbilitiesTest extends GrantTestCase
     {
         return [
             'save-view' => [new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.'],
-            'delete-view' => [new DeleteView(), 'Nézet törlése', 'Egy esemény hozzáférés nélküli nézetének törlése.'],
+            'delete-view' => [new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.'],
             'save-grant' => [
                 new SaveGrant(),
                 'Hozzáférés mentése',

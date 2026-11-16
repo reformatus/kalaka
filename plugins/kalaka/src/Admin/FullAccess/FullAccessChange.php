@@ -18,7 +18,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * use case; the capability, which is WordPress's data, is written after the commit, with a fresh
  * `WP_User`, and is safe to repeat. The last holder keeps it.
  *
- * [UNAPPROVED N4] The capability write is an after-commit step.
+ * The capability write is an after-commit step.
  */
 final class FullAccessChange
 {

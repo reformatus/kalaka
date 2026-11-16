@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\View;
 
+use Kalaka\Admin\Grant\DeleteGrant;
 use Kalaka\Admin\Grant\GrantQuery;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
- * Deletes a view (with its `id` and current `version`) that no grant uses; the grants are deleted or
- * moved first. A site-level use case: only full access.
+ * Deletes a view (with its `id` and current `version`) and the grants that use it, each through a nested
+ * `kalaka/delete-grant` with its own audit entry, in the same run (S36-4, owner ruling 2026-11-16). A
+ * site-level use case: only full access.
  */
 final class DeleteView implements AdminUseCase
 {
@@ -58,8 +59,10 @@ final class DeleteView implements AdminUseCase
     public function execute(array $input, Context $context): null
     {
         $view = $this->repository->findForUpdate((int) $input['id'], $context) ?? throw new NotFound();
-        if ($this->grants->usesView($view->eventId, $view->id)) {
-            throw new RuleViolation();
+        // S36-4 (owner ruling 2026-11-16, (c)): the view's grants go with it, each through a nested
+        // `kalaka/delete-grant`, so each has its own audit entry under this one.
+        foreach ($this->grants->usingView($view->eventId, $view->id) as $grantId) {
+            $context->run(new DeleteGrant(), ['id' => $grantId]);
         }
         $view->version = (int) $input['version'];
         $this->repository->delete($view, $context);

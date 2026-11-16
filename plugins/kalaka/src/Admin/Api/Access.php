@@ -18,8 +18,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * What an admin-side actor may reach, for the screens and the fine check: full access, the events where
  * they hold a grant, and the views they hold there as `HeldView` handles for `ViewQuery`
  * (foundation.md, "Views and grants"). It reads only Admin's own tables and WordPress's capabilities.
- *
- * [UNAPPROVED S36-7]
  */
 final class Access
 {
@@ -39,7 +37,7 @@ final class Access
     }
 
     /**
-     * [UNAPPROVED S36-2] Whether the WordPress user may reach the admin side's abilities and routes at
+     * Whether the WordPress user may reach the admin side's abilities and routes at
      * all: full access, or at least one grant on any event. One indexed statement, kept for the request.
      * The runner's coarse check still decides each call.
      */
@@ -73,8 +71,9 @@ final class Access
 
     /**
      * The views the actor holds on the event through grants, one per grant, by grant id. A grant whose
-     * view is missing, or whose bound value no longer matches the view's parameter, holds nothing and is
-     * left out. Full access holds the master view instead (`master()`); its own grants are listed too.
+     * view is missing or unreadable holds nothing and is left out; a grant without a bound value on a view
+     * with a parameter sees the whole view (S36-4, `ViewQuery`). Full access holds the master view instead
+     * (`master()`); its own grants are listed too.
      *
      * @return list<HeldView>
      */
@@ -89,10 +88,6 @@ final class Access
         foreach ($this->grants->forUser($eventId, $userId) as $grant) {
             $shape = Grant::viewShape($grant);
             if ($shape === false) {
-                continue;
-            }
-            $parameter = $shape !== null && $shape->hasParameter();
-            if ($parameter !== ($grant['bound_value'] !== null)) {
                 continue;
             }
             $held[] = new HeldView(
@@ -127,8 +122,6 @@ final class Access
      * (`field:<key>`) of the registration, which the run must already hold locked, so the view's filter is
      * read as it is under the lock. Full access may; otherwise a held view must list the column read-write
      * and contain the registration.
-     *
-     * [UNAPPROVED S36-11]
      *
      * @throws SystemFailure when the run does not hold the registration's row lock
      */

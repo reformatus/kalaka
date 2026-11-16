@@ -14,7 +14,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * its own from `Module::boot()`. WordPress checks the input against the use case's schema and gives
  * the REST routes.
  *
- * [UNAPPROVED S36-2] The permission callback lets through only a user with full access or at least one
+ * The permission callback lets through only a user with full access or at least one
  * grant (`Access::mayReachAdmin()`); anyone else gets WordPress's refusal and no audit entry. The runner's
  * coarse check still decides each call.
  */
@@ -28,8 +28,8 @@ final class Abilities
     {
         add_action('wp_abilities_api_categories_init', static function (): void {
             wp_register_ability_category(self::CATEGORY, [
-                'label' => 'Kaláka', // [UNAPPROVED S36-10]
-                'description' => 'A Kaláka műveletei.', // [UNAPPROVED S36-10]
+                'label' => 'Kaláka',
+                'description' => 'A Kaláka műveletei.',
             ]);
         });
     }

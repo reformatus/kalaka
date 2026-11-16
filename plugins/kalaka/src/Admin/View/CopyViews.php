@@ -18,8 +18,6 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * grants": "copied to the next event, optionally with their grants"). Grants on the master view are
  * copied with the grants too. Meant to run nested, from the use case that duplicates an event; a
  * site-level use case: only full access. Returns the new view ids by the old ones.
- *
- * [UNAPPROVED S36-8]
  */
 final class CopyViews implements AdminUseCase
 {

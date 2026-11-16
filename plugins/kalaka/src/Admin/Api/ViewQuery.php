@@ -17,8 +17,8 @@ use Kalaka\Registrations\Api\Serials;
  * other modules' tables by name, only to read them, always `event_id` first, and never the stored
  * secret. The filter terms are correlated subqueries on the tables' event-first keys.
  *
- * [UNAPPROVED S36-6] Sort by one listed column (default: the sorszám order), paged by limit and offset
- * with a total. [UNAPPROVED S36-7] No caller builds a filter itself.
+ * Sort by one listed column (default: the sorszám order), paged by limit and offset
+ * with a total. No caller builds a filter itself.
  */
 final class ViewQuery extends Query
 {
@@ -41,7 +41,7 @@ final class ViewQuery extends Query
         return $this->shapeOf($view)->columns;
     }
 
-    /** How many registrations the view's filter matches now: one statement. [UNAPPROVED S36-9] */
+    /** How many registrations the view's filter matches now: one statement. */
     public function count(HeldView $view): int
     {
         [$conditions, $args] = $this->conditions($view->shape(), $view->bound());
@@ -298,24 +298,25 @@ final class ViewQuery extends Query
     /**
      * The filter terms as `AND …` conditions on the alias `r` of `kalaka_registrations`, and their
      * arguments in placeholder order. A parameter term is matched as if `in` held the bound value alone.
-     * Fail closed: a parameter without a bound value, or a bound value without a parameter, matches
-     * nothing (S36-4).
+     * S36-4 (owner ruling 2026-11-16, (c)): the parameter term applies only with a bound value, so a grant
+     * without one (its view's parameter was added, moved or removed after it was given) sees the whole
+     * view; a bound value with no parameter term to apply to is ignored the same way.
      *
      * @return array{0: literal-string, 1: list<string>}
      */
     private function conditions(?ViewShape $shape, ?string $bound): array
     {
         if ($shape === null) {
-            return $bound === null ? ['', []] : [' AND 1 = 0', []];
-        }
-        if ($shape->hasParameter() !== ($bound !== null)) {
-            return [' AND 1 = 0', []];
+            return ['', []];
         }
 
         /** @var list<literal-string> $fragments */
         $fragments = [];
         $args = [];
         foreach ($shape->filter as $term) {
+            if ($term['in'] === null && $bound === null) {
+                continue;
+            }
             $column = $term['column'];
             $values = $term['in'] ?? [(string) $bound];
             $in = implode(', ', array_fill(0, count($values), '%s'));
