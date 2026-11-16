@@ -70,6 +70,34 @@ CREATE TABLE {prefix}kalaka_submissions (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * S74: a form's answers kept before its submit, keyed by event first. A user draft has `user_id`
+     * (one per event, form and user: MariaDB lets the guest drafts' NULLs repeat under `owner`); a guest
+     * draft has the SHA-256 of its claim token and `expires_at` instead. `answers` is a JSON object
+     * (`Forms\Api\AnswerSet`); `page` is the last page shown.
+     */
+    private const DRAFTS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_drafts (
+  event_id bigint(20) unsigned NOT NULL,
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  version int(10) unsigned NOT NULL,
+  form_id bigint(20) unsigned NOT NULL,
+  form_version bigint(20) unsigned NOT NULL,
+  user_id bigint(20) unsigned DEFAULT NULL,
+  claim_hash char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  answers longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  page smallint(5) unsigned NOT NULL DEFAULT 0,
+  created_at datetime(6) NOT NULL,
+  updated_at datetime(6) NOT NULL,
+  expires_at datetime(6) DEFAULT NULL,
+  PRIMARY KEY  (event_id,id),
+  KEY id (id),
+  UNIQUE KEY owner (event_id,form_id,user_id),
+  UNIQUE KEY claim (claim_hash),
+  KEY expires (expires_at)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'registrations';
@@ -82,7 +110,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
+        return new Schema(4, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::DRAFTS]);
     }
 
     /**
@@ -98,9 +126,11 @@ SQL;
         ];
     }
 
+    /** S15: the settings warning. S74: the periodic run deletes drafts that are done. */
     public function contribute(Contributions $to): void
     {
         $to->siteWarning(new Account\SettingsWarning());
+        $to->periodicStep(new DraftSweep());
     }
 
     public function boot(): void
