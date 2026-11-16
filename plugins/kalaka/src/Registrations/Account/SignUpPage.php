@@ -192,7 +192,7 @@ final class SignUpPage
         $value = self::input('post', self::REMINDERS_FIELD);
         if ($errors instanceof \WP_Error && $this->marked() !== null && $value !== null && $value !== '1') {
             // [UNAPPROVED T5] the error of a malformed opt-in (only a tampered request sends one).
-            $errors->add(self::REMINDERS_FIELD, esc_html('Az emlékeztetőről szóló választás érvénytelen.'));
+            $errors->add(self::REMINDERS_FIELD, esc_html('Az emlékeztetőre vonatkozó választás érvénytelen.'));
         }
 
         return $errors;

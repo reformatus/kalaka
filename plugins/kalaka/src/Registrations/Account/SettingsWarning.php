@@ -21,7 +21,7 @@ final class SettingsWarning implements SiteWarning
 {
     public const TITLE = 'A fiókos jelentkezéshez módosítani kell a WordPress beállításait';
 
-    public const DESCRIPTION = 'Van olyan közzétett esemény, amelyhez fiók kell vagy választható, ezért a '
+    public const DESCRIPTION = 'Van olyan közzétett esemény, amelyhez fiók kell vagy választható. Ezért a '
         . 'Beállítások > Általános oldalon kapcsold be a „Bárki regisztrálhat” lehetőséget, és az új '
         . 'felhasználók alapértelmezett szerepköre legyen „Előfizető”.';
 
