@@ -309,7 +309,11 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter).
+    view column, filterable fact, theme adapter). A field type's value type
+    and its reading of a stored answer as a value fire no WordPress hooks
+    and write nothing (they may read, e.g. a congregation's name), so the
+    evaluation reads a registration's field values with them inside the
+    transaction.
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
