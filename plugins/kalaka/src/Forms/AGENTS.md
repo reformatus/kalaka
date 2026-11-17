@@ -161,8 +161,8 @@ values and conditions, prefill and form links
 - One availability base (S76): everything shown or selectable (fields,
   branches, pages, choice options, set options, tiers, offers, aid) is
   decided by one condition through `Engine\Condition\ConditionEvaluator`, reached
-  through `FormWalk` (a form) or `Api\Availability` (anything another module
-  owns). No second evaluator anywhere, and JavaScript never evaluates a
+  through `FormWalk` (a form, a request field's set options included) or
+  `Api\Availability` (anything another module owns). No second evaluator anywhere, and JavaScript never evaluates a
   condition (the editor only checks one against the server's rules to show
   problems).
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
@@ -262,9 +262,30 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  stored values the form opens with, the submit token and the submit, the
-  after-submit section's keys, and whether the form needs an account
-  (`accountStep()`). Kaláka's
+  stored values the form opens with, the options and window of the set a
+  request field names, the submit token and the submit, the after-submit
+  section's keys, and whether the form needs an account (`accountStep()`).
+  Kaláka's
+- A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
+  names an assignment set and holds no options of its own: the definition
+  parse fills its `options` from the host (`FormHost::requestOptions()`),
+  each with its eligibility condition, which is read like a choice option's
+  condition (fields before it and the event's keys). `FormEngine::blocks()`
+  renders it with those attributes. Outside the set's choice window, decided
+  when the definition is built from the runner's clock, it is closed: it does
+  not show, renders nothing and whatever is sent for it is dropped; the walk
+  and the evaluator stay pure.
+- A set has one request field (S44-1): the save check (`SharedKeyCheck`, on
+  every save and on every read of a live form's definition) refuses a request
+  field naming no set of the form's event (`unknown_set`), a second,
+  different field for a set, or a field that is already another set's
+  (`request_field_taken`); the same key in another form joins it.
+  `ParticipantFieldSync` ties each set to its field after the fields are
+  declared (`Assignments\Api\AssignmentSets::tieRequestField()`); a tie is
+  never released.
+- A re-rendered choice or request field's new wrapper gets the event
+  `kalaka:field-swapped` (`SWAPPED` in `Blocks/form/view.js`) with the
+  values it was ticked with, for a field type's own script. Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form
   page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
   engine.
