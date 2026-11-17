@@ -70,6 +70,9 @@ final class RankingFieldType extends AbstractFieldType
     public const RANKED_NAME = 'Választott sorrend';
     public const OTHERS_NAME = 'Többi lehetőség';
 
+    /** [UNAPPROVED N9] (Text) The empty rows' list's name for screen readers (the lektor's wording). */
+    public const EMPTY_NAME = 'Üres helyek a sorrendben';
+
     public const TOO_FEW = 'Legalább %d lehetőséget válassz.';
     public const TOO_MANY = 'Legfeljebb %d lehetőséget válassz.';
 

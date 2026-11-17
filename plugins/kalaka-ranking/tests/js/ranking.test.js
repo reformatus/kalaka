@@ -5,6 +5,7 @@
 import { readAnswer } from '../../../kalaka/src/Forms/Blocks/form/answers';
 import {
 	LONG_PRESS,
+	SAY_AGAIN_DELAY,
 	addName,
 	announcement,
 	counterText,
@@ -32,14 +33,16 @@ function render({ min = 1, max = 3, required = true } = {}) {
 			`<button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden>` +
 			`<svg></svg></button>` +
 			`<input type="checkbox" name="modulok[]" value="${value}" data-kalaka-toggle` +
-			` aria-label="${value} hozzáadása a sorrendhez" autocomplete="off">` +
+			` aria-label="${value} hozzáadása a sorrendhez"` +
+			` aria-describedby="kalaka-field-modulok-counter kalaka-field-modulok-minimum" autocomplete="off">` +
 			`</span></div></li>`
 	).join('');
 	document.body.innerHTML =
 		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking data-kalaka-min="${min}"` +
 		` data-kalaka-max="${max}"${required ? ' data-kalaka-required' : ''}><fieldset><legend>Modulok</legend>` +
-		`<ol data-kalaka-ranked role="list" aria-label="Választott sorrend"></ol><ol data-kalaka-empty start="1"></ol>` +
-		`<p data-kalaka-counter></p>` +
+		`<ol data-kalaka-ranked role="list" aria-label="Választott sorrend"></ol>` +
+		`<ol data-kalaka-empty role="list" aria-label="Üres helyek a sorrendben" start="1"></ol>` +
+		`<p data-kalaka-counter id="kalaka-field-modulok-counter"></p>` +
 		`<ul data-kalaka-unranked role="list" aria-label="Többi lehetőség">${items}</ul></fieldset>` +
 		`<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span></div></form>`;
 	const field = document.querySelector('[data-kalaka-ranking]');
@@ -570,6 +573,11 @@ describe('the counter, the empty rows and the maximum (owner, Q1, Q2)', () => {
 		tick(field, 'modul_b');
 		expect(counter(field)).toBe('1 / 3 kiválasztva');
 		expect(empties(field)).toEqual(['Adj hozzá még legalább egy lehetőséget a sorrendhez.']);
+		// The toggles stay described by the counter and the line, which is rebuilt with its id.
+		expect(field.querySelector('[data-kalaka-empty] > li').id).toBe('kalaka-field-modulok-minimum');
+		expect(document.getElementById('kalaka-field-modulok-minimum').textContent).toBe(
+			'Adj hozzá még legalább egy lehetőséget a sorrendhez.'
+		);
 		expect(field.querySelector('[data-kalaka-empty]').getAttribute('start')).toBe('2');
 
 		tick(field, 'modul_a');
@@ -614,21 +622,46 @@ describe('the counter, the empty rows and the maximum (owner, Q1, Q2)', () => {
 		expect(region(field)).toBe('modul_a, kivéve a sorrendből');
 	});
 
-	test('at the maximum every „+” is aria-disabled and a click or Enter on it changes nothing', () => {
-		const field = render({ min: 1, max: 1 });
-		tick(field, 'modul_a');
-		const plus = box(field, 'modul_b');
+	test('at the maximum a „+” is aria-disabled; a click or Enter changes nothing and says it is full again', () => {
+		jest.useFakeTimers();
+		try {
+			const field = render({ min: 1, max: 1 });
+			tick(field, 'modul_a');
+			const plus = box(field, 'modul_b');
+			const changes = jest.fn();
+			field.addEventListener('change', changes);
 
-		expect(plus.getAttribute('aria-disabled')).toBe('true');
-		expect(box(field, 'modul_a').hasAttribute('aria-disabled')).toBe(false);
-		plus.click();
-		plus.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-		expect(plus.checked).toBe(false);
-		expect(ranked(field)).toEqual(['modul_a']);
-		expect(region(field)).toBe('modul_a, 1. helyen. Megtelt a sorrend: legfeljebb egy lehetőséget választhatsz.');
+			expect(plus.getAttribute('aria-disabled')).toBe('true');
+			expect(box(field, 'modul_a').hasAttribute('aria-disabled')).toBe(false);
+			expect(region(field)).toBe(
+				'modul_a, 1. helyen. Megtelt a sorrend: legfeljebb egy lehetőséget választhatsz.'
+			);
+			for (const pressIt of [
+				() => plus.click(),
+				() =>
+					plus.dispatchEvent(
+						new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+					),
+			]) {
+				pressIt();
+				// Emptied first, so the same text is said again.
+				expect(region(field)).toBe('');
+				jest.advanceTimersByTime(SAY_AGAIN_DELAY);
+				expect(region(field)).toBe('Megtelt a sorrend: legfeljebb egy lehetőséget választhatsz.');
+			}
+			expect(plus.checked).toBe(false);
+			expect(ranked(field)).toEqual(['modul_a']);
+			expect(changes).not.toHaveBeenCalled();
 
-		tick(field, 'modul_a');
-		expect(plus.hasAttribute('aria-disabled')).toBe(false);
+			// A text said meanwhile is not overwritten by the one waiting.
+			plus.click();
+			tick(field, 'modul_a');
+			jest.advanceTimersByTime(SAY_AGAIN_DELAY);
+			expect(region(field)).toBe('modul_a, kivéve a sorrendből');
+			expect(plus.hasAttribute('aria-disabled')).toBe(false);
+		} finally {
+			jest.useRealTimers();
+		}
 	});
 });
 

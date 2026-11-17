@@ -162,11 +162,30 @@ function regionOf(field) {
 	return field.querySelector('[data-kalaka-announce]');
 }
 
+/** A text waiting to be said again, per field, so that a later text is never overwritten by it. */
+const pending = new WeakMap();
+
 function say(field, text) {
+	clearTimeout(pending.get(field));
 	const region = regionOf(field);
 	if (region !== null) {
 		region.textContent = text;
 	}
+}
+
+/** How long, in milliseconds, the live region stays empty before a text is said again. */
+export const SAY_AGAIN_DELAY = 100;
+
+/**
+ * Says a text that the live region may hold already: the region is emptied first and takes the text a
+ * moment later, since a region whose text does not change says nothing.
+ */
+function sayAgain(field, text) {
+	say(field, '');
+	pending.set(
+		field,
+		setTimeout(() => say(field, text), SAY_AGAIN_DELAY)
+	);
 }
 
 /** Tells a screen reader where the option now is (1 = most wanted). */
@@ -191,6 +210,14 @@ export function emptyRows(count, { min, required }) {
 }
 
 /**
+ * The id of the first empty row, which holds the minimum's line: every toggle is described by it and by
+ * the counter (`render.php`; `FieldMarkup::controlId()` plus `-minimum`).
+ */
+function minimumIdOf(field) {
+	return `kalaka-field-${field.getAttribute('data-kalaka-field')}-minimum`;
+}
+
+/**
  * Brings the counter, the empty rows and the „+” toggles up to date with the ranked count: at the maximum
  * every unranked option's „+” is `aria-disabled` (it stays focusable) and does nothing (owner, Q1).
  */
@@ -211,6 +238,7 @@ export function refresh(field) {
 				const row = field.ownerDocument.createElement('li');
 				row.setAttribute('data-kalaka-empty-row', '');
 				if (index === 0) {
+					row.id = minimumIdOf(field);
 					row.textContent = minimumLine(bounds.min, count);
 				} else {
 					row.setAttribute('aria-hidden', 'true');
@@ -473,12 +501,14 @@ export function start(field) {
 			say(field, removal(labelOf(item)));
 		}
 	});
-	// At the maximum a „+” is `aria-disabled`: a click (or Space) on it changes nothing.
+	// At the maximum a „+” is `aria-disabled`: a click, a tap, Space or Enter on it changes nothing, and
+	// says again that the order is full, since nothing else would tell a screen reader why.
 	field.addEventListener(
 		'click',
 		(event) => {
 			if (event.target?.matches?.('[data-kalaka-toggle][aria-disabled="true"]')) {
 				event.preventDefault();
+				sayAgain(field, fullText(boundsOf(field).max));
 			}
 		},
 		{ capture: true }

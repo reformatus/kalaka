@@ -55,11 +55,15 @@ It holds the ranking field type now and the ranking proposer later (S77).
   sorrend: …” only to the tick that reaches the maximum.
 - Each control's accessible name names its option; the toggle's says what it
   does now. Controls that do nothing now are `aria-disabled`, never
-  `disabled` (focus stays): the edge ↑/↓, and every „+” at the maximum.
+  `disabled` (focus stays): the edge ↑/↓, and every „+” at the maximum,
+  which stays a Tab stop; pressing one says „Megtelt a sorrend: …” again.
+  They show no hand or hover tint, and while focused only their icon is
+  faint, so the focus ring shows in full.
 - Under the ranked options, as many empty rows as the minimum still lacks
   (on an optional field only after the first addition: "none, or at least
-  the minimum"), the first with a line; a live counter „{k} / {max}
-  kiválasztva”. The script mirrors `RankingFieldType`'s texts and rules for
+  the minimum"), the first with a line, in a third named list („Üres helyek
+  a sorrendben”); a counter that updates, „{k} / {max} kiválasztva”. Every
+  toggle is described by the counter and the line. The script mirrors `RankingFieldType`'s texts and rules for
   them; it holds no rule beyond them, and the server checks everything at
   submit.
 - The CSS (`style.css`) is the structure, unlayered (layout, 44-pixel

@@ -129,11 +129,13 @@ final class RankingFieldFormTest extends FormsTestCase
             $html
         );
         self::assertStringContainsString('<ul data-kalaka-unranked role="list" aria-label="Többi lehetőség">', $html);
-        // Each option: the browser's checkbox `<key>[]`, drawn as „+”, named by what it does to its option.
+        // Each option: the browser's checkbox `<key>[]`, drawn as „+”, named by what it does to its option and
+        // described by the counter and the minimum's line.
         self::assertSame(3, substr_count($html, 'type="checkbox" name="modulok[]"'));
         self::assertSame(0, substr_count($html, ' checked'));
         self::assertStringContainsString(
-            'value="modul_b" data-kalaka-toggle aria-label="Modul B hozzáadása a sorrendhez" autocomplete="off">',
+            'value="modul_b" data-kalaka-toggle aria-label="Modul B hozzáadása a sorrendhez"'
+                . ' aria-describedby="kalaka-field-modulok-counter kalaka-field-modulok-minimum" autocomplete="off">',
             $html
         );
         // The text is no label: a tap on it does nothing.
@@ -152,13 +154,18 @@ final class RankingFieldFormTest extends FormsTestCase
                 . ' aria-label="Modul C lejjebb mozgatása" hidden>',
             $html
         );
-        // The minimum's empty rows (required: shown at once), the first with its line; the counter.
+        // The minimum's empty rows (required: shown at once), a named list, the first with its line; the counter.
         self::assertStringContainsString(
-            '<ol data-kalaka-empty start="1"><li data-kalaka-empty-row>Adj hozzá legalább 2 lehetőséget a sorrendhez.'
-                . '</li><li data-kalaka-empty-row aria-hidden="true"></li></ol>',
+            '<ol data-kalaka-empty role="list" aria-label="Üres helyek a sorrendben"' . "\n"
+                . '            start="1"><li data-kalaka-empty-row id="kalaka-field-modulok-minimum">'
+                . 'Adj hozzá legalább 2 lehetőséget a sorrendhez.</li>'
+                . '<li data-kalaka-empty-row aria-hidden="true"></li></ol>',
             $html
         );
-        self::assertStringContainsString('<p data-kalaka-counter>0 / 3 kiválasztva</p>', $html);
+        self::assertStringContainsString(
+            '<p data-kalaka-counter id="kalaka-field-modulok-counter">0 / 3 kiválasztva</p>',
+            $html
+        );
         self::assertStringContainsString('id="kalaka-field-modulok-error" class="kalaka-field__error" hidden', $html);
         self::assertStringContainsString(
             '<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span>',
@@ -173,12 +180,13 @@ final class RankingFieldFormTest extends FormsTestCase
     public function testAnOptionalFieldShowsNoEmptyRowsAtLoadAndOneMeansEgy(): void
     {
         $optional = $this->render(['key' => 'modulok', 'options' => self::OPTIONS, 'min' => 2, 'max' => 3]);
-        self::assertStringContainsString('<ol data-kalaka-empty start="1" hidden></ol>', $optional);
+        self::assertStringContainsString('start="1" hidden></ol>', $optional);
         self::assertStringNotContainsString('data-kalaka-required', $optional);
 
         $one = $this->render(['key' => 'modulok', 'required' => true, 'options' => self::OPTIONS, 'min' => 1]);
         self::assertStringContainsString(
-            '<li data-kalaka-empty-row>Adj hozzá legalább egy lehetőséget a sorrendhez.</li>',
+            '<li data-kalaka-empty-row id="kalaka-field-modulok-minimum">'
+                . 'Adj hozzá legalább egy lehetőséget a sorrendhez.</li>',
             $one
         );
         self::assertSame(

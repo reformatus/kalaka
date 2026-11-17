@@ -39,17 +39,32 @@ final class Module extends AbstractModule
         . '--kalaka-control-hover-background:#ddd;--kalaka-border-color:transparent;--kalaka-radius:0}';
 
     /**
-     * What the variables cannot reach in Divi: a dark focus ring on the ranking's controls, which Divi's
-     * `:focus { outline: 0 }` removes (unlayered, so it wins over Divi's rule); the handle in Divi's input
-     * text grey (`#999`); thin lines between ranked rows; the other options without Divi's bullets and
-     * indent, their text in line with the ranked ones' (`:not(#kalaka)` weighs like an id, to outweigh
-     * Divi's `#left-area ul`); a white, lifted row while it is dragged (owner, S45 round 2, approved as built).
+     * What the variables cannot reach in Divi:
+     * - the ranking's ↑/↓, whose `wp-element-button` takes WordPress's global button colours (`:root
+     *   :where(.wp-element-button)`, unlayered, so it outweighs the base): Divi's grey again, as the toggle
+     *   beside them (owner, S45 round 2, approved as built); their border stays WordPress's (none), so a
+     *   forced-colours border still shows; no hover on one that does nothing now;
+     * - a dark focus ring on the ranking's controls, which Divi's `:focus { outline: 0 }` removes
+     *   (unlayered, so it wins over Divi's rule);
+     * - the row gap; the handle in Divi's input text grey (`#999`); thin lines between ranked rows;
+     * - the empty rows' dashed places, which Divi's reset (`li { border: 0; margin: 0 }`, unlayered) and the
+     *   transparent border colour would hide: the base's faded text colour, not the variable;
+     * - the other options without Divi's bullets and indent, their text in line with the ranked ones'
+     *   (`:not(#kalaka)` weighs like an id, to outweigh Divi's `#left-area ul`);
+     * - a white, lifted row while it is dragged (owner, S45 round 2, approved as built).
      */
-    private const RANKING = '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button:focus-visible,'
+    private const RANKING = '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button'
+        . '{background:var(--kalaka-control-background);color:var(--kalaka-control-color);'
+        . 'border-radius:var(--kalaka-radius)}'
+        . '@media (hover:hover){.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]'
+        . '>button:not([aria-disabled=true]):hover{background:var(--kalaka-control-hover-background)}}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button:focus-visible,'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>input[data-kalaka-toggle]:focus-visible'
         . '{outline:2px solid #333;outline-offset:2px}'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-row]{gap:4px}'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-handle]{color:#999;font-size:18px}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-empty]>li'
+        . '{border:1px dashed color-mix(in srgb,currentColor 35%,transparent);margin-bottom:4px}'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-row]'
         . '{border-bottom:1px solid #eee}'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-unranked]:not(#kalaka)'

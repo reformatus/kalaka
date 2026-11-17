@@ -12,10 +12,12 @@
  * buttons replace the checkbox). The text is no `label`: a tap on it does nothing (owner, r2), so a long
  * press that starts a drag can never untick. The checkbox's accessible name says what it does, and names
  * the option („… hozzáadása a sorrendhez” / „… eltávolítása a sorrendből”); `view.js` swaps it with the state.
+ * The counter and the minimum's line (the first empty row; the empty rows are a third named list)
+ * describe it (`aria-describedby`), so a „+” that does nothing at the maximum says why.
  *
  * `view.js` moves an option between the two lists when it is ticked or unticked, and up or down the
  * ranked list by a drag (a mouse from anywhere on the row; a finger by the handle at once, or anywhere
- * on the row after a long press) or by its two icon buttons; the live region (WordPress's
+ * on the row after a long press) or by its two icon buttons; the live region (core's
  * `kalaka-visually-hidden`) tells a screen reader an option's new place. The handle is pointer-only and hidden
  * from screen readers, whose two buttons do the same.
  *
@@ -37,6 +39,9 @@ $kalakaLabels = RankingFieldType::labels($attributes);
 // value, cleaned by `RankingFieldType::prefilled()`.
 /** @var list<string> $kalakaRanked */
 $kalakaRanked = [];
+// The counter and the minimum's line describe every toggle, so a focused „+” says why it does nothing.
+$kalakaCounterId = FieldMarkup::controlId($kalakaKey) . '-counter';
+$kalakaMinimumId = FieldMarkup::controlId($kalakaKey) . '-minimum';
 $kalakaIcon = static fn (string $path): string
     => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"'
         . ' focusable="false" fill="none" stroke="currentColor" stroke-width="1.5"><path d="' . esc_attr($path)
@@ -48,7 +53,9 @@ $kalakaItem = static function (
     bool $ranked
 ) use (
     $kalakaKey,
-    $kalakaIcon
+    $kalakaIcon,
+    $kalakaCounterId,
+    $kalakaMinimumId
 ): string {
     $hidden = $ranked ? '' : ' hidden';
 
@@ -69,6 +76,7 @@ $kalakaItem = static function (
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'
         . ' data-kalaka-toggle aria-label="'
         . esc_attr(sprintf($ranked ? RankingFieldType::REMOVE_NAME : RankingFieldType::ADD_NAME, $label)) . '"'
+        . ' aria-describedby="' . esc_attr($kalakaCounterId . ' ' . $kalakaMinimumId) . '"'
         . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl)
         . ($ranked ? ' checked' : '')
         . '>'
@@ -92,7 +100,8 @@ $kalakaEmptyRows = '';
 for ($kalakaRow = 0; $kalakaRow < $kalakaEmpty; $kalakaRow++) {
     // The first empty row says how many are still missing; the others are only places.
     $kalakaEmptyRows .= $kalakaRow === 0
-        ? '<li data-kalaka-empty-row>' . esc_html(RankingFieldType::minimumLine($kalakaCount, $attributes)) . '</li>'
+        ? '<li data-kalaka-empty-row id="' . esc_attr($kalakaMinimumId) . '">'
+            . esc_html(RankingFieldType::minimumLine($kalakaCount, $attributes)) . '</li>'
         : '<li data-kalaka-empty-row aria-hidden="true"></li>';
 }
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup and the item builder escape what they build
@@ -108,9 +117,10 @@ for ($kalakaRow = 0; $kalakaRow < $kalakaEmpty; $kalakaRow++) {
         ?></legend>
         <ol data-kalaka-ranked role="list" aria-label="<?php echo esc_attr(RankingFieldType::RANKED_NAME); ?>"><?php
             echo $kalakaRankedItems; ?></ol>
-        <ol data-kalaka-empty start="<?php echo esc_attr((string) ($kalakaCount + 1)); ?>"<?php
+        <ol data-kalaka-empty role="list" aria-label="<?php echo esc_attr(RankingFieldType::EMPTY_NAME); ?>"
+            start="<?php echo esc_attr((string) ($kalakaCount + 1)); ?>"<?php
             echo $kalakaEmpty === 0 ? ' hidden' : ''; ?>><?php echo $kalakaEmptyRows; ?></ol>
-        <p data-kalaka-counter><?php
+        <p data-kalaka-counter id="<?php echo esc_attr($kalakaCounterId); ?>"><?php
             echo esc_html(sprintf(RankingFieldType::COUNTER, $kalakaCount, RankingFieldType::max($attributes)));
         ?></p>
         <ul data-kalaka-unranked role="list" aria-label="<?php echo esc_attr(RankingFieldType::OTHERS_NAME); ?>"><?php

@@ -112,10 +112,11 @@ title: Engineering
   looks right on any sane theme by itself and is easy to restyle. Fonts and
   colours are inherited (`currentColor`, the theme's `--wp--preset--…`
   values with neutral fallbacks), borders are a faded text colour, and there
-  are no shadows, outlines, big radii or browser-default buttons. Every base
-  rule is in the CSS cascade layer `kalaka` with zero-specificity `:where()`
-  selectors, so the theme's and the site's CSS always win without
-  `!important`, and it reads a few documented `--kalaka-…` custom
+  are no shadows, big radii or browser-default buttons, and no outlines: a
+  focus ring is the one allowed outline. Every base rule is in the CSS
+  cascade layer `kalaka` with zero-specificity `:where()` selectors, so the
+  theme's and the site's CSS always win for the look without `!important`;
+  the structure stays. The base reads a few documented `--kalaka-…` custom
   properties that a site or a theme adapter sets.
 - **The error colour** is the theme's where the theme has one, otherwise a
   fixed red.

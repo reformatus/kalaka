@@ -160,7 +160,7 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 	}
 
 	@media (hover: hover) {
-		:where(form[data-wp-interactive="kalaka/form"]) :where(button:hover) {
+		:where(form[data-wp-interactive="kalaka/form"]) :where(button:not(:disabled, [aria-disabled="true"]):hover) {
 			background: var(--kalaka-control-hover-background, color-mix(in srgb, currentColor 8%, transparent));
 		}
 	}

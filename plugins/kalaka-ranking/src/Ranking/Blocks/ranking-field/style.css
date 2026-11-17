@@ -95,6 +95,13 @@
 	cursor: pointer;
 }
 
+/* A control that does nothing now (`aria-disabled`: an edge ↑/↓, every „+” at the maximum) shows no hand
+ * under the pointer. Unlayered, and weightier than the two `cursor: pointer` rules above, since a hand
+ * would say the control works. */
+[data-kalaka-ranking] [data-kalaka-row] [data-kalaka-controls] > :is(button, input)[aria-disabled="true"] {
+	cursor: default;
+}
+
 /* The handle drags at once, also by touch: the only part of a row with `touch-action: none`. A box of
  * 44 by 44 pixels with the grip in its middle, so a finger on it lands on it. */
 [data-kalaka-ranking] [data-kalaka-handle] {
@@ -214,14 +221,24 @@
 	}
 
 	@media (hover: hover) {
-		:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]:hover) {
+		:where([data-kalaka-ranking] [data-kalaka-controls] > [data-kalaka-toggle]:not([aria-disabled="true"]):hover) {
 			background: var(--kalaka-control-hover-background, color-mix(in srgb, currentColor 8%, transparent));
 		}
 	}
 
 	:where([data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"]) {
 		opacity: var(--kalaka-disabled-opacity, 0.4);
-		cursor: default;
+	}
+
+	/* A faded control fades its focus ring too, whoever draws it (the theme, an adapter): while it has the
+	 * keyboard's focus, only its icon is faint, so the ring shows in full. */
+	:where([data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"]:focus-visible) {
+		opacity: 1;
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-controls] > button[aria-disabled="true"]:focus-visible > svg),
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[aria-disabled="true"]:focus-visible)::before {
+		opacity: var(--kalaka-disabled-opacity, 0.4);
 	}
 
 	:where([data-kalaka-ranking] [data-kalaka-empty] > li) {

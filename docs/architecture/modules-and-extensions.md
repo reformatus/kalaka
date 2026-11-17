@@ -331,8 +331,10 @@ flowchart LR
   the theme's own styles where a form appears through the theme's own
   mechanisms in its `boot()`, and may add a stylesheet that maps core's
   neutral base (its `--kalaka-…` properties and classes) onto the theme's
-  look ([Engineering](engineering.md#wordpress-surfaces)); it never changes
-  markup. At most one adapter applies at a time.
+  look ([Engineering](engineering.md#wordpress-surfaces)). That stylesheet
+  may also style field types' own `data-kalaka-*` markup, and fixes what its
+  theme breaks; the adapter never changes markup. At most one adapter
+  applies at a time.
 
 ### Contracts
 
