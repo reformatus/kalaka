@@ -46,6 +46,11 @@ final class RequestScopeHost implements FormHost
         return $this->host->keyProblem($form, $content);
     }
 
+    public function prefill(Form $form): array
+    {
+        return $this->host->prefill($form);
+    }
+
     public function requestOptions(Form $form, int $setId): ?RequestOptions
     {
         $options = $this->host->requestOptions($form, $setId);
