@@ -78,12 +78,14 @@ final class MoneySettings
     }
 
     /**
-     * Saves the proposed settings in one use case, then re-evaluates each open registration in a use case
-     * of its own. Registrations submitted since the preview are included: the list is read after the save.
-     * One failing registration never stops the others.
+     * Saves the proposed settings, the fixed price first, then each component's settings in its own use case
+     * in the order given; a failing save stops the apply before any registration is touched, and the saves
+     * before it stay. Then it re-evaluates each open registration in a use case of its own. Registrations
+     * submitted since the preview are included: the list is read after the save. One failing registration
+     * never stops the others.
      *
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException when the settings cannot be saved; nothing is
-     *                                                       saved and no registration is touched
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException when a setting cannot be saved; no registration
+     *                                                       is touched
      */
     public function apply(int $eventId, ProposedMoneySettings $proposed, Actor $actor): ApplyReport
     {
@@ -98,6 +100,11 @@ final class MoneySettings
                 ],
                 $actor
             );
+        }
+
+        foreach ($proposed->components as $settings) {
+            $save = $settings->save();
+            $this->runner()->run($save->useCase, $save->input, $actor);
         }
 
         $items = [];

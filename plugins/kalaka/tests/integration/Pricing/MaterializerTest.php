@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Evaluation\RuleFailed;
 use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /** The walkthrough's cases C1, C2, C4, C5 and C7, with no tariff snapshot: money follows the current settings. */
@@ -113,5 +114,31 @@ final class MaterializerTest extends PricingTestCase
             self::assertInstanceOf(FeeComponentFailed::class, $rule->getPrevious());
         }
         self::assertSame(0, $this->registrationCount());
+    }
+
+    public function testTheFixedPriceIsTheBaseOnlyWhileNoOtherTierComponentOwesAnything(): void
+    {
+        $ladder = new TierComponent('49500');
+        $this->useComponents($ladder);
+        $this->setPrice('40000');
+        $anna = $this->register('00A0');
+
+        self::assertSame(['tier participant 49500 charge:tier:participant:1'], $this->charges($anna));
+
+        $ladder->amount = null;
+        $this->inRun(static fn (array $input, Context $context) => $context->markTouched($anna));
+
+        self::assertSame([
+            'tier participant 49500 charge:tier:participant:1',
+            'fixed_price participant 40000 charge:fixed_price:participant:1',
+            'tier participant -49500 charge:tier:participant:2',
+        ], $this->charges($anna));
+        self::assertSame('40000', $this->balance($anna));
+    }
+
+    public function testTwoComponentsWithOneIdAreRefused(): void
+    {
+        $this->expectException(\LogicException::class);
+        (new CoreFeeComponents([new TierComponent('1', 'fixed_price')]))->list();
     }
 }
