@@ -7,7 +7,11 @@ import {
 	LONG_PRESS,
 	addName,
 	announcement,
+	counterText,
 	dropIndex,
+	emptyRows,
+	fullText,
+	minimumLine,
 	move,
 	placeAt,
 	removeName,
@@ -16,22 +20,28 @@ import {
 
 const OPTIONS = ['modul_a', 'modul_b', 'modul_c'];
 
-/** The field as `render.php` renders it, with no option ranked. */
-function render() {
+/** The field as `render.php` renders it, with no option ranked: by default required, at least 1, at most 3. */
+function render({ min = 1, max = 3, required = true } = {}) {
 	const items = OPTIONS.map(
 		(value, index) =>
 			`<li data-kalaka-option="${index}"><div data-kalaka-row>` +
 			`<span data-kalaka-handle aria-hidden="true" hidden>⠿</span>` +
 			`<span data-kalaka-label>${value}</span><span data-kalaka-controls>` +
-			`<button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden><svg></svg></button>` +
-			`<button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden><svg></svg></button>` +
-			`<input type="checkbox" name="modulok[]" value="${value}" data-kalaka-toggle aria-label="${value} hozzáadása a sorrendhez" autocomplete="off">` +
+			`<button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden>` +
+			`<svg></svg></button>` +
+			`<button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden>` +
+			`<svg></svg></button>` +
+			`<input type="checkbox" name="modulok[]" value="${value}" data-kalaka-toggle` +
+			` aria-label="${value} hozzáadása a sorrendhez" autocomplete="off">` +
 			`</span></div></li>`
 	).join('');
 	document.body.innerHTML =
-		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking><fieldset><legend>Modulok</legend>` +
-		`<ol data-kalaka-ranked></ol><ul data-kalaka-unranked>${items}</ul></fieldset>` +
-		`<span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span></div></form>`;
+		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking data-kalaka-min="${min}"` +
+		` data-kalaka-max="${max}"${required ? ' data-kalaka-required' : ''}><fieldset><legend>Modulok</legend>` +
+		`<ol data-kalaka-ranked role="list" aria-label="Választott sorrend"></ol><ol data-kalaka-empty start="1"></ol>` +
+		`<p data-kalaka-counter></p>` +
+		`<ul data-kalaka-unranked role="list" aria-label="Többi lehetőség">${items}</ul></fieldset>` +
+		`<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span></div></form>`;
 	const field = document.querySelector('[data-kalaka-ranking]');
 	start(field);
 	return field;
@@ -122,8 +132,8 @@ describe('the ranking field', () => {
 		OPTIONS.forEach((value) => tick(field, value));
 		press(field, 'modul_c', 'up');
 
-		expect(field.querySelector('[data-kalaka-announce]').textContent).toBe('modul_c, 2. hely');
-		expect(announcement('Modul A', 1)).toBe('Modul A, 1. hely');
+		expect(field.querySelector('[data-kalaka-announce]').textContent).toBe('modul_c, 2. helyen');
+		expect(announcement('Modul A', 1)).toBe('Modul A, 1. helyen');
 	});
 
 	test('a ranked option shows its handle; an unranked one hides it; the row itself scrolls as usual', () => {
@@ -242,7 +252,7 @@ describe('dragging a ranked option', () => {
 		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 		expect(changes).toEqual(['modul_a']);
 		expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
-		expect(field.querySelector('[data-kalaka-announce]').textContent).toBe('modul_a, 3. hely');
+		expect(field.querySelector('[data-kalaka-announce]').textContent).toBe('modul_a, 3. helyen');
 		expect(readAnswer(field, 'modulok').value).toEqual(['modul_b', 'modul_c', 'modul_a']);
 	});
 
@@ -261,7 +271,7 @@ describe('dragging a ranked option', () => {
 		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 	});
 
-	test('a short press is no drag; a finger that moves on the text at once swipes; a button or the toggle never drags', () => {
+	test('a short press is no drag; a finger moving on the text at once swipes; the controls never drag', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
 		layOut(field);
@@ -482,11 +492,11 @@ describe('the keyboard and the screen reader', () => {
 		const region = field.querySelector('[data-kalaka-announce]');
 
 		tick(field, 'modul_c');
-		expect(region.textContent).toBe('modul_c, 1. hely');
+		expect(region.textContent).toBe('modul_c, 1. helyen');
 		tick(field, 'modul_a');
-		expect(region.textContent).toBe('modul_a, 2. hely');
+		expect(region.textContent).toBe('modul_a, 2. helyen');
 		tick(field, 'modul_c');
-		expect(region.textContent).toBe('');
+		expect(region.textContent).toBe('modul_c, kivéve a sorrendből');
 	});
 
 	test('the edge buttons are aria-disabled, stay focusable and do nothing', () => {
@@ -533,3 +543,92 @@ describe('the keyboard and the screen reader', () => {
 		expect(box(field, 'modul_b').checked).toBe(false);
 	});
 });
+
+describe('the counter, the empty rows and the maximum (owner, Q1, Q2)', () => {
+	const counter = (field) => field.querySelector('[data-kalaka-counter]').textContent;
+	const empties = (field) =>
+		[...field.querySelectorAll('[data-kalaka-empty] > li')].map((row) => row.textContent);
+	const region = (field) => field.querySelector('[data-kalaka-announce]').textContent;
+
+	test('the texts: the minimum line, the more line, the full text, with „egy” for one', () => {
+		expect(minimumLine(1, 0)).toBe('Adj hozzá legalább egy lehetőséget a sorrendhez.');
+		expect(minimumLine(3, 0)).toBe('Adj hozzá legalább 3 lehetőséget a sorrendhez.');
+		expect(minimumLine(3, 2)).toBe('Adj hozzá még legalább egy lehetőséget a sorrendhez.');
+		expect(minimumLine(4, 1)).toBe('Adj hozzá még legalább 3 lehetőséget a sorrendhez.');
+		expect(fullText(1)).toBe('Megtelt a sorrend: legfeljebb egy lehetőséget választhatsz.');
+		expect(fullText(3)).toBe('Megtelt a sorrend: legfeljebb 3 lehetőséget választhatsz.');
+		expect(counterText(2, 3)).toBe('2 / 3 kiválasztva');
+	});
+
+	test('a required field shows the minimum\'s empty rows at once, the first with the line', () => {
+		const field = render({ min: 2, max: 3 });
+
+		expect(counter(field)).toBe('0 / 3 kiválasztva');
+		expect(empties(field)).toEqual(['Adj hozzá legalább 2 lehetőséget a sorrendhez.', '']);
+		expect(field.querySelectorAll('[data-kalaka-empty] > li')[1].getAttribute('aria-hidden')).toBe('true');
+
+		tick(field, 'modul_b');
+		expect(counter(field)).toBe('1 / 3 kiválasztva');
+		expect(empties(field)).toEqual(['Adj hozzá még legalább egy lehetőséget a sorrendhez.']);
+		expect(field.querySelector('[data-kalaka-empty]').getAttribute('start')).toBe('2');
+
+		tick(field, 'modul_a');
+		expect(empties(field)).toEqual([]);
+		expect(field.querySelector('[data-kalaka-empty]').hidden).toBe(true);
+	});
+
+	test('an optional field shows no empty rows until the first option is added', () => {
+		const field = render({ min: 2, max: 3, required: false });
+
+		expect(empties(field)).toEqual([]);
+		tick(field, 'modul_a');
+		expect(empties(field)).toEqual(['Adj hozzá még legalább egy lehetőséget a sorrendhez.']);
+		tick(field, 'modul_a');
+		expect(empties(field)).toEqual([]);
+		expect(emptyRows(0, { min: 2, required: false })).toBe(0);
+		expect(emptyRows(0, { min: 2, required: true })).toBe(2);
+	});
+
+	test('with min = max, the counter and the line both show while places are empty', () => {
+		const field = render({ min: 2, max: 2 });
+
+		expect(counter(field)).toBe('0 / 2 kiválasztva');
+		expect(empties(field)).toEqual(['Adj hozzá legalább 2 lehetőséget a sorrendhez.', '']);
+		tick(field, 'modul_a');
+		expect(counter(field)).toBe('1 / 2 kiválasztva');
+		expect(empties(field)).toEqual(['Adj hozzá még legalább egy lehetőséget a sorrendhez.']);
+	});
+
+	test('only the tick that reaches the maximum says the order is full, once', () => {
+		const field = render({ min: 1, max: 2 });
+
+		tick(field, 'modul_a');
+		expect(region(field)).toBe('modul_a, 1. helyen');
+		tick(field, 'modul_b');
+		expect(region(field)).toBe(
+			'modul_b, 2. helyen. Megtelt a sorrend: legfeljebb 2 lehetőséget választhatsz.'
+		);
+		press(field, 'modul_b', 'up');
+		expect(region(field)).toBe('modul_b, 1. helyen');
+		tick(field, 'modul_a');
+		expect(region(field)).toBe('modul_a, kivéve a sorrendből');
+	});
+
+	test('at the maximum every „+” is aria-disabled and a click or Enter on it changes nothing', () => {
+		const field = render({ min: 1, max: 1 });
+		tick(field, 'modul_a');
+		const plus = box(field, 'modul_b');
+
+		expect(plus.getAttribute('aria-disabled')).toBe('true');
+		expect(box(field, 'modul_a').hasAttribute('aria-disabled')).toBe(false);
+		plus.click();
+		plus.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+		expect(plus.checked).toBe(false);
+		expect(ranked(field)).toEqual(['modul_a']);
+		expect(region(field)).toBe('modul_a, 1. helyen. Megtelt a sorrend: legfeljebb egy lehetőséget választhatsz.');
+
+		tick(field, 'modul_a');
+		expect(plus.hasAttribute('aria-disabled')).toBe(false);
+	});
+});
+

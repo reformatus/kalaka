@@ -25,9 +25,13 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
   own: no Divi class that hides them (`et_pb_contact_form_label`, Divi's drawn
   `input` + `label > i` controls).
 - Divi's own form styles load through Divi's mechanism
-  (`et_required_module_assets`) on pages whose content places a form; the
-  plugin's own CSS is structural only (the spacing of `div` fields) and
-  functional: on an iPhone (Divi's `body.iphone`) it gives Kaláka's own
+  (`et_required_module_assets`) on pages whose content places a form. The
+  plugin's own CSS maps core's neutral base onto Divi's form look: the
+  `--kalaka-…` properties set on Divi's contact form (Divi's input greys, no
+  border or radius), plus what they cannot reach (the spacing of `div`
+  fields, a focus ring Divi's `:focus { outline: 0 }` removes, the ranking's
+  handle, lines and lists). It never changes markup.
+  Functional too: on an iPhone (Divi's `body.iphone`) it gives Kaláka's own
   checkboxes and radio buttons their native appearance back, which Divi's
-  contact-form rule sets to `initial` (0×0), and nothing else.
+  contact-form rule sets to `initial` (0×0).
 - The plugin stores nothing.

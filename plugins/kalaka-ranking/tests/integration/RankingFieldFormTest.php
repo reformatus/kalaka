@@ -105,61 +105,94 @@ final class RankingFieldFormTest extends FormsTestCase
         }
     }
 
-    public function testItRendersCheckboxesInAChoiceGroupWithTheErrorElement(): void
+    public function testItRendersRowsWithToggleCheckboxesInAChoiceGroupWithTheErrorElement(): void
     {
         $html = $this->render([
             'key' => 'modulok',
             'label' => 'Modulok',
             'required' => true,
             'options' => self::OPTIONS,
+            'min' => 2,
+            'max' => 3,
         ]);
 
         self::assertStringContainsString('data-kalaka-field="modulok"', $html);
-        self::assertStringContainsString('data-kalaka-ranking', $html);
+        self::assertStringContainsString(
+            'data-kalaka-ranking' . "\n" . '    data-kalaka-min="2"' . "\n"
+                . '    data-kalaka-max="3" data-kalaka-required>',
+            $html
+        );
         self::assertMatchesRegularExpression('/<legend>Modulok<span class="kalaka-field__required"/', $html);
-        self::assertStringContainsString('<ol data-kalaka-ranked></ol>', $html);
+        // The two lists, named for screen readers (owner, Q4), the ranked one empty at load.
+        self::assertStringContainsString(
+            '<ol data-kalaka-ranked role="list" aria-label="Választott sorrend"></ol>',
+            $html
+        );
+        self::assertStringContainsString('<ul data-kalaka-unranked role="list" aria-label="Többi lehetőség">', $html);
+        // Each option: the browser's checkbox `<key>[]`, drawn as „+”, named by what it does to its option.
         self::assertSame(3, substr_count($html, 'type="checkbox" name="modulok[]"'));
         self::assertSame(0, substr_count($html, ' checked'));
-        self::assertStringContainsString('value="modul_b" autocomplete="off">', $html);
-        // Each option's drag handle: hidden from screen readers (the buttons do the same), shown once ranked,
-        // and the only part of the row that takes what a drag needs. It is a box of at least 44 by 44 pixels
-        // (a finger on it must not land on the label), and an unranked one has no `display` to override its
-        // `hidden`.
-        self::assertSame(3, substr_count(
-            $html,
-            '<span data-kalaka-handle aria-hidden="true" style="touch-action:none;user-select:none;'
-                . '-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;box-sizing:border-box;'
-                . 'min-width:44px;min-height:44px;align-items:center;justify-content:center;vertical-align:middle"'
-                . ' hidden>⠿</span> <label'
-        ));
-        self::assertStringNotContainsString('<li data-kalaka-option="0" style', $html);
-        // An unranked option's two buttons are hidden.
-        self::assertSame(3, substr_count($html, 'feljebb mozgatása" hidden>Feljebb</button>'));
-        // Each button's accessible name names its option.
         self::assertStringContainsString(
-            '<button type="button" data-kalaka-move="up" aria-label="Modul B feljebb mozgatása" hidden>'
-                . 'Feljebb</button>',
+            'value="modul_b" data-kalaka-toggle aria-label="Modul B hozzáadása a sorrendhez" autocomplete="off"'
+                . ' class="wp-element-button">',
+            $html
+        );
+        // The text is no label: a tap on it does nothing.
+        self::assertStringNotContainsString('<label', substr($html, (int) strpos($html, '</legend>')));
+        self::assertStringContainsString('<span data-kalaka-label>Modul A</span>', $html);
+        // The handle and the move buttons show only once the option is ranked; the buttons carry
+        // `wp-element-button` and a name that says which option they move.
+        self::assertSame(3, substr_count($html, '<span data-kalaka-handle aria-hidden="true" hidden>⠿</span>'));
+        self::assertStringContainsString(
+            '<button type="button" class="wp-element-button" data-kalaka-move="up"'
+                . ' aria-label="Modul B feljebb mozgatása" hidden>',
             $html
         );
         self::assertStringContainsString(
-            '<button type="button" data-kalaka-move="down" aria-label="Modul C lejjebb mozgatása" hidden>'
-                . 'Lejjebb</button>',
+            '<button type="button" class="wp-element-button" data-kalaka-move="down"'
+                . ' aria-label="Modul C lejjebb mozgatása" hidden>',
             $html
         );
-        self::assertSame(
-            3,
-            substr_count($html, 'lejjebb mozgatása" hidden>Lejjebb</button>')
+        // The minimum's empty rows (required: shown at once), the first with its line; the counter.
+        self::assertStringContainsString(
+            '<ol data-kalaka-empty start="1"><li data-kalaka-empty-row>Adj hozzá legalább 2 lehetőséget a sorrendhez.'
+                . '</li><li data-kalaka-empty-row aria-hidden="true"></li></ol>',
+            $html
         );
+        self::assertStringContainsString('<p data-kalaka-counter>0 / 3 kiválasztva</p>', $html);
         self::assertStringContainsString('id="kalaka-field-modulok-error" class="kalaka-field__error" hidden', $html);
-        // The live region that tells a screen reader an option's new place after a move.
         self::assertStringContainsString(
-            '<span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span>',
+            '<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span>',
             $html
         );
 
         // The options keep their authored order among the unranked ones.
         self::assertLessThan(strpos($html, 'modul_b'), strpos($html, 'modul_a'));
         self::assertLessThan(strpos($html, 'modul_c'), strpos($html, 'modul_b'));
+    }
+
+    public function testAnOptionalFieldShowsNoEmptyRowsAtLoadAndOneMeansEgy(): void
+    {
+        $optional = $this->render(['key' => 'modulok', 'options' => self::OPTIONS, 'min' => 2, 'max' => 3]);
+        self::assertStringContainsString('<ol data-kalaka-empty start="1" hidden></ol>', $optional);
+        self::assertStringNotContainsString('data-kalaka-required', $optional);
+
+        $one = $this->render(['key' => 'modulok', 'required' => true, 'options' => self::OPTIONS, 'min' => 1]);
+        self::assertStringContainsString(
+            '<li data-kalaka-empty-row>Adj hozzá legalább egy lehetőséget a sorrendhez.</li>',
+            $one
+        );
+        self::assertSame(
+            'Adj hozzá még legalább egy lehetőséget a sorrendhez.',
+            RankingFieldType::minimumLine(2, ['min' => 3])
+        );
+        self::assertSame(
+            'Adj hozzá még legalább 2 lehetőséget a sorrendhez.',
+            RankingFieldType::minimumLine(1, ['min' => 3])
+        );
+        self::assertSame(0, RankingFieldType::emptyRows(0, ['min' => 2]));
+        self::assertSame(2, RankingFieldType::emptyRows(0, ['min' => 2, 'required' => true]));
+        self::assertSame(1, RankingFieldType::emptyRows(1, ['min' => 2]));
     }
 
     public function testItIsDeclaredAsTheEventsParticipantFieldWithoutOptions(): void

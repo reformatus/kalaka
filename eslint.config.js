@@ -10,6 +10,7 @@ const browser = {
 	Element: 'readonly',
 	Event: 'readonly',
 	HTMLElement: 'readonly',
+	KeyboardEvent: 'readonly',
 	MouseEvent: 'readonly',
 	fetch: 'readonly',
 	performance: 'readonly',

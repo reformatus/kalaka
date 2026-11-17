@@ -329,7 +329,10 @@ flowchart LR
   Core applies these to the markup it renders, for the block and the
   shortcode alike, and still produces that markup itself. The adapter loads
   the theme's own styles where a form appears through the theme's own
-  mechanisms in its `boot()`. At most one adapter applies at a time.
+  mechanisms in its `boot()`, and may add a stylesheet that maps core's
+  neutral base (its `--kalaka-…` properties and classes) onto the theme's
+  look ([Engineering](engineering.md#wordpress-surfaces)); it never changes
+  markup. At most one adapter applies at a time.
 
 ### Contracts
 

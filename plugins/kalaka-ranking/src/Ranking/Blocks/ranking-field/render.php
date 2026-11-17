@@ -16,7 +16,7 @@
  * `view.js` moves an option between the two lists when it is ticked or unticked, and up or down the
  * ranked list by a drag (a mouse from anywhere on the row; a finger by the handle at once, or anywhere
  * on the row after a long press) or by its two icon buttons; the live region (WordPress's
- * `screen-reader-text`) tells a screen reader an option's new place. The handle is pointer-only and hidden
+ * `kalaka-visually-hidden`) tells a screen reader an option's new place. The handle is pointer-only and hidden
  * from screen readers, whose two buttons do the same.
  *
  * @var array<string, mixed> $attributes
@@ -60,16 +60,17 @@ $kalakaItem = static function (
         // Each control's accessible name names its option, in the editor's pattern ("… feljebb mozgatása").
         // The controls are one group, so a narrow screen wraps them under the text together.
         . '<span data-kalaka-controls>'
-        . '<button type="button" data-kalaka-move="up" aria-label="'
+        . '<button type="button" class="wp-element-button" data-kalaka-move="up" aria-label="'
         . esc_attr(sprintf(RankingFieldType::UP_NAME, $label)) . '"' . $hidden . '>'
         . $kalakaIcon(RankingFieldType::UP_ICON) . '</button>'
-        . '<button type="button" data-kalaka-move="down" aria-label="'
+        . '<button type="button" class="wp-element-button" data-kalaka-move="down" aria-label="'
         . esc_attr(sprintf(RankingFieldType::DOWN_NAME, $label)) . '"' . $hidden . '>'
         . $kalakaIcon(RankingFieldType::DOWN_ICON) . '</button>'
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'
         . ' data-kalaka-toggle aria-label="'
         . esc_attr(sprintf($ranked ? RankingFieldType::REMOVE_NAME : RankingFieldType::ADD_NAME, $label)) . '"'
-        . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl) . ($ranked ? ' checked' : '')
+        . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl, 'wp-element-button')
+        . ($ranked ? ' checked' : '')
         . '>'
         . '</span></div></li>';
 };
@@ -85,18 +86,37 @@ foreach ($kalakaLabels as $kalakaValue => $kalakaLabel) {
         $kalakaOtherItems .= $kalakaItem($kalakaValue, $kalakaLabel, $kalakaPositions[$kalakaValue], false);
     }
 }
+$kalakaCount = count($kalakaRanked);
+$kalakaEmpty = RankingFieldType::emptyRows($kalakaCount, $attributes);
+$kalakaEmptyRows = '';
+for ($kalakaRow = 0; $kalakaRow < $kalakaEmpty; $kalakaRow++) {
+    // The first empty row says how many are still missing; the others are only places.
+    $kalakaEmptyRows .= $kalakaRow === 0
+        ? '<li data-kalaka-empty-row>' . esc_html(RankingFieldType::minimumLine($kalakaCount, $attributes)) . '</li>'
+        : '<li data-kalaka-empty-row aria-hidden="true"></li>';
+}
 // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- FieldMarkup and the item builder escape what they build
 ?>
-<div <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?> data-kalaka-ranking>
+<div <?php echo FieldMarkup::wrapperAttributes($kalakaKey); ?> data-kalaka-ranking
+    data-kalaka-min="<?php echo esc_attr((string) RankingFieldType::min($attributes)); ?>"
+    data-kalaka-max="<?php echo esc_attr((string) RankingFieldType::max($attributes)); ?>"<?php
+    echo $kalakaRequired ? ' data-kalaka-required' : ''; ?>>
     <fieldset<?php echo FieldMarkup::classAttribute(ElementRole::ChoiceGroup); ?>>
         <legend<?php echo FieldMarkup::classAttribute(ElementRole::Label); ?>><?php
             echo FieldMarkup::title(FieldMarkup::text($attributes, 'label')),
                 FieldMarkup::requiredMarker($kalakaRequired);
         ?></legend>
-        <ol data-kalaka-ranked><?php echo $kalakaRankedItems; ?></ol>
-        <ul data-kalaka-unranked><?php echo $kalakaOtherItems; ?></ul>
+        <ol data-kalaka-ranked role="list" aria-label="<?php echo esc_attr(RankingFieldType::RANKED_NAME); ?>"><?php
+            echo $kalakaRankedItems; ?></ol>
+        <ol data-kalaka-empty start="<?php echo esc_attr((string) ($kalakaCount + 1)); ?>"<?php
+            echo $kalakaEmpty === 0 ? ' hidden' : ''; ?>><?php echo $kalakaEmptyRows; ?></ol>
+        <p data-kalaka-counter><?php
+            echo esc_html(sprintf(RankingFieldType::COUNTER, $kalakaCount, RankingFieldType::max($attributes)));
+        ?></p>
+        <ul data-kalaka-unranked role="list" aria-label="<?php echo esc_attr(RankingFieldType::OTHERS_NAME); ?>"><?php
+            echo $kalakaOtherItems; ?></ul>
     </fieldset>
-    <span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span>
+    <span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span>
     <?php echo FieldMarkup::errorElement($kalakaKey); ?>
 </div>
 <?php

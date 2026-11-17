@@ -1,7 +1,10 @@
 /*
- * The ranking field's structural CSS (engineering.md, "WordPress surfaces"): layout and what dragging
- * needs, with no colours or fonts. The theme adapter gives the look (`kalaka-divi4` under Divi 4); with
- * no adapter the buttons are the browser's own and the +/× takes the text colour.
+ * The ranking field's CSS (engineering.md, "WordPress surfaces"), in two parts:
+ * - the structure, unlayered: layout, the 44-pixel targets and what dragging needs, which must hold
+ *   whatever the theme does;
+ * - its neutral look, in the `kalaka` cascade layer with zero-specificity `:where()` selectors, on core's
+ *   base (`Forms/Blocks/form/view.css`) and its `--kalaka-*` variables: any theme or site rule wins over
+ *   it, and a theme adapter maps the variables onto the theme's look (`kalaka-divi4` under Divi 4).
  */
 
 /* A row: the handle, the option's text, the up and down buttons, the +/× toggle. The row is a flex box
@@ -33,8 +36,8 @@
 }
 
 [data-kalaka-ranking] [data-kalaka-label] {
-	flex: 1 1 6em;
-	min-width: 6em;
+	flex: 1 1 10em;
+	min-width: 10em;
 	overflow-wrap: break-word;
 }
 
@@ -46,12 +49,18 @@
 	margin-left: auto;
 }
 
+/* The up and down buttons carry WordPress's `wp-element-button`, so a theme's button look reaches them;
+ * their size stays a 44-pixel square whatever padding that look brings. */
 [data-kalaka-ranking] [data-kalaka-controls] > button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
+	width: 44px;
+	height: 44px;
 	min-width: 44px;
 	min-height: 44px;
+	padding: 0;
 }
 
 [data-kalaka-ranking] [data-kalaka-controls] > [hidden],
@@ -122,13 +131,36 @@
 	width: 24px;
 	height: 24px;
 	background-color: currentColor;
-	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
-	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 [data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]:checked::before {
-	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
-	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+}
+
+/* The empty rows under the ranked options, as many as the minimum still lacks (owner, Q1): places of the
+ * same height as a row, numbered on from the ranked list. */
+[data-kalaka-ranking] [data-kalaka-empty] > li {
+	list-style-position: outside;
+	margin-left: 1.5em;
+	min-height: 44px;
+	box-sizing: border-box;
+	display: list-item;
+	padding: 0.5em;
+}
+
+[data-kalaka-ranking] [data-kalaka-empty][hidden] {
+	display: none;
 }
 
 /* The controls take a tap at once: no double-tap zoom on a quick second tap. */
@@ -151,5 +183,42 @@
 	[data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"] {
 		border-color: GrayText;
 		color: GrayText;
+	}
+}
+
+/* The neutral look (see the top): the +/× toggle drawn like core's base buttons, a faint edge or
+ * maximum control, the empty rows as dashed places, the other options without bullets. */
+@layer kalaka {
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]) {
+		border: 1px solid var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
+		border-radius: var(--kalaka-radius, 2px);
+		background: var(--kalaka-control-background, transparent);
+		color: var(--kalaka-control-color, inherit);
+	}
+
+	@media (hover: hover) {
+		:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]:hover) {
+			background: var(--kalaka-control-hover-background, color-mix(in srgb, currentColor 8%, transparent));
+		}
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"]) {
+		opacity: var(--kalaka-disabled-opacity, 0.4);
+		cursor: default;
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-empty] > li) {
+		border: 1px dashed var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
+		border-radius: var(--kalaka-radius, 2px);
+		margin-bottom: 0.25em;
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-unranked]) {
+		list-style: none;
+		padding-left: 0;
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-counter]) {
+		margin: 0.25em 0;
 	}
 }

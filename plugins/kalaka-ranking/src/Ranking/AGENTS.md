@@ -17,7 +17,7 @@ It holds the ranking field type now and the ranking proposer later (S77).
   (an extension's field type),
   [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation).
 - engineering.md: [WordPress surfaces](../../../../docs/architecture/engineering.md#wordpress-surfaces)
-  (no look of its own).
+  (the structure, and a neutral look on core's base in the `kalaka` layer).
 
 ## Invariants
 
@@ -37,20 +37,33 @@ It holds the ranking field type now and the ranking proposer later (S77).
   asks for more.
 - The options are the block's own list of `{value, label}` until S44's
   assignment sets exist; every option is offered until then (TODO(S76)).
-- The markup is core's field markup (`Forms\Api\FieldMarkup`): the browser's
-  own checkboxes named `<key>[]` in a choice group, ranked ones first in an
-  ordered list, so the form sends them in rank order. A ranked option moves
-  by a drag of its handle (pointer events: mouse, pen, touch; only the handle
-  drags and only it takes `touch-action: none`, so the rest of the row scrolls
-  and taps as usual; owner 2026-11-16; it is a box of its own beside the label,
-  at least 44 by 44 pixels, that listens for its own clicks, so a touch on it
-  is not moved to the label, and a tap on it does nothing) or by its Feljebb and Lejjebb buttons
-  (the keyboard's and the screen reader's way; the handle is `aria-hidden`); every move fires `change` and is announced in
-  the field's live region, as is a tick, and an untick empties it. A press ends
-  wherever its pointer is released or cancelled, and nothing reorders without a
-  held pointer. A tick, an untick or a move keeps the focus where it was; the
-  edge buttons are `aria-disabled`, never `disabled`. Each button's accessible
-  name names its option. The script holds no rule and changes only the
-  order and the place of the options; the server checks everything at
+- The markup is core's field markup (`Forms\Api\FieldMarkup`): a choice group
+  whose options are rows (handle, the option's text, ↑, ↓, and the browser's
+  own checkbox `<key>[]`, drawn as „+” / „×”), ranked ones first in an ordered
+  list, so the form sends them in rank order. The option's text is no
+  `label`: a tap on it does nothing. The two lists are named „Választott
+  sorrend” / „Többi lehetőség”.
+- A ranked option moves by a drag (a mouse from anywhere on the row; a finger
+  or pen by the handle at once, or anywhere on the row after a long press of
+  300 ms; only the handle has `touch-action: none`, so the row scrolls as
+  usual) or by its ↑/↓ buttons, the keyboard's and the screen reader's way
+  (the handle is `aria-hidden`). A press ends wherever its pointer is
+  released or cancelled; nothing reorders without a held pointer. A tick, an
+  untick or a move keeps the focus where it was. Every move and tick fires
+  `change`; the live region says „{modul}, {n}. helyen” after a tick or a
+  move, „{modul}, kivéve a sorrendből” after an untick, and adds „Megtelt a
+  sorrend: …” only to the tick that reaches the maximum.
+- Each control's accessible name names its option; the toggle's says what it
+  does now. Controls that do nothing now are `aria-disabled`, never
+  `disabled` (focus stays): the edge ↑/↓, and every „+” at the maximum.
+- Under the ranked options, as many empty rows as the minimum still lacks
+  (on an optional field only after the first addition: "none, or at least
+  the minimum"), the first with a line; a live counter „{k} / {max}
+  kiválasztva”. The script mirrors `RankingFieldType`'s texts and rules for
+  them; it holds no rule beyond them, and the server checks everything at
   submit.
+- The CSS (`style.css`) is the structure, unlayered (layout, 44-pixel
+  targets, what dragging and the toggle need), and a neutral look in the
+  `kalaka` cascade layer with `:where()` selectors on core's `--kalaka-…`
+  variables; the buttons and the toggle carry `wp-element-button`.
 - The plugin stores nothing of its own.

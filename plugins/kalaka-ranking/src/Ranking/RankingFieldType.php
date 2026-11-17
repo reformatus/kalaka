@@ -56,6 +56,20 @@ final class RankingFieldType extends AbstractFieldType
     public const UP_ICON = 'M12 20L12 5M17 10L12 5L7 10';
     public const DOWN_ICON = 'M12 4V19M7 14L12 19L17 14';
 
+    /** The live counter under the ranked options: how many are ranked, of the most (owner, Q1). */
+    public const COUNTER = '%1$d / %2$d kiválasztva';
+
+    /** The first empty row's line with nothing added, and from the first addition on (owner, Q1). */
+    public const MINIMUM_LINE = 'Adj hozzá legalább %s lehetőséget a sorrendhez.';
+    public const MINIMUM_MORE_LINE = 'Adj hozzá még legalább %s lehetőséget a sorrendhez.';
+
+    /** Said once to a screen reader when the order reaches the maximum (owner, Q1). */
+    public const FULL = 'Megtelt a sorrend: legfeljebb %s lehetőséget választhatsz.';
+
+    /** The two lists' names for screen readers (owner, Q4). */
+    public const RANKED_NAME = 'Választott sorrend';
+    public const OTHERS_NAME = 'Többi lehetőség';
+
     public const TOO_FEW = 'Legalább %d lehetőséget válassz.';
     public const TOO_MANY = 'Legfeljebb %d lehetőséget válassz.';
 
@@ -126,6 +140,40 @@ final class RankingFieldType extends AbstractFieldType
         }
 
         return array_slice($kept, 0, self::max($attributes));
+    }
+
+    /**
+     * How many empty rows show under the ranked options: as many as the minimum still lacks; on an optional
+     * field none until the first option is added (owner, Q2: none, or at least the minimum).
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public static function emptyRows(int $ranked, array $attributes): int
+    {
+        $required = ($attributes['required'] ?? false) === true;
+
+        return $required || $ranked > 0 ? max(0, self::min($attributes) - $ranked) : 0;
+    }
+
+    /** A count in the texts: „egy” for one, else the number (owner, Q1). */
+    public static function amount(int $n): string
+    {
+        return $n === 1 ? 'egy' : (string) $n;
+    }
+
+    /**
+     * The first empty row's line: with nothing added the minimum, from the first addition on how many are
+     * still missing.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public static function minimumLine(int $ranked, array $attributes): string
+    {
+        $min = self::min($attributes);
+
+        return $ranked === 0
+            ? sprintf(self::MINIMUM_LINE, self::amount($min))
+            : sprintf(self::MINIMUM_MORE_LINE, self::amount($min - $ranked));
     }
 
     public function answer(FieldTypeInput $input): FieldAnswer

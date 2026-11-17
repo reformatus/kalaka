@@ -2,9 +2,9 @@
  * The ranking field on the form page (`render.php`): its options are the browser's own checkboxes, named
  * `<key>[]`, and the form sends the ticked ones in document order, so the order of the ranked list is the
  * answer. Each checkbox is drawn as „+” while unticked and „×” while ticked (owner, r2), and its
- * accessible name says what it does (`addName()` / `removeName()`, swapped here with its state; wording after the lektor, r2). Ticking
- * an option adds it at the end of the ranked list (`data-kalaka-ranked`); unticking it puts it back among
- * the others (`data-kalaka-unranked`) at its authored place. Enter works the toggle like Space, as on a
+ * accessible name says what it does (`addName()` / `removeName()`, swapped here with its state; wording
+ * after the lektor, r2). Ticking an option adds it at the end of the ranked list (`data-kalaka-ranked`);
+ * unticking it puts it back among the others (`data-kalaka-unranked`) at its authored place. Enter works the toggle like Space, as on a
  * button, instead of sending the form. The focus stays on the toggle that was used.
  *
  * A ranked option is reordered by a drag or by its two icon buttons, the keyboard's and the screen
@@ -44,8 +44,32 @@ export const addName = (label) => `${label} hozzáadása a sorrendhez`;
 /** The toggle's accessible name while the option is ranked (`RankingFieldType::REMOVE_NAME`). */
 export const removeName = (label) => `${label} eltávolítása a sorrendből`;
 
-/** What the live region says after a tick or a move: the option's label and its place (text in N9). */
-export const announcement = (label, place) => `${label}, ${place}. hely`;
+/** What the live region says after a tick or a move: the option's label and its place (owner, Q4). */
+export const announcement = (label, place) => `${label}, ${place}. helyen`;
+
+/** What the live region says after an untick (owner, Q4). */
+export const removal = (label) => `${label}, kivéve a sorrendből`;
+
+/** The live counter under the ranked options (`RankingFieldType::COUNTER`; owner, Q1). */
+export const counterText = (count, max) => `${count} / ${max} kiválasztva`;
+
+/** A count in the texts below: „egy” for one, else the number (owner, Q1). */
+const amount = (n) => (n === 1 ? 'egy' : String(n));
+
+/**
+ * The line in the first empty row while the minimum is not reached (`RankingFieldType::minimumLine()`;
+ * owner, Q1): with nothing added, the minimum; from the first addition on, how many are still missing.
+ */
+export const minimumLine = (min, count) =>
+	count === 0
+		? `Adj hozzá legalább ${amount(min)} lehetőséget a sorrendhez.`
+		: `Adj hozzá még legalább ${amount(min - count)} lehetőséget a sorrendhez.`;
+
+/** Said once, when a tick reaches the maximum (`RankingFieldType::fullText()`; owner, Q1). */
+export const fullText = (max) => `Megtelt a sorrend: legfeljebb ${amount(max)} lehetőséget választhatsz.`;
+
+/** What the live region says when a tick reaches the maximum: the place, then that the order is full. */
+export const atLimit = (label, place, max) => `${announcement(label, place)}. ${fullText(max)}`;
 
 function checkboxOf(item) {
 	return item.querySelector('input[type="checkbox"]');
@@ -138,19 +162,73 @@ function regionOf(field) {
 	return field.querySelector('[data-kalaka-announce]');
 }
 
-/** Tells a screen reader where the option now is (1 = most wanted). */
-function announce(field, item) {
+function say(field, text) {
 	const region = regionOf(field);
 	if (region !== null) {
-		region.textContent = announcement(labelOf(item), placeOf(item));
+		region.textContent = text;
 	}
 }
 
-/** Empties the live region: an unranked option has no place to tell. */
-function silence(field) {
-	const region = regionOf(field);
-	if (region !== null) {
-		region.textContent = '';
+/** Tells a screen reader where the option now is (1 = most wanted). */
+function announce(field, item) {
+	say(field, announcement(labelOf(item), placeOf(item)));
+}
+
+/** The field's bounds and whether it must be answered, as `render.php` writes them on the field. */
+export function boundsOf(field) {
+	const min = Number(field.getAttribute('data-kalaka-min')) || 1;
+	const max = Math.max(min, Number(field.getAttribute('data-kalaka-max')) || min);
+
+	return { min, max, required: field.hasAttribute('data-kalaka-required') };
+}
+
+/**
+ * How many empty rows show under the ranked options: as many as the minimum still lacks. On an optional
+ * field none until the first option is added (owner, Q2: none, or at least the minimum).
+ */
+export function emptyRows(count, { min, required }) {
+	return required || count > 0 ? Math.max(0, min - count) : 0;
+}
+
+/**
+ * Brings the counter, the empty rows and the „+” toggles up to date with the ranked count: at the maximum
+ * every unranked option's „+” is `aria-disabled` (it stays focusable) and does nothing (owner, Q1).
+ */
+export function refresh(field) {
+	const bounds = boundsOf(field);
+	const count = field.querySelector(RANKED).children.length;
+	const counter = field.querySelector('[data-kalaka-counter]');
+	if (counter !== null) {
+		counter.textContent = counterText(count, bounds.max);
+	}
+	const empty = field.querySelector('[data-kalaka-empty]');
+	if (empty !== null) {
+		const rows = emptyRows(count, bounds);
+		empty.setAttribute('start', String(count + 1));
+		empty.hidden = rows === 0;
+		empty.replaceChildren(
+			...Array.from({ length: rows }, (_, index) => {
+				const row = field.ownerDocument.createElement('li');
+				row.setAttribute('data-kalaka-empty-row', '');
+				if (index === 0) {
+					row.textContent = minimumLine(bounds.min, count);
+				} else {
+					row.setAttribute('aria-hidden', 'true');
+				}
+				return row;
+			})
+		);
+	}
+	const full = count >= bounds.max;
+	for (const item of field.querySelector(UNRANKED).children) {
+		if (full) {
+			checkboxOf(item).setAttribute('aria-disabled', 'true');
+		} else {
+			checkboxOf(item).removeAttribute('aria-disabled');
+		}
+	}
+	for (const item of field.querySelector(RANKED).children) {
+		checkboxOf(item).removeAttribute('aria-disabled');
 	}
 }
 
@@ -380,12 +458,31 @@ export function start(field) {
 		const inRanked = item.parentElement === field.querySelector(RANKED);
 		if (box.checked && !inRanked) {
 			rank(field, item);
-			announce(field, item);
+			refresh(field);
+			const count = field.querySelector(RANKED).children.length;
+			const { max } = boundsOf(field);
+			say(
+				field,
+				count >= max
+					? atLimit(labelOf(item), placeOf(item), max)
+					: announcement(labelOf(item), placeOf(item))
+			);
 		} else if (!box.checked && inRanked) {
 			unrank(field, item);
-			silence(field);
+			refresh(field);
+			say(field, removal(labelOf(item)));
 		}
 	});
+	// At the maximum a „+” is `aria-disabled`: a click (or Space) on it changes nothing.
+	field.addEventListener(
+		'click',
+		(event) => {
+			if (event.target?.matches?.('[data-kalaka-toggle][aria-disabled="true"]')) {
+				event.preventDefault();
+			}
+		},
+		{ capture: true }
+	);
 	// Enter works the toggle like Space, as on a button, instead of sending the form.
 	field.addEventListener('keydown', (event) => {
 		if (event.key === 'Enter' && event.target?.matches?.('[data-kalaka-toggle]')) {
@@ -410,6 +507,7 @@ export function start(field) {
 		setRanked(item, true);
 	}
 	markEdges(field);
+	refresh(field);
 	startDragging(field);
 	// The handle and the option's text listen for clicks, so a touch browser takes each as a tap target of
 	// its own: a finger on them stays there and is not moved to a button next to them. A tap on them does

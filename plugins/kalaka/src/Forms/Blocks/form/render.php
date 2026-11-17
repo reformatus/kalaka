@@ -48,7 +48,7 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
         $kalakaStyle = $kalakaColour === null
             ? ''
             : 'style="' . esc_attr('--kalaka-error-color: ' . $kalakaColour) . '"';
-        $kalakaButtonClass = FieldMarkup::classAttribute(ElementRole::SubmitButton);
+        $kalakaButtonClass = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
         $kalakaFormClass = FieldMarkup::classAttribute(ElementRole::Form);
         ?>
 <noscript><p><?php echo esc_html('Az űrlap kitöltéséhez kapcsold be a JavaScriptet a böngésződben.'); ?></p></noscript>
