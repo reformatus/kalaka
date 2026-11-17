@@ -18,6 +18,15 @@ final class Module extends AbstractModule
      */
     private const DIV_FIELDS = 'div.kalaka-field.et_pb_contact_field{padding:0 0 0 3%;margin-bottom:3%}';
 
+    /**
+     * Divi marks an iPhone's `body` with `iphone` and gives `.iphone .et_pb_contact_form input`
+     * `-webkit-appearance: initial`, which leaves a native checkbox or radio button 0×0: invisible and
+     * hard to tick. Kaláka's form carries `et_pb_contact_form`, so the browser's own controls come back
+     * for Kaláka's fields only (functional, no look of our own).
+     */
+    public const IPHONE_CONTROLS = '.iphone .et_pb_contact_form .kalaka-field input[type=checkbox],'
+        . '.iphone .et_pb_contact_form .kalaka-field input[type=radio]{-webkit-appearance:auto;appearance:auto}';
+
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(private readonly DiviThemeAdapter $adapter = new DiviThemeAdapter())
     {
@@ -75,7 +84,7 @@ final class Module extends AbstractModule
             return;
         }
         wp_register_style('kalaka-divi4', false, [], KALAKA_VERSION);
-        wp_add_inline_style('kalaka-divi4', self::DIV_FIELDS);
+        wp_add_inline_style('kalaka-divi4', self::DIV_FIELDS . self::IPHONE_CONTROLS);
         wp_enqueue_style('kalaka-divi4');
     }
 
