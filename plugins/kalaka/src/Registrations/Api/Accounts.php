@@ -14,6 +14,18 @@ use Kalaka\Registrations\Account\SignUpPage;
  */
 final class Accounts
 {
+    /**
+     * [UNAPPROVED N27] The registration form a WordPress login, registration or reset request is for, from its
+     * marker (`SignUp::MARKER`): a published registration form whose published event has accounts; null
+     * otherwise. Kaláka adds no field of its own to the registration page. An extension that does (e.g. the
+     * draft reminders' opt-in) uses WordPress's own hooks (`register_form`, `registration_errors`,
+     * `user_register`) and asks this whether the request is a Kaláka sign-up, and for which form.
+     */
+    public function signUpForm(): ?int
+    {
+        return (new SignUpPage())->markedForm();
+    }
+
     /** Whether the account is one Kaláka created whose password was never set through a reset link. */
     public function isUnverified(int $userId): bool
     {

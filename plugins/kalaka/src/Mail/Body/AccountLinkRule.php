@@ -14,11 +14,9 @@ use Kalaka\Mail\Api\ActionMailSettings;
  * link reaches a new account only inside the "Jelentkezés rögzítve" mail (`account.password_link`). So there,
  * that mail's template must read the key, or its save is refused (`BodyCheck`, and `UpdateActionMail` when a
  * template is assigned or the mail switched on), and the mail cannot be switched off (`UpdateActionMail`).
- * // [UNAPPROVED #191 N23] the save check of the set-password link.
  */
 final class AccountLinkRule
 {
-    // [UNAPPROVED #191 T6] the two refusals.
     public const NEEDS_LINK = 'Ennél az eseménynél fiókkal lehet jelentkezni, ezért a „Jelentkezés rögzítve” '
         . 'levél sablonjának tartalmaznia kell a jelszóbeállító linket (account.password_link).';
 

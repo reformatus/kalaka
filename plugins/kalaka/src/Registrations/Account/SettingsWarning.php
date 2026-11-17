@@ -15,7 +15,6 @@ use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
  * S15: a published event whose account mode is `mandatory` or `optional` needs WordPress's registration page
  * open ("Anyone can register", `users_can_register`) and new users made `subscriber` (`default_role`). These
  * are site settings Kaláka does not change; this warning names the wrong one.
- * // [UNAPPROVED T3] the warning's texts.
  */
 final class SettingsWarning implements SiteWarning
 {

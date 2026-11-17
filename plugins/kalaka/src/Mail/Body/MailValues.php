@@ -33,7 +33,6 @@ use Kalaka\Registrations\Api\SecretLinks;
  * owner who is verified (a social sign-up among them), or a recipient other than the account's own address,
  * so a link to set someone's password never goes to another address. The link carries the slot form's marker,
  * so the login after the password is set returns to the form (OP1, owner 2026-11-17).
- * // [UNAPPROVED #191 N22] the two account keys; `account.unverified` is `1` or none, like a consent.
  */
 final class MailValues
 {

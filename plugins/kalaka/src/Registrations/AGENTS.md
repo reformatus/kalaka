@@ -94,7 +94,7 @@ the waitlist and reference codes
   login at once and the suppressed WordPress mails; the marker
   (`kalaka_form`, a registration form whose published event has accounts)
   alone decides the hidden marker field, the event's line on the login and
-  registration pages, the reminder opt-in, the skip block and the returns to
+  registration pages, the skip block and the returns to
   the form: the login and registration links, `registration_redirect` and
   `login_redirect`, each to the form's page found on the server
   (`Forms\Api\SignUp::page()`), never an address from the request. The
@@ -103,6 +103,10 @@ the waitlist and reference codes
 - `kalaka_unverified` is cleared only on `password_reset` and
   `after_password_reset`; it limits only what Kaláka does with the account.
   A reset link lasts 7 days only for such an account.
+- Core adds no field of its own to WordPress's registration page. An
+  extension that does (e.g. the draft reminders' opt-in) uses WordPress's own
+  hooks and asks `Api\Accounts::signUpForm()` whether the request is a Kaláka
+  sign-up, and for which form: only with a valid marker, never otherwise.
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.

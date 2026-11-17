@@ -46,7 +46,7 @@ final class FormRoutes
 {
     public const NAMESPACE = 'kalaka-portal/v1';
 
-    /** The refusal of a request whose session ended: logging in again is the way on. [UNAPPROVED #191 N24] */
+    /** The refusal of a request whose session ended: logging in again is the way on. */
     public const SESSION_ENDED = 'kalaka_session_ended';
 
     // #191 T8 (owner, 2026-11-17).

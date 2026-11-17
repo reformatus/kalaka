@@ -25,8 +25,7 @@ use Kalaka\Forms\Api\SignUp;
  *   to `redirect_to`), and suppresses WordPress's own new-user mails, to the user and to the admin.
  * - **The marker** (`SignUp::MARKER`, a published registration form whose published event has accounts): it
  *   keeps itself across every POST of the login, registration and reset screens as a hidden field, names the
- *   event on the login and registration pages (OP5), shows the reminder opt-in (stored as
- *   `kalaka_draft_reminders`, `1` or `0`, for S74's reminder mail), puts the skip block on the login and
+ *   event on the login and registration pages (OP5), puts the skip block on the login and
  *   registration pages in `optional` mode, and makes WordPress's links and redirects return to the form:
  *   the "Log in" and "Register" links, the registration's own redirect, the login's (`login_redirect`), and
  *   the "Log in" link after a password is set through the registration mail's link, which carries the marker
@@ -44,16 +43,10 @@ use Kalaka\Forms\Api\SignUp;
  */
 final class SignUpPage
 {
-    /** The user meta of an account Kaláka created whose password was never set: `1`. [UNAPPROVED N13] */
+    /** The user meta of an account Kaláka created whose password was never set: `1`. */
     public const UNVERIFIED = 'kalaka_unverified';
 
-    /** The user meta of the reminder opt-in made on the registration page: `1` or `0`. [UNAPPROVED N15] */
-    public const REMINDERS = 'kalaka_draft_reminders';
-
-    /** The opt-in's field on the registration page. */
-    public const REMINDERS_FIELD = 'kalaka_draft_reminders';
-
-    /** How long a reset link lasts for an unverified account: 7 days. [UNAPPROVED N14] */
+    /** How long a reset link lasts for an unverified account: 7 days. */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
 
     /** The registration page's script: the error tied to the e-mail field, then the focus on it. */
@@ -79,7 +72,6 @@ final class SignUpPage
     {
         add_action('login_form_register', [$this, 'beforeRegister'], 10);
         add_action('register_form', [$this, 'formFields'], 5);
-        add_filter('registration_errors', [$this, 'validate'], 20);
         add_action('login_enqueue_scripts', [$this, 'styles']);
         add_filter('pre_user_nicename', [$this, 'nicename']);
         add_action('user_register', [$this, 'markUnverified'], 10);
@@ -153,14 +145,6 @@ final class SignUpPage
         }
         [$formId, $mode] = $marked;
         $this->markerField();
-        $ticked = self::input('post', self::REMINDERS_FIELD) === '1';
-        // [UNAPPROVED T5] the reminder opt-in's label.
-        printf(
-            '<p class="kalaka-sign-up-reminders"><label><input type="checkbox" name="%s" value="1"%s> %s</label></p>',
-            esc_attr(self::REMINDERS_FIELD),
-            $ticked ? ' checked' : '',
-            esc_html('Kérek e-mailes emlékeztetőt, ha félbehagyom a jelentkezést.')
-        );
         if ($mode === AccountMode::Optional) {
             $this->skip($formId);
         }
@@ -182,7 +166,6 @@ final class SignUpPage
             '<p class="kalaka-sign-up-age">%s</p>',
             esc_html('Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
         );
-        // [UNAPPROVED T2] the skip link.
         printf(
             '<p class="kalaka-sign-up-skip"><a href="%s">%s</a></p>',
             esc_url(SignUp::skipUrl($formId, $return)),
@@ -305,25 +288,7 @@ final class SignUpPage
     }
 
     /**
-     * `registration_errors`, priority 20 (after Turnstile and the rest): with a valid marker, the reminder
-     * opt-in is either not sent or `1`.
-     *
-     * @internal
-     */
-    public function validate(mixed $errors): mixed
-    {
-        $value = self::input('post', self::REMINDERS_FIELD);
-        if ($errors instanceof \WP_Error && $this->marked() !== null && $value !== null && $value !== '1') {
-            // [UNAPPROVED T5] the error of a malformed opt-in (only a tampered request sends one).
-            $errors->add(self::REMINDERS_FIELD, esc_html('Az emlékeztetőre vonatkozó választás érvénytelen.'));
-        }
-
-        return $errors;
-    }
-
-    /**
-     * `user_register`, priority 10: a native sign-up's account is unverified, and with a valid marker its
-     * reminder opt-in is stored.
+     * `user_register`, priority 10: a native sign-up's account is unverified.
      *
      * @internal
      */
@@ -333,10 +298,6 @@ final class SignUpPage
             return;
         }
         update_user_meta($userId, self::UNVERIFIED, '1');
-        if ($this->marked() !== null) {
-            $ticked = self::input('post', self::REMINDERS_FIELD) === '1';
-            update_user_meta($userId, self::REMINDERS, $ticked ? '1' : '0');
-        }
     }
 
     /**
@@ -487,7 +448,6 @@ final class SignUpPage
      * `password_reset_expiration`: 7 days when the reset link being checked is an unverified account's. The
      * filter is given no user, so the login comes from the request, as WordPress's and WooCommerce's reset
      * screens carry it (the `login` query argument, the posted `reset_login`, or the reset cookie).
-     * [UNAPPROVED N14]
      *
      * @internal
      */
@@ -520,6 +480,15 @@ final class SignUpPage
         nocache_headers();
 
         return true;
+    }
+
+    /**
+     * The registration form this login, registration or reset request is for: the marker's form, when it is a
+     * published registration form whose published event has accounts; null otherwise (`Accounts::signUpForm()`).
+     */
+    public function markedForm(): ?int
+    {
+        return $this->marked()[0] ?? null;
     }
 
     /**

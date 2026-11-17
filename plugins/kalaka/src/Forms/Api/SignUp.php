@@ -17,8 +17,6 @@ namespace Kalaka\Forms\Api;
  *   avoids the redirect: it fills nothing in;
  * - `page()`: the form's page, resolved on the server from the form's ID alone (OP1, OP5). Every way back
  *   Kaláka builds from a marker is this, never an address taken from the request.
- * // [UNAPPROVED N3] the two query parameters.
- * // [UNAPPROVED #191 N25] the form's page found from the posts that place it.
  */
 final class SignUp
 {

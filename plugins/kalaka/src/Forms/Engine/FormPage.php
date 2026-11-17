@@ -228,7 +228,6 @@ final class FormPage
      * form's page. Only when logged in and the form has an account step (a registration form of an event
      * whose account mode is not `off`). The name is the account's display name, unless it is empty or only
      * the login name (WordPress's default, and a Kaláka sign-up's, `LoginName`): then the e-mail address.
-     * // [UNAPPROVED #191 N26] the footer's gate and its name.
      *
      * @return array{accountName: string, logoutUrl: string}
      */

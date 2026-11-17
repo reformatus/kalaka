@@ -8,13 +8,14 @@ use Kalaka\Forms\Api\SignUp;
 use Kalaka\Registrations\Account\LoginName;
 use Kalaka\Registrations\Account\SettingsWarning;
 use Kalaka\Registrations\Account\SignUpPage;
+use Kalaka\Registrations\Api\Accounts;
 
 /**
  * S15: WordPress's own registration page as the sign-up (owner ruling 2026-11-14), the checks the native
  * sign-up research asks for, where PHP reaches them: the hidden login name, the account logged in at once,
  * the opaque nicename and author 404s, the flag off for social sign-ups, WordPress's mails suppressed,
- * `kalaka_unverified` and its clearing, the 7-day reset link, the marker-gated login URL and skip link, the
- * reminder opt-in, and the settings warning.
+ * `kalaka_unverified` and its clearing, the 7-day reset link, the marker-gated login URL and skip link,
+ * N27's sign-up form read, and the settings warning.
  */
 final class SignUpPageTest extends AccountsTestCase
 {
@@ -178,7 +179,7 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertStringContainsString('name="' . SignUp::MARKER . '" value="' . $optional . '"', $html);
         self::assertStringContainsString('Fiók nélkül folytatom', $html);
         self::assertStringContainsString(esc_url(SignUp::skipUrl($optional, $back)), $html);
-        self::assertStringContainsString('name="' . SignUpPage::REMINDERS_FIELD . '"', $html);
+        self::assertStringNotContainsString('kalaka_draft_reminders', $html, 'The opt-in is the reminder plugin\'s.');
 
         $_REQUEST = [SignUp::MARKER => (string) $mandatory];
         $html = $this->captured(static fn () => $page->formFields());
@@ -327,32 +328,19 @@ final class SignUpPageTest extends AccountsTestCase
         }
     }
 
-    public function testTheReminderOptInIsStoredWithTheMarkerOnly(): void
+    /** N27: an extension asks whether a WordPress sign-up request is Kaláka's, and for which form. */
+    public function testAnExtensionLearnsTheSignUpsFormFromTheMarkerOnly(): void
     {
-        $form = $this->openForm('mandatory');
+        $form = $this->openForm('optional');
+        $off = $this->openForm('off');
+        $accounts = new Accounts();
 
-        $yes = $this->signUp(
-            'teszt.anna@example.org',
-            [SignUp::MARKER => (string) $form, SignUpPage::REMINDERS_FIELD => '1']
-        );
-        SignUpPage::reset();
-        $no = $this->signUp('teszt.bela@example.org', [SignUp::MARKER => (string) $form]);
-        SignUpPage::reset();
-        $plain = $this->signUp('teszt.cecil@example.org');
-        SignUpPage::reset();
-        $bad = $this->signUp(
-            'teszt.dora@example.org',
-            [SignUp::MARKER => (string) $form, SignUpPage::REMINDERS_FIELD => 'x']
-        );
-
-        self::assertIsInt($yes);
-        self::assertIsInt($no);
-        self::assertIsInt($plain);
-        self::assertSame('1', get_user_meta($yes, SignUpPage::REMINDERS, true));
-        self::assertSame('0', get_user_meta($no, SignUpPage::REMINDERS, true));
-        self::assertSame('', get_user_meta($plain, SignUpPage::REMINDERS, true));
-        self::assertInstanceOf(\WP_Error::class, $bad);
-        self::assertContains(SignUpPage::REMINDERS_FIELD, $bad->get_error_codes());
+        $_REQUEST = [SignUp::MARKER => (string) $form];
+        self::assertSame($form, $accounts->signUpForm());
+        $_REQUEST = [SignUp::MARKER => (string) $off];
+        self::assertNull($accounts->signUpForm());
+        $_REQUEST = [];
+        self::assertNull($accounts->signUpForm());
     }
 
     public function testThePasswordResetClearsTheMarkWordPressAndWooCommerceAlike(): void

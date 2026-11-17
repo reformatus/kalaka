@@ -10,7 +10,6 @@ namespace Kalaka\Registrations\Account;
  * characters, then `2`, `3` and so on until it is free. Never empty (`resztvevo` when nothing is left, even
  * for an empty or invalid e-mail), at most 60 characters, and it passes `validate_username()` and
  * `illegal_user_logins`.
- * // [UNAPPROVED N5] the login name.
  */
 final class LoginName
 {
