@@ -37,7 +37,7 @@ final class RankingSetTest extends FormsTestCase
 
     private int $set;
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -55,7 +55,7 @@ final class RankingSetTest extends FormsTestCase
         $this->set = $this->newSet('2026-11-01 08:00', '2027-02-15 20:00');
     }
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
     public function tear_down(): void
     {
         $GLOBALS['wp_rest_server'] = null;

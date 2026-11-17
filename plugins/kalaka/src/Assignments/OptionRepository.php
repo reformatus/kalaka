@@ -16,7 +16,7 @@ use Kalaka\Foundation\Api\Repository\EntityRepository;
  */
 final class OptionRepository extends EntityRepository
 {
-    /** @return list<OptionRecord> the options of the event's sets, ordered by set, position and key, in one statement */
+    /** @return list<OptionRecord> the options of the event's sets by set, position and key, in one statement */
     public function ofEvent(int $eventId): array
     {
         return $this->findWhere('event_id = %d ORDER BY set_id, position, option_key', [$eventId]);

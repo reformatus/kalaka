@@ -13,8 +13,8 @@ mode (S65) and the screens (S72/S48) come later.
   (request mode, staff placing).
 - events-and-forms.md: the set options of the one availability base in
   [Conditions](../../../../docs/architecture/events-and-forms.md#conditions).
-- foundation.md: assignments as facts in
-  [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values);
+- foundation.md: assignments as facts in [Facts, decisions and computed
+  values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values);
   [Entities, repositories and queries](../../../../docs/architecture/foundation.md#entities-repositories-and-queries).
 
 ## Invariants

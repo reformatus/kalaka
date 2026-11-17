@@ -403,7 +403,7 @@ final class DefinitionParser
             ? null
             : $this->host->requestOptions($this->form, $setId);
         if ($options === null) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
             throw new SystemFailure('unknown_set ' . $key);
         }
         $attributes['options'] = $options->options;

@@ -29,7 +29,7 @@ final class AssignmentsTest extends RegistrationsTestCase
 
     private int $event;
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
