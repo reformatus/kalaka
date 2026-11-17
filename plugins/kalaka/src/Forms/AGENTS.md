@@ -250,8 +250,11 @@ values and conditions, prefill and form links
   values. The engine keeps only the draft answers the form's types accept,
   each checked alone (`FormEngine::accepted()`); the rest open empty.
 - Public prefill (`kalaka[<key>]`) is read only by `DraftHandoff`, on `wp`,
-  for a page placing one usable registration form: its answers pass
-  `Forms::accepted()`, become a guest draft, and the request ends in an
+  for a page placing one usable registration form: each answer is first
+  cleaned by its type's prefill rules (`FieldType::prefill()`, as a stored
+  value is: bad parts dropped, the rest kept, null drops it), then checked
+  alone with the type (`Forms::linkAnswers()`). What is left becomes a
+  guest draft, and the request ends in an
   uncached 303 without them. No value of the request is logged. A logged-in
   request to that page claims the cookie's guest draft there, never in the
   render.

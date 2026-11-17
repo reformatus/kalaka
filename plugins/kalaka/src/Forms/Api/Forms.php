@@ -212,12 +212,13 @@ final class Forms
     }
 
     /**
-     * The answers the form's field types accept, each checked alone; the rest are dropped silently
-     * (`Engine\FormEngine::accepted()`): for a link's or the quiz's prefill, and a draft (S74).
+     * A link's or the quiz's answers (`kalaka[<key>]`, S74), each cleaned by its type's prefill rules (the parts
+     * the type makes nothing of dropped, the rest kept), then checked alone with the type; the rest are
+     * dropped silently (`Engine\FormEngine::linkAnswers()`).
      */
-    public function accepted(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    public function linkAnswers(FormDefinition $definition, AnswerSet $answers): AnswerSet
     {
-        return $this->engine->accepted($definition, $answers);
+        return $this->engine->linkAnswers($definition, $answers);
     }
 
     /**

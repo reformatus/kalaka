@@ -136,8 +136,11 @@ flowchart TB
 - **Public prefill comes as a guest draft.** A request to a page that
   places one registration form may carry answers as `kalaka[<field key>]`
   (the quiz's POST body, or a static GET link). They are untrusted: each is
-  checked alone with its field's type, and an unknown key or an answer the
-  type does not accept is dropped, silently. What is left is kept as a guest
+  first cleaned by its field type's prefill rules, the rules a stored value
+  opens with, so its bad parts are dropped and the rest kept, and then
+  checked alone with its field's type. An unknown key, or an answer that
+  cleans to nothing or that the type does not accept, is dropped, silently.
+  What is left is kept as a guest
   draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
   under a claim token in a cookie, and the request is answered with a 303 to
   the page without them. The form then opens with them, as editable values.

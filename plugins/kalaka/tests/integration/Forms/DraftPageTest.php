@@ -5,15 +5,25 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
+use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\DraftClaimChoice;
+use Kalaka\Forms\Api\FieldAnswer;
+use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormField;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\DraftHandoff;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Engine\DraftClaimTexts;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
+use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\Drafts;
@@ -61,7 +71,8 @@ final class DraftPageTest extends FormsTestCase
             $this->slotFields() . $this->field('choice', 'size', ['options' => self::SIZES])
                 . $this->field('text', 'note')
                 . $this->field('choice', 'szallas', ['options' => self::STAY])
-                . $this->field('choice', 'polo', ['options' => self::SHIRTS]),
+                . $this->field('choice', 'polo', ['options' => self::SHIRTS])
+                . $this->field('choice', 'meret', ['options' => self::SHIRTS, 'multiple' => true]),
             ['kalaka_event_id' => $this->event]
         );
     }
@@ -279,6 +290,73 @@ final class DraftPageTest extends FormsTestCase
             preg_match_all('#<span id="kalaka-field-[a-z_]+-error"[^>]* hidden></span>#', $html),
             'Every error element of the opened form is hidden and empty.'
         );
+    }
+
+    /**
+     * Master ruling 2026-11-17: a link's value is cleaned by its type's prefill rules before the check, so a
+     * multi-choice with one option the field does not offer keeps the offered ones, rather than being dropped
+     * whole by the submit check. A list is read as the JSON text it is stored as, and must clean to a list.
+     */
+    public function testAHandoffKeepsTheOfferedOptionsOfAMultiChoiceAndDropsTheOthers(): void
+    {
+        $redirect = (new DraftHandoff())->handle(
+            $this->page(),
+            ['meret' => ['s', 'xxl', 'l'], 'polo' => 'xxl', 'note' => ['a'], 'szallas' => '["igen"]'],
+            new GuestActor()
+        );
+
+        self::assertTrue($redirect);
+        self::assertSame(
+            ['meret' => ['s', 'l']],
+            AnswerSet::fromJson((string) $this->draftRows()[0]['answers'])->answers
+        );
+        $html = $this->render();
+        self::assertMatchesRegularExpression('#name="meret\[\]"\s+value="s"[^>]* checked#', $html);
+        self::assertMatchesRegularExpression('#name="meret\[\]"\s+value="l"[^>]* checked#', $html);
+        self::assertDoesNotMatchRegularExpression('#name="meret\[\]"\s+value="m"[^>]* checked#', $html);
+    }
+
+    /**
+     * A value its type's prefill makes nothing of is dropped, even one the type's submit check would accept;
+     * a consent's stored form, `1`, from a link is a ticked box.
+     */
+    public function testALinkValueWhosePrefillIsNullIsDropped(): void
+    {
+        $refusing = new class () extends AbstractFieldType {
+            public function blockName(): string
+            {
+                return 'kalaka/test-refusing-field';
+            }
+
+            public function answer(FieldTypeInput $input): FieldAnswer
+            {
+                return FieldAnswer::stored(is_string($input->value) ? $input->value : '');
+            }
+
+            public function prefill(FieldTypeInput $input): mixed
+            {
+                return null;
+            }
+        };
+        $contributions = new Contributions();
+        $contributions->fieldType($refusing);
+        $contributions->fieldType(new ConsentFieldType());
+        $before = Contributions::current();
+        Contributions::record($contributions);
+        try {
+            $definition = new FormDefinition($this->form, 1, [
+                new FormField('kod', 'kalaka/test-refusing-field', ['key' => 'kod']),
+                new FormField('hozzajarul', 'kalaka/consent-field', ['key' => 'hozzajarul']),
+            ]);
+            $sent = new AnswerSet(['kod' => 'abc', 'hozzajarul' => '1']);
+
+            // The submit check alone accepts it.
+            $engine = new FormEngine(new EventFormHost());
+            self::assertSame(['kod' => 'abc'], $engine->accepted($definition, $sent)->answers);
+            self::assertSame(['hozzajarul' => true], (new Forms())->linkAnswers($definition, $sent)->answers);
+        } finally {
+            Contributions::record($before);
+        }
     }
 
     public function testNoHandoffWhileTheFormCannotBeUsedOrForAPageWithoutIt(): void

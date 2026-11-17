@@ -28,10 +28,12 @@ use Kalaka\Registrations\Api\Drafts;
  *
  * - **The handoff.** A request to a page that places exactly one registration form, carrying `kalaka[<key>]`
  *   (the quiz's POST body, or a static GET link; S73's contract), while the form can be used: each value is
- *   checked alone with its field's type, and an unknown key or a value the type does not accept is dropped,
- *   silently (`Forms::accepted()`). What is left is kept as a guest draft under a new claim token, set in
- *   the cookie, and the request is answered with a 303 to the page without `kalaka`, never cached. Nothing
- *   of the request is logged.
+ *   first cleaned by its field type's prefill rules, the rules a stored value opens with, so the parts the
+ *   type makes nothing of are dropped and the rest kept (a multi-choice keeps its offered options); then it
+ *   is checked alone with the type. An unknown key, a value that cleans to nothing or a value the type does
+ *   not accept is dropped, silently (`Forms::linkAnswers()`; Master ruling 2026-11-17). What is left is kept
+ *   as a guest draft under a new claim token, set in the cookie, and the request is answered with a 303 to
+ *   the page without `kalaka`, never cached. Nothing of the request is logged.
  * - **The claim.** A logged-in request to such a page whose cookie names a guest draft of its form claims
  *   it: it becomes the person's draft, and the cookie is cleared. With a draft of their own, it waits for
  *   their choice (the popup) and the cookie stays, but only when the link sets a value the draft does not
@@ -139,7 +141,7 @@ final class DraftHandoff
         foreach ($prefill as $key => $answer) {
             $answers[(string) $key] = $answer;
         }
-        $accepted = $this->forms->accepted($definition, new AnswerSet($answers));
+        $accepted = $this->forms->linkAnswers($definition, new AnswerSet($answers));
         if ($accepted->isEmpty()) {
             return;
         }

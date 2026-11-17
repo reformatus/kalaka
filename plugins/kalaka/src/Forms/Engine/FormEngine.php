@@ -6,10 +6,12 @@ namespace Kalaka\Forms\Engine;
 
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\Facts;
+use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormTerminal;
@@ -177,11 +179,11 @@ final class FormEngine
     }
 
     /**
-     * The answers its fields' types accept, each checked alone (`Api\Forms::accepted()`): an answer to a key
-     * the form does not hold, one of the wrong JSON type, one its type finds an error in or makes nothing of
-     * is dropped, silently. Conditions are not walked here: what does not show is dropped by the walk of
-     * whoever reads the answers. For answers no person typed into this form: a draft kept from an earlier
-     * version, or a link's or the quiz's prefill (S74).
+     * The answers its fields' types accept, each checked alone: an answer to a key the form does not hold,
+     * one of the wrong JSON type, one its type finds an error in or makes nothing of is dropped, silently.
+     * Conditions are not walked here: what does not show is dropped by the walk of whoever reads the answers.
+     * For answers no person typed into this form: a draft kept from an earlier version, or a link's or the
+     * quiz's prefill (S74), cleaned first (`linkAnswers()`).
      */
     public function accepted(FormDefinition $definition, AnswerSet $answers): AnswerSet
     {
@@ -189,6 +191,45 @@ final class FormEngine
             static fn (array $checked): mixed => $checked[0],
             $this->checked($definition, $answers)
         ));
+    }
+
+    /**
+     * A link's or the quiz's answers (S74, `Api\Forms::linkAnswers()`), each cleaned by its type's prefill
+     * rules first, the rules a stored value opens with (`FieldType::prefill()`): the parts the type makes
+     * nothing of (an option not offered) are dropped and the rest kept, and a value it makes nothing of is
+     * dropped whole. The cleaned answers are then checked as `accepted()` checks them. A list the request
+     * carries is read as the JSON text a list is stored as, and must clean to a list; a text must not.
+     * [UNAPPROVED N6]
+     */
+    public function linkAnswers(FormDefinition $definition, AnswerSet $answers): AnswerSet
+    {
+        $types = Contributions::current()->fieldTypes();
+        $cleaned = [];
+        foreach ($definition->fields as $field) {
+            $type = $types[$field->blockName] ?? null;
+            if ($type === null || !array_key_exists($field->key, $answers->answers)) {
+                continue;
+            }
+            $answer = self::cleaned($type, $field, $answers->answers[$field->key]);
+            if ($answer !== null) {
+                $cleaned[$field->key] = $answer;
+            }
+        }
+
+        return $this->accepted($definition, new AnswerSet($cleaned));
+    }
+
+    /** One answer of a link, as its type prefills it (`linkAnswers()`); null when nothing is left. */
+    private static function cleaned(FieldType $type, FormField $field, mixed $sent): mixed
+    {
+        $list = is_array($sent);
+        $stored = $list ? wp_json_encode($sent) : $sent;
+        if (!is_string($stored)) {
+            return null;
+        }
+        $answer = $type->prefill(new FieldTypeInput($stored, $field->attributes));
+
+        return is_array($answer) === $list ? $answer : null;
     }
 
     /**
