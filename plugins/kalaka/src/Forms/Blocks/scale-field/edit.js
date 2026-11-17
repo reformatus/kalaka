@@ -1,9 +1,37 @@
 import { useBlockProps } from '@wordpress/block-editor';
 import { PanelBody, TextControl } from '@wordpress/components';
-import { createElement as el } from '@wordpress/element';
+import { createElement as el, useEffect, useState } from '@wordpress/element';
 import { useFieldCanvas } from '../form/participant-ui';
 import { FieldInspector, FieldTitle, preview, REQUIRED, useStableKey } from '../form/field';
 import { pointsOf, rangeChange } from './range';
+
+/**
+ * One bound of the range: the text is kept as typed (empty, a lone minus sign) and applied when the control
+ * loses focus, so a bound typed digit by digit does not move the other one on the way; text that is not an
+ * integer goes back to the bound as it is.
+ */
+function Bound({ which, label, range, setAttributes }) {
+	const [text, setText] = useState(String(range[which]));
+	useEffect(() => setText(String(range[which])), [range[which]]);
+	return el(TextControl, {
+		label,
+		type: 'number',
+		step: 1,
+		value: text,
+		onChange: setText,
+		onBlur: () => {
+			const next = rangeChange(range, which, text);
+			if (next === null) {
+				setText(String(range[which]));
+			} else {
+				setAttributes(next);
+				setText(String(next[which]));
+			}
+		},
+		__next40pxDefaultSize: true,
+		__nextHasNoMarginBottom: true,
+	});
+}
 
 /**
  * The settings: the first and last point, and a label per point (a list from the first point on). The texts,
@@ -11,21 +39,7 @@ import { pointsOf, rangeChange } from './range';
  * [UNAPPROVED T3] [UNAPPROVED T4] [UNAPPROVED T5] [UNAPPROVED T8]
  */
 function Settings({ range, labels, setAttributes }) {
-	const number = (which, label) =>
-		el(TextControl, {
-			label,
-			type: 'number',
-			step: 1,
-			value: String(range[which]),
-			onChange: (text) => {
-				const next = rangeChange(range, which, text);
-				if (next !== null) {
-					setAttributes(next);
-				}
-			},
-			__next40pxDefaultSize: true,
-			__nextHasNoMarginBottom: true,
-		});
+	const number = (which, label) => el(Bound, { key: which, which, label, range, setAttributes });
 	return [
 		el(
 			PanelBody,

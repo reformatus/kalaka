@@ -192,6 +192,20 @@ final class ScaleFieldTest extends FormsTestCase
         }
     }
 
+    public function testZeroIsAnAnswerNotABlank(): void
+    {
+        $definition = $this->forms->definition($this->readForm($this->slotForm(
+            $this->field('scale', 'rating', ['min' => 0, 'max' => 10, 'required' => true])
+        )));
+
+        $stored = $this->forms->validate(
+            $definition,
+            ['name' => 'Teszt Elek', 'email' => 'teszt@example.org', 'rating' => '0']
+        )->stored();
+
+        self::assertSame('0', $stored['rating']);
+    }
+
     public function testPrefillKeepsAPointInTheRangeAndDropsAnythingElse(): void
     {
         $type = new ScaleFieldType();
