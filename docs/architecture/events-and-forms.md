@@ -197,7 +197,7 @@ flowchart TB
 - The public page uses WordPress's **Interactivity API**.
 - **Accounts:** in the event's mandatory and optional account mode, someone
   not logged in who opens a registration form is sent first to WordPress's
-  own registration page
+  own login page, which links to its registration page
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
