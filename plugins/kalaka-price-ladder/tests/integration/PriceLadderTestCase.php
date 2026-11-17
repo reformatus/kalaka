@@ -19,7 +19,7 @@ abstract class PriceLadderTestCase extends PricingTestCase
 {
     protected PriceLadder $ladder;
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names it
     public function set_up(): void
     {
         parent::set_up();

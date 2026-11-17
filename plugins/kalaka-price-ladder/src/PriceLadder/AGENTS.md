@@ -15,7 +15,8 @@ later.
   the tier stage of [Materializer](../../../../docs/architecture/money.md#materializer).
 - events-and-forms.md: [Conditions](../../../../docs/architecture/events-and-forms.md#conditions)
   (a tier's availability is one condition over the registration's facts).
-- modules-and-extensions.md: [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface)
+- modules-and-extensions.md:
+  [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface)
   (the fee component), [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership).
 
