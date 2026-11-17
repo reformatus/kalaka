@@ -1,22 +1,27 @@
 /**
  * The ranking field on the form page (`render.php`): its options are the browser's own checkboxes, named
  * `<key>[]`, and the form sends the ticked ones in document order, so the order of the ranked list is the
- * answer. Ticking an option adds it at the end of the ranked list (`data-kalaka-ranked`); unticking it puts
- * it back among the others (`data-kalaka-unranked`) at its authored place. The focus stays on the checkbox
- * that was ticked or unticked.
+ * answer. Each checkbox is drawn as „+” while unticked and „×” while ticked (owner, r2), and its
+ * accessible name says what it does (`addName()` / `removeName()`, swapped here with its state; wording after the lektor, r2). Ticking
+ * an option adds it at the end of the ranked list (`data-kalaka-ranked`); unticking it puts it back among
+ * the others (`data-kalaka-unranked`) at its authored place. Enter works the toggle like Space, as on a
+ * button, instead of sending the form. The focus stays on the toggle that was used.
  *
- * A ranked option is reordered by dragging its handle (pointer events: a mouse, a pen or a finger; owner
- * 2026-11-16: only the handle drags, the rest of the row scrolls and taps as usual) or by its two
- * buttons, the keyboard's and the screen reader's way. The handle is a box of at least 44 by 44 pixels
- * beside the label, and it listens for its own clicks, so a touch browser takes it as a target of its own
- * and does not move a finger at its edge to the label (UX on a phone, 2026-11-16); a tap on it does
- * nothing. The focus stays on a pressed button. The first option's up button and the last one's down
- * button are `aria-disabled` (they stay focusable, so a move that makes a button an edge leaves the focus
- * where it was). After a move the option's checkbox fires `change`, which bubbles to the
- * form like any answer's change. The field's live region tells a screen reader an option's place after a
- * tick or a move, and is emptied after an untick, so it never holds a place that is no longer true.
- * Dragging needs no library: WordPress ships no drag support for a view script (its `Draggable` is a React
- * component of the editor), so it is a few pointer handlers.
+ * A ranked option is reordered by a drag or by its two icon buttons, the keyboard's and the screen
+ * reader's way (owner, r2):
+ * - a mouse drags from anywhere on the row at once;
+ * - a finger or a pen drags by the handle at once (the only part of the row with `touch-action: none`),
+ *   or from anywhere else on the row after a long press (`LONG_PRESS`); a swipe without the hold scrolls
+ *   the page as usual;
+ * - a press on a button or the toggle never drags, and a tap on the option's text does nothing.
+ * The row selects no text and opens no context menu (`style.css`, and `contextmenu` here). The focus stays
+ * on a pressed button. The first option's up button and the last one's down button are `aria-disabled`
+ * (they stay focusable, so a move that makes a button an edge leaves the focus where it was). After a
+ * move the option's checkbox fires `change`, which bubbles to the form like any answer's change. The
+ * field's live region tells a screen reader an option's place after a tick or a move, and is emptied
+ * after an untick, so it never holds a place that is no longer true. Dragging needs no library:
+ * WordPress ships no drag support for a view script (its `Draggable` is a React component of the
+ * editor), so it is a few pointer handlers.
  *
  * It holds no rule: which options are offered, and how many may be ranked, the server checks at submit.
  */
@@ -24,14 +29,20 @@
 const RANKED = '[data-kalaka-ranked]';
 const UNRANKED = '[data-kalaka-unranked]';
 
-/**
- * The shown handle's `display` (`RankingFieldType::HANDLE_DISPLAY`): set only while it is shown, since an
- * inline `display` overrides `hidden`.
- */
-export const HANDLE_DISPLAY = 'inline-flex';
-
 /** How far, in CSS pixels, a pointer moves before a press on a ranked option becomes a drag. */
 export const DRAG_THRESHOLD = 6;
+
+/** How long, in milliseconds, a finger rests on a ranked row before the row drags. */
+export const LONG_PRESS = 300;
+
+/** How far, in CSS pixels, a finger may move during the long press before it is a swipe instead. */
+export const PRESS_SLOP = 10;
+
+/** The toggle's accessible name while the option is unranked (`RankingFieldType::ADD_NAME`). */
+export const addName = (label) => `${label} hozzáadása a sorrendhez`;
+
+/** The toggle's accessible name while the option is ranked (`RankingFieldType::REMOVE_NAME`). */
+export const removeName = (label) => `${label} eltávolítása a sorrendből`;
 
 /** What the live region says after a tick or a move: the option's label and its place (text in N9). */
 export const announcement = (label, place) => `${label}, ${place}. hely`;
@@ -53,7 +64,7 @@ function position(item) {
 }
 
 function labelOf(item) {
-	return (item.querySelector('label')?.textContent ?? '').trim();
+	return (item.querySelector('[data-kalaka-label]')?.textContent ?? '').trim();
 }
 
 function placeOf(item) {
@@ -61,8 +72,8 @@ function placeOf(item) {
 }
 
 /**
- * A ranked option shows its handle and its buttons; an unranked one neither. What a drag needs (no
- * scrolling, no selection, no callout) is the handle's own, in its markup.
+ * A ranked option shows its handle and its buttons; an unranked one neither. Its toggle's name says what
+ * it now does.
  */
 function setRanked(item, ranked) {
 	for (const button of buttonsOf(item)) {
@@ -71,8 +82,9 @@ function setRanked(item, ranked) {
 	const handle = handleOf(item);
 	if (handle !== null) {
 		handle.hidden = !ranked;
-		handle.style.display = ranked ? HANDLE_DISPLAY : '';
 	}
+	const label = labelOf(item);
+	checkboxOf(item).setAttribute('aria-label', ranked ? removeName(label) : addName(label));
 }
 
 /** The edge buttons of the ranked list are `aria-disabled`: up on the first option, down on the last. */
@@ -191,12 +203,17 @@ export function placeAt(item, index) {
 
 
 /**
- * Dragging within the ranked list, by an option's handle only. The list holds the pointer capture once a
- * press becomes a drag, since the option itself moves in the document while it is dragged. A press that
- * moves less than `DRAG_THRESHOLD` stays a click; after a drag, the click that follows is swallowed. A
- * press ends wherever its pointer is released or cancelled (the window's `pointerup` and `pointercancel`,
- * the list's loss of its own capture), and a move with no button held ends it too, so nothing reorders
- * without a held pointer. A drag that ends where it started tells nothing.
+ * Dragging within the ranked list. A mouse drags from anywhere on a ranked row, a finger or a pen by the
+ * handle at once or from anywhere else on the row after a long press; a press on a button or the toggle
+ * never drags. The list holds the pointer capture once a press becomes a drag, since the option itself
+ * moves in the document while it is dragged. A press that moves less than `DRAG_THRESHOLD` stays a
+ * click; after a drag, the click that follows is swallowed. A finger that moves more than `PRESS_SLOP`
+ * before `LONG_PRESS` is a swipe: the press is dropped and the page scrolls. Once a long press holds,
+ * the row drags (`data-kalaka-dragging`, its cue) and the finger's moves no longer scroll (the list's
+ * `touchmove`, which is not passive, is cancelled). A press ends wherever its pointer is released or
+ * cancelled (the window's `pointerup` and `pointercancel`, the list's loss of its own capture), and a
+ * move with no button held ends it too, so nothing reorders without a held pointer. A drag that ends
+ * where it started tells nothing.
  */
 function startDragging(field) {
 	const list = field.querySelector(RANKED);
@@ -217,17 +234,27 @@ function startDragging(field) {
 		{ capture: true }
 	);
 
+	const lift = (pointerId) => {
+		press.dragging = true;
+		try {
+			list.setPointerCapture?.(pointerId);
+		} catch {
+			// The pointer is gone already; its end follows.
+		}
+		press.item.setAttribute('data-kalaka-dragging', '');
+	};
+
 	const end = (event) => {
 		if (press === null || (event.pointerId !== undefined && event.pointerId !== press.id)) {
 			return;
 		}
-		const { item, dragging, from } = press;
+		const { item, dragging, from, timer } = press;
 		press = null;
+		clearTimeout(timer);
 		if (!dragging) {
 			return;
 		}
 		item.removeAttribute('data-kalaka-dragging');
-		item.style.opacity = '';
 		swallowClick = true;
 		// A drag that ended outside the option is followed by no click on it.
 		setTimeout(() => {
@@ -239,19 +266,45 @@ function startDragging(field) {
 	};
 
 	list.addEventListener('pointerdown', (event) => {
-		const handle = event.target?.closest?.('[data-kalaka-handle]');
-		const item = handle?.closest('[data-kalaka-option]');
-		if (press !== null || item == null || item.parentElement !== list) {
+		const target = event.target;
+		const item = target?.closest?.('[data-kalaka-option]');
+		if (
+			press !== null ||
+			event.isPrimary === false ||
+			item == null ||
+			item.parentElement !== list ||
+			target.closest('button, input')
+		) {
 			return;
 		}
-		if (event.pointerType === 'mouse' && event.button !== 0) {
+		const mouse = event.pointerType === 'mouse';
+		if (mouse && event.button !== 0) {
 			return;
 		}
-		if (event.pointerType === 'mouse') {
+		if (mouse) {
 			// No text selection while a mouse drags.
 			event.preventDefault();
 		}
-		press = { id: event.pointerId, item, startY: event.clientY, dragging: false, from: placeOf(item) };
+		const atOnce = mouse || target.closest('[data-kalaka-handle]') !== null;
+		press = {
+			id: event.pointerId,
+			item,
+			startX: event.clientX,
+			startY: event.clientY,
+			armed: atOnce,
+			dragging: false,
+			from: placeOf(item),
+			timer: null,
+		};
+		if (!atOnce) {
+			const pointerId = event.pointerId;
+			press.timer = setTimeout(() => {
+				if (press !== null && press.id === pointerId && !press.armed) {
+					press.armed = true;
+					lift(pointerId);
+				}
+			}, LONG_PRESS);
+		}
 	});
 
 	list.addEventListener('pointermove', (event) => {
@@ -263,14 +316,19 @@ function startDragging(field) {
 			end(event);
 			return;
 		}
+		if (!press.armed) {
+			// A finger that moves before the long press holds is a swipe: the page scrolls.
+			if (Math.hypot(event.clientX - press.startX, event.clientY - press.startY) > PRESS_SLOP) {
+				clearTimeout(press.timer);
+				press = null;
+			}
+			return;
+		}
 		if (!press.dragging) {
 			if (Math.abs(event.clientY - press.startY) < DRAG_THRESHOLD) {
 				return;
 			}
-			press.dragging = true;
-			list.setPointerCapture?.(event.pointerId);
-			press.item.setAttribute('data-kalaka-dragging', '');
-			press.item.style.opacity = '0.5';
+			lift(event.pointerId);
 		}
 		event.preventDefault();
 		const others = [...list.children].filter((other) => other !== press.item);
@@ -281,8 +339,27 @@ function startDragging(field) {
 		placeAt(press.item, dropIndex(middles, event.clientY));
 	});
 
-	// Only the list's own capture: a touch's implicit capture by the handle is lost when the list takes it,
-	// and that loss, bubbling up from the handle, is no end of the press.
+	// A finger that drags does not scroll the page: the row keeps `touch-action`, so its moves are
+	// cancelled here once the press is armed.
+	list.addEventListener(
+		'touchmove',
+		(event) => {
+			if (press !== null && press.armed && event.cancelable) {
+				event.preventDefault();
+			}
+		},
+		{ passive: false }
+	);
+
+	// A long press opens no context menu on a ranked row.
+	list.addEventListener('contextmenu', (event) => {
+		if (event.target?.closest?.('[data-kalaka-option]')?.parentElement === list) {
+			event.preventDefault();
+		}
+	});
+
+	// Only the list's own capture: a touch's implicit capture by the row is lost when the list takes it,
+	// and that loss, bubbling up from the row, is no end of the press.
 	list.addEventListener('lostpointercapture', (event) => {
 		if (event.target === list) {
 			end(event);
@@ -309,6 +386,16 @@ export function start(field) {
 			silence(field);
 		}
 	});
+	// Enter works the toggle like Space, as on a button, instead of sending the form.
+	field.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' && event.target?.matches?.('[data-kalaka-toggle]')) {
+			event.preventDefault();
+			// A held key repeats: one press is one toggle, as with Space.
+			if (!event.repeat) {
+				event.target.click();
+			}
+		}
+	});
 	field.addEventListener('click', (event) => {
 		const button = event.target?.closest?.('[data-kalaka-move]');
 		if (button === null || button === undefined || button.getAttribute('aria-disabled') === 'true') {
@@ -324,10 +411,11 @@ export function start(field) {
 	}
 	markEdges(field);
 	startDragging(field);
-	// A handle that listens for clicks is a tap target of its own: a touch at its edge stays on it and is
-	// not moved to the label next to it. A tap on it does nothing.
-	for (const handle of field.querySelectorAll('[data-kalaka-handle]')) {
-		handle.addEventListener('click', (event) => event.preventDefault());
+	// The handle and the option's text listen for clicks, so a touch browser takes each as a tap target of
+	// its own: a finger on them stays there and is not moved to a button next to them. A tap on them does
+	// nothing.
+	for (const part of field.querySelectorAll('[data-kalaka-handle], [data-kalaka-label]')) {
+		part.addEventListener('click', (event) => event.preventDefault());
 	}
 }
 

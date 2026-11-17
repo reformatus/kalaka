@@ -39,21 +39,23 @@ final class RankingFieldType extends AbstractFieldType
     public const HANDLE = '⠿';
 
     /**
-     * What dragging needs on the handle, and only there: a pointer drag instead of a scroll, no text
-     * selection or callout on a long press, and the grab cursor. The handle is a box of its own beside the
-     * label, at least 44 by 44 pixels with the grip in its middle, so that a finger on it lands on it and
-     * not on the label next to it (UX on a phone, 2026-11-16: the bare grip, 10 by 19 pixels, lost the
-     * touch to the label). No colour, border or other look of its own.
+     * The accessible names of an option's controls, each naming its option (`%s`, its label). The toggle
+     * is the option's checkbox, drawn as „+” while unranked and „×” while ranked (owner, r2 change 4); its
+     * name follows its state (`view.js` swaps it). The +/× wording is the lektor's (r2); TODO(owner): the
+     * wording, or a name by the option only.
      */
-    public const HANDLE_STYLE = 'touch-action:none;user-select:none;-webkit-user-select:none;'
-        . '-webkit-touch-callout:none;cursor:grab;box-sizing:border-box;min-width:44px;min-height:44px;'
-        . 'align-items:center;justify-content:center;vertical-align:middle';
+    public const ADD_NAME = '%s hozzáadása a sorrendhez';
+    public const REMOVE_NAME = '%s eltávolítása a sorrendből';
+    public const UP_NAME = '%s feljebb mozgatása';
+    public const DOWN_NAME = '%s lejjebb mozgatása';
 
     /**
-     * The shown handle's `display`, set only while it is shown: an inline `display` would override the
-     * `hidden` of an unranked option's handle.
+     * The up and down buttons' icons: inline SVG paths of WordPress's own icon set (`@wordpress/icons`
+     * `arrowUp`, `arrowDown`, 24 by 24, stroked in `currentColor`), so they take the theme's text colour.
      */
-    public const HANDLE_DISPLAY = 'inline-flex';
+    public const UP_ICON = 'M12 20L12 5M17 10L12 5L7 10';
+    public const DOWN_ICON = 'M12 4V19M7 14L12 19L17 14';
+
     public const TOO_FEW = 'Legalább %d lehetőséget válassz.';
     public const TOO_MANY = 'Legfeljebb %d lehetőséget válassz.';
 

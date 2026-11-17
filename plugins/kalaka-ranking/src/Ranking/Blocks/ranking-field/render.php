@@ -5,14 +5,19 @@
  * "Forms implementation"). The markup is core's field markup (`Kalaka\Forms\Api\FieldMarkup`), with the
  * theme adapter's classes: a choice group whose options are the browser's own checkboxes, named
  * `<key>[]`, so the form sends the ticked ones in document order. The ticked options sit first, in rank
- * order, in an ordered list; the others follow in authored order. `view.js` moves an option between the
- * two lists when it is ticked or unticked, and up or down the ranked list by a drag of its handle or its
- * two buttons; the live region (WordPress's `screen-reader-text`) tells a screen reader an option's new
- * place. The handle (owner 2026-11-16) is the only part of a row that drags: a grip glyph, pointer-only
- * and hidden from screen readers, whose two buttons do the same. It alone takes `touch-action: none`,
- * so the rest of the row scrolls and taps as usual, and selects no text and opens no callout. It is a box
- * of its own beside the label, at least 44 by 44 pixels (`RankingFieldType::HANDLE_STYLE`), whose
- * `display` is set only while it is shown, so the `hidden` of an unranked option's handle holds.
+ * order, in an ordered list; the others follow in authored order.
+ *
+ * Each option is a row (`data-kalaka-row`): the drag handle, the option's text, the up and down buttons,
+ * and its checkbox, drawn by `style.css` as „+” while unticked and „×” while ticked (owner, r2: the +/×
+ * buttons replace the checkbox). The text is no `label`: a tap on it does nothing (owner, r2), so a long
+ * press that starts a drag can never untick. The checkbox's accessible name says what it does, and names
+ * the option („… hozzáadása a sorrendhez” / „… eltávolítása a sorrendből”); `view.js` swaps it with the state.
+ *
+ * `view.js` moves an option between the two lists when it is ticked or unticked, and up or down the
+ * ranked list by a drag (a mouse from anywhere on the row; a finger by the handle at once, or anywhere
+ * on the row after a long press) or by its two icon buttons; the live region (WordPress's
+ * `screen-reader-text`) tells a screen reader an option's new place. The handle is pointer-only and hidden
+ * from screen readers, whose two buttons do the same.
  *
  * @var array<string, mixed> $attributes
  */
@@ -32,21 +37,41 @@ $kalakaLabels = RankingFieldType::labels($attributes);
 // value, cleaned by `RankingFieldType::prefilled()`.
 /** @var list<string> $kalakaRanked */
 $kalakaRanked = [];
-$kalakaItem = static function (string $value, string $label, int $index, bool $ranked) use ($kalakaKey): string {
-    return '<li data-kalaka-option="' . esc_attr((string) $index) . '">'
-        . '<span data-kalaka-handle aria-hidden="true" style="' . esc_attr(RankingFieldType::HANDLE_STYLE
-            . ($ranked ? ';display:' . RankingFieldType::HANDLE_DISPLAY : '')) . '"'
-        . ($ranked ? '' : ' hidden') . '>' . esc_html(RankingFieldType::HANDLE) . '</span> '
-        . '<label' . FieldMarkup::classAttribute(ElementRole::Option) . '>'
+$kalakaIcon = static fn (string $path): string
+    => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"'
+        . ' focusable="false" fill="none" stroke="currentColor" stroke-width="1.5"><path d="' . esc_attr($path)
+        . '"/></svg>';
+$kalakaItem = static function (
+    string $value,
+    string $label,
+    int $index,
+    bool $ranked
+) use (
+    $kalakaKey,
+    $kalakaIcon
+): string {
+    $hidden = $ranked ? '' : ' hidden';
+
+    return '<li data-kalaka-option="' . esc_attr((string) $index) . '"><div data-kalaka-row>'
+        . '<span data-kalaka-handle aria-hidden="true"' . $hidden . '>'
+        . esc_html(RankingFieldType::HANDLE) . '</span>'
+        . '<span data-kalaka-label' . FieldMarkup::classAttribute(ElementRole::Option) . '>'
+        . esc_html($label) . '</span>'
+        // Each control's accessible name names its option, in the editor's pattern ("… feljebb mozgatása").
+        // The controls are one group, so a narrow screen wraps them under the text together.
+        . '<span data-kalaka-controls>'
+        . '<button type="button" data-kalaka-move="up" aria-label="'
+        . esc_attr(sprintf(RankingFieldType::UP_NAME, $label)) . '"' . $hidden . '>'
+        . $kalakaIcon(RankingFieldType::UP_ICON) . '</button>'
+        . '<button type="button" data-kalaka-move="down" aria-label="'
+        . esc_attr(sprintf(RankingFieldType::DOWN_NAME, $label)) . '"' . $hidden . '>'
+        . $kalakaIcon(RankingFieldType::DOWN_ICON) . '</button>'
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'
+        . ' data-kalaka-toggle aria-label="'
+        . esc_attr(sprintf($ranked ? RankingFieldType::REMOVE_NAME : RankingFieldType::ADD_NAME, $label)) . '"'
         . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl) . ($ranked ? ' checked' : '')
-        . '> ' . esc_html($label) . '</label>'
-        // Each button's accessible name names its option, in the editor's pattern ("… feljebb mozgatása").
-        . ' <button type="button" data-kalaka-move="up" aria-label="' . esc_attr($label . ' feljebb mozgatása') . '"'
-        . ($ranked ? '' : ' hidden') . '>' . esc_html('Feljebb') . '</button>'
-        . ' <button type="button" data-kalaka-move="down" aria-label="' . esc_attr($label . ' lejjebb mozgatása') . '"'
-        . ($ranked ? '' : ' hidden') . '>' . esc_html('Lejjebb') . '</button>'
-        . '</li>';
+        . '>'
+        . '</span></div></li>';
 };
 $kalakaPositions = array_flip(array_map(strval(...), array_keys($kalakaLabels)));
 $kalakaRankedItems = '';

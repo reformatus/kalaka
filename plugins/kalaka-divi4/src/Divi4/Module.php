@@ -27,6 +27,40 @@ final class Module extends AbstractModule
     public const IPHONE_CONTROLS = '.iphone .et_pb_contact_form .kalaka-field input[type=checkbox],'
         . '.iphone .et_pb_contact_form .kalaka-field input[type=radio]{-webkit-appearance:auto;appearance:auto}';
 
+    /**
+     * The ranking field's controls in Divi's form look (owner, S45 r2: not the browser's buttons): the up,
+     * down and +/× controls as square buttons in the grey of Divi's form inputs (`#eee`, its text `#666`),
+     * no border or radius, a darker grey on hover; the handle in Divi's input text grey (`#999`); the other
+     * options without bullets, their text in line with the ranked ones'; a dark focus ring, which Divi's
+     * `:focus { outline: 0 }` removes. TODO(owner/R): look CSS in the adapter is more than its rule allows
+     * today ("structural only"); the rule changes with it, or this moves.
+     */
+    private const RANKING = '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button,'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>input[data-kalaka-toggle]'
+        . '{width:44px;height:44px;padding:0;border:0;border-radius:0;background:#eee;color:#666;'
+        . 'box-shadow:none;font-size:inherit;line-height:1}'
+        // Only where a pointer hovers: on a phone a tapped button would stay dark.
+        . '@media (hover:hover){.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button:hover,'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>input[data-kalaka-toggle]:hover'
+        . '{background:#ddd;color:#333}}'
+        // Divi's `:focus { outline: 0 }` hides the keyboard focus; the ranking's controls show it again.
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button:focus-visible,'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>input[data-kalaka-toggle]:focus-visible'
+        . '{outline:2px solid #333;outline-offset:2px}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button[aria-disabled=true]'
+        . '{color:#bbb;background:#f4f4f4;cursor:default}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-row]{gap:4px}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-handle]{color:#999;font-size:18px}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-row]'
+        . '{border-bottom:1px solid #eee}'
+        // `:not(#kalaka)` weighs like an id, to outweigh Divi's `#left-area ul` bullets and padding.
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-unranked]:not(#kalaka)'
+        . '{list-style:none;padding-left:calc(1.5em + 48px)}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-unranked] [data-kalaka-row]'
+        . '{margin-bottom:4px}'
+        . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-dragging] [data-kalaka-row]'
+        . '{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}';
+
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(private readonly DiviThemeAdapter $adapter = new DiviThemeAdapter())
     {
@@ -84,7 +118,7 @@ final class Module extends AbstractModule
             return;
         }
         wp_register_style('kalaka-divi4', false, [], KALAKA_VERSION);
-        wp_add_inline_style('kalaka-divi4', self::DIV_FIELDS . self::IPHONE_CONTROLS);
+        wp_add_inline_style('kalaka-divi4', self::DIV_FIELDS . self::IPHONE_CONTROLS . self::RANKING);
         wp_enqueue_style('kalaka-divi4');
     }
 

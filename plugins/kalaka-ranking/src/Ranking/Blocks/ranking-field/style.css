@@ -1,0 +1,155 @@
+/*
+ * The ranking field's structural CSS (engineering.md, "WordPress surfaces"): layout and what dragging
+ * needs, with no colours or fonts. The theme adapter gives the look (`kalaka-divi4` under Divi 4); with
+ * no adapter the buttons are the browser's own and the +/× takes the text colour.
+ */
+
+/* A row: the handle, the option's text, the up and down buttons, the +/× toggle. The row is a flex box
+ * inside the `li`, so the ranked list keeps its numbers. */
+[data-kalaka-ranking] [data-kalaka-row] {
+	display: flex;
+	align-items: center;
+	gap: 0.25em;
+	min-height: 44px;
+}
+
+/* A fieldset is as wide as its widest row by default; the field stays within the form's width instead,
+ * and a long option text wraps. */
+[data-kalaka-ranking] fieldset {
+	min-width: 0;
+}
+
+/* The rank's number stays the ordered list's own marker, outside the row, so a theme's `inside` markers
+ * do not take a line of their own above the flex row. */
+[data-kalaka-ranking] [data-kalaka-ranked] > li {
+	list-style-position: outside;
+	margin-left: 1.5em;
+}
+
+/* The text takes the room the controls leave, but never less than a few words' width: on a narrow
+ * screen the controls wrap under it instead, kept to the right. */
+[data-kalaka-ranking] [data-kalaka-row] {
+	flex-wrap: wrap;
+}
+
+[data-kalaka-ranking] [data-kalaka-label] {
+	flex: 1 1 6em;
+	min-width: 6em;
+	overflow-wrap: break-word;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] {
+	display: flex;
+	align-items: center;
+	gap: inherit;
+	flex: none;
+	margin-left: auto;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 44px;
+	min-height: 44px;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > [hidden],
+[data-kalaka-ranking] [data-kalaka-row] > [hidden] {
+	display: none;
+}
+
+/* A ranked row drags: a mouse from anywhere on it, a finger after a long press (`view.js`). The row
+ * scrolls the page as usual (`touch-action` stays), but selects no text and opens no callout, so a long
+ * press is free for the drag. */
+[data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-row] {
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+	cursor: grab;
+}
+
+[data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-controls] > button,
+[data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-controls] > input {
+	cursor: pointer;
+}
+
+/* The handle drags at once, also by touch: the only part of a row with `touch-action: none`. A box of
+ * 44 by 44 pixels with the grip in its middle, so a finger on it lands on it. */
+[data-kalaka-ranking] [data-kalaka-handle] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	flex: none;
+	min-width: 44px;
+	min-height: 44px;
+	touch-action: none;
+}
+
+[data-kalaka-ranking] [data-kalaka-dragging] {
+	opacity: 0.5;
+}
+
+[data-kalaka-ranking] [data-kalaka-dragging] [data-kalaka-row] {
+	cursor: grabbing;
+}
+
+/* The option's checkbox, drawn as „+” while unticked and „×” while ticked (owner, r2). It stays the
+ * browser's checkbox, so the form, the re-fetch and the draft read it as before; the icon is a mask in
+ * the text colour (`@wordpress/icons` `plus` and `close`), driven by `:checked`, so it is right without
+ * the script too. Three attribute selectors outweigh themes' `… input` rules (Divi: `.iphone
+ * .et_pb_contact_form input { -webkit-appearance: initial }`). */
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle] {
+	-webkit-appearance: none;
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	flex: none;
+	width: 44px;
+	height: 44px;
+	margin: 0;
+	padding: 0;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::before {
+	content: "";
+	width: 24px;
+	height: 24px;
+	background-color: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]:checked::before {
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+}
+
+/* The controls take a tap at once: no double-tap zoom on a quick second tap. */
+[data-kalaka-ranking] [data-kalaka-controls] > * {
+	touch-action: manipulation;
+}
+
+/* In forced colours (Windows High Contrast) a mask filled with `currentColor` would be repainted as the
+ * background: the icon takes the system's button text colour instead, and every control a border. */
+@media (forced-colors: active) {
+	[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::before {
+		background-color: ButtonText;
+		forced-color-adjust: none;
+	}
+
+	[data-kalaka-ranking] [data-kalaka-controls] > * {
+		border: 1px solid ButtonText;
+	}
+
+	[data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"] {
+		border-color: GrayText;
+		color: GrayText;
+	}
+}

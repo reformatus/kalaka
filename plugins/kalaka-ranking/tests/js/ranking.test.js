@@ -4,31 +4,29 @@
  */
 import { readAnswer } from '../../../kalaka/src/Forms/Blocks/form/answers';
 import {
-	HANDLE_DISPLAY,
+	LONG_PRESS,
+	addName,
 	announcement,
 	dropIndex,
 	move,
 	placeAt,
+	removeName,
 	start,
 } from '../../src/Ranking/Blocks/ranking-field/view';
 
 const OPTIONS = ['modul_a', 'modul_b', 'modul_c'];
 
-/** `RankingFieldType::HANDLE_STYLE`, which `RankingFieldFormTest` checks in the rendered markup. */
-const HANDLE_STYLE =
-	'touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:grab;' +
-	'box-sizing:border-box;min-width:44px;min-height:44px;align-items:center;justify-content:center;' +
-	'vertical-align:middle';
-
 /** The field as `render.php` renders it, with no option ranked. */
 function render() {
 	const items = OPTIONS.map(
 		(value, index) =>
-			`<li data-kalaka-option="${index}">` +
-			`<span data-kalaka-handle aria-hidden="true" style="${HANDLE_STYLE}" hidden>⠿</span> ` +
-			`<label><input type="checkbox" name="modulok[]" value="${value}" autocomplete="off"> ${value}</label>` +
-			` <button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden>Feljebb</button>` +
-			` <button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden>Lejjebb</button></li>`
+			`<li data-kalaka-option="${index}"><div data-kalaka-row>` +
+			`<span data-kalaka-handle aria-hidden="true" hidden>⠿</span>` +
+			`<span data-kalaka-label>${value}</span><span data-kalaka-controls>` +
+			`<button type="button" data-kalaka-move="up" aria-label="${value} feljebb mozgatása" hidden><svg></svg></button>` +
+			`<button type="button" data-kalaka-move="down" aria-label="${value} lejjebb mozgatása" hidden><svg></svg></button>` +
+			`<input type="checkbox" name="modulok[]" value="${value}" data-kalaka-toggle aria-label="${value} hozzáadása a sorrendhez" autocomplete="off">` +
+			`</span></div></li>`
 	).join('');
 	document.body.innerHTML =
 		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking><fieldset><legend>Modulok</legend>` +
@@ -139,27 +137,32 @@ describe('the ranking field', () => {
 		expect(itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]').hidden).toBe(true);
 	});
 
-	test('a shown handle is a box of at least 44 by 44 pixels; a hidden one has no display to override hidden', () => {
+	test("the toggle's name says what it does, and follows its state", () => {
 		const field = render();
-		const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
-		expect(handle.style.display).toBe('');
+		expect(box(field, 'modul_a').getAttribute('aria-label')).toBe('modul_a hozzáadása a sorrendhez');
 
 		tick(field, 'modul_a');
-		const shown = window.getComputedStyle(handle);
-		expect(HANDLE_DISPLAY).toBe('inline-flex');
-		expect(shown.display).toBe('inline-flex');
-		expect(shown.minWidth).toBe('44px');
-		expect(shown.minHeight).toBe('44px');
-		expect(shown.alignItems).toBe('center');
-		expect(shown.justifyContent).toBe('center');
-		// Only the handle takes what a drag needs: not the label beside it, nor the row.
-		expect(itemOf(field, 'modul_a').querySelector('label').hasAttribute('style')).toBe(false);
-		expect(handle.contains(itemOf(field, 'modul_a').querySelector('label'))).toBe(false);
-		expect(handle.closest('label')).toBeNull();
-
+		expect(box(field, 'modul_a').getAttribute('aria-label')).toBe('modul_a eltávolítása a sorrendből');
 		tick(field, 'modul_a');
-		expect(handle.hidden).toBe(true);
-		expect(handle.style.display).toBe('');
+		expect(box(field, 'modul_a').getAttribute('aria-label')).toBe('modul_a hozzáadása a sorrendhez');
+		expect(addName('Modul A')).toBe('Modul A hozzáadása a sorrendhez');
+		expect(removeName('Modul A')).toBe('Modul A eltávolítása a sorrendből');
+	});
+
+	test('Enter works the toggle like Space and does not send the form', () => {
+		const field = render();
+		const enter = new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+
+		box(field, 'modul_b').dispatchEvent(enter);
+
+		expect(enter.defaultPrevented).toBe(true);
+		expect(ranked(field)).toEqual(['modul_b']);
+
+		// A held Enter repeats: no further toggle.
+		const held = new window.KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true });
+		box(field, 'modul_b').dispatchEvent(held);
+		expect(held.defaultPrevented).toBe(true);
+		expect(ranked(field)).toEqual(['modul_b']);
 	});
 
 	test('a tap on the handle is its own click, and neither ticks nor unticks the option', () => {
@@ -258,7 +261,7 @@ describe('dragging a ranked option', () => {
 		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 	});
 
-	test('a short press is no drag, and a press on the handle, a button or a checkbox never drags', () => {
+	test('a short press is no drag; a finger that moves on the text at once swipes; a button or the toggle never drags', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
 		layOut(field);
@@ -270,7 +273,7 @@ describe('dragging a ranked option', () => {
 		pointer('pointermove', handle, 13);
 		pointer('pointerup', handle, 13);
 		for (const other of [
-			itemOf(field, 'modul_a').querySelector('label'),
+			itemOf(field, 'modul_a').querySelector('[data-kalaka-label]'),
 			itemOf(field, 'modul_a').querySelector('[data-kalaka-move="down"]'),
 			box(field, 'modul_a'),
 		]) {
@@ -281,6 +284,81 @@ describe('dragging a ranked option', () => {
 
 		expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
 		expect(changes).toEqual([]);
+	});
+
+	test('a mouse drags from the text at once', () => {
+		const field = render();
+		OPTIONS.forEach((value) => tick(field, value));
+		layOut(field);
+		const text = itemOf(field, 'modul_a').querySelector('[data-kalaka-label]');
+
+		pointer('pointerdown', text, 10, { pointerType: 'mouse' });
+		pointer('pointermove', text, 45, { pointerType: 'mouse' });
+		pointer('pointermove', text, 70, { pointerType: 'mouse' });
+		pointer('pointerup', text, 70, { pointerType: 'mouse', buttons: 0 });
+
+		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
+	});
+
+	test('a finger drags from the text after a long press, and a move cannot scroll then', () => {
+		jest.useFakeTimers();
+		try {
+			const field = render();
+			OPTIONS.forEach((value) => tick(field, value));
+			layOut(field);
+			const text = itemOf(field, 'modul_a').querySelector('[data-kalaka-label]');
+
+			pointer('pointerdown', text, 10);
+			jest.advanceTimersByTime(LONG_PRESS - 1);
+			expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
+			jest.advanceTimersByTime(1);
+			expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(true);
+
+			const scroll = new Event('touchmove', { bubbles: true, cancelable: true });
+			text.dispatchEvent(scroll);
+			expect(scroll.defaultPrevented).toBe(true);
+
+			pointer('pointermove', text, 70);
+			pointer('pointerup', text, 70);
+			expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
+			expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test('a finger that moves before the long press holds swipes: no drag, the page scrolls', () => {
+		jest.useFakeTimers();
+		try {
+			const field = render();
+			OPTIONS.forEach((value) => tick(field, value));
+			layOut(field);
+			const text = itemOf(field, 'modul_a').querySelector('[data-kalaka-label]');
+
+			pointer('pointerdown', text, 10);
+			pointer('pointermove', text, 40);
+			jest.advanceTimersByTime(LONG_PRESS * 2);
+			const scroll = new Event('touchmove', { bubbles: true, cancelable: true });
+			text.dispatchEvent(scroll);
+			pointer('pointermove', text, 70);
+			pointer('pointerup', text, 70);
+
+			expect(scroll.defaultPrevented).toBe(false);
+			expect(itemOf(field, 'modul_a').hasAttribute('data-kalaka-dragging')).toBe(false);
+			expect(ranked(field)).toEqual(['modul_a', 'modul_b', 'modul_c']);
+		} finally {
+			jest.useRealTimers();
+		}
+	});
+
+	test('a ranked row opens no context menu', () => {
+		const field = render();
+		tick(field, 'modul_a');
+		const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+
+		itemOf(field, 'modul_a').querySelector('[data-kalaka-label]').dispatchEvent(menu);
+
+		expect(menu.defaultPrevented).toBe(true);
 	});
 
 	test('an unranked option is not dragged', () => {
@@ -444,14 +522,14 @@ describe('the keyboard and the screen reader', () => {
 		expect(field.querySelectorAll('[data-kalaka-unranked] [aria-disabled]').length).toBe(0);
 	});
 
-	test('a tap on the label of a ranked option still unticks it: only the handle drags', () => {
+	test("a tap on an option's text does nothing, ranked or not", () => {
 		const field = render();
-		OPTIONS.forEach((value) => tick(field, value));
-		const label = itemOf(field, 'modul_b').querySelector('label');
+		tick(field, 'modul_a');
 
-		label.click();
+		itemOf(field, 'modul_a').querySelector('[data-kalaka-label]').click();
+		itemOf(field, 'modul_b').querySelector('[data-kalaka-label]').click();
 
+		expect(ranked(field)).toEqual(['modul_a']);
 		expect(box(field, 'modul_b').checked).toBe(false);
-		expect(ranked(field)).toEqual(['modul_a', 'modul_c']);
 	});
 });
