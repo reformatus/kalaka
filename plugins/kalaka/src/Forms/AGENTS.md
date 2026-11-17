@@ -210,6 +210,11 @@ values and conditions, prefill and form links
 - Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`
   in the evaluator (deptrac: the `Forms Engine` layer); no `Forms\Api` signature takes
   or returns a brick/math type.
+- A form opens with its host's stored values (`FormHost::prefill()`), each
+  turned into its field's answer by `FieldType::prefill()` (null opens it
+  empty: a type that refuses prefill). The page is walked and rendered for
+  those answers; each field block renders its own (`Engine\FieldMarkup::prefilled()`).
+  `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
   answers of fields that show; it keeps nothing across a reload.
 - The submit token (`FormHost::submitToken()`; for an event form
@@ -227,7 +232,8 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  submit token and the submit, and the after-submit section's keys. Kaláka's
+  stored values the form opens with, the submit token and the submit, and the
+  after-submit section's keys. Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form
   page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
   engine.

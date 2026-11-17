@@ -30,4 +30,10 @@ final class ConsentFieldType extends AbstractFieldType
 
         return $input->value ? FieldAnswer::stored('1') : FieldAnswer::notAnswered();
     }
+
+    /** A given consent is a ticked box; null for none. */
+    public function prefill(FieldTypeInput $input): mixed
+    {
+        return $input->value === '1' ? true : null;
+    }
 }
