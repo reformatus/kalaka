@@ -112,9 +112,10 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertTrue(wp_style_is('kalaka-divi4', 'enqueued'));
         $css = implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'));
         self::assertStringContainsString(Module::IPHONE_CONTROLS, $css);
-        // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons.
+        // Scoped to Kaláka's fields inside the form Divi styles, and only to checkboxes and radio buttons;
+        // the ranking's +/× toggle, a checkbox Kaláka draws itself, is left out.
         self::assertSame(
-            '.iphone .et_pb_contact_form .kalaka-field input[type=checkbox],'
+            '.iphone .et_pb_contact_form .kalaka-field input[type=checkbox]:not([data-kalaka-toggle]),'
                 . '.iphone .et_pb_contact_form .kalaka-field input[type=radio]'
                 . '{-webkit-appearance:auto;appearance:auto}',
             Module::IPHONE_CONTROLS

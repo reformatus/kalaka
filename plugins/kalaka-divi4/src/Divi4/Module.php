@@ -22,9 +22,11 @@ final class Module extends AbstractModule
      * Divi marks an iPhone's `body` with `iphone` and gives `.iphone .et_pb_contact_form input`
      * `-webkit-appearance: initial`, which leaves a native checkbox or radio button 0×0: invisible and
      * hard to tick. Kaláka's form carries `et_pb_contact_form`, so the browser's own controls come back
-     * for Kaláka's fields only (functional, no look of our own).
+     * for Kaláka's fields only (functional, no look of our own). The ranking's +/× toggle is a checkbox
+     * Kaláka draws itself (`appearance: none`), so it is left out.
      */
-    public const IPHONE_CONTROLS = '.iphone .et_pb_contact_form .kalaka-field input[type=checkbox],'
+    public const IPHONE_CONTROLS = '.iphone .et_pb_contact_form .kalaka-field'
+        . ' input[type=checkbox]:not([data-kalaka-toggle]),'
         . '.iphone .et_pb_contact_form .kalaka-field input[type=radio]{-webkit-appearance:auto;appearance:auto}';
 
     /**
