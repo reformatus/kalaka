@@ -973,7 +973,7 @@ store('kalaka/form', {
 				showPage(form, 0, false);
 			}
 			reflect(form);
-			// The page renders for no answers; a browser that restored answers of triggers needs a re-fetch.
+			// The page renders for its prefilled answers; a browser that restored answers of triggers needs a re-fetch.
 			const answers = answersOf(form);
 			const answered = (value) =>
 				value !== undefined &&

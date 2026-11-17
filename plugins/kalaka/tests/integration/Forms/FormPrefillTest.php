@@ -119,6 +119,14 @@ final class FormPrefillTest extends FormsTestCase
                 new FieldTypeInput('["s","m"]', ['options' => self::SIZES, 'multiple' => true])
             )
         );
+        // A stored value that is not one of the options is dropped (#193 review C2-1).
+        self::assertNull((new ChoiceFieldType())->prefill(new FieldTypeInput('x', ['options' => self::SIZES])));
+        self::assertSame(
+            ['m'],
+            (new ChoiceFieldType())->prefill(
+                new FieldTypeInput('["x","m"]', ['options' => self::SIZES, 'multiple' => true])
+            )
+        );
         self::assertTrue((new ConsentFieldType())->prefill(new FieldTypeInput('1', [])));
         self::assertNull((new ConsentFieldType())->prefill(new FieldTypeInput('', [])));
     }

@@ -336,7 +336,8 @@ final class FormPage
 
     /**
      * A branch's wrapper (`BranchMarkup`, hidden by default) shown when it is the branch of its chain that
-     * shows for the form's current answers, so the page without the script is the form for no answers.
+     * shows for the form's current answers, so the page without the script is the form for
+     * its prefilled answers (none for a new registration).
      */
     private function shownBranch(string $html, int $chain, int $branch): string
     {
