@@ -31,6 +31,13 @@ title: Money
      ([Fields](events-and-forms.md#fields));
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
+- **Lunch and the donation are one extension plugin, `kalaka-extras`:**
+  two fee components at the extras stage that the participant pays. Lunch
+  is the sum of the event's lunch items (an amount and a condition each)
+  whose condition holds, as one `lunch` line. The donation is the value of
+  the event's amount field, a money-relevant field type in whole forints,
+  as one `donation` line; empty or 0 writes none. Support and the
+  congregation share never cover either.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).

@@ -16,10 +16,14 @@ parameters:
         - plugins/kalaka-woocommerce/src
         - plugins/kalaka-woocommerce/kalaka-woocommerce.php
         - plugins/kalaka-woocommerce/uninstall.php
+        - plugins/kalaka-extras/src
+        - plugins/kalaka-extras/kalaka-extras.php
+        - plugins/kalaka-extras/uninstall.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
         - plugins/kalaka-divi4/vendor/autoload.php
         - plugins/kalaka-ranking/vendor/autoload.php
         - plugins/kalaka-woocommerce/vendor/autoload.php
+        - plugins/kalaka-extras/vendor/autoload.php
         - phpstan-bootstrap.php

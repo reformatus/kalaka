@@ -21,6 +21,9 @@ title: Modules and extensions
   payments port. Core has no WooCommerce dependency at all. On a WooCommerce
   site, the WooCommerce extension lets anyone who may reach Kaláka's admin
   (full access or any grant) into wp-admin.
+- **Lunch and the donation are one extension plugin, `kalaka-extras`:** the
+  two extras fee components and the amount field type
+  ([Money](money.md#core-money-scope)).
 - **Sponsor and church support is one extension plugin, `kalaka-support`:**
   the organization directory, the congregation picker and the support offers
   ([Money](money.md#sponsor-and-church-support)). Core holds no organization

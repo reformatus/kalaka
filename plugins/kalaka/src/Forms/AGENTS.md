@@ -152,7 +152,8 @@ values and conditions, prefill and form links
   which reads nothing: a submit checks it under the event's lock; and
   `Forms::participantValues()`, which reads no post, only
   `ParticipantFields::of()` (its table and the block registry): the
-  evaluation types a registration's field values with it (S25).
+  evaluation types a registration's field values with it (S25), and a money
+  setting's save checks its conditions against them (S26).
 - Field types contribute through the typed point and return values; no field
   type writes to a table. Core ships no money-relevant field type. A field
   type's `valueType()` and `value()` fire no hook and write nothing (they may

@@ -3,11 +3,12 @@
 	"private": true,
 	"scripts": {
 		"env": "wp-env",
-		"build": "wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka/src --output-path=plugins/kalaka/build --webpack--devtool=source-map && wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-ranking/src --output-path=plugins/kalaka-ranking/build --webpack--devtool=source-map && wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-support/src --output-path=plugins/kalaka-support/build --webpack--devtool=source-map",
+		"build": "wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka/src --output-path=plugins/kalaka/build --webpack--devtool=source-map && wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-ranking/src --output-path=plugins/kalaka-ranking/build --webpack--devtool=source-map && wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-support/src --output-path=plugins/kalaka-support/build --webpack--devtool=source-map && wp-scripts build --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-extras/src --output-path=plugins/kalaka-extras/build --webpack--devtool=source-map",
 		"start": "wp-scripts start --experimental-modules --webpack-copy-php --source-path=plugins/kalaka/src --output-path=plugins/kalaka/build --webpack--devtool=source-map",
 		"start:ranking": "wp-scripts start --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-ranking/src --output-path=plugins/kalaka-ranking/build --webpack--devtool=source-map",
 		"start:support": "wp-scripts start --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-support/src --output-path=plugins/kalaka-support/build --webpack--devtool=source-map",
-		"lint:js": "wp-scripts lint-js plugins/kalaka/src plugins/kalaka/tests/js plugins/kalaka-ranking/src plugins/kalaka-ranking/tests/js plugins/kalaka-support/src plugins/kalaka-support/tests/js",
+		"start:extras": "wp-scripts start --experimental-modules --webpack-copy-php --source-path=plugins/kalaka-extras/src --output-path=plugins/kalaka-extras/build --webpack--devtool=source-map",
+		"lint:js": "wp-scripts lint-js plugins/kalaka/src plugins/kalaka/tests/js plugins/kalaka-ranking/src plugins/kalaka-ranking/tests/js plugins/kalaka-support/src plugins/kalaka-support/tests/js plugins/kalaka-extras/src",
 		"test:js": "wp-scripts test-unit-jest"
 	},
 	"devDependencies": {
