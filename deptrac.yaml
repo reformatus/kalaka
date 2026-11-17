@@ -4,6 +4,7 @@ deptrac:
     - plugins/kalaka-support/src
     - plugins/kalaka-divi4/src
     - plugins/kalaka-ranking/src
+    - plugins/kalaka-price-ladder/src
   layers:
     - name: Foundation
       collectors:
@@ -198,6 +199,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Extras\\Api\\'
+    - name: PriceLadder
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\PriceLadder\\(?!Api\\)'
+    - name: PriceLadder Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\PriceLadder\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -503,6 +512,21 @@ deptrac:
       - Assignments Api
       - Registrations Api
       - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    PriceLadder:
+      - WordPress
+      - PriceLadder Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Assignments Api
+      - Registrations Api
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -851,6 +875,21 @@ deptrac:
       - Forms Api
       - Forms Engine Api
       - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+    PriceLadder Api:
+      - WordPress
+      - PriceLadder
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
       - Assignments Api
       - Registrations Api
       - Pricing Api

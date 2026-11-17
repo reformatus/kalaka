@@ -40,6 +40,13 @@ title: Money
   `extras` line, with no condition of its own. The donation is the value of
   the event's number field, a whole number, as one `donation` line; empty or
   0 writes none. Support and the congregation share never cover either.
+- **The price ladder** is a fee component at the tier stage. Each tier has
+  an amount, an availability condition over the registration's facts and an
+  optional deadline, its last day. The tier that applies is the first, in
+  the ladder's order, whose deadline the registration's `registered_at`
+  falls within and whose condition holds; the registrant reaches it through
+  ordinary answers such as the support level. With no ladder, or no tier
+  that applies, the event's fixed price is the base.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
