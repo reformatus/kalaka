@@ -40,7 +40,7 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
             '<p>%s <a href="%s">%s</a></p>',
             esc_html('A jelentkezéshez fiók szükséges.'),
             esc_url($kalakaView->signUpUrl),
-            esc_html('Regisztrálok vagy bejelentkezem')
+            esc_html('Fiókot készítek vagy bejelentkezem')
         );
     } elseif ($kalakaView->refusal !== null) {
         $kalakaTexts = [

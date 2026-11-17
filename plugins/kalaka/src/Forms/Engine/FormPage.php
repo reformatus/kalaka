@@ -209,10 +209,9 @@ final class FormPage
             // guest; empty for a guest. The page is never cached (`Api\FormCaching::preventCaching()`).
             'nonce' => is_user_logged_in() ? wp_create_nonce('wp_rest') : '',
             // S15: when that nonce stops working (`Rest\FormRoutes::SESSION_ENDED`), the way back: logging in
-            // again, back to this page. [UNAPPROVED #191 T8] the link's text, placeholder: empty, the page shows
-            // the address in its place.
+            // again, back to this page, and the link's text (#191 T8, owner 2026-11-17).
             'loginUrl' => is_user_logged_in() ? wp_login_url(self::here()) : '',
-            'logIn' => '',
+            'logIn' => 'Bejelentkezés',
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,

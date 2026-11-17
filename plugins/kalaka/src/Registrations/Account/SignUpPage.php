@@ -153,7 +153,7 @@ final class SignUpPage
             // [UNAPPROVED T7] the notice.
             printf(
                 '<p class="kalaka-sign-up-age">%s</p>',
-                esc_html('A regisztráció 16 éves kortól lehetséges. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
+                esc_html('Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
             );
             // [UNAPPROVED T2] the skip link.
             printf(

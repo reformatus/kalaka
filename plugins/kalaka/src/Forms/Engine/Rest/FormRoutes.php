@@ -49,8 +49,9 @@ final class FormRoutes
     /** The refusal of a request whose session ended: logging in again is the way on. [UNAPPROVED #191 N24] */
     public const SESSION_ENDED = 'kalaka_session_ended';
 
-    // [UNAPPROVED #191 T8] placeholder, empty until the owner's text: the page shows the code in its place.
-    public const SESSION_ENDED_TEXT = '';
+    // #191 T8 (owner, 2026-11-17).
+    public const SESSION_ENDED_TEXT
+        = 'Ebben a böngészőben már nem vagy bejelentkezve. Jelentkezz be újra, és töltsd ki ismét az űrlapot.';
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';

@@ -467,9 +467,8 @@ async function post(url, data, nonce = '') {
 }
 
 /**
- * Shows that the session ended: the refusal's message, or its code while that text is a placeholder
- * ([UNAPPROVED #191 T8]), and the page's link to log in again and come back (`loginUrl`), named by `logIn`
- * or, while that is a placeholder, by its address.
+ * Shows that the session ended: the refusal's message (#191 T8), or its code if a message is missing, and the
+ * page's link to log in again and come back (`loginUrl`), named by `logIn`, or by its address if that is missing.
  */
 function showSessionEnded(form, message) {
 	const started = forms.get(form);

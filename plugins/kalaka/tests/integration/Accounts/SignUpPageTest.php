@@ -284,7 +284,7 @@ final class SignUpPageTest extends AccountsTestCase
     public function testTheSixteenPlusNoticeShowsOnlyInOptionalModeWithTheSkip(): void
     {
         $page = new SignUpPage();
-        $notice = 'A regisztráció 16 éves kortól lehetséges. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
+        $notice = 'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
 
         $_REQUEST = [SignUp::MARKER => (string) $this->openForm('optional'), 'redirect_to' => self::back()];
         self::assertStringContainsString($notice, $this->captured(static fn () => $page->formFields()));
