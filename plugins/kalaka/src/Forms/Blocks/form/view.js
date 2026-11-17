@@ -10,7 +10,9 @@
  * Every answer stays in the browser while the page is open (owner ruling 5): what was typed in a hidden
  * branch stays in its disabled control, and a ticked option that stops being offered is remembered and
  * ticked again when it is offered again. Only the fields that show, with their offered options, are sent.
- * Nothing is kept across a reload.
+ * Nothing is kept across a reload. At start-up it re-fetches only when the browser holds an answer of a
+ * trigger other than the one the page opened with (`opened` in the page's context), as one the browser
+ * restored.
  *
  * A multi-page form ((#167, MP-4, MP-9, MP-11)) renders every page hidden; the script shows the
  * current one. Tovább re-fetches with the current page, which answers with that page's errors; with none
@@ -906,6 +908,54 @@ async function run(form) {
 	return applied;
 }
 
+/**
+ * An answer in one shape to compare: none for no answer, an empty text, an unticked box or no option; the
+ * options sorted; anything else as text. Null for a shape it does not know, which never compares equal.
+ */
+function comparable(value) {
+	if (
+		value === undefined ||
+		value === null ||
+		value === '' ||
+		value === false ||
+		(Array.isArray(value) && value.length === 0)
+	) {
+		return '';
+	}
+	if (Array.isArray(value)) {
+		return value.every((option) => typeof option === 'string')
+			? JSON.stringify([...value].sort())
+			: null;
+	}
+	if (value === true || typeof value === 'string') {
+		return JSON.stringify(value);
+	}
+
+	return null;
+}
+
+/**
+ * Whether the browser holds, for a trigger, an answer other than the one the page opened with (`opened`
+ * in the page's context): one it restored, from its cache of the page or by autofill.
+ */
+function restoredOther(started, answers) {
+	const opened =
+		started.opened !== null &&
+		typeof started.opened === 'object' &&
+		!Array.isArray(started.opened)
+			? started.opened
+			: {};
+
+	return (started.triggers ?? []).some((key) => {
+		const held = comparable(answers[key]);
+		const given = comparable(
+			Object.hasOwn(opened, key) ? opened[key] : undefined
+		);
+
+		return held === null || given === null || held !== given;
+	});
+}
+
 function isTrigger(started, key) {
 	return Array.isArray(started.triggers) && started.triggers.includes(key);
 }
@@ -1486,14 +1536,9 @@ store('kalaka/form', {
 				showPage(form, 0, false);
 			}
 			reflect(form);
-			// The page renders for its prefilled answers; a browser that restored answers of triggers needs a re-fetch.
-			const answers = answersOf(form);
-			const answered = (value) =>
-				value !== undefined &&
-				value !== '' &&
-				value !== false &&
-				!(Array.isArray(value) && value.length === 0);
-			if ((started.triggers ?? []).some((key) => answered(answers[key]))) {
+			// The page renders for the answers it opened with; a browser that restored others of a trigger needs
+			// a re-fetch.
+			if (restoredOther(started, answersOf(form))) {
 				refetch(form);
 			}
 		},

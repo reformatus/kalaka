@@ -226,9 +226,40 @@ final class FormPage
             // S15 (owner ruling 2026-11-18): the account block's window, for a form with an account step.
             'account' => $step === null ? null : self::account($form, $here),
             'triggers' => $availability->triggers,
+            // The answers the page opened with, of the triggers that show: the script re-fetches at start-up only
+            // when the browser restored others (#193's review).
+            'opened' => self::opened($answers, $availability),
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
         ] + self::draftData($form, $draft), null, $this->host->submitToken());
+    }
+
+    /**
+     * The answers the page opened with of the triggers that show, which the script compares at start-up with
+     * what the browser holds. A trigger that does not show is not sent, and the script does not read it; of
+     * a choice, only the options it offers, the ones its markup renders.
+     *
+     * @param array<string, mixed> $answers
+     * @return array<string, mixed>
+     */
+    private static function opened(array $answers, FormAvailability $availability): array
+    {
+        $opened = [];
+        foreach ($availability->triggers as $key) {
+            if (!$availability->shows($key) || !array_key_exists($key, $answers)) {
+                continue;
+            }
+            $answer = $answers[$key];
+            $offered = $availability->offeredOptions($key);
+            if ($offered !== null && is_array($answer)) {
+                $answer = array_values(array_intersect($answer, $offered));
+            } elseif ($offered !== null && is_string($answer) && !in_array($answer, $offered, true)) {
+                continue;
+            }
+            $opened[$key] = $answer;
+        }
+
+        return $opened;
     }
 
     /**
