@@ -8,19 +8,28 @@ use Kalaka\Foundation\Api\Query\Query;
 
 /**
  * The public list of live nodes: active nodes under active ancestors (a root is live when it is
- * active). Searches by name and alias, accent-blind, or lists the children of one node. Three
- * statements: the count, the page and the page's ancestors; the last only for a non-empty page.
+ * active). Searches by name and alias, accent-blind, or lists the children of one node. Each item
+ * says whether it is a terminal leaf, a node with no children at all, active or not: only a leaf
+ * is an answer of the congregation field (owner ruling S28-1). Three statements: the count, the
+ * page and the page's ancestors; the last only for a non-empty page.
  */
 final class NodeList extends Query
 {
     // a node is live when it and every ancestor are active; only live nodes are listed
     /** The live set: a recursive walk from the active roots down through active children. */
-    private const LIVE = 'WITH RECURSIVE live (node_id, depth) AS ('
+    public const LIVE = 'WITH RECURSIVE live (node_id, depth) AS ('
         . ' SELECT r.id, 1 FROM %i r WHERE r.parent_id IS NULL AND r.active = 1'
         . ' UNION ALL'
         . ' SELECT c.id, l.depth + 1 FROM live l JOIN %i c ON c.parent_id = l.node_id'
         . ' WHERE c.active = 1 AND l.depth < 32'
         . ')';
+
+    /**
+     * Whether node `n` is a terminal leaf: no node names it as its parent, active or not. The one
+     * leaf rule, for the route's flag and the congregation field's check alike; the `%i` is the
+     * node table.
+     */
+    public const LEAF = 'NOT EXISTS (SELECT 1 FROM %i c WHERE c.parent_id = n.id)';
 
     /** One search word, in the accent-blind collation (engineering.md, "Database"). */
     private const SEARCH_WORD = '(n.name COLLATE utf8mb4_unicode_520_ci LIKE %s'
@@ -40,6 +49,7 @@ final class NodeList extends Query
      *         name: string,
      *         type: string,
      *         parent: int,
+     *         leaf: bool,
      *         ancestors: list<array{id: int, name: string, type: string}>
      *     }>,
      *     total: int
@@ -74,10 +84,13 @@ final class NodeList extends Query
 
             $rows = $this->select(
                 'node',
-                self::LIVE . ' SELECT n.id, n.name, n.type, n.parent_id FROM live l JOIN %i n ON n.id = l.node_id'
+                self::LIVE . ' SELECT n.id, n.name, n.type, n.parent_id, ' . self::LEAF . ' AS leaf'
+                . ' FROM live l JOIN %i n ON n.id = l.node_id'
                 . ' WHERE ' . $where . ' ORDER BY n.name, n.id LIMIT %d OFFSET %d',
                 [
+                    // the live set's two, the leaf test's and the main statement's: one table
                     ...$this->tables(),
+                    $this->table('kalaka_support_nodes'),
                     ...$args,
                     $perPage,
                     ($page - 1) * $perPage,
@@ -92,6 +105,7 @@ final class NodeList extends Query
                     'name' => (string) $row['name'],
                     'type' => (string) $row['type'],
                     'parent' => (int) $row['parent_id'],
+                    'leaf' => (string) $row['leaf'] === '1',
                     'ancestors' => $chains[(int) $row['id']] ?? [],
                 ];
             }

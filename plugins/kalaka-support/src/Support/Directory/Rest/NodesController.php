@@ -141,6 +141,7 @@ final class NodesController
                     'name' => ['type' => 'string'],
                     'type' => ['type' => 'string'],
                     'parent' => ['type' => 'integer'],
+                    'leaf' => ['type' => 'boolean'],
                     'ancestors' => ['type' => 'array', 'items' => $reference],
                 ],
             ],

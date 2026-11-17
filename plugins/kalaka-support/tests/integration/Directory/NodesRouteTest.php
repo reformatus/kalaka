@@ -63,7 +63,8 @@ final class NodesRouteTest extends SupportTestCase
         $items = $response->get_data();
         self::assertCount(1, $items);
         self::assertSame('Óbudai Teszt Gyülekezet', $items[0]['name']);
-        self::assertSame(['id', 'name', 'type', 'parent', 'ancestors'], array_keys($items[0]));
+        self::assertSame(['id', 'name', 'type', 'parent', 'leaf', 'ancestors'], array_keys($items[0]));
+        self::assertTrue($items[0]['leaf']);
         self::assertSame($this->ids['D1-A-1'], $items[0]['id']);
         self::assertSame('Gyülekezet', $items[0]['type']);
         self::assertSame($this->ids['D1-A'], $items[0]['parent']);
@@ -86,6 +87,28 @@ final class NodesRouteTest extends SupportTestCase
         self::assertSame('Másik Közösség', $items[0]['name']);
         self::assertSame(0, $items[0]['parent']);
         self::assertSame([], $items[0]['ancestors']);
+        // a root with no levels is a terminal leaf (C2)
+        self::assertTrue($items[0]['leaf']);
+    }
+
+    public function testANodeWithChildrenIsNoLeafEvenWhenEveryChildIsInactive(): void
+    {
+        $roots = $this->get(['parent' => 0])->get_data();
+        self::assertSame(
+            ['Másik Közösség' => true, 'Teszt Egyház' => false],
+            array_column($roots, 'leaf', 'name')
+        );
+
+        $this->deactivate('D1-A-1', 'D1-A', 'Gyülekezet', 'Óbudai Teszt Gyülekezet');
+        $this->deactivate('D1-A-2', 'D1-A', 'Gyülekezet', 'Ottó Teszt');
+        $this->deactivate('D1-A-3', 'D1-A', 'Gyülekezet', 'Öröm Teszt');
+        $deaneries = $this->get(['parent' => $this->ids['D1']])->get_data();
+
+        self::assertSame(
+            ['Budai Teszt Egyházmegye' => false, 'Pesti Teszt Egyházmegye' => false],
+            array_column($deaneries, 'leaf', 'name')
+        );
+        self::assertSame([], $this->get(['parent' => $this->ids['D1-A']])->get_data());
     }
 
     public function testASearchMatchingOnlyAnAliasFindsTheNodeAndNeitherAliasesNorExternalIdsAreShown(): void
