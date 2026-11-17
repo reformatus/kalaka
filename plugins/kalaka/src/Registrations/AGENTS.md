@@ -127,4 +127,9 @@ the waitlist and reference codes
   autosave carries the count its page opened with; a different count is a
   `VersionConflict`, never a write. A link that changes none of the draft's
   values is settled as keep_draft, with no choice.
+- A claim is settled once per claim token. The person's draft records the
+  token's hash and the choice (`resolved_claim`, `resolved_choice`, a secret
+  column and its choice); the same choice again changes nothing and answers
+  the same, and any other choice, or a claim gone or expired, is refused
+  (`DraftClaimRefused`).
 - Only Registrations writes its tables.
