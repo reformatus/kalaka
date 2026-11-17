@@ -25,6 +25,10 @@ keeps of what it knows about its participants
   whose writes run the use case through the runner.
 - `of()` reads outside a use case's transaction, never inside it: a caller
   that needs the fields in a use case reads them first and passes them in.
+  The one exception is the evaluation, which types a registration's field
+  values through `Forms::participantValues()` inside the transaction: `of()`
+  reads only its own table and the block registry, fires no hook and writes
+  nothing (S25).
 - A field is never deleted and its key never given to another field: a
   `form` field no form holds any more is retired, and so is a `form` field's
   choice option no form holds, with its label kept.
