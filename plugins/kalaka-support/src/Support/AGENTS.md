@@ -19,7 +19,8 @@ So far it holds the directory and the congregation picker.
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),
-  the field-type point of [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
+  the field-type point of
+  [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
 
 ## Invariants
 

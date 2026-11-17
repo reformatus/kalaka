@@ -37,7 +37,7 @@ final class CongregationFieldTest extends FormsTestCase
     /** @var array<string, int> the node ids by external ID */
     private array $ids = [];
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
     public function set_up(): void
     {
         parent::set_up();
@@ -56,7 +56,7 @@ final class CongregationFieldTest extends FormsTestCase
         $this->node('OTHER', null, 'Közösség', 'Másik Teszt Közösség');
     }
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
     public function tear_down(): void
     {
         ObjectCache::clear();
