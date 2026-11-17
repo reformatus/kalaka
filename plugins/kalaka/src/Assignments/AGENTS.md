@@ -36,7 +36,12 @@ mode (S65) and the screens (S72/S48) come later.
 - An option's eligibility is one condition in the one format, decided only
   through `Forms\Api\Availability` (an option is a `Forms\Api\Conditional`);
   this module never evaluates a condition. It is checked when saved against
-  the event's participant fields and keys.
+  the event's participant fields and keys, and against every published form
+  holding the set's request field, as that form would read it: a condition
+  that would break one is refused (`Api\LiveFormWouldBreak`). Those forms are
+  read before the run (`Forms\Api\Forms::requestScopes()`, through
+  `Api\AssignmentSets::saveOption()`) and passed into the use case, which
+  reads no WordPress post in its transaction.
 - An option key is derived once from the label (`Forms\Api\KeyDerivation`),
   unique within its set, and never changes.
 - A set has at most one request field (`request_field_key`), tied once

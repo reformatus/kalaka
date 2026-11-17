@@ -12,6 +12,7 @@ use Kalaka\Assignments\SaveAssignmentSet;
 use Kalaka\Assignments\SetRecord;
 use Kalaka\Assignments\SetRepository;
 use Kalaka\Assignments\TieRequestField;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -74,6 +75,8 @@ final class AssignmentSets
 
     /**
      * Adds or updates an option of a set (`kalaka/save-assignment-option`); the input is passed on as given.
+     * Where the published forms of the set's event hold its request field is read first and passed in, so the
+     * use case refuses a condition that would break one (`LiveFormWouldBreak`, [UNAPPROVED N11]).
      *
      * @param array<string, mixed> $input
      * @return string the option's key
@@ -81,7 +84,11 @@ final class AssignmentSets
      */
     public function saveOption(array $input, Actor $actor): string
     {
-        return (string) $this->runner()->run(new SaveAssignmentOption(), $input, $actor);
+        // The live forms are read before the run: a use case reads no WordPress post in its transaction.
+        $set = is_int($input['set_id'] ?? null) ? $this->sets->find($input['set_id']) : null;
+        $liveForms = $set === null ? [] : (new Forms())->requestScopes($set->eventId, $set->id);
+
+        return (string) $this->runner()->run(new SaveAssignmentOption($liveForms), $input, $actor);
     }
 
     /**

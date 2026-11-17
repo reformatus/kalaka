@@ -6,7 +6,9 @@ namespace Kalaka\Assignments;
 
 use Kalaka\Forms\Api\Availability;
 use Kalaka\Forms\Api\EventValues;
+use Kalaka\Assignments\Api\LiveFormWouldBreak;
 use Kalaka\Forms\Api\KeyDerivation;
+use Kalaka\Forms\Api\RequestScope;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -18,16 +20,23 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
- * Adds an option to a set, or replaces an option's settings (with the version it was read at). A new
- * option's key is the one given, or derived once from its label like a choice option's value
- * (`KeyDerivation::value()`, unique within the set); a key never changes. The eligibility condition is in
- * the one condition format and is checked when saved (`Availability::check()`) against what a fact source
- * of the event declares: the event's participant fields that are not retired, with their types, and the
- * event's keys (`EventValues`) [UNAPPROVED N11]. A site-level use case, like `kalaka/save-assignment-set`.
+ * Adds an option to a set, or replaces an option's settings (with the version it was read at). A new option's
+ * key is the one given, or derived once from its label like a choice option's value (`KeyDerivation::value()`,
+ * unique within the set); a key never changes. The eligibility condition is in the one condition format and is
+ * checked when saved (`Availability::check()`) against what a fact source of the event declares: the event's
+ * participant fields that are not retired, with their types, and the event's keys (`EventValues`), and against
+ * every published form that holds the set's request field, as that form would read it ([UNAPPROVED N11];
+ * `LiveFormWouldBreak`). A site-level use case, like `kalaka/save-assignment-set`.
  */
 final class SaveAssignmentOption implements AdminUseCase
 {
+    /**
+     * @param list<RequestScope>|null $liveForms where the published forms of the set's event hold its request
+     *     field, read before the run (`Forms::requestScopes()`, through `Api\AssignmentSets::saveOption()`):
+     *     a use case reads no WordPress post inside its transaction. Null is a caller that did not read them.
+     */
     public function __construct(
+        private readonly ?array $liveForms = null,
         private readonly SetRepository $sets = new SetRepository(),
         private readonly OptionRepository $options = new OptionRepository(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
@@ -79,6 +88,10 @@ final class SaveAssignmentOption implements AdminUseCase
     public function execute(array $input, Context $context): string
     {
         $set = $this->sets->findForUpdate((int) $input['set_id'], $context) ?? throw new NotFound();
+        if ($this->liveForms === null) {
+            $error = new SystemFailure(null, new \LogicException('The live forms of the set were not read first.'));
+            throw $error;
+        }
         $label = self::text($input['label'], true);
         $condition = self::condition($input['condition']);
         if ($condition !== null) {
@@ -89,6 +102,7 @@ final class SaveAssignmentOption implements AdminUseCase
                 $error = new InvalidInput(null, $e);
                 throw $error;
             }
+            $this->checkLiveForms($set->id, $condition);
         }
 
         $taken = [];
@@ -136,6 +150,29 @@ final class SaveAssignmentOption implements AdminUseCase
         }
 
         return $declared;
+    }
+
+    /**
+     * Refuses a condition that a published form holding the set's request field could not read there
+     * ([UNAPPROVED N11]): the form would break, so the save is refused and the form stays as it was.
+     *
+     * @param array<array-key, mixed> $condition
+     * @throws LiveFormWouldBreak
+     */
+    private function checkLiveForms(int $setId, array $condition): void
+    {
+        foreach ($this->liveForms ?? [] as $scope) {
+            if ($scope->setId !== $setId) {
+                $error = new SystemFailure(null, new \LogicException('The live forms were read for another set.'));
+                throw $error;
+            }
+            try {
+                $this->availability->checkInForm($condition, $scope);
+            } catch (SystemFailure $e) {
+                $error = new LiveFormWouldBreak(null, $e);
+                throw $error;
+            }
+        }
     }
 
     /** @return array<array-key, mixed>|null */

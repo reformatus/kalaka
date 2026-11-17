@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Ranking;
 
 use Kalaka\Assignments\Api\AssignmentSets;
+use Kalaka\Assignments\Api\LiveFormWouldBreak;
 use Kalaka\Events\Api\Events;
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\EventValues;
@@ -98,8 +99,13 @@ final class RankingSetTest extends FormsTestCase
         return $set;
     }
 
-    private function option(int $set, string $label, ?string $track, int $position): void
-    {
+    private function option(
+        int $set,
+        string $label,
+        ?string $track,
+        int $position,
+        string $on = 'szolgalati_terulet',
+    ): void {
         $this->sets->saveOption([
             'set_id' => $set,
             'label' => $label,
@@ -107,7 +113,7 @@ final class RankingSetTest extends FormsTestCase
             'leaders' => '',
             'place' => '',
             'condition' => $track === null ? null : ['match' => 'all', 'items' => [
-                ['key' => 'szolgalati_terulet', 'operator' => 'equals', 'value' => $track],
+                ['key' => $on, 'operator' => 'equals', 'value' => $track],
             ]],
             'position' => $position,
         ], new CliActor(null));
@@ -331,5 +337,49 @@ final class RankingSetTest extends FormsTestCase
             ['condition_key_not_earlier', 'szolgalati_terulet'],
             DefinitionCheck::problem($content, 0, FormPlacement::Registration, $this->event)
         );
+    }
+
+    public function testAConditionThatWouldBreakALiveFormIsRefusedAndTheFormStaysAsItWas(): void
+    {
+        // N11: the live form asks the note after the ranking, so the ranking cannot read it there.
+        $form = $this->insertChecked(
+            $this->slotFields() . $this->track() . $this->ranking() . $this->field('text', 'megjegyzes'),
+            $this->meta()
+        );
+
+        try {
+            $this->option($this->set, 'Modul G', 'igen', 9, 'megjegyzes');
+            self::fail('A condition that breaks the live form was saved.');
+        } catch (LiveFormWouldBreak $e) {
+            self::assertSame('kalaka_live_form_would_break', $e->errorCode());
+            self::assertSame(422, $e->status());
+        }
+
+        self::assertNull($this->sets->find($this->set)?->option('modul_g'));
+        $definition = $this->forms->definition($this->readForm($form));
+        self::assertNotNull($definition->field('modulok'));
+    }
+
+    public function testAConditionTheLiveFormCanReadSaves(): void
+    {
+        $this->form();
+
+        $this->option($this->set, 'Modul G', 'pro', 9);
+
+        self::assertNotNull($this->sets->find($this->set)?->option('modul_g'));
+    }
+
+    public function testADraftFormDoesNotBlockTheSave(): void
+    {
+        // A draft is checked when it is published.
+        $this->insertChecked(
+            $this->slotFields() . $this->ranking() . $this->field('text', 'megjegyzes'),
+            $this->meta(),
+            ['post_status' => 'draft']
+        );
+
+        $this->option($this->set, 'Modul G', 'igen', 9, 'megjegyzes');
+
+        self::assertNotNull($this->sets->find($this->set)?->option('modul_g'));
     }
 }

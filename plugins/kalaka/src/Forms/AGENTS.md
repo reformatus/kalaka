@@ -283,6 +283,10 @@ values and conditions, prefill and form links
   `ParticipantFieldSync` ties each set to its field after the fields are
   declared (`Assignments\Api\AssignmentSets::tieRequestField()`); a tie is
   never released.
+- `Forms::requestScopes()` reads, before a use case, where each published
+  form of an event holds a set's request field (`Api\RequestScope`: the
+  fields before it and the host's keys); `Availability::checkInForm()` judges
+  a set option's condition against it, purely, inside the use case.
 - A re-rendered choice or request field's new wrapper gets the event
   `kalaka:field-swapped` (`SWAPPED` in `Blocks/form/view.js`) with the
   values it was ticked with, for a field type's own script. Kaláka's
