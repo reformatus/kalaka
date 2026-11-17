@@ -255,6 +255,11 @@ values and conditions, prefill and form links
   uncached 303 without them. No value of the request is logged. A logged-in
   request to that page claims the cookie's guest draft there, never in the
   render.
+- The claim popup (`Blocks/form/claim.js`, a `@wordpress/components` Modal)
+  is the only React on a public page: `render.php` enqueues it only while the
+  page's context carries `draftClaimUrl`. It sends the choice only through the
+  store action `resolveDraftClaim`, and its texts come from the server
+  (`Engine\DraftClaimTexts`).
 - The submit token (`FormHost::submitToken()`; for an event form
   `Registrations\Api\SubmitToken`) is issued by the server on every render of a form page, into a hidden field, and sent back
   unchanged on every send of that page; it never goes into a cookie,
