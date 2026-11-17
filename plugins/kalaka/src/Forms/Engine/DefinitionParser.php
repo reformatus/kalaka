@@ -389,8 +389,8 @@ final class DefinitionParser
     }
 
     /**
-     * A request field's attributes with its set's options in `options`, and whether the set's choice window
-     * is closed now (S44). A field naming no set, or a set the host does not have, is a problem.
+     * A request field's attributes with its set's options in `options`, and whether the set's choice window is
+     * closed now (S44, [UNAPPROVED N6]). A field naming no set, or a set the host does not have, is a problem.
      *
      * @param array<string, mixed> $attributes
      * @return array{array<string, mixed>, bool}

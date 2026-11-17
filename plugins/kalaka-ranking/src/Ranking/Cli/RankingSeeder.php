@@ -12,11 +12,11 @@ use Kalaka\Foundation\Api\Seed\Seeding;
 use Kalaka\Ranking\RankingFieldType;
 
 /**
- * IVK's three tracks and its module set, on the first published sample event (core's seeders run first):
- * a request-mode set "Modulok" whose window is open on the seed day, a registration form holding the track
+ * IVK's three tracks and its module set, on the first published sample event (core's seeders run first): a
+ * request-mode set "Modulok" whose window is open on the seed day, a registration form holding the track
  * question (`szolgalati_terulet`: ifivezető, iskolamisszió, PRO) and the ranking naming the set, and a page
- * that embeds it. The ifivezető modules A–F are for everybody; "Iskolamisszió" and "PRO" carry an
- * eligibility condition on the track (S44). Configuration is S48's; these are seed data, not UI strings.
+ * that embeds it. The ifivezető modules A–F are for everybody; "Iskolamisszió" and "PRO" carry an eligibility
+ * condition on the track (S44, [UNAPPROVED N12]). Configuration is S48's; these are seed data, not UI strings.
  *
  * The form is saved before the options, so the track is a participant field when the conditions are checked;
  * the save ties the set to the ranking's field. The set is written through `Assignments\Api` (the

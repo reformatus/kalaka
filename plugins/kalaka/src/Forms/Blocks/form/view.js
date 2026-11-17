@@ -62,6 +62,7 @@ const forms = new WeakMap();
 /**
  * The event a re-rendered field's new wrapper gets once it is in place, with the values it was ticked with
  * (`detail.chosen`, in the order they were ticked in or held), for a field type's own script.
+ * [UNAPPROVED N10]
  */
 export const SWAPPED = 'kalaka:field-swapped';
 
@@ -280,7 +281,8 @@ function remember(form, key) {
 			? []
 			: earlier.filter((value) => !offered.includes(value))
 		: earlier.filter((value) => !offered.includes(value));
-	started.ticks.set(key, [...kept, ...ticked]);
+	// Ticked first, in document order (a ranking's order), then the remembered ones not offered now (S44).
+	started.ticks.set(key, [...ticked, ...kept]);
 }
 
 /**

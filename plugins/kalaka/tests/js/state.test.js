@@ -77,6 +77,27 @@ describe('a ticked option that stops being offered', () => {
 		expect(swapped).toEqual([['modules', ['a', 'c']]]);
 	});
 
+	test('a remembered option not offered comes after the ticked ones (S44)', async () => {
+		await load(
+			form(radios('track', ['ifi', 'pro']) + checkboxes('modules', ['a', 'b', 'c']), {
+				triggers: ['track'],
+			})
+		);
+		globalThis.fetch = jest.fn();
+		choose(root(), 'modules[]', 'c');
+		globalThis.fetch.mockResolvedValueOnce(offering('modules', checkboxes('modules', ['a', 'b'])));
+		choose(root(), 'track', 'pro');
+		await settle();
+		choose(root(), 'modules[]', 'a');
+		const swapped = [];
+		document.addEventListener('kalaka:field-swapped', (event) => swapped.push(event.detail.chosen));
+
+		globalThis.fetch.mockResolvedValueOnce(offering('modules', checkboxes('modules', ['a', 'b', 'c'])));
+		choose(root(), 'track', 'ifi');
+		await settle();
+		expect(swapped).toEqual([['a', 'c']]);
+	});
+
 	test('a single choice comes back unless another option was chosen meanwhile', async () => {
 		await load(
 			form(radios('track', ['ifi', 'pro']) + radios('size', ['s', 'm', 'l']), {

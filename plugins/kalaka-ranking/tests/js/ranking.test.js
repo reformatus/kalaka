@@ -620,6 +620,15 @@ describe('the keyboard and the screen reader', () => {
 
 		expect(ranked(field)).toEqual(['pro', 'modul_b']);
 	});
+
+	test('an option that comes back after the ranking changed is ranked last (S44, C2)', () => {
+		// Core remembers the ticked ones in order, then the ones no longer offered: PRO was hidden while the
+		// person re-ranked, so it comes back after them.
+		const field = render(['modul_a', 'modul_b', 'pro'], ['modul_a', 'modul_b', 'pro'], false);
+		restart(field, ['modul_b', 'modul_a', 'pro']);
+
+		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'pro']);
+	});
 });
 
 describe('the counter, the empty rows and the maximum (owner, Q1, Q2)', () => {

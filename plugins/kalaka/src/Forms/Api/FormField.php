@@ -19,7 +19,7 @@ final readonly class FormField
      *     condition (S76), for the options that have one; passed along outside the engine, never inspected (N1)
      * @param int|null $page the number of the page the field sits on; null in a form without pages
      * @param bool $closed a request field outside its set's choice window: it does not show, and whatever is
-     *     sent for it is dropped (S44, C3)
+     *     sent for it is dropped (S44, C3; [UNAPPROVED N6])
      */
     public function __construct(
         public string $key,

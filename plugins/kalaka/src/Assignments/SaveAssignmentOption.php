@@ -23,7 +23,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * (`KeyDerivation::value()`, unique within the set); a key never changes. The eligibility condition is in
  * the one condition format and is checked when saved (`Availability::check()`) against what a fact source
  * of the event declares: the event's participant fields that are not retired, with their types, and the
- * event's keys (`EventValues`). A site-level use case, like `kalaka/save-assignment-set`.
+ * event's keys (`EventValues`) [UNAPPROVED N11]. A site-level use case, like `kalaka/save-assignment-set`.
  */
 final class SaveAssignmentOption implements AdminUseCase
 {

@@ -55,13 +55,14 @@ function useEventId() {
 
 /**
  * The sets of the form's event (`GET kalaka-admin/v1/events/{id}/assignment-sets`): `loading`, `ready` with
- * the sets, or `failed`. A later event's read wins over an earlier one still under way.
+ * the sets, or `failed`; `noEvent` while the form has no event. A later event's read wins over an earlier one still under way.
  */
 function useSets(eventId) {
 	const [sets, setSets] = useState({ state: 'loading', list: [] });
 	useEffect(() => {
 		if (eventId === 0) {
-			setSets({ state: 'loading', list: [] });
+			// The form has no event yet: there is nothing to read, and nothing to say.
+			setSets({ state: 'noEvent', list: [] });
 			return undefined;
 		}
 		let current = true;
@@ -83,7 +84,7 @@ function SetPicker({ sets, value, setAttributes }) {
 		help = TEXT.loading;
 	} else if (sets.state === 'failed') {
 		help = TEXT.failed;
-	} else if (sets.list.length === 0) {
+	} else if (sets.state === 'ready' && sets.list.length === 0) {
 		help = TEXT.none;
 	}
 	return el(

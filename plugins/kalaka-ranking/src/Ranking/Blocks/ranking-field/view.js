@@ -560,7 +560,7 @@ export function start(field) {
 /**
  * A ranking the form re-rendered for other answers (its set's offered options changed, S44): the form ticked
  * the options it still offers that were ticked before (`detail.chosen`, in rank order); they are ranked in
- * that order, then the new markup is wired.
+ * that order, then the new markup is wired. [UNAPPROVED N10]
  */
 export function restart(field, chosen) {
 	for (const value of chosen) {

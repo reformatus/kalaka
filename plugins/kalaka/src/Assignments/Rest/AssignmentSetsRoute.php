@@ -17,6 +17,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  * `GET kalaka-admin/v1/events/{id}/assignment-sets`: the event's sets for the form editor, where a request
  * field (the module ranking) names its set: each `{id, name, request_field_key, options: [{value, label}]}`,
  * in ID order. Only full access opens the form editor, so only full access reads it. A plain read.
+ * [UNAPPROVED N8]
  */
 final class AssignmentSetsRoute
 {
