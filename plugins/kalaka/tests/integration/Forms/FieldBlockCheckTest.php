@@ -23,6 +23,7 @@ final class FieldBlockCheckTest extends FormsTestCase
         'kalaka/text-field',
         'kalaka/choice-field',
         'kalaka/consent-field',
+        'kalaka/scale-field',
         'kalaka/if',
         'kalaka/else-if',
         'kalaka/else',

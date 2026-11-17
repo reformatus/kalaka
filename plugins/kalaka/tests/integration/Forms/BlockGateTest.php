@@ -20,6 +20,7 @@ final class BlockGateTest extends WP_UnitTestCase
         'kalaka/text-field',
         'kalaka/choice-field',
         'kalaka/consent-field',
+        'kalaka/scale-field',
     ];
 
     private bool $standIn = false;

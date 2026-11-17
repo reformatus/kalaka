@@ -6,7 +6,8 @@
     "kalaka/date-field": "date",
     "kalaka/text-field": "text",
     "kalaka/choice-field": "choice",
-    "kalaka/consent-field": "text"
+    "kalaka/consent-field": "text",
+    "kalaka/scale-field": "number"
   },
   "eventTypes": {
     "event.name": "text",

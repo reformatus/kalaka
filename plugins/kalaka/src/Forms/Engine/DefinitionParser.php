@@ -20,6 +20,7 @@ use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Forms\Engine\Condition\FormScope;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -333,6 +334,10 @@ final class DefinitionParser
         if ($name === ChoiceFieldType::BLOCK_NAME && ChoiceFieldType::optionValues($attributes) === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('invalid_options ' . $key);
+        }
+        if ($name === ScaleFieldType::BLOCK_NAME && ScaleFieldType::range($attributes) === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a code and a key, never output
+            throw new SystemFailure('invalid_scale ' . $key);
         }
 
         $optionConditions = $name === ChoiceFieldType::BLOCK_NAME

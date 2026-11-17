@@ -38,7 +38,7 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
     {
         $registry = \WP_Block_Type_Registry::get_instance();
 
-        foreach (['name', 'email', 'phone', 'date', 'text', 'choice', 'consent'] as $type) {
+        foreach (['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale'] as $type) {
             $block = $registry->get_registered('kalaka/' . $type . '-field');
             self::assertInstanceOf(\WP_Block_Type::class, $block, $type);
             self::assertSame(3, $block->api_version);
@@ -83,6 +83,7 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
             'text' => 'Szöveg',
             'choice' => 'Választás',
             'consent' => 'Hozzájárulás',
+            'scale' => 'Skála',
         ];
 
         foreach ($titles as $type => $title) {
@@ -247,6 +248,7 @@ final class FieldBlockRenderTest extends WP_UnitTestCase
                 'name' => $this->render('name', ['key' => 'k', 'label' => 'L', 'required' => true]),
                 'choice' => $this->render('choice', ['key' => 'k', 'label' => 'L', 'options' => $options]),
                 'consent' => $this->render('consent', ['key' => 'k', 'label' => 'L']),
+                'scale' => $this->render('scale', ['key' => 'k', 'label' => 'L', 'pointLabels' => ['A']]),
                 'text' => $this->render('text', ['key' => 'k', 'label' => 'L', 'multiline' => true]),
             ] as $type => $html
         ) {

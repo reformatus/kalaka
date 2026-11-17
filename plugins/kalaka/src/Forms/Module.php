@@ -21,6 +21,7 @@ use Kalaka\Forms\Engine\FieldType\DateFieldType;
 use Kalaka\Forms\Engine\FieldType\EmailFieldType;
 use Kalaka\Forms\Engine\FieldType\NameFieldType;
 use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
+use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\FieldType\TextFieldType;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Engine\Value\BindingSource;
@@ -34,7 +35,7 @@ final class Module extends AbstractModule
     private const EMBED_BLOCK = 'form';
 
     /** The core field blocks, in `Blocks/`, each with its title in its `block.json`. */
-    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent'];
+    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale'];
 
     /** The handle of the form's view stylesheet, named by the embed block's `viewStyle`. */
     public const VIEW_STYLE = 'kalaka-form-view';
@@ -68,6 +69,7 @@ final class Module extends AbstractModule
         $to->fieldType(new TextFieldType());
         $to->fieldType(new ChoiceFieldType());
         $to->fieldType(new ConsentFieldType());
+        $to->fieldType(new ScaleFieldType());
         $to->siteWarning(new BrokenFormsWarning());
         $to->seeder(new FormSeeder());
     }

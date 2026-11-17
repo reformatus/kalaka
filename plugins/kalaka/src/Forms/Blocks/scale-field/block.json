@@ -1,0 +1,36 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/scale-field",
+  "title": "Skála",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    },
+    "min": {
+      "type": "integer",
+      "default": 1
+    },
+    "max": {
+      "type": "integer",
+      "default": 5
+    },
+    "pointLabels": {
+      "type": "array",
+      "default": []
+    }
+  },
+  "editorScript": "kalaka-form-editor-script",
+  "render": "file:./render.php"
+}
