@@ -13,8 +13,8 @@ use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Portal\ActiveRegistrationState;
-use Kalaka\Registrations\Api\FieldValues;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -109,7 +109,7 @@ final class AdditionalFormTest extends FormsTestCase
     /** @return array<string, string> */
     private function values(): array
     {
-        return (new FieldValues())->of($this->registration);
+        return (new Registrations())->values($this->registration);
     }
 
     private function rowCount(string $table): int

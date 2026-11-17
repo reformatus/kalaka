@@ -23,7 +23,6 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Portal\Api\ActiveRegistration;
-use Kalaka\Registrations\Api\FieldValues;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -49,7 +48,6 @@ final class EventFormHost implements FormHost
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
         private readonly Registrations $registrations = new Registrations(),
-        private readonly FieldValues $fieldValues = new FieldValues(),
         private readonly ?\Closure $active = null,
     ) {
     }
@@ -183,7 +181,7 @@ final class EventFormHost implements FormHost
     {
         $target = $this->target($form);
         if ($target !== null) {
-            return $this->fieldValues->of($target);
+            return $this->registrations->values($target);
         }
         $event = $this->event($form);
         if ($event === null || self::accountStepOf($form, $event) === null || !is_user_logged_in()) {
