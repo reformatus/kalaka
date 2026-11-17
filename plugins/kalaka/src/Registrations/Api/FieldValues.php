@@ -6,7 +6,10 @@ namespace Kalaka\Registrations\Api;
 
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
 
-/** A registration's current field values, for other modules to read (registrations-and-identity.md, "Submissions and values"). */
+/**
+ * A registration's current field values, for other modules to read (registrations-and-identity.md,
+ * "Submissions and values").
+ */
 final class FieldValues
 {
     public function __construct(private readonly FieldValueRepository $repository = new FieldValueRepository())

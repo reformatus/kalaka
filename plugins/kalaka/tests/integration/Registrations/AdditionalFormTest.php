@@ -36,7 +36,7 @@ final class AdditionalFormTest extends FormsTestCase
 
     private int $slot;
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's test case names this hook
     public function set_up(): void
     {
         parent::set_up();
@@ -61,7 +61,7 @@ final class AdditionalFormTest extends FormsTestCase
         ActiveRegistrationState::set($this->registration, false);
     }
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's test case names this hook
     public function tear_down(): void
     {
         ActiveRegistrationState::set(null, false);
@@ -117,7 +117,7 @@ final class AdditionalFormTest extends FormsTestCase
         global $wpdb;
 
         return (int) $wpdb->get_var(
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test inspection; table prefix and constants only
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test inspection; prefix and constants
             $wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->prefix}{$table} WHERE event_id = %d", $this->event)
         );
     }
