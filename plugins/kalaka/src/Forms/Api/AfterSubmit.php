@@ -6,6 +6,7 @@ namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
+use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * The after-submit section of a form (events-and-forms.md, "Forms implementation"): the block
@@ -21,7 +22,10 @@ final class AfterSubmit
 
     public const CODE = 'registration.code';
 
-    /** A choice of one: `registered` or `waitlisted`. Its display text is empty until a label is approved. */
+    /**
+     * A choice of one: `registered` or `waitlisted`. Its display text is empty until the status words
+     * (`Registrations\Api\RegistrationStatus::word()`, N20 of #162) are approved; then it reads them.
+     */
     public const STATUS = 'registration.status';
 
     /** Every key of the after-submit context and its type. */
@@ -35,7 +39,8 @@ final class AfterSubmit
     {
         return new ValueContext(EventValues::of($event) + [
             self::CODE => Value::text($code, $code),
-            self::STATUS => Value::choice([$status], ''),
+            // The status words a mail shows too (N20, approved 2026-11-16).
+            self::STATUS => Value::choice([$status], RegistrationStatus::tryFrom($status)?->word() ?? ''),
         ]);
     }
 }

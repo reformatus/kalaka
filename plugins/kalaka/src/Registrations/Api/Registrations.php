@@ -5,13 +5,22 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Registrations\FieldValue\FieldValue;
+use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\RegistrationRepository;
+use Kalaka\Registrations\Submission\SubmissionRepository;
 
-/** What other modules may do with a registration row: read it, or lock it. */
+/**
+ * What other modules may do with a registration: read it (the row, its first submission's form and version,
+ * its field values), or lock it. Never the secret.
+ */
 final class Registrations
 {
-    public function __construct(private readonly RegistrationRepository $repository = new RegistrationRepository())
-    {
+    public function __construct(
+        private readonly RegistrationRepository $repository = new RegistrationRepository(),
+        private readonly SubmissionRepository $submissions = new SubmissionRepository(),
+        private readonly FieldValueRepository $values = new FieldValueRepository(),
+    ) {
     }
 
     /** A plain read, without a lock; null when there is no such registration. */
@@ -22,6 +31,35 @@ final class Registrations
         return $registration === null
             ? null
             : new RegistrationRead($registration->key, $registration->status, $registration->registeredAt);
+    }
+
+    /**
+     * The form and the form version of the registration's first submission (the registration slot's form, as
+     * it was submitted); null when it has none. A plain read.
+     *
+     * @return array{form_id: int, form_version: int}|null
+     */
+    public function firstSubmission(RegistrationKey $key): ?array
+    {
+        $first = $this->submissions->find(['eventId' => $key->eventId, 'code' => $key->code, 'number' => 1]);
+
+        return $first === null ? null : ['form_id' => $first->formId, 'form_version' => $first->formVersion];
+    }
+
+    /**
+     * The registration's current field values, as the field types stored them. A plain read.
+     *
+     * @return array<string, string> field key → the stored value
+     */
+    public function values(RegistrationKey $key): array
+    {
+        $values = [];
+        foreach ($this->values->forRegistration($key) as $value) {
+            /** @var FieldValue $value */
+            $values[$value->fieldKey] = $value->value;
+        }
+
+        return $values;
     }
 
     /**

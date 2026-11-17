@@ -372,7 +372,8 @@ is no other participant-side edit.
 
 - **Each document kind declares its context,** and pickers offer only that
   context's keys:
-  - mail: the recipient and the registration;
+  - mail: the recipient, the registration and its event's values
+    (`event.*`);
   - a participant block: the active registration
     ([Registrations](registrations-and-identity.md#access));
   - form, for conditions: the answers of earlier fields and the event's

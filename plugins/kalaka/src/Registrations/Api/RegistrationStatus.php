@@ -11,4 +11,18 @@ enum RegistrationStatus: string
     case Waitlisted = 'waitlisted';
     case Withdrawn = 'withdrawn';
     case Removed = 'removed';
+
+    /**
+     * The status's word where a document shows `registration.status` (a mail; the after-submit section once
+     * the words are approved, which keeps its text empty until then): one place for both.
+     */
+    public function word(): string
+    {
+        return match ($this) {
+            self::Registered => 'rögzített',
+            self::Waitlisted => 'várólistás',
+            self::Withdrawn => 'visszavont',
+            self::Removed => 'törölt',
+        };
+    }
 }

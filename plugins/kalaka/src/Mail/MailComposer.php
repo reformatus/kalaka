@@ -6,17 +6,23 @@ namespace Kalaka\Mail;
 
 /**
  * The seam between the sender and the rendering of a mail, which renders at send time from current data
- * (mail.md, "Sending"). The mail bodies come in a later slice; until a composer is bound, the sender does
- * not run. The address is asked for before the claim, the rest after it.
+ * (mail.md, "Sending"). The Mail module binds `Body\ActionMailComposer`; without a bound composer the sender
+ * does not run. The address is asked for and the mail composed before the claim, so a problem of the
+ * delivery's own (no address, a body that cannot render) fails it with no attempt; the send is after it.
  */
 interface MailComposer
 {
     /**
      * The address to send the delivery to, from current data; null when the registration has none. The
      * sender checks it with `is_email()` before the claim.
+     *
+     * @throws RecipientUnavailable when the address cannot be determined (the delivery fails with its reason)
      */
     public function recipient(Delivery $delivery): ?string;
 
-    /** @throws \Throwable when the mail cannot be rendered: an error after the claim */
+    /**
+     * @throws BodyUnusable when the body cannot render for its own reason (the delivery fails with it)
+     * @throws \Throwable when the mail cannot be rendered otherwise: an error, recorded after the claim
+     */
     public function compose(Delivery $delivery, string $to): MailMessage;
 }

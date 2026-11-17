@@ -291,6 +291,99 @@ final class SubmitRegistrationTest extends FormsTestCase
         self::assertNotSame($this->keyOf($first)->eventId, $this->keyOf($second)->eventId);
     }
 
+    /** The event's action mail as the catalogue stores it: on or off, with a body. */
+    private function actionMail(int $event, string $mail, bool $enabled): void
+    {
+        global $wpdb;
+        $body = self::factory()->post->create(['post_type' => 'kalaka_mail', 'post_title' => 'Teszt levél']);
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $event,
+            'mail' => $mail,
+            'version' => 1,
+            'enabled' => $enabled ? 1 : 0,
+            'body_id' => $body,
+            'layout' => 1,
+        ]);
+    }
+
+    /** @return list<array{mail: string, code: string, cause: string, kind: string, status: string, attempts: string}> */
+    private function queued(int $event): array
+    {
+        return array_map(
+            static fn (array $row): array => [
+                'mail' => (string) $row['mail'],
+                'code' => (string) $row['code'],
+                'cause' => $row['cause_type'] . ' ' . $row['cause_key'],
+                'kind' => (string) $row['kind'],
+                'status' => (string) $row['status'],
+                'attempts' => (string) $row['attempts'],
+            ],
+            $this->tableRows('kalaka_deliveries', $event)
+        );
+    }
+
+    public function testARegisteredSubmitQueuesTheRegisteredMailAndSendsNothing(): void
+    {
+        $form = $this->openForm();
+        $event = $this->eventOf($form);
+        $this->actionMail($event, 'registered', true);
+        $this->actionMail($event, 'waitlisted', true);
+        $sent = 0;
+        $count = static function (mixed $result) use (&$sent): bool {
+            ++$sent;
+
+            return true;
+        };
+        add_filter('pre_wp_mail', $count);
+
+        $key = $this->keyOf($this->submit($form));
+
+        remove_filter('pre_wp_mail', $count);
+        self::assertSame(0, $sent);
+        self::assertSame([[
+            'mail' => 'registered',
+            'code' => $key->code,
+            'cause' => 'registration ' . $key->code,
+            'kind' => 'action',
+            'status' => 'pending',
+            'attempts' => '0',
+        ]], $this->queued($event));
+    }
+
+    public function testAWaitlistedSubmitQueuesTheWaitlistedMail(): void
+    {
+        $form = $this->openForm(0);
+        $event = $this->eventOf($form);
+        $this->actionMail($event, 'registered', true);
+        $this->actionMail($event, 'waitlisted', true);
+
+        $key = $this->keyOf($this->submit($form));
+
+        self::assertSame(
+            [['waitlisted', $key->code]],
+            array_map(static fn (array $row): array => [$row['mail'], $row['code']], $this->queued($event))
+        );
+    }
+
+    public function testAMailThatIsOffOrNotSetUpQueuesNothingAndARepeatQueuesNothingAgain(): void
+    {
+        $form = $this->openForm(1);
+        $event = $this->eventOf($form);
+        $this->actionMail($event, 'registered', false);
+
+        $this->submit($form);
+        $this->submit($form);
+
+        self::assertSame([], $this->queued($event));
+
+        $this->actionMail($event, 'waitlisted', true);
+        $token = SubmitToken::generate();
+        $this->submit($form, token: $token);
+        $this->submit($form, token: $token);
+
+        self::assertCount(1, $this->queued($event));
+    }
+
     public function testTheRegistrationThatDoesNotFitIsWaitlistedAndSetsTheLatch(): void
     {
         $form = $this->openForm(2);

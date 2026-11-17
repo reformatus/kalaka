@@ -20,6 +20,7 @@ use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Forms\Engine\Condition\FormScope;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
@@ -356,33 +357,24 @@ final class DefinitionParser
             throw new SystemFailure('after_submit_count');
         }
         $this->afterSubmit = true;
-        $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, new DeclaredScope($this->afterSubmitTypes));
-    }
-
-    /**
-     * @param list<array<string, mixed>|string> $sequence
-     * @throws SystemFailure
-     */
-    private function checkAfterSubmit(array $sequence, Contributions $contributions, DeclaredScope $scope): void
-    {
-        foreach (Chains::split($sequence) as $item) {
-            $blocks = $item instanceof Chain ? $item->branches : (is_array($item) ? [$item] : []);
-            foreach ($blocks as $block) {
-                $name = $block['blockName'] ?? null;
-                if (is_string($name) && isset($contributions->fieldTypes()[$name])) {
+        // The document save walk (`Value\DocumentCheck`), refusing a field block and a second section in it;
+        // values are not checked here.
+        $fieldTypes = $contributions->fieldTypes();
+        (new DocumentCheck($this->conditions))->walk(
+            Chains::sequenceOf($block),
+            new DeclaredScope($this->afterSubmitTypes),
+            false,
+            static function (array $inner) use ($fieldTypes): void {
+                $name = $inner['blockName'] ?? null;
+                if (is_string($name) && isset($fieldTypes[$name])) {
                     // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name, never output
                     throw new SystemFailure('field_in_after_submit ' . $name);
                 }
                 if ($name === ChainMarks::AFTER_SUBMIT_BLOCK) {
                     throw new SystemFailure('after_submit_count');
                 }
-                if ($item instanceof Chain && $name !== Chains::ELSE_BLOCK) {
-                    $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
-                    $this->conditions->parse($attributes['condition'] ?? null, $scope);
-                }
-                $this->checkAfterSubmit(Chains::sequenceOf($block), $contributions, $scope);
-            }
-        }
+            },
+        );
     }
 
     /**

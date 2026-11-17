@@ -9,7 +9,8 @@ use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
- * Pending to failed without an attempt: the delivery has no valid address, which retrying cannot fix.
+ * Pending to failed without an attempt: the delivery has no valid address (`RecipientUnavailable`, or an
+ * invalid one) or an unusable body (`BodyUnusable`), which retrying cannot fix.
  * It is no error for pausing and does not count against the budget. Run by the sender as the system.
  * mail.md, "Sending".
  */

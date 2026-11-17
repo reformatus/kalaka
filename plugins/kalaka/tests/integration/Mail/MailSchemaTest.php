@@ -43,12 +43,29 @@ final class MailSchemaTest extends WP_UnitTestCase
         'hourly_budget' => 'int(10) unsigned',
     ];
 
+    private const ACTION_MAILS = [
+        'event_id' => 'bigint(20) unsigned',
+        'mail' => 'varchar(64)',
+        'version' => 'int(10) unsigned',
+        'enabled' => 'tinyint(1) unsigned',
+        'body_id' => 'bigint(20) unsigned null',
+        'layout' => 'tinyint(1) unsigned',
+    ];
+
+    private const LAYOUTS = [
+        'event_id' => 'bigint(20) unsigned',
+        'version' => 'int(10) unsigned',
+        'html' => 'longtext',
+    ];
+
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
-        self::assertSame(2, (int) get_option('kalaka_schema_mail'));
+        self::assertSame(4, (int) get_option('kalaka_schema_mail'));
         self::assertSame([], LoadState::current()->failures);
         self::assertSame(self::DELIVERIES, $this->columns('kalaka_deliveries'));
         self::assertSame(self::STATES, $this->columns('kalaka_mail_states'));
+        self::assertSame(self::ACTION_MAILS, $this->columns('kalaka_action_mails'));
+        self::assertSame(self::LAYOUTS, $this->columns('kalaka_mail_layouts'));
     }
 
     public function testTheKeysAreAsDeclaredWithoutAPrefixIndex(): void
@@ -68,6 +85,17 @@ final class MailSchemaTest extends WP_UnitTestCase
                 'status_id:status', 'status_id:id',
             ],
             array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
+        );
+        // A body serves one action mail only (mail.md, "Words").
+        $keys = $wpdb->get_results("SHOW INDEX FROM {$wpdb->prefix}kalaka_action_mails", ARRAY_A);
+        self::assertIsArray($keys);
+        self::assertSame(
+            ['PRIMARY:event_id:0', 'PRIMARY:mail:0', 'body_id:body_id:0'],
+            array_map(
+                static fn (array $row): string
+                    => $row['Key_name'] . ':' . $row['Column_name'] . ':' . $row['Non_unique'],
+                $keys
+            )
         );
     }
 

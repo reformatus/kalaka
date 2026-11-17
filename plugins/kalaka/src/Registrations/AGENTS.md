@@ -43,7 +43,9 @@ the waitlist and reference codes
 - The secret is compared in PHP (`hash_equals()`) and never looked up or
   compared in SQL; the link carries the registration key beside it. Only
   Registrations reads the stored secret: another module presents a secret and
-  asks whether it matches.
+  asks whether it matches, or gets the finished link URL for a mail from
+  `Api\SecretLinks::url()` (registrations-and-identity.md, "Access": stored
+  readable so every email can carry it), and never stores it.
 - The active-registration token is `v1.<eventId>.<code>.<issuedAt>.<mac>`,
   issued and verified only by `Api\SecretLinks`: the MAC covers the current
   secret, so a new secret revokes every token issued before it, and a token
@@ -62,7 +64,10 @@ the waitlist and reference codes
   registration) and otherwise `SubmitTokenReused`, the event must still be
   the version the answers were checked against, and the status follows from
   the latch and the count of `registered` registrations read under that lock.
-  The latch is set before the registration row is written.
+  The latch is set before the registration row is written. Last, in the same
+  run, the submit queues the action mail of the resulting status
+  (`registered` or `waitlisted`) through `Mail\Api\ActionMails::due()`, with
+  the registration as the cause; a repeat queues nothing.
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.

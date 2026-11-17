@@ -2,8 +2,8 @@
 
 Mail is mails, deliveries and the sender
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
-So far: the delivery queue, the sender, pausing and the mail counts. The mail
-bodies, the composer and the mail settings come later.
+So far: the delivery queue, the sender, pausing, the mail counts, the mail
+bodies, the renderer and the per-event action-mail catalogue.
 
 ## Sections it implements
 
@@ -11,7 +11,9 @@ bodies, the composer and the mail settings come later.
   the queue of [Five kinds of mail](../../../../docs/architecture/mail.md#five-kinds-of-mail),
   [Sending](../../../../docs/architecture/mail.md#sending),
   [Failures](../../../../docs/architecture/mail.md#failures),
-  [Pausing](../../../../docs/architecture/mail.md#pausing).
+  [Pausing](../../../../docs/architecture/mail.md#pausing),
+  the action mails of [Configuration](../../../../docs/architecture/mail.md#configuration),
+  [Content](../../../../docs/architecture/mail.md#content).
 - foundation.md: the mail line of [Failures](../../../../docs/architecture/foundation.md#failures),
   the two mail warnings of [Site warnings](../../../../docs/architecture/foundation.md#site-warnings),
   the mail part of [Deferred work](../../../../docs/architecture/foundation.md#deferred-work).
@@ -28,7 +30,62 @@ bodies, the composer and the mail settings come later.
   `kalaka_send_mail`, from itself and as the periodic run's step, never in an
   interactive request, and only under the named lock `mail_sender`.
 - The sender does not run without a bound `MailComposer`: deliveries stay
-  pending.
+  pending. The module binds `Body\ActionMailComposer`.
+- A mail body is a `kalaka_mail` post of one event (`kalaka_event_id`),
+  edited in the block editor by full access only; its blocks are content and
+  the condition blocks, never a field block or a form-only block (refused
+  at save, `field_in_document`, `form_block_in_document`). An event's layout is raw HTML
+  with `{{content}}` exactly once and no other `{{…}}` (exactly `{{content}}`
+  until set; any other save is refused), stored verbatim (full access is trusted
+  like `unfiltered_html`) and never escaped. The per-event settings and the
+  layout live in Mail's tables (`kalaka_action_mails`, `kalaka_mail_layouts`),
+  never in post meta. A body serves one action mail only (mail.md, "Words":
+  `UpdateActionMail` refuses another mail's body, and `body_id` is unique),
+  and only a published body is assigned or switched on. A body a switched-on
+  action mail uses is neither trashed nor deleted, never leaves `publish` and
+  never changes its event (`Body\BodyInUse`, on every path; REST refuses with
+  `kalaka_mail_in_use`).
+  A mail's version is the latest
+  non-autosave revision ID; revisions of mail documents are never pruned.
+- An action mail is decided only through `Api\ActionMails::due()` inside the
+  acting use case, which queues it only when the event has it switched on and
+  looks at nothing else (not the event's state).
+- A mail is rendered at send time by `Body\MailRenderer`, through
+  `Forms\Api\Values::render()` with the mail's context and no evaluator of
+  its own; the rendered body then replaces the layout's `{{content}}`, and
+  nothing else in the layout is replaced.
+- `MailComposer::recipient()` returns `null` for a registration without a
+  contact email (failed as `invalid_address`) and throws only
+  `RecipientUnavailable` when the address cannot be determined (no
+  registration: `no_registration`; slot form unpublished, or the version the
+  registration was submitted with broken: `no_recipient_form`); the sender
+  fails the delivery with that reason, with no attempt and no count toward
+  pausing. The recipient and the display name are the marked fields of that
+  submitted version, never the current one.
+- The sender composes before the claim. `compose()` throws `BodyUnusable`
+  when the body cannot render for its own reason: none assigned (`no_body`),
+  gone (`missing`), unpublished (`unpublished`) or of another event
+  (`other_event`), or, by `Values::check()` against `MailValues::types()`, an
+  undeclared key, an invalid condition, a misplaced branch; the delivery is failed with `body <problem>`, no attempt and no
+  count toward pausing. Any other throw is an error, recorded after the claim.
+- A body saved as published or scheduled is checked first (`Body\BodyCheck`):
+  REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
+  gracefully (a published body keeps its content, another stays unpublished)
+  and tells the saving user in an admin notice.
+- The catalogue has five action mails; admission from the waitlist sends
+  "registered", and a body tells it apart with `registration.from_waitlist`.
+  A stored row whose key is no longer an action (the former `admitted`) is
+  skipped and logged on read; no schema change removes it.
+- No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
+  gets the body's facts (`Catalogue\MailBody`: its event, whether it is
+  published) read before the run by its entry, `Api\ActionMailSettings::update()`;
+  run without them it refuses a body assignment or a switch-on. It does not
+  check the keys: a body is checked at its save, and one that goes stale
+  later fails per delivery without pausing.
+- The secret link reaches a mail only as the value `registration.link` from
+  `Registrations\Api\SecretLinks::url()`. It is never stored on a
+  delivery, logged or audited; render failures name a problem code and a
+  key, never a value.
 - Before each claim the sender reads the pause fresh (`Pause\MailStateQuery`,
   past every cache) and checks the address with `is_email()`; a missing or
   invalid address marks the delivery failed with no attempt.

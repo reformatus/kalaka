@@ -24,7 +24,7 @@ record, the check-in act, and so on.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered, waitlisted, admitted, payment recorded, confirmed, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so a second confirmation after a refund gets its own mail; every check-in route calls the same check-in use case |
+| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded, confirmed, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so a second confirmation after a refund gets its own mail; every check-in route calls the same check-in use case |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
@@ -77,18 +77,29 @@ activated.**
 ## Content
 
 - **Every body is edited in the block editor** and stored as a block document
-  (`kalaka_mail` posts). Blocks are used **only for layouts and conditions**.
+  (`kalaka_mail` posts). **Blocks in a mail body are content and
+  conditions;** the layout is a raw HTML wrapper with one content
+  placeholder.
 - **Values and conditions** follow the shared rules
   ([Values and conditions](events-and-forms.md#values-and-conditions)). A
-  mail's context is **the recipient and the registration**. The
+  mail's context is **the recipient, the registration and its event**
+  (`event.*`). The
   registration's keys are **the event's participant fields**
   ([Fields](events-and-forms.md#fields)), not the fields of the form it
   came through; a field with no value for that registration reads as none,
   so a mail naming a field only one form holds still renders for everyone.
   A key that is not a participant field of the event stays an error. Actions and
-  reminders add their own layout blocks (e.g. a payment table).
+  reminders add their own blocks (e.g. a payment table).
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
+- **The body's title is the subject,** as plain text. Mail is sent as HTML
+  only.
+- **The layout** is one raw HTML text per event, written by full access and
+  stored as written. It holds `{{content}}` exactly once and no other
+  placeholder; a layout without exactly one is refused. A new event's layout
+  is exactly `{{content}}`, so mail works with no setup. The rendered body
+  replaces `{{content}}`; everything but the outer design belongs in each
+  mail's body.
 
 ## Sending
 
@@ -115,6 +126,11 @@ activated.**
   without a valid address is marked failed with that error and no attempt is
   made; it does not count as an error for pausing, because retrying cannot
   fix it.
+- **The mail is rendered before the claim too.** A body that cannot render
+  for its own reason (no body, a body removed, unpublished or moved, a key
+  the mail does not have, an invalid condition)
+  fails the same way: marked failed with that error, no attempt, not counted
+  for pausing.
 - **It renders the body at send time from current data** and records the
   mail's version and send time, not the content. The content can be recovered
   by re-rendering, and may be incomplete after a privacy erase. Exact copies
@@ -136,8 +152,9 @@ activated.**
 
 ### Failures
 
-An **error** is any failure after the claim: `wp_mail` returns false,
-`wp_mail_failed` fires, or rendering the mail throws. Delivery itself is never
+An **error** is any failure of an attempt, recorded after the claim:
+`wp_mail` returns false, `wp_mail_failed` fires, or rendering the mail throws
+for any reason other than the body's own ([Sending](#sending)). Delivery itself is never
 known, only whether an error was reported; a reported error may still have
 been delivered, so a retry may send a second copy. The rule bounds that: a
 mail is never sent automatically more than twice.
