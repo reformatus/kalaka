@@ -13,6 +13,7 @@ use Kalaka\Pricing\Api\PreviewRow;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\FieldValue\FieldValue;
 
 /** S25: the tier a registration's answers reach, its deadline at `registered_at`, and the ladder's apply. */
 final class PriceLadderTest extends PriceLadderTestCase
@@ -32,6 +33,19 @@ final class PriceLadderTest extends PriceLadderTestCase
             $key = $this->registerAnswering($code, $level, $price);
             self::assertSame([self::line($amount)], $this->charges($key));
         }
+    }
+
+    public function testARegistrationWrittenWithItsAnswersInOneRunPaysItsTierInThatRun(): void
+    {
+        $this->applyLadder(self::ivkTiers());
+        $key = new RegistrationKey($this->event, '00A0');
+
+        $this->inRun(function (array $input, Context $context) use ($key): void {
+            $this->insertRegistration($this->newRegistration($this->event, '00A0'), $context);
+            $this->values->upsert(new FieldValue($key, 'tamogatas', 'megosztott'), $context);
+        });
+
+        self::assertSame([self::line('44500')], $this->charges($key));
     }
 
     public function testAChangedAnswerMovesTheRegistrationToAnotherTierAtItsNextEvaluation(): void
