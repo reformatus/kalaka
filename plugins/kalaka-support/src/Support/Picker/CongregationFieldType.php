@@ -13,17 +13,17 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
 /**
- * The congregation field (money.md, "Sponsor and church support"): its answer is one terminal leaf of
- * the organization directory, and the stored value is that node's id alone (owner ruling S28-1: no
- * free text and no "not in the list"; admins add an "egyéb" leaf by hand where one is needed). A new
- * answer must be live (active, under active ancestors) and have no children; the node is read when
- * the answer is checked, so a deactivated node or a level is refused.
+ * [UNAPPROVED N1] (Shapes) The congregation field (money.md, "Sponsor and church support"): its answer
+ * is one terminal leaf of the organization directory, and the stored value is that node's id alone
+ * (owner ruling S28-1: no free text and no "not in the list"; admins add an "egyéb" leaf by hand where
+ * one is needed). A new answer must be live (active, under active ancestors) and have no children; the
+ * node is read when the answer is checked, so a deactivated node or a level is refused.
  *
  * For a condition the value is a choice of one: the node's external ID, which stays the same between
  * the imports of two sites, never its database id. Its text is the node's name. The value reads the
  * node whether it is live or not: a node is never deleted, so a stored id always resolves.
  *
- * Money-relevant: the congregation share and the support offers read it (S29, S30).
+ * [UNAPPROVED N4] (Shapes) Money-relevant: the congregation share and the support offers read it (S29, S30).
  *
  * TODO(S29/S30) the node's ancestors as computed facts (`<key>.ancestors`), put into the fact source by
  * the caller that needs them. TODO(S60/S73) a stored node that is no longer live or no longer a leaf

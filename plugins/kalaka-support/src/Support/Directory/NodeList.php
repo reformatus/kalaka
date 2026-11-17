@@ -25,9 +25,9 @@ final class NodeList extends Query
         . ')';
 
     /**
-     * Whether node `n` is a terminal leaf: no node names it as its parent, active or not. The one
-     * leaf rule, for the route's flag and the congregation field's check alike; the `%i` is the
-     * node table.
+     * [UNAPPROVED N2] (Shapes) Whether node `n` is a terminal leaf: no node names it as its parent,
+     * active or not. The one leaf rule, for the route's flag and the congregation field's check
+     * alike; the `%i` is the node table.
      */
     public const LEAF = 'NOT EXISTS (SELECT 1 FROM %i c WHERE c.parent_id = n.id)';
 

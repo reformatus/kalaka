@@ -141,6 +141,7 @@ final class NodesController
                     'name' => ['type' => 'string'],
                     'type' => ['type' => 'string'],
                     'parent' => ['type' => 'integer'],
+                    // [UNAPPROVED N3] (Shapes) whether the node is a terminal leaf (NodeList::LEAF)
                     'leaf' => ['type' => 'boolean'],
                     'ancestors' => ['type' => 'array', 'items' => $reference],
                 ],
