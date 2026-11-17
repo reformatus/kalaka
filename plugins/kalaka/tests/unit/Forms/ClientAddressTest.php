@@ -28,6 +28,15 @@ final class ClientAddressTest extends TestCase
         );
     }
 
+    public function testAMappedIpv4AddressCountsAsIpv4AndMatchesAnIpv4Proxy(): void
+    {
+        self::assertSame('192.0.2.10', ClientAddress::of(['REMOTE_ADDR' => '::ffff:192.0.2.10'], []));
+        self::assertSame('198.51.100.7', ClientAddress::of([
+            'REMOTE_ADDR' => '::ffff:10.0.0.5',
+            'HTTP_X_FORWARDED_FOR' => '198.51.100.7',
+        ], ['10.0.0.5']));
+    }
+
     public function testNoValidAddressIsNull(): void
     {
         self::assertNull(ClientAddress::of([], []));

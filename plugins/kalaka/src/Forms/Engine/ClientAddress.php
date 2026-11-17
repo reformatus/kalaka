@@ -11,7 +11,10 @@ namespace Kalaka\Forms\Engine;
  * takes its client from `X-Forwarded-For`: the rightmost entry that is not a named proxy. Whether a
  * site needs the constant is checked at deploy (OPS1).
  *
- * An IPv6 address counts by its /64 network, which one subscriber usually holds whole.
+ * An IPv6 address counts by its /64 network, which one subscriber usually holds whole; a mapped IPv4
+ * address counts as IPv4.
+ *
+ * [UNAPPROVED S14 N4] the address, the constant and the /64.
  */
 final class ClientAddress
 {
@@ -89,8 +92,19 @@ final class ClientAddress
             return null;
         }
         $address = filter_var(trim($value), FILTER_VALIDATE_IP);
+        if (!is_string($address)) {
+            return null;
+        }
+        // An IPv4 address a dual-stack server gives in its mapped IPv6 form (`::ffff:192.0.2.10`) is IPv4.
+        $packed = inet_pton($address);
+        $prefix = str_repeat("\0", 10) . "\xff\xff";
+        if ($packed !== false && strlen($packed) === 16 && str_starts_with($packed, $prefix)) {
+            $mapped = inet_ntop(substr($packed, 12));
 
-        return is_string($address) ? $address : null;
+            return $mapped === false ? $address : $mapped;
+        }
+
+        return $address;
     }
 
     /** IPv4 as it is; IPv6 as its /64 network. */
