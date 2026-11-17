@@ -89,4 +89,16 @@ final class FieldMarkup
     {
         return EngineFieldMarkup::flag($attributes, $name);
     }
+
+    /**
+     * A field with one text control, as core's text field (`kalaka/text-field`) renders it: a `label` (the
+     * title, then the required marker), an `input type="text"` that opens with the field's prefilled answer,
+     * then the error element. S26's amount field is its first user. [UNAPPROVED N6]
+     *
+     * @param array<string, mixed> $attributes
+     */
+    public static function textLike(array $attributes, bool $required): string
+    {
+        return EngineFieldMarkup::textLike($attributes, 'text', $required);
+    }
 }
