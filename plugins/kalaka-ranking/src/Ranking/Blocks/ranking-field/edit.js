@@ -55,7 +55,8 @@ function useEventId() {
 
 /**
  * The sets of the form's event (`GET kalaka-admin/v1/events/{id}/assignment-sets`): `loading`, `ready` with
- * the sets, or `failed`; `noEvent` while the form has no event. A later event's read wins over an earlier one still under way.
+ * the sets, or `failed`; `noEvent` while the form has no event. A later event's read wins over an earlier
+ * one still under way.
  */
 function useSets(eventId) {
 	const [sets, setSets] = useState({ state: 'loading', list: [] });
