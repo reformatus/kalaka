@@ -42,12 +42,13 @@ const CHILDREN = { 0: [ROOT, OTHER], 1: [DISTRICT], 3: [CONGREGATION] };
 let requests;
 let held;
 
-function respond(items, pages = 1) {
+function respond(items, pages = 1, total = items.length) {
+	const headers = { 'X-WP-TotalPages': String(pages), 'X-WP-Total': String(total) };
 	return {
 		ok: true,
 		status: 200,
 		json: async () => items,
-		headers: { get: (name) => (name === 'X-WP-TotalPages' ? String(pages) : null) },
+		headers: { get: (name) => headers[name] ?? null },
 	};
 }
 
@@ -78,15 +79,15 @@ function render() {
 	document.body.innerHTML =
 		'<form><div class="kalaka-field" data-kalaka-field="gyulekezet" data-kalaka-congregation' +
 		' data-kalaka-nodes="https://example.org/wp-json/kalaka-support/v1/nodes">' +
-		'<label for="kalaka-field-gyulekezet">Gyülekezet</label>' +
-		'<input type="search" id="kalaka-field-gyulekezet" autocomplete="off" data-kalaka-search>' +
+		'<p><label for="kalaka-field-gyulekezet">Gyülekezet</label>' +
+		'<input type="search" id="kalaka-field-gyulekezet" autocomplete="off" data-kalaka-search></p>' +
 		'<input type="hidden" name="gyulekezet" value="" autocomplete="off">' +
-		'<p data-kalaka-picked hidden></p>' +
 		'<p data-kalaka-trail hidden><button type="button" data-kalaka-up>Egy szinttel feljebb</button>' +
 		' <span data-kalaka-path></span></p>' +
 		'<p id="kalaka-field-gyulekezet-level" data-kalaka-level></p>' +
 		'<ul id="kalaka-field-gyulekezet-nodes" data-kalaka-list></ul>' +
-		'<p data-kalaka-message hidden></p>' +
+		'<p data-kalaka-message tabindex="-1" hidden></p>' +
+		'<p data-kalaka-picked hidden></p>' +
 		'<span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span>' +
 		'</div></form>';
 
@@ -203,6 +204,79 @@ describe('the congregation picker', () => {
 		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
 		expect(part(field, 'path').textContent).toBe('Teszt Egyház › Északi Teszt Egyházkerület');
 		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
+	});
+
+	test('opening a node or the level above keeps the focus in the picker and says the level', async () => {
+		const field = render();
+		start(field);
+		await settle();
+		// the first level is said, without taking the focus from the page
+		expect(part(field, 'announce').textContent).toBe('Egyház, Közösség');
+		expect(document.activeElement).toBe(document.body);
+
+		button(field, 1).focus();
+		button(field, 1).click();
+		await settle();
+		expect(document.activeElement).toBe(button(field, 3));
+		expect(part(field, 'announce').textContent).toBe('Egyházkerület');
+
+		part(field, 'up').focus();
+		part(field, 'up').click();
+		await settle();
+		expect(document.activeElement).toBe(button(field, 1));
+		expect(part(field, 'announce').textContent).toBe('Egyház, Közösség');
+
+		// a level with no live node: the focus goes to its message, which is said
+		globalThis.fetch = jest.fn(async () => respond([]));
+		button(field, 1).click();
+		await settle();
+		expect(document.activeElement).toBe(part(field, 'message'));
+		expect(part(field, 'announce').textContent).toBe(TEXT.emptyLevel);
+
+		// a level that fails to load: the same
+		globalThis.fetch = jest.fn(async () => ({ ok: false, status: 503 }));
+		part(field, 'up').click();
+		await settle();
+		expect(document.activeElement).toBe(part(field, 'message'));
+		expect(part(field, 'message').textContent).toBe(TEXT.failed);
+		expect(part(field, 'announce').textContent).toBe(TEXT.failed);
+	});
+
+	test('a pick shows below the list, so the list does not move', async () => {
+		const field = render();
+		start(field);
+		await settle();
+		const list = part(field, 'list');
+		const picked = part(field, 'picked');
+
+		button(field, 2).click();
+
+		expect(picked.hidden).toBe(false);
+		expect(list.compareDocumentPosition(picked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(part(field, 'search').compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(button(field, 2).getAttribute('aria-pressed')).toBe('true');
+		expect(button(field, 1).hasAttribute('aria-pressed')).toBe(false);
+	});
+
+	test('the count is said after every search, and a capped search says so', async () => {
+		const field = render();
+		start(field);
+		await settle();
+
+		await showSearch(field, 'gyülekezet');
+		expect(part(field, 'announce').textContent).toBe('1 találat');
+		await showSearch(field, 'egyház');
+		expect(part(field, 'announce').textContent).toBe('2 találat');
+		expect(part(field, 'message').hidden).toBe(true);
+
+		const many = Array.from({ length: 20 }, (_, index) => ({ ...OTHER, id: 100 + index }));
+		globalThis.fetch = jest.fn(async () => respond(many, 3, 47));
+		await showSearch(field, 'teszt');
+		expect(names(field)).toHaveLength(20);
+		expect(part(field, 'message').hidden).toBe(false);
+		expect(part(field, 'message').textContent).toBe(TEXT.capped(20));
+		expect(part(field, 'announce').textContent).toBe(TEXT.capped(20));
+		expect(TEXT.capped(20)).toBe('Csak az első 20 találat jelenik meg. Pontosítsd a keresést.');
 	});
 
 	test('Enter in the search box searches at once and never sends the form', async () => {

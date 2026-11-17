@@ -297,6 +297,18 @@ final class CongregationFieldTest extends FormsTestCase
         self::assertStringContainsString('class="kalaka-field__error" hidden', $html);
         // the search box comes before the hidden input: a field error focuses the search box
         self::assertLessThan(strpos($html, 'type="hidden"'), strpos($html, 'type="search"'));
+        // the title and the search box sit in a `p` of their own, as a text field's do
+        self::assertMatchesRegularExpression(
+            '/<p>\s*<label for="[^"]+">.*<\/label>\s*<input type="search"[^>]*>\s*<\/p>/s',
+            $html
+        );
+        // the picked line comes after the list, so a pick never moves the list
+        self::assertLessThan(strpos($html, 'data-kalaka-picked'), strpos($html, 'data-kalaka-list'));
+        self::assertStringContainsString('<p data-kalaka-message tabindex="-1" hidden></p>', $html);
+        // the picker's own stylesheet: a visible focus and the picked button's mark
+        $block = \WP_Block_Type_Registry::get_instance()->get_registered(CongregationFieldType::BLOCK_NAME);
+        self::assertInstanceOf(\WP_Block_Type::class, $block);
+        self::assertNotEmpty($block->style_handles);
     }
 
     public function testItIsDeclaredAsTheEventsParticipantFieldWithoutOptions(): void

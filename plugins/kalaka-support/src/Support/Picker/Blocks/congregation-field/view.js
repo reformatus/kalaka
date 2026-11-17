@@ -5,11 +5,15 @@
  *
  * - Without a search the list is one level of the tree: the live roots first, then the children of the node
  *   opened, with the nodes' types above it (the step is labelled by its children's type: there is no level
- *   schema) and a Back button with the path above it. A level is read whole, page by page.
+ *   schema) and a button one level up with the path above it. A level is read whole, page by page. Opening
+ *   a node or the level above moves the focus to the new level's first node (or its message) and says which
+ *   level it is, so the focus never drops to the page.
  * - With a search of at least two characters the list is the matches, each with its path; clearing the
- *   search goes back to the level. Enter in the search box searches at once and never sends the form.
+ *   search goes back to the level. Enter in the search box searches at once and never sends the form. The
+ *   count of matches is said after every search; when the route has more than it lists, a line says so.
  * - A button of a terminal leaf picks it: its id goes into the hidden input named by the field's key, which
- *   fires `change` like any answer, and the picked node shows above the list. A button of a node with
+ *   fires `change` like any answer, its button is pressed, and the picked node shows below the list, so a
+ *   pick never moves the list under the finger. A button of a node with
  *   children opens it instead. Only a leaf is ever an answer (owner ruling S28-1).
  *
  * A response that arrives after a newer request was made is dropped, so a slow search never overwrites a
@@ -25,6 +29,8 @@ export const TEXT = {
 	emptyLevel: 'Itt nincs választható elem.',
 	failed: 'Nem sikerült betölteni a listát. Próbáld újra később.',
 	found: (count) => (count === 0 ? 'Nincs találat.' : `${count} találat`),
+	/** [UNAPPROVED N7] (Text) A placeholder until the owner's text: a search has more matches than it lists. */
+	capped: (count) => `Csak az első ${count} találat jelenik meg. Pontosítsd a keresést.`,
 };
 
 /** What the path's names are joined with: a sign on the screen, a comma for a screen reader. */
@@ -80,9 +86,12 @@ async function read(field, params) {
 		throw new Error(`The directory answered ${response.status}.`);
 	}
 
+	const items = await response.json();
+
 	return {
-		items: await response.json(),
+		items,
 		pages: Number(response.headers.get('X-WP-TotalPages') ?? '1'),
+		total: Number(response.headers.get('X-WP-Total') ?? items.length),
 	};
 }
 
@@ -141,14 +150,26 @@ function showList(field, items, withPaths) {
 	showMessage(field, items.length > 0 ? null : withPaths ? TEXT.noMatch : TEXT.emptyLevel);
 }
 
+/**
+ * Moves the focus to the new level, so it never drops to the page: its first node, or the message when it
+ * has none.
+ */
+function focusLevel(field) {
+	const first = part(field, 'list').querySelector('button');
+	(first ?? part(field, 'message')).focus();
+}
+
 function showTrail(field) {
 	const { trail } = fields.get(field);
 	part(field, 'trail').hidden = trail.length === 0;
 	part(field, 'path').textContent = trail.map((node) => node.name).join(SHOWN);
 }
 
-/** Runs one read; its answer is shown only when no newer read was started meanwhile. */
-async function load(field, work, show) {
+/**
+ * Runs one read; its answer is shown only when no newer read was started meanwhile. A failure is shown and
+ * said, and takes the focus when `moveFocus` is set.
+ */
+async function load(field, work, show, moveFocus = false) {
 	const state = fields.get(field);
 	const request = ++state.request;
 	try {
@@ -161,17 +182,35 @@ async function load(field, work, show) {
 			part(field, 'list').replaceChildren();
 			part(field, 'level').textContent = '';
 			showMessage(field, TEXT.failed);
+			say(field, TEXT.failed);
+			if (moveFocus) {
+				focusLevel(field);
+			}
 		}
 	}
 }
 
-/** Shows the level the trail ends at: the roots when it is empty. */
-export function showLevel(field) {
+/**
+ * Shows the level the trail ends at (the roots when it is empty) and says which level it is: its nodes'
+ * types, or that it is empty. After a node is opened, or the level above, `moveFocus` puts the focus on it.
+ */
+export function showLevel(field, moveFocus = false) {
 	const { trail } = fields.get(field);
 	showTrail(field);
 	const parent = trail.length === 0 ? 0 : trail[trail.length - 1].id;
 
-	return load(field, () => readLevel(field, parent), (items) => showList(field, items, false));
+	return load(
+		field,
+		() => readLevel(field, parent),
+		(items) => {
+			showList(field, items, false);
+			say(field, items.length === 0 ? TEXT.emptyLevel : levelLabel(items));
+			if (moveFocus) {
+				focusLevel(field);
+			}
+		},
+		moveFocus
+	);
 }
 
 /** Shows the matches of a search. */
@@ -181,9 +220,13 @@ export function showSearch(field, search) {
 	return load(
 		field,
 		() => read(field, { search, per_page: SEARCH_PAGE }),
-		({ items }) => {
+		({ items, total }) => {
 			showList(field, items, true);
-			say(field, TEXT.found(items.length));
+			const capped = total > items.length;
+			if (capped) {
+				showMessage(field, TEXT.capped(items.length));
+			}
+			say(field, capped ? TEXT.capped(items.length) : TEXT.found(items.length));
 		}
 	);
 }
@@ -210,7 +253,7 @@ function open(field, item) {
 	part(field, 'search').value = '';
 	clearTimeout(state.timer);
 
-	return showLevel(field);
+	return showLevel(field, true);
 }
 
 /** Starts one congregation field (the element with `data-kalaka-congregation`); a second call does nothing. */
@@ -243,7 +286,7 @@ export function start(field) {
 		const state = fields.get(field);
 		if (event.target?.closest?.('[data-kalaka-up]')) {
 			state.trail = state.trail.slice(0, -1);
-			showLevel(field);
+			showLevel(field, true);
 			return;
 		}
 		const button = event.target?.closest?.('[data-kalaka-node]');

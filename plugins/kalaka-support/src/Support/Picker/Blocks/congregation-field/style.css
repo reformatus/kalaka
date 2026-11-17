@@ -1,0 +1,26 @@
+/*
+ * [UNAPPROVED N6] (UI) The congregation picker's own look, structural only: no colour of its own (the theme's
+ * text colour is used).
+ * - A visible keyboard focus on the search box, the buttons and the message, since a theme may remove the
+ *   outline (Divi 4 sets `outline: 0`).
+ * - The picked node's button (`aria-pressed="true"`) is bold inside a frame, and the picked line is bold, so
+ *   a pick looks unlike the other buttons and unlike text typed into the search box.
+ * - What is hidden stays hidden where a theme gives an element a display of its own.
+ */
+[data-kalaka-congregation] :is([data-kalaka-search], button, [data-kalaka-message]):focus-visible {
+	outline: 2px solid currentColor !important;
+	outline-offset: 2px;
+}
+
+[data-kalaka-congregation] button[aria-pressed="true"] {
+	font-weight: bold;
+	box-shadow: inset 0 0 0 2px currentColor;
+}
+
+[data-kalaka-congregation] [data-kalaka-picked] {
+	font-weight: bold;
+}
+
+[data-kalaka-congregation] [hidden] {
+	display: none !important;
+}

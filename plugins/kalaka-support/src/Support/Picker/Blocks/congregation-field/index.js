@@ -1,9 +1,11 @@
 /**
  * The congregation field's editor script: registers the block's editor (`edit.js`). Its key is kept by the
- * form editor, which handles every field type's block (`kalaka-form-editor-script`).
+ * form editor, which handles every field type's block (`kalaka-form-editor-script`). It imports the picker's
+ * stylesheet, which the build writes to `style-index.css`, the block's `style`.
  */
 import { registerBlockType } from '@wordpress/blocks';
 import metadata from './block.json';
 import edit from './edit';
+import './style.css';
 
 registerBlockType(metadata.name, { edit });
