@@ -48,17 +48,7 @@ final class Drafts
      */
     public function opening(int $eventId, int $formId, ?int $userId, ?string $claimToken): FormDraft
     {
-        $guest = null;
-        if ($claimToken !== null) {
-            $found = $this->drafts->ofClaim(DraftClaim::hash($claimToken));
-            $now = $this->runner()->clock()->now();
-            if (
-                $found !== null && $found->userId === null && $found->formId === $formId
-                && $found->expiresAt !== null && $found->expiresAt > $now
-            ) {
-                $guest = $found;
-            }
-        }
+        $guest = $claimToken === null ? null : $this->guest($formId, $claimToken);
         if ($userId === null) {
             return new FormDraft($guest === null ? new AnswerSet() : $guest->answers, false, false);
         }
@@ -66,20 +56,53 @@ final class Drafts
         if ($own === null) {
             return new FormDraft($guest === null ? new AnswerSet() : $guest->answers, true, false);
         }
-        $conflict = $guest !== null && $this->linkChanges($formId, $own, $guest) !== [];
+        $conflict = $guest !== null && $this->changedKeys($formId, $own, $guest) !== [];
 
         return new FormDraft($own->answers, true, $conflict, $own->claims);
     }
 
     /**
-     * The keys whose value the guest draft (a link's or the quiz's answers) sets differently from the
-     * person's own draft, compared as the form's latest version would store them (`Forms::changedKeys()`).
-     * Empty when the link changes nothing: no choice to make. Every key of the guest draft when the form is
-     * gone. Not shown to anyone yet; the popup's look is the owner's (S74).
+     * What a link's or the quiz's answers (the guest draft under the token) would change in the person's own
+     * draft of the form: each key whose value they set differently, with the link's answer as sent. Empty
+     * when there is nothing to choose: no own draft, no usable guest draft, or no value changed. Ready for
+     * the claim popup (S74, pass 2), but not in the page's context yet: what the popup shows is the owner's.
+     *
+     * @return array<string, mixed> field key → the link's answer
+     */
+    public function linkChanges(int $eventId, int $formId, int $userId, string $claimToken): array
+    {
+        $guest = $this->guest($formId, $claimToken);
+        $own = $guest === null ? null : $this->drafts->ofUser($eventId, $formId, $userId);
+        if ($guest === null || $own === null) {
+            return [];
+        }
+        $changes = [];
+        foreach ($this->changedKeys($formId, $own, $guest) as $key) {
+            $changes[$key] = $guest->answers->answers[$key] ?? null;
+        }
+
+        return $changes;
+    }
+
+    /** The usable guest draft of the form under the token: not claimed, not expired; a plain read. */
+    private function guest(int $formId, string $claimToken): ?Draft
+    {
+        $found = $this->drafts->ofClaim(DraftClaim::hash($claimToken));
+        $now = $this->runner()->clock()->now();
+        $usable = $found !== null && $found->userId === null && $found->formId === $formId
+            && $found->expiresAt !== null && $found->expiresAt > $now;
+
+        return $usable ? $found : null;
+    }
+
+    /**
+     * The keys whose value the guest draft sets differently from the person's own draft, compared as the
+     * form's latest version would store them (`Forms::changedKeys()`); every key of the guest draft when the
+     * form is gone.
      *
      * @return list<string>
      */
-    public function linkChanges(int $formId, Draft $own, Draft $guest): array
+    private function changedKeys(int $formId, Draft $own, Draft $guest): array
     {
         $form = $this->forms()->form($formId);
         if ($form === null) {
@@ -179,22 +202,25 @@ final class Drafts
     }
 
     /**
-     * The person's choice between the guest draft under the token and their own draft.
+     * The person's choice between the guest draft under the token and their own draft. Safe to repeat: the
+     * same choice again answers as the first did.
      *
      * @throws PermissionDenied for anyone not logged in
+     * @throws DraftClaimRefused the claim is gone, expired, of another form, or settled with another choice
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
-    public function resolve(int $formId, string $token, DraftClaimChoice $choice, Actor $actor): void
+    public function resolve(int $eventId, int $formId, string $token, DraftClaimChoice $choice, Actor $actor): void
     {
         if (!$actor instanceof AccountActor) {
             $error = new PermissionDenied();
             throw $error;
         }
-        $this->runner()->run(
-            new ResolveDraftClaim(),
-            ['form_id' => $formId, 'claim_hash' => DraftClaim::hash($token), 'choice' => $choice->value],
-            $actor
-        );
+        $this->runner()->run(new ResolveDraftClaim(), [
+            'event_id' => $eventId,
+            'form_id' => $formId,
+            'claim_hash' => DraftClaim::hash($token),
+            'choice' => $choice->value,
+        ], $actor);
     }
 
     private function forms(): Forms

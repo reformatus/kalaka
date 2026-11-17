@@ -94,7 +94,8 @@ interface FormHost
     ): void;
 
     /**
-     * Settles a link's answers against the person's own draft with the person's choice (S74).
+     * Settles a link's answers against the person's own draft with the person's choice (S74). Safe to
+     * repeat: the same choice again answers as the first did; a claim that cannot be applied is refused.
      *
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */

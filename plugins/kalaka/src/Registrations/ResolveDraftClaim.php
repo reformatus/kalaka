@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
+use Kalaka\Registrations\Api\DraftClaimRefused;
 use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
@@ -21,6 +22,12 @@ use Kalaka\Registrations\Draft\DraftRepository;
  * theirs), the draft's `claims` count goes up: an autosave sent from the page before the choice carries the
  * old count and is refused (`SaveDraft`), so it never brings back the answers the choice replaced. keep_draft
  * changes nothing, and the count stays.
+ *
+ * Safe to repeat, once per claim token (a lost answer, a second click): the person's draft records the
+ * claim it settled and the choice (`resolvedClaim`, `resolvedChoice`). Once the guest draft is gone, the same
+ * choice again changes nothing and answers as the first did. Another choice, a guest draft that is gone,
+ * expired or of another form, and a claim settled on the form's page with no choice are refused
+ * (`DraftClaimRefused`), and nothing is changed. [UNAPPROVED N11]
  */
 final class ResolveDraftClaim implements PortalUseCase
 {
@@ -38,11 +45,12 @@ final class ResolveDraftClaim implements PortalUseCase
         return [
             'type' => 'object',
             'properties' => [
+                'event_id' => ['type' => 'integer', 'minimum' => 1],
                 'form_id' => ['type' => 'integer', 'minimum' => 1],
                 'claim_hash' => ['type' => 'string', 'pattern' => '^[0-9a-f]{64}$'],
                 'choice' => ['type' => 'string', 'enum' => array_column(DraftClaimChoice::cases(), 'value')],
             ],
-            'required' => ['form_id', 'claim_hash', 'choice'],
+            'required' => ['event_id', 'form_id', 'claim_hash', 'choice'],
             'additionalProperties' => false,
         ];
     }
@@ -59,20 +67,31 @@ final class ResolveDraftClaim implements PortalUseCase
             $error = new PermissionDenied();
             throw $error;
         }
-        $guest = $this->drafts->ofClaim((string) $input['claim_hash'], $context);
+        $hash = (string) $input['claim_hash'];
+        $choice = DraftClaimChoice::from((string) $input['choice']);
+        $guest = $this->drafts->ofClaim($hash, $context);
         if (
             $guest === null
             || $guest->userId !== null
             || $guest->formId !== (int) $input['form_id']
+            || $guest->eventId !== (int) $input['event_id']
             || $guest->expiresAt === null
             || $guest->expiresAt <= $context->now()
         ) {
-            return null;
+            // A repeat of the choice that settled this claim answers as the first did; anything else is refused.
+            $own = $this->drafts->ofUser((int) $input['event_id'], (int) $input['form_id'], $actor->userId, $context);
+            if ($own !== null && $own->resolvedClaim === $hash && $own->resolvedChoice === $choice->value) {
+                return null;
+            }
+            $error = new DraftClaimRefused();
+            throw $error;
         }
         $own = $this->drafts->ofUser($guest->eventId, $guest->formId, $actor->userId, $context);
         $now = $context->now();
         if ($own === null) {
             $guest->userId = $actor->userId;
+            $guest->resolvedClaim = $hash;
+            $guest->resolvedChoice = $choice->value;
             $guest->claimHash = null;
             $guest->expiresAt = null;
             $guest->updatedAt = $now;
@@ -81,7 +100,6 @@ final class ResolveDraftClaim implements PortalUseCase
 
             return null;
         }
-        $choice = DraftClaimChoice::from((string) $input['choice']);
         if ($choice !== DraftClaimChoice::KeepDraft) {
             $own->answers = $choice === DraftClaimChoice::Merge
                 ? $own->answers->overwrittenBy($guest->answers)
@@ -89,8 +107,10 @@ final class ResolveDraftClaim implements PortalUseCase
             $own->formVersion = max($own->formVersion, $guest->formVersion);
             $own->updatedAt = $now;
             ++$own->claims;
-            $this->drafts->upsert($own, $context);
         }
+        $own->resolvedClaim = $hash;
+        $own->resolvedChoice = $choice->value;
+        $this->drafts->upsert($own, $context);
         $this->drafts->delete($guest, $context);
 
         return null;

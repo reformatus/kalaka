@@ -25,6 +25,7 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Registrations\Api\DraftClaim;
+use Kalaka\Registrations\Api\DraftClaimRefused;
 use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
@@ -193,10 +194,12 @@ final class EventFormHost implements FormHost
     {
         $token = DraftClaim::current();
         if ($token === null) {
-            return;
+            $error = new DraftClaimRefused();
+            throw $error;
         }
-        $this->drafts->resolve($form->id, $token, $choice, $actor);
-        DraftClaim::setCookie(null);
+        // The cookie stays, so a repeat after a lost answer finds the same claim; the next load of the form's
+        // page clears it (`DraftHandoff`: the guest draft is gone).
+        $this->drafts->resolve($form->eventId, $form->id, $token, $choice, $actor);
     }
 
     public function submitToken(): string

@@ -53,7 +53,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  *   draft's claim count the page opened with: after a claim changed the draft, the save is a
  *   `kalaka_version_conflict` (409).
  * - `POST kalaka-portal/v1/forms/{id}/draft/claim` `{choice}` → `{resolved: true}` (S74): the person's
- *   choice between a link's answers and their own draft (`FormHost::resolveDraftClaim()`).
+ *   choice between a link's answers and their own draft (`FormHost::resolveDraftClaim()`). The same choice
+ *   again answers the same; a claim that cannot be applied is the host's own refusal (in an event form
+ *   `kalaka_draft_claim_refused`, 409).
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.

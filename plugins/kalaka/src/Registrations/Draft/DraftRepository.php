@@ -12,8 +12,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
  * The only writer of `kalaka_drafts` (S74). A draft is the audit subject `draft` (event, ID). Its answers
- * and its claim hash are secret columns: the audit records that they changed, never their values, so no
- * answer a link or the quiz handed over reaches the audit. [UNAPPROVED N4]
+ * and its claim hashes (`claim_hash`, `resolved_claim`) are secret columns: the audit records that they
+ * changed, never their values, so no answer a link or the quiz handed over reaches the audit. [UNAPPROVED N4]
  *
  * The lookups lock with `FOR UPDATE` by their own condition (`findWhere()`), not by key: a draft is found
  * by its person or its claim hash, never by its ID. Every writer locks a guest draft before the person's
@@ -107,6 +107,8 @@ final class DraftRepository extends EntityRepository
             'form_version' => $entity->formVersion,
             'user_id' => $entity->userId,
             'claim_hash' => $entity->claimHash,
+            'resolved_claim' => $entity->resolvedClaim,
+            'resolved_choice' => $entity->resolvedChoice,
             'answers' => $entity->answers->toJson(),
             'page' => $entity->page,
             'created_at' => Instant::toStorage($entity->createdAt),
@@ -131,12 +133,14 @@ final class DraftRepository extends EntityRepository
             (int) $row['id'],
             (int) $row['version'],
             (int) $row['claims'],
+            $row['resolved_claim'],
+            $row['resolved_choice'],
         );
     }
 
     protected function secretColumns(): array
     {
-        return ['answers', 'claim_hash'];
+        return ['answers', 'claim_hash', 'resolved_claim'];
     }
 
     protected function subject(object $record): Subject

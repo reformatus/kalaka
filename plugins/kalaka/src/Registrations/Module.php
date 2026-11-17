@@ -76,7 +76,8 @@ SQL;
      * draft has the SHA-256 of its claim token and `expires_at` instead. `answers` is a JSON object
      * (`Forms\Api\AnswerSet`); `page` is the last page shown, not read yet. `claims` counts the claims that
      * changed the person's draft: an autosave carries the count its page opened with, and a stale one is
-     * refused. [UNAPPROVED N1]
+     * refused. `resolved_claim` and `resolved_choice` are the hash of the last claim settled into a user
+     * draft and its choice, so a repeated choice answers as the first did. [UNAPPROVED N1] [UNAPPROVED N11]
      */
     private const DRAFTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_drafts (
@@ -88,6 +89,8 @@ CREATE TABLE {prefix}kalaka_drafts (
   form_version bigint(20) unsigned NOT NULL,
   user_id bigint(20) unsigned DEFAULT NULL,
   claim_hash char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  resolved_claim char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  resolved_choice varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
   answers longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   page smallint(5) unsigned NOT NULL DEFAULT 0,
   created_at datetime(6) NOT NULL,

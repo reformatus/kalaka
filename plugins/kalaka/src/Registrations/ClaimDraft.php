@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations;
 
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\AccountActor;
@@ -23,7 +24,9 @@ use Kalaka\Registrations\Draft\DraftRepository;
  * for another form claims nothing.
  *
  * When the guest draft becomes theirs, the draft's `claims` count goes up, so an autosave sent from a page
- * opened before (`SaveDraft`) cannot write over it.
+ * opened before (`SaveDraft`) cannot write over it. Either way the person's draft records the claim
+ * (`resolvedClaim`, with keep_draft when settled and no choice when it became theirs), so a choice sent for
+ * it later is answered as `ResolveDraftClaim` answers a repeat.
  */
 final class ClaimDraft implements PortalUseCase
 {
@@ -84,11 +87,16 @@ final class ClaimDraft implements PortalUseCase
             if ($changed) {
                 return DraftClaimOutcome::Conflict;
             }
+            $own->resolvedClaim = $guest->claimHash;
+            $own->resolvedChoice = DraftClaimChoice::KeepDraft->value;
+            $this->drafts->upsert($own, $context);
             $this->drafts->delete($guest, $context);
 
             return DraftClaimOutcome::Settled;
         }
         $guest->userId = $actor->userId;
+        $guest->resolvedClaim = $guest->claimHash;
+        $guest->resolvedChoice = null;
         $guest->claimHash = null;
         $guest->expiresAt = null;
         $guest->updatedAt = $context->now();
