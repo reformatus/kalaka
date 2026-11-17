@@ -48,7 +48,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
- * Every answer of both routes, refusals included, carries `Cache-Control: no-store` (`noStore()`).
+ * Every answer of both routes, refusals included, carries `Cache-Control: no-store` (`noStore()`). The
+ * submit is rate-limited (`SubmitGuard`, S14): too many attempts are `RateLimited` (429, `Retry-After`).
  * The current user is the one WordPress authenticated for the request; with cookie authentication that
  * needs the `wp_rest` nonce, else the request is a guest's. A nonce WordPress no longer accepts (the
  * session ended: say the password was set on another device, which logs out every session) is refused
@@ -100,7 +101,8 @@ final class FormRoutes
     /**
      * On `rest_request_after_callbacks`: every answer of these routes, refusals included, as a response
      * with `Cache-Control: no-store`. A `WP_Error` (what the boundary makes of a refusal, or a body that is
-     * not JSON) becomes its response here, as the server would make it. This filter runs for every request
+     * not JSON) becomes its response here, as the server would make it; a rate limit's (`RateLimited`) gets
+     * its `Retry-After`. This filter runs for every request
      * that reached a route, `rest_do_request()` included, unlike `rest_post_dispatch`.
      *
      * @internal
@@ -111,10 +113,19 @@ final class FormRoutes
         if (!$request instanceof \WP_REST_Request || !str_starts_with($request->get_route(), self::PREFIX)) {
             return $response;
         }
+        $retryAfter = null;
+        if ($response instanceof \WP_Error) {
+            /** @var mixed $data */
+            $data = $response->get_error_data();
+            $retryAfter = is_array($data) && is_int($data['retry_after'] ?? null) ? $data['retry_after'] : null;
+        }
         $response = $response instanceof \WP_Error
             ? rest_convert_error_to_response($response)
             : rest_ensure_response($response);
         $response->header('Cache-Control', FormCaching::CACHE_CONTROL);
+        if ($retryAfter !== null) {
+            $response->header('Retry-After', (string) $retryAfter);
+        }
 
         return $response;
     }
