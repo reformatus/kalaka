@@ -210,10 +210,12 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 	margin-top: 16px;
 }
 
+/* A label that wraps grows the button; it never goes below WordPress's 40 px size. */
 .kalaka-claim__choice .components-button {
 	white-space: normal;
 	text-align: left;
 	height: auto;
+	min-height: 40px;
 }
 
 .kalaka-claim .kalaka-claim__line {

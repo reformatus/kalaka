@@ -109,6 +109,37 @@ describe('the claim popup', () => {
 		expect(claimCalls()).toHaveLength(0);
 	});
 
+	test('every button takes WordPress’s 40 px size, and a wrapping choice never shrinks below it', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValue(
+			respond(409, { code: 'kalaka_draft_claim_refused', message: REFUSED_TEXT })
+		);
+		await open();
+		await click('Csak a bejövő válaszok');
+		const buttons = [...document.querySelectorAll('[role="dialog"] button')];
+		await click('Mégse');
+		await click('Egyesítés');
+		buttons.push(button('Az oldal újratöltése'));
+
+		expect(buttons.map((element) => element.textContent)).toEqual([
+			'Egyesítés',
+			'Csak a mentett válaszok',
+			'Csak a bejövő válaszok',
+			'Mégse',
+			'Igen, törlöm a mentett válaszaimat',
+			'Az oldal újratöltése',
+		]);
+		for (const element of buttons) {
+			expect(element.classList.contains('is-next-40px-default-size')).toBe(true);
+		}
+		// jsdom has no layout: the stylesheet's rule for the choices keeps the 40 px floor.
+		const css = require('fs').readFileSync(
+			require.resolve('../../src/Forms/Blocks/form/view.css'),
+			'utf8'
+		);
+		const rule = css.match(/\.kalaka-claim__choice \.components-button \{([^}]*)\}/);
+		expect(rule[1]).toMatch(/min-height: 40px;/);
+	});
+
 	test('cannot be dismissed: no close button, and Esc does nothing', async () => {
 		await open();
 
@@ -178,11 +209,46 @@ describe('the claim popup', () => {
 		expect(alertLine().textContent).toBe(REFUSED_TEXT);
 		expect(reload).not.toHaveBeenCalled();
 		expect(dialogs()).toHaveLength(1);
-		expect(document.activeElement).toBe(button('Egyesítés'));
-		expect(button('Egyesítés').disabled).toBe(false);
+		expect(claimCalls()).toHaveLength(1);
 
 		await click('Az oldal újratöltése');
 		expect(reload).toHaveBeenCalledTimes(1);
+	});
+
+	test('after a refusal the focus moves to the reload button, scrolled into view', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValue(
+			respond(409, { code: 'kalaka_draft_claim_refused', message: REFUSED_TEXT })
+		);
+		const scrolled = jest.fn();
+		window.HTMLElement.prototype.scrollIntoView = scrolled;
+		try {
+			await open();
+
+			await click('Csak a mentett válaszok');
+
+			expect(document.activeElement).toBe(button('Az oldal újratöltése'));
+			expect(scrolled).toHaveBeenCalledTimes(1);
+			expect(scrolled.mock.contexts[0]).toBe(button('Az oldal újratöltése'));
+		} finally {
+			delete window.HTMLElement.prototype.scrollIntoView;
+		}
+	});
+
+	test('after a refusal the three choices are disabled, and the reload button is not', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValue(
+			respond(409, { code: 'kalaka_draft_claim_refused', message: REFUSED_TEXT })
+		);
+		await open();
+
+		await click('Csak a bejövő válaszok');
+		await click('Igen, törlöm a mentett válaszaimat');
+
+		for (const label of ['Egyesítés', 'Csak a mentett válaszok', 'Csak a bejövő válaszok']) {
+			expect(button(label).disabled).toBe(true);
+		}
+		expect(button('Az oldal újratöltése').disabled).toBe(false);
+		await click('Egyesítés');
+		expect(claimCalls()).toHaveLength(1);
 	});
 
 	test('any other failure shows the form’s failure text, with no reload button', async () => {

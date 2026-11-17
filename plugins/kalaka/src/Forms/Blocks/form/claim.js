@@ -10,8 +10,10 @@
  *   stops the autosave first. When the route takes it, the page reloads, and that load shows the one-line
  *   notice (`view.js`).
  * - A refused claim (`kalaka_draft_claim_refused`) shows the route's text in the Modal's alert line and a
- *   button that reloads the page; any other failure shows the form's failure text. The focus returns to the
- *   button that was chosen.
+ *   button that reloads the page, which takes the focus and is scrolled into view (on a phone the line and
+ *   the button sit low in the sheet). The choices are disabled then: they would only be refused again. Any
+ *   other failure shows the form's failure text, and the focus returns to the button that was chosen.
+ * - Every button takes WordPress's 40 px size.
  *
  * A classic script on `wp-element` and `wp-components` (the extra entry of `webpack.config.js`), enqueued by
  * `render.php` only while a claim waits. Its texts come from the server (`DraftClaimTexts`).
@@ -69,10 +71,17 @@ export function ClaimPopup({ texts, failure, colour, send, reload }) {
 		keep_link: useRef(null),
 	};
 	const cancelRef = useRef(null);
+	const reloadRef = useRef(null);
 
 	useEffect(() => {
 		refs.merge.current?.focus();
 	}, []);
+	useEffect(() => {
+		if (refused) {
+			reloadRef.current?.focus();
+			reloadRef.current?.scrollIntoView?.({ block: 'nearest' });
+		}
+	}, [refused]);
 	useEffect(() => {
 		if (confirming) {
 			cancelRef.current?.focus();
@@ -94,13 +103,16 @@ export function ClaimPopup({ texts, failure, colour, send, reload }) {
 		}
 		const isRefused = answer?.body?.code === REFUSED;
 		setBusy(false);
-		setRefused(isRefused || refused);
 		setError(
 			isRefused && typeof answer.body.message === 'string'
 				? answer.body.message
 				: failure
 		);
-		focusLater(refs[choice]);
+		if (isRefused) {
+			setRefused(true);
+		} else {
+			focusLater(refs[choice]);
+		}
 	}
 
 	function cancel() {
@@ -116,7 +128,7 @@ export function ClaimPopup({ texts, failure, colour, send, reload }) {
 				Button,
 				{
 					ref: refs[name],
-					disabled: busy,
+					disabled: busy || refused,
 					'aria-describedby': 'kalaka-claim-' + name,
 					__next40pxDefaultSize: true,
 					...props,
@@ -180,6 +192,7 @@ export function ClaimPopup({ texts, failure, colour, send, reload }) {
 					el(
 						Button,
 						{
+							ref: reloadRef,
 							variant: 'secondary',
 							__next40pxDefaultSize: true,
 							onClick: () => reload(),
