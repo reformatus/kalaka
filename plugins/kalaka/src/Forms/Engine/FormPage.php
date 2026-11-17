@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Engine;
 
 use Kalaka\Forms\Api\AccessRefusal;
+use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
+use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
@@ -138,9 +140,15 @@ final class FormPage
     {
         $definition = $this->forms->definition($form);
 
-        // No answers yet: what the form shows before anything is filled in.
-        $availability = $this->forms->availability($definition, [], $values);
-        $content = $this->render($this->blocks($form, $form->version, $availability), $values, $availability);
+        // What the form opens with: the host's stored values as answers (none for a new registration),
+        // and what the form shows for them.
+        $answers = $this->prefilled($definition, $this->host->prefill($form));
+        $availability = $this->forms->availability($definition, $answers, $values);
+        $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(
+            $this->blocks($form, $form->version, $availability),
+            $values,
+            $availability
+        ));
 
         return new FormPageView(null, $content, [
             'formId' => $form->id,
@@ -157,6 +165,31 @@ final class FormPage
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
         ], null, $this->host->submitToken());
+    }
+
+    /**
+     * The answers a form opens with: each of its fields with a stored value, as its type prefills it
+     * (`FieldType::prefill()`); a type that refuses, or a value it makes nothing of, opens empty.
+     *
+     * @param array<string, string> $stored field key → the stored value
+     * @return array<string, mixed>
+     */
+    private function prefilled(FormDefinition $definition, array $stored): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $answers = [];
+        foreach ($definition->fields as $field) {
+            $type = $types[$field->blockName] ?? null;
+            if ($type === null || !isset($stored[$field->key])) {
+                continue;
+            }
+            $answer = $type->prefill(new FieldTypeInput($stored[$field->key], $field->attributes));
+            if ($answer !== null) {
+                $answers[$field->key] = $answer;
+            }
+        }
+
+        return $answers;
     }
 
     /**
@@ -303,7 +336,8 @@ final class FormPage
 
     /**
      * A branch's wrapper (`BranchMarkup`, hidden by default) shown when it is the branch of its chain that
-     * shows for the form's current answers, so the page without the script is the form for no answers.
+     * shows for the form's current answers, so the page without the script is the form for
+     * its prefilled answers (none for a new registration).
      */
     private function shownBranch(string $html, int $chain, int $branch): string
     {

@@ -5,8 +5,8 @@
  * names on any page. In place of the form it renders one refusal (a paragraph, or WordPress's own password
  * form); otherwise the JavaScript warning, the form, its buttons (Vissza and Tovább only on a multi-page
  * form, shown by the script) and the loading spinner, which the script shows after 2 seconds. Without
- * JavaScript the form stays as the server rendered it for no answers and the buttons stay disabled; the
- * script enables them when it starts.
+ * JavaScript the form stays as the server rendered it for its prefilled answers (none for a new
+ * registration) and the buttons stay disabled; the script enables them when it starts.
  * All of it renders inside the form's one error boundary (`FormPage::html()`).
  *
  * @var array<string, mixed> $attributes

@@ -80,6 +80,22 @@ final class ChoiceFieldType extends AbstractFieldType
         return FieldAnswer::stored($multiple ? (string) wp_json_encode($chosen) : $chosen[0]);
     }
 
+    /**
+     * The chosen option value, or the list of them when `multiple`; null for none. A stored value that is not
+     * one of the field's options is dropped, so the field opens without it.
+     */
+    public function prefill(FieldTypeInput $input): mixed
+    {
+        $data = $this->value($input)->data;
+        $options = self::optionValues($input->attributes) ?? [];
+        $data = is_array($data) ? array_values(array_intersect($data, $options)) : [];
+        if ($data === []) {
+            return null;
+        }
+
+        return ($input->attributes['multiple'] ?? false) === true ? $data : $data[0];
+    }
+
     public function valueType(): ValueType
     {
         return ValueType::Choice;

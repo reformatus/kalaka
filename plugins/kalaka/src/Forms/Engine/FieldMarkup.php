@@ -22,6 +22,44 @@ final class FieldMarkup
      */
     public const DATE_AUTOCOMPLETE = ['bday'];
 
+    /** @var list<array<string, mixed>> the answers the forms being rendered open with, innermost last */
+    private static array $prefill = [];
+
+    /**
+     * Renders with the answers a form opens with (`FormPage`): each field block reads its own through
+     * `prefilled()`.
+     *
+     * @template T
+     * @param array<string, mixed> $answers field key → the answer, as `FieldType::prefill()` gives it
+     * @param \Closure(): T $render
+     * @return T
+     */
+    public static function withPrefill(array $answers, \Closure $render): mixed
+    {
+        self::$prefill[] = $answers;
+        try {
+            return $render();
+        } finally {
+            array_pop(self::$prefill);
+        }
+    }
+
+    /** The answer the field opens with in the form being rendered, or null: empty. */
+    public static function prefilled(string $key): mixed
+    {
+        return self::$prefill === [] ? null : (self::$prefill[array_key_last(self::$prefill)][$key] ?? null);
+    }
+
+    /**
+     * Whether an option value is the prefilled answer, or one of them.
+     */
+    public static function prefilledHas(string $key, string $value): bool
+    {
+        $answer = self::prefilled($key);
+
+        return $answer === $value || (is_array($answer) && in_array($value, $answer, true));
+    }
+
     /** The id of a field's control, which its `label` names. */
     public static function controlId(string $key): string
     {
@@ -119,12 +157,15 @@ final class FieldMarkup
     ): string {
         $key = self::text($attributes, 'key');
         $id = esc_attr(self::controlId($key));
+        $prefilled = self::prefilled($key);
+        $prefilled = is_string($prefilled) ? $prefilled : null;
         $controlAttributes = ' id="' . $id . '" name="' . esc_attr($key) . '"'
             . ($autocomplete === null ? '' : ' autocomplete="' . esc_attr($autocomplete) . '"')
             . self::classAttribute(ElementRole::TextControl) . ($required ? ' required' : '');
         $control = $multiline
-            ? '<textarea' . $controlAttributes . '></textarea>'
-            : '<input type="' . esc_attr($inputType) . '"' . $controlAttributes . '>';
+            ? '<textarea' . $controlAttributes . '>' . esc_textarea($prefilled ?? '') . '</textarea>'
+            : '<input type="' . esc_attr($inputType) . '"' . $controlAttributes
+                . ($prefilled === null ? '' : ' value="' . esc_attr($prefilled) . '"') . '>';
         $tag = self::wrapperTag(true);
 
         return '<' . $tag . ' ' . self::wrapperAttributes($key) . '>'
