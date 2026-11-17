@@ -65,6 +65,7 @@ final class DraftPageTest extends FormsTestCase
         Runner::publish($this->previous);
         $GLOBALS['wp_rest_server'] = null;
         unset($_COOKIE[DraftClaim::COOKIE]);
+        DraftHandoff::forget();
         wp_set_current_user(0);
         parent::tear_down();
     }
@@ -320,6 +321,7 @@ final class DraftPageTest extends FormsTestCase
         $other = $this->post('draft/claim', ['choice' => 'merge']);
         self::assertSame(409, $other->get_status());
         self::assertSame('kalaka_draft_claim_refused', $other->get_data()['code']);
+        self::assertSame('', $other->get_data()['message'], 'no text before the owner approves it (N11)');
         self::assertSame(['note' => 'a kvízből'], $this->storedAnswers());
     }
 
@@ -432,7 +434,52 @@ final class DraftPageTest extends FormsTestCase
 
         self::assertNotNull(DraftClaim::current());
         self::assertCount(2, $this->draftRows());
-        self::assertArrayHasKey('draftClaimUrl', $this->context($this->render()));
+        $context = $this->context($this->render());
+        self::assertArrayHasKey('draftClaimUrl', $context);
+        self::assertSame(1, $context['draftClaimChanges'], 'only polo changes; szallas is the same');
+        self::assertArrayNotHasKey('draftClaimNotice', $context);
+    }
+
+    public function testThePageCountsTheFieldsTheLinkWouldChange(): void
+    {
+        $user = $this->logIn();
+        $this->autosave(['name' => 'Teszt Anna', 'szallas' => 'igen', 'polo' => 'l']);
+
+        $link = ['szallas' => 'nem', 'polo' => 'm', 'note' => 'a kvízből', 'name' => 'Teszt Anna'];
+        (new DraftHandoff())->handle($this->page(), $link, new AccountActor($user));
+
+        self::assertSame(3, $this->context($this->render())['draftClaimChanges']);
+    }
+
+    public function testTheLoadAfterAChoiceCarriesItOnceForTheNotice(): void
+    {
+        $user = $this->logIn();
+        $this->autosave(['name' => 'Teszt Anna', 'note' => 'saját']);
+        (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new AccountActor($user));
+        self::assertArrayNotHasKey('draftClaimNotice', $this->context($this->render()));
+        self::assertSame(200, $this->post('draft/claim', ['choice' => 'merge'])->get_status());
+
+        // The reload after the choice: the cookie is cleared, and the page carries the choice.
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+        self::assertNull(DraftClaim::current());
+        $context = $this->context($this->render());
+        self::assertSame('merge', $context['draftClaimNotice']);
+        self::assertArrayNotHasKey('draftClaimUrl', $context);
+
+        // The next load: no cookie, no notice.
+        DraftHandoff::forget();
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+        self::assertArrayNotHasKey('draftClaimNotice', $this->context($this->render()));
+    }
+
+    public function testAClaimSettledOnThePageWithNoChoiceGivesNoNotice(): void
+    {
+        (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
+        $user = $this->logIn();
+
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+
+        self::assertArrayNotHasKey('draftClaimNotice', $this->context($this->render()));
     }
 
     /** @return iterable<string, array{string, int}> the choice and the status of a save from before it */

@@ -130,6 +130,33 @@ describe('the autosave and the claim', () => {
 		expect(draftCalls()).toHaveLength(0);
 	});
 
+	test('takes the choice from a script outside the form (a modal), and sends nothing by itself', async () => {
+		document.body.innerHTML = form(text('name'), {
+			draftUrl: DRAFT_URL,
+			draftClaimUrl: CLAIM_URL,
+			draftClaimChanges: 2,
+		});
+		let actions;
+		jest.isolateModules(() => {
+			require('../../src/Forms/Blocks/form/view');
+			actions = require('@wordpress/interactivity').store('kalaka/form').actions;
+		});
+		while (root().querySelector('[data-kalaka-send]').disabled) {
+			await settle();
+		}
+		await settle();
+		expect(claimCalls()).toHaveLength(0);
+
+		type(root(), 'name', 'Teszt Anna');
+		const answer = await actions.resolveDraftClaim('keep_link');
+
+		expect(answer.ok).toBe(true);
+		expect(claimCalls()).toHaveLength(1);
+		expect(JSON.parse(claimCalls()[0][1].body)).toEqual({ choice: 'keep_link' });
+		window.dispatchEvent(new Event('pagehide'));
+		expect(draftCalls()).toHaveLength(0);
+	});
+
 	test('sends no choice without a claim route', async () => {
 		await load(form(text('name') + choice('keep_link'), { draftUrl: DRAFT_URL }));
 
