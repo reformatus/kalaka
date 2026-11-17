@@ -47,7 +47,7 @@ final class AmountFieldFormTest extends FormsTestCase
             $this->forms->validate($definition, $slot + ['adomany' => '1200']);
             self::fail('Refused.');
         } catch (InvalidAnswers $refused) {
-            self::assertSame(['adomany' => 'Az összeg 500 Ft többszöröse legyen.'], $refused->fields);
+            self::assertSame(['adomany' => "Az összeg 500\u{00A0}Ft többszöröse legyen."], $refused->fields);
         }
     }
 }

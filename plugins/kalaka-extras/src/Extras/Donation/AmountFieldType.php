@@ -28,6 +28,12 @@ final class AmountFieldType extends AbstractFieldType implements MoneyRelevantFi
     /** At most this many digits: far below what `DECIMAL(26,8)` holds. */
     public const DIGITS = 12;
 
+    /** The no-break space (U+00A0) of an amount's text. */
+    private const NBSP = "\u{00A0}";
+
+    /** The currency after an amount, joined by a no-break space. */
+    private const FT = self::NBSP . 'Ft';
+
     public function blockName(): string
     {
         return self::BLOCK;
@@ -46,15 +52,15 @@ final class AmountFieldType extends AbstractFieldType implements MoneyRelevantFi
         if ($amount > 0) {
             $min = self::limit($input->attributes, 'min');
             if ($min !== null && $amount < $min) {
-                return FieldAnswer::error(sprintf('Ha megadsz összeget, legalább %s Ft legyen.', self::grouped($min)));
+                return FieldAnswer::error(sprintf('Ha megadsz összeget, legalább %s legyen.', self::forints($min)));
             }
             $step = self::limit($input->attributes, 'step');
             if ($step !== null && $step > 0 && $amount % $step !== 0) {
-                return FieldAnswer::error(sprintf('Az összeg %s Ft többszöröse legyen.', self::grouped($step)));
+                return FieldAnswer::error(sprintf('Az összeg %s többszöröse legyen.', self::forints($step)));
             }
             $max = self::limit($input->attributes, 'max');
             if ($max !== null && $amount > $max) {
-                return FieldAnswer::error(sprintf('Legfeljebb %s Ft-ot adhatsz meg.', self::grouped($max)));
+                return FieldAnswer::error(sprintf('Legfeljebb %s-ot adhatsz meg.', self::forints($max)));
             }
         }
 
@@ -75,13 +81,22 @@ final class AmountFieldType extends AbstractFieldType implements MoneyRelevantFi
         }
         $amount = (int) $stored;
 
-        return Value::number((string) $amount, self::grouped($amount) . ' Ft');
+        return Value::number((string) $amount, self::forints($amount));
     }
 
-    /** A whole number with a space between each group of three digits: `5 000`. */
-    public static function grouped(int $amount): string
+    /**
+     * An amount's text: a no-break space (U+00A0) between each group of three digits and before „Ft”, so a line
+     * never breaks inside an amount (Hungarian typography; T5): `5 000 Ft`.
+     */
+    public static function forints(int $amount): string
     {
-        return number_format($amount, 0, '', ' ');
+        return self::grouped($amount) . self::FT;
+    }
+
+    /** As `forints()`, without the currency. */
+    private static function grouped(int $amount): string
+    {
+        return number_format($amount, 0, '', self::NBSP);
     }
 
     /**
