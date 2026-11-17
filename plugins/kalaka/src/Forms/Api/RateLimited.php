@@ -27,8 +27,9 @@ final class RateLimited extends KalakaException
 
     protected function defaultMessage(): string
     {
-        // [UNAPPROVED #196 T1] the refusal's text; empty until the owner approves one, so the page shows the code.
-        return '';
+        // #196 T1, approved by the owner.
+        return 'Rövid idő alatt túl sok próbálkozás érkezett. '
+            . 'A válaszaid megmaradtak: várj néhány percet, és küldd el újra.';
     }
 
     public function errorCode(): string

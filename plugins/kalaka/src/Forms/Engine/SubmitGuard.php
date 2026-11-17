@@ -9,9 +9,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * The check a form submit passes before it reaches the submit seam: spam protection (S14), a rate limit
- * per client (`RateLimiter`). A logged-in person counts by their account, a guest by their address
- * (`ClientAddress`). Every attempt that reaches it counts, refused answers and repeats included. It is
- * core, not an extension point: a point is added only when one of our own extensions needs it
+ * per client (`RateLimiter`). A logged-in person counts by their account, 20 attempts per window; a guest
+ * by their address (`ClientAddress`), 100, since a shared address (a school, a church, a carrier's NAT)
+ * carries many people (owner ruling 2026-11-17). Every attempt that reaches it counts, refused answers
+ * and repeats included. It is core, not an extension point: a point is added only when one of our own
+ * extensions needs it
  * (modules-and-extensions.md, "Contracts"), and an interface only where there are several
  * implementations (foundation.md, "Layers").
  *
@@ -23,17 +25,23 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  */
 final class SubmitGuard
 {
-    /** [UNAPPROVED #196 N1] attempts per client per window. */
-    public const LIMIT = 20;
+    /** [UNAPPROVED #196 N1] attempts per account per window. */
+    public const ACCOUNT_LIMIT = 20;
+
+    /** [UNAPPROVED #196 N1] attempts per address per window (a guest's). */
+    public const ADDRESS_LIMIT = 100;
 
     /** [UNAPPROVED #196 N1] the window, in seconds. */
     public const WINDOW = 600;
 
-    private readonly RateLimiter $limiter;
+    private readonly RateLimiter $accounts;
 
-    public function __construct(?RateLimiter $limiter = null)
+    private readonly RateLimiter $addresses;
+
+    public function __construct()
     {
-        $this->limiter = $limiter ?? new RateLimiter('submit', self::LIMIT, self::WINDOW);
+        $this->accounts = new RateLimiter('submit', self::ACCOUNT_LIMIT, self::WINDOW);
+        $this->addresses = new RateLimiter('submit', self::ADDRESS_LIMIT, self::WINDOW);
     }
 
     /**
@@ -43,7 +51,9 @@ final class SubmitGuard
      */
     public function check(SubmitAttempt $attempt): void
     {
-        $this->limiter->hit(self::client($attempt), Runner::current()->clock()->now());
+        $client = self::client($attempt);
+        $limiter = str_starts_with($client, 'account:') ? $this->accounts : $this->addresses;
+        $limiter->hit($client, Runner::current()->clock()->now());
     }
 
     /** [UNAPPROVED #196 N2] whom an attempt counts for: the account when logged in, else the address. */

@@ -73,10 +73,10 @@ final class SubmitRateLimitTest extends FormsTestCase
         return rest_do_request($request);
     }
 
-    /** Uses up the window's attempts with refused submits (an undeclared key): they count too. */
+    /** Uses up a guest's attempts in the window with refused submits (an undeclared key): they count too. */
     private function useUp(int $form): void
     {
-        for ($i = 0; $i < SubmitGuard::LIMIT; $i++) {
+        for ($i = 0; $i < SubmitGuard::ADDRESS_LIMIT; $i++) {
             $response = $this->submit($form, ['nope' => 'x']);
             self::assertNotSame(429, $response->get_status());
         }
@@ -160,8 +160,8 @@ final class SubmitRateLimitTest extends FormsTestCase
 
         $other = self::factory()->user->create();
         wp_set_current_user($other);
-        for ($i = 0; $i < SubmitGuard::LIMIT; $i++) {
-            $this->submit($form, ['nope' => 'x']);
+        for ($i = 0; $i < SubmitGuard::ACCOUNT_LIMIT; $i++) {
+            self::assertNotSame(429, $this->submit($form, ['nope' => 'x'])->get_status());
         }
         self::assertSame(429, $this->submit($form)->get_status());
     }
@@ -196,7 +196,7 @@ final class SubmitRateLimitTest extends FormsTestCase
         $file = (string) wp_tempnam('rate-limit');
         $log = ini_set('error_log', $file);
         try {
-            for ($i = 0; $i <= SubmitGuard::LIMIT; $i++) {
+            for ($i = 0; $i <= SubmitGuard::ADDRESS_LIMIT; $i++) {
                 $this->submit($form, ['nope' => 'x']);
             }
             $response = $this->submit($form);
