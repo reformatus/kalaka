@@ -11,6 +11,8 @@
  * Requires Plugins: kalaka
  */
 
+// The plugin name is UI text: [UNAPPROVED N5].
+
 declare(strict_types=1);
 
 defined('ABSPATH') || exit;
