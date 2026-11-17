@@ -35,10 +35,13 @@ defined('ABSPATH') || exit;
 $kalakaKey = FieldMarkup::text($attributes, 'key');
 $kalakaRequired = FieldMarkup::flag($attributes, 'required');
 $kalakaLabels = RankingFieldType::labels($attributes);
-// Nothing prefills a form yet: the ranking opens empty. TODO(S60) an additional form opens with the current
-// value, cleaned by `RankingFieldType::prefilled()`.
-/** @var list<string> $kalakaRanked */
-$kalakaRanked = [];
+// The order the form opens with (a stored ranking, as `RankingFieldType::prefill()` cleaned it); only the keys
+// this block offers, so a row is never rendered for an option it does not have.
+$kalakaPrefilled = FieldMarkup::prefilled($kalakaKey);
+$kalakaRanked = array_values(array_filter(
+    is_array($kalakaPrefilled) ? $kalakaPrefilled : [],
+    static fn (mixed $value): bool => is_string($value) && isset($kalakaLabels[$value])
+));
 // The counter and the minimum's line describe every toggle, so a focused „+” says why it does nothing.
 $kalakaCounterId = FieldMarkup::controlId($kalakaKey) . '-counter';
 $kalakaMinimumId = FieldMarkup::controlId($kalakaKey) . '-minimum';

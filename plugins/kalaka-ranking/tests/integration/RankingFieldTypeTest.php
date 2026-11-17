@@ -131,39 +131,44 @@ final class RankingFieldTypeTest extends WP_UnitTestCase
         self::assertSame('', $value->text);
     }
 
-    public function testPrefillDropsUnknownKeysAndRepeatsSilently(): void
+    /**
+     * The stored ranking as the type opens it (`FieldType::prefill()`).
+     *
+     * @param array<string, mixed> $attributes
+     */
+    private function prefill(mixed $stored, array $attributes = []): mixed
     {
-        self::assertSame(
-            ['modul_c', 'modul_a'],
-            RankingFieldType::prefilled(['modul_x', 'modul_c', 'modul_c', 7, 'modul_a'], self::attributes())
-        );
+        return $this->type->prefill(new FieldTypeInput($stored, self::attributes($attributes)));
+    }
+
+    public function testPrefillDropsOnlyTheUnknownKeysAndRepeatsAndKeepsTheRestInOrder(): void
+    {
+        self::assertSame(['modul_c', 'modul_a'], $this->prefill('["modul_c","modul_x","modul_c","modul_a"]'));
+        self::assertSame(['modul_c', 'modul_a'], $this->prefill('["modul_x","modul_c","modul_c",7,"modul_a"]'));
     }
 
     public function testPrefillKeepsTheFirstMaxOfALongerList(): void
     {
         self::assertSame(
             ['modul_d', 'modul_c', 'modul_b'],
-            RankingFieldType::prefilled(['modul_d', 'modul_c', 'modul_b', 'modul_a'], self::attributes())
+            $this->prefill('["modul_d","modul_c","modul_b","modul_a"]')
         );
     }
 
     public function testPrefillKeepsTooFewAsTheyAreAndTheSubmitAsksForMore(): void
     {
-        $attributes = self::attributes(['min' => 3]);
-        $prefilled = RankingFieldType::prefilled(['modul_b'], $attributes);
+        $prefilled = $this->prefill('["modul_b"]', ['min' => 3]);
 
         self::assertSame(['modul_b'], $prefilled);
         self::assertSame('Legalább 3 lehetőséget válassz.', $this->answer($prefilled, ['min' => 3])->error);
     }
 
-    public function testPrefillReadsAStoredRankingAndIgnoresAnythingElse(): void
+    public function testPrefillOpensEmptyForAnythingButAStoredListWithAnOfferedKey(): void
     {
-        self::assertSame(
-            ['modul_b', 'modul_a'],
-            RankingFieldType::prefilled('["modul_b","modul_a"]', self::attributes())
-        );
-        self::assertSame([], RankingFieldType::prefilled('modul_a', self::attributes()));
-        self::assertSame([], RankingFieldType::prefilled(['a' => 'modul_a'], self::attributes()));
-        self::assertSame([], RankingFieldType::prefilled(null, self::attributes()));
+        self::assertNull($this->prefill('modul_a'));
+        self::assertNull($this->prefill('{"a":"modul_a"}'));
+        self::assertNull($this->prefill('["modul_x"]'));
+        self::assertNull($this->prefill('[]'));
+        self::assertNull($this->prefill(null));
     }
 }

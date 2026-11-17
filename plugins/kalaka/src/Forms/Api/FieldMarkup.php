@@ -9,9 +9,10 @@ use Kalaka\Forms\Engine\FieldMarkup as EngineFieldMarkup;
 /**
  * The shared pieces of a field block's markup, for an extension's field type (its block's `render.php`):
  * the wrapper, the classes of each element role (core's own classes, then the theme adapter's), the
- * required marker and the error element, the same as core's own field blocks render them. Every string
- * it returns is already escaped. An extension's field type uses these, so the theme adapter reaches its
- * markup too and core never changes markup an extension produced (modules-and-extensions.md, "Contracts").
+ * required marker and the error element, the same as core's own field blocks render them, and the answer
+ * the field opens with. Every string it returns is already escaped. An extension's field type uses these,
+ * so the theme adapter reaches its markup too and core never changes markup an extension produced
+ * (modules-and-extensions.md, "Contracts").
  */
 final class FieldMarkup
 {
@@ -52,6 +53,15 @@ final class FieldMarkup
     public static function errorElement(string $key): string
     {
         return EngineFieldMarkup::errorElement($key);
+    }
+
+    /**
+     * The answer the field opens with in the form being rendered, as its type's `FieldType::prefill()` gave
+     * it (not escaped), or null: empty.
+     */
+    public static function prefilled(string $key): mixed
+    {
+        return EngineFieldMarkup::prefilled($key);
     }
 
     /** A title or label as authored (HTML, filtered). */

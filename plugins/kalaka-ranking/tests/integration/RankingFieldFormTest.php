@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Ranking;
 
+use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Engine\FormPage;
+use Kalaka\Forms\Engine\FormPageView;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ranking\RankingFieldType;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
+use Kalaka\Tests\Integration\Forms\PrefillingHost;
 
 /**
  * The ranking field in a form: contributed and registered, checked at submit by the form's walk, rendered
- * with core's field markup, and declared as the event's participant field like any field.
+ * with core's field markup, opened with a stored ranking in its order, and declared as the event's
+ * participant field like any field.
  */
 final class RankingFieldFormTest extends FormsTestCase
 {
@@ -219,5 +226,103 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame('form', $fields['modulok']->source);
         self::assertSame([], $fields['modulok']->options);
         self::assertSame('Rangsor', $fields['modulok']->typeLabel);
+    }
+
+    /**
+     * The form page of a published event's registration form holding the ranking, opened with the stored values
+     * (`FormHost::prefill()`: a draft, an additional form's current values).
+     *
+     * @param array<string, string> $stored
+     */
+    private function page(array $stored, int $max = 2): string
+    {
+        $day = static fn (int $offset): string => Runner::current()->clock()->now()->setTimezone(wp_timezone())
+            ->setTime(0, 0)->modify(sprintf('%+d days', $offset))->format('Y-m-d H:i');
+        $event = $this->create('Nyári tábor');
+        $this->update($event, [
+            'name' => 'Nyári tábor',
+            'registration_opens_at' => $day(-1),
+            'registration_closes_at' => $day(10),
+            'starts_at' => $day(30),
+            'ends_at' => $day(36),
+        ]);
+        $this->transition(new PublishEvent(), $event);
+        $formId = $this->insertForm(
+            $this->slotFields() . $this->ranking('modulok', ['required' => true, 'max' => $max]),
+            ['kalaka_event_id' => $event]
+        );
+
+        return (new FormPage(new PrefillingHost(new EventFormHost(), $stored)))->html(
+            $formId,
+            static function (FormPageView $view): void {
+                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the rendered form
+                echo $view->content;
+            }
+        );
+    }
+
+    /** The markup of the ranked list. */
+    private static function ranked(string $html): string
+    {
+        preg_match('#<ol data-kalaka-ranked[^>]*>(.*?)</ol>#s', $html, $ranked);
+
+        return $ranked[1] ?? '';
+    }
+
+    public function testAStoredRankingOpensInItsOrderWithNoErrorShown(): void
+    {
+        $html = $this->page(['modulok' => '["modul_c","modul_a"]']);
+
+        $ranked = self::ranked($html);
+        self::assertSame(2, preg_match_all('#value="(modul_[a-c])"[^>]* checked>#', $ranked, $keys));
+        self::assertSame(['modul_c', 'modul_a'], $keys[1]);
+        self::assertSame(2, substr_count($ranked, '<span data-kalaka-handle aria-hidden="true">⠿</span>'));
+        self::assertStringContainsString('aria-label="Modul C eltávolítása a sorrendből"', $ranked);
+        // Pass 4's markup: each toggle described by the counter and the line, the empty-row list named.
+        self::assertStringContainsString(
+            ' aria-describedby="kalaka-field-modulok-counter kalaka-field-modulok-minimum"',
+            $ranked
+        );
+        self::assertStringContainsString(
+            '<ol data-kalaka-empty role="list" aria-label="Üres helyek a sorrendben"',
+            $html
+        );
+        // The minimum is met: no empty rows; the counter counts the stored ones; the rest stay unranked.
+        self::assertMatchesRegularExpression('#<ol data-kalaka-empty [^>]*start="3" hidden></ol>#', $html);
+        self::assertStringContainsString('>2 / 2 kiválasztva</p>', $html);
+        preg_match('#<ul data-kalaka-unranked[^>]*>(.*?)</ul>#s', $html, $others);
+        self::assertStringContainsString('value="modul_b"', $others[1] ?? '');
+        self::assertStringNotContainsString(' checked', $others[1] ?? '');
+        // No error: the form renders, and nothing is marked invalid.
+        self::assertStringNotContainsString('Hibás vagy hiányzó adat.', $html);
+        self::assertStringNotContainsString('aria-invalid', $html);
+        self::assertMatchesRegularExpression('#<span id="kalaka-field-modulok-error" [^>]*hidden></span>#', $html);
+    }
+
+    public function testAStoredRankingWithUnknownKeysAndRepeatsOpensWithTheRest(): void
+    {
+        $html = $this->page(['modulok' => '["modul_b","modul_x","modul_b","modul_a"]'], 3);
+
+        self::assertSame(2, preg_match_all('#value="(modul_[a-c])"[^>]* checked>#', self::ranked($html), $keys));
+        self::assertSame(['modul_b', 'modul_a'], $keys[1]);
+        self::assertStringNotContainsString('modul_x', $html);
+        self::assertStringNotContainsString('Hibás vagy hiányzó adat.', $html);
+    }
+
+    public function testASubmittedRankingOpensAgainInTheOrderItWasSent(): void
+    {
+        // The form sends `modulok[]` in rank order; the type stores that list, and the page opens with it.
+        $definition = $this->forms->definition($this->readForm($this->slotForm($this->ranking())));
+        $stored = $this->forms->validate($definition, [
+            'name' => 'Teszt Anna',
+            'email' => 'teszt.anna@example.org',
+            'modulok' => ['modul_b', 'modul_c'],
+        ])->stored()['modulok'];
+
+        $html = $this->page(['modulok' => $stored]);
+
+        self::assertSame(2, preg_match_all('#value="(modul_[a-c])"[^>]* checked>#', self::ranked($html), $keys));
+        self::assertSame(['modul_b', 'modul_c'], $keys[1]);
+        self::assertStringNotContainsString('Hibás vagy hiányzó adat.', $html);
     }
 }

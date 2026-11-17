@@ -218,7 +218,8 @@ values and conditions, prefill and form links
 - A form opens with its host's stored values (`FormHost::prefill()`), each
   turned into its field's answer by `FieldType::prefill()` (null opens it
   empty: a type that refuses prefill). The page is walked and rendered for
-  those answers; each field block renders its own (`Engine\FieldMarkup::prefilled()`).
+  those answers; each field block renders its own (`Engine\FieldMarkup::prefilled()`;
+  an extension's through `Api\FieldMarkup::prefilled()`).
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
   answers of fields that show; it keeps nothing across a reload.

@@ -119,30 +119,29 @@ final class RankingFieldType extends AbstractFieldType
     }
 
     /**
-     * The order a ranking opens with, from a prefilled value (a list of keys, or a stored ranking's JSON):
-     * keys the block does not offer, repeats and anything that is not a key are dropped silently, then the
-     * first `max` are kept (S45-1). Too few are kept as they are: the submit asks for more.
+     * The order a stored ranking opens with (`FieldType::prefill()`; S45-1): the keys the block does not offer,
+     * repeats and anything that is not a key are dropped silently, and the rest are kept in their order; then
+     * the first `max` are kept. Too few are kept as they are: the submit asks for more. Null when nothing is
+     * left, or the stored value is no JSON list.
      *
-     * @param array<string, mixed> $attributes
-     * @return list<string>
+     * @return list<string>|null
      */
-    public static function prefilled(mixed $value, array $attributes): array
+    public function prefill(FieldTypeInput $input): ?array
     {
-        if (is_string($value)) {
-            $value = json_decode($value, true);
+        $stored = is_string($input->value) ? json_decode($input->value, true) : null;
+        if (!is_array($stored) || !array_is_list($stored)) {
+            return null;
         }
-        if (!is_array($value) || !array_is_list($value)) {
-            return [];
-        }
-        $offered = self::optionKeys($attributes);
+        $offered = self::optionKeys($input->attributes);
         $kept = [];
-        foreach ($value as $key) {
+        foreach ($stored as $key) {
             if (is_string($key) && in_array($key, $offered, true) && !in_array($key, $kept, true)) {
                 $kept[] = $key;
             }
         }
+        $kept = array_slice($kept, 0, self::max($input->attributes));
 
-        return array_slice($kept, 0, self::max($attributes));
+        return $kept === [] ? null : $kept;
     }
 
     /**

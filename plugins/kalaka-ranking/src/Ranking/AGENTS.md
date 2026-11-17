@@ -32,9 +32,10 @@ It holds the ranking field type now and the ranking proposer later (S77).
   block's options, none twice, at least `min` (1 or more) and at most `max`
   (never below `min`). It is stored as that list in JSON; for a condition it
   is a choice value, and its text numbers the option labels.
-- A prefilled order drops unknown keys and repeats silently, then keeps the
-  first `max` (`RankingFieldType::prefilled()`); too few stay, and the submit
-  asks for more.
+- A stored ranking opens in its order (`RankingFieldType::prefill()`, the
+  field-type contract, rendered from `FieldMarkup::prefilled()`): unknown
+  keys and repeats are dropped silently, the rest kept in order, then the
+  first `max`; too few stay, and the submit asks for more.
 - The options are the block's own list of `{value, label}` until S44's
   assignment sets exist; every option is offered until then (TODO(S76)).
 - The markup is core's field markup (`Forms\Api\FieldMarkup`): a choice group
