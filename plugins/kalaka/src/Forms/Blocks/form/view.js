@@ -71,7 +71,7 @@ const SESSION_ENDED = 'kalaka_session_ended';
 /**
  * The refusal of a send over the rate limit (S14, `RateLimited`): too many sends from this person or
  * address in a short time. It shows its own message, or its code while the message is empty; the answers
- * stay, and a later send may go through. [UNAPPROVED S14 N6]
+ * stay, and a later send may go through. [UNAPPROVED #196 N6]
  */
 const RATE_LIMITED = 'kalaka_rate_limited';
 

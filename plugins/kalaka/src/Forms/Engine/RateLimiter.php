@@ -24,7 +24,7 @@ use Kalaka\Foundation\Api\Entry\Boundary;
  *
  * It runs outside any transaction, before the route's use case.
  *
- * [UNAPPROVED S14 N3] the transient, its keyed-hash name, the lock and failing open.
+ * [UNAPPROVED #196 N3] the transient, its keyed-hash name, the lock and failing open.
  */
 final class RateLimiter
 {

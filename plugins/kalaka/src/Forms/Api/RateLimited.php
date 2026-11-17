@@ -13,7 +13,7 @@ use Kalaka\Foundation\Api\Error\KalakaException;
  * code (`kalaka_rate_limited`) lets the page show it as its own case. Not audited: it is refused before
  * any use case, and a flood must not fill the audit.
  *
- * [UNAPPROVED S14 N5] the code, the status and `Retry-After`.
+ * [UNAPPROVED #196 N5] the code, the status and `Retry-After`.
  */
 final class RateLimited extends KalakaException
 {
@@ -27,7 +27,7 @@ final class RateLimited extends KalakaException
 
     protected function defaultMessage(): string
     {
-        // [UNAPPROVED S14 T1] the refusal's text; empty until the owner approves one, so the page shows the code.
+        // [UNAPPROVED #196 T1] the refusal's text; empty until the owner approves one, so the page shows the code.
         return '';
     }
 

@@ -23,10 +23,10 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  */
 final class SubmitGuard
 {
-    /** [UNAPPROVED S14 N1] attempts per client per window. */
+    /** [UNAPPROVED #196 N1] attempts per client per window. */
     public const LIMIT = 20;
 
-    /** [UNAPPROVED S14 N1] the window, in seconds. */
+    /** [UNAPPROVED #196 N1] the window, in seconds. */
     public const WINDOW = 600;
 
     private readonly RateLimiter $limiter;
@@ -46,7 +46,7 @@ final class SubmitGuard
         $this->limiter->hit(self::client($attempt), Runner::current()->clock()->now());
     }
 
-    /** [UNAPPROVED S14 N2] whom an attempt counts for: the account when logged in, else the address. */
+    /** [UNAPPROVED #196 N2] whom an attempt counts for: the account when logged in, else the address. */
     public static function client(SubmitAttempt $attempt): string
     {
         if ($attempt->actor instanceof AccountActor) {
