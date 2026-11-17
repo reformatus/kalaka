@@ -6,9 +6,12 @@ namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\DraftHandoff;
+use Kalaka\Forms\Engine\DraftClaimTexts;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
+use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -23,6 +26,10 @@ use Kalaka\Registrations\Api\Drafts;
  */
 final class DraftPageTest extends FormsTestCase
 {
+    /** A refused claim's text (N11), word for word as the owner approved it on 2026-11-17. */
+    private const REFUSED = 'Ezt most nem tudjuk végrehajtani: a bejövő válaszokról már döntöttél (például egy '
+        . 'másik lapon), vagy ezek a válaszok már nem érvényesek. Töltsd újra az oldalt.';
+
     private const SIZES = [['value' => 's', 'label' => 'Kicsi'], ['value' => 'm', 'label' => 'Nagy']];
 
     private const STAY = [['value' => 'igen', 'label' => 'Igen'], ['value' => 'nem', 'label' => 'Nem']];
@@ -321,7 +328,7 @@ final class DraftPageTest extends FormsTestCase
         $other = $this->post('draft/claim', ['choice' => 'merge']);
         self::assertSame(409, $other->get_status());
         self::assertSame('kalaka_draft_claim_refused', $other->get_data()['code']);
-        self::assertSame('', $other->get_data()['message'], 'no text before the owner approves it (N11)');
+        self::assertSame(self::REFUSED, $other->get_data()['message'], 'the owner\'s text (N11, 2026-11-17)');
         self::assertSame(['note' => 'a kvízből'], $this->storedAnswers());
     }
 
@@ -333,6 +340,7 @@ final class DraftPageTest extends FormsTestCase
 
         self::assertSame(409, $response->get_status());
         self::assertSame('kalaka_draft_claim_refused', $response->get_data()['code']);
+        self::assertSame(self::REFUSED, $response->get_data()['message']);
     }
 
     public function testTheAutosaveRouteKeepsTheFormsOwnKeysForALoggedInPerson(): void
@@ -438,6 +446,46 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayHasKey('draftClaimUrl', $context);
         self::assertSame(1, $context['draftClaimChanges'], 'only polo changes; szallas is the same');
         self::assertArrayNotHasKey('draftClaimNotice', $context);
+        // The popup's texts, word for word as the owner approved them on 2026-11-17, the count in merge's line.
+        self::assertSame([
+            'title' => 'Előre kitöltött linkből bejövő válaszok',
+            'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. Most egy előre '
+                . 'kitöltött linkből is érkeztek válaszok. Hogyan folytassuk?',
+            'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el vagy '
+                . 'jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, így az '
+                . 'egyesítés a későbbi válaszaidat is megváltoztathatja. Beküldés előtt nézd át az egész űrlapot.',
+            'merge' => 'Egyesítés',
+            'mergeLine' => 'A bejövő válaszok felülírják a mentetteket: 1 kérdésnél változik a válaszod. '
+                . 'A többi mentett válaszod megmarad.',
+            'keepDraft' => 'Csak a mentett válaszok',
+            'keepDraftLine' => 'A mentett válaszaid megmaradnak, a bejövő válaszokat elvetjük.',
+            'keepLink' => 'Csak a bejövő válaszok',
+            'keepLinkLine' => 'Csak a bejövő válaszok maradnak, az összes mentett válaszodat töröljük.',
+            'confirmTitle' => 'Törlöd a mentett válaszaidat?',
+            'confirmText' => 'Ha csak a bejövő válaszokat tartod meg, az összes mentett válaszodat töröljük az '
+                . 'űrlap minden oldaláról. Ezt nem lehet visszavonni.',
+            'confirmCancel' => 'Mégse',
+            'confirm' => 'Igen, törlöm a mentett válaszaimat',
+            'reload' => 'Az oldal újratöltése',
+        ], $context['draftClaimTexts']);
+    }
+
+    public function testThePopupScriptLoadsOnlyWhileAChoiceWaits(): void
+    {
+        $user = $this->logIn();
+        $this->autosave(['name' => 'Teszt Anna', 'polo' => 'l']);
+        wp_dequeue_script(Module::CLAIM_SCRIPT);
+        wp_dequeue_style('wp-components');
+        $this->render();
+        self::assertFalse(wp_script_is(Module::CLAIM_SCRIPT, 'enqueued'), 'no claim: no popup');
+
+        (new DraftHandoff())->handle($this->page(), ['polo' => 'm'], new AccountActor($user));
+        $context = $this->context($this->render());
+
+        self::assertArrayHasKey('draftClaimTexts', $context);
+        self::assertTrue(wp_script_is(Module::CLAIM_SCRIPT, 'enqueued'));
+        self::assertTrue(wp_style_is('wp-components', 'enqueued'));
+        self::assertSame(['wp-components', 'wp-element'], wp_scripts()->registered[Module::CLAIM_SCRIPT]->deps);
     }
 
     public function testThePageCountsTheFieldsTheLinkWouldChange(): void
@@ -448,7 +496,9 @@ final class DraftPageTest extends FormsTestCase
         $link = ['szallas' => 'nem', 'polo' => 'm', 'note' => 'a kvízből', 'name' => 'Teszt Anna'];
         (new DraftHandoff())->handle($this->page(), $link, new AccountActor($user));
 
-        self::assertSame(3, $this->context($this->render())['draftClaimChanges']);
+        $context = $this->context($this->render());
+        self::assertSame(3, $context['draftClaimChanges']);
+        self::assertStringContainsString(': 3 kérdésnél változik', $context['draftClaimTexts']['mergeLine']);
     }
 
     public function testTheLoadAfterAChoiceCarriesItOnceForTheNotice(): void
@@ -464,12 +514,33 @@ final class DraftPageTest extends FormsTestCase
         self::assertNull(DraftClaim::current());
         $context = $this->context($this->render());
         self::assertSame('merge', $context['draftClaimNotice']);
+        self::assertSame(
+            'Egyesítettük a mentett és a bejövő válaszokat. Beküldés előtt nézd át az egész űrlapot.',
+            $context['draftClaimNoticeText']
+        );
         self::assertArrayNotHasKey('draftClaimUrl', $context);
+        self::assertArrayNotHasKey('draftClaimTexts', $context);
 
         // The next load: no cookie, no notice.
         DraftHandoff::forget();
         (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
         self::assertArrayNotHasKey('draftClaimNotice', $this->context($this->render()));
+    }
+
+    public function testTheNoticeOfEachChoiceIsTheOwnersText(): void
+    {
+        self::assertSame(
+            'Egyesítettük a mentett és a bejövő válaszokat. Beküldés előtt nézd át az egész űrlapot.',
+            DraftClaimTexts::notice(DraftClaimChoice::Merge)
+        );
+        self::assertSame(
+            'Megtartottuk a mentett válaszaidat, a bejövő válaszokat elvetettük.',
+            DraftClaimTexts::notice(DraftClaimChoice::KeepDraft)
+        );
+        self::assertSame(
+            'Megtartottuk a bejövő válaszokat, a mentett válaszaidat töröltük.',
+            DraftClaimTexts::notice(DraftClaimChoice::KeepLink)
+        );
     }
 
     public function testAClaimSettledOnThePageWithNoChoiceGivesNoNotice(): void
