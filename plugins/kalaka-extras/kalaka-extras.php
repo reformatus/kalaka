@@ -17,6 +17,7 @@ defined('ABSPATH') || exit;
 
 require __DIR__ . '/vendor/autoload.php';
 
+// The plugin's name is proposed text: [UNAPPROVED T1].
 // Core's boot runs on plugins_loaded and collects the modules registered here.
 add_action(
     'kalaka_register_modules',
