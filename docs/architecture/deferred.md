@@ -32,7 +32,6 @@ removed here.
 | Public after-save actions for third parties | when a third party needs them; at the earliest when alpha ends |
 | Deprecation period for versioned extension points; the compatibility-check tool | when the alpha phase ends |
 | The license and its `LICENSE` file | when the alpha phase ends (wide release to other organizations) |
-| Spam protection | before IVK registration opens (2026-11-30) |
 | File upload | building forms |
 | Absolute payment deadlines (removed 2026-11-05, [Money](money.md#core-money-scope)): how they interact with late call-ups from the waitlist | if an organization needs one |
 | Fast entry of many manual payments, and how to make it safe | after IVK registration opens |

@@ -261,7 +261,16 @@ flowchart TB
 - **Required fields** show a bold asterisk after the field's title, in the
   error colour. The form's look follows the site's theme
   ([Engineering](engineering.md#wordpress-surfaces)).
-- Still to build within forms: spam protection and file upload
+- **Spam protection:** the submit route counts every attempt per client, a
+  logged-in person by account and a guest by address, and refuses the
+  attempt over the limit in a short window with its own code and a
+  `Retry-After` time. It runs before the submit, outside any use case, so
+  the count is WordPress-owned data (a transient), never our tables; it
+  stores no address, only a keyed hash per window that expires with it. The
+  address is the request's own unless the site names its reverse proxies.
+  Account creation is guarded by a CAPTCHA plugin on WordPress's
+  registration page, which Kaláka never bypasses.
+- Still to build within forms: file upload
   ([Deferred](deferred.md)).
 
 ## Fields
