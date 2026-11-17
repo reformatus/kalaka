@@ -6,6 +6,7 @@ namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
+use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * The after-submit section of a form (events-and-forms.md, "Forms implementation"): the block
@@ -38,9 +39,8 @@ final class AfterSubmit
     {
         return new ValueContext(EventValues::of($event) + [
             self::CODE => Value::text($code, $code),
-            // [UNAPPROVED N20] the status words: once ticked, this text becomes
-            // `Registrations\Api\RegistrationStatus::from($status)->word()`, the words a mail shows.
-            self::STATUS => Value::choice([$status], ''),
+            // The status words a mail shows too (N20, approved 2026-11-16).
+            self::STATUS => Value::choice([$status], RegistrationStatus::tryFrom($status)?->word() ?? ''),
         ]);
     }
 }

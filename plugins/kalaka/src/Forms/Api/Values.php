@@ -22,7 +22,6 @@ final class Values
      * context will declare: every chain's placement and condition, in every branch, and every binding and
      * inline value; and it holds no field block and no form-only block. What passes renders for any context
      * with those keys.
-     * // [UNAPPROVED N24] a document is checked at save against its declared keys.
      *
      * @param array<string, ValueType> $declared
      * @throws SystemFailure `<code> <subject>`: a misplaced branch, an invalid condition, an undeclared key

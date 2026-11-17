@@ -23,6 +23,15 @@ final class DeliveryErrorTest extends TestCase
         );
     }
 
+    public function testAMessageWithInvalidUtf8KeepsTheStageTheCodeAndTheRest(): void
+    {
+        $text = (new DeliveryError(DeliveryError::SEND, 'wp_mail_failed', "Rossz\xC3 c\xedm", 'abc'))->text();
+
+        self::assertStringStartsWith('send wp_mail_failed: Rossz', $text);
+        self::assertStringEndsWith('(correlation abc)', $text);
+        self::assertTrue(mb_check_encoding($text, 'UTF-8'));
+    }
+
     public function testAThrownErrorKeepsItsClassAndItsMessage(): void
     {
         self::assertSame(

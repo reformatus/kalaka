@@ -51,8 +51,9 @@ final readonly class DeliveryError
         return self::oneLine($text) . ' (correlation ' . $this->correlation . ')';
     }
 
+    /** One line of valid UTF-8: invalid bytes are replaced first, so the rest of the text is kept. */
     private static function oneLine(string $text): string
     {
-        return trim((string) preg_replace('/\s+/u', ' ', $text));
+        return trim((string) preg_replace('/\s+/u', ' ', mb_scrub($text, 'UTF-8')));
     }
 }

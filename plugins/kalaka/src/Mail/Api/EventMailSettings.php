@@ -7,7 +7,6 @@ namespace Kalaka\Mail\Api;
 /**
  * An event's mail settings: its layout and its action-mail catalogue, every action present, in catalogue
  * order. mail.md, "Configuration".
- * // [UNAPPROVED N16] the read model of the per-event mail settings.
  */
 final readonly class EventMailSettings
 {

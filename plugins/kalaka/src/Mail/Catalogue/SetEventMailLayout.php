@@ -17,7 +17,6 @@ use Kalaka\Mail\Api\ActionMailSettings;
  * empty one included, is refused. It is stored as written, with no sanitising: only full access (and
  * WP-CLI, the system) runs it, trusted like `unfiltered_html`. A new event's layout is exactly
  * `{{content}}`. Audited like every use case.
- * // [UNAPPROVED N21] the layout command, its placeholder and its trust.
  */
 final class SetEventMailLayout implements AdminUseCase
 {

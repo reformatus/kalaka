@@ -95,6 +95,19 @@ final class BodyCheckTest extends MailBodyTestCase
         self::assertSame(200, $this->restSave($id, ['content' => $inner])->get_status());
     }
 
+    public function testASpanInsideAValueSpanIsNotCheckedAsTheRendererNeverReadsIt(): void
+    {
+        $event = $this->create();
+        $this->slotForm($event);
+        $inner = $this->paragraph(
+            '<span data-kalaka-value="recipient.name"><span data-kalaka-value="nincs_ilyen">n</span></span>'
+        );
+        $id = $this->document($event, $inner);
+
+        self::assertSame('publish', get_post_status($id));
+        self::assertSame(200, $this->restSave($id, ['content' => $inner])->get_status());
+    }
+
     public function testRestRefusesPublishingABodyWithAProblem(): void
     {
         $event = $this->create();

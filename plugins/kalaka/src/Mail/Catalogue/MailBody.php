@@ -9,7 +9,6 @@ use Kalaka\Mail\Body\MailPosts;
 /**
  * What `UpdateActionMail` needs to know about a body, read from WordPress before its transaction (WordPress
  * data is never read inside one): its event and whether it is published now.
- * // [UNAPPROVED N25] the body's facts are read before the run and passed in.
  */
 final readonly class MailBody
 {

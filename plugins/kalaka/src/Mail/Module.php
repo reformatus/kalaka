@@ -79,7 +79,6 @@ SQL;
      * mail.md, "Configuration": one event's setting of one action mail (`mail` is the action's key); a missing
      * row is the default (off, no body, wrapped by the layout). `body_id` is the body's `kalaka_mail` post, one
      * to one (mail.md, "Words"): a body serves at most one action mail.
-     * // [UNAPPROVED N16] the per-event mail settings live in two Mail-owned tables.
      */
     private const ACTION_MAILS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_action_mails (
@@ -96,7 +95,6 @@ SQL;
 
     /**
      * mail.md, "Configuration": an event's layout, the raw HTML that wraps its mails, stored as written.
-     * // [UNAPPROVED N21] the layout is raw HTML in a Mail-owned table, stored verbatim.
      */
     private const LAYOUTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_mail_layouts (
@@ -133,7 +131,6 @@ SQL;
         $to->siteWarning(new PauseWarning(PauseCause::Errors, $state));
         $to->siteWarning(new PauseWarning(PauseCause::Manual, $state));
         $to->periodicStep($this->sender());
-        // [UNAPPROVED N12] a mail body may hold the condition blocks, never a field block.
         $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE));
     }
 
@@ -171,7 +168,6 @@ SQL;
      * Mail bodies are edited in the block editor (mail.md, "Content"; the event's layout is raw HTML, not a
      * post) by full access only, like forms: every capability, REST reads included (`MailRestController`),
      * needs `kalaka_full_access`. No admin menu item; its labels mirror `kalaka_form`'s.
-     * // [UNAPPROVED N12] `kalaka_mail` is exposed like `kalaka_form`.
      */
     private function registerPostType(): void
     {

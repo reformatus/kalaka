@@ -23,12 +23,9 @@ use Kalaka\Mail\Api\ActionMailSettings;
  * It reads no WordPress data in its transaction: the body's facts (`MailBody`) are read before the run and
  * passed in, by `Api\ActionMailSettings::update()`. Run without them, it refuses any change that needs them
  * (a body assigned, a mail switched on); a layout switch or a switch-off still passes.
- * // [UNAPPROVED N25] the pre-read body facts and the facade that reads them.
- * // [UNAPPROVED N16] the command that changes one action mail.
  */
 final class UpdateActionMail implements AdminUseCase
 {
-    // [UNAPPROVED N20] the refusals' texts.
     public const NO_BODY = 'Előbb add meg a sablon szövegét.';
     public const BODY_TAKEN = 'Ezt a levélsablont már egy másik levél használja.';
     public const BODY_UNPUBLISHED = 'Előbb tedd közzé a levélsablont.';

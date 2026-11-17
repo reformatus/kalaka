@@ -42,7 +42,6 @@ final class ActionMailSettings
      * Changes one action mail (`kalaka/update-action-mail`): the entry for it. The body the change concerns
      * (the one given, else the stored one) is read from WordPress first, outside the transaction, and passed
      * to the use case.
-     * // [UNAPPROVED N25] the entry that pre-reads the body's facts.
      *
      * @param array<string, mixed> $input the use case's input
      * @return array<string, mixed> the event's mail settings after the change (`EventMailSettings::toArray()`)

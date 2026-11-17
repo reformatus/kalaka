@@ -18,7 +18,6 @@ enum RegistrationStatus: string
      */
     public function word(): string
     {
-        // [UNAPPROVED N20] the status words.
         return match ($this) {
             self::Registered => 'rögzített',
             self::Waitlisted => 'várólistás',

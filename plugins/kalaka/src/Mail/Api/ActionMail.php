@@ -10,7 +10,6 @@ namespace Kalaka\Mail\Api;
  * Admission from the waitlist has no mail of its own: it sends "registered" (owner 2026-11-16), and a body
  * tells the two apart with `registration.from_waitlist`. A stored row of the former `admitted` is skipped on
  * read (`ActionMailRepository::ofEvent()`).
- * // [UNAPPROVED N16] the five actions of the catalogue and their keys.
  */
 enum ActionMail: string
 {
@@ -23,7 +22,6 @@ enum ActionMail: string
     /** The catalogue's name of the mail: what causes it. */
     public function label(): string
     {
-        // [UNAPPROVED N20] the five catalogue labels.
         return match ($this) {
             self::Registered => 'Jelentkezés rögzítve',
             self::Waitlisted => 'Jelentkezés várólistára helyezve',

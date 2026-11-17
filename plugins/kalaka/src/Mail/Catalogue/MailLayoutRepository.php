@@ -17,7 +17,6 @@ final class MailLayoutRepository extends EntityRepository
     /**
      * The event's layout: the stored one, or the default (exactly `{{content}}`, version 0), so mail works with
      * no setup.
-     * // [UNAPPROVED N21] a new event's layout is exactly `{{content}}`.
      */
     public function of(int $eventId): MailLayout
     {

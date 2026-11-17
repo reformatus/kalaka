@@ -144,7 +144,6 @@ final class Forms
      * form holds reads as `Value::none()` of its type and never fails. A field with no stored answer, a
      * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
      * none too. A stored answer of a key the event does not have is left out.
-     * [UNAPPROVED N14]
      *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value

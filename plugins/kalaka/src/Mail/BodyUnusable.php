@@ -13,7 +13,6 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  * misplaced branch (e.g. a participant field renamed after the body was saved). The sender renders before
  * the claim, so such a delivery is marked failed with this problem and no attempt, and it does not count
  * toward pausing: retrying cannot fix it (mail.md, "Sending").
- * // [UNAPPROVED N23] an authoring failure of a body is caught before the claim and not counted.
  */
 final class BodyUnusable extends \RuntimeException
 {

@@ -97,13 +97,28 @@ final class DocumentCheck
         }
     }
 
+    /**
+     * The inline value spans, as `InlineValues` renders them: only an outermost value span is a value; a span
+     * inside one is part of its placeholder text and is never read, so it is not checked either.
+     */
     private function inline(string $content, DeclaredScope $scope): void
     {
         $processor = new \WP_HTML_Tag_Processor($content);
-        while ($processor->next_tag(['tag_name' => 'SPAN'])) {
-            $key = $processor->get_attribute(self::ATTRIBUTE);
-            if ($key !== null) {
-                $scope->typeOf(is_string($key) ? $key : '');
+        $depth = 0;
+        while ($processor->next_token()) {
+            if ($processor->get_token_type() !== '#tag' || $processor->get_tag() !== 'SPAN') {
+                continue;
+            }
+            if ($processor->is_tag_closer()) {
+                $depth = max(0, $depth - 1);
+            } elseif ($depth > 0) {
+                ++$depth;
+            } else {
+                $key = $processor->get_attribute(self::ATTRIBUTE);
+                if ($key !== null) {
+                    $scope->typeOf(is_string($key) ? $key : '');
+                    $depth = 1;
+                }
             }
         }
     }

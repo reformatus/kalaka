@@ -24,7 +24,6 @@ use Kalaka\Registrations\Api\SecretLinks;
  * registration's fields are the event's participant fields: a key that only another form of the event holds
  * reads as none. The recipient comes from the marked fields of
  * the slot form (the form of the first submission). It reads WordPress posts, so it runs outside any use case.
- * // [UNAPPROVED N14] the keys a mail may read.
  */
 final class MailValues
 {
@@ -38,7 +37,6 @@ final class MailValues
      * Whether the registration was admitted from the waitlist: a choice of `yes` or `no`, with no display text,
      * for a condition in the "registered" mail, which admission sends too (owner 2026-11-16). No admission act
      * exists yet, so it reads `no`; the admission slice gives Registrations the fact and this reads it.
-     * // [UNAPPROVED N14] the key `registration.from_waitlist`.
      */
     public const FROM_WAITLIST = 'registration.from_waitlist';
 
@@ -52,7 +50,8 @@ final class MailValues
 
     /**
      * The keys and types a mail of the event may read: the context's keys, as `context()` declares them. A
-     * body is checked against them at save (`BodyCheck`) and before the claim (`MailRenderer::check()`).
+     * body is checked against them at save (`BodyCheck`) and again before the claim, in `MailRenderer`
+     * (a failure there is `BodyUnusable`).
      *
      * @return array<string, ValueType>
      */

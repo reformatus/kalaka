@@ -20,7 +20,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * exactly `{{content}}`). The
  * layout is raw HTML and is not rendered or escaped; the body's values are escaped by the render. It reads
  * WordPress posts, so it runs outside any use case. Its failures name a problem code and a key, never a value.
- * // [UNAPPROVED N17] the renderer: the subject is the body's title as plain text; HTML only; the version
  * // `b<revision>`, or `b<revision>-l<layout row version>` when wrapped by a stored layout.
  */
 final class MailRenderer

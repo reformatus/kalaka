@@ -42,7 +42,6 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * the form's requirements at this moment; then the capacity check, the reference code and the rows, and
  * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
  * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
- * // [UNAPPROVED N18] the submit's two action mails.
  */
 final class SubmitRegistration implements PublicUseCase
 {

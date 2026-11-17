@@ -15,7 +15,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * its own transaction, keyed by the record that caused it. The mail is queued only when the event has it
  * switched on; the event's state is not looked at, since action mails queue while it is unpublished
  * (mail.md, "Pausing"). Switching a mail off later does not drop what was queued.
- * // [UNAPPROVED N18] the trigger interface of the action mails; the mail's key is the action's.
  */
 final class ActionMails
 {

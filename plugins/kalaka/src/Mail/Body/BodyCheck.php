@@ -21,13 +21,11 @@ use Kalaka\Mail\BodyUnusable;
  *
  * A body without an event yet is not checked: its keys are not known; it is checked when it gets one and is
  * saved again, and before every claim (`MailRenderer`).
- * // [UNAPPROVED N24] a mail body's save check and its refusal.
  */
 final class BodyCheck
 {
     public const CODE = 'kalaka_mail_body';
 
-    // [UNAPPROVED N20] the refusal: `%1$s` the problem code, `%2$s` its key; the mirror of Forms' refusal.
     public const MESSAGE = 'A sablon szövegét így nem lehet menteni: %1$s („%2$s”).';
 
     /** The transient that holds a vetoed save's message, per user: this prefix and the user ID. */

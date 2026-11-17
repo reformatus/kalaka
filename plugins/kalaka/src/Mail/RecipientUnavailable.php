@@ -8,7 +8,6 @@ namespace Kalaka\Mail;
  * Thrown by `MailComposer::recipient()` when the address cannot be determined at all, as opposed to a
  * registration that has none: the sender marks the delivery failed with this reason instead of
  * `invalid_address`, with no attempt (mail.md, "Sending": a delivery without a valid address).
- * // [UNAPPROVED N22] a distinct failure reason when the address cannot be determined.
  */
 final class RecipientUnavailable extends \RuntimeException
 {
