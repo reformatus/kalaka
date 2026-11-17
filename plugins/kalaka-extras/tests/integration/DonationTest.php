@@ -11,6 +11,8 @@ use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Ledger\Api\Payer;
+use Kalaka\Pricing\Api\ProposedMoneySettings;
 
 /** The donation: the amount field type, and its value charged as one participant line at the extras stage. */
 final class DonationTest extends ExtrasTestCase
@@ -47,6 +49,23 @@ final class DonationTest extends ExtrasTestCase
         $this->applySettings($this->donation->propose($this->event, null));
         self::assertNull($this->donation->field($this->event));
         self::assertSame('0', $this->balance($anna));
+    }
+
+    public function testThePreviewComposesTheProposedDonationAndWritesNothing(): void
+    {
+        $anna = $this->registerWith('00A0', ['adomany' => '5000']);
+        $lines = $this->lineCount();
+
+        $rows = $this->settings->preview(
+            $this->event,
+            new ProposedMoneySettings(components: [$this->donation->propose($this->event, 'adomany')])
+        );
+
+        self::assertSame([], $rows[0]->before);
+        self::assertSame('5000', self::whole($rows[0]->after[Payer::PARTICIPANT]));
+        self::assertSame($lines, $this->lineCount());
+        self::assertNull($this->donation->field($this->event));
+        self::assertSame([], $this->charges($anna));
     }
 
     public function testOnlyAnActiveAmountFieldOfTheEventCanBeTheDonation(): void
@@ -89,7 +108,8 @@ final class DonationTest extends ExtrasTestCase
         $type = Contributions::current()->fieldTypes()[AmountFieldType::BLOCK] ?? null;
 
         self::assertInstanceOf(AmountFieldType::class, $type);
-        self::assertInstanceOf(MoneyRelevantFieldType::class, $type, 'Locked after the first write by default.');
+        // It carries the marker; the lock after the first write is S60's to enforce and is not tested here.
+        self::assertInstanceOf(MoneyRelevantFieldType::class, $type);
         self::assertSame(ValueType::Number, $type->valueType());
         self::assertEquals(Value::number('5000', '5 000 Ft'), $type->value(new FieldTypeInput('5000', [])));
         self::assertTrue($type->value(new FieldTypeInput('', []))->isEmpty());
