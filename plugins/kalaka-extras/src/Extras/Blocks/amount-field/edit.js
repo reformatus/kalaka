@@ -1,7 +1,7 @@
 /**
  * The amount field in the editor: its title, a static preview of its control, and its settings (required,
  * and the smallest, the step and the largest amount, each optional). Labels shown here are proposed text,
- * not yet approved by the owner.
+ * not yet approved by the owner: the block's title [UNAPPROVED T2] and the settings [UNAPPROVED T3].
  */
 import { InspectorControls, RichText, useBlockProps } from '@wordpress/block-editor';
 import { getBlockType } from '@wordpress/blocks';

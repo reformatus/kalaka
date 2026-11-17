@@ -19,6 +19,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * `step` and at most `max`. Money-relevant (events-and-forms.md, "Fields"), so its value is locked after the
  * first write unless an organizer unlocks the field; core enforces the lock with additional forms (S60).
  * Prefill from a link is the inherited stored string; presets are not built yet. [UNAPPROVED N5]
+ * The refusal messages [UNAPPROVED T4] and the value's text [UNAPPROVED T5] are proposed text.
  */
 final class AmountFieldType extends AbstractFieldType implements MoneyRelevantFieldType
 {
