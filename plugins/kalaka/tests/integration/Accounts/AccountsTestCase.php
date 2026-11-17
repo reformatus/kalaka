@@ -87,6 +87,19 @@ abstract class AccountsTestCase extends FormsTestCase
         return $this->insertForm($content, ['kalaka_event_id' => $event, 'kalaka_placement' => $placement]);
     }
 
+    /** Closes the registration window of the form's event: it closed long ago. */
+    protected function closeRegistration(int $form): void
+    {
+        global $wpdb;
+        $event = (int) get_post_meta($form, 'kalaka_event_id', true);
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_events',
+            ['registration_closes_at' => '2000-01-01 00:00:00.000000'],
+            ['id' => $event]
+        );
+        ObjectCache::clear();
+    }
+
     /** A published page placing the form as its block, which `SignUp::page()` finds: its permalink. */
     protected function placed(int $form): string
     {

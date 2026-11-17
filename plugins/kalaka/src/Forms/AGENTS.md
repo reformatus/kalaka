@@ -142,7 +142,10 @@ values and conditions, prefill and form links
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
 - Access checks are pure: they read no current user, cookie or request; the
-  caller passes the roles and whether the password was given.
+  caller passes the roles, whether the password was given and whether someone
+  is logged in. The engine's `FormHost::refusals()` contract leaves the last
+  to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
+  a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
   transaction, never inside it. The one exception is `Forms::refusals()`,
   which reads nothing: a submit checks it under the event's lock.
@@ -259,7 +262,10 @@ values and conditions, prefill and form links
   never shown to someone not logged in: `SignUpRedirect` sends them, on
   `template_redirect`, to WordPress's login page with the form's marker and
   the page as `redirect_to` (`Api\SignUp`), and a page it cannot see shows
-  the link instead (`FormPageView::ACCOUNT_REQUIRED`). Every way back to the
+  the link instead (`FormPageView::ACCOUNT_REQUIRED`). In `mandatory` mode the
+  account is the last of the form's refusals (`account_required`), so a form
+  refused for another reason says that first, and `SignUpRedirect` skips a form
+  refused for a reason logging in cannot change. Every way back to the
   form built from a marker is the form's page found on the server
   (`SignUp::page()`), never an address from the request. Only the form's
   skip marker (`kalaka_skip`, `optional` mode) shows it to a guest; it fills

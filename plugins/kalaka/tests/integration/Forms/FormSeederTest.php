@@ -93,7 +93,7 @@ final class FormSeederTest extends SeedTestCase
         $event = (new \Kalaka\Events\Api\Events())->find($form->eventId);
         self::assertNotNull($event);
 
-        self::assertSame([], $forms->refusals($form, $event, $this->seedClock->now(), [], false));
+        self::assertSame([], $forms->refusals($form, $event, $this->seedClock->now(), [], false, false));
     }
 
     public function testASeedWithDropDeletesTheEarlierSampleFormAndPage(): void

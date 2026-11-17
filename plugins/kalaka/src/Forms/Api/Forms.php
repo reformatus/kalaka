@@ -100,8 +100,9 @@ final class Forms
 
     /**
      * What keeps the form from being used, in this order: the event is not open (returned
-     * alone), the registration slot's date window, the password, the required role. Pure: the
-     * caller passes the moment, the user's roles and whether the password was given.
+     * alone), the registration slot's date window, the password, the required role, an account
+     * (`EventFormHost::refusalsOf()`). Pure: the caller passes the moment, the user's roles,
+     * whether the password was given and whether someone is logged in.
      *
      * @param list<string> $roles
      * @return list<AccessRefusal>
@@ -111,9 +112,10 @@ final class Forms
         Event $event,
         \DateTimeImmutable $now,
         array $roles,
-        bool $passwordGiven
+        bool $passwordGiven,
+        bool $loggedIn
     ): array {
-        return EventFormHost::refusalsOf($form, $event, $now, $roles, $passwordGiven);
+        return EventFormHost::refusalsOf($form, $event, $now, $roles, $passwordGiven, $loggedIn);
     }
 
     /**

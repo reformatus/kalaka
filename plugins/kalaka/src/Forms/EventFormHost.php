@@ -57,13 +57,14 @@ final class EventFormHost implements FormHost
 
         return $event === null
             ? [AccessRefusal::EventNotOpen]
-            : self::refusalsOf($form, $event, $now, $roles, $passwordGiven);
+            : self::refusalsOf($form, $event, $now, $roles, $passwordGiven, is_user_logged_in());
     }
 
     /**
      * What keeps the form from being used, in this order: the event is not open (returned alone), the
-     * registration slot's date window, the password, the required role. Pure: `Forms::refusals()` is this,
-     * which a submit checks under the event's lock.
+     * registration slot's date window, the password, the required role, and last an account: someone not
+     * logged in on a registration form of a `mandatory` event (S15). Pure: `Forms::refusals()` is this, which
+     * a submit checks under the event's lock.
      *
      * @param list<string> $roles
      * @return list<AccessRefusal>
@@ -73,7 +74,8 @@ final class EventFormHost implements FormHost
         Event $event,
         \DateTimeImmutable $now,
         array $roles,
-        bool $passwordGiven
+        bool $passwordGiven,
+        bool $loggedIn
     ): array {
         if ($event->state() !== EventState::Published) {
             return [AccessRefusal::EventNotOpen];
@@ -88,6 +90,13 @@ final class EventFormHost implements FormHost
         }
         if ($form->requiredRole !== null && !in_array($form->requiredRole, $roles, true)) {
             $refusals[] = AccessRefusal::RoleRequired;
+        }
+        if (
+            !$loggedIn
+            && $form->placement === FormPlacement::Registration
+            && $event->accountMode === AccountMode::Mandatory
+        ) {
+            $refusals[] = AccessRefusal::AccountRequired;
         }
 
         return $refusals;

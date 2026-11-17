@@ -14,7 +14,7 @@ final class Module extends AbstractModule
      * registrations-and-identity.md, "Registrations". Keyed by (event ID, reference code); times are
      * UTC `datetime(6)`; `secret` is `utf8mb4_nopad_bin`, compared exactly. `KEY code` serves the site-wide
      * `code IN (…)` of `ReferenceCodeQuery`. `owner_user_id` is the owner account (S15): the WordPress user
-     * the registration belongs to, null while it has none; set once, by the submit or the attach link, and
+     * the registration belongs to, null while it has none; set once, by a logged-in person's submit, and
      * never changed after.
      */
     private const REGISTRATIONS = <<<'SQL'

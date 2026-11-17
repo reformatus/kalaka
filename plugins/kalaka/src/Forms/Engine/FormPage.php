@@ -132,8 +132,13 @@ final class FormPage
             AccessRefusal::RoleRequired => FormPageView::refused(FormPageView::ROLE_REQUIRED),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             AccessRefusal::EventNotOpen => FormPageView::refused(FormPageView::UNAVAILABLE),
-            // Never from `FormHost::refusals()`: the submit's own refusal (S15).
-            AccessRefusal::AccountRequired => FormPageView::refused(FormPageView::UNAVAILABLE),
+            // A `mandatory` event's form for someone not logged in (S15): the link to sign up, after any other
+            // refusal, so a closed form says it is closed first.
+            AccessRefusal::AccountRequired => FormPageView::refused(
+                FormPageView::ACCOUNT_REQUIRED,
+                null,
+                SignUp::url($form->id, self::here())
+            ),
         };
     }
 

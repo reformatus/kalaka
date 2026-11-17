@@ -7,7 +7,6 @@ namespace Kalaka\Registrations\Api;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
-use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AfterSubmit;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
@@ -73,7 +72,7 @@ final class RegistrationSubmit
      * @throws \Kalaka\Forms\Api\FormRefused the form cannot be used now (event not open, outside the
      *     registration window, password, role), with the codes
      * @throws RuleViolation the form is not in the registration slot
-     * @throws FormRefused also `account_required`: someone not logged in, in `mandatory` mode
+     * @throws FormRefused also `account_required`: someone not logged in, in `mandatory` mode (from the use case)
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
      */
     public function submit(SubmitRequest $request, Actor $actor): SubmitResult
@@ -135,9 +134,8 @@ final class RegistrationSubmit
      *
      * - mode `off`: nothing, as before accounts, logged in or not;
      * - logged in: the person's account owns the registration;
-     * - not logged in: refused in `mandatory` mode (`account_required`); in `optional` mode (the skip) nothing.
-     *
-     * @throws FormRefused
+     * - not logged in: nothing. In `mandatory` mode the submit refuses it as one of the form's refusals
+     *   (`account_required`, `EventFormHost::refusalsOf()`), under the lock with the others.
      */
     private function accountOutcome(Event $event, Actor $actor): AccountOutcome
     {
@@ -147,11 +145,6 @@ final class RegistrationSubmit
         if ($actor instanceof AccountActor) {
             return AccountOutcome::loggedIn($actor->userId);
         }
-        if ($event->accountMode === AccountMode::Mandatory) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- enum cases, no input
-            throw new FormRefused([AccessRefusal::AccountRequired]);
-        }
-
         return AccountOutcome::none();
     }
 

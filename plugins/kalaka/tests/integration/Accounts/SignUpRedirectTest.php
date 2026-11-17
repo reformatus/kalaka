@@ -48,6 +48,15 @@ final class SignUpRedirectTest extends AccountsTestCase
         self::assertSame(self::RETURN, $query['redirect_to']);
     }
 
+    /** #191 review C1-1: a closed form shows that it is closed; signing up first would be a detour. */
+    public function testNoRedirectToSignUpForAClosedForm(): void
+    {
+        $form = $this->openForm('mandatory');
+        $this->closeRegistration($form);
+
+        self::assertNull((new SignUpRedirect())->target($this->page(self::formBlock($form)), false, [], self::RETURN));
+    }
+
     public function testTheShortcodeIsSeenToo(): void
     {
         $form = $this->openForm('optional');

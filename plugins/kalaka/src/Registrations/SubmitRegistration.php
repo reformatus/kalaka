@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
@@ -44,9 +45,11 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
  * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
  *
- * Accounts (S15): the owner account was decided before the transaction (`Account\AccountOutcome`, through
- * the constructor). Only a new registration takes it: its row gets the owner. A repeat writes nothing. An
- * unverified account's set-password link travels in the status mail itself (`account.password_link`).
+ * Accounts (S15): a guest's submit to a `mandatory` event is one of the form's refusals, checked here under
+ * the lock with the others (`account_required`). The owner account was decided before the transaction
+ * (`Account\AccountOutcome`, through the constructor). Only a new registration takes it: its row gets the
+ * owner. A repeat writes nothing. An unverified account's set-password link travels in the status mail itself
+ * (`account.password_link`).
  */
 final class SubmitRegistration implements PublicUseCase
 {
@@ -141,7 +144,14 @@ final class SubmitRegistration implements PublicUseCase
             throw $error;
         }
 
-        $refusals = $this->forms->refusals($this->form, $event, $context->now(), $this->roles, $this->passwordGiven);
+        $refusals = $this->forms->refusals(
+            $this->form,
+            $event,
+            $context->now(),
+            $this->roles,
+            $this->passwordGiven,
+            $context->actor() instanceof AccountActor
+        );
         if ($refusals !== []) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- enum cases, no input
             throw new FormRefused($refusals);

@@ -117,6 +117,19 @@ final class AccountModesTest extends AccountsTestCase
         self::assertStringNotContainsString('<form', $html);
     }
 
+    /** #191 review B1/C1-1: the account comes after the form's other refusals, so a closed form says so first. */
+    public function testAClosedMandatoryFormSaysItIsClosedBeforeAskingForAnAccount(): void
+    {
+        $form = $this->openForm('mandatory');
+        $this->closeRegistration($form);
+
+        $view = (new FormPage(new EventFormHost()))->open($form);
+
+        self::assertNotSame(FormPageView::ACCOUNT_REQUIRED, $view->refusal);
+        self::assertNotNull($view->refusal);
+        self::assertSame('', $view->signUpUrl);
+    }
+
     public function testInOptionalModeTheSkipMarkerShowsTheFormAndOnlyThere(): void
     {
         $form = $this->openForm('optional');

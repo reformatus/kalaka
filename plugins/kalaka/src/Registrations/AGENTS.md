@@ -103,4 +103,7 @@ the waitlist and reference codes
 - `kalaka_unverified` is cleared only on `password_reset` and
   `after_password_reset`; it limits only what Kaláka does with the account.
   A reset link lasts 7 days only for such an account.
+- Site-wide, the author archive of any user with no published posts is a
+  404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
+  participant accounts' names (N21). Authors with posts keep theirs.
 - Only Registrations writes its tables.
