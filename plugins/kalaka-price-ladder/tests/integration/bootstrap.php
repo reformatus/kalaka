@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 $testsDir = getenv('WP_TESTS_DIR');
 if ($testsDir === false || $testsDir === '') {
-    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- reports to the console before WordPress loads
+    // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- before WordPress loads
     fwrite(STDERR, "WP_TESTS_DIR is not set; run the integration tests inside wp-env's tests-cli container.\n");
     exit(1);
 }
