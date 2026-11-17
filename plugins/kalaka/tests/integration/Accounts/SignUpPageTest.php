@@ -18,12 +18,6 @@ use Kalaka\Registrations\Account\SignUpPage;
  */
 final class SignUpPageTest extends AccountsTestCase
 {
-    /** The form's page: a same-site address. */
-    private static function back(): string
-    {
-        return home_url('/jelentkezes/');
-    }
-
     /**
      * A POST to `wp-login.php?action=register` as core handles it: the hook, then `register_new_user()` with
      * the posted login and e-mail.
@@ -34,7 +28,8 @@ final class SignUpPageTest extends AccountsTestCase
     {
         // phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- a test
         $_SERVER['REQUEST_METHOD'] = 'POST';
-        $_POST = ['user_login' => 'amit-a-latogato-irt', 'user_email' => $email, 'redirect_to' => self::back()] + $more;
+        $_POST = $more
+            + ['user_login' => 'amit-a-latogato-irt', 'user_email' => $email, 'redirect_to' => home_url('/')];
         $_REQUEST = $_POST;
         do_action('login_form_register');
 
@@ -118,32 +113,56 @@ final class SignUpPageTest extends AccountsTestCase
         $form = $this->openForm('mandatory');
         $this->verifiedUser('teszt.csilla@example.org');
 
-        $result = $this->signUp('teszt.csilla@example.org', [SignUp::MARKER => (string) $form]);
+        $back = $this->placed($form);
+
+        $result = $this->signUp('teszt.csilla@example.org', [SignUp::MARKER => (string) $form, 'redirect_to' => $back]);
 
         self::assertInstanceOf(\WP_Error::class, $result);
         self::assertContains('email_exists', $result->get_error_codes());
         $message = $result->get_error_message('email_exists');
-        self::assertStringContainsString('redirect_to=' . rawurlencode(self::back()), $message);
+        self::assertStringContainsString('redirect_to=' . rawurlencode($back), $message);
     }
 
-    public function testTheLoginUrlReturnsToTheFormOnlyWithAValidMarkerAndASameSiteAddress(): void
+    public function testTheLoginUrlReturnsToTheFormsOwnPageOnlyWithAValidMarker(): void
     {
         $form = $this->openForm('mandatory');
         $off = $this->openForm('off');
+        $unplaced = $this->openForm('mandatory');
+        $back = $this->placed($form);
+        $this->placed($off);
 
         self::assertStringNotContainsString('redirect_to', wp_login_url());
 
-        $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => self::back()];
-        self::assertStringContainsString('redirect_to=' . rawurlencode(self::back()), wp_login_url());
+        $_REQUEST = [SignUp::MARKER => (string) $form];
+        $url = wp_login_url();
+        self::assertStringContainsString('redirect_to=' . rawurlencode($back), $url);
+        self::assertStringContainsString(SignUp::MARKER . '=' . $form, $url);
         // A redirect the caller gives is kept.
         $given = home_url('/mas/');
         self::assertStringContainsString(rawurlencode($given), wp_login_url($given));
 
+        // N25: a requested address that is not a page placing the form is ignored; the form's page wins.
         $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => 'https://evil.example.com/'];
+        self::assertStringContainsString('redirect_to=' . rawurlencode($back), wp_login_url());
+        self::assertStringNotContainsString('evil.example.com', wp_login_url());
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => home_url('/mas/')];
+        self::assertStringContainsString('redirect_to=' . rawurlencode($back), wp_login_url());
+
+        // A second page placing the form: the request picks it.
+        $second = self::factory()->post->create([
+            'post_type' => 'page',
+            'post_content' => '[kalaka_form id="' . $form . '"]',
+        ]);
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => (string) get_permalink($second)];
+        $picked = (string) get_permalink($second);
+        self::assertStringContainsString('redirect_to=' . rawurlencode($picked), wp_login_url());
+
+        // No page places the form: WordPress's own login URL.
+        $_REQUEST = [SignUp::MARKER => (string) $unplaced];
         self::assertStringNotContainsString('redirect_to', wp_login_url());
 
-        $_REQUEST = [SignUp::MARKER => (string) $off, 'redirect_to' => self::back()];
-        self::assertStringNotContainsString('redirect_to', wp_login_url());
+        $_REQUEST = [SignUp::MARKER => (string) $off];
+        self::assertSame(wp_login_url(), site_url('wp-login.php', 'login'));
     }
 
     public function testTheMarkerKeepsItselfAndTheSkipLinkShowsOnlyInOptionalMode(): void
@@ -151,21 +170,161 @@ final class SignUpPageTest extends AccountsTestCase
         $page = new SignUpPage();
         $optional = $this->openForm('optional');
         $mandatory = $this->openForm('mandatory');
+        $back = $this->placed($optional);
+        $this->placed($mandatory);
 
-        $_REQUEST = [SignUp::MARKER => (string) $optional, 'redirect_to' => self::back()];
+        $_REQUEST = [SignUp::MARKER => (string) $optional];
         $html = $this->captured(static fn () => $page->formFields());
         self::assertStringContainsString('name="' . SignUp::MARKER . '" value="' . $optional . '"', $html);
         self::assertStringContainsString('Fiók nélkül folytatom', $html);
-        self::assertStringContainsString(esc_url(SignUp::skipUrl($optional, self::back())), $html);
+        self::assertStringContainsString(esc_url(SignUp::skipUrl($optional, $back)), $html);
         self::assertStringContainsString('name="' . SignUpPage::REMINDERS_FIELD . '"', $html);
 
-        $_REQUEST = [SignUp::MARKER => (string) $mandatory, 'redirect_to' => self::back()];
+        $_REQUEST = [SignUp::MARKER => (string) $mandatory];
         $html = $this->captured(static fn () => $page->formFields());
         self::assertStringContainsString('name="' . SignUp::MARKER . '"', $html);
         self::assertStringNotContainsString('Fiók nélkül folytatom', $html);
 
         $_REQUEST = [];
         self::assertSame('', $this->captured(static fn () => $page->formFields()));
+    }
+
+    public function testTheSkipBlockShowsOnTheLoginAndRegistrationPagesInOptionalModeOnly(): void
+    {
+        $page = new SignUpPage();
+        $optional = $this->openForm('optional');
+        $mandatory = $this->openForm('mandatory');
+        $skip = esc_url(SignUp::skipUrl($optional, $this->placed($optional)));
+        $this->placed($mandatory);
+        $block = [
+            'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.',
+            'Fiók nélkül folytatom',
+            'Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.',
+        ];
+
+        foreach (['login', 'register'] as $action) {
+            $fields = $action === 'login' ? $page->loginFields(...) : $page->formFields(...);
+            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $optional];
+            $html = $this->captured($fields);
+            foreach ($block as $text) {
+                self::assertStringContainsString($text, $html, $action);
+            }
+            self::assertStringContainsString('href="' . $skip . '"', $html, $action);
+            self::assertStringContainsString('name="' . SignUp::MARKER . '" value="' . $optional . '"', $html);
+
+            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $mandatory];
+            $html = $this->captured($fields);
+            foreach ($block as $text) {
+                self::assertStringNotContainsString($text, $html, $action);
+            }
+        }
+
+        $_REQUEST = ['action' => 'login'];
+        self::assertSame('', $this->captured($page->loginFields(...)));
+    }
+
+    public function testTheLoginAndRegistrationPagesNameTheEventAndLinkToEachOther(): void
+    {
+        $page = new SignUpPage();
+        $form = $this->openForm('mandatory');
+        $back = $this->placed($form);
+
+        $_REQUEST = ['action' => 'login', SignUp::MARKER => (string) $form];
+        $login = $page->message('');
+        self::assertStringContainsString(
+            'Jelentkezz be, hogy jelentkezhess erre az eseményre: Nyári tábor. Ha még nincs fiókod, <a href="'
+            . esc_url(SignUp::registerUrl($form, $back)) . '">készíts egyet</a>.',
+            $login
+        );
+        self::assertStringContainsString(SignUp::MARKER . '=' . $form, SignUp::registerUrl($form, $back));
+
+        $_REQUEST = ['action' => 'register', SignUp::MARKER => (string) $form];
+        $register = $page->message('');
+        self::assertStringContainsString(
+            'Fiókot készítesz, hogy jelentkezhess erre az eseményre: Nyári tábor. Ha már van fiókod, <a href="'
+            . esc_url(SignUp::url($form, $back)) . '">jelentkezz be</a>.',
+            $register
+        );
+        self::assertStringContainsString(SignUp::MARKER . '=' . $form, SignUp::url($form, $back));
+
+        // The event's name is escaped.
+        global $wpdb;
+        $event = $this->forms->form($form)?->eventId;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['name' => 'Tábor <b>&</b>'], ['id' => $event]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        self::assertStringContainsString('eseményre: Tábor &lt;b&gt;&amp;&lt;/b&gt;. Ha már', $page->message(''));
+
+        // Other screens, and no marker: WordPress's own message.
+        $_REQUEST = ['action' => 'lostpassword', SignUp::MARKER => (string) $form];
+        self::assertSame('x', $page->message('x'));
+        $_REQUEST = ['action' => 'login'];
+        self::assertSame('x', $page->message('x'));
+    }
+
+    public function testALoginWithAValidMarkerReturnsToTheFormsPage(): void
+    {
+        $form = $this->openForm('mandatory');
+        $back = $this->placed($form);
+        $off = $this->openForm('off');
+        $this->placed($off);
+        $additional = $this->openForm('mandatory', 'additional');
+        $this->placed($additional);
+        // A form of an event that is not published (a draft).
+        $draftEvent = $this->create('Téli tábor');
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => 'mandatory'], ['id' => $draftEvent]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        $draft = $this->insertForm(
+            $this->slotFields(),
+            ['kalaka_event_id' => $draftEvent, 'kalaka_placement' => 'registration']
+        );
+        $this->placed($draft);
+        $user = get_userdata($this->verifiedUser());
+        $admin = admin_url();
+
+        // OP1: with the marker, back to the form, whatever the request asked for.
+        $_REQUEST = [SignUp::MARKER => (string) $form];
+        self::assertSame($back, apply_filters('login_redirect', $admin, '', $user));
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => 'https://evil.example.com/'];
+        $evil = 'https://evil.example.com/';
+        self::assertSame($back, apply_filters('login_redirect', $evil, $evil, $user));
+        // The registration's own redirect too.
+        self::assertSame($back, apply_filters('registration_redirect', $admin, new \WP_Error()));
+
+        // Without a valid marker, or a failed login, the login lands as WordPress sends it.
+        $requests = [
+            [],
+            [SignUp::MARKER => 'abc'],
+            [SignUp::MARKER => '999999'],
+            [SignUp::MARKER => (string) $off],
+            [SignUp::MARKER => (string) $additional],
+            [SignUp::MARKER => (string) $draft],
+        ];
+        foreach ($requests as $request) {
+            $_REQUEST = $request;
+            self::assertSame($admin, apply_filters('login_redirect', $admin, '', $user));
+        }
+        $_REQUEST = [SignUp::MARKER => (string) $form];
+        self::assertSame($admin, apply_filters('login_redirect', $admin, '', new \WP_Error()));
+    }
+
+    public function testAfterTheResetTheLoginLinkReturnsToTheFormWithoutTheEventLine(): void
+    {
+        $form = $this->openForm('mandatory');
+        $back = $this->placed($form);
+        $page = new SignUpPage();
+
+        foreach (['rp', 'resetpass'] as $action) {
+            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $form];
+            $url = wp_login_url();
+            self::assertStringContainsString('redirect_to=' . rawurlencode($back), $url, $action);
+            self::assertStringNotContainsString(SignUp::MARKER, $url, $action);
+            self::assertStringContainsString(
+                'name="' . SignUp::MARKER . '" value="' . $form . '"',
+                $this->captured($page->markerField(...))
+            );
+            self::assertSame('', $page->message(''));
+        }
     }
 
     public function testTheReminderOptInIsStoredWithTheMarkerOnly(): void
@@ -286,10 +445,15 @@ final class SignUpPageTest extends AccountsTestCase
         $page = new SignUpPage();
         $notice = 'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
 
-        $_REQUEST = [SignUp::MARKER => (string) $this->openForm('optional'), 'redirect_to' => self::back()];
+        $optional = $this->openForm('optional');
+        $mandatory = $this->openForm('mandatory');
+        $this->placed($optional);
+        $this->placed($mandatory);
+
+        $_REQUEST = [SignUp::MARKER => (string) $optional];
         self::assertStringContainsString($notice, $this->captured(static fn () => $page->formFields()));
 
-        $_REQUEST = [SignUp::MARKER => (string) $this->openForm('mandatory'), 'redirect_to' => self::back()];
+        $_REQUEST = [SignUp::MARKER => (string) $mandatory];
         self::assertStringNotContainsString($notice, $this->captured(static fn () => $page->formFields()));
     }
 

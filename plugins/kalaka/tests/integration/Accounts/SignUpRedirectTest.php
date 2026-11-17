@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Accounts;
 
+use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\SignUpRedirect;
 
-/** S15: the redirect to WordPress's registration page from a page that places a form needing an account. */
+/** S15: the redirect to WordPress's login page (OP5) from a page that places a form needing an account. */
 final class SignUpRedirectTest extends AccountsTestCase
 {
     private const RETURN = 'https://example.org/jelentkezes/';
@@ -30,7 +31,7 @@ final class SignUpRedirectTest extends AccountsTestCase
         $content = '<!-- wp:group --><div>' . self::formBlock(7) . '</div><!-- /wp:group -->'
             . '[kalaka_form id="9"] [kalaka_form id="7"] [kalaka_form]';
 
-        self::assertSame([7, 9], SignUpRedirect::formIds($content));
+        self::assertSame([7, 9], FormCaching::formIds($content));
     }
 
     public function testSomeoneNotLoggedInIsSentToSignUpAndBack(): void
@@ -40,7 +41,8 @@ final class SignUpRedirectTest extends AccountsTestCase
         $target = (new SignUpRedirect())->target($this->page(self::formBlock($form)), false, [], self::RETURN);
 
         self::assertSame(SignUp::url($form, self::RETURN), $target);
-        self::assertStringContainsString('wp-login.php?action=register', (string) $target);
+        self::assertStringContainsString('wp-login.php', (string) $target);
+        self::assertStringNotContainsString('action=register', (string) $target);
         parse_str((string) wp_parse_url((string) $target, PHP_URL_QUERY), $query);
         self::assertSame((string) $form, $query[SignUp::MARKER]);
         self::assertSame(self::RETURN, $query['redirect_to']);

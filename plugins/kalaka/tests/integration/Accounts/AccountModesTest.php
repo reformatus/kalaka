@@ -105,13 +105,15 @@ final class AccountModesTest extends AccountsTestCase
         $view = (new FormPage(new EventFormHost()))->open($form);
 
         self::assertSame(FormPageView::ACCOUNT_REQUIRED, $view->refusal);
-        self::assertStringContainsString('action=register', $view->signUpUrl);
+        // OP5: the login page first.
+        self::assertStringContainsString('wp-login.php', $view->signUpUrl);
+        self::assertStringNotContainsString('action=register', $view->signUpUrl);
         self::assertStringContainsString(SignUp::MARKER . '=' . $form, $view->signUpUrl);
         self::assertStringContainsString('redirect_to=', $view->signUpUrl);
 
         $html = do_shortcode('[kalaka_form id="' . $form . '"]');
         self::assertStringContainsString('A jelentkezéshez fiók szükséges.', $html);
-        self::assertStringContainsString('action=register', $html);
+        self::assertStringContainsString(esc_url($view->signUpUrl), $html);
         self::assertStringNotContainsString('<form', $html);
     }
 
@@ -146,5 +148,73 @@ final class AccountModesTest extends AccountsTestCase
         $form = $this->openForm('mandatory', 'additional');
 
         self::assertNotSame(FormPageView::ACCOUNT_REQUIRED, (new FormPage(new EventFormHost()))->open($form)->refusal);
+    }
+
+    public function testTheFooterNamesTheAccountOnlyWhenLoggedIn(): void
+    {
+        $form = $this->openForm('optional');
+
+        $_GET = [SignUp::SKIP => (string) $form];
+        $guest = (new FormPage(new EventFormHost()))->open($form);
+        self::assertNull($guest->refusal);
+        self::assertSame('', $guest->accountName);
+        self::assertStringNotContainsString('Bejelentkezve:', do_shortcode('[kalaka_form id="' . $form . '"]'));
+        $_GET = [];
+
+        wp_set_current_user($this->verifiedUser());
+        $view = (new FormPage(new EventFormHost()))->open($form);
+        self::assertSame(wp_logout_url(home_url('/')), $view->logoutUrl);
+        $html = do_shortcode('[kalaka_form id="' . $form . '"]');
+        self::assertStringContainsString('Bejelentkezve: teszt.csilla@example.org. Nem te vagy?', $html);
+        self::assertStringContainsString(
+            '<a href="' . esc_url(wp_logout_url(home_url('/'))) . '">Kijelentkezés</a>',
+            $html
+        );
+    }
+
+    public function testTheFootersNameIsARealDisplayNameElseTheEmailEscaped(): void
+    {
+        $form = $this->openForm('mandatory');
+        $name = static fn (): string => (new FormPage(new EventFormHost()))->open($form)->accountName;
+
+        // A Kaláka sign-up's display name is its login, even a suffixed one: the e-mail instead.
+        $signUp = self::factory()->user->create([
+            'user_login' => 'teszt.anna2',
+            'user_email' => 'teszt.anna@example.org',
+        ]);
+        wp_set_current_user($signUp);
+        self::assertSame('teszt.anna2', wp_get_current_user()->display_name);
+        self::assertSame('teszt.anna@example.org', $name());
+
+        $named = self::factory()->user->create([
+            'user_email' => 'kovacs@example.org',
+            'display_name' => 'Kovács Anna',
+        ]);
+        wp_set_current_user($named);
+        self::assertSame('Kovács Anna', $name());
+
+        // Stored as is (WordPress filters it on save), the name is escaped on the page.
+        global $wpdb;
+        $wpdb->update($wpdb->users, ['display_name' => 'Kovács <b>Anna</b> & "Co"'], ['ID' => $named]);
+        clean_user_cache($named);
+        wp_set_current_user(0);
+        wp_set_current_user($named);
+        $html = do_shortcode('[kalaka_form id="' . $form . '"]');
+        self::assertStringContainsString(
+            'Bejelentkezve: Kovács &lt;b&gt;Anna&lt;/b&gt; &amp; &quot;Co&quot;.',
+            $html
+        );
+        self::assertStringNotContainsString('<b>Anna', $html);
+    }
+
+    public function testNoFooterInOffModeOrOnAnAdditionalForm(): void
+    {
+        wp_set_current_user($this->verifiedUser());
+
+        foreach ([$this->openForm('off'), $this->openForm('mandatory', 'additional')] as $form) {
+            $view = (new FormPage(new EventFormHost()))->open($form);
+            self::assertSame('', $view->accountName);
+            self::assertStringNotContainsString('Bejelentkezve:', do_shortcode('[kalaka_form id="' . $form . '"]'));
+        }
     }
 }

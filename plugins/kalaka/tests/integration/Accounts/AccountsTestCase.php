@@ -28,12 +28,16 @@ abstract class AccountsTestCase extends FormsTestCase
     /** @var list<array<string, mixed>> what `wp_mail` was called with */
     protected array $mails = [];
 
+    /** @var array<int, string> form ID → the permalink of the published page placing it */
+    private array $pages = [];
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress's name
     public function set_up(): void
     {
         parent::set_up();
 
         $this->mails = [];
+        $this->pages = [];
         remove_all_actions(MailQueue::SEND_HOOK);
         add_filter('pre_wp_mail', [$this, 'recordMail'], 10, 2);
         add_filter('send_auth_cookies', '__return_false');
@@ -81,6 +85,21 @@ abstract class AccountsTestCase extends FormsTestCase
         $content = $placement === 'registration' ? $this->slotFields() : $this->field('text', 'megjegyzes');
 
         return $this->insertForm($content, ['kalaka_event_id' => $event, 'kalaka_placement' => $placement]);
+    }
+
+    /** A published page placing the form as its block, which `SignUp::page()` finds: its permalink. */
+    protected function placed(int $form): string
+    {
+        if (!isset($this->pages[$form])) {
+            $page = self::factory()->post->create([
+                'post_type' => 'page',
+                'post_status' => 'publish',
+                'post_content' => '<!-- wp:kalaka/form {"formId":' . $form . '} /-->',
+            ]);
+            $this->pages[$form] = (string) get_permalink($page);
+        }
+
+        return $this->pages[$form];
     }
 
     /** @param array<string, mixed> $answers */

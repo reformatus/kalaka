@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Accounts;
 
+use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\SignUp;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Mail\Body\AccountLinkRule;
@@ -83,6 +85,10 @@ final class AccountMailKeysTest extends MailBodyTestCase
         self::assertSame(1, preg_match($pattern, html_entity_decode($html), $match));
         parse_str((string) wp_parse_url($match[1], PHP_URL_QUERY), $query);
         self::assertSame($user->user_login, $query['login']);
+        // OP1: the link carries the registration's form, so the login after the reset returns to it.
+        $formId = SignUp::formIdOf($query[SignUp::MARKER] ?? null);
+        self::assertNotNull($formId);
+        self::assertSame($event, (new Forms())->form($formId)?->eventId);
         self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
 
         // The newest link wins: rendering again makes a new key, and the first stops working.
