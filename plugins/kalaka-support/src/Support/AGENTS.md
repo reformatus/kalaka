@@ -4,19 +4,22 @@ Support is the organization directory, the congregation picker and the
 support offers: one feature plugin, `kalaka-support` (module `support`), an
 extension that uses only core's public API
 ([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
-So far it holds the directory.
+So far it holds the directory and the congregation picker.
 
 ## Sections it implements
 
 - money.md: [Sponsor and church support](../../../../docs/architecture/money.md#sponsor-and-church-support)
-  (the directory).
+  (the directory and the congregation field type).
+- events-and-forms.md: [Fields](../../../../docs/architecture/events-and-forms.md#fields)
+  (an extension's field type).
 - foundation.md: [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values)
   (a congregation's ancestors are computed),
   [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
   (a tree lookup is expanded in SQL).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
-  [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership).
+  [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),
+  the field-type point of [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
 
 ## Invariants
 
@@ -40,3 +43,9 @@ So far it holds the directory.
   external ID + `/` + the slug of its name; it is never suffixed, and a clash
   fails the rows involved.
 - No directory data is shipped; tests use synthetic nodes only.
+- The congregation field writes no table of its own: its answer is core's
+  field value, the node's id alone. A new answer is a live terminal leaf (a
+  node with no children at all, `NodeList::LEAF`), checked against the
+  directory when the answer is checked.
+- Conditions read the picked node's external ID, never its database id;
+  the public route never shows external IDs.

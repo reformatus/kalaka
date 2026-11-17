@@ -225,8 +225,10 @@ such as lunch or a donation.
   deactivated and never deleted. No data is shipped.
 - **A congregation field type** stores a node ID. The registrant searches for
   the congregation directly, which fills in the levels above it, or goes down
-  from the top through filtered options, each level with a search. "Not in the
-  list" is free text that staff map later.
+  from the top through filtered options, each level with a search. Only a
+  terminal leaf, a node with no children, is an answer; there is no free text
+  and no "not in the list". Admins add an "egyéb" leaf by hand where one is
+  needed.
 - **A node's ancestors are looked up in the tree;** a filter on any level
   expands to its descendants in SQL.
 - **Support offers per event on any node,** the root included, apply to the
