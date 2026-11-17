@@ -154,8 +154,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - The runner evaluates each touched registration once, at the outermost use
   case, after `execute` and before the audit entry; a rule failure rolls back
   the whole use case.
-- Only `FlagEvaluationFailure`, run by `PeriodicEvaluation` in a transaction of
-  its own, inserts or replaces a row of `kalaka_evaluation_failures`; every
+- Only `FlagEvaluationFailure`, run by `Api\Evaluation\Evaluations` (for the
+  periodic run and a money settings apply) in a transaction of its own, inserts or replaces a row of `kalaka_evaluation_failures`; every
   successful evaluation of the registration, interactive or periodic, deletes
   its row. A repeat of the same failure (same rule, same error) does not run
   it again, so the row keeps when it first failed. The periodic run retries

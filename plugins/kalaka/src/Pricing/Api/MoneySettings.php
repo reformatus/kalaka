@@ -6,11 +6,12 @@ namespace Kalaka\Pricing\Api;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Evaluation\Evaluations;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Pricing\ApplyMoneySettings;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Pricing\SetFixedPrice;
@@ -46,9 +47,11 @@ final class MoneySettings
      *
      * @return list<PreviewRow>
      * @throws NotFound when there is no such event
+     * @throws InvalidInput when a proposed setting is one the apply would refuse (a negative price)
      */
     public function preview(int $eventId, ProposedMoneySettings $proposed): array
     {
+        self::check($proposed);
         $event = $this->events->find($eventId) ?? throw new NotFound();
         $now = $this->runner()->clock()->now();
         $current = $this->components->list();
@@ -84,6 +87,7 @@ final class MoneySettings
      */
     public function apply(int $eventId, ProposedMoneySettings $proposed, Actor $actor): ApplyReport
     {
+        self::check($proposed);
         if ($proposed->fixedPrice !== null) {
             $this->runner()->run(
                 new SetFixedPrice(),
@@ -104,16 +108,27 @@ final class MoneySettings
         return new ApplyReport($items);
     }
 
-    /** Re-evaluates one registration in its own use case: a failed item's retry. */
+    /**
+     * Re-evaluates one registration in its own transaction, through Foundation's `Evaluations`: a failed item's
+     * retry. A failure that is not retryable also gets the "evaluation failed" flag, so the hourly sweep retries it.
+     */
     public function retry(RegistrationKey $key, Actor $actor): ApplyItem
     {
         try {
-            $this->runner()->run(new ApplyMoneySettings(), ['event_id' => $key->eventId, 'code' => $key->code], $actor);
+            (new Evaluations($this->runner))->evaluate($key, $actor);
         } catch (\Throwable $failure) {
             return new ApplyItem($key, $failure);
         }
 
         return new ApplyItem($key);
+    }
+
+    /** @throws InvalidInput on a negative proposed price, so the preview never shows what the apply refuses */
+    private static function check(ProposedMoneySettings $proposed): void
+    {
+        if ($proposed->fixedPrice !== null && $proposed->fixedPrice->isNegative()) {
+            throw new InvalidInput();
+        }
     }
 
     private function runner(): Runner

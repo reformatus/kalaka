@@ -44,8 +44,11 @@ retention and the materializer
   row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
   the apply saves the settings in one use case, then re-evaluates each
-  `registered` and `waitlisted` registration in its own; one failure never
-  stops the others, and a failed one converges on its next evaluation.
+  `registered` and `waitlisted` registration in its own, through Foundation's
+  `Evaluations` (Pricing never marks a registration touched itself); one
+  failure never stops the others, a failed one is flagged "evaluation failed",
+  and it converges on its next evaluation. The preview refuses what the apply
+  refuses (a negative price).
 - Once confirmed, a registration never becomes unconfirmed because amounts
   change later, an apply included (owner rule, 2026-11-14; confirmation is
   S20's).

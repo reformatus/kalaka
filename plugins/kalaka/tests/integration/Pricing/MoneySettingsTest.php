@@ -102,12 +102,14 @@ final class MoneySettingsTest extends PricingTestCase
         self::assertSame('00A2', $report->failed()[0]->registration->code);
         self::assertSame('45000', $this->balance($csilla));
         self::assertSame('40000', $this->balance($daniel));
+        self::assertSame(['00A2'], $this->flaggedCodes(), 'A failed item is flagged for the hourly sweep.');
 
         $flaky->failing = false;
         $retried = $this->settings->retry($daniel, new CliActor(null));
 
         self::assertTrue($retried->isDone());
         self::assertSame('45000', $this->balance($daniel));
+        self::assertSame([], $this->flaggedCodes(), 'A successful retry clears the flag.');
     }
 
     public function testASkippedRegistrationConvergesOnItsNextEvaluation(): void
@@ -159,8 +161,37 @@ final class MoneySettingsTest extends PricingTestCase
         self::assertNull((new FixedPriceRepository())->find($this->event));
     }
 
+    public function testANegativeProposedPriceIsRefusedByThePreviewAsByTheApply(): void
+    {
+        $this->setPrice('40000');
+        $this->register('00A0');
+
+        foreach (['preview', 'apply'] as $step) {
+            try {
+                $this->{$step}('-5');
+                self::fail('The ' . $step . ' took a negative price.');
+            } catch (InvalidInput) {
+            }
+        }
+
+        $stored = (new FixedPriceRepository())->find($this->event);
+        self::assertSame('40000', self::plain($stored?->amount->amount() ?? ''));
+    }
+
     // TODO(S20): when confirmation lands, add the owner's rule (2026-11-14) as a test here: a confirmed
     // registration stays confirmed after an apply that raises the price; the apply never unconfirms.
+
+    /** @return list<string> the codes of this event's registrations flagged "evaluation failed" */
+    private function flaggedCodes(): array
+    {
+        global $wpdb;
+
+        return array_values(array_map('strval', $wpdb->get_col($wpdb->prepare(
+            'SELECT code FROM %i WHERE event_id = %d ORDER BY code',
+            $wpdb->prefix . 'kalaka_evaluation_failures',
+            $this->event
+        ))));
+    }
 
     private function apply(string $price): ApplyReport
     {
