@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormPlacement;
@@ -37,6 +38,9 @@ use Kalaka\Registrations\Api\Drafts;
  *   hold; when it changes nothing, the guest draft is dropped (keep_draft) and the cookie is cleared. A
  *   guest draft that is gone clears the cookie.
  *
+ * - **The notice.** A claim the person's choice settled (the claim route keeps the cookie) is found on the
+ *   load after it: the cookie is cleared, and the page carries the choice once (`settledNow()`).
+ *
  * Any other page view (no `kalaka`, and no claim cookie of a logged-in visitor) returns before any read.
  * [UNAPPROVED N6] [UNAPPROVED N7]
  */
@@ -44,6 +48,12 @@ final class DraftHandoff
 {
     /** The request parameter of a prefill: `kalaka[<field key>]`. */
     public const PARAMETER = 'kalaka';
+
+    /**
+     * The choice that settled the cookie's claim, found on this request (the load after the choice): the
+     * page shows it once (`EventFormHost::draft()`), and the cookie is cleared, so the next load does not.
+     */
+    private static ?DraftClaimChoice $settled = null;
 
     public function __construct(
         private readonly Forms $forms = new Forms(),
@@ -153,10 +163,25 @@ final class DraftHandoff
             return;
         }
         $outcome = $this->drafts->claim($form->id, $token, $actor);
+        if ($outcome === DraftClaimOutcome::Gone) {
+            self::$settled = $this->drafts->settledChoice($form->eventId, $form->id, $actor->userId, $token);
+        }
         $done = [DraftClaimOutcome::Claimed, DraftClaimOutcome::Settled, DraftClaimOutcome::Gone];
         if (in_array($outcome, $done, true)) {
             DraftClaim::setCookie(null);
         }
+    }
+
+    /** The choice that settled the cookie's claim, when this request found it (the load after the choice). */
+    public static function settledNow(): ?DraftClaimChoice
+    {
+        return self::$settled;
+    }
+
+    /** @internal for tests: a new request */
+    public static function forget(): void
+    {
+        self::$settled = null;
     }
 
     /** The one registration form the page places, when it can be used now; null otherwise. */

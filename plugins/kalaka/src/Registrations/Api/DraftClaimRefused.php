@@ -16,9 +16,9 @@ final class DraftClaimRefused extends KalakaException
 {
     protected function defaultMessage(): string
     {
-        // [UNAPPROVED N11] A placeholder, the existing text of a version conflict: the popup's own text comes
-        // with its texts (UX, the owner).
-        return 'Valaki időközben módosította ezeket az adatokat. Töltsd újra az oldalt, és próbáld újra.';
+        // [UNAPPROVED N11] No text yet: a placeholder until the owner approves the popup's texts. The page
+        // knows the refusal by its code.
+        return '';
     }
 
     public function errorCode(): string

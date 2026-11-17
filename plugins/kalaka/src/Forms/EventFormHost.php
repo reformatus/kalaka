@@ -171,8 +171,17 @@ final class EventFormHost implements FormHost
             return new FormDraft();
         }
         $user = get_current_user_id();
+        $draft = $this->drafts->opening($form->eventId, $form->id, $user > 0 ? $user : null, DraftClaim::current());
+        $notice = $user > 0 ? DraftHandoff::settledNow() : null;
 
-        return $this->drafts->opening($form->eventId, $form->id, $user > 0 ? $user : null, DraftClaim::current());
+        return $notice === null ? $draft : new FormDraft(
+            $draft->answers,
+            $draft->autosave,
+            $draft->claimConflict,
+            $draft->claims,
+            $draft->linkChanges,
+            $notice
+        );
     }
 
     public function saveDraft(

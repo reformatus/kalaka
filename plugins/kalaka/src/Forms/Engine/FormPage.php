@@ -249,6 +249,13 @@ final class FormPage
         if ($draft->claimConflict) {
             // `Rest\FormRoutes::resolveDraftClaim()`; the choice is the person's (the popup, UX).
             $data['draftClaimUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft/claim');
+            // How many fields the link's answers would change (pass 2): the merge choice's line.
+            $data['draftClaimChanges'] = $draft->linkChanges;
+        }
+        if ($draft->claimNotice !== null) {
+            // The choice that settled the claim, on the load after it, for a notice shown once. The notice's
+            // text is not approved yet: only the choice's code is here. [UNAPPROVED N12]
+            $data['draftClaimNotice'] = $draft->claimNotice->value;
         }
 
         return $data;

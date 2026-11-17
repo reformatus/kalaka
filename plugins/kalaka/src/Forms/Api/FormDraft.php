@@ -11,6 +11,10 @@ namespace Kalaka\Forms\Api;
  * a link's answers wait for the person's choice against their own draft (`$claimConflict`: only when they
  * set a value the draft does not hold), and the draft's claim count (`$claims`), which the autosave carries
  * back so that a save from before a claim is refused.
+ *
+ * For the claim popup (S74, pass 2): how many fields the link's answers would change in the draft
+ * (`$linkChanges`, while `$claimConflict`), and the choice that settled a claim on the request before this
+ * one (`$claimNotice`), shown once on the page that loads after the choice. [UNAPPROVED N12]
  */
 final readonly class FormDraft
 {
@@ -19,6 +23,8 @@ final readonly class FormDraft
         public bool $autosave = false,
         public bool $claimConflict = false,
         public int $claims = 0,
+        public int $linkChanges = 0,
+        public ?DraftClaimChoice $claimNotice = null,
     ) {
     }
 }

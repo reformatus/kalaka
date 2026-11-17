@@ -56,9 +56,9 @@ final class Drafts
         if ($own === null) {
             return new FormDraft($guest === null ? new AnswerSet() : $guest->answers, true, false);
         }
-        $conflict = $guest !== null && $this->changedKeys($formId, $own, $guest) !== [];
+        $changes = $guest === null ? 0 : count($this->changedKeys($formId, $own, $guest));
 
-        return new FormDraft($own->answers, true, $conflict, $own->claims);
+        return new FormDraft($own->answers, true, $changes > 0, $own->claims, $changes);
     }
 
     /**
@@ -82,6 +82,21 @@ final class Drafts
         }
 
         return $changes;
+    }
+
+    /**
+     * The choice that settled the claim under the token into the person's draft, through the claim route
+     * (`ResolveDraftClaim`); null when there is none, or it was settled on the form's page with no choice.
+     * A plain read, for the notice on the page that loads after the choice (S74, pass 2).
+     */
+    public function settledChoice(int $eventId, int $formId, int $userId, string $claimToken): ?DraftClaimChoice
+    {
+        $own = $this->drafts->ofUser($eventId, $formId, $userId);
+        if ($own === null || $own->resolvedClaim !== DraftClaim::hash($claimToken)) {
+            return null;
+        }
+
+        return $own->resolvedChoice === null ? null : DraftClaimChoice::tryFrom($own->resolvedChoice);
     }
 
     /** The usable guest draft of the form under the token: not claimed, not expired; a plain read. */

@@ -764,13 +764,24 @@ function saveDraft(form, keepalive = false) {
  * @return {Promise<{ok: boolean, body: *}>} The route's answer.
  */
 function resolveDraftClaim(form, choice) {
-	const started = forms.get(form);
+	const started = form ? forms.get(form) : undefined;
 	if (!started?.draftClaimUrl) {
 		return Promise.resolve({ ok: false, body: null });
 	}
 	stopDraft(form);
 
 	return post(started.draftClaimUrl, { choice }, started.nonce);
+}
+
+/** The page's form whose link's answers wait for the person's choice (it has a claim route), or null. */
+function claimingForm() {
+	for (const form of document.querySelectorAll('form')) {
+		if (forms.get(form)?.draftClaimUrl) {
+			return form;
+		}
+	}
+
+	return null;
 }
 
 /** The message of a refusal: Kaláka's own (a `kalaka_` code) as it comes, anything else the failure text. */
@@ -1370,8 +1381,14 @@ store('kalaka/form', {
 				}
 			}
 		}),
-		// S74: the choice of the element it is bound to (its `value`), for the popup UX builds.
-		resolveDraftClaim() {
+		// S74: the person's choice on a link's answers, for the popup UX builds. Bound to an element inside the
+		// form, it sends that element's `value`. Called from a script (a modal outside the form), it takes the
+		// choice and, optionally, the form; without one, the page's form that has a claim route. Nothing sends
+		// a choice by itself: only this action does.
+		resolveDraftClaim(choice, form) {
+			if (typeof choice === 'string') {
+				return resolveDraftClaim(form ?? claimingForm(), choice);
+			}
 			const element = getElement().ref;
 
 			return resolveDraftClaim(element.closest('form'), element.value);
