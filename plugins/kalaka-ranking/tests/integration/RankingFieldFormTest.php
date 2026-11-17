@@ -133,8 +133,7 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame(3, substr_count($html, 'type="checkbox" name="modulok[]"'));
         self::assertSame(0, substr_count($html, ' checked'));
         self::assertStringContainsString(
-            'value="modul_b" data-kalaka-toggle aria-label="Modul B hozzáadása a sorrendhez" autocomplete="off"'
-                . ' class="wp-element-button">',
+            'value="modul_b" data-kalaka-toggle aria-label="Modul B hozzáadása a sorrendhez" autocomplete="off">',
             $html
         );
         // The text is no label: a tap on it does nothing.

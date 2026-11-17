@@ -69,7 +69,7 @@ $kalakaItem = static function (
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'
         . ' data-kalaka-toggle aria-label="'
         . esc_attr(sprintf($ranked ? RankingFieldType::REMOVE_NAME : RankingFieldType::ADD_NAME, $label)) . '"'
-        . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl, 'wp-element-button')
+        . ' autocomplete="off"' . FieldMarkup::classAttribute(ElementRole::ChoiceControl)
         . ($ranked ? ' checked' : '')
         . '>'
         . '</span></div></li>';

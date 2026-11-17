@@ -65,5 +65,7 @@ It holds the ranking field type now and the ranking proposer later (S77).
 - The CSS (`style.css`) is the structure, unlayered (layout, 44-pixel
   targets, what dragging and the toggle need), and a neutral look in the
   `kalaka` cascade layer with `:where()` selectors on core's `--kalaka-…`
-  variables; the buttons and the toggle carry `wp-element-button`.
+  variables. The ↑/↓ buttons carry `wp-element-button`; the toggle does not,
+  since a theme's checkbox rules and its button rules would mix on it (Twenty
+  Twenty-One: white on white), and a theme's own checkbox mark is removed.
 - The plugin stores nothing of its own.

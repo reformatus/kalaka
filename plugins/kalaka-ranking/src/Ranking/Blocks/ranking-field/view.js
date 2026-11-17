@@ -4,8 +4,8 @@
  * answer. Each checkbox is drawn as „+” while unticked and „×” while ticked (owner, r2), and its
  * accessible name says what it does (`addName()` / `removeName()`, swapped here with its state; wording
  * after the lektor, r2). Ticking an option adds it at the end of the ranked list (`data-kalaka-ranked`);
- * unticking it puts it back among the others (`data-kalaka-unranked`) at its authored place. Enter works the toggle like Space, as on a
- * button, instead of sending the form. The focus stays on the toggle that was used.
+ * unticking it puts it back among the others (`data-kalaka-unranked`) at its authored place. Enter works
+ * the toggle like Space, as on a button, instead of sending the form. The focus stays on the toggle that was used.
  *
  * A ranked option is reordered by a drag or by its two icon buttons, the keyboard's and the screen
  * reader's way (owner, r2):

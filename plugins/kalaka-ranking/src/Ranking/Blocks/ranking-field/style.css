@@ -29,6 +29,18 @@
 	margin-left: 1.5em;
 }
 
+/* The other options are rows with their own „+”, not a bulleted list. */
+[data-kalaka-ranking] [data-kalaka-unranked] {
+	list-style: none;
+	padding-left: 0;
+}
+
+/* The numbered lists keep only the room their markers need (the `li`'s margin), not the list's default
+ * indent as well, so a phone's width goes to the rows. */
+[data-kalaka-ranking] :is([data-kalaka-ranked], [data-kalaka-empty]) {
+	padding-left: 0;
+}
+
 /* The text takes the room the controls leave, but never less than a few words' width: on a narrow
  * screen the controls wrap under it instead, kept to the right. */
 [data-kalaka-ranking] [data-kalaka-row] {
@@ -36,8 +48,8 @@
 }
 
 [data-kalaka-ranking] [data-kalaka-label] {
-	flex: 1 1 10em;
-	min-width: 10em;
+	flex: 1 1 8em;
+	min-width: 8em;
 	overflow-wrap: break-word;
 }
 
@@ -121,9 +133,13 @@
 	height: 44px;
 	margin: 0;
 	padding: 0;
-	font: inherit;
-	color: inherit;
 	cursor: pointer;
+}
+
+/* A theme that draws its own checkbox mark (Twenty Twenty-One's `::after` tick) draws none on the toggle. */
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::after {
+	content: none;
+	display: none;
 }
 
 [data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::before {
@@ -194,6 +210,7 @@
 		border-radius: var(--kalaka-radius, 2px);
 		background: var(--kalaka-control-background, transparent);
 		color: var(--kalaka-control-color, inherit);
+		font: inherit;
 	}
 
 	@media (hover: hover) {
@@ -211,11 +228,6 @@
 		border: 1px dashed var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
 		border-radius: var(--kalaka-radius, 2px);
 		margin-bottom: 0.25em;
-	}
-
-	:where([data-kalaka-ranking] [data-kalaka-unranked]) {
-		list-style: none;
-		padding-left: 0;
 	}
 
 	:where([data-kalaka-ranking] [data-kalaka-counter]) {
