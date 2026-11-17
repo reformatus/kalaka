@@ -17,10 +17,17 @@ deptrac:
           must_not:
             - type: classLike
               value: '^Kalaka\\Foundation\\Api\\Money\\Money$'
+            - type: classLike
+              value: '^Kalaka\\Foundation\\Api\\Decision\\DecisionTables$'
     - name: Foundation Api Money
       collectors:
         - type: classLike
           value: '^Kalaka\\Foundation\\Api\\Money\\Money$'
+    # The decisions table by name and the current-decision rule: only Foundation and the admin view query.
+    - name: Decision tables
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Foundation\\Api\\Decision\\DecisionTables$'
     - name: Events
       collectors:
         - type: classLike
@@ -81,6 +88,14 @@ deptrac:
           must_not:
             - type: classLike
               value: '^Kalaka\\Registrations\\Api\\RegistrationTables$'
+            - type: classLike
+              value: '^Kalaka\\Registrations\\Api\\(Registrations|RegistrationRead|Serials|FormSubmissions|SecretLinks)$'
+    # Registrations' public readers of registration data. Admin reaches registration data only through the
+    # view query, and full-access code through its own layer (engineering.md, "Static checks").
+    - name: Registration data
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Registrations\\Api\\(Registrations|RegistrationRead|Serials|FormSubmissions|SecretLinks)$'
     # Registrations' tables by name and the sorszám order: only Registrations and the admin view query
     # (engineering.md, "Static checks"; RegistrationTablesTest is the second guard, for table names in strings).
     - name: Registration tables
@@ -130,7 +145,13 @@ deptrac:
     - name: Admin
       collectors:
         - type: classLike
-          value: '^Kalaka\\Admin\\(?!Api\\)'
+          value: '^Kalaka\\Admin\\(?!Api\\|FullAccess\\)'
+    # The code paths that only full access runs (engineering.md, "Static checks"): the one Admin layer
+    # besides the view query that may use Registrations' readers.
+    - name: Full access
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Admin\\FullAccess\\'
     - name: Admin Api
       collectors:
         - type: bool
@@ -179,6 +200,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -186,6 +208,7 @@ deptrac:
       - Portal Api
       - Admin Api
       - View query
+      - Decision tables
     Events:
       - WordPress
       - Events Api
@@ -196,6 +219,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -215,6 +239,7 @@ deptrac:
       - Events Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -239,6 +264,7 @@ deptrac:
       - Events Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -256,6 +282,7 @@ deptrac:
       - Forms Engine Api
       - ParticipantFields Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -266,6 +293,7 @@ deptrac:
     Registrations:
       - WordPress
       - Registrations Api
+      - Registration data
       - Foundation Api
       - Foundation Api Money
       - Events Api
@@ -292,6 +320,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Ledger Api
       - Payments Api
       - Mail Api
@@ -309,6 +338,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Payments Api
       - Mail Api
@@ -326,6 +356,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Mail Api
@@ -343,6 +374,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -360,6 +392,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -383,6 +416,7 @@ deptrac:
       - Mail Api
       - Portal Api
       - View query
+      - Full access
     Support:
       - WordPress
       - Support Api
@@ -394,6 +428,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -412,6 +447,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -429,6 +465,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -451,6 +488,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -469,6 +507,7 @@ deptrac:
       - Events Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -483,6 +522,7 @@ deptrac:
       - Events Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -500,6 +540,7 @@ deptrac:
       - Forms Engine Api
       - ParticipantFields Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -510,6 +551,7 @@ deptrac:
     Registrations Api:
       - WordPress
       - Registrations
+      - Registration data
       - Foundation Api
       - Foundation Api Money
       - Events Api
@@ -536,6 +578,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Ledger Api
       - Payments Api
       - Mail Api
@@ -553,6 +596,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Payments Api
       - Mail Api
@@ -570,6 +614,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Mail Api
@@ -587,6 +632,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -604,6 +650,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -638,6 +685,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -656,6 +704,7 @@ deptrac:
       - ParticipantFields Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Pricing Api
       - Ledger Api
       - Payments Api
@@ -673,13 +722,55 @@ deptrac:
       - Forms Api
       - Assignments Api
       - Registrations Api
+      - Registration data
       - Registration tables
       - Pricing Api
       - Ledger Api
       - Payments Api
       - Mail Api
       - Portal Api
+      - Decision tables
     Registration tables: []
+    Registration data:
+      - WordPress
+      - Registrations
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+      - Registration tables
+      - Registrations Api
+    Full access:
+      - WordPress
+      - Admin
+      - Admin Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - View query
+      - Registration data
+    Decision tables: []
+
 # A base class in a module's Api may use its own module (S3's D16).
 services:
   KalakaDev\Deptrac\DeptracApiInheritanceSubscriber:

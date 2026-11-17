@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Decision;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Decision\DecisionTables;
 use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -18,7 +19,7 @@ final class DecisionRepository extends AppendOnlyRepository
 {
     protected function table(): string
     {
-        return 'kalaka_decisions';
+        return DecisionTables::DECISIONS;
     }
 
     protected function keyColumns(): array

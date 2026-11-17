@@ -6,9 +6,11 @@ namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
 
-/** A module that offers the given actions. */
+/** A module that offers the given actions and counts its boots. */
 final class ActionsModule extends AbstractModule
 {
+    public int $boots = 0;
+
     /** @param list<string> $actions */
     public function __construct(private readonly string $id, private readonly array $actions)
     {
@@ -31,5 +33,6 @@ final class ActionsModule extends AbstractModule
 
     public function boot(): void
     {
+        ++$this->boots;
     }
 }

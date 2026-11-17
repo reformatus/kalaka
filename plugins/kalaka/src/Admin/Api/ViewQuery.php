@@ -6,6 +6,8 @@ namespace Kalaka\Admin\Api;
 
 use Kalaka\Admin\View\ViewShape;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Decision\DecisionTables;
+use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationTables;
@@ -25,8 +27,10 @@ final class ViewQuery extends Query
     /** The most rows one page may ask for. */
     public const MAX_LIMIT = 500;
 
-    public function __construct(private readonly Serials $serials = new Serials())
-    {
+    public function __construct(
+        private readonly Serials $serials = new Serials(),
+        private readonly Decisions $decisions = new Decisions(),
+    ) {
         parent::__construct();
     }
 
@@ -98,8 +102,12 @@ final class ViewQuery extends Query
                 . ' AND s.field_key = %s)' . $direction . ', ' . $serialOrder;
             $sortArgs = [$this->table(RegistrationTables::FIELD_VALUES), substr($sort, 6)];
         } elseif ($sort !== null && str_starts_with($sort, 'decision:')) {
-            $order = self::LATEST_STATE_SORT . $direction . ', ' . $serialOrder;
-            $sortArgs = [$this->table('kalaka_decisions'), $this->table('kalaka_decisions'), substr($sort, 9)];
+            $order = DecisionTables::currentState('r', 's', 'n') . $direction . ', ' . $serialOrder;
+            $sortArgs = [
+                $this->table(DecisionTables::DECISIONS),
+                $this->table(DecisionTables::DECISIONS),
+                substr($sort, 9),
+            ];
         }
 
         $total = $this->count($view);
@@ -131,7 +139,7 @@ final class ViewQuery extends Query
             $codes = array_map(static fn (array $row): string => (string) $row['code'], $registrations);
 
             $fields = $this->fieldValues($eventId, $codes, $shape->fieldKeys());
-            $decisions = $this->latestStates($eventId, $codes, $shape->decisionKinds());
+            $decisions = $this->decisions->currentStates($eventId, $codes, $shape->decisionKinds());
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
 
             $rows = [];
@@ -214,18 +222,11 @@ final class ViewQuery extends Query
                 'SELECT DISTINCT field_key FROM %i WHERE event_id = %d',
                 [$this->table(RegistrationTables::FIELD_VALUES), $eventId]
             );
-            $kinds = $this->select(
-                'decision_kind',
-                'SELECT DISTINCT kind FROM %i WHERE event_id = %d',
-                [$this->table('kalaka_decisions'), $eventId]
-            );
 
             $keys = array_map(static fn (array $row): string => (string) $row['field_key'], $keys);
-            $kinds = array_map(static fn (array $row): string => (string) $row['kind'], $kinds);
             sort($keys, SORT_STRING);
-            sort($kinds, SORT_STRING);
 
-            return ViewShape::master($keys, $kinds);
+            return ViewShape::master($keys, $this->decisions->kindsIn($eventId));
         });
     }
 
@@ -255,45 +256,6 @@ final class ViewQuery extends Query
 
         return $values;
     }
-
-    /**
-     * @param list<string> $codes
-     * @param list<string> $kinds
-     * @return array<string, array<string, ?string>> the state of the latest record by code and kind
-     */
-    private function latestStates(int $eventId, array $codes, array $kinds): array
-    {
-        if ($codes === [] || $kinds === []) {
-            return [];
-        }
-
-        $rows = $this->select(
-            'decision',
-            'SELECT d.code, d.kind, d.state FROM %i d WHERE d.event_id = %d AND d.code IN ('
-            . implode(', ', array_fill(0, count($codes), '%s')) . ') AND d.kind IN ('
-            . implode(', ', array_fill(0, count($kinds), '%s'))
-            . ') AND d.id = (SELECT MAX(m.id) FROM %i m'
-            . ' WHERE m.event_id = d.event_id AND m.code = d.code AND m.kind = d.kind)',
-            [$this->table('kalaka_decisions'), $eventId, ...$codes, ...$kinds, $this->table('kalaka_decisions')]
-        );
-
-        $states = [];
-        foreach ($rows as $row) {
-            $states[(string) $row['code']][(string) $row['kind']] = $row['state'];
-        }
-
-        return $states;
-    }
-
-    /**
-     * The state of the latest decision of one kind for the row `r`, as a subquery taking the decisions
-     * table twice and the kind as arguments: aliases `d`/`m` for the filter, `s`/`n` for the sort.
-     */
-    private const LATEST_STATE_FILTER = '(SELECT d.state FROM %i d WHERE d.event_id = r.event_id AND d.id = ('
-        . 'SELECT MAX(m.id) FROM %i m WHERE m.event_id = r.event_id AND m.code = r.code AND m.kind = %s))';
-
-    private const LATEST_STATE_SORT = '(SELECT s.state FROM %i s WHERE s.event_id = r.event_id AND s.id = ('
-        . 'SELECT MAX(n.id) FROM %i n WHERE n.event_id = r.event_id AND n.code = r.code AND n.kind = %s))';
 
     /**
      * The filter terms as `AND …` conditions on the alias `r` of `kalaka_registrations`, and their
@@ -329,11 +291,11 @@ final class ViewQuery extends Query
                     . ' AND f.field_key = %s AND f.value IN (' . $in . '))';
                 array_push($args, $this->table(RegistrationTables::FIELD_VALUES), substr($column, 6), ...$values);
             } else {
-                $fragments[] = ' AND ' . self::LATEST_STATE_FILTER . ' IN (' . $in . ')';
+                $fragments[] = ' AND ' . DecisionTables::currentState('r', 'd', 'm') . ' IN (' . $in . ')';
                 array_push(
                     $args,
-                    $this->table('kalaka_decisions'),
-                    $this->table('kalaka_decisions'),
+                    $this->table(DecisionTables::DECISIONS),
+                    $this->table(DecisionTables::DECISIONS),
                     substr($column, 9),
                     ...$values
                 );

@@ -105,9 +105,11 @@ final class ActionCatalogueTest extends RunnerTestCase
     /** @dataProvider malformedNames */
     public function testAMalformedActionNameIsALoadFailureThatClosesTheSite(string $name): void
     {
-        $boot = $this->boot([new ActionsModule('bad', ['kalaka_fine', $name])]);
+        $bad = new ActionsModule('bad', ['kalaka_fine', $name]);
+        $boot = $this->boot([$bad]);
 
         self::assertCount(1, $boot->failures());
+        self::assertSame(0, $bad->boots, 'A module that fails the catalogue check never boots.');
         self::assertSame('bad', $boot->failures()[0]->moduleId);
         self::assertFalse(LoadState::current()->isOpen());
         self::assertSame([], ActionCatalogue::current()->names());
@@ -130,12 +132,13 @@ final class ActionCatalogueTest extends RunnerTestCase
         self::assertFalse(LoadState::current()->isOpen());
         self::assertSame([], ActionCatalogue::current()->names());
 
-        $acrossModules = $this->boot([
-            new ActionsModule('first', ['kalaka_edit_fields', 'kalaka_a1']),
-            new ActionsModule('second', ['kalaka_b1', 'kalaka_edit_fields']),
-        ]);
+        $first = new ActionsModule('first', ['kalaka_edit_fields', 'kalaka_a1']);
+        $second = new ActionsModule('second', ['kalaka_b1', 'kalaka_edit_fields']);
+        $acrossModules = $this->boot([$first, $second]);
 
         self::assertCount(1, $acrossModules->failures());
+        self::assertSame(1, $first->boots);
+        self::assertSame(0, $second->boots, 'A module that fails the catalogue check never boots.');
         self::assertSame('second', $acrossModules->failures()[0]->moduleId);
         self::assertFalse(LoadState::current()->isOpen());
         self::assertSame(['kalaka_edit_fields', 'kalaka_a1'], ActionCatalogue::current()->names());
