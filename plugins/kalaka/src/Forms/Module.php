@@ -40,6 +40,12 @@ final class Module extends AbstractModule
     /** The handle of the form's view stylesheet, named by the embed block's `viewStyle`. */
     public const VIEW_STYLE = 'kalaka-form-view';
 
+    /**
+     * The handle of the claim popup's script (S74, `Blocks/form/claim.js`), which `render.php` enqueues only
+     * while a link's answers wait for the person's choice.
+     */
+    public const CLAIM_SCRIPT = 'kalaka-form-claim';
+
     /** The block category of Kaláka's blocks in the block editor's inserter. */
     public const BLOCK_CATEGORY = 'kalaka';
 
@@ -148,6 +154,7 @@ final class Module extends AbstractModule
             KALAKA_VERSION
         );
         $this->registerEmbedBlock($blocks . self::EMBED_BLOCK);
+        self::registerClaimScript($blocks . self::EMBED_BLOCK);
         foreach (self::BLOCKS as $name) {
             register_block_type($blocks . $name . '-field');
         }
@@ -222,6 +229,29 @@ final class Module extends AbstractModule
             'attributes' => $attributes,
             'render_callback' => static fn (array $given): string => self::renderWithoutBuild($source, $given),
         ]);
+    }
+
+    /**
+     * The claim popup's script, from `build/`, on `wp-element` and `wp-components` (its asset file), with
+     * WordPress's components stylesheet. Without `build/` there is none, as there is no form script.
+     */
+    private static function registerClaimScript(string $built): void
+    {
+        $asset = $built . '/claim.asset.php';
+        $url = plugins_url('build/Forms/Blocks/' . self::EMBED_BLOCK . '/claim.js', KALAKA_FILE);
+        if (!is_file($asset) || $url === '') {
+            return;
+        }
+        $data = require $asset;
+        $dependencies = is_array($data) && is_array($data['dependencies'] ?? null) ? $data['dependencies'] : [];
+        $version = is_array($data) && is_string($data['version'] ?? null) ? $data['version'] : KALAKA_VERSION;
+        wp_register_script(
+            self::CLAIM_SCRIPT,
+            $url,
+            $dependencies,
+            $version,
+            ['in_footer' => true]
+        );
     }
 
     /**

@@ -90,6 +90,9 @@ export const SPINNER_DELAY = 2000;
 /** How long the answers rest before the autosave keeps them (S74). [UNAPPROVED N5] */
 export const DRAFT_DELAY = 3000;
 
+/** How long the claim notice's live region waits for its text, so a screen reader announces it (S74). */
+export const CLAIM_NOTICE_DELAY = 300;
+
 function plain(data) {
 	return JSON.parse(JSON.stringify(data));
 }
@@ -773,6 +776,25 @@ function resolveDraftClaim(form, choice) {
 	return post(started.draftClaimUrl, { choice }, started.nonce);
 }
 
+/**
+ * The one-line notice on the load after the person's choice on a link's answers (S74, N12): above the form,
+ * in a live region that exists before its text, so the text is announced. The server sends it on that one
+ * load only.
+ */
+function showClaimNotice(form, text) {
+	if (typeof text !== 'string' || text === '') {
+		return;
+	}
+	const notice = document.createElement('p');
+	notice.className = 'kalaka-claim-notice';
+	notice.setAttribute('role', 'status');
+	notice.setAttribute('data-kalaka-claim-notice', '');
+	form.before(notice);
+	setTimeout(() => {
+		notice.textContent = text;
+	}, CLAIM_NOTICE_DELAY);
+}
+
 /** The page's form whose link's answers wait for the person's choice (it has a claim route), or null. */
 function claimingForm() {
 	for (const form of document.querySelectorAll('form')) {
@@ -1451,6 +1473,7 @@ store('kalaka/form', {
 			for (const button of buttonsOf(form)) {
 				button.disabled = false;
 			}
+			showClaimNotice(form, started.draftClaimNoticeText);
 			// The ticks the browser restored are remembered like ticks made here.
 			for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
 				remember(form, wrapper.getAttribute('data-kalaka-field'));

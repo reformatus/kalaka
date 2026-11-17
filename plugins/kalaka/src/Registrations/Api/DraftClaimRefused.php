@@ -16,9 +16,9 @@ final class DraftClaimRefused extends KalakaException
 {
     protected function defaultMessage(): string
     {
-        // [UNAPPROVED N11] No text yet: a placeholder until the owner approves the popup's texts. The page
-        // knows the refusal by its code.
-        return '';
+        // [UNAPPROVED N11] The claim popup shows it, with a button that reloads the page (owner, 2026-11-17).
+        return 'Ezt most nem tudjuk végrehajtani: a bejövő válaszokról már döntöttél (például egy másik lapon), '
+            . 'vagy ezek a válaszok már nem érvényesek. Töltsd újra az oldalt.';
     }
 
     public function errorCode(): string

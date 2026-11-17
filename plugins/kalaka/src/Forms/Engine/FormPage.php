@@ -251,11 +251,14 @@ final class FormPage
             $data['draftClaimUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft/claim');
             // How many fields the link's answers would change (pass 2): the merge choice's line.
             $data['draftClaimChanges'] = $draft->linkChanges;
+            // The popup's texts (`Blocks/form/claim.js`), the count in merge's line.
+            $data['draftClaimTexts'] = DraftClaimTexts::popup($draft->linkChanges);
         }
         if ($draft->claimNotice !== null) {
-            // The choice that settled the claim, on the load after it, for a notice shown once. The notice's
-            // text is not approved yet: only the choice's code is here. [UNAPPROVED N12]
+            // The choice that settled the claim, on the load after it, and its one-line notice, shown once
+            // above the form by the form's script. [UNAPPROVED N12]
             $data['draftClaimNotice'] = $draft->claimNotice->value;
+            $data['draftClaimNoticeText'] = DraftClaimTexts::notice($draft->claimNotice);
         }
 
         return $data;
