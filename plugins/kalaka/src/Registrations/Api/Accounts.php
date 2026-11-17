@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
+use Kalaka\Forms\Api\SignUp;
 use Kalaka\Registrations\Account\SignUpPage;
 
 /**
@@ -25,8 +26,12 @@ final class Accounts
      * user, so making one replaces the last: the newest link wins. It writes WordPress's user row, so it
      * runs outside any use case (the sender renders a mail outside one). Null when there is no such user or
      * WordPress refuses a key.
+     *
+     * With `$formId` (the registration's slot form), the link carries the form's marker (`SignUp::MARKER`):
+     * WordPress keeps it through its reset screens, and the login after the password is set returns to the
+     * form's page, resolved on the server (`SignUp::page()`; OP1, owner 2026-11-17).
      */
-    public function passwordLink(int $userId): ?string
+    public function passwordLink(int $userId, ?int $formId = null): ?string
     {
         $user = get_userdata($userId);
         if (!$user instanceof \WP_User) {
@@ -37,9 +42,11 @@ final class Accounts
             return null;
         }
 
-        return network_site_url(
+        $link = network_site_url(
             'wp-login.php?action=rp&key=' . rawurlencode($key) . '&login=' . rawurlencode($user->user_login),
             'login'
         );
+
+        return $formId === null ? $link : $link . '&' . SignUp::MARKER . '=' . $formId;
     }
 }

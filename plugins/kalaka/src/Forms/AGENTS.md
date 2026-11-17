@@ -257,12 +257,15 @@ values and conditions, prefill and form links
   engine.
 - A form whose host gives an account step (`FormHost::accountStep()`) is
   never shown to someone not logged in: `SignUpRedirect` sends them, on
-  `template_redirect`, to WordPress's registration page with the form's
-  marker and the page as `redirect_to` (`Api\SignUp`), and a page it cannot
-  see shows the link instead (`FormPageView::ACCOUNT_REQUIRED`). Only the
-  form's skip marker (`kalaka_skip`, `optional` mode) shows it to a guest;
-  it fills nothing in. Logged in, the contact email starts with the
-  account's address.
+  `template_redirect`, to WordPress's login page with the form's marker and
+  the page as `redirect_to` (`Api\SignUp`), and a page it cannot see shows
+  the link instead (`FormPageView::ACCOUNT_REQUIRED`). Every way back to the
+  form built from a marker is the form's page found on the server
+  (`SignUp::page()`), never an address from the request. Only the form's
+  skip marker (`kalaka_skip`, `optional` mode) shows it to a guest; it fills
+  nothing in. Logged in, the contact email starts with the account's
+  address, and the form's footer names the account with a logout link back
+  to the form.
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.

@@ -5,25 +5,33 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Account;
 
 use Kalaka\Events\Api\AccountMode;
+use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\SignUp;
 
 /**
- * WordPress's own registration page (`wp-login.php?action=register`) as Kaláka's sign-up (S15; owner ruling
- * 2026-11-14), extended through its hooks. Kaláka never handles a password: logging in is `wp_login_url()`,
- * setting the password is WordPress's own `?action=rp` screen, and any WordPress user counts.
+ * WordPress's own login and registration pages (`wp-login.php`, `?action=register`) as Kaláka's way in (S15;
+ * owner rulings 2026-11-14 and 2026-11-17), extended through their hooks. A form sends people to the login
+ * page first (OP5), which links to the registration page; both name the event and link to each other. Kaláka
+ * never handles a password: logging in is `wp_login_url()`, setting the password is WordPress's own
+ * `?action=rp` screen, and any WordPress user counts.
  *
  * Two gates:
  * - **The flag** (`$flag`), set on every POST to `action=register` without `loginSocial` (social sign-ups are
  *   their plugin's): it sets the hidden login name (`LoginName`), an opaque nicename, the
  *   `kalaka_unverified` mark, logs the new user in at once (`register_new_user`, then WordPress redirects
  *   to `redirect_to`), and suppresses WordPress's own new-user mails, to the user and to the admin.
- * - **The marker** (`SignUp::MARKER`, a registration form whose event has accounts): it keeps itself across
- *   the POST as a hidden field, shows the reminder opt-in (stored as `kalaka_draft_reminders`, `1` or `0`,
- *   for S74's reminder mail), puts the skip link on the page in `optional` mode, and makes WordPress's
- *   "Log in" links (the "already registered" one among them) return to the form.
+ * - **The marker** (`SignUp::MARKER`, a published registration form whose published event has accounts): it
+ *   keeps itself across every POST of the login, registration and reset screens as a hidden field, names the
+ *   event on the login and registration pages (OP5), shows the reminder opt-in (stored as
+ *   `kalaka_draft_reminders`, `1` or `0`, for S74's reminder mail), puts the skip block on the login and
+ *   registration pages in `optional` mode, and makes WordPress's links and redirects return to the form:
+ *   the "Log in" and "Register" links, the registration's own redirect, the login's (`login_redirect`), and
+ *   the "Log in" link after a password is set through the registration mail's link, which carries the marker
+ *   (OP1). The way back is always the form's page resolved on the server (`SignUp::page()`), never an
+ *   address from the request.
  *
  * `kalaka_unverified` stays until the password is set through a reset link (WordPress's or WooCommerce's
  * reset, both fire `password_reset` and `after_password_reset`). It limits only what Kaláka does with the
@@ -79,6 +87,12 @@ final class SignUpPage
         add_filter('wp_send_new_user_notification_to_admin', [$this, 'sendWordPressMail']);
         add_action('register_new_user', [$this, 'logIn'], 20);
         add_filter('login_url', [$this, 'loginUrl'], 10, 2);
+        add_filter('register_url', [$this, 'registerUrl']);
+        add_filter('registration_redirect', [$this, 'back']);
+        add_filter('login_redirect', [$this, 'loginRedirect'], 10, 3);
+        add_filter('login_message', [$this, 'message']);
+        add_action('login_form', [$this, 'loginFields']);
+        add_action('resetpass_form', [$this, 'markerField']);
         add_action('password_reset', [self::class, 'firstPassword'], 1);
         add_filter('woocommerce_disable_password_change_notification', [self::class, 'wooCommerceNotification']);
         add_action('password_reset', [self::class, 'verified']);
@@ -138,7 +152,7 @@ final class SignUpPage
             return;
         }
         [$formId, $mode] = $marked;
-        printf('<input type="hidden" name="%s" value="%d">', esc_attr(SignUp::MARKER), (int) $formId);
+        $this->markerField();
         $ticked = self::input('post', self::REMINDERS_FIELD) === '1';
         // [UNAPPROVED T5] the reminder opt-in's label.
         printf(
@@ -147,21 +161,109 @@ final class SignUpPage
             $ticked ? ' checked' : '',
             esc_html('Kérek e-mailes emlékeztetőt, ha félbehagyom a jelentkezést.')
         );
-        $return = self::returnUrl();
-        if ($mode === AccountMode::Optional && $return !== '') {
-            // S15-4 (ii), owner ruling 2026-11-16: the sign-up is for 16 and over, younger people skip; unchecked.
-            // [UNAPPROVED T7] the notice.
+        if ($mode === AccountMode::Optional) {
+            $this->skip($formId);
+        }
+    }
+
+    /**
+     * In `optional` mode, the way on without an account: the 16+ notice (S15-4 ii, owner ruling 2026-11-16;
+     * unchecked), the skip link back to the form, and under it what skipping costs (OP3, owner 2026-11-17).
+     * Nothing without a page to go back to.
+     */
+    private function skip(int $formId): void
+    {
+        $return = self::page($formId);
+        if ($return === null) {
+            return;
+        }
+        // T7, approved by the owner 2026-11-17.
+        printf(
+            '<p class="kalaka-sign-up-age">%s</p>',
+            esc_html('Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
+        );
+        // [UNAPPROVED T2] the skip link.
+        printf(
+            '<p class="kalaka-sign-up-skip"><a href="%s">%s</a></p>',
+            esc_url(SignUp::skipUrl($formId, $return)),
+            esc_html('Fiók nélkül folytatom')
+        );
+        // OP3, approved by the owner 2026-11-17.
+        printf(
+            '<p class="kalaka-sign-up-skip-note">%s</p>',
+            esc_html('Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.')
+        );
+    }
+
+    /**
+     * `login_form`: with a valid marker, the marker kept as a hidden field, and in `optional` mode the same way
+     * on without an account as on the registration page (`skip()`; the owner, 2026-11-17).
+     *
+     * @internal
+     */
+    public function loginFields(): void
+    {
+        $marked = $this->marked();
+        if ($marked === null) {
+            return;
+        }
+        $this->markerField();
+        if ($marked[1] === AccountMode::Optional) {
+            $this->skip($marked[0]);
+        }
+    }
+
+    /**
+     * `resetpass_form` (and `loginFields()`, the registration page's `formFields()`): with a valid marker, the
+     * marker kept as a hidden field, since the screens' forms post to an address without the query.
+     *
+     * @internal
+     */
+    public function markerField(): void
+    {
+        $marked = $this->marked();
+        if ($marked !== null) {
             printf(
-                '<p class="kalaka-sign-up-age">%s</p>',
-                esc_html('Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
-            );
-            // [UNAPPROVED T2] the skip link.
-            printf(
-                '<p class="kalaka-sign-up-skip"><a href="%s">%s</a></p>',
-                esc_url(SignUp::skipUrl($formId, $return)),
-                esc_html('Fiók nélkül folytatom')
+                '<input type="hidden" name="%s" value="%s">',
+                esc_attr(SignUp::MARKER),
+                esc_attr((string) $marked[0])
             );
         }
+    }
+
+    /**
+     * `login_message`: with a valid marker, the login page and the registration page name the event and link
+     * to each other, keeping the marker (OP5, owner 2026-11-17). No other screen gets a line.
+     *
+     * @internal
+     */
+    public function message(mixed $message): string
+    {
+        $message = is_string($message) ? $message : '';
+        $marked = $this->marked();
+        $action = self::input('request', 'action') ?? 'login';
+        if ($marked === null || !in_array($action, ['login', 'register'], true)) {
+            return $message;
+        }
+        [$formId, , $event] = $marked;
+        $return = self::page($formId) ?? '';
+        $line = $action === 'register'
+            // OP5, approved by the owner 2026-11-17: the registration page.
+            ? sprintf(
+                '%s <a href="%s">%s</a>.',
+                esc_html('Fiókot készítesz, hogy jelentkezhess erre az eseményre: ' . $event . '. Ha már van fiókod,'),
+                esc_url(SignUp::url($formId, $return)),
+                esc_html('jelentkezz be')
+            )
+            // OP5, approved by the owner 2026-11-17: the login page.
+            : sprintf(
+                '%s <a href="%s">%s</a>.',
+                esc_html('Jelentkezz be, hogy jelentkezhess erre az eseményre: ' . $event . '. Ha még nincs fiókod,'),
+                esc_url(SignUp::registerUrl($formId, $return)),
+                esc_html('készíts egyet')
+            );
+
+        return $message . '<p class="message kalaka-sign-up-event">' . $line . '</p>';
     }
 
     /**
@@ -264,19 +366,72 @@ final class SignUpPage
     }
 
     /**
-     * `login_url`: with a valid marker, WordPress's "Log in" links return to the form (`redirect_to`,
-     * same-site only).
+     * `login_url`: with a valid marker, WordPress's "Log in" links (the "already registered" one among them)
+     * keep the marker and return to the form's page. On the reset screens (OP1) the link only returns to the
+     * form, without the marker, so the login page shows no event line to someone who has already sent the
+     * form. A caller's own redirect is kept.
      *
      * @internal
      */
     public function loginUrl(string $url, mixed $redirect = ''): string
     {
-        if ((is_string($redirect) && $redirect !== '') || $this->marked() === null) {
+        $marked = $this->marked();
+        if ($marked === null) {
             return $url;
         }
-        $return = self::returnUrl();
+        $return = is_string($redirect) && $redirect !== '' ? null : self::page($marked[0]);
+        if ($return !== null) {
+            $url = add_query_arg('redirect_to', rawurlencode($return), $url);
+        }
+        $action = self::input('request', 'action') ?? 'login';
 
-        return $return === '' ? $url : add_query_arg('redirect_to', rawurlencode($return), $url);
+        return in_array($action, ['rp', 'resetpass'], true) ? $url : add_query_arg(SignUp::MARKER, $marked[0], $url);
+    }
+
+    /**
+     * `register_url`: with a valid marker, the login page's links to the registration page keep the marker and
+     * return to the form's page.
+     *
+     * @internal
+     */
+    public function registerUrl(mixed $url): string
+    {
+        $url = is_string($url) ? $url : '';
+        $marked = $this->marked();
+        if ($marked === null) {
+            return $url;
+        }
+        $return = self::page($marked[0]);
+        $url = add_query_arg(SignUp::MARKER, $marked[0], $url);
+
+        return $return === null ? $url : add_query_arg('redirect_to', rawurlencode($return), $url);
+    }
+
+    /**
+     * `registration_redirect`: with a valid marker, where the registration page's form returns after the
+     * sign-up, the form's page; WordPress's own otherwise.
+     *
+     * @internal
+     */
+    public function back(mixed $redirect): mixed
+    {
+        $marked = $this->marked();
+
+        return ($marked === null ? null : self::page($marked[0])) ?? $redirect;
+    }
+
+    /**
+     * `login_redirect`: a successful login with a valid marker returns to the form's page (OP1, OP5); any
+     * other login lands as WordPress (or WooCommerce) sends it.
+     *
+     * @internal
+     */
+    public function loginRedirect(mixed $redirect, mixed $requested = '', mixed $user = null): mixed
+    {
+        unset($requested);
+        $marked = $user instanceof \WP_User ? $this->marked() : null;
+
+        return ($marked === null ? null : self::page($marked[0])) ?? $redirect;
     }
 
     /**
@@ -368,10 +523,10 @@ final class SignUpPage
     }
 
     /**
-     * The form and its event's account mode a valid marker names: a registration form whose event has
-     * accounts; null for anything else.
+     * The form, its event's account mode and the event's name a valid marker names: a published registration
+     * form whose published event has accounts; null for anything else.
      *
-     * @return array{int, AccountMode}|null
+     * @return array{int, AccountMode, string}|null
      */
     private function marked(): ?array
     {
@@ -381,19 +536,20 @@ final class SignUpPage
             return null;
         }
         $event = $this->events->find($form->eventId);
-        if ($event === null || $event->accountMode === AccountMode::Off) {
+        if ($event === null || $event->accountMode === AccountMode::Off || $event->state() !== EventState::Published) {
             return null;
         }
 
-        return [$form->id, $event->accountMode];
+        return [$form->id, $event->accountMode, $event->name];
     }
 
-    /** The request's `redirect_to`, when it is a same-site address; empty otherwise. */
-    private static function returnUrl(): string
+    /**
+     * The form's page, resolved on the server (`SignUp::page()`); the request's `redirect_to` only picks among
+     * the pages that place the form.
+     */
+    private static function page(int $formId): ?string
     {
-        $raw = self::input('request', 'redirect_to', false) ?? '';
-
-        return $raw === '' ? '' : wp_validate_redirect($raw, '');
+        return SignUp::page($formId, self::input('request', 'redirect_to', false) ?? '');
     }
 
     /** The login of the reset link the request checks, as WordPress's and WooCommerce's screens carry it. */

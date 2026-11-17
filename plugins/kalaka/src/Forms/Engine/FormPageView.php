@@ -38,7 +38,11 @@ final readonly class FormPageView
      * @param array<string, mixed> $context the form element's Interactivity context, empty for a refusal
      * @param \WP_Post|null $post the form post of a password refusal
      * @param string $token the page's `SubmitToken`, for its hidden field; empty for a refusal
-     * @param string $signUpUrl WordPress's registration page for the form, for `ACCOUNT_REQUIRED`; empty otherwise
+     * @param string $signUpUrl WordPress's login page for the form (`SignUp::url()`), for `ACCOUNT_REQUIRED`;
+     *     empty otherwise
+     * @param string $accountName (S15 OP4) the logged-in account the form's footer names, unescaped; empty
+     *     for no footer
+     * @param string $logoutUrl (S15 OP4) the footer's logout link, returning to the form's page; empty for none
      */
     public function __construct(
         public ?string $refusal,
@@ -47,6 +51,8 @@ final readonly class FormPageView
         public ?\WP_Post $post = null,
         public string $token = '',
         public string $signUpUrl = '',
+        public string $accountName = '',
+        public string $logoutUrl = '',
     ) {
     }
 

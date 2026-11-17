@@ -215,7 +215,28 @@ final class FormPage
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, $this->host->submitToken());
+        ], null, $this->host->submitToken(), '', ...self::footer($step));
+    }
+
+    /**
+     * The form's footer (OP4, owner 2026-11-17): who is logged in and the logout link, which returns to the
+     * form's page. Only when logged in and the form has an account step (a registration form of an event
+     * whose account mode is not `off`). The name is the account's display name, unless it is empty or only
+     * the login name (WordPress's default, and a Kaláka sign-up's, `LoginName`): then the e-mail address.
+     * // [UNAPPROVED #191 N26] the footer's gate and its name.
+     *
+     * @return array{accountName: string, logoutUrl: string}
+     */
+    private static function footer(?AccountStep $step): array
+    {
+        $user = wp_get_current_user();
+        if ($step === null || !is_user_logged_in()) {
+            return ['accountName' => '', 'logoutUrl' => ''];
+        }
+        $name = trim($user->display_name);
+        $real = $name !== '' && $name !== $user->user_login;
+
+        return ['accountName' => $real ? $name : $user->user_email, 'logoutUrl' => wp_logout_url(self::here())];
     }
 
     /** The form's contact email (`$email`) or display name field; null when it has none. */

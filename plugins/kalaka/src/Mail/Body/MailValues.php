@@ -31,7 +31,8 @@ use Kalaka\Registrations\Api\SecretLinks;
  * account's set-password link, made when the mail is rendered (`Registrations\Api\Accounts::passwordLink()`;
  * the newest link wins), and only for a body that reads it. Both are none for a guest's registration, an
  * owner who is verified (a social sign-up among them), or a recipient other than the account's own address,
- * so a link to set someone's password never goes to another address.
+ * so a link to set someone's password never goes to another address. The link carries the slot form's marker,
+ * so the login after the password is set returns to the form (OP1, owner 2026-11-17).
  * // [UNAPPROVED #191 N22] the two account keys; `account.unverified` is `1` or none, like a consent.
  */
 final class MailValues
@@ -148,7 +149,7 @@ final class MailValues
         $recipient = $email === null ? '' : ($record['values'][$email] ?? '');
         $owner = $this->registrations->find($key)?->ownerUserId;
         $unverified = $owner !== null && $this->ownAddress($owner, $recipient) && $this->accounts->isUnverified($owner);
-        $setPassword = $unverified && $passwordLink ? $this->accounts->passwordLink($owner) : null;
+        $setPassword = $unverified && $passwordLink ? $this->accounts->passwordLink($owner, $record['form_id']) : null;
 
         return new ValueContext([
             ...$this->forms->participantValues($key->eventId, $record['values']),
