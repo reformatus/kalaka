@@ -83,8 +83,10 @@ final class DefinitionCheck
         SharedKeyCheck::EXTENSION_FIELD => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítója egy olyan'
             . ' jelentkezői mezőé, amelyet egy bővítmény tölt ki („%s”).',
         // [UNAPPROVED N9] the two refusals of a request field (S44-1).
-        SharedKeyCheck::UNKNOWN_SET => 'TEXT_UNKNOWN_SET',
-        SharedKeyCheck::REQUEST_FIELD_TAKEN => 'TEXT_REQUEST_FIELD_TAKEN',
+        SharedKeyCheck::UNKNOWN_SET => 'Az űrlapot így nem lehet menteni: az egyik rangsormezőhöz nincs kiválasztva'
+            . ' beosztás, vagy a kiválasztott beosztás nem ehhez az eseményhez tartozik („%s”).',
+        SharedKeyCheck::REQUEST_FIELD_TAKEN => 'Az űrlapot így nem lehet menteni: az egyik rangsormező beosztását már'
+            . ' egy másik mező rangsorolja, vagy ez a mező már egy másik beosztáshoz tartozik („%s”).',
     ];
 
     /** The refusal's text for a problem. */

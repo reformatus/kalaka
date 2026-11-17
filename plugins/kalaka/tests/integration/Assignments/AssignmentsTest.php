@@ -268,6 +268,30 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->place(new RegistrationKey($this->event, '00A0'), $set, 'modul_a');
     }
 
+    public function testTheEditorReadsTheEventsSetsWithFullAccessOnly(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A');
+        $this->sets->tieRequestField($set, 'modulok', new CliActor(null));
+        $GLOBALS['wp_rest_server'] = null;
+        $request = new \WP_REST_Request('GET', '/kalaka-admin/v1/events/' . $this->event . '/assignment-sets');
+
+        wp_set_current_user(self::factory()->user->create());
+        self::assertSame(403, rest_do_request($request)->get_status());
+
+        wp_set_current_user($this->fullAccessUser());
+        $response = rest_do_request($request);
+        self::assertSame(200, $response->get_status());
+        self::assertSame([[
+            'id' => $set,
+            'name' => 'Modulok',
+            'request_field_key' => 'modulok',
+            'options' => [['value' => 'modul_a', 'label' => 'Modul A']],
+        ]], $response->get_data());
+        wp_set_current_user(0);
+        $GLOBALS['wp_rest_server'] = null;
+    }
+
     private function place(RegistrationKey $key, int $set, string $option): void
     {
         $this->runner->run(new PlaceRegistration(), [

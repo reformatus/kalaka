@@ -39,13 +39,13 @@ function Count({ label, value, fallback, onChange }) {
  * [UNAPPROVED N8, N9] The texts of the set picker (S44-1), proposed and not yet approved by the owner.
  */
 export const TEXT = {
-	panel: 'TEXT_PANEL',
-	select: 'TEXT_SELECT',
-	choose: 'TEXT_CHOOSE',
-	loading: 'TEXT_LOADING',
-	failed: 'TEXT_FAILED',
-	none: 'TEXT_NONE',
-	noSet: 'TEXT_NO_SET',
+	panel: 'Lehetőségek',
+	select: 'Beosztás',
+	choose: 'Válassz beosztást',
+	loading: 'A beosztások betöltése…',
+	failed: 'A beosztásokat nem sikerült betölteni.',
+	none: 'Ennek az eseménynek még nincs beosztása.',
+	noSet: 'Válassz beosztást az oldalsávban.',
 };
 
 /** The form's event, as the form editor knows it (`kalaka/event-keys`, core's form editor); 0 until known. */

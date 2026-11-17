@@ -6,6 +6,7 @@ namespace Kalaka\Ranking;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Ranking\Cli\RankingSeeder;
 
 final class Module extends AbstractModule
 {
@@ -28,6 +29,7 @@ final class Module extends AbstractModule
     public function contribute(Contributions $to): void
     {
         $to->fieldType($this->fieldType);
+        $to->seeder(new RankingSeeder());
     }
 
     public function boot(): void
