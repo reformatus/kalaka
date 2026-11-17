@@ -25,13 +25,13 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  */
 final class SubmitGuard
 {
-    /** [UNAPPROVED #196 N1] attempts per account per window. */
+    /** Attempts per account per window (owner, 2026-11-17). */
     public const ACCOUNT_LIMIT = 20;
 
-    /** [UNAPPROVED #196 N1] attempts per address per window (a guest's). */
+    /** Attempts per address per window, a guest's (owner, 2026-11-17). */
     public const ADDRESS_LIMIT = 100;
 
-    /** [UNAPPROVED #196 N1] the window, in seconds. */
+    /** The window, in seconds (owner, 2026-11-17). */
     public const WINDOW = 600;
 
     private readonly RateLimiter $accounts;
