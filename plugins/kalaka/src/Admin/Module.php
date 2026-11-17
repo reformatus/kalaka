@@ -89,7 +89,7 @@ SQL;
     public function boot(): void
     {
         Abilities::registerCategory();
-        // The labels of the three new abilities.
+        // The labels of the abilities.
         Abilities::register(new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.');
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
         Abilities::register(
