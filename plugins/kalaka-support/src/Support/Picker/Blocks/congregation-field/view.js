@@ -7,7 +7,7 @@
  *   opened, with the nodes' types above it (the step is labelled by its children's type: there is no level
  *   schema) and a Back button with the path above it. A level is read whole, page by page.
  * - With a search of at least two characters the list is the matches, each with its path; clearing the
- *   search goes back to the level.
+ *   search goes back to the level. Enter in the search box searches at once and never sends the form.
  * - A button of a terminal leaf picks it: its id goes into the hidden input named by the field's key, which
  *   fires `change` like any answer, and the picked node shows above the list. A button of a node with
  *   children opens it instead. Only a leaf is ever an answer (owner ruling S28-1).
@@ -220,17 +220,24 @@ export function start(field) {
 	}
 	fields.set(field, { trail: [], items: new Map(), request: 0, timer: undefined });
 
-	part(field, 'search').addEventListener('input', (event) => {
+	const search = part(field, 'search');
+	const run = () => {
+		const text = search.value.trim();
+		return text.length >= SEARCH_MIN ? showSearch(field, text) : showLevel(field);
+	};
+	search.addEventListener('input', () => {
 		const state = fields.get(field);
 		clearTimeout(state.timer);
-		const search = event.target.value.trim();
-		state.timer = setTimeout(() => {
-			if (search.length >= SEARCH_MIN) {
-				showSearch(field, search);
-			} else {
-				showLevel(field);
-			}
-		}, SEARCH_DELAY);
+		state.timer = setTimeout(run, SEARCH_DELAY);
+	});
+	// Enter in the search box searches at once and never sends the form.
+	search.addEventListener('keydown', (event) => {
+		if (event.key !== 'Enter') {
+			return;
+		}
+		event.preventDefault();
+		clearTimeout(fields.get(field).timer);
+		run();
 	});
 	field.addEventListener('click', (event) => {
 		const state = fields.get(field);

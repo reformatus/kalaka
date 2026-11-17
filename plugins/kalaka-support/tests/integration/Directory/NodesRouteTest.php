@@ -87,7 +87,7 @@ final class NodesRouteTest extends SupportTestCase
         self::assertSame('Másik Közösség', $items[0]['name']);
         self::assertSame(0, $items[0]['parent']);
         self::assertSame([], $items[0]['ancestors']);
-        // a root with no levels is a terminal leaf (C2)
+        // a root with no levels is a terminal leaf
         self::assertTrue($items[0]['leaf']);
     }
 

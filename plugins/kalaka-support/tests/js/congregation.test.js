@@ -15,10 +15,10 @@ import {
 } from '../../src/Support/Picker/Blocks/congregation-field/view';
 
 const ROOT = { id: 1, name: 'Teszt Egyház', type: 'Egyház', parent: 0, leaf: false, ancestors: [] };
-const OTHER = { id: 2, name: 'Másik Teszt Közösség', type: 'Közösség', parent: 0, leaf: true, ancestors: [] };
+const OTHER = { id: 2, name: 'Másik Közösség', type: 'Közösség', parent: 0, leaf: true, ancestors: [] };
 const DISTRICT = {
 	id: 3,
-	name: 'Teszt Egyházkerület 1',
+	name: 'Északi Teszt Egyházkerület',
 	type: 'Egyházkerület',
 	parent: 1,
 	leaf: false,
@@ -26,13 +26,13 @@ const DISTRICT = {
 };
 const CONGREGATION = {
 	id: 5,
-	name: 'Teszt gyülekezet A',
+	name: 'Óbudai Teszt Gyülekezet',
 	type: 'Gyülekezet',
 	parent: 3,
 	leaf: true,
 	ancestors: [
 		{ id: 1, name: 'Teszt Egyház', type: 'Egyház' },
-		{ id: 3, name: 'Teszt Egyházkerület 1', type: 'Egyházkerület' },
+		{ id: 3, name: 'Északi Teszt Egyházkerület', type: 'Egyházkerület' },
 	],
 };
 
@@ -80,7 +80,7 @@ function render() {
 		' data-kalaka-nodes="https://example.org/wp-json/kalaka-support/v1/nodes">' +
 		'<label for="kalaka-field-gyulekezet">Gyülekezet</label>' +
 		'<input type="search" id="kalaka-field-gyulekezet" autocomplete="off" data-kalaka-search>' +
-		'<input type="hidden" name="gyulekezet" value="">' +
+		'<input type="hidden" name="gyulekezet" value="" autocomplete="off">' +
 		'<p data-kalaka-picked hidden></p>' +
 		'<p data-kalaka-trail hidden><button type="button" data-kalaka-up>Egy szinttel feljebb</button>' +
 		' <span data-kalaka-path></span></p>' +
@@ -111,7 +111,7 @@ afterEach(() => {
 describe('the congregation picker', () => {
 	test('a level is labelled by its nodes types, and a path joins the ancestors names', () => {
 		expect(levelLabel([ROOT, OTHER, { ...OTHER, id: 9 }])).toBe('Egyház, Közösség');
-		expect(pathOf(CONGREGATION)).toBe('Teszt Egyház › Teszt Egyházkerület 1');
+		expect(pathOf(CONGREGATION)).toBe('Teszt Egyház › Északi Teszt Egyházkerület');
 		expect(pathOf(ROOT)).toBe('');
 	});
 
@@ -121,7 +121,7 @@ describe('the congregation picker', () => {
 		await settle();
 
 		expect(requests[0]).toEqual({ parent: '0', page: '1', per_page: '100' });
-		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Teszt Közösség']);
+		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
 		expect(part(field, 'level').textContent).toBe('Egyház, Közösség');
 		expect(part(field, 'trail').hidden).toBe(true);
 		// a node with children is no toggle; a leaf is one, not pressed
@@ -130,7 +130,7 @@ describe('the congregation picker', () => {
 
 		button(field, 1).click();
 		await settle();
-		expect(names(field)).toEqual(['Teszt Egyházkerület 1']);
+		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
 		expect(part(field, 'level').textContent).toBe('Egyházkerület');
 		expect(part(field, 'trail').hidden).toBe(false);
 		expect(part(field, 'path').textContent).toBe('Teszt Egyház');
@@ -139,7 +139,7 @@ describe('the congregation picker', () => {
 
 		part(field, 'up').click();
 		await settle();
-		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Teszt Közösség']);
+		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
 		expect(part(field, 'trail').hidden).toBe(true);
 	});
 
@@ -160,10 +160,10 @@ describe('the congregation picker', () => {
 		expect(changed).toHaveBeenCalledWith('gyulekezet');
 		expect(part(field, 'picked').hidden).toBe(false);
 		expect(part(field, 'picked').textContent).toBe(
-			TEXT.picked('Teszt gyülekezet A (Teszt Egyház › Teszt Egyházkerület 1)')
+			TEXT.picked('Óbudai Teszt Gyülekezet (Teszt Egyház › Északi Teszt Egyházkerület)')
 		);
 		expect(part(field, 'announce').textContent).toBe(
-			TEXT.picked('Teszt gyülekezet A (Teszt Egyház, Teszt Egyházkerület 1)')
+			TEXT.picked('Óbudai Teszt Gyülekezet (Teszt Egyház, Északi Teszt Egyházkerület)')
 		);
 		expect(button(field, 5).getAttribute('aria-pressed')).toBe('true');
 	});
@@ -187,9 +187,9 @@ describe('the congregation picker', () => {
 		jest.advanceTimersByTime(SEARCH_DELAY);
 		await settle();
 		expect(requests[requests.length - 1]).toEqual({ search: 'gyülekezet', per_page: '20' });
-		expect(names(field)).toEqual(['Teszt gyülekezet A']);
+		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
 		expect(field.querySelector('li').textContent).toBe(
-			'Teszt gyülekezet A (Teszt Egyház › Teszt Egyházkerület 1)'
+			'Óbudai Teszt Gyülekezet (Teszt Egyház › Északi Teszt Egyházkerület)'
 		);
 		expect(part(field, 'announce').textContent).toBe(TEXT.found(1));
 
@@ -200,9 +200,34 @@ describe('the congregation picker', () => {
 		button(field, 3).click();
 		await settle();
 		expect(search.value).toBe('');
-		expect(names(field)).toEqual(['Teszt gyülekezet A']);
-		expect(part(field, 'path').textContent).toBe('Teszt Egyház › Teszt Egyházkerület 1');
+		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
+		expect(part(field, 'path').textContent).toBe('Teszt Egyház › Északi Teszt Egyházkerület');
 		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
+	});
+
+	test('Enter in the search box searches at once and never sends the form', async () => {
+		jest.useFakeTimers();
+		const field = render();
+		const submitted = jest.fn();
+		document.querySelector('form').addEventListener('submit', submitted);
+		start(field);
+		await settle();
+
+		const search = part(field, 'search');
+		search.value = 'gyülekezet';
+		search.dispatchEvent(new Event('input', { bubbles: true }));
+		const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+		search.dispatchEvent(enter);
+		await settle();
+
+		expect(enter.defaultPrevented).toBe(true);
+		expect(submitted).not.toHaveBeenCalled();
+		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
+		// the search the typing scheduled does not run again
+		const count = requests.length;
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+		expect(requests.length).toBe(count);
 	});
 
 	test('no match and an empty level say so differently', async () => {
@@ -234,7 +259,7 @@ describe('the congregation picker', () => {
 		held[0].resolve(respond([ROOT, OTHER]));
 		await first;
 		await settle();
-		expect(names(field)).toEqual(['Teszt gyülekezet A']);
+		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
 
 		held = null;
 		globalThis.fetch = jest.fn(async () => ({ ok: false, status: 503 }));
@@ -260,6 +285,6 @@ describe('the congregation picker', () => {
 		part(field, 'search').dispatchEvent(new Event('focusin', { bubbles: true }));
 		await settle();
 
-		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Teszt Közösség']);
+		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
 	});
 });

@@ -48,12 +48,12 @@ final class CongregationFieldTest extends FormsTestCase
         wp_set_current_user($this->fullAccessUser());
 
         $this->node('ROOT', null, 'Egyház', 'Teszt Egyház');
-        $this->node('D1', 'ROOT', 'Egyházkerület', 'Teszt Egyházkerület 1');
-        $this->node('D1-A', 'D1', 'Egyházmegye', 'Teszt Egyházmegye 1');
-        $this->node('D1-A-1', 'D1-A', 'Gyülekezet', 'Teszt gyülekezet A');
-        $this->node('D1-A-2', 'D1-A', 'Gyülekezet', 'Teszt gyülekezet B');
+        $this->node('D1', 'ROOT', 'Egyházkerület', 'Északi Teszt Egyházkerület');
+        $this->node('D1-A', 'D1', 'Egyházmegye', 'Budai Teszt Egyházmegye');
+        $this->node('D1-A-1', 'D1-A', 'Gyülekezet', 'Óbudai Teszt Gyülekezet');
+        $this->node('D1-A-2', 'D1-A', 'Gyülekezet', 'Ottó Teszt');
         $this->node('D1-A-X', 'D1-A', 'Egyéb', 'Egyéb');
-        $this->node('OTHER', null, 'Közösség', 'Másik Teszt Közösség');
+        $this->node('OTHER', null, 'Közösség', 'Másik Közösség');
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook in snake case
@@ -163,14 +163,14 @@ final class CongregationFieldTest extends FormsTestCase
     {
         $definition = $this->definition();
         // deactivated itself
-        $this->node('D1-A-2', 'D1-A', 'Gyülekezet', 'Teszt gyülekezet B', false);
+        $this->node('D1-A-2', 'D1-A', 'Gyülekezet', 'Ottó Teszt', false);
         self::assertSame(
             ['gyulekezet' => CongregationFieldType::NOT_LISTED],
             $this->refused($definition, (string) $this->ids['D1-A-2'])
         );
 
         // active, under a deactivated ancestor
-        $this->node('D1', 'ROOT', 'Egyházkerület', 'Teszt Egyházkerület 1', false);
+        $this->node('D1', 'ROOT', 'Egyházkerület', 'Északi Teszt Egyházkerület', false);
         self::assertSame(
             ['gyulekezet' => CongregationFieldType::NOT_LISTED],
             $this->refused($definition, (string) $this->ids['D1-A-1'])
@@ -179,7 +179,7 @@ final class CongregationFieldTest extends FormsTestCase
 
     public function testALeafThatGainsChildrenIsNoNewAnswer(): void
     {
-        $this->node('D1-A-1-a', 'D1-A-1', 'Szórvány', 'Teszt szórvány', false);
+        $this->node('D1-A-1-a', 'D1-A-1', 'Szórvány', 'Óbudai Teszt Szórvány', false);
 
         self::assertSame(
             ['gyulekezet' => CongregationFieldType::NOT_LISTED],
@@ -219,13 +219,13 @@ final class CongregationFieldTest extends FormsTestCase
         $value = $this->type()->value(new FieldTypeInput((string) $this->ids['D1-A-1'], []));
         self::assertSame(ValueType::Choice, $value->type);
         self::assertSame(['D1-A-1'], $value->data);
-        self::assertSame('Teszt gyülekezet A', $value->text);
+        self::assertSame('Óbudai Teszt Gyülekezet', $value->text);
 
         // a node is never deleted: a stored id still reads after the node is deactivated
-        $this->node('D1-A-1', 'D1-A', 'Gyülekezet', 'Teszt gyülekezet A', false);
+        $this->node('D1-A-1', 'D1-A', 'Gyülekezet', 'Óbudai Teszt Gyülekezet', false);
         $value = $this->type()->value(new FieldTypeInput((string) $this->ids['D1-A-1'], []));
         self::assertSame(['D1-A-1'], $value->data);
-        self::assertSame('Teszt gyülekezet A', $value->text);
+        self::assertSame('Óbudai Teszt Gyülekezet', $value->text);
 
         // nothing chosen for an id with no node
         $value = $this->type()->value(new FieldTypeInput('999999', []));
@@ -292,7 +292,7 @@ final class CongregationFieldTest extends FormsTestCase
             $html
         );
         self::assertSame(1, substr_count($html, ' name="'));
-        self::assertStringContainsString('<input type="hidden" name="gyulekezet" value="">', $html);
+        self::assertStringContainsString('<input type="hidden" name="gyulekezet" value="" autocomplete="off">', $html);
         self::assertStringContainsString('<button type="button" data-kalaka-up>Egy szinttel feljebb</button>', $html);
         self::assertStringContainsString('class="kalaka-field__error" hidden', $html);
         // the search box comes before the hidden input: a field error focuses the search box

@@ -9,7 +9,8 @@
  * name, so the form never sends what is typed. `view.js` fills the list from the public directory route
  * (its URL is `data-kalaka-nodes`): the live roots first, a node's children when it is opened, the matches
  * while something is searched. Nothing is picked when the form opens. TODO(S60/S73) an additional form
- * opens with the current value.
+ * opens with the current value. The hidden input has `autocomplete="off"`, so a browser restoring the page
+ * never brings back an answer the picker does not show.
  *
  * The markup is core's field markup (`Kalaka\Forms\Api\FieldMarkup`), with the theme adapter's classes.
  *
@@ -40,9 +41,10 @@ $kalakaTitle = FieldMarkup::title(FieldMarkup::text($attributes, 'label'))
         echo FieldMarkup::classAttribute(ElementRole::Label);
     ?>><?php echo $kalakaTitle; ?></label>
     <?php echo $kalakaSearch; ?>
-    <input type="hidden" name="<?php echo esc_attr($kalakaKey); ?>" value="">
+    <input type="hidden" name="<?php echo esc_attr($kalakaKey); ?>" value="" autocomplete="off">
     <p data-kalaka-picked hidden></p>
     <p data-kalaka-trail hidden>
+        <?php // [UNAPPROVED N5] (Text) ?>
         <button type="button" data-kalaka-up><?php echo esc_html('Egy szinttel feljebb'); ?></button>
         <span data-kalaka-path></span>
     </p>
