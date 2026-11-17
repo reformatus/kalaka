@@ -242,6 +242,53 @@ describe('the congregation picker', () => {
 		expect(part(field, 'announce').textContent).toBe(TEXT.failed);
 	});
 
+	test('going up focuses the node it came from, else the first node', async () => {
+		const field = render();
+		start(field);
+		await settle();
+		button(field, 1).click();
+		await settle();
+		button(field, 3).click();
+		await settle();
+		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
+
+		part(field, 'up').click();
+		await settle();
+		expect(document.activeElement).toBe(button(field, 3));
+		expect(part(field, 'announce').textContent).toBe('Egyházkerület');
+
+		part(field, 'up').click();
+		await settle();
+		expect(document.activeElement).toBe(button(field, 1));
+
+		// the node it came from is gone from the level above: the first node takes the focus
+		button(field, 1).click();
+		await settle();
+		globalThis.fetch = jest.fn(async () => respond([OTHER]));
+		part(field, 'up').click();
+		await settle();
+		expect(document.activeElement).toBe(button(field, 2));
+	});
+
+	test('going up from a later root focuses that root, not the first one', async () => {
+		const LATER = { ...ROOT, id: 9, name: 'Zárt Teszt Egyház' };
+		globalThis.fetch = jest.fn(async (url) => {
+			const parent = new URL(url).searchParams.get('parent');
+			return respond(parent === '0' ? [ROOT, OTHER, LATER] : [DISTRICT]);
+		});
+		const field = render();
+		start(field);
+		await settle();
+		button(field, 9).click();
+		await settle();
+
+		part(field, 'up').click();
+		await settle();
+
+		expect(document.activeElement).toBe(button(field, 9));
+		expect(part(field, 'announce').textContent).toBe('Egyház, Közösség');
+	});
+
 	test('a pick shows below the list, so the list does not move', async () => {
 		const field = render();
 		start(field);

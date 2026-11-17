@@ -6,8 +6,9 @@
  * - Without a search the list is one level of the tree: the live roots first, then the children of the node
  *   opened, with the nodes' types above it (the step is labelled by its children's type: there is no level
  *   schema) and a button one level up with the path above it. A level is read whole, page by page. Opening
- *   a node or the level above moves the focus to the new level's first node (or its message) and says which
- *   level it is, so the focus never drops to the page.
+ *   a node moves the focus to the new level's first node, and going up to the node it came from (else the
+ *   first node; with none, the message); either way it says which level it is, so the focus never drops to
+ *   the page.
  * - With a search of at least two characters the list is the matches, each with its path; clearing the
  *   search goes back to the level. Enter in the search box searches at once and never sends the form. The
  *   count of matches is said after every search; when the route has more than it lists, a line says so.
@@ -151,12 +152,13 @@ function showList(field, items, withPaths) {
 }
 
 /**
- * Moves the focus to the new level, so it never drops to the page: its first node, or the message when it
- * has none.
+ * Moves the focus to the new level, so it never drops to the page: the node the level above was reached
+ * from (`from`, its id) when it is listed, else the level's first node, else the message.
  */
-function focusLevel(field) {
-	const first = part(field, 'list').querySelector('button');
-	(first ?? part(field, 'message')).focus();
+function focusLevel(field, from = null) {
+	const list = part(field, 'list');
+	const came = from === null ? null : list.querySelector(`[data-kalaka-node="${from}"]`);
+	(came ?? list.querySelector('button') ?? part(field, 'message')).focus();
 }
 
 function showTrail(field) {
@@ -169,7 +171,7 @@ function showTrail(field) {
  * Runs one read; its answer is shown only when no newer read was started meanwhile. A failure is shown and
  * said, and takes the focus when `moveFocus` is set.
  */
-async function load(field, work, show, moveFocus = false) {
+async function load(field, work, show, moveFocus = false, from = null) {
 	const state = fields.get(field);
 	const request = ++state.request;
 	try {
@@ -184,7 +186,7 @@ async function load(field, work, show, moveFocus = false) {
 			showMessage(field, TEXT.failed);
 			say(field, TEXT.failed);
 			if (moveFocus) {
-				focusLevel(field);
+				focusLevel(field, from);
 			}
 		}
 	}
@@ -192,9 +194,10 @@ async function load(field, work, show, moveFocus = false) {
 
 /**
  * Shows the level the trail ends at (the roots when it is empty) and says which level it is: its nodes'
- * types, or that it is empty. After a node is opened, or the level above, `moveFocus` puts the focus on it.
+ * types, or that it is empty. After a node is opened, or the level above, `moveFocus` puts the focus on it:
+ * going up, on the node it came from (`from`, its id).
  */
-export function showLevel(field, moveFocus = false) {
+export function showLevel(field, moveFocus = false, from = null) {
 	const { trail } = fields.get(field);
 	showTrail(field);
 	const parent = trail.length === 0 ? 0 : trail[trail.length - 1].id;
@@ -206,10 +209,11 @@ export function showLevel(field, moveFocus = false) {
 			showList(field, items, false);
 			say(field, items.length === 0 ? TEXT.emptyLevel : levelLabel(items));
 			if (moveFocus) {
-				focusLevel(field);
+				focusLevel(field, from);
 			}
 		},
-		moveFocus
+		moveFocus,
+		from
 	);
 }
 
@@ -285,8 +289,9 @@ export function start(field) {
 	field.addEventListener('click', (event) => {
 		const state = fields.get(field);
 		if (event.target?.closest?.('[data-kalaka-up]')) {
+			const from = state.trail.at(-1)?.id ?? null;
 			state.trail = state.trail.slice(0, -1);
-			showLevel(field, true);
+			showLevel(field, true, from);
 			return;
 		}
 		const button = event.target?.closest?.('[data-kalaka-node]');
