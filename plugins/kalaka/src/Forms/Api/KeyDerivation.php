@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Forms;
+namespace Kalaka\Forms\Api;
 
 /**
  * Derives a field's key from its title and a choice option's value from its label
@@ -10,6 +10,8 @@ namespace Kalaka\Forms;
  * characters one `_`, at most 64 characters, then `_1`, `_2`, … on a collision. A key starts with a
  * letter (leading digits are dropped); a value may start with a digit. With no usable text, a key falls
  * back to the field type's name and a value to `option`.
+ *
+ * [UNAPPROVED N3] In `Forms\Api`, so Assignments derives a set option's key by the same rules.
  */
 final class KeyDerivation
 {

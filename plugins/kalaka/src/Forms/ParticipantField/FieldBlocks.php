@@ -6,7 +6,7 @@ namespace Kalaka\Forms\ParticipantField;
 
 use Kalaka\Forms\Engine\FieldMarkup;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
-use Kalaka\Forms\KeyDerivation;
+use Kalaka\Forms\Api\KeyDerivation;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
