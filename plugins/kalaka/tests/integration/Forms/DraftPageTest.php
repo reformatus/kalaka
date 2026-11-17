@@ -300,7 +300,37 @@ final class DraftPageTest extends FormsTestCase
             ['name' => 'Teszt Anna', 'note' => 'a kvízből'],
             AnswerSet::fromJson((string) $rows[0]['answers'])->answers
         );
+        // The cookie stays for a repeat; the next load of the page clears it.
+        self::assertNotNull(DraftClaim::current());
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
         self::assertNull(DraftClaim::current());
+    }
+
+    public function testTheClaimRouteAnswersARepeatAsTheFirstAndRefusesAnotherChoice(): void
+    {
+        $user = $this->logIn();
+        $this->autosave(['name' => 'Teszt Anna', 'note' => 'saját']);
+        (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new AccountActor($user));
+
+        self::assertSame(200, $this->post('draft/claim', ['choice' => 'keep_link'])->get_status());
+        $again = $this->post('draft/claim', ['choice' => 'keep_link']);
+        self::assertSame(200, $again->get_status());
+        self::assertSame(['resolved' => true], $again->get_data());
+
+        $other = $this->post('draft/claim', ['choice' => 'merge']);
+        self::assertSame(409, $other->get_status());
+        self::assertSame('kalaka_draft_claim_refused', $other->get_data()['code']);
+        self::assertSame(['note' => 'a kvízből'], $this->storedAnswers());
+    }
+
+    public function testTheClaimRouteRefusesWithoutAClaimCookie(): void
+    {
+        $this->logIn();
+
+        $response = $this->post('draft/claim', ['choice' => 'merge']);
+
+        self::assertSame(409, $response->get_status());
+        self::assertSame('kalaka_draft_claim_refused', $response->get_data()['code']);
     }
 
     public function testTheAutosaveRouteKeepsTheFormsOwnKeysForALoggedInPerson(): void

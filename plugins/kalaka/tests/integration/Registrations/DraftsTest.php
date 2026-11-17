@@ -15,11 +15,11 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\DraftClaimOutcome;
+use Kalaka\Registrations\Api\DraftClaimRefused;
 use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
-use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\DraftSweep;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
@@ -239,13 +239,12 @@ final class DraftsTest extends FormsTestCase
         $anna = $this->person();
         $this->save($anna, self::ANSWERS + ['note' => 'saját']);
         $token = $this->handOver(['note' => 'a kvízből', 'name' => 'Teszt Anna']);
-        $repository = new DraftRepository();
-        $own = $repository->ofUser($this->event, $this->form, $anna->userId);
-        $guest = $repository->ofClaim(DraftClaim::hash($token));
-        self::assertNotNull($own);
-        self::assertNotNull($guest);
 
-        self::assertSame(['note'], $this->drafts->linkChanges($this->form, $own, $guest));
+        self::assertSame(
+            ['note' => 'a kvízből'],
+            $this->drafts->linkChanges($this->event, $this->form, $anna->userId, $token)
+        );
+        self::assertSame([], $this->drafts->linkChanges($this->event, $this->form, $this->person()->userId, $token));
     }
 
     public function testAClaimThatMakesTheGuestDraftThePersonsRefusesASaveFromBefore(): void
@@ -264,6 +263,68 @@ final class DraftsTest extends FormsTestCase
         self::assertSame(['note' => 'a kvízből'], $this->onlyAnswers());
         $this->drafts->save($this->event, $this->form, $this->version(), new AnswerSet(['note' => 'új']), 0, 1, $anna);
         self::assertSame(['note' => 'új'], $this->onlyAnswers());
+    }
+
+    /** A conflict of Anna's own draft and a link's answer; returns the claim token. */
+    private function conflict(AccountActor $anna): string
+    {
+        $this->save($anna, self::ANSWERS + ['note' => 'saját']);
+
+        return $this->handOver(['note' => 'a kvízből']);
+    }
+
+    public function testTheSameChoiceAgainAfterItWorkedAnswersTheSameAndChangesNothing(): void
+    {
+        $anna = $this->person();
+        $token = $this->conflict($anna);
+        $this->drafts->resolve($this->event, $this->form, $token, DraftClaimChoice::Merge, $anna);
+        $after = $this->draftRows();
+
+        $this->drafts->resolve($this->event, $this->form, $token, DraftClaimChoice::Merge, $anna);
+
+        self::assertSame($after, $this->draftRows());
+        self::assertSame('1', $after[0]['claims']);
+    }
+
+    public function testAnotherChoiceAfterTheClaimWasSettledIsRefusedAndChangesNothing(): void
+    {
+        $anna = $this->person();
+        $token = $this->conflict($anna);
+        $this->drafts->resolve($this->event, $this->form, $token, DraftClaimChoice::KeepDraft, $anna);
+        $after = $this->draftRows();
+
+        try {
+            $this->drafts->resolve($this->event, $this->form, $token, DraftClaimChoice::KeepLink, $anna);
+            self::fail('Another choice was applied.');
+        } catch (DraftClaimRefused $refused) {
+            self::assertSame('kalaka_draft_claim_refused', $refused->errorCode());
+        }
+
+        self::assertSame($after, $this->draftRows());
+    }
+
+    public function testAChoiceOnAnExpiredGuestDraftIsRefused(): void
+    {
+        $anna = $this->person();
+        $token = $this->conflict($anna);
+        $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-08 08:00:00', new \DateTimeZone('UTC'))));
+        Runner::publish($this->runner);
+
+        $this->expectException(DraftClaimRefused::class);
+        (new Drafts($this->runner))->resolve($this->event, $this->form, $token, DraftClaimChoice::Merge, $anna);
+    }
+
+    public function testAChoiceForAClaimSettledOnTheFormsPageIsAnsweredFromIt(): void
+    {
+        $anna = $this->person();
+        $this->save($anna, self::ANSWERS + ['note' => 'a kvízből']);
+        $settled = $this->handOver(['note' => 'a kvízből']);
+        $this->drafts->claim($this->form, $settled, $anna);
+
+        // Settled as keep_draft: that choice again is no refusal, another one is.
+        $this->drafts->resolve($this->event, $this->form, $settled, DraftClaimChoice::KeepDraft, $anna);
+        $this->expectException(DraftClaimRefused::class);
+        $this->drafts->resolve($this->event, $this->form, $settled, DraftClaimChoice::Merge, $anna);
     }
 
     public function testAGuestDraftOfAnotherFormOrAnExpiredOneIsNotClaimed(): void
@@ -305,7 +366,7 @@ final class DraftsTest extends FormsTestCase
         $this->save($anna, self::ANSWERS + ['note' => 'saját']);
         $token = $this->handOver(['note' => 'a kvízből']);
 
-        $this->drafts->resolve($this->form, $token, $choice, $anna);
+        $this->drafts->resolve($this->event, $this->form, $token, $choice, $anna);
 
         $rows = $this->draftRows();
         self::assertCount(1, $rows);

@@ -50,6 +50,8 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'form_version' => 'bigint(20) unsigned',
             'user_id' => 'bigint(20) unsigned null',
             'claim_hash' => 'char(64) null',
+            'resolved_claim' => 'char(64) null',
+            'resolved_choice' => 'varchar(16) null',
             'answers' => 'longtext',
             'page' => 'smallint(5) unsigned',
             'created_at' => 'datetime(6)',
@@ -65,6 +67,8 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_submissions.submit_token' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.answers_hash' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.claim_hash' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.resolved_claim' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.resolved_choice' => 'utf8mb4_nopad_bin',
     ];
 
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
