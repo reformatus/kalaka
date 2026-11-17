@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Support;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Support\Directory\Cli\DirectoryCommand;
 use Kalaka\Support\Directory\NodeList;
 use Kalaka\Support\Directory\Rest\NodesController;
+use Kalaka\Support\Picker\CongregationFieldType;
 
 final class Module extends AbstractModule
 {
@@ -32,6 +34,12 @@ CREATE TABLE {prefix}kalaka_support_nodes (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
+    public function __construct(
+        private readonly CongregationFieldType $congregationField = new CongregationFieldType()
+    ) {
+    }
+
     public function id(): string
     {
         return 'support';
@@ -48,14 +56,35 @@ SQL;
         return new Schema(1, [self::NODES]);
     }
 
+    public function contribute(Contributions $to): void
+    {
+        $to->fieldType($this->congregationField);
+    }
+
     public function boot(): void
     {
         add_action('rest_api_init', static function (): void {
             (new NodesController(new NodeList()))->register();
         });
+        add_action('init', [$this, 'register']);
 
         if (defined('WP_CLI') && WP_CLI) {
             \WP_CLI::add_command('kalaka-support', DirectoryCommand::class);
+        }
+    }
+
+    /**
+     * Registers the congregation field's block from `build/`, where the JavaScript build writes it
+     * (engineering.md, "Builds"). Without a build it is not registered, and a published form holding it
+     * closes the site.
+     *
+     * @internal the `init` action
+     */
+    public function register(): void
+    {
+        $block = dirname(__DIR__, 2) . '/build/Support/Picker/Blocks/congregation-field';
+        if (is_file($block . '/block.json')) {
+            register_block_type($block);
         }
     }
 }

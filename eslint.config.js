@@ -15,6 +15,7 @@ const browser = {
 	fetch: 'readonly',
 	performance: 'readonly',
 	PopStateEvent: 'readonly',
+	URL: 'readonly',
 	setTimeout: 'readonly',
 	window: 'readonly',
 };

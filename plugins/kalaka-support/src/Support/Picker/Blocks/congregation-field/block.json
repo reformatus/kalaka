@@ -1,0 +1,25 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/congregation-field",
+  "title": "Gyülekezet",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "editorScript": "file:./index.js",
+  "viewScriptModule": "file:./view.js",
+  "render": "file:./render.php"
+}
