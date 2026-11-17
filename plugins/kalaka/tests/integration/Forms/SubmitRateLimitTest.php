@@ -29,7 +29,7 @@ final class SubmitRateLimitTest extends FormsTestCase
     /** @var array<string, mixed> */
     private array $server;
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
     public function set_up(): void
     {
         parent::set_up();
@@ -40,7 +40,7 @@ final class SubmitRateLimitTest extends FormsTestCase
         $GLOBALS['wp_rest_server'] = null;
     }
 
-    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
     public function tear_down(): void
     {
         $_SERVER = $this->server;

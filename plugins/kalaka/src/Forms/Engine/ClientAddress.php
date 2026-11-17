@@ -27,7 +27,7 @@ final class ClientAddress
             $proxies = self::proxyList($configured);
         }
 
-        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- each value is checked as an IP address
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- checked as IP addresses
         return self::of($_SERVER, $proxies);
     }
 
