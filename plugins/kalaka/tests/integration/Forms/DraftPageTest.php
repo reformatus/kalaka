@@ -254,6 +254,33 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayNotHasKey('draftUrl', $this->context($html));
     }
 
+    /**
+     * The quiz may send only its ranking, with none of its answers (stakeholder ruling 2026-11-17): a body
+     * with one key opens the form with that answer, every other field empty, and nothing marked as an error.
+     */
+    public function testAOneKeyHandoffOpensTheOtherFieldsEmptyWithNoErrorShown(): void
+    {
+        $redirect = (new DraftHandoff())->handle($this->page(), ['size' => 'm'], new GuestActor());
+
+        self::assertTrue($redirect);
+        self::assertSame(['size' => 'm'], AnswerSet::fromJson((string) $this->draftRows()[0]['answers'])->answers);
+
+        $html = $this->render();
+        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
+        self::assertDoesNotMatchRegularExpression('#name="(name|email|note)"[^>]* value="[^"]+"#', $html);
+        self::assertStringNotContainsString('aria-invalid', $html);
+        self::assertSame(
+            0,
+            preg_match('#<span id="kalaka-field-[a-z_]+-error"[^>]*>[^<]+</span>#', $html),
+            'An error element of the opened form holds text.'
+        );
+        self::assertSame(
+            substr_count($html, '-error"'),
+            preg_match_all('#<span id="kalaka-field-[a-z_]+-error"[^>]* hidden></span>#', $html),
+            'Every error element of the opened form is hidden and empty.'
+        );
+    }
+
     public function testNoHandoffWhileTheFormCannotBeUsedOrForAPageWithoutIt(): void
     {
         $other = get_post(self::factory()->post->create(['post_type' => 'page', 'post_content' => '<p>x</p>']));
