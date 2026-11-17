@@ -1,18 +1,19 @@
 /**
- * The ranking field in the editor: its title, its options as a static list of checkboxes, and its settings
- * (required, the fewest and the most options a ranking holds, the options). An option has a label and a key
- * (`value`): the form editor derives a key missing on save from the label, as for a choice's options, and a
- * key typed here is kept, so the keys can match the ones another site sends (S45-1, S73). Labels shown here
- * are proposed text, not yet approved by the owner.
+ * The ranking field in the editor: its title, its set's options as a static list of checkboxes, and its
+ * settings (required, the fewest and the most options a ranking holds, and the assignment set it names,
+ * S44-1). The options are the set's (configured outside the editor until S72/S48); the canvas lists them
+ * all, whatever their conditions. Labels shown here are proposed text, not yet approved by the owner.
  *
  * Like every core field block, it is built from core's field-editor pieces (`window.kalakaFieldEditor`, set by
  * the form editor's script, which `block.json` loads first): the one keeper of keys, so a copied ranking gets a
- * fresh key and fresh option keys; the title; the settings; the participant-field and key panels; and the
- * canvas marker of a field the server would refuse.
+ * fresh key; the title; the settings; the participant-field and key panels; and the canvas marker of a field
+ * the server would refuse.
  */
+import apiFetch from '@wordpress/api-fetch';
 import { useBlockProps } from '@wordpress/block-editor';
-import { Button, Flex, FlexBlock, PanelBody, TextControl } from '@wordpress/components';
-import { createElement as el } from '@wordpress/element';
+import { PanelBody, SelectControl, TextControl } from '@wordpress/components';
+import { useSelect } from '@wordpress/data';
+import { createElement as el, useEffect, useState } from '@wordpress/element';
 
 /** Core's field-editor pieces, read when the editor renders (`Blocks/form/index.js` in core). */
 const core = () => window.kalakaFieldEditor;
@@ -35,71 +36,71 @@ function Count({ label, value, fallback, onChange }) {
 }
 
 /**
- * The options editor: a label and a key per option, with add, remove and reorder. A label that loses focus sets
- * its option's key when it has none yet (`commit`), as a choice's does.
+ * [UNAPPROVED N8, N9] The texts of the set picker (S44-1), proposed and not yet approved by the owner.
  */
-function Options({ options, setAttributes, commit }) {
-	const change = (next) => setAttributes({ options: next });
-	const edit = (index, patch) => change(options.map((o, i) => (i === index ? { ...o, ...patch } : o)));
-	const move = (from, to) => {
-		const next = [...options];
-		next.splice(to, 0, next.splice(from, 1)[0]);
-		change(next);
-	};
+export const TEXT = {
+	panel: 'TEXT_PANEL',
+	select: 'TEXT_SELECT',
+	choose: 'TEXT_CHOOSE',
+	loading: 'TEXT_LOADING',
+	failed: 'TEXT_FAILED',
+	none: 'TEXT_NONE',
+	noSet: 'TEXT_NO_SET',
+};
+
+/** The form's event, as the form editor knows it (`kalaka/event-keys`, core's form editor); 0 until known. */
+function useEventId() {
+	return useSelect((select) => select('kalaka/event-keys')?.getEventId?.() ?? 0, []);
+}
+
+/**
+ * The sets of the form's event (`GET kalaka-admin/v1/events/{id}/assignment-sets`): `loading`, `ready` with
+ * the sets, or `failed`. A later event's read wins over an earlier one still under way.
+ */
+function useSets(eventId) {
+	const [sets, setSets] = useState({ state: 'loading', list: [] });
+	useEffect(() => {
+		if (eventId === 0) {
+			setSets({ state: 'loading', list: [] });
+			return undefined;
+		}
+		let current = true;
+		apiFetch({ path: `/kalaka-admin/v1/events/${eventId}/assignment-sets` }).then(
+			(list) => current && setSets({ state: 'ready', list: Array.isArray(list) ? list : [] }),
+			() => current && setSets({ state: 'failed', list: [] })
+		);
+		return () => {
+			current = false;
+		};
+	}, [eventId]);
+	return sets;
+}
+
+/** The set picker: the event's sets by name; choosing one names it in the block's `set`. */
+function SetPicker({ sets, value, setAttributes }) {
+	let help = null;
+	if (sets.state === 'loading') {
+		help = TEXT.loading;
+	} else if (sets.state === 'failed') {
+		help = TEXT.failed;
+	} else if (sets.list.length === 0) {
+		help = TEXT.none;
+	}
 	return el(
 		PanelBody,
-		{ title: 'Lehetőségek' },
-		options.map((option, index) => {
-			const name = `${index + 1}. lehetőség`;
-			const label = option?.label ? `${name} („${option.label}”)` : name;
-			return el(
-				Flex,
-				{ key: index, align: 'flex-end' },
-				el(
-					FlexBlock,
-					null,
-					el(TextControl, {
-						label: name,
-						hideLabelFromVision: true,
-						value: option?.label ?? '',
-						onChange: (text) => edit(index, { label: text }),
-						onBlur: commit,
-						__next40pxDefaultSize: true,
-						__nextHasNoMarginBottom: true,
-					}),
-					el(TextControl, {
-						label: 'Azonosító',
-						value: option?.value ?? '',
-						onChange: (text) => edit(index, { value: text }),
-						__next40pxDefaultSize: true,
-						__nextHasNoMarginBottom: true,
-					})
-				),
-				el(Button, {
-					icon: 'arrow-up-alt2',
-					label: `${label} feljebb mozgatása`,
-					size: 'small',
-					disabled: index === 0,
-					accessibleWhenDisabled: true,
-					onClick: () => move(index, index - 1),
-				}),
-				el(Button, {
-					icon: 'arrow-down-alt2',
-					label: `${label} lejjebb mozgatása`,
-					size: 'small',
-					disabled: index === options.length - 1,
-					accessibleWhenDisabled: true,
-					onClick: () => move(index, index + 1),
-				}),
-				el(Button, {
-					icon: 'trash',
-					label: `${label} törlése`,
-					size: 'small',
-					onClick: () => change(options.filter((o, i) => i !== index)),
-				})
-			);
-		}),
-		el(Button, { variant: 'secondary', onClick: () => change([...options, { label: '' }]) }, 'Hozzáadás')
+		{ title: TEXT.panel },
+		el(SelectControl, {
+			label: TEXT.select,
+			value: value === undefined ? '' : String(value),
+			options: [
+				{ label: TEXT.choose, value: '' },
+				...sets.list.map((set) => ({ label: set.name, value: String(set.id) })),
+			],
+			onChange: (chosen) => setAttributes({ set: chosen === '' ? undefined : Number(chosen) }),
+			help,
+			__next40pxDefaultSize: true,
+			__nextHasNoMarginBottom: true,
+		})
 	);
 }
 
@@ -108,7 +109,9 @@ export default function Edit({ name, attributes, setAttributes, clientId, isSele
 	const commit = useStableKey(clientId, isSelected);
 	// A marker and a red side rule when the server would refuse its participant field.
 	const canvas = useFieldCanvas(name, clientId, attributes);
-	const options = Array.isArray(attributes.options) ? attributes.options : [];
+	const sets = useSets(useEventId());
+	const chosen = sets.list.find((set) => set.id === attributes.set);
+	const options = Array.isArray(chosen?.options) ? chosen.options : [];
 	return el(
 		'div',
 		useBlockProps(canvas.props),
@@ -138,27 +141,27 @@ export default function Edit({ name, attributes, setAttributes, clientId, isSele
 					}),
 				],
 			},
-			el(Options, { options, setAttributes, commit })
+			el(SetPicker, { sets, value: attributes.set, setAttributes })
 		),
 		el(FieldTitle, { name, attributes, setAttributes, required: attributes.required === true, onBlur: commit }),
-		el(
-			'ul',
-			null,
-			options.map((option, index) =>
-				el(
-					'li',
-					{ key: index },
-					el(
-						'label',
-						null,
-						preview('input', { type: 'checkbox' }),
-						' ',
-						(option?.label ?? '') !== ''
-							? option.label
-							: el('span', { className: 'kalaka-editor-control' }, `${index + 1}. lehetőség`)
+		chosen === undefined
+			? el('p', { className: 'kalaka-editor-control' }, TEXT.noSet)
+			: el(
+					'ul',
+					null,
+					options.map((option) =>
+						el(
+							'li',
+							{ key: option.value },
+							el(
+								'label',
+								null,
+								preview('input', { type: 'checkbox' }),
+								' ',
+								option.label
+							)
+						)
 					)
 				)
-			)
-		)
 	);
 }

@@ -7,7 +7,7 @@ namespace Kalaka\Ranking;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
-use Kalaka\Forms\Api\OptionsFieldType;
+use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -19,12 +19,12 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * Stored as that list in JSON, like a multiple choice; for a condition it is a choice value (the order
  * is not compared), and its text numbers the option labels.
  *
- * The options are the block's own list of `{value, label}` until S44's assignment sets exist (S44-1,
- * default; re-asked in S44), so it is an `OptionsFieldType`: core derives a missing option key on save and
- * the definition check refuses a block without a valid option, as for a choice's options. Every option is
- * offered: TODO(S76) the set's options are filtered by their eligibility conditions once S44 holds them.
+ * The block names its assignment set (`set`, S44-1) and its options are the set's: core fills the block's
+ * `options` attribute from the set (`RequestFieldType`), each `{value, label}` with its eligibility
+ * condition, and offers only the options whose condition holds for the answers before it (S76). The field
+ * the block declares is the set's one request field.
  */
-final class RankingFieldType extends AbstractFieldType implements OptionsFieldType
+final class RankingFieldType extends AbstractFieldType implements RequestFieldType
 {
     public const BLOCK_NAME = 'kalaka/ranking-field';
 
@@ -78,6 +78,14 @@ final class RankingFieldType extends AbstractFieldType implements OptionsFieldTy
     public function blockName(): string
     {
         return self::BLOCK_NAME;
+    }
+
+    /** The set the block names: its `set` attribute, a positive ID. */
+    public function requestSet(array $attributes): ?int
+    {
+        $set = $attributes['set'] ?? null;
+
+        return is_int($set) && $set > 0 ? $set : null;
     }
 
     /**

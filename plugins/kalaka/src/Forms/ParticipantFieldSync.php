@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Actor\Actor;
@@ -11,6 +12,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
@@ -73,6 +75,7 @@ final class ParticipantFieldSync
         Boundary::background($what, static function () use ($eventId, $saved, $what): void {
             [$fields, $conflicts] = self::fields($eventId, $saved);
             $skipped = (new ParticipantFields())->declare($eventId, $fields, self::actor());
+            $conflicts = [...$conflicts, ...self::tie($eventId, $skipped)];
             foreach ($skipped as $key) {
                 if (str_contains(implode("\n", $conflicts), 'key ' . $key . ' of form ')) {
                     continue; // Already named with its form.
@@ -83,10 +86,43 @@ final class ParticipantFieldSync
                 // Handled here (the rest of the list is declared), so only logged.
                 Boundary::report(
                     $what,
-                    new \UnexpectedValueException('Skipped clashing keys: ' . implode('; ', $conflicts)),
+                    new \UnexpectedValueException('Skipped clashing keys or ties: ' . implode('; ', $conflicts)),
                 );
             }
         });
+    }
+
+    /**
+     * Ties each set a request field of the event's forms names to that field (S44-1,
+     * `Assignments\Api\AssignmentSets::tieRequestField()`), once the fields are declared: one use case per
+     * set, a set already tied to the key writing nothing. The save check refuses a second field for a set, so
+     * a refusal here (a form written around it, or two forms saved at the same moment) is only reported.
+     * [UNAPPROVED N7] the tie is written here and never released.
+     *
+     * @param list<string> $skipped the keys the declaration skipped
+     * @return list<string> the ties that were refused
+     */
+    private static function tie(int $eventId, array $skipped): array
+    {
+        $contributions = Contributions::current();
+        $ties = [];
+        foreach ((new FormPosts())->ofEvent($eventId) as $form) {
+            foreach (FieldBlocks::requests($form->post_content, $contributions) as ['key' => $key, 'set' => $set]) {
+                if ($set !== null && !in_array($key, $skipped, true)) {
+                    $ties[$set . ' ' . $key] = [$set, $key];
+                }
+            }
+        }
+        $refused = [];
+        foreach ($ties as [$set, $key]) {
+            try {
+                (new AssignmentSets())->tieRequestField($set, $key, self::actor());
+            } catch (KalakaException $e) {
+                $refused[] = 'request field ' . $key . ' of set ' . $set . ' (' . $e::class . ')';
+            }
+        }
+
+        return $refused;
     }
 
     /**

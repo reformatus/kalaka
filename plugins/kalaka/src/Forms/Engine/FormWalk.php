@@ -27,7 +27,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * holds; a field that does not show is skipped before its answer is looked at, so whatever was sent
  * for it is dropped, it is never required and never an error. A shown choice field offers only the
  * options whose condition holds, and a sent option that is not offered is dropped like a hidden
- * answer. A condition reads an earlier field's valid answer as its value, an earlier field that
+ * answer. A request field outside its set's choice window (`FormField::$closed`, S44) does not show. A
+ * condition reads an earlier field's valid answer as its value, an earlier field that
  * was not answered, dropped or in error as empty, and the caller's facts (the event's keys) for
  * any other key. No chain is ever pending: an unanswered choice, required or optional, reads as
  * empty, so a chain on it shows its `else` until an option is picked, and the fields shown at that
@@ -75,7 +76,9 @@ final class FormWalk
             if ($field->page !== null && !isset($pages[$field->page])) {
                 $pages[$field->page] = $this->pageShows($definition, $field->page, $facts);
             }
-            $isShown = ($field->page === null || $pages[$field->page]) && $this->isShown($field->branches, $facts);
+            $isShown = !$field->closed
+                && ($field->page === null || $pages[$field->page])
+                && $this->isShown($field->branches, $facts);
             $shown[$field->key] = $isShown;
             $value = null;
             if ($field->optionConditions !== []) {

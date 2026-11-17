@@ -59,6 +59,12 @@ import { readAnswer } from './answers';
  */
 const forms = new WeakMap();
 
+/**
+ * The event a re-rendered field's new wrapper gets once it is in place, with the values it was ticked with
+ * (`detail.chosen`, in the order they were ticked in or held), for a field type's own script.
+ */
+export const SWAPPED = 'kalaka:field-swapped';
+
 /** Kaláka's own error codes: only their messages are shown as they come. */
 const OWN_CODE = /^kalaka_/;
 
@@ -314,6 +320,10 @@ function swap(form, key, html) {
 			: chosen.includes(control.value);
 	}
 	old.replaceWith(template.content);
+	// A field type with a script of its own (the module ranking, S44) wires the new markup and orders it.
+	wrapperOf(form, key)?.dispatchEvent(
+		new window.CustomEvent(SWAPPED, { bubbles: true, detail: { chosen: [...chosen] } })
+	);
 
 	if (focused !== null) {
 		const fresh = wrapperOf(form, key);

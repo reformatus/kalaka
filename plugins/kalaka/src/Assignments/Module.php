@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Assignments;
 
 use Kalaka\Assignments\Cli\AssignmentCommand;
+use Kalaka\Assignments\Rest\AssignmentSetsRoute;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Schema;
 
@@ -91,6 +92,7 @@ SQL;
 
     public function boot(): void
     {
+        add_action('rest_api_init', [AssignmentSetsRoute::class, 'register']);
         if (defined('WP_CLI') && WP_CLI) {
             \WP_CLI::add_command('kalaka assignment', AssignmentCommand::class);
         }

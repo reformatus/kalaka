@@ -18,9 +18,8 @@
       "type": "boolean",
       "default": false
     },
-    "options": {
-      "type": "array",
-      "default": []
+    "set": {
+      "type": "integer"
     },
     "min": {
       "type": "integer",
