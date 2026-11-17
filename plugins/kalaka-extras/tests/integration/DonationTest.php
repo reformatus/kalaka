@@ -95,9 +95,9 @@ final class DonationTest extends ExtrasTestCase
         self::assertSame('Csak egész forintösszeget írhatsz ide.', $error('12,5'));
         self::assertSame('Csak egész forintösszeget írhatsz ide.', $error('-100'));
         self::assertSame('Csak egész forintösszeget írhatsz ide.', $error('1234567890123'));
-        self::assertSame('Ha megadsz összeget, legalább 1 000 Ft legyen.', $error('500', $limits));
-        self::assertSame('Az összeg 500 Ft többszöröse legyen.', $error('1200', $limits));
-        self::assertSame('Legfeljebb 100 000 Ft-ot adhatsz meg.', $error('100500', $limits));
+        self::assertSame("Ha megadsz összeget, legalább 1\u{00A0}000\u{00A0}Ft legyen.", $error('500', $limits));
+        self::assertSame("Az összeg 500\u{00A0}Ft többszöröse legyen.", $error('1200', $limits));
+        self::assertSame("Legfeljebb 100\u{00A0}000\u{00A0}Ft-ot adhatsz meg.", $error('100500', $limits));
 
         $this->expectException(InvalidInput::class);
         $type->answer(new FieldTypeInput(5000, []));
@@ -111,7 +111,10 @@ final class DonationTest extends ExtrasTestCase
         // It carries the marker; the lock after the first write is S60's to enforce and is not tested here.
         self::assertInstanceOf(MoneyRelevantFieldType::class, $type);
         self::assertSame(ValueType::Number, $type->valueType());
-        self::assertEquals(Value::number('5000', '5 000 Ft'), $type->value(new FieldTypeInput('5000', [])));
+        self::assertEquals(
+            Value::number('5000', "5\u{00A0}000\u{00A0}Ft"),
+            $type->value(new FieldTypeInput('5000', []))
+        );
         self::assertTrue($type->value(new FieldTypeInput('', []))->isEmpty());
         self::assertSame('5000', $type->prefill(new FieldTypeInput('5000', [])), 'A link may prefill it.');
     }
