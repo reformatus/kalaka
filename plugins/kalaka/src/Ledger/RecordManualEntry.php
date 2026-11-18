@@ -16,6 +16,7 @@ use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\IdempotencyConflict;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
@@ -141,22 +142,23 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new NotFound();
         }
         $kind = $this->kind();
-        $stored = $this->ledger->record(
-            new NewLine(
-                $key,
-                $kind,
-                $payer,
-                $kind === LineKind::ManualPayment ? $amount->negated() : $amount,
-                self::sourceOf($context->actor()),
-                'manual:' . $input['idempotency_key'],
-                $valueDate,
-                null,
-                $method,
-                $correction,
-                $note === '' ? null : $note,
-            ),
-            $context
+        $line = new NewLine(
+            $key,
+            $kind,
+            $payer,
+            $kind === LineKind::ManualPayment ? $amount->negated() : $amount,
+            self::sourceOf($context->actor()),
+            'manual:' . $input['idempotency_key'],
+            $valueDate,
+            null,
+            $method,
+            $correction,
+            $note === '' ? null : $note,
         );
+        if ($this->ledger->keyHoldsDifferentLine($line)) {
+            throw new IdempotencyConflict();
+        }
+        $stored = $this->ledger->record($line, $context);
 
         // What was recorded, and never the note: free text does not belong in an audit that outlives erasure.
         $context->change(

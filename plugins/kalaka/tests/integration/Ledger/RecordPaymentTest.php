@@ -9,9 +9,9 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\IdempotencyConflict;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Pricing\SetFixedPrice;
@@ -72,7 +72,10 @@ final class RecordPaymentTest extends ManualEntryTestCase
         self::assertCount(1, $this->lines());
 
         $this->expectException(InvalidInput::class);
-        $this->exec(new RecordPayment(), $this->paymentInput(['value_date' => '2026-12-02', 'idempotency_key' => 'k2']));
+        $this->exec(
+            new RecordPayment(),
+            $this->paymentInput(['value_date' => '2026-12-02', 'idempotency_key' => 'k2'])
+        );
     }
 
     public function testAFutureDayIsRefused(): void
@@ -146,7 +149,12 @@ final class RecordPaymentTest extends ManualEntryTestCase
     /** @return array<string, array{string}> */
     public static function statuses(): array
     {
-        return ['registered' => ['registered'], 'waitlisted' => ['waitlisted'], 'withdrawn' => ['withdrawn'], 'removed' => ['removed']];
+        return [
+            'registered' => ['registered'],
+            'waitlisted' => ['waitlisted'],
+            'withdrawn' => ['withdrawn'],
+            'removed' => ['removed'],
+        ];
     }
 
     /** @dataProvider statuses */
@@ -198,8 +206,18 @@ final class RecordPaymentTest extends ManualEntryTestCase
         try {
             $this->exec(new RecordPayment(), $different + $this->paymentInput(['note' => 'ref 1']));
             self::fail('A different line under the same key was accepted.');
-        } catch (SystemFailure) {
+        } catch (IdempotencyConflict $conflict) {
+            self::assertSame(409, $conflict->status());
+            self::assertSame('kalaka_idempotency_conflict', $conflict->errorCode());
             self::assertCount(1, $this->lines());
+            self::assertCount(1, $this->notes());
+            // A refusal of the person's act, audited as one: not a system error.
+            $failed = array_values(array_filter(
+                $this->entries(),
+                static fn (array $entry): bool => $entry['outcome'] === 'failed'
+            ));
+            self::assertCount(1, $failed);
+            self::assertStringContainsString('IdempotencyConflict', (string) $failed[0]['error']);
         }
     }
 
@@ -278,7 +296,7 @@ final class RecordPaymentTest extends ManualEntryTestCase
         $this->exec(new RecordPayment(), $this->paymentInput());
 
         $kinds = array_column($this->lines(), 'kind');
-        self::assertContains('charge', $kinds, 'The payment touched the registration, so the evaluation materialized it.');
+        self::assertContains('charge', $kinds, 'The touch ran the evaluation, which materialized the price.');
         self::assertContains('manual_payment', $kinds);
     }
 

@@ -40,7 +40,8 @@ final class LineDetailsTest extends LedgerTestCase
     public function testTheMethodAndTheCorrectionFlagAreStoredOnTheLine(): void
     {
         $this->registration();
-        $stored = $this->record($this->manual(LineKind::ManualRefund, '500', 'r1', PaymentMethod::CardTerminal, true, 'ok'))[0];
+        $refund = $this->manual(LineKind::ManualRefund, '500', 'r1', PaymentMethod::CardTerminal, true, 'ok');
+        $stored = $this->record($refund)[0];
 
         self::assertSame(PaymentMethod::CardTerminal, $stored->method);
         self::assertTrue($stored->correction);
@@ -105,7 +106,9 @@ final class LineDetailsTest extends LedgerTestCase
     public function testTheEntriesComeNewestFirstWithTheirNotes(): void
     {
         $registration = $this->registration();
-        $this->record($this->manual(LineKind::ManualPayment, '-500', 'p1', PaymentMethod::BankTransfer, false, 'Teszt ref'));
+        $this->record(
+            $this->manual(LineKind::ManualPayment, '-500', 'p1', PaymentMethod::BankTransfer, false, 'Teszt ref')
+        );
         $this->record($this->manual(LineKind::ManualRefund, '100', 'r1', PaymentMethod::Cash));
 
         $entries = $this->ledger->entriesOf($registration);
