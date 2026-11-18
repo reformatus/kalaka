@@ -65,13 +65,13 @@ final class FormSeederTest extends SeedTestCase
         $definition = $forms->definition($form);
 
         self::assertSame(
-            ['nev', 'email', 'szallas', 'ejszakak', 'ebed', 'programok', 'fenykep', 'megjegyzes'],
+            ['nev', 'email', 'szallas', 'ejszakak', 'ebed', 'programok', 'fenykep', 'megjegyzes', 'erkezes'],
             array_map(static fn ($field): string => $field->key, $definition->fields)
         );
         self::assertSame(
             [
-                'Név', 'E-mail-cím', 'Kérsz szállást?', 'Hány éjszakára?', 'Ebéd', 'Délutáni programok',
-                'Készülhet rólam fénykép.', 'Megjegyzés',
+                'Név', 'E-mail-cím', 'Kérsz szállást?', 'Éjszakák', 'Ebéd', 'Délutáni programok',
+                'Készülhet rólam fénykép.', 'Megjegyzés', 'Érkezés napja',
             ],
             array_map(static fn ($field): string => $field->label(), $definition->fields)
         );
@@ -91,6 +91,10 @@ final class FormSeederTest extends SeedTestCase
         self::assertSame('kalaka/consent-field', $definition->fields[6]->blockName);
         self::assertFalse($definition->fields[7]->isRequired());
         self::assertTrue($definition->fields[7]->attributes['multiline']);
+        self::assertSame('kalaka/scale-field', $definition->fields[3]->blockName);
+        self::assertFalse($definition->fields[3]->isRequired());
+        self::assertSame('kalaka/date-field', $definition->fields[8]->blockName);
+        self::assertFalse($definition->fields[8]->isRequired());
     }
 
     public function testTheSeededFormIsOpenAtTheSeedDay(): void
