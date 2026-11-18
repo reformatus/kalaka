@@ -15,10 +15,8 @@ namespace Kalaka\Ledger\Api;
  */
 final class PayerKinds
 {
-    /**
-     * The participant's label, until the lektor and the owner approve it. [UNAPPROVED T1]
-     */
-    private const PARTICIPANT_LABEL = 'Résztvevő';
+    /** The participant's label: approved by the owner 2026-11-18 („Jelentkező” for a person everywhere). */
+    private const PARTICIPANT_LABEL = 'Jelentkező';
 
     /**
      * The kinds that apply to the event, the participant first.
