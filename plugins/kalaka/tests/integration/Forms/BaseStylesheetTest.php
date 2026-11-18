@@ -60,9 +60,10 @@ final class BaseStylesheetTest extends WP_UnitTestCase
         $css = (string) file_get_contents(dirname(__DIR__, 3) . '/src/Forms/Blocks/form/view.css');
         $structure = substr($css, 0, (int) strpos($css, '@layer kalaka {'));
 
-        // Structure, so no theme's look outweighs it; only a `label` that names a control (`for`).
+        // Structure, so no theme's look outweighs it; only a `label` that names a control (`for`), anywhere in
+        // the field (an extension's field too).
         self::assertMatchesRegularExpression(
-            '/form\[data-wp-interactive="kalaka\/form"\] \.kalaka-field > label\[for\] \{\s*display: block;\s*\}/',
+            '/form\[data-wp-interactive="kalaka\/form"\] \.kalaka-field label\[for\] \{\s*display: block;\s*\}/',
             $structure
         );
     }

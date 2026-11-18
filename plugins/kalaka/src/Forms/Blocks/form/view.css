@@ -31,9 +31,10 @@ form[data-wp-interactive="kalaka/form"] .kalaka-field__required {
 }
 
 /* A text-like field's label sits on its own line above its control, on every theme (owner, 2026-11-18): a
-   layout rule, so it is structure. Only the `label` that names a control (`for`); a consent's label wraps
-   its checkbox and stays beside it. */
-form[data-wp-interactive="kalaka/form"] .kalaka-field > label[for] {
+   layout rule, so it is structure. Only a `label` that names a control (`for`), anywhere in the field, so an
+   extension's field is reached too; a consent's or a choice option's label wraps its control and stays
+   beside it. */
+form[data-wp-interactive="kalaka/form"] .kalaka-field label[for] {
 	display: block;
 }
 
