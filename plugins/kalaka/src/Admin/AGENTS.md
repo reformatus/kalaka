@@ -57,10 +57,16 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The master view's counted members live in the event's master row of
   `kalaka_views` (`master` 1): at most one per event (the unique key on
   `master_event`), written only through `ViewRepository`, by `CopyViews`
-  (nothing in the grid writes it). Its name, filter and columns are stored
-  empty and never read. It is never listed, edited or deleted as a view. A
-  grant on the master view keeps `view_id` null and never points at the master
-  row.
+  (nothing in the grid writes it). Its name, filter and columns are stored empty and never
+  read. It is never listed, edited or deleted as a view. A grant on the master
+  view keeps `view_id` null and never points at the master row.
+- The grid's ad hoc filters and search (`Narrowing`, S37) only narrow: the view query appends them to the held
+  view's own filter and bound value, never replaces them, so a grant holder never reaches a row the view does
+  not hold. They apply only to the view's listed columns (anything else is `InvalidInput`), and their kind comes
+  from the column's own type (`GridNarrowing`), never from the client. They reach `page()` (and its total) and
+  `aggregates()` only; `count()` for the dialog, `contains()` and the access checks never see them. The
+  sorszám range is computed in SQL as `RegistrationList` computes it. Text matches ignore case and accents
+  (`utf8mb4_unicode_520_ci`); a stored `1` is yes, a stored `0` is no and no value is neither.
 - The counted members of a view (`counts`) are stored only by full access, and
   each is one of its column's members. Any holder of a view, full access
   included, may send an ad hoc `counts` override with the sums read: it is
