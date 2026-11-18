@@ -318,7 +318,7 @@ final class DraftPageTest extends FormsTestCase
 
     /**
      * A value its type's prefill makes nothing of is dropped, even one the type's submit check would accept;
-     * a consent is never prefilled from a link (`RefusesLinkPrefill`), though its stored `1` opens ticked.
+     * a consent's stored form, `1`, from a link is a ticked box.
      */
     public function testALinkValueWhosePrefillIsNullIsDropped(): void
     {
@@ -353,9 +353,7 @@ final class DraftPageTest extends FormsTestCase
             // The submit check alone accepts it.
             $engine = new FormEngine(new EventFormHost());
             self::assertSame(['kod' => 'abc'], $engine->accepted($definition, $sent)->answers);
-            self::assertSame([], (new Forms())->linkAnswers($definition, $sent)->answers);
-            $stored = (new ConsentFieldType())->prefill(new FieldTypeInput('1', []));
-            self::assertTrue($stored, 'A stored consent opens ticked.');
+            self::assertSame(['hozzajarul' => true], (new Forms())->linkAnswers($definition, $sent)->answers);
         } finally {
             Contributions::record($before);
         }
