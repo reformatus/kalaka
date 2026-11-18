@@ -225,9 +225,16 @@ final class ViewQueryCostTest extends PerEventCostTestCase
             ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['confirmed', 'pending']),
             ColumnFilter::of(ColumnFilter::UNANSWERED, FilterKind::Unanswered, 'isAll', ['field:module']),
         ], [
-            new SearchWord('a', ['status' => ['registered'], 'field:module' => ['a'], 'decision:confirmation' => ['pending']]),
+            new SearchWord('a', [
+                'status' => ['registered'],
+                'field:module' => ['a'],
+                'decision:confirmation' => ['pending'],
+            ]),
         ]);
-        $specs = [new AggregateSpec('code', AggregateKind::Rows), new AggregateSpec('field:module', AggregateKind::Filled)];
+        $specs = [
+            new AggregateSpec('code', AggregateKind::Rows),
+            new AggregateSpec('field:module', AggregateKind::Filled),
+        ];
 
         $this->assertPerEventCost(
             fn (int $event) => $this->seedEvent($event),
