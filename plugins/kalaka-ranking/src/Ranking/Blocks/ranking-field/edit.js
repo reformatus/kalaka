@@ -4,11 +4,18 @@
  * (`value`): the form editor derives a key missing on save from the label, as for a choice's options, and a
  * key typed here is kept, so the keys can match the ones another site sends (S45-1, S73). Labels shown here
  * are proposed text, not yet approved by the owner.
+ *
+ * Like every core field block, it is built from core's field-editor pieces (`window.kalakaFieldEditor`, set by
+ * the form editor's script, which `block.json` loads first): the one keeper of keys, so a copied ranking gets a
+ * fresh key and fresh option keys; the title; the settings; the participant-field and key panels; and the
+ * canvas marker of a field the server would refuse.
  */
-import { InspectorControls, RichText, useBlockProps } from '@wordpress/block-editor';
-import { getBlockType } from '@wordpress/blocks';
-import { Button, Flex, FlexBlock, PanelBody, TextControl, ToggleControl } from '@wordpress/components';
+import { useBlockProps } from '@wordpress/block-editor';
+import { Button, Flex, FlexBlock, PanelBody, TextControl } from '@wordpress/components';
 import { createElement as el } from '@wordpress/element';
+
+/** Core's field-editor pieces, read when the editor renders (`Blocks/form/index.js` in core). */
+const core = () => window.kalakaFieldEditor;
 
 /** A number setting: a whole number of at least 1, or the default when cleared. */
 function Count({ label, value, fallback, onChange }) {
@@ -27,8 +34,11 @@ function Count({ label, value, fallback, onChange }) {
 	});
 }
 
-/** The options editor: a label and a key per option, with add, remove and reorder. */
-function Options({ options, setAttributes }) {
+/**
+ * The options editor: a label and a key per option, with add, remove and reorder. A label that loses focus sets
+ * its option's key when it has none yet (`commit`), as a choice's does.
+ */
+function Options({ options, setAttributes, commit }) {
 	const change = (next) => setAttributes({ options: next });
 	const edit = (index, patch) => change(options.map((o, i) => (i === index ? { ...o, ...patch } : o)));
 	const move = (from, to) => {
@@ -53,6 +63,7 @@ function Options({ options, setAttributes }) {
 						hideLabelFromVision: true,
 						value: option?.label ?? '',
 						onChange: (text) => edit(index, { label: text }),
+						onBlur: commit,
 						__next40pxDefaultSize: true,
 						__nextHasNoMarginBottom: true,
 					}),
@@ -92,51 +103,44 @@ function Options({ options, setAttributes }) {
 	);
 }
 
-export default function Edit({ name, attributes, setAttributes }) {
+export default function Edit({ name, attributes, setAttributes, clientId, isSelected }) {
+	const { FieldInspector, FieldTitle, preview, REQUIRED, useFieldCanvas, useStableKey } = core();
+	const commit = useStableKey(clientId, isSelected);
+	// A marker and a red side rule when the server would refuse its participant field.
+	const canvas = useFieldCanvas(name, clientId, attributes);
 	const options = Array.isArray(attributes.options) ? attributes.options : [];
 	return el(
 		'div',
-		useBlockProps(),
+		useBlockProps(canvas.props),
+		canvas.marker,
 		el(
-			InspectorControls,
-			null,
-			el(
-				PanelBody,
-				{ title: 'Beállítások' },
-				el(ToggleControl, {
-					label: 'Kötelező',
-					checked: attributes.required === true,
-					onChange: (required) => setAttributes({ required }),
-					__nextHasNoMarginBottom: true,
-				}),
-				el(Count, {
-					label: 'Legkevesebb választás',
-					value: attributes.min,
-					fallback: 1,
-					onChange: (min) => setAttributes({ min }),
-				}),
-				el(Count, {
-					label: 'Legtöbb választás',
-					value: attributes.max,
-					fallback: 3,
-					onChange: (max) => setAttributes({ max }),
-				})
-			),
-			el(Options, { options, setAttributes })
+			FieldInspector,
+			{
+				name,
+				clientId,
+				attributes,
+				setAttributes,
+				toggles: [REQUIRED],
+				settings: [
+					el(Count, {
+						key: 'min',
+						label: 'Legkevesebb választás',
+						value: attributes.min,
+						fallback: 1,
+						onChange: (min) => setAttributes({ min }),
+					}),
+					el(Count, {
+						key: 'max',
+						label: 'Legtöbb választás',
+						value: attributes.max,
+						fallback: 3,
+						onChange: (max) => setAttributes({ max }),
+					}),
+				],
+			},
+			el(Options, { options, setAttributes, commit })
 		),
-		el(
-			'div',
-			null,
-			el(RichText, {
-				tagName: 'span',
-				value: attributes.label,
-				onChange: (label) => setAttributes({ label }),
-				placeholder: getBlockType(name)?.title,
-				disableLineBreaks: true,
-			}),
-			attributes.required === true &&
-				el('span', { className: 'kalaka-field__required', 'aria-hidden': 'true' }, '*')
-		),
+		el(FieldTitle, { name, attributes, setAttributes, required: attributes.required === true, onBlur: commit }),
 		el(
 			'ul',
 			null,
@@ -147,7 +151,7 @@ export default function Edit({ name, attributes, setAttributes }) {
 					el(
 						'label',
 						null,
-						el('input', { type: 'checkbox', disabled: true, tabIndex: -1, 'aria-hidden': 'true' }),
+						preview('input', { type: 'checkbox' }),
 						' ',
 						(option?.label ?? '') !== ''
 							? option.label

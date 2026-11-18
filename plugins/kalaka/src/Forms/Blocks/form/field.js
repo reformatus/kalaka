@@ -87,8 +87,11 @@ export const FieldTitle = ({ name, attributes, setAttributes, required, onBlur }
 		el(KeyNotice, { attributes })
 	);
 
-/** The settings panel: one toggle per boolean attribute, as `[attribute, label, help?]`. */
-export const Toggles = ({ attributes, setAttributes, toggles }) =>
+/**
+ * The settings panel: one toggle per boolean attribute, as `[attribute, label, help?]`, then any other settings
+ * of the block (`settings`).
+ */
+export const Toggles = ({ attributes, setAttributes, toggles, settings = null }) =>
 	el(
 		PanelBody,
 		{ title: 'Beállítások' },
@@ -101,18 +104,19 @@ export const Toggles = ({ attributes, setAttributes, toggles }) =>
 				onChange: (checked) => setAttributes({ [attribute]: checked }),
 				__nextHasNoMarginBottom: true,
 			})
-		)
+		),
+		settings
 	);
 
 /**
- * The inspector of a field block: its toggles, anything the block adds, then the participant field and the
- * key panel (`participant-ui.js`).
+ * The inspector of a field block: its settings (the toggles, and `settings` after them), the panels the block
+ * adds (`children`), then the participant field and the key panel (`participant-ui.js`).
  */
-export const FieldInspector = ({ name, clientId, attributes, setAttributes, toggles, children }) =>
+export const FieldInspector = ({ name, clientId, attributes, setAttributes, toggles, settings, children }) =>
 	el(
 		InspectorControls,
 		null,
-		el(Toggles, { attributes, setAttributes, toggles }),
+		el(Toggles, { attributes, setAttributes, toggles, settings }),
 		children,
 		el(ParticipantPanel, { name, clientId, attributes, setAttributes }),
 		el(KeyPanel, { name, clientId, attributes, setAttributes })

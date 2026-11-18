@@ -228,10 +228,13 @@ src/Registrations/
 
 - **PHP is buildless:** PSR-4 autoloading straight from `src/`. The PHP build
   only packages, and Strauss touches only bundled libraries.
-- **One JavaScript build for everything:** a single `@wordpress/scripts`
-  build covers all JavaScript, including the Interactivity API `view.js`
-  files (built as script modules). There are no buildless modules alongside
-  built scripts. During development `npm start` runs it in watch mode.
+- **One JavaScript build command for everything:** `npm run build` runs one
+  `@wordpress/scripts` build per plugin that has JavaScript, core's first and
+  then each extension plugin's, chained, covering all JavaScript, including
+  the Interactivity API `view.js` files (built as script modules). There are
+  no buildless modules alongside built scripts. During development
+  `npm start` runs core's in watch mode, and an extension plugin has its own
+  watch script (`npm run start:ranking`).
 - **Source maps** are part of the build and ship in the zip, so the shipped
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with

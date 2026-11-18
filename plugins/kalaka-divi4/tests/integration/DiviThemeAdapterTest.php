@@ -122,6 +122,50 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         );
     }
 
+    public function testUnderDivi4ThePageMapsCoresNeutralBaseOntoDivisFormLook(): void
+    {
+        $post = self::factory()->post->create(['post_content' => '[kalaka_form id="8"]']);
+        $this->go_to((string) get_permalink($post));
+        // A fresh style queue: the tests share WordPress's global one.
+        $GLOBALS['wp_styles'] = null;
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            (new Module(self::divi('4.27.4')))->enqueue();
+        } finally {
+            remove_filter('template', $template);
+        }
+        $css = implode('', (array) wp_styles()->get_data('kalaka-divi4', 'after'));
+
+        // The properties, set on Divi's contact form: Divi's input greys, no border or radius, the filled +/×.
+        self::assertStringContainsString(
+            '.et_pb_contact_form{--kalaka-control-background:#eee;--kalaka-control-color:#666;'
+                . '--kalaka-control-hover-background:#ddd;--kalaka-border-color:transparent;--kalaka-radius:0;'
+                . '--kalaka-button-background:#eee;--kalaka-button-color:#666;--kalaka-button-hover-background:#ddd}',
+            $css
+        );
+        // Every property it sets or reads is one core's base documents (Blocks/form/view.css): no misspelt name.
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local file
+        $base = (string) file_get_contents(dirname(__DIR__, 3) . '/kalaka/src/Forms/Blocks/form/view.css');
+        preg_match_all('/--kalaka-[a-z-]+/', $css, $used);
+        self::assertCount(8, array_unique($used[0]));
+        foreach (array_unique($used[0]) as $property) {
+            self::assertStringContainsString('`' . $property . '`', $base, $property);
+        }
+        // What the properties cannot reach: the ranking's outlined ↑/↓, and the dragged row's lift.
+        self::assertStringContainsString(
+            '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button'
+                . '{background:transparent;color:var(--kalaka-control-color);border:2px solid #eee;'
+                . 'border-radius:var(--kalaka-radius)}',
+            $css
+        );
+        self::assertStringContainsString(
+            '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-dragging] [data-kalaka-row]'
+                . '{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}',
+            $css
+        );
+    }
+
     public function testAPageWithoutAFormGetsNoStylesheet(): void
     {
         $post = self::factory()->post->create(['post_content' => 'Nincs itt űrlap.']);

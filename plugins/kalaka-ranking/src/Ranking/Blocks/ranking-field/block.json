@@ -31,7 +31,10 @@
       "default": 3
     }
   },
-  "editorScript": "file:./index.js",
+  "editorScript": [
+    "kalaka-form-editor-script",
+    "file:./index.js"
+  ],
   "viewScriptModule": "file:./view.js",
   "style": "file:./style-index.css",
   "render": "file:./render.php"

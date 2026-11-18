@@ -7,12 +7,13 @@ namespace Kalaka\Forms\Engine\FieldType;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
 /** One option, or several when `multiple`; the options are a list of `{value, label}`. */
-final class ChoiceFieldType extends AbstractFieldType
+final class ChoiceFieldType extends AbstractFieldType implements OptionsFieldType
 {
     public const BLOCK_NAME = 'kalaka/choice-field';
 
@@ -24,8 +25,9 @@ final class ChoiceFieldType extends AbstractFieldType
     }
 
     /**
-     * The option values of a choice field, or null when its options are not valid: a list of at
-     * least one `{value, label}` with a valid value, none repeated.
+     * The option values of a choice field, or of any `OptionsFieldType`'s block (the definition check's rule), or
+     * null when its options are not valid: a list of at least one `{value, label}` with a valid value, none
+     * repeated.
      *
      * @param array<string, mixed> $attributes
      * @return list<string>|null

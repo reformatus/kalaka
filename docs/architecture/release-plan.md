@@ -90,7 +90,8 @@ sheets.
 
 - **SQ-3** (support versus congregation share order) confirms the share
   formula.
-- **SQ-4** (which survey questions the recommender replaces) fixes the form.
+- **SQ-4** (which survey questions IVK's quiz, outside Kaláka, replaces)
+  fixes the form.
 - **SQ-2** (what the bookkeeper's views contain) may follow opening by a few
   days, while payments are still few. It also settles who is invoiced for
   the congregation's part.

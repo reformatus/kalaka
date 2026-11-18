@@ -65,7 +65,10 @@ export const minimumLine = (min, count) =>
 		? `Adj hozzá legalább ${amount(min)} lehetőséget a sorrendhez.`
 		: `Adj hozzá még legalább ${amount(min - count)} lehetőséget a sorrendhez.`;
 
-/** Said once, when a tick reaches the maximum (`RankingFieldType::fullText()`; owner, Q1). */
+/**
+ * Said when a tick reaches the maximum, and again on a „+” pressed at the maximum (owner, Q1). Only the script
+ * says it, so it has no copy in `RankingFieldType`.
+ */
 export const fullText = (max) => `Megtelt a sorrend: legfeljebb ${amount(max)} lehetőséget választhatsz.`;
 
 /** What the live region says when a tick reaches the maximum: the place, then that the order is full. */
@@ -350,13 +353,21 @@ function startDragging(field) {
 		press.item.setAttribute('data-kalaka-dragging', '');
 	};
 
-	const end = (event) => {
+	// The window's listeners exist only while a press does: each press adds them and its end removes them, so
+	// a field wired again (or many fields on a page) leaves none behind.
+	const release = () => {
+		clearTimeout(press.timer);
+		press = null;
+		view.removeEventListener('pointerup', end, true);
+		view.removeEventListener('pointercancel', end, true);
+	};
+
+	function end(event) {
 		if (press === null || (event.pointerId !== undefined && event.pointerId !== press.id)) {
 			return;
 		}
-		const { item, dragging, from, timer } = press;
-		press = null;
-		clearTimeout(timer);
+		const { item, dragging, from } = press;
+		release();
 		if (!dragging) {
 			return;
 		}
@@ -369,7 +380,7 @@ function startDragging(field) {
 		if (item.parentElement === list && placeOf(item) !== from) {
 			moved(field, item);
 		}
-	};
+	}
 
 	list.addEventListener('pointerdown', (event) => {
 		const target = event.target;
@@ -402,6 +413,8 @@ function startDragging(field) {
 			from: placeOf(item),
 			timer: null,
 		};
+		view.addEventListener('pointerup', end, true);
+		view.addEventListener('pointercancel', end, true);
 		if (!atOnce) {
 			const pointerId = event.pointerId;
 			press.timer = setTimeout(() => {
@@ -425,8 +438,7 @@ function startDragging(field) {
 		if (!press.armed) {
 			// A finger that moves before the long press holds is a swipe: the page scrolls.
 			if (Math.hypot(event.clientX - press.startX, event.clientY - press.startY) > PRESS_SLOP) {
-				clearTimeout(press.timer);
-				press = null;
+				release();
 			}
 			return;
 		}
@@ -471,8 +483,6 @@ function startDragging(field) {
 			end(event);
 		}
 	});
-	view.addEventListener('pointerup', end, true);
-	view.addEventListener('pointercancel', end, true);
 }
 
 /** Wires one ranking field (the element with `data-kalaka-ranking`). */

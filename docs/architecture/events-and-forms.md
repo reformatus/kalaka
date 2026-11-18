@@ -144,9 +144,8 @@ flowchart TB
 - **A form link prefills from its record** (below): the server sets the
   values, either locked or as editable prefilled values. Prefill from a
   preset is separate ([Fields](#fields)).
-- **Form links created from public pages** (e.g. the module recommender, or
-  "register for the other camp too") come from a portal or system use case
-  with its own rate limit.
+- **Form links created from public pages** (e.g. "register for the other
+  camp too") come from a portal or system use case with its own rate limit.
 
 ## Form links and admin submissions
 

@@ -10,6 +10,7 @@ use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module as FormsModule;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ranking\RankingFieldType;
@@ -209,6 +210,62 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame(0, RankingFieldType::emptyRows(0, ['min' => 2]));
         self::assertSame(2, RankingFieldType::emptyRows(0, ['min' => 2, 'required' => true]));
         self::assertSame(1, RankingFieldType::emptyRows(1, ['min' => 2]));
+    }
+
+    public function testItsOptionsWithoutAValidKeyGetOneFromTheirLabelOnSaveAsAChoicesDo(): void
+    {
+        $options = [
+            ['label' => 'Modul Á'],
+            ['value' => 'modul_b', 'label' => 'Modul B'],
+            ['value' => 'Rossz', 'label' => 'Modul C'],
+            ['value' => 'modul_b', 'label' => 'Modul D'],
+        ];
+        $id = $this->insertChecked(
+            $this->ranking('modulok', ['options' => $options]),
+            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+        );
+        self::assertSame('publish', get_post_status($id));
+
+        $post = get_post($id);
+        self::assertInstanceOf(\WP_Post::class, $post);
+        $values = [];
+        foreach (parse_blocks($post->post_content) as $block) {
+            if ($block['blockName'] === RankingFieldType::BLOCK_NAME) {
+                $values = array_column($block['attrs']['options'], 'value');
+            }
+        }
+        // A typed key is kept; a missing, invalid or repeated one is derived from the label.
+        self::assertSame(['modul_a', 'modul_b', 'modul_c', 'modul_d'], $values);
+        self::assertSame(['modul_a', 'modul_b', 'modul_c', 'modul_d'], RankingFieldType::optionKeys(
+            $this->forms->definition($this->readForm($id))->fields[0]->attributes
+        ));
+    }
+
+    public function testTheDefinitionCheckRefusesARankingWithoutAValidOptionAsAChoices(): void
+    {
+        $bad = [
+            'no options' => [],
+            'an option without a key' => [['label' => 'Modul A']],
+            'a repeated key' => [['value' => 'modul_a', 'label' => 'Modul A'], ['value' => 'modul_a', 'label' => 'B']],
+        ];
+        foreach ($bad as $why => $options) {
+            $id = $this->insertUnderived(
+                $this->ranking('modulok', ['options' => $options]),
+                ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+            );
+            try {
+                $this->forms->definition($this->readForm($id));
+                self::fail('A ranking with ' . $why . ' was accepted.');
+            } catch (SystemFailure $e) {
+                self::assertStringEndsWith(' invalid_options modulok', $e->getMessage(), $why);
+            }
+        }
+        // The save check refuses to publish it: a new form stays a draft.
+        $refused = $this->insertChecked(
+            $this->ranking('modulok', ['options' => []]),
+            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+        );
+        self::assertSame('draft', get_post_status($refused));
     }
 
     public function testItIsDeclaredAsTheEventsParticipantFieldWithoutOptions(): void

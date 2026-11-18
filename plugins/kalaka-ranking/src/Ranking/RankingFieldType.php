@@ -7,6 +7,7 @@ namespace Kalaka\Ranking;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -19,10 +20,11 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * is not compared), and its text numbers the option labels.
  *
  * The options are the block's own list of `{value, label}` until S44's assignment sets exist (S44-1,
- * default; re-asked in S44). Every option is offered: TODO(S76) the set's options are filtered by
- * their eligibility conditions once S44 holds them.
+ * default; re-asked in S44), so it is an `OptionsFieldType`: core derives a missing option key on save and
+ * the definition check refuses a block without a valid option, as for a choice's options. Every option is
+ * offered: TODO(S76) the set's options are filtered by their eligibility conditions once S44 holds them.
  */
-final class RankingFieldType extends AbstractFieldType
+final class RankingFieldType extends AbstractFieldType implements OptionsFieldType
 {
     public const BLOCK_NAME = 'kalaka/ranking-field';
 
@@ -62,9 +64,6 @@ final class RankingFieldType extends AbstractFieldType
     /** The first empty row's line with nothing added, and from the first addition on (owner, Q1). */
     public const MINIMUM_LINE = 'Adj hozzá legalább %s lehetőséget a sorrendhez.';
     public const MINIMUM_MORE_LINE = 'Adj hozzá még legalább %s lehetőséget a sorrendhez.';
-
-    /** Said once to a screen reader when the order reaches the maximum (owner, Q1). */
-    public const FULL = 'Megtelt a sorrend: legfeljebb %s lehetőséget választhatsz.';
 
     /** The two lists' names for screen readers (owner, Q4). */
     public const RANKED_NAME = 'Választott sorrend';

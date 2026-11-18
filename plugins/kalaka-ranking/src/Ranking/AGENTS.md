@@ -38,6 +38,12 @@ It holds the ranking field type now and the ranking proposer later (S77).
   first `max`; too few stay, and the submit asks for more.
 - The options are the block's own list of `{value, label}` until S44's
   assignment sets exist; every option is offered until then (TODO(S76)).
+  The type is an `OptionsFieldType`, so core derives a missing option key on
+  save and the definition check refuses a block without a valid option.
+- The editor is built from core's field-editor pieces
+  (`window.kalakaFieldEditor`; `block.json` names `kalaka-form-editor-script`
+  first): the one keeper of keys, so a copy gets a fresh key, the settings,
+  the participant-field and key panels. It copies none of them.
 - The markup is core's field markup (`Forms\Api\FieldMarkup`): a choice group
   whose options are rows (handle, the option's text, ↑, ↓, and the browser's
   own checkbox `<key>[]`, drawn as „+” / „×”), ranked ones first in an ordered

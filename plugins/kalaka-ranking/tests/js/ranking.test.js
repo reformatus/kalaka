@@ -455,6 +455,51 @@ describe('dragging a ranked option', () => {
 		expect(ranked(field)).toEqual(['modul_b', 'modul_c', 'modul_a']);
 	});
 
+	test('the window hears a press only while it lasts: every end removes its listeners', () => {
+		jest.useFakeTimers();
+		const added = jest.spyOn(window, 'addEventListener');
+		const removed = jest.spyOn(window, 'removeEventListener');
+		/** The window's `pointerup` and `pointercancel` listeners the field holds now. */
+		const held = () => {
+			const ofPress = (spy) =>
+				spy.mock.calls.filter(([type]) => type === 'pointerup' || type === 'pointercancel').length;
+			return ofPress(added) - ofPress(removed);
+		};
+		try {
+			const field = render();
+			OPTIONS.forEach((value) => tick(field, value));
+			layOut(field);
+			const handle = itemOf(field, 'modul_a').querySelector('[data-kalaka-handle]');
+			const text = itemOf(field, 'modul_b').querySelector('[data-kalaka-label]');
+			expect(held()).toBe(0);
+
+			// A drag released, a tap, a cancelled press, a swipe, a lost capture, a move with no button held.
+			pointer('pointerdown', handle, 10);
+			expect(held()).toBe(2);
+			pointer('pointermove', handle, 45);
+			pointer('pointerup', handle, 45);
+			expect(held()).toBe(0);
+			pointer('pointerdown', handle, 10);
+			pointer('pointerup', handle, 10);
+			pointer('pointerdown', handle, 10);
+			pointer('pointercancel', handle, 10);
+			pointer('pointerdown', text, 30);
+			pointer('pointermove', text, 60);
+			jest.advanceTimersByTime(LONG_PRESS * 2);
+			pointer('pointerdown', handle, 10);
+			pointer('pointermove', handle, 45);
+			pointer('lostpointercapture', field.querySelector('[data-kalaka-ranked]'), 45);
+			pointer('pointerdown', handle, 10, { pointerType: 'mouse' });
+			pointer('pointermove', handle, 45, { pointerType: 'mouse', buttons: 0 });
+
+			expect(held()).toBe(0);
+		} finally {
+			added.mockRestore();
+			removed.mockRestore();
+			jest.useRealTimers();
+		}
+	});
+
 	test('a drag that ends where it started tells nothing', () => {
 		const field = render();
 		OPTIONS.forEach((value) => tick(field, value));
