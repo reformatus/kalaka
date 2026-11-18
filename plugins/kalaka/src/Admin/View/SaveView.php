@@ -55,6 +55,11 @@ final class SaveView implements AdminUseCase
                     $field->options
                 );
             }
+            foreach (array_keys((array) $input['counts']) as $column) {
+                if (str_starts_with((string) $column, 'decision:')) {
+                    $options[(string) $column] = DecisionStates::of($eventId, substr((string) $column, 9));
+                }
+            }
         }
 
         return new self(options: $options);
@@ -156,17 +161,21 @@ final class SaveView implements AdminUseCase
     }
 
     /**
-     * Every counted member of a field column must be one of the field's options, retired ones included.
+     * Every counted member of a field column must be one of the field's options, retired ones included; of a
+     * decision column, one of the kind's states.
      *
      * @throws InvalidInput
      */
     private function checkCounts(ViewShape $shape): void
     {
         foreach ($shape->counts as $column => $members) {
-            if (!str_starts_with($column, 'field:')) {
+            if (str_starts_with($column, 'decision:')) {
+                $options = $this->options[$column] ?? [];
+            } elseif (str_starts_with($column, 'field:')) {
+                $options = $this->options[substr($column, 6)] ?? [];
+            } else {
                 continue;
             }
-            $options = $this->options[substr($column, 6)] ?? [];
             if ($options === [] || array_diff($members, $options) !== []) {
                 throw new InvalidInput();
             }

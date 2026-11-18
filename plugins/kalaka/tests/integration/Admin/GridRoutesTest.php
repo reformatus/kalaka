@@ -26,6 +26,8 @@ final class GridRoutesTest extends GrantTestCase
 
     private int $holder;
 
+    private int $grant;
+
     private Runner $production;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
@@ -42,13 +44,15 @@ final class GridRoutesTest extends GrantTestCase
         $this->view = $this->parameterView($this->event);
         $this->other = $this->plainView($this->event);
         $this->holder = self::factory()->user->create(['role' => 'kalaka_grantee']);
-        $this->exec(new SaveGrant(), [
+        $grant = $this->exec(new SaveGrant(), [
             'event_id' => $this->event,
             'user_id' => $this->holder,
             'view_id' => $this->view,
             'bound_value' => 'a',
             'actions' => [],
         ]);
+        self::assertIsInt($grant);
+        $this->grant = $grant;
         // The routes run the production runner; it joins the harness's open transaction here.
         $this->production = Runner::current();
         Runner::publish($this->runner);
@@ -124,10 +128,10 @@ final class GridRoutesTest extends GrantTestCase
     {
         $this->as($this->holder);
 
-        $rows = $this->rest('GET', '/views/' . $this->view . '/rows');
+        $rows = $this->rest('GET', '/views/' . $this->view . '/rows', ['grant' => $this->grant]);
         self::assertSame(200, $rows->get_status());
         self::assertSame(['00A0', '00A5'], array_column($rows->get_data(), 'key'));
-        $sums = $this->rest('GET', '/views/' . $this->view . '/sums')->get_data();
+        $sums = $this->rest('GET', '/views/' . $this->view . '/sums', ['grant' => $this->grant])->get_data();
         self::assertSame(2, ((array) $sums)['code']['n']);
 
         foreach (['/views/0/rows', '/views/0/sums', '/views/' . $this->other . '/rows'] as $route) {
@@ -137,6 +141,41 @@ final class GridRoutesTest extends GrantTestCase
         self::assertIsArray($views);
         self::assertFalse($views['full']);
         self::assertSame([$this->view], array_column($views['views'], 'view'));
+    }
+
+    public function testAGrantHolderWithTwoGrantsOnOneViewGetsOneTabPerGrantWithItsOwnRowsAndSums(): void
+    {
+        $second = $this->exec(new SaveGrant(), [
+            'event_id' => $this->event,
+            'user_id' => $this->holder,
+            'view_id' => $this->view,
+            'bound_value' => 'b',
+            'actions' => [],
+        ]);
+        self::assertIsInt($second);
+        $this->as($this->holder);
+
+        $tabs = $this->rest('GET', '/views')->get_data();
+        self::assertIsArray($tabs);
+        self::assertSame(['g' . $this->grant, 'g' . $second], array_column($tabs['views'], 'key'));
+        self::assertSame([$this->view, $this->view], array_column($tabs['views'], 'view'));
+        [$first, $other] = array_column($tabs['views'], 'name');
+        self::assertStringEndsWith("\u{00A0}– a", $first);
+        self::assertStringEndsWith("\u{00A0}– b", $other);
+
+        $path = '/views/' . $this->view;
+        $rowsA = $this->rest('GET', $path . '/rows', ['grant' => $this->grant]);
+        $rowsB = $this->rest('GET', $path . '/rows', ['grant' => $second]);
+        self::assertSame(['00A0', '00A5'], array_column($rowsA->get_data(), 'key'));
+        self::assertSame(['00A2'], array_column($rowsB->get_data(), 'key'));
+        $sumsA = (array) $this->rest('GET', $path . '/sums', ['grant' => $this->grant])->get_data();
+        $sumsB = (array) $this->rest('GET', $path . '/sums', ['grant' => $second])->get_data();
+        self::assertSame(2, $sumsA['code']['n']);
+        self::assertSame(1, $sumsB['code']['n']);
+        // No grant named, or one of another view: nothing.
+        self::assertSame(403, $this->rest('GET', $path . '/rows')->get_status());
+        $wrongView = $this->rest('GET', '/views/' . $this->other . '/rows', ['grant' => $second]);
+        self::assertSame(403, $wrongView->get_status());
     }
 
     public function testAGrantHolderSavesNothing(): void

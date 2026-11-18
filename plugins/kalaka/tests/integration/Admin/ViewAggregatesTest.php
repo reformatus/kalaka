@@ -32,7 +32,7 @@ final class ViewAggregatesTest extends AdminTestCase
             ['00A2', 'registered', 'VEG', '["sport"]', '1', '2.5', '5', '', 'kék', 'pending'],
             ['00A5', 'registered', 'normal', '["craft"]', null, '', '3', null, 'piros', 'confirmed'],
             ['00A8', 'waitlisted', 'normal', null, '1', '4', null, 'Allergia', 'piros', null],
-            ['00B0', 'withdrawn', 'veg', '["hike"]', null, '10', '1', 'x', 'kék', 'confirmed'],
+            ['00B0', 'withdrawn', 'veg', '["hike"]', '0', '10', '1', 'x', 'kék', 'confirmed'],
         ];
         foreach ($rows as [$code, $status, $lunch, $programs, $photo, $nights, $rating, $note, $team, $confirmation]) {
             $this->addRegistration(self::EVENT, $code, $status);
@@ -88,6 +88,15 @@ final class ViewAggregatesTest extends AdminTestCase
             [5, 4, 3, 3, 3, 3, '19.5', 3, '3.25'],
             (new ViewQuery())->aggregates($this->view(), self::specs())
         );
+    }
+
+    /** A consent shown but not ticked stores '0': only exactly '1' counts, never a non-empty value. */
+    public function testTheYesCountIsExactlyOneNeverNonEmpty(): void
+    {
+        $rows = (new ViewQuery())->aggregates($this->view(), [new AggregateSpec('field:photo', AggregateKind::Yes)]);
+
+        // '1' on three registrations, '0' on one, no row on another.
+        self::assertSame([3], $rows);
     }
 
     public function testTheFilterNarrowsEveryKind(): void

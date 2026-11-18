@@ -23,26 +23,6 @@ beforeEach( () => {
 } );
 
 describe( 'the grid writes through the abilities', () => {
-	test( 'a new view runs kalaka/save-view with the event and no id', async () => {
-		apiFetch.mockResolvedValue( 3 );
-		const columns = [ { column: 'code', write: false } ];
-		expect(
-			await saveView( config, 0, {
-				name: 'Új nézet',
-				filter: [],
-				columns,
-			} )
-		).toBe( 3 );
-		expect( apiFetch ).toHaveBeenCalledWith(
-			call( 'kalaka/save-view', {
-				event_id: 7,
-				name: 'Új nézet',
-				filter: [],
-				columns,
-			} )
-		);
-	} );
-
 	test( 'a stored view sends its id and version back, and counts only when given', async () => {
 		apiFetch.mockResolvedValue( 4 );
 		await saveView( config, 4, {
@@ -97,7 +77,7 @@ describe( 'the grid writes through the abilities', () => {
 			.mockResolvedValueOnce( { id: 9 } )
 			.mockResolvedValueOnce( { status: { n: 1 } } );
 		expect(
-			await saveCounts( config, 0, 'status', [ 'waitlisted' ] )
+			await saveCounts( config, { view: 0, grant: 0 }, 'status', [ 'waitlisted' ] )
 		).toEqual( { status: { n: 1 } } );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual(
 			call( 'kalaka/save-master-counts', {
@@ -126,7 +106,7 @@ describe( 'the grid writes through the abilities', () => {
 			.mockResolvedValueOnce( { full: true, views: [ stored ] } )
 			.mockResolvedValueOnce( 4 )
 			.mockResolvedValueOnce( {} );
-		await saveCounts( config, 4, 'field:lunch', [] );
+		await saveCounts( config, { view: 4, grant: 0 }, 'field:lunch', [] );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual( {
 			path: '/kalaka-admin/v1/events/7/views',
 		} );

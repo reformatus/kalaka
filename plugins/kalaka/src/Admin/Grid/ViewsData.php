@@ -40,8 +40,9 @@ final class ViewsData
             $views = [];
             foreach ($this->access->heldViews($actor, $eventId) as $held) {
                 $views[] = [
+                    'key' => GridModel::tabKey($held),
                     'view' => $held->viewId ?? 0,
-                    'name' => $held->name ?? Texts::REGISTRANTS,
+                    'name' => $this->model->tabName($held, $fields),
                     'count' => $this->query->count($held),
                     'columns' => $this->labels($held, $fields),
                 ];
@@ -72,19 +73,21 @@ final class ViewsData
                     'bound' => $grant['bound_value'] === null ? null : $this->valueLabel(
                         (string) $shape->parameterColumn(),
                         $grant['bound_value'],
-                        $fields
+                        $fields,
+                        $eventId
                     ),
                     'count' => $grantView === null ? null : $this->query->count($grantView),
                 ];
             }
             $parameter = $shape->parameterColumn();
             $views[] = [
+                'key' => GridModel::tabKey($held),
                 'view' => $stored['id'],
                 'name' => $stored['name'],
                 'count' => $parameter === null ? $this->query->count($held) : null,
                 'terms' => count($shape->filter),
-                'filterText' => $this->filterText($shape, $fields),
-                'param' => $parameter === null ? null : $this->label($parameter, $fields),
+                'filterText' => $this->filterText($shape, $fields, $eventId),
+                'param' => $parameter === null ? null : $this->label($parameter, $fields, $eventId),
                 'columns' => $this->labels($held, $fields),
                 'grants' => $grants,
                 // What a save sends back: the stored shape, and the tab's columns once it changes.
@@ -115,15 +118,15 @@ final class ViewsData
      *
      * @param array<string, FieldDefinition> $fields
      */
-    private function filterText(ViewShape $shape, array $fields): ?string
+    private function filterText(ViewShape $shape, array $fields, int $eventId): ?string
     {
         $terms = [];
         foreach ($shape->filter as $term) {
-            $label = $this->label($term['column'], $fields);
+            $label = $this->label($term['column'], $fields, $eventId);
             $terms[] = $term['in'] === null
                 ? $label . ': ' . Texts::PER_GRANT
                 : $label . ': ' . implode(', ', array_map(
-                    fn (string $value): string => $this->valueLabel($term['column'], $value, $fields),
+                    fn (string $value): string => $this->valueLabel($term['column'], $value, $fields, $eventId),
                     $term['in']
                 ));
         }
@@ -132,9 +135,9 @@ final class ViewsData
     }
 
     /** @param array<string, FieldDefinition> $fields */
-    private function label(string $column, array $fields): string
+    private function label(string $column, array $fields, int $eventId): string
     {
-        foreach ($this->model->describe([$column], $fields) as $meta) {
+        foreach ($this->model->describe([$column], $fields, $eventId) as $meta) {
             return $meta['label'];
         }
 
@@ -142,12 +145,8 @@ final class ViewsData
     }
 
     /** @param array<string, FieldDefinition> $fields */
-    private function valueLabel(string $column, string $value, array $fields): string
+    private function valueLabel(string $column, string $value, array $fields, int $eventId): string
     {
-        foreach ($this->model->describe([$column], $fields) as $meta) {
-            return $meta['options'][$value] ?? $meta['states'][$value] ?? $value;
-        }
-
-        return $value;
+        return $this->model->valueLabel($column, $value, $fields, $eventId);
     }
 }
