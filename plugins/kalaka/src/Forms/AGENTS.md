@@ -166,6 +166,11 @@ values and conditions, prefill and form links
   unanswered required choice has its own required error, and the fields of
   any branch shown at that moment (an `else` among them) are checked like any
   shown field.
+- True, false and unknown are separate. A comparison on a missing value (or
+  against a missing date) is unknown, `not` leaves unknown unknown, only
+  `empty` reads a missing value, and unknown counts as not matched. A shown
+  consent left unticked stores `0` (an answer), a consent that never showed
+  stores nothing.
 - Only answer-driven chains ship every branch to the page; a chain that reads
   any other key ships only its held branch (`FormDefinition::withheldChains()`,
   `ChainMarks::prune()`).

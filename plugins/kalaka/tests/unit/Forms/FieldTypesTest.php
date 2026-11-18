@@ -152,6 +152,16 @@ final class FieldTypesTest extends TestCase
         self::assertSame('1', $this->answer(new ConsentFieldType(), true)->value);
     }
 
+    public function testAConsentLeftUntickedIsStoredAsZeroAndReopensUnticked(): void
+    {
+        $answer = $this->answer(new ConsentFieldType(), false);
+
+        self::assertSame('0', $answer->value);
+        self::assertNull($answer->error);
+        self::assertNull((new ConsentFieldType())->prefill(new FieldTypeInput('0', [])));
+        self::assertTrue((new ConsentFieldType())->prefill(new FieldTypeInput('1', [])));
+    }
+
     /** @return iterable<string, array{FieldType, mixed}> */
     public static function wrongTypes(): iterable
     {

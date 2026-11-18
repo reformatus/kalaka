@@ -15,27 +15,53 @@ use Kalaka\Vendor\Brick\Math\BigDecimal;
  * request or clock, so a caller inside a transaction can use it. It is the one evaluator behind
  * every availability (S76), reached through `Api\Availability` and the form walk.
  *
- * An empty value makes every operator but `empty` false, and so does a date reference to an empty
- * date; `not` then inverts the result.
+ * Three values: true, false and unknown (null). A comparison on a missing value, or against a
+ * reference to a missing date, is unknown: nothing was answered, so the comparison cannot be
+ * judged. Only `empty` reads a missing value (`empty` true, `not empty` false). `not` never turns
+ * unknown into anything: not unknown is unknown. At the top, a condition holds only when it is
+ * true; unknown counts as not matched.
+ *
+ *     all:  any false -> false;  else any unknown -> unknown;  else true
+ *     any:  any true  -> true;   else any unknown -> unknown;  else false
+ *     not:  true -> false, false -> true, unknown -> unknown
+ *
+ * So `not equals X` does not include someone who never answered; an author who wants them writes
+ * `empty` or `not equals X`.
  */
 final class ConditionEvaluator
 {
     /** @throws SystemFailure when a key is not declared or an operator does not fit the value's type */
     public function holds(Condition $condition, Facts $context): bool
     {
-        $results = [];
-        foreach ($condition->items as $item) {
-            $results[] = $item instanceof Condition ? $this->holds($item, $context) : $this->compares($item, $context);
-        }
-        $holds = $condition->match === MatchMode::All
-            ? !in_array(false, $results, true)
-            : in_array(true, $results, true);
-
-        return $condition->not ? !$holds : $holds;
+        return $this->evaluate($condition, $context) === true;
     }
 
-    /** @throws SystemFailure */
-    private function compares(Comparison $comparison, Facts $context): bool
+    /**
+     * @return bool|null null is unknown
+     * @throws SystemFailure
+     */
+    private function evaluate(Condition $condition, Facts $context): ?bool
+    {
+        $results = [];
+        foreach ($condition->items as $item) {
+            $results[] = $item instanceof Condition
+                ? $this->evaluate($item, $context)
+                : $this->compares($item, $context);
+        }
+        if ($condition->match === MatchMode::All) {
+            $holds = in_array(false, $results, true) ? false : (in_array(null, $results, true) ? null : true);
+        } else {
+            $holds = in_array(true, $results, true) ? true : (in_array(null, $results, true) ? null : false);
+        }
+
+        return $condition->not && $holds !== null ? !$holds : $holds;
+    }
+
+    /**
+     * @return bool|null null is unknown
+     * @throws SystemFailure
+     */
+    private function compares(Comparison $comparison, Facts $context): ?bool
     {
         $value = $context->get($comparison->key);
         if (!$comparison->operator->isAllowedFor($value->type)) {
@@ -47,7 +73,7 @@ final class ConditionEvaluator
         if ($comparison->operator === Operator::Empty) {
             $result = $value->isEmpty();
         } elseif ($value->isEmpty() || $given === null) {
-            $result = false;
+            return null;
         } else {
             $result = match ($value->type) {
                 ValueType::Number => $this->ordered(

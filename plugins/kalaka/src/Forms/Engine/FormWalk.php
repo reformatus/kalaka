@@ -217,7 +217,13 @@ final class FormWalk
         array &$errors
     ): ?Value {
         $sent = $answers[$field->key] ?? null;
-        if (!array_key_exists($field->key, $answers) || $this->isBlank($sent)) {
+        // a consent sent as false is an answer, "no" (stored `0`), unless the consent is required
+        $isConsent = $field->blockName === ConsentFieldType::BLOCK_NAME;
+        if (
+            !array_key_exists($field->key, $answers)
+            || $this->isBlank($sent, $isConsent)
+            || ($isConsent && $sent === false && $field->isRequired())
+        ) {
             if ($field->isRequired()) {
                 $errors[$field->key] = $field->blockName === ConsentFieldType::BLOCK_NAME
                     ? ConsentFieldType::NOT_GIVEN
@@ -247,10 +253,10 @@ final class FormWalk
         return null;
     }
 
-    /** `""`, whitespace only, `[]` and `false` are no answer. */
-    private function isBlank(mixed $value): bool
+    /** `""`, whitespace only and `[]` are no answer, and `false` for any field but a consent (where it is "no"). */
+    private function isBlank(mixed $value, bool $isConsent): bool
     {
-        return $value === false
+        return ($value === false && !$isConsent)
             || $value === []
             || (is_string($value) && preg_match('/\A[\s\p{Z}]*\z/u', $value) === 1);
     }

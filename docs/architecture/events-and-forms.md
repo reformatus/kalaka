@@ -419,9 +419,11 @@ is no other participant-side edit.
   only answers of fields that show, including only the options that are
   offered; whatever the browser still holds for a hidden field is dropped.
 - **An unanswered field reads as empty; no chain waits.** An unanswered
-  choice, required or optional, reads as empty like an unticked box or an
-  empty text, so the branch for "empty" (often `else`) shows until an
-  answer is given. Validation follows what shows: at submit a required
+  choice, required or optional, reads as empty like an empty text, so the
+  branch for "empty" (often `else`) shows until an answer is given. A
+  consent is different: one that shows and is left unticked is answered
+  "no" and stores `0`, so it is not empty; a consent that never showed
+  stores nothing. Validation follows what shows: at submit a required
   choice left unanswered has its own required error, and the fields of the
   branch shown at that moment (an `else`, say) are checked like any shown
   field.
@@ -434,6 +436,14 @@ is no other participant-side edit.
   equal, contains, empty.
 - **A "not" switch** on each condition, instead of separate negated
   operators.
+- **A missing value is unknown, never false.** A comparison on a value that
+  was never answered (or against a date reference to a missing date) is
+  neither true nor false but unknown; only `empty` reads a missing value.
+  `not` leaves unknown unknown, so "not equals X" does not include someone
+  who never answered; a condition that should include them is "empty or not
+  equals X". Groups follow the same three values: `all` with an unknown item
+  and no false is unknown, `any` with a true is true, and `not` on a group
+  leaves unknown unknown. A condition that is unknown counts as not matched.
 - **Typed comparison:** values compare as number, date, text or choice.
 - **A date can be compared with a date reference:** another date key of the
   fact source moved by whole years and days, e.g. the event's start minus 16

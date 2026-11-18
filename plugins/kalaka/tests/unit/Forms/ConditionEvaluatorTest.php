@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Engine\Condition\Comparison;
 use Kalaka\Forms\Engine\Condition\Condition;
 use Kalaka\Forms\Engine\Condition\ConditionEvaluator;
+use Kalaka\Forms\Engine\Condition\DateReference;
 use Kalaka\Forms\Engine\Condition\MatchMode;
 use Kalaka\Forms\Engine\Condition\Operator;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -101,20 +102,108 @@ final class ConditionEvaluatorTest extends TestCase
     }
 
     /** @dataProvider operatorsOfEachType */
-    public function testNoneIsEmptyAndFailsEveryOtherOperatorButNotInvertsThem(Operator $operator, string $given): void
-    {
+    public function testNoneIsUnknownForEveryOperatorButEmptyAndNotKeepsItUnknown(
+        Operator $operator,
+        string $given
+    ): void {
         foreach (ValueType::cases() as $type) {
             $none = Value::none($type);
             self::assertTrue($this->holds($none, Operator::Empty, null), $type->value . ' empty');
             self::assertFalse($this->holds($none, Operator::Empty, null, true), $type->value . ' not empty');
             if ($operator->isAllowedFor($type)) {
                 self::assertFalse($this->holds($none, $operator, $given), $type->value . ' ' . $operator->value);
-                self::assertTrue(
+                self::assertFalse(
                     $this->holds($none, $operator, $given, true),
                     $type->value . ' not ' . $operator->value
                 );
             }
         }
+    }
+
+    /** @return iterable<string, array{MatchMode, list<?bool>, ?bool}> the items' results and the group's */
+    public static function truthTable(): iterable
+    {
+        yield 'all: true, true' => [MatchMode::All, [true, true], true];
+        yield 'all: true, false' => [MatchMode::All, [true, false], false];
+        yield 'all: true, unknown' => [MatchMode::All, [true, null], null];
+        yield 'all: false, unknown' => [MatchMode::All, [false, null], false];
+        yield 'all: unknown, unknown' => [MatchMode::All, [null, null], null];
+        yield 'any: false, false' => [MatchMode::Any, [false, false], false];
+        yield 'any: false, true' => [MatchMode::Any, [false, true], true];
+        yield 'any: false, unknown' => [MatchMode::Any, [false, null], null];
+        yield 'any: true, unknown' => [MatchMode::Any, [true, null], true];
+        yield 'any: unknown, unknown' => [MatchMode::Any, [null, null], null];
+    }
+
+    /**
+     * @param list<?bool> $results
+     * @dataProvider truthTable
+     */
+    public function testGroupsFollowTheThreeValuedTruthTableAndNotLeavesUnknownUnknown(
+        MatchMode $match,
+        array $results,
+        ?bool $expected
+    ): void {
+        // true: age > 9; false: age > 99; unknown: `unset` has no value
+        $item = static fn (?bool $result): Comparison => match ($result) {
+            true => new Comparison('age', Operator::GreaterThan, '9', false),
+            false => new Comparison('age', Operator::GreaterThan, '99', false),
+            null => new Comparison('unset', Operator::Equals, 'x', false),
+        };
+        $items = array_map($item, $results);
+        $context = new ValueContext(['age' => Value::number('12', '12'), 'unset' => Value::none(ValueType::Text)]);
+        $evaluator = new ConditionEvaluator();
+        $wrap = static fn (bool $not): Condition => new Condition(
+            MatchMode::All,
+            [new Condition($match, $items, $not)]
+        );
+
+        self::assertSame($expected === true, $evaluator->holds($wrap(false), $context));
+        // `not` of a group: true -> false, false -> true, unknown -> unknown (never matched)
+        self::assertSame($expected === false, $evaluator->holds($wrap(true), $context));
+    }
+
+    /** The lunch rule of the IVK fee: `{key: ebed, equals: nem, not: true}`. */
+    public function testNotEqualsDoesNotMatchSomeoneWhoNeverAnswered(): void
+    {
+        $rule = new Condition(MatchMode::All, [new Comparison('ebed', Operator::Equals, 'nem', true)]);
+        $holds = static fn (Value $answer): bool => (new ConditionEvaluator())->holds(
+            $rule,
+            new ValueContext(['ebed' => $answer])
+        );
+
+        self::assertFalse($holds(Value::none(ValueType::Choice)));
+        self::assertTrue($holds(Value::choice(['igen'], 'Igen')));
+        self::assertFalse($holds(Value::choice(['nem'], 'Nem')));
+
+        $orEmpty = new Condition(MatchMode::Any, [
+            new Comparison('ebed', Operator::Empty, null, false),
+            new Comparison('ebed', Operator::Equals, 'nem', true),
+        ]);
+        self::assertTrue((new ConditionEvaluator())->holds(
+            $orEmpty,
+            new ValueContext(['ebed' => Value::none(ValueType::Choice)])
+        ));
+    }
+
+    /** "16 or over": the date of birth is on or before the event's start minus 16 years. */
+    public function testNotSixteenOrOverDoesNotMatchAMissingDateOfBirth(): void
+    {
+        $sixteen = new DateReference('event.start', -16);
+        $rule = new Condition(MatchMode::All, [
+            new Comparison('szuletesi_datum', Operator::LessOrEqual, null, true, $sixteen),
+        ]);
+        $holds = static fn (Value $born, Value $start): bool => (new ConditionEvaluator())->holds(
+            $rule,
+            new ValueContext(['szuletesi_datum' => $born, 'event.start' => $start])
+        );
+        $start = Value::date('2027-07-10', '2027-07-10');
+
+        self::assertFalse($holds(Value::none(ValueType::Date), $start));
+        self::assertTrue($holds(Value::date('2015-01-01', 'x'), $start));
+        self::assertFalse($holds(Value::date('2005-01-01', 'x'), $start));
+        // a missing referenced date is unknown too
+        self::assertFalse($holds(Value::date('2005-01-01', 'x'), Value::none(ValueType::Date)));
     }
 
     private function context(): ValueContext
