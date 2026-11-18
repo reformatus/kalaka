@@ -178,6 +178,27 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame(403, $wrongView->get_status());
     }
 
+    public function testAGrantWhoseBoundValueIsBlankNamesTheTabByTheViewAlone(): void
+    {
+        $blank = $this->exec(new SaveGrant(), [
+            'event_id' => $this->event,
+            'user_id' => $this->holder,
+            'view_id' => $this->view,
+            'bound_value' => "  ",
+            'actions' => [],
+        ]);
+        self::assertIsInt($blank);
+        $this->as($this->holder);
+
+        $tabs = $this->rest('GET', '/views')->get_data();
+        self::assertIsArray($tabs);
+        $names = array_column(array_filter(
+            $tabs['views'],
+            static fn (array $tab): bool => $tab['key'] === 'g' . $blank
+        ), 'name');
+        self::assertSame(['Nézet'], $names);
+    }
+
     public function testAGrantHolderSavesNothing(): void
     {
         $this->as($this->holder);
