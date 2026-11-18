@@ -12,12 +12,12 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Registrations\ClaimDraft;
+use Kalaka\Registrations\Draft\ClaimDraft;
 use Kalaka\Registrations\Draft\Draft;
 use Kalaka\Registrations\Draft\DraftRepository;
-use Kalaka\Registrations\HandOverPrefill;
-use Kalaka\Registrations\ResolveDraftClaim;
-use Kalaka\Registrations\SaveDraft;
+use Kalaka\Registrations\Draft\HandOverPrefill;
+use Kalaka\Registrations\Draft\ResolveDraftClaim;
+use Kalaka\Registrations\Draft\SaveDraft;
 
 /**
  * Drafts of registration forms (S74, owner ruling 2026-11-14), for the event form's host and the handoff:

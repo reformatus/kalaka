@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
  * The periodic run's step that deletes drafts that are done (S74): every draft of an event whose

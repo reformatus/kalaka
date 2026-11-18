@@ -20,7 +20,7 @@ use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
-use Kalaka\Registrations\DraftSweep;
+use Kalaka\Registrations\Draft\DraftSweep;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 

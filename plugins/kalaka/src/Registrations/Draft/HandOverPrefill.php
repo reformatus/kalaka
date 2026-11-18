@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 use Kalaka\Registrations\Api\DraftClaim;
-use Kalaka\Registrations\Draft\Draft;
-use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
  * A link's or the quiz's answers handed over to a registration form (S74, owner ruling 2026-11-14: the quiz

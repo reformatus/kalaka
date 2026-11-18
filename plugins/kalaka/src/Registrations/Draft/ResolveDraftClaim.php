@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Foundation\Api\Actor\AccountActor;
@@ -10,7 +10,6 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
 use Kalaka\Registrations\Api\DraftClaimRefused;
-use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
  * The person's choice when a link's or the quiz's answers (the guest draft their cookie names) meet their

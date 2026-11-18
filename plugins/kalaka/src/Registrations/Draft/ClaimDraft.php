@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\FormDefinition;
@@ -12,7 +12,6 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
 use Kalaka\Registrations\Api\DraftClaimOutcome;
-use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
  * A logged-in person claims the guest draft their cookie names (S74): after signing up or logging in on

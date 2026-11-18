@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Foundation\Api\Actor\AccountActor;
@@ -10,8 +10,6 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
-use Kalaka\Registrations\Draft\Draft;
-use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
  * The autosave (S74): keeps the answers as the logged-in person's draft of the form, one per event, form

@@ -7,6 +7,7 @@ namespace Kalaka\Registrations;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
+use Kalaka\Registrations\Draft\DraftSweep;
 
 final class Module extends AbstractModule
 {

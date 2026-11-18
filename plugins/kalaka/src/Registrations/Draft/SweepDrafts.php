@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Registrations\Draft\DraftRepository;
 
 /**
  * Deletes drafts that are done (S74, owner ruling 2026-11-14: drafts are deleted when registration closes):
