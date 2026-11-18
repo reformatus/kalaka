@@ -8,6 +8,7 @@ use Kalaka\Admin\Api\AggregateKind;
 use Kalaka\Admin\Api\AggregateSpec;
 use Kalaka\Admin\Api\HeldView;
 use Kalaka\Admin\Api\ViewQuery;
+use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
@@ -30,12 +31,12 @@ final class GridModel
     /** The display name field's type: its column comes third. */
     private const NAME_TYPE = 'kalaka/name-field';
 
-    /** The core decision with a fixed count, and the state it counts. */
-    private const CONFIRMATION = 'decision:confirmation';
-    private const CONFIRMED = 'confirmed';
+    /** @var array<string, array{label: string, states: array<string, string>}> by event and kind */
+    private array $kinds = [];
 
     public function __construct(
         private readonly ViewQuery $query = new ViewQuery(),
+        private readonly Decisions $decisions = new Decisions(),
     ) {
     }
 
@@ -55,10 +56,78 @@ final class GridModel
 
         $columns = [];
         foreach ($this->ordered($listed, $fields) as $column) {
-            $columns[] = self::meta($column, $fields);
+            $columns[] = $this->meta($column, $fields, $view->eventId);
         }
 
         return $columns;
+    }
+
+    /**
+     * A decision kind as the grid shows it: the label and the states' labels its module declares; for a
+     * kind nothing declares, the kind's key and the states recorded in the event, each by its key.
+     *
+     * @return array{label: string, states: array<string, string>}
+     */
+    private function decision(int $eventId, string $kind): array
+    {
+        return $this->kinds[$eventId . ':' . $kind] ??= $this->describeKind($eventId, $kind);
+    }
+
+    /** @return array{label: string, states: array<string, string>} */
+    private function describeKind(int $eventId, string $kind): array
+    {
+        $declared = $this->decisions->kind($kind);
+        if ($declared !== null) {
+            return ['label' => $declared->label, 'states' => $declared->states];
+        }
+        $states = [];
+        foreach ($this->decisions->statesIn($eventId, $kind) as $state) {
+            $states[$state] = $state;
+        }
+
+        return ['label' => $kind, 'states' => $states];
+    }
+
+    /**
+     * The tab of a held view is keyed per grant: `g{grant id}` for a view held through a grant, otherwise
+     * (full access) `v{view id}`, `v0` for the master view.
+     */
+    public static function tabKey(HeldView $view): string
+    {
+        return $view->grantId !== null ? 'g' . $view->grantId : 'v' . ($view->viewId ?? 0);
+    }
+
+    /**
+     * The tab's name: the view's name, and for a grant with a bound value „{nézet} – {érték}” (the value as
+     * the dialog shows it). A grant without a bound value, which sees the whole view, is named by the view
+     * alone; the master view is „Jelentkezők”. [UNAPPROVED N19]
+     *
+     * @param array<string, FieldDefinition> $fields
+     */
+    public function tabName(HeldView $view, array $fields): string
+    {
+        $name = $view->name ?? Texts::REGISTRANTS;
+        $column = $view->shape()?->parameterColumn();
+        $bound = $view->bound();
+        if ($column === null || $bound === null) {
+            return $name;
+        }
+
+        return sprintf(Texts::TAB_BOUND, $name, $this->valueLabel($column, $bound, $fields, $view->eventId));
+    }
+
+    /**
+     * A column's member as the grid shows it: the option's label or the decision state's label, else the value.
+     *
+     * @param array<string, FieldDefinition> $fields
+     */
+    public function valueLabel(string $column, string $value, array $fields, int $eventId): string
+    {
+        foreach ($this->describe([$column], $fields, $eventId) as $meta) {
+            return $meta['options'][$value] ?? $meta['states'][$value] ?? $value;
+        }
+
+        return $value;
     }
 
     /**
@@ -72,9 +141,9 @@ final class GridModel
      *     states?: array<string, string>
      * }>
      */
-    public function describe(array $columns, array $fields): array
+    public function describe(array $columns, array $fields, int $eventId): array
     {
-        return array_map(static fn (string $column): array => self::meta($column, $fields), $columns);
+        return array_map(fn (string $column): array => $this->meta($column, $fields, $eventId), $columns);
     }
 
     /**
@@ -90,7 +159,7 @@ final class GridModel
         $stored = $view->counts();
         $counts = [];
         foreach ($stored as $column => $members) {
-            $valid = array_column(self::members($column, $fields) ?? [], 'value');
+            $valid = array_column($this->members($column, $fields, $view->eventId) ?? [], 'value');
             $members = array_values(array_intersect($members, $valid));
             if ($members !== []) {
                 $counts[$column] = $members;
@@ -117,7 +186,7 @@ final class GridModel
         $specs = [];
         $extra = [];
         foreach ($listed as $column) {
-            $rule = self::rule($column, $fields, $counts);
+            $rule = $this->rule($column, $fields, $counts, $view->eventId);
             if ($rule === null) {
                 continue;
             }
@@ -149,20 +218,17 @@ final class GridModel
      *     2: array{kind: string, members?: list<string>, labels?: list<string>, member?: string}
      * }|null
      */
-    private static function rule(string $column, array $fields, array $counts): ?array
+    private function rule(string $column, array $fields, array $counts, int $eventId): ?array
     {
         if ($column === 'code') {
             return [AggregateKind::Rows, [], ['kind' => 'rows']];
-        }
-        if ($column === self::CONFIRMATION) {
-            return [AggregateKind::Members, [self::CONFIRMED], ['kind' => 'count', 'member' => Texts::CONFIRMED]];
         }
         if ($column === 'status' || isset($counts[$column])) {
             $chosen = $counts[$column] ?? [];
             if ($chosen === []) {
                 return null;
             }
-            $labels = array_column(self::members($column, $fields) ?? [], 'label', 'value');
+            $labels = array_column($this->members($column, $fields, $eventId) ?? [], 'label', 'value');
 
             return [AggregateKind::Members, $chosen, [
                 'kind' => 'members',
@@ -195,8 +261,17 @@ final class GridModel
      * @param array<string, FieldDefinition> $fields
      * @return list<array{value: string, label: string}>|null
      */
-    private static function members(string $column, array $fields): ?array
+    private function members(string $column, array $fields, int $eventId): ?array
     {
+        if (str_starts_with($column, 'decision:')) {
+            $states = $this->decision($eventId, substr($column, 9))['states'];
+            $members = [];
+            foreach ($states as $value => $label) {
+                $members[] = ['value' => (string) $value, 'label' => $label];
+            }
+
+            return $members;
+        }
         if ($column === 'status') {
             return array_map(
                 static fn (RegistrationStatus $s): array => ['value' => $s->value, 'label' => Texts::status($s)],
@@ -263,7 +338,7 @@ final class GridModel
      *     states?: array<string, string>
      * }
      */
-    private static function meta(string $column, array $fields): array
+    private function meta(string $column, array $fields, int $eventId): array
     {
         $meta = ['column' => $column, 'sortable' => $column !== 'code' && $column !== 'serial', 'numeric' => false];
         if ($column === 'code') {
@@ -273,7 +348,7 @@ final class GridModel
             return ['numeric' => true] + $meta + ['label' => Texts::SERIAL, 'type' => 'serial'];
         }
         if ($column === 'status') {
-            $members = self::members($column, $fields) ?? [];
+            $members = $this->members($column, $fields, $eventId) ?? [];
 
             return $meta + [
                 'label' => Texts::STATUS,
@@ -283,12 +358,13 @@ final class GridModel
             ];
         }
         if (str_starts_with($column, 'decision:')) {
-            $confirmation = $column === self::CONFIRMATION;
+            $kind = $this->decision($eventId, substr($column, 9));
 
             return $meta + [
-                'label' => $confirmation ? Texts::CONFIRMATION : substr($column, 9),
+                'label' => $kind['label'],
                 'type' => 'decision',
-                'states' => $confirmation ? [self::CONFIRMED => Texts::CONFIRMED] : [],
+                'states' => $kind['states'],
+                'members' => $this->members($column, $fields, $eventId) ?? [],
             ];
         }
 
@@ -306,10 +382,10 @@ final class GridModel
         $meta = ['numeric' => $type === 'number'] + $meta + ['label' => $field->title, 'type' => $type];
         if ($type === 'choice') {
             $meta['options'] = $field->options;
-            $meta['members'] = self::members($column, $fields) ?? [];
+            $meta['members'] = $this->members($column, $fields, $eventId) ?? [];
         }
         if ($type === 'consent') {
-            $meta['options'] = ['1' => Texts::YES];
+            $meta['options'] = ['1' => Texts::YES, '0' => Texts::NO];
         }
 
         return $meta;

@@ -25,7 +25,8 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  *
  * The page renders an empty container and the app (`build/Admin/app/grid.js`) with its configuration: the
  * tabs (full access: „Jelentkezők”, the master view, then every view of the event; a grant holder: their
- * views), each with its columns, and the tab the URL names (`&view=N`).
+ * views), each with its columns, and the tab the URL names (`&view=` with the tab's key,
+ * `v{view}` or, for a grant, `g{grant}`).
  */
 final class GridPage
 {
@@ -129,14 +130,8 @@ final class GridPage
                 $held[] = $access->fullView($actor, $eventId, $view['id']);
             }
         } else {
-            $seen = [];
-            foreach ($access->heldViews($actor, $eventId) as $view) {
-                $key = $view->viewId ?? 0;
-                if (!isset($seen[$key])) {
-                    $seen[$key] = true;
-                    $held[] = $view;
-                }
-            }
+            // One tab per grant, even on the same view (N18).
+            $held = $access->heldViews($actor, $eventId);
             if ($held === [] && !in_array($eventId, $access->grantedEventIds($actor), true)) {
                 throw new PermissionDenied();
             }
@@ -150,13 +145,15 @@ final class GridPage
         $fields = (new FieldDefinitions())->of($eventId);
         $model = new GridModel();
         $tabs = array_map(static fn (HeldView $view): array => [
+            'key' => GridModel::tabKey($view),
             'view' => $view->viewId ?? 0,
-            'name' => $view->name ?? Texts::REGISTRANTS,
+            'grant' => $view->grantId ?? 0,
+            'name' => $model->tabName($view, $fields),
             'columns' => $model->columns($view, $fields),
         ], $held);
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
-        $asked = isset($_GET['view']) ? absint($_GET['view']) : null;
-        $current = in_array($asked, array_column($tabs, 'view'), true) ? $asked : $tabs[0]['view'];
+        $asked = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : null;
+        $current = in_array($asked, array_column($tabs, 'key'), true) ? $asked : $tabs[0]['key'];
 
         $config = [
             'event' => $eventId,

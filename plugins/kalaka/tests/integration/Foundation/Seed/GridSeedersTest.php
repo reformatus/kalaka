@@ -72,8 +72,10 @@ final class GridSeedersTest extends SeedTestCase
         self::assertInstanceOf(\WP_User::class, $user);
         self::assertSame(['kalaka_grantee'], $user->roles);
         $held = (new Access())->heldViews(new UserActor($user->ID), $event);
-        self::assertCount(1, $held);
-        self::assertSame($views[0]['id'], $held[0]->viewId);
-        self::assertSame('vegetarianus', $held[0]->bound());
+        self::assertCount(2, $held);
+        self::assertSame([$views[0]['id'], $views[0]['id']], array_map(static fn ($h) => $h->viewId, $held));
+        $bounds = array_map(static fn ($h) => $h->bound(), $held);
+        sort($bounds);
+        self::assertSame(['glutenmentes', 'vegetarianus'], $bounds);
     }
 }

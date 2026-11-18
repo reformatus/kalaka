@@ -48,7 +48,7 @@ export default function Tabs( { tabs, current, onSelect } ) {
 
 	let visible = tabs.slice( 0, fit );
 	let extra = tabs.slice( fit );
-	const activeIndex = tabs.findIndex( ( t ) => t.view === current );
+	const activeIndex = tabs.findIndex( ( t ) => t.key === current );
 	if ( activeIndex >= fit && fit > 0 ) {
 		visible = tabs.slice( 0, fit - 1 ).concat( tabs[ activeIndex ] );
 		extra = tabs.filter( ( t ) => ! visible.includes( t ) );
@@ -56,17 +56,17 @@ export default function Tabs( { tabs, current, onSelect } ) {
 
 	const link = ( tab, measuring = false ) => (
 		<a
-			key={ tab.view }
-			href={ tabUrl( tab.view ) }
-			className={ 'nav-tab' + ( tab.view === current ? ' nav-tab-active' : '' ) }
-			aria-current={ tab.view === current ? 'page' : undefined }
+			key={ tab.key }
+			href={ tabUrl( tab.key ) }
+			className={ 'nav-tab' + ( tab.key === current ? ' nav-tab-active' : '' ) }
+			aria-current={ tab.key === current ? 'page' : undefined }
 			tabIndex={ measuring ? -1 : undefined }
 			onClick={
 				measuring
 					? undefined
 					: ( event ) => {
 							event.preventDefault();
-							onSelect( tab.view );
+							onSelect( tab.key );
 					  }
 			}
 		>
@@ -102,10 +102,10 @@ export default function Tabs( { tabs, current, onSelect } ) {
 							<NavigableMenu role="menu" aria-label={ GRID.moreLabel }>
 								{ extra.map( ( t ) => (
 									<MenuItem
-										key={ t.view }
+										key={ t.key }
 										onClick={ () => {
 											onClose();
-											onSelect( t.view );
+											onSelect( t.key );
 										} }
 									>
 										{ t.name }
