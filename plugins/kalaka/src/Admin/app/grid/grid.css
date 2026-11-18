@@ -1,0 +1,66 @@
+/* The grid page (S37). Structural, in WordPress admin's own colours. */
+.kalaka-grid-wrap { max-width: none; }
+.kg-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-variant-ligatures: none; letter-spacing: 0.02em; }
+
+/* Above the table: the tab row, then the toolbar row. */
+.kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.kg-tabrow { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid #c3c4c7; min-width: 0; }
+.kg-tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; }
+.kg-tabs-measure { position: absolute; visibility: hidden; white-space: nowrap; height: 0; overflow: hidden; display: flex; }
+.kg-tabs.nav-tab-wrapper { border-bottom: 0; padding-top: 0; display: flex; flex-wrap: nowrap; white-space: nowrap; }
+.kg-tabs .nav-tab, .kg-tabs-measure .nav-tab { float: none; margin-left: 0; margin-right: 6px; flex: none; }
+.kg-tabs .nav-tab { margin-bottom: -1px; }
+.kg-tabs .kg-more-toggle { cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.71428571; }
+.kg-tabrow .kg-manage { align-self: center; margin: 0 0 0 auto; flex: none; }
+.kg-bulkbar { display: flex; align-items: center; gap: 8px; min-height: 32px; }
+.kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kg-copy-msg { color: #50575e; }
+.kg-dv-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
+.kg-dv-foot .kg-perpage { margin-right: auto; }
+.kg-perpage select { min-width: 72px; }
+@media (max-width: 600px) { .kg-dv-foot { justify-content: flex-start; } }
+
+/* Status and decisions. */
+.kg-mark { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.kg-mark .dashicons { font-size: 16px; width: 16px; height: 16px; }
+.kg-ok { color: #00a32a; }
+.kg-warn { color: #996800; }
+.kg-off { color: #787c82; }
+
+/* A long field is one line, cut with „…”. */
+.kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* DataViews inside wp-admin. */
+#kalaka-grid .dataviews-wrapper { background: #fff; border: 1px solid #dcdcde; }
+#kalaka-grid .dataviews-view-table td, #kalaka-grid .dataviews-view-table th { vertical-align: top; }
+
+/* Sorszám and Kód: narrow, aligned to the start, their headers reset the order. */
+#kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-serial),
+#kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-code) { min-width: 0; }
+#kalaka-grid .kg-serial { font-variant-numeric: tabular-nums; }
+#kalaka-grid th:has(.kg-reset-sort), #kalaka-grid td:has(.kg-serial), #kalaka-grid td:has(.kg-code) { width: 1px; white-space: nowrap; }
+#kalaka-grid .kg-reset-sort { all: unset; cursor: pointer; font: inherit; text-transform: inherit; letter-spacing: inherit; display: inline-flex; align-items: center; min-height: 32px; box-sizing: border-box; }
+#kalaka-grid thead th:has(.kg-reset-sort) { vertical-align: middle; }
+#kalaka-grid .kg-reset-sort:hover { color: var(--wp-admin-theme-color, #3858e9); }
+#kalaka-grid .kg-reset-sort:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
+
+/* The sum row inside DataViews' <thead>. */
+#kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
+#kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
+.kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
+.kg-sumtd .kg-sumpick, .kg-sumtd .kg-sumpick-toggle { vertical-align: middle; }
+.kg-sumpick-toggle.components-button { min-height: 24px; min-width: 24px; padding: 0 4px; font-size: 12px; }
+.kg-sumpick-box { padding: 12px 16px; margin: 0; min-width: 220px; display: grid; gap: 8px; }
+.kg-sumpick-box legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+
+/* The „Nézetek” dialog. */
+.kv .kv-list { margin: 0; }
+.kv .kv-item { margin: 0; padding: 10px 0; border-top: 1px solid #f0f0f0; }
+.kv .kv-item:first-child { border-top: 0; padding-top: 0; }
+.kv .kv-head { display: flex; align-items: baseline; gap: 8px; }
+.kv .kv-name { font-weight: 600; }
+.kv .kv-count { margin-left: auto; color: #50575e; white-space: nowrap; }
+.kv .kv-meta { color: #50575e; font-size: 12px; margin-top: 4px; }
+.kv .kv-grants { margin: 2px 0 0 16px; list-style: disc; }
+.kv .kv-actions { margin-top: 8px; }
+.kv .kv-foot { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
