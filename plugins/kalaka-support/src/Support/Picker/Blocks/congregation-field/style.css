@@ -1,26 +1,239 @@
 /*
- * [UNAPPROVED N6] (UI) The congregation picker's own look, structural only: no colour of its own (the theme's
- * text colour is used).
- * - A visible keyboard focus on the search box, the buttons and the message, since a theme may remove the
- *   outline (Divi 4 sets `outline: 0`).
- * - The picked node's button (`aria-pressed="true"`) is bold inside a frame, and the picked line is bold, so
- *   a pick looks unlike the other buttons and unlike text typed into the search box.
- * - What is hidden stays hidden where a theme gives an element a display of its own.
+ * The congregation picker's CSS (engineering.md, "WordPress surfaces"). [UNAPPROVED N9] (UI) In two parts, as
+ * the ranking field's:
+ * - the structure, unlayered: the dropdown placed under the field and scrolling inside itself (H9), the ×
+ *   inside the field (H5), the 44-pixel targets, a visible keyboard focus (a theme may remove the outline:
+ *   Divi 4 sets `outline: 0`), and what is hidden staying hidden; it must hold whatever the theme does;
+ * - its neutral look, in the `kalaka` cascade layer, on core's base (`Forms/Blocks/form/view.css`) and its
+ *   `--kalaka-*` variables, so any theme or site rule wins over it. The crumbs and the × are not buttons to
+ *   the eye, so they reset core's base button look; those rules carry a real specificity inside the layer, as
+ *   core's are `:where()` in the same layer and the stylesheets' order is not fixed.
+ *
+ * Two variables of its own: `--kalaka-popup-background`, the dropdown's background (the theme's base colour
+ * preset, else the browser's canvas colour), since a dropdown over the page must be opaque; and
+ * `--kalaka-popup-border-color`, its edge (a faded text colour).
  */
-[data-kalaka-congregation] :is([data-kalaka-search], button, [data-kalaka-message]):focus-visible {
+[data-kalaka-congregation] [hidden] {
+	display: none !important;
+}
+
+[data-kalaka-congregation] :is([data-kalaka-search], button, [role="option"]):focus-visible {
 	outline: 2px solid currentColor !important;
 	outline-offset: 2px;
 }
 
-[data-kalaka-congregation] button[aria-pressed="true"] {
-	font-weight: bold;
-	box-shadow: inset 0 0 0 2px currentColor;
+[data-kalaka-congregation] [data-kalaka-anchor] {
+	position: relative;
 }
 
-[data-kalaka-congregation] [data-kalaka-picked] {
-	font-weight: bold;
+/* The crumbs: one line that wraps, above the field. */
+[data-kalaka-congregation] [data-kalaka-crumbs] {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 }
 
-[data-kalaka-congregation] [hidden] {
-	display: none !important;
+[data-kalaka-congregation] [data-kalaka-crumbs] > button {
+	min-height: 44px;
+	touch-action: manipulation;
+}
+
+/* The field with the × inside it, at its end; the field keeps room for it. */
+[data-kalaka-congregation] [data-kalaka-box] {
+	position: relative;
+	display: block;
+}
+
+[data-kalaka-congregation] [data-kalaka-box] > input[data-kalaka-search] {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+[data-kalaka-congregation] [data-kalaka-box]:has(> [data-kalaka-remove]:not([hidden])) > input[data-kalaka-search] {
+	padding-right: 44px;
+}
+
+[data-kalaka-congregation] [data-kalaka-box] > [data-kalaka-remove] {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 44px;
+	min-height: 44px;
+	margin: 0;
+	padding: 0;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+/* The × (`@wordpress/icons` `close`), a mask in the text colour. */
+[data-kalaka-congregation] [data-kalaka-remove]::before {
+	content: "";
+	width: 24px;
+	height: 24px;
+	background-color: currentColor;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+[data-kalaka-congregation] [data-kalaka-stale] {
+	display: block;
+}
+
+/* The dropdown: under the anchor (the field and its lines), as wide as the field, no taller than the room
+ * `view.js` measures down to the visual viewport's bottom, scrolling inside itself. */
+[data-kalaka-congregation] [data-kalaka-popup] {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	z-index: 1000;
+	box-sizing: border-box;
+	max-height: min(var(--kalaka-popup-room, 20em), 20em);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+[data-kalaka-congregation] [role="option"] {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: 44px;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
+[data-kalaka-congregation] [role="option"] > [data-kalaka-name] {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+[data-kalaka-congregation] [role="option"] > [data-kalaka-sign] {
+	flex: none;
+	margin-left: auto;
+	padding-left: 0.5em;
+}
+
+[data-kalaka-congregation] [role="option"] > [data-kalaka-path] {
+	flex: 1 0 100%;
+	overflow-wrap: break-word;
+}
+
+/* The dropdown's message line, at its top: the text, and after a failure the retry button beside it. */
+[data-kalaka-congregation] [data-kalaka-message] {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25em 0.75em;
+}
+
+[data-kalaka-congregation] [data-kalaka-retry] {
+	min-height: 44px;
+	touch-action: manipulation;
+}
+
+/*
+ * The dropdown's own surface is structural, not layered: a theme's reset (Divi 4's `div, span { background:
+ * transparent; border: 0; padding: 0 }`) outweighs any layered rule, and would leave the dropdown see-through
+ * over the page and the active option unmarked. Its colours are still the theme's: a faded text colour for its
+ * edge (not the controls' border, which an adapter may make transparent, as Divi 4's does), the base colour
+ * preset (else the browser's canvas colour), the hover tint; no shadow. The active option (the arrow keys'
+ * place, which Enter takes) is the text colour with the dropdown's background as its text, so it stands out
+ * as much as the text does on any theme, and unlike the faint hover tint.
+ */
+[data-kalaka-congregation] [data-kalaka-popup] {
+	margin-top: 2px;
+	border: 1px solid var(--kalaka-popup-border-color, color-mix(in srgb, currentColor 35%, transparent));
+	border-radius: var(--kalaka-radius, 2px);
+	background: var(--kalaka-popup-background, var(--wp--preset--color--base, Canvas));
+}
+
+[data-kalaka-congregation] [role="option"] {
+	gap: 0 0.5em;
+	padding: 0.5em 0.75em;
+	line-height: 1.3;
+}
+
+[data-kalaka-congregation] [role="option"][aria-selected="true"] {
+	background: currentColor;
+}
+
+[data-kalaka-congregation] [role="option"][aria-selected="true"] > * {
+	color: var(--kalaka-popup-background, var(--wp--preset--color--base, Canvas));
+}
+
+@media (hover: hover) {
+	[data-kalaka-congregation] [role="option"]:not([aria-selected="true"]):hover {
+		background: var(--kalaka-control-hover-background, color-mix(in srgb, currentColor 8%, transparent));
+	}
+}
+
+[data-kalaka-congregation] [data-kalaka-message] {
+	padding: 0.5em 0.75em;
+}
+
+@media (forced-colors: active) {
+	[data-kalaka-congregation] [data-kalaka-remove]::before {
+		background-color: ButtonText;
+		forced-color-adjust: none;
+	}
+
+	[data-kalaka-congregation] [data-kalaka-popup] {
+		border: 1px solid CanvasText;
+	}
+
+	[data-kalaka-congregation] [role="option"][aria-selected="true"] {
+		outline: 2px solid Highlight;
+		outline-offset: -2px;
+	}
+}
+
+@layer kalaka {
+	/* The crumbs: smaller text, links to the eye. */
+	[data-kalaka-congregation] [data-kalaka-crumbs] {
+		gap: 0 0.25em;
+		font-size: var(--wp--preset--font-size--small, 0.875em);
+	}
+
+	[data-kalaka-congregation] [data-kalaka-crumbs] > button {
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-decoration: underline;
+		text-underline-offset: 0.15em;
+		cursor: pointer;
+	}
+
+	[data-kalaka-congregation] [data-kalaka-box] > [data-kalaka-remove] {
+		border: 0;
+		background: none;
+		color: var(--kalaka-control-color, inherit);
+	}
+
+	[data-kalaka-congregation] [data-kalaka-stale] {
+		margin-top: 0.25em;
+		font-size: var(--wp--preset--font-size--small, 0.875em);
+	}
+
+	/* The pick the field holds, in the list it was picked from. */
+	[data-kalaka-congregation] [role="option"][data-kalaka-held] > [data-kalaka-name] {
+		font-weight: bold;
+	}
+
+	/* The path in the text's own colour, smaller: a faded colour falls below 4.5:1 on many themes. */
+	[data-kalaka-congregation] [role="option"] > [data-kalaka-path] {
+		font-size: var(--wp--preset--font-size--small, 0.875em);
+	}
 }

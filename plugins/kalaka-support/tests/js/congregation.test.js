@@ -1,18 +1,15 @@
 /**
- * The congregation field on the form page (`Picker/Blocks/congregation-field/view.js`): the roots first, a node
- * with children opens, a leaf is picked into the hidden input (which fires `change` and is what the form
- * reads), a search lists matches with their paths, and an answer that arrives late never overwrites a newer
- * one. The directory route is a fake `fetch`.
+ * The congregation field on the form page (`Picker/Blocks/congregation-field/view.js`), the owner's design: a
+ * combobox whose dropdown opens at the top level on focus (H3), a node with children opens its level and a
+ * search inside it covers its subtree (H2), the crumbs go back up (H1), a leaf is picked into the hidden input
+ * (which fires `change` and is what the form reads), a pick is changed at its level, searched everywhere, and
+ * put back by Escape (H4, R2-1), a focus alone never empties it (R2-3), the × removes it and is not shown in
+ * change mode (H5, R2-5), a stale value shows its line until replaced (H7), the keys follow the ARIA 1.2
+ * combobox (H8), a slow list says it loads and a failed one retries (R2-8), and the pick's path describes the
+ * field. The directory route is a fake `fetch`.
  */
 import { readAnswer } from '../../../kalaka/src/Forms/Blocks/form/answers';
-import {
-	SEARCH_DELAY,
-	TEXT,
-	levelLabel,
-	pathOf,
-	showSearch,
-	start,
-} from '../../src/Support/Picker/Blocks/congregation-field/view';
+import { SEARCH_DELAY, TEXT, pathOf, start } from '../../src/Support/Picker/Blocks/congregation-field/view';
 
 const ROOT = { id: 1, name: 'Teszt Egyház', type: 'Egyház', parent: 0, leaf: false, ancestors: [] };
 const OTHER = { id: 2, name: 'Másik Közösség', type: 'Közösség', parent: 0, leaf: true, ancestors: [] };
@@ -52,15 +49,23 @@ function respond(items, pages = 1, total = items.length) {
 	};
 }
 
+let failing;
+
 function fakeFetch(url) {
 	const params = Object.fromEntries(new URL(url).searchParams);
 	requests.push(params);
+	if (failing) {
+		return Promise.resolve({ ok: false, status: 500, json: async () => ({}), headers: { get: () => null } });
+	}
 	if (held !== null) {
 		return new Promise((resolve) => held.push({ params, resolve }));
 	}
 	if (params.search !== undefined) {
-		const items = [ROOT, OTHER, DISTRICT, CONGREGATION].filter((item) =>
-			item.name.toLowerCase().includes(params.search.toLowerCase())
+		const items = [ROOT, OTHER, DISTRICT, CONGREGATION].filter(
+			(item) =>
+				item.name.toLowerCase().includes(params.search.toLowerCase()) &&
+				(params.within === undefined ||
+					(item.ancestors ?? []).some((ancestor) => String(ancestor.id) === params.within))
 		);
 		return Promise.resolve(respond(items));
 	}
@@ -74,34 +79,89 @@ const settle = async () => {
 	}
 };
 
-/** The field as `render.php` renders it. */
-function render() {
+/** The field as `render.php` renders it; with a current value when one is given. */
+function render({ current = null, required = true } = {}) {
+	const attribute = current === null ? '' : ` data-kalaka-current='${JSON.stringify(current)}'`;
+	const value = current === null ? '' : String(current.id);
+	const stale = current !== null && current.live === false;
+	const described = [
+		...(current !== null && (current.ancestors ?? []).length > 0 ? ['kalaka-field-gyulekezet-path'] : []),
+		...(stale ? ['kalaka-field-gyulekezet-stale'] : []),
+	].join(' ');
 	document.body.innerHTML =
 		'<form><div class="kalaka-field" data-kalaka-field="gyulekezet" data-kalaka-congregation' +
-		' data-kalaka-nodes="https://example.org/wp-json/kalaka-support/v1/nodes">' +
-		'<p><label for="kalaka-field-gyulekezet">Gyülekezet</label>' +
-		'<input type="search" id="kalaka-field-gyulekezet" autocomplete="off" data-kalaka-search></p>' +
-		'<input type="hidden" name="gyulekezet" value="" autocomplete="off">' +
-		'<p data-kalaka-trail hidden><button type="button" data-kalaka-up>Egy szinttel feljebb</button>' +
-		' <span data-kalaka-path></span></p>' +
-		'<p id="kalaka-field-gyulekezet-level" data-kalaka-level></p>' +
-		'<ul id="kalaka-field-gyulekezet-nodes" data-kalaka-list></ul>' +
-		'<p data-kalaka-message tabindex="-1" hidden></p>' +
-		'<p data-kalaka-picked hidden></p>' +
+		` data-kalaka-nodes="https://example.org/wp-json/kalaka-support/v1/nodes"${attribute}>` +
+		'<div data-kalaka-anchor><p><label for="kalaka-field-gyulekezet">Gyülekezet</label>' +
+		'<span role="group" data-kalaka-crumbs hidden></span><span data-kalaka-box>' +
+		'<input type="text" id="kalaka-field-gyulekezet" role="combobox" aria-expanded="false"' +
+		` aria-controls="kalaka-field-gyulekezet-options" value="${current?.name ?? ''}"` +
+		`${described === '' ? '' : ` aria-describedby="${described}"`} data-kalaka-search>` +
+		(required ? '' : `<button type="button" data-kalaka-remove${current === null ? ' hidden' : ''}></button>`) +
+		'</span></p>' +
+		`<span id="kalaka-field-gyulekezet-stale" data-kalaka-stale${stale ? '' : ' hidden'}>A választott elem` +
+		' már nem választható. Válassz a listából.</span>' +
+		'<span class="kalaka-field__error" hidden></span>' +
+		'<div data-kalaka-popup hidden><span data-kalaka-message hidden></span>' +
+		'<div role="listbox" id="kalaka-field-gyulekezet-options" data-kalaka-list></div></div></div>' +
+		`<input type="hidden" name="gyulekezet" value="${value}" autocomplete="off">` +
+		'<span id="kalaka-field-gyulekezet-path" class="kalaka-visually-hidden" data-kalaka-described></span>' +
 		'<span class="screen-reader-text" aria-live="polite" data-kalaka-announce></span>' +
-		'</div></form>';
+		'</div><input type="text" name="other"></form>';
 
 	return document.querySelector('[data-kalaka-congregation]');
 }
 
-const names = (field) =>
-	[...field.querySelectorAll('[data-kalaka-node]')].map((button) => button.firstChild.textContent);
-const button = (field, id) => field.querySelector(`[data-kalaka-node="${id}"]`);
 const part = (field, name) => field.querySelector(`[data-kalaka-${name}]`);
+const names = (field) =>
+	[...field.querySelectorAll('[role="option"] [data-kalaka-name]')].map((name) => name.textContent);
+const option = (field, id) => field.querySelector(`[data-kalaka-node="${id}"]`);
+const crumbs = (field) => [...field.querySelectorAll('[data-kalaka-crumb]')].map((crumb) => crumb.textContent);
+const key = (field, name) =>
+	part(field, 'search').dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true }));
+/** What the live region says: it is emptied first and filled 50 ms later, so a repeated text is said again. */
+const said = async (field) => {
+	await new Promise((resolve) => setTimeout(resolve, 60));
+	return part(field, 'announce').textContent;
+};
+
+async function opened(options) {
+	const field = render(options);
+	start(field);
+	part(field, 'search').focus();
+	await settle();
+	return field;
+}
+
+/** A field holding a pick, opened by a click into it (change mode). */
+async function clicked(options) {
+	const field = render(options);
+	start(field);
+	part(field, 'search').focus();
+	part(field, 'search').click();
+	await settle();
+	return field;
+}
+
+const HELD = {
+	id: 5,
+	name: 'Óbudai Teszt Gyülekezet',
+	ancestors: [
+		{ id: 1, name: 'Teszt Egyház' },
+		{ id: 3, name: 'Északi Teszt Egyházkerület' },
+	],
+	live: true,
+};
+
+const type = (field, text) => {
+	const search = part(field, 'search');
+	search.value = text;
+	search.dispatchEvent(new Event('input', { bubbles: true }));
+};
 
 beforeEach(() => {
 	requests = [];
 	held = null;
+	failing = false;
 	globalThis.fetch = jest.fn(fakeFetch);
 });
 
@@ -110,298 +170,311 @@ afterEach(() => {
 });
 
 describe('the congregation picker', () => {
-	test('a level is labelled by its nodes types, and a path joins the ancestors names', () => {
-		expect(levelLabel([ROOT, OTHER, { ...OTHER, id: 9 }])).toBe('Egyház, Közösség');
+	test('a path joins the ancestors names', () => {
 		expect(pathOf(CONGREGATION)).toBe('Teszt Egyház › Északi Teszt Egyházkerület');
 		expect(pathOf(ROOT)).toBe('');
 	});
 
-	test('it opens with the live roots, and a node with children opens its level', async () => {
-		const field = render();
-		start(field);
-		await settle();
+	test('focusing the empty field opens the top level and says it (H3)', async () => {
+		const field = await opened();
 
 		expect(requests[0]).toEqual({ parent: '0', page: '1', per_page: '100' });
+		expect(part(field, 'search').getAttribute('aria-expanded')).toBe('true');
+		expect(part(field, 'popup').hidden).toBe(false);
 		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
-		expect(part(field, 'level').textContent).toBe('Egyház, Közösség');
-		expect(part(field, 'trail').hidden).toBe(true);
-		// a node with children is no toggle; a leaf is one, not pressed
-		expect(button(field, 1).hasAttribute('aria-pressed')).toBe(false);
-		expect(button(field, 2).getAttribute('aria-pressed')).toBe('false');
-
-		button(field, 1).click();
-		await settle();
-		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
-		expect(part(field, 'level').textContent).toBe('Egyházkerület');
-		expect(part(field, 'trail').hidden).toBe(false);
-		expect(part(field, 'path').textContent).toBe('Teszt Egyház');
-		// opening picks nothing
-		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
-
-		part(field, 'up').click();
-		await settle();
-		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
-		expect(part(field, 'trail').hidden).toBe(true);
+		expect(part(field, 'list').getAttribute('aria-label')).toBe(TEXT.top);
+		expect(await said(field)).toBe(TEXT.level(TEXT.top, 2));
+		expect(part(field, 'crumbs').hidden).toBe(true);
+		// a node with children carries the sign and the word; a leaf neither
+		expect(option(field, 1).querySelector('[data-kalaka-sign]')).not.toBeNull();
+		expect(option(field, 1).textContent).toContain(TEXT.opens);
+		expect(option(field, 2).querySelector('[data-kalaka-sign]')).toBeNull();
 	});
 
-	test('a leaf is picked into the hidden input, which fires change for the form', async () => {
-		const field = render();
-		const changed = jest.fn();
-		document.querySelector('form').addEventListener('change', (event) => changed(event.target.name));
-		start(field);
-		await settle();
-		button(field, 1).click();
-		await settle();
-		button(field, 3).click();
+	test('a node with children opens its level, picks nothing, and the crumbs go back up (H1)', async () => {
+		const field = await opened();
+		part(field, 'search').value = 'te';
+		option(field, 1).click();
 		await settle();
 
-		button(field, 5).click();
+		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
+		expect(part(field, 'search').value).toBe('');
+		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
+		expect(crumbs(field)).toEqual([TEXT.top, 'Teszt Egyház']);
+		expect(await said(field)).toBe(TEXT.level('Teszt Egyház', 1));
+
+		option(field, 3).click();
+		await settle();
+		expect(crumbs(field)).toEqual([TEXT.top, 'Teszt Egyház', 'Északi Teszt Egyházkerület']);
+
+		field.querySelector('[data-kalaka-crumb="1"]').click();
+		await settle();
+		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
+		// the node it came from is the active option
+		expect(part(field, 'search').getAttribute('aria-activedescendant')).toBe(option(field, 3).id);
+		field.querySelector('[data-kalaka-crumb="0"]').click();
+		await settle();
+		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
+		expect(document.activeElement).toBe(part(field, 'search'));
+	});
+
+	test('a search inside an opened node covers its subtree (H2), with paths below the level', async () => {
+		jest.useFakeTimers();
+		const field = await opened();
+		option(field, 1).click();
+		await settle();
+		const search = part(field, 'search');
+		search.value = 'óbudai';
+		search.dispatchEvent(new Event('input', { bubbles: true }));
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+
+		expect(requests.at(-1)).toEqual({ search: 'óbudai', per_page: '20', within: '1' });
+		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
+		expect(part(field, 'path').textContent).toBe('Északi Teszt Egyházkerület');
+		expect(part(field, 'list').getAttribute('aria-label')).toBe(TEXT.results);
+
+		search.value = 'másik';
+		search.dispatchEvent(new Event('input', { bubbles: true }));
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+		expect(names(field)).toEqual([]);
+		expect(part(field, 'message').textContent).toBe(TEXT.noMatchIn('Teszt Egyház'));
+	});
+
+	test('a leaf is picked: the dropdown closes, the field shows it, its parents are the crumbs', async () => {
+		const field = await opened();
+		const changed = jest.fn();
+		document.querySelector('form').addEventListener('change', (event) => changed(event.target.name));
+		option(field, 1).click();
+		await settle();
+		option(field, 3).click();
+		await settle();
+		option(field, 5).click();
 
 		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '5' });
 		expect(changed).toHaveBeenCalledWith('gyulekezet');
-		expect(part(field, 'picked').hidden).toBe(false);
-		expect(part(field, 'picked').textContent).toBe(
-			TEXT.picked('Óbudai Teszt Gyülekezet (Teszt Egyház › Északi Teszt Egyházkerület)')
-		);
-		expect(part(field, 'announce').textContent).toBe(
-			TEXT.picked('Óbudai Teszt Gyülekezet (Teszt Egyház, Északi Teszt Egyházkerület)')
-		);
-		expect(button(field, 5).getAttribute('aria-pressed')).toBe('true');
+		expect(part(field, 'popup').hidden).toBe(true);
+		expect(part(field, 'search').getAttribute('aria-expanded')).toBe('false');
+		expect(part(field, 'search').value).toBe('Óbudai Teszt Gyülekezet');
+		expect(crumbs(field)).toEqual(['Teszt Egyház', 'Északi Teszt Egyházkerület']);
+		expect(await said(field)).toBe(TEXT.picked('Óbudai Teszt Gyülekezet (Teszt Egyház, Északi Teszt Egyházkerület)'));
+		expect(document.activeElement).toBe(part(field, 'search'));
 	});
 
-	test('a search lists the matches with their paths; a match with children opens its level', async () => {
-		jest.useFakeTimers();
-		const field = render();
-		start(field);
-		await settle();
+	test('a focus alone leaves a held pick as it is: shown, closed, its path the description (R2-3)', async () => {
+		const field = await opened({ current: HELD });
 
-		const search = part(field, 'search');
-		search.value = ' a ';
-		search.dispatchEvent(new Event('input', { bubbles: true }));
-		jest.advanceTimersByTime(SEARCH_DELAY);
-		await settle();
-		// one character is no search: the level stays
-		expect(requests.some((params) => params.search !== undefined)).toBe(false);
-
-		search.value = 'gyülekezet';
-		search.dispatchEvent(new Event('input', { bubbles: true }));
-		jest.advanceTimersByTime(SEARCH_DELAY);
-		await settle();
-		expect(requests[requests.length - 1]).toEqual({ search: 'gyülekezet', per_page: '20' });
-		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
-		expect(field.querySelector('li').textContent).toBe(
-			'Óbudai Teszt Gyülekezet (Teszt Egyház › Északi Teszt Egyházkerület)'
-		);
-		expect(part(field, 'announce').textContent).toBe(TEXT.found(1));
-
-		search.value = 'kerület';
-		search.dispatchEvent(new Event('input', { bubbles: true }));
-		jest.advanceTimersByTime(SEARCH_DELAY);
-		await settle();
-		button(field, 3).click();
-		await settle();
-		expect(search.value).toBe('');
-		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
-		expect(part(field, 'path').textContent).toBe('Teszt Egyház › Északi Teszt Egyházkerület');
-		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
+		expect(requests).toEqual([]);
+		expect(part(field, 'popup').hidden).toBe(true);
+		expect(part(field, 'search').value).toBe('Óbudai Teszt Gyülekezet');
+		expect(part(field, 'search').getAttribute('aria-describedby')).toBe('kalaka-field-gyulekezet-path');
+		expect(part(field, 'described').textContent).toBe('Teszt Egyház, Északi Teszt Egyházkerület');
 	});
 
-	test('opening a node or the level above keeps the focus in the picker and says the level', async () => {
-		const field = render();
-		start(field);
-		await settle();
-		// the first level is said, without taking the focus from the page
-		expect(part(field, 'announce').textContent).toBe('Egyház, Közösség');
-		expect(document.activeElement).toBe(document.body);
+	test('a click opens a held pick at its level, emptied; Escape and leaving put it back (H4)', async () => {
+		const field = await clicked({ current: HELD });
 
-		button(field, 1).focus();
-		button(field, 1).click();
-		await settle();
-		expect(document.activeElement).toBe(button(field, 3));
-		expect(part(field, 'announce').textContent).toBe('Egyházkerület');
+		expect(requests[0]).toEqual({ parent: '3', page: '1', per_page: '100' });
+		expect(part(field, 'search').value).toBe('');
+		expect(part(field, 'search').getAttribute('aria-activedescendant')).toBe(option(field, 5).id);
+		expect(option(field, 5).hasAttribute('data-kalaka-held')).toBe(true);
 
-		part(field, 'up').focus();
-		part(field, 'up').click();
-		await settle();
-		expect(document.activeElement).toBe(button(field, 1));
-		expect(part(field, 'announce').textContent).toBe('Egyház, Közösség');
+		key(field, 'Escape');
+		expect(part(field, 'popup').hidden).toBe(true);
+		expect(part(field, 'search').value).toBe('Óbudai Teszt Gyülekezet');
+		expect(await said(field)).toBe(TEXT.unchanged('Óbudai Teszt Gyülekezet'));
 
-		// a level with no live node: the focus goes to its message, which is said
-		globalThis.fetch = jest.fn(async () => respond([]));
-		button(field, 1).click();
+		key(field, 'ArrowDown');
 		await settle();
-		expect(document.activeElement).toBe(part(field, 'message'));
-		expect(part(field, 'announce').textContent).toBe(TEXT.emptyLevel);
-
-		// a level that fails to load: the same
-		globalThis.fetch = jest.fn(async () => ({ ok: false, status: 503 }));
-		part(field, 'up').click();
-		await settle();
-		expect(document.activeElement).toBe(part(field, 'message'));
-		expect(part(field, 'message').textContent).toBe(TEXT.failed);
-		expect(part(field, 'announce').textContent).toBe(TEXT.failed);
+		document.querySelector('[name="other"]').focus();
+		expect(part(field, 'popup').hidden).toBe(true);
+		expect(part(field, 'search').value).toBe('Óbudai Teszt Gyülekezet');
+		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '5' });
 	});
 
-	test('going up focuses the node it came from, else the first node', async () => {
-		const field = render();
-		start(field);
-		await settle();
-		button(field, 1).click();
-		await settle();
-		button(field, 3).click();
-		await settle();
-		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
-
-		part(field, 'up').click();
-		await settle();
-		expect(document.activeElement).toBe(button(field, 3));
-		expect(part(field, 'announce').textContent).toBe('Egyházkerület');
-
-		part(field, 'up').click();
-		await settle();
-		expect(document.activeElement).toBe(button(field, 1));
-
-		// the node it came from is gone from the level above: the first node takes the focus
-		button(field, 1).click();
-		await settle();
-		globalThis.fetch = jest.fn(async () => respond([OTHER]));
-		part(field, 'up').click();
-		await settle();
-		expect(document.activeElement).toBe(button(field, 2));
-	});
-
-	test('going up from a later root focuses that root, not the first one', async () => {
-		const LATER = { ...ROOT, id: 9, name: 'Zárt Teszt Egyház' };
-		globalThis.fetch = jest.fn(async (url) => {
-			const parent = new URL(url).searchParams.get('parent');
-			return respond(parent === '0' ? [ROOT, OTHER, LATER] : [DISTRICT]);
-		});
-		const field = render();
-		start(field);
-		await settle();
-		button(field, 9).click();
-		await settle();
-
-		part(field, 'up').click();
-		await settle();
-
-		expect(document.activeElement).toBe(button(field, 9));
-		expect(part(field, 'announce').textContent).toBe('Egyház, Közösség');
-	});
-
-	test('a pick shows below the list, so the list does not move', async () => {
-		const field = render();
-		start(field);
-		await settle();
-		const list = part(field, 'list');
-		const picked = part(field, 'picked');
-
-		button(field, 2).click();
-
-		expect(picked.hidden).toBe(false);
-		expect(list.compareDocumentPosition(picked) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(part(field, 'search').compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(button(field, 2).getAttribute('aria-pressed')).toBe('true');
-		expect(button(field, 1).hasAttribute('aria-pressed')).toBe(false);
-	});
-
-	test('the count is said after every search, and a capped search says so', async () => {
-		const field = render();
-		start(field);
-		await settle();
-
-		await showSearch(field, 'gyülekezet');
-		expect(part(field, 'announce').textContent).toBe('1 találat');
-		await showSearch(field, 'egyház');
-		expect(part(field, 'announce').textContent).toBe('2 találat');
-		expect(part(field, 'message').hidden).toBe(true);
-
-		const many = Array.from({ length: 20 }, (_, index) => ({ ...OTHER, id: 100 + index }));
-		globalThis.fetch = jest.fn(async () => respond(many, 3, 47));
-		await showSearch(field, 'teszt');
-		expect(names(field)).toHaveLength(20);
-		expect(part(field, 'message').hidden).toBe(false);
-		expect(part(field, 'message').textContent).toBe(TEXT.capped(20));
-		expect(part(field, 'announce').textContent).toBe(TEXT.capped(20));
-		expect(TEXT.capped(20)).toBe('Csak az első 20 találat jelenik meg. Pontosítsd a keresést.');
-	});
-
-	test('Enter in the search box searches at once and never sends the form', async () => {
-		jest.useFakeTimers();
-		const field = render();
-		const submitted = jest.fn();
+	test('the keys move, open, pick and close, and Enter never sends the form (H8)', async () => {
+		const field = await opened();
+		const submitted = jest.fn((event) => event.preventDefault());
 		document.querySelector('form').addEventListener('submit', submitted);
-		start(field);
-		await settle();
 
-		const search = part(field, 'search');
-		search.value = 'gyülekezet';
-		search.dispatchEvent(new Event('input', { bubbles: true }));
-		const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
-		search.dispatchEvent(enter);
+		key(field, 'ArrowDown');
+		expect(part(field, 'search').getAttribute('aria-activedescendant')).toBe(option(field, 1).id);
+		expect(option(field, 1).getAttribute('aria-selected')).toBe('true');
+		key(field, 'Enter');
 		await settle();
+		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
+		expect(part(field, 'search').getAttribute('aria-activedescendant')).toBe(option(field, 3).id);
+		key(field, 'Enter');
+		await settle();
+		key(field, 'Enter');
 
-		expect(enter.defaultPrevented).toBe(true);
+		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '5' });
 		expect(submitted).not.toHaveBeenCalled();
-		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
-		// the search the typing scheduled does not run again
-		const count = requests.length;
-		jest.advanceTimersByTime(SEARCH_DELAY);
-		await settle();
-		expect(requests.length).toBe(count);
+		expect(document.activeElement).toBe(part(field, 'search'));
 	});
 
-	test('no match and an empty level say so differently', async () => {
-		const field = render();
+	test('the × removes the pick on an optional field (H5)', async () => {
+		const current = { id: 2, name: 'Másik Közösség', ancestors: [], live: true };
+		const field = render({ current, required: false });
 		start(field);
-		await settle();
+		expect(part(field, 'remove').hidden).toBe(false);
 
-		await showSearch(field, 'nincs ilyen');
-		expect(part(field, 'message').hidden).toBe(false);
-		expect(part(field, 'message').textContent).toBe(TEXT.noMatch);
-		expect(part(field, 'announce').textContent).toBe('Nincs találat.');
+		part(field, 'remove').click();
 
-		globalThis.fetch = jest.fn(async () => respond([]));
-		part(field, 'up').click();
-		await settle();
-		expect(part(field, 'message').textContent).toBe(TEXT.emptyLevel);
+		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
+		expect(part(field, 'search').value).toBe('');
+		expect(part(field, 'remove').hidden).toBe(true);
+		expect(await said(field)).toBe(TEXT.removed);
+		expect(document.activeElement).toBe(part(field, 'search'));
 	});
 
-	test('a failed read says so, and a late answer never overwrites a newer one', async () => {
-		const field = render();
+	test('a stale value keeps its line until a new pick (H7)', async () => {
+		const current = { id: 9, name: 'Régi Gyülekezet', ancestors: [{ id: 1, name: 'Teszt Egyház' }], live: false };
+		const field = await opened({ current });
+		// the form's error focus leaves the stale pick in sight above its line (R2-4)
+		expect(part(field, 'popup').hidden).toBe(true);
+		expect(part(field, 'search').value).toBe('Régi Gyülekezet');
+		expect(part(field, 'stale').hidden).toBe(false);
+		part(field, 'search').click();
+		await settle();
+
+		key(field, 'Escape');
+		expect(part(field, 'stale').hidden).toBe(false);
+		expect(part(field, 'search').value).toBe('Régi Gyülekezet');
+
+		field.querySelector('[data-kalaka-crumb="1"]').click();
+		await settle();
+		field.querySelector('[data-kalaka-crumb="0"]').click();
+		await settle();
+		option(field, 2).click();
+		expect(part(field, 'stale').hidden).toBe(true);
+		// a root has no path: nothing describes the field any more
+		expect(part(field, 'search').hasAttribute('aria-describedby')).toBe(false);
+		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '2' });
+	});
+
+	test('a late answer never overwrites a newer one, nor reopens a closed dropdown', async () => {
 		held = [];
+		const field = render();
 		start(field);
-		const first = showSearch(field, 'teszt');
-		const second = showSearch(field, 'gyülekezet');
-		// the roots and two searches are waiting; the newest answers first, the older ones after it
-		held[2].resolve(respond([CONGREGATION]));
-		await second;
-		held[1].resolve(respond([ROOT, OTHER, DISTRICT, CONGREGATION]));
-		held[0].resolve(respond([ROOT, OTHER]));
-		await first;
+		part(field, 'search').focus();
 		await settle();
-		expect(names(field)).toEqual(['Óbudai Teszt Gyülekezet']);
+		held[0].resolve(respond([ROOT, OTHER]));
+		await settle();
+		option(field, 1).click();
+		await settle();
+		key(field, 'Escape');
+		held[1].resolve(respond([DISTRICT]));
+		await settle();
 
-		held = null;
-		globalThis.fetch = jest.fn(async () => ({ ok: false, status: 503 }));
-		await showSearch(field, 'teszt');
-		expect(names(field)).toEqual([]);
-		expect(part(field, 'message').textContent).toBe(TEXT.failed);
+		expect(part(field, 'popup').hidden).toBe(true);
+		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
 	});
 
 	test('a name is put in as text, never as markup', async () => {
-		globalThis.fetch = jest.fn(async () =>
-			respond([{ ...OTHER, name: '<img src=x onerror=alert(1)>' }])
-		);
-		const field = render();
-		start(field);
-		await settle();
+		CHILDREN[0] = [{ ...OTHER, name: '<img src=x onerror=alert(1)>' }];
+		const field = await opened();
+		CHILDREN[0] = [ROOT, OTHER];
 
 		expect(field.querySelector('img')).toBeNull();
 		expect(names(field)).toEqual(['<img src=x onerror=alert(1)>']);
 	});
 
-	test('a field that arrives later starts when it first takes the focus', async () => {
+	test('typing in change mode searches everywhere; an opened node searches within it again (R2-1)', async () => {
+		jest.useFakeTimers();
+		const field = await clicked({ current: HELD });
+		type(field, 'másik');
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+
+		expect(requests.at(-1)).toEqual({ search: 'másik', per_page: '20' });
+		expect(names(field)).toEqual(['Másik Közösség']);
+
+		field.querySelector('[data-kalaka-crumb="1"]').click();
+		await settle();
+		type(field, 'óbudai');
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+		expect(requests.at(-1)).toEqual({ search: 'óbudai', per_page: '20', within: '1' });
+	});
+
+	test('leaving the field drops typed text, even with its one match listed (R2-2)', async () => {
+		jest.useFakeTimers();
+		const field = await opened();
+		type(field, 'másik');
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+		expect(names(field)).toEqual(['Másik Közösség']);
+
+		document.querySelector('[name="other"]').focus();
+
+		expect(readAnswer(field, 'gyulekezet')).toEqual({ present: true, value: '' });
+		expect(part(field, 'search').value).toBe('');
+		expect(part(field, 'announce').textContent).toBe('');
+	});
+
+	test('the × is not shown in change mode, and is back when it closes (R2-5)', async () => {
+		const field = render({ current: HELD, required: false });
+		start(field);
+		expect(part(field, 'remove').hidden).toBe(false);
+		part(field, 'search').focus();
+		part(field, 'search').click();
+		await settle();
+		expect(part(field, 'remove').hidden).toBe(true);
+
+		key(field, 'Escape');
+		expect(part(field, 'remove').hidden).toBe(false);
+	});
+
+	test('a slow list says it loads and takes no press meanwhile (R2-8)', async () => {
+		jest.useFakeTimers();
+		held = [];
+		const field = render();
+		start(field);
+		part(field, 'search').focus();
+		held[0].resolve(respond([ROOT, OTHER]));
+		await settle();
+		option(field, 1).click();
+		await settle();
+		jest.advanceTimersByTime(250);
+
+		expect(names(field)).toEqual([]);
+		expect(part(field, 'message').textContent).toBe(TEXT.loading);
+		expect(part(field, 'list').getAttribute('aria-busy')).toBe('true');
+		key(field, 'Enter');
+		expect(held).toHaveLength(2);
+
+		held[1].resolve(respond([DISTRICT]));
+		await settle();
+		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
+		expect(part(field, 'message').hidden).toBe(true);
+		expect(part(field, 'list').hasAttribute('aria-busy')).toBe(false);
+	});
+
+	test('a failed list offers a retry: the button, or Enter in the field (R2-8)', async () => {
+		failing = true;
+		const field = await opened();
+
+		expect(part(field, 'message').textContent).toBe(TEXT.failed + TEXT.retry);
+		expect(await said(field)).toBe(TEXT.failed);
+
+		failing = false;
+		part(field, 'retry').click();
+		await settle();
+		expect(names(field)).toEqual(['Teszt Egyház', 'Másik Közösség']);
+
+		failing = true;
+		option(field, 1).click();
+		await settle();
+		failing = false;
+		key(field, 'Enter');
+		await settle();
+		expect(names(field)).toEqual(['Északi Teszt Egyházkerület']);
+		expect(document.activeElement).toBe(part(field, 'search'));
+	});
+
+	test('a field that arrives later starts and opens when it first takes the focus', async () => {
 		const field = render();
 		part(field, 'search').dispatchEvent(new Event('focusin', { bubbles: true }));
 		await settle();
