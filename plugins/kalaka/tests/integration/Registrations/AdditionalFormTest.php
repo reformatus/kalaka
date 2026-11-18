@@ -300,6 +300,39 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertMatchesRegularExpression('/name="ok" value="1"[^>]* checked/', $html);
     }
 
+    public function testAConsentGivenEarlierThatIsUntickedIsOverwrittenWithZeroNeverCleared(): void
+    {
+        $form = $this->additional($this->field('consent', 'ok'));
+
+        $this->send($form, ['ok' => true]);
+        self::assertSame('1', $this->values()['ok'] ?? null);
+
+        // Unticked on the form that showed it ticked: the answer is no, stored as 0, not a deleted row.
+        $this->send($form, ['ok' => false]);
+        self::assertSame('0', $this->values()['ok'] ?? null);
+
+        // Given again: the latest write wins.
+        $this->send($form, ['ok' => true]);
+        self::assertSame('1', $this->values()['ok'] ?? null);
+    }
+
+    public function testAConsentThatWasNeverShownStoresNothing(): void
+    {
+        $withConsent = $this->additional($this->field('consent', 'ok'));
+        $without = $this->additional($this->field('text', 'note'));
+
+        // A form that does not hold the consent leaves it unset, and a consent never sent is never invented.
+        $this->send($without, ['note' => 'másik']);
+        self::assertArrayNotHasKey('ok', $this->values());
+
+        // Shown and left unticked at the first time: the answer no, 0 (core's rule for a shown consent).
+        $this->send($withConsent, ['ok' => false]);
+        self::assertSame('0', $this->values()['ok'] ?? null);
+        // Then a form without it still keeps it.
+        $this->send($without, ['note' => 'harmadik']);
+        self::assertSame('0', $this->values()['ok'] ?? null);
+    }
+
     public function testWithoutAnActiveRegistrationThePageAsksForTheLink(): void
     {
         $form = $this->additional($this->field('text', 'note'));

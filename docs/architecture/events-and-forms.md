@@ -371,7 +371,9 @@ is no other participant-side edit.
   link sets. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
-  form showed the current value, so blank is the answer. A field whose type
+  form showed the current value, so blank is the answer. A shown consent left
+  unticked is not blank but the answer no, stored as `0`: withdrawing a consent
+  given earlier overwrites it and never clears it. A field whose type
   refuses prefill opens empty, so left blank it keeps the current value:
   the form never showed it.
 - **The form opens with the current values** of the registration, as

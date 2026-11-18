@@ -45,7 +45,9 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  *
  * Every submit appends a submission (the next number), and the latest write wins (owner B9). Only the
  * fields that showed are written (B8): an answered one stores its answer, and one left blank clears its
- * value when the form showed that value (a type that refuses prefill opened it empty, so its value stays).
+ * value when the form showed that value (a type that refuses prefill opened it empty, so its value stays). A
+ * shown consent left unticked is not blank: it stores `0` (the answer no), so a consent given earlier is
+ * overwritten with `0`, never cleared (the owner's ruling 2026-11-18, truthiness R3).
  * A money-relevant field's value, once written, is never overwritten here (B4: the organizer's unlock is
  * not built). Each written or cleared value is audited as `field:<key>`.
  */
