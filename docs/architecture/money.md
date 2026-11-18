@@ -223,9 +223,14 @@ such as lunch or a donation.
   congregation; a body without levels is a root on its own). Nodes have an
   external ID, aliases and an active flag; they are imported from CSV,
   deactivated and never deleted. No data is shipped.
-- **A congregation field type** stores a node ID. The registrant searches for
-  the congregation directly, which fills in the levels above it, or goes down
-  from the top through filtered options, each level with a search. Only a
+- **A congregation field type** stores a node ID with a snapshot of its path:
+  each node's external ID and type, root first, taken when it is answered. A
+  new answer takes a new snapshot; a re-import never changes a stored one. Its
+  value for conditions is the path's external IDs, so "<level> is <node>" is
+  `contains`, never `equals`; its text is the node's current name. The
+  registrant searches for the congregation directly, which fills in the
+  levels above it, or goes down from the top through filtered options, each
+  level with a search. Only a
   terminal leaf, a node with no children, is an answer; there is no free text
   and no "not in the list". Admins add an "egyéb" leaf by hand where one is
   needed.
