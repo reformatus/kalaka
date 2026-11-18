@@ -7,10 +7,14 @@ namespace Kalaka\Forms\Engine\FieldType;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\RefusesLinkPrefill;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
-/** A consent: sent as a boolean, stored as `1` when ticked and `0` when shown and left unticked. */
-final class ConsentFieldType extends AbstractFieldType
+/**
+ * A consent: sent as a boolean, stored as `1` when ticked and `0` when shown and left unticked. A stored consent
+ * opens ticked; a link or the quiz never ticks one (`RefusesLinkPrefill`).
+ */
+final class ConsentFieldType extends AbstractFieldType implements RefusesLinkPrefill
 {
     public const BLOCK_NAME = 'kalaka/consent-field';
 

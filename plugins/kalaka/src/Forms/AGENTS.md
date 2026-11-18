@@ -253,7 +253,9 @@ values and conditions, prefill and form links
   for a page placing one usable registration form: each answer is first
   cleaned by its type's prefill rules (`FieldType::prefill()`, as a stored
   value is: bad parts dropped, the rest kept, null drops it), then checked
-  alone with the type (`Forms::linkAnswers()`). What is left becomes a
+  alone with the type (`Forms::linkAnswers()`). A type marked
+  `Api\RefusesLinkPrefill` (a consent) is never prefilled from a link: its
+  answer is dropped. What is left becomes a
   guest draft, and the request ends in an
   uncached 303 without them. No value of the request is logged. A logged-in
   request to that page claims the cookie's guest draft there, never in the

@@ -16,6 +16,7 @@ use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\RefusesLinkPrefill;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
@@ -222,6 +223,10 @@ final class FormEngine
     /** One answer of a link, as its type prefills it (`linkAnswers()`); null when nothing is left. */
     private static function cleaned(FieldType $type, FormField $field, mixed $sent): mixed
     {
+        if ($type instanceof RefusesLinkPrefill) {
+            // The type is never prefilled from a link (a consent): only its host's stored values open it.
+            return null;
+        }
         $list = is_array($sent);
         $stored = $list ? wp_json_encode($sent) : $sent;
         if (!is_string($stored)) {

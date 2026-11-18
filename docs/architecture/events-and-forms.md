@@ -140,6 +140,7 @@ flowchart TB
   opens with, so its bad parts are dropped and the rest kept, and then
   checked alone with its field's type. An unknown key, or an answer that
   cleans to nothing or that the type does not accept, is dropped, silently.
+  A consent is never prefilled from a link: it must be the person's own act.
   What is left is kept as a guest
   draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
   under a claim token in a cookie, and the request is answered with a 303 to
