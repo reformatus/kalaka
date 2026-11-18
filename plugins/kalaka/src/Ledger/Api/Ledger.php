@@ -137,6 +137,20 @@ final class Ledger
         return $line->note === null || trim($line->note) === '' ? null : trim($line->note);
     }
 
+    /**
+     * Whether the registration already holds a different line under the line's idempotency key, which
+     * `record()` would refuse as a failure: for a caller that refuses a person's reused key with an
+     * `IdempotencyConflict` first. A plain read; false for a new key and for the same line again.
+     */
+    public function keyHoldsDifferentLine(NewLine $line): bool
+    {
+        $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
+
+        return $stored !== null
+            && (!self::isSame($stored, $line, $line->valueDate === null ? null : Instant::startOfDay($line->valueDate))
+                || $this->noteOf($stored) !== self::noteText($line));
+    }
+
     /** A plain read, without a lock. */
     public function balancesOf(RegistrationKey $registration): Balances
     {
