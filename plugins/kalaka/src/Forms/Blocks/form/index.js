@@ -74,6 +74,7 @@ for (const [name, settings] of Object.entries(blocks)) {
  * so this runs first; its editor reads them when it renders. Kept as small as the extension blocks need.
  */
 window.kalakaFieldEditor = Object.freeze({
+	fieldLabel,
 	FieldInspector,
 	FieldTitle,
 	preview,

@@ -93,8 +93,8 @@ values and conditions, prefill and form links
   choice field never replaces the form's own option labels.
 - The form editor is one script (`Blocks/form/index.js`) for every Kaláka
   block, so all field blocks share one keeper of keys. An extension's field
-  block reaches the same pieces (the keeper's hook, the inspector, the title,
-  the participant-field and key panels) only through
+  block reaches the same pieces (the keeper's hook, the inspector, the title and
+  its list-view label, the participant-field and key panels) only through
   `window.kalakaFieldEditor`, which that script sets, and names its handle
   first in its `editorScript`; it has no copy of them. JavaScript never evaluates a condition. The
   editor checks a condition against the server's rules (`ConditionParser`,

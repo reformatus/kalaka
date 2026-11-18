@@ -9,4 +9,5 @@ import metadata from './block.json';
 import edit from './edit';
 import './style.css';
 
-registerBlockType(metadata.name, { edit });
+// The list view and the breadcrumb name the field by its title, as core's field blocks do.
+registerBlockType(metadata.name, { edit, __experimentalLabel: window.kalakaFieldEditor.fieldLabel });

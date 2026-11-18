@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Engine\Condition;
 
 use Kalaka\Forms\Api\FormField;
+use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -50,7 +51,7 @@ final readonly class FormScope implements ConditionScope
         }
         $field = $this->field($key);
 
-        return $field->blockName === ChoiceFieldType::BLOCK_NAME
+        return ($this->contributions->fieldTypes()[$field->blockName] ?? null) instanceof OptionsFieldType
             ? ChoiceFieldType::optionValues($field->attributes)
             : null;
     }

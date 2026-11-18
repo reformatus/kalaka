@@ -34,7 +34,7 @@ run_strauss() {
 # Strauss is a development tool of the root composer.json.
 run_composer . install --no-interaction
 
-# The JavaScript build (engineering.md, "Builds") writes plugins/kalaka/build/, which the zip carries.
+# The JavaScript build (engineering.md, "Builds") writes each plugin's build/, which its zip carries.
 rm -rf plugins/*/build
 npm ci
 npm run build

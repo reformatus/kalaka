@@ -268,6 +268,28 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame('draft', get_post_status($refused));
     }
 
+    public function testAConditionOnARankingIsCheckedAgainstItsOptionsLikeAChoices(): void
+    {
+        $branch = fn (string $value): string => '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => [
+            'match' => 'all',
+            'items' => [['key' => 'modulok', 'operator' => 'equals', 'value' => $value]],
+        ]]) . ' -->' . $this->field('text', 'x') . '<!-- /wp:kalaka/if -->';
+        $meta = ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional'];
+
+        // An option key of the ranking is accepted.
+        $good = $this->insertUnderived($this->ranking() . $branch('modul_a'), $meta);
+        self::assertCount(1, $this->forms->definition($this->readForm($good))->field('x')?->branches ?? []);
+
+        // A stale key, one the ranking no longer has, is refused.
+        $stale = $this->insertUnderived($this->ranking() . $branch('modul_x'), $meta);
+        try {
+            $this->forms->definition($this->readForm($stale));
+            self::fail('A condition on a key that is not an option of the ranking was accepted.');
+        } catch (SystemFailure $e) {
+            self::assertStringContainsString('invalid_condition modulok', $e->getMessage());
+        }
+    }
+
     public function testItIsDeclaredAsTheEventsParticipantFieldWithoutOptions(): void
     {
         $this->insertChecked(
