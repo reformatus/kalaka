@@ -8,7 +8,7 @@ use Kalaka\Foundation\Decision\DecisionQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
-/** The per-event cost test of the query that reads one registration's decisions. */
+/** The per-event cost tests of the queries that read a registration's decisions and an event's states. */
 final class DecisionQueryCostTest extends PerEventCostTestCase
 {
     private const CODES = ['00A0', '00A2', '00A5', '00A8'];
@@ -18,29 +18,40 @@ final class DecisionQueryCostTest extends PerEventCostTestCase
     public function testTheQueryExaminesOnlyItsOwnEventsRows(): void
     {
         $this->assertPerEventCost(
-            function (int $event): void {
-                global $wpdb;
-                $values = [];
-                foreach (self::CODES as $code) {
-                    for ($i = 0; $i < self::ROWS_PER_CODE; $i++) {
-                        $values[] = $wpdb->prepare(
-                            "(%d, %s, %s, %s, '2026-11-29 08:00:00.000000', '2026-11-29 08:00:00.000000',"
-                            . " 'test_record', 12, '1', 'system')",
-                            $event,
-                            $code,
-                            'kind_' . ($i % 3),
-                            'state_' . $i
-                        );
-                    }
-                }
-                $wpdb->query(
-                    "INSERT INTO {$wpdb->prefix}kalaka_decisions (event_id, code, kind, state, effective_at,"
-                    . ' recorded_at, cause_type, cause_event_id, cause_key, actor_type) VALUES '
-                    // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; statement built from prefix and constants
-                    . implode(', ', $values)
-                );
-            },
+            $this->seedEvent(...),
             static fn (int $event): array => (new DecisionQuery())->currentOf(new RegistrationKey($event, '00A2'))
+        );
+    }
+
+    public function testTheStatesQueryExaminesOnlyItsOwnEventsRows(): void
+    {
+        $this->assertPerEventCost(
+            $this->seedEvent(...),
+            static fn (int $event): array => (new DecisionQuery())->statesIn($event, 'kind_1')
+        );
+    }
+
+    private function seedEvent(int $event): void
+    {
+        global $wpdb;
+        $values = [];
+        foreach (self::CODES as $code) {
+            for ($i = 0; $i < self::ROWS_PER_CODE; $i++) {
+                $values[] = $wpdb->prepare(
+                    "(%d, %s, %s, %s, '2026-11-29 08:00:00.000000', '2026-11-29 08:00:00.000000',"
+                    . " 'test_record', 12, '1', 'system')",
+                    $event,
+                    $code,
+                    'kind_' . ($i % 3),
+                    'state_' . $i
+                );
+            }
+        }
+        $wpdb->query(
+            "INSERT INTO {$wpdb->prefix}kalaka_decisions (event_id, code, kind, state, effective_at,"
+            . ' recorded_at, cause_type, cause_event_id, cause_key, actor_type) VALUES '
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test setup; statement built from prefix and constants
+            . implode(', ', $values)
         );
     }
 }

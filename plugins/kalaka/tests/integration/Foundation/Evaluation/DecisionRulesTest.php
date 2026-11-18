@@ -18,9 +18,12 @@ final class DecisionRulesTest extends WP_UnitTestCase
         yield 'a kind starting with a digit' => [new TestRule('1kind')];
         yield 'a kind with a dash' => [new TestRule('my-kind')];
         yield 'a kind of 51 characters' => [new TestRule(str_repeat('k', 51))];
-        yield 'a malformed state' => [new TestRule('fine', ['on', 'Off'])];
-        yield 'a state of 21 characters' => [new TestRule('fine', [str_repeat('s', 21)])];
+        yield 'a malformed state' => [new TestRule('fine', ['on' => 'Be', 'Off' => 'Ki'])];
+        yield 'a state of 21 characters' => [new TestRule('fine', [str_repeat('s', 21) => 'Teszt'])];
         yield 'no states' => [new TestRule('fine', [])];
+        yield 'an empty kind label' => [new TestRule('fine', label: '')];
+        yield 'a blank kind label' => [new TestRule('fine', label: '  ')];
+        yield 'an empty state label' => [new TestRule('fine', ['on' => 'Be', 'off' => ''])];
     }
 
     /** @dataProvider invalidRules */
@@ -42,7 +45,7 @@ final class DecisionRulesTest extends WP_UnitTestCase
     {
         $rules = new DecisionRules();
 
-        $rules->add(new TestRule(str_repeat('k', 50), [str_repeat('s', 20), 'a_1']), true);
+        $rules->add(new TestRule(str_repeat('k', 50), [str_repeat('s', 20) => 'Hosszú', 'a_1' => 'Teszt']), true);
 
         self::assertCount(1, $rules->core());
     }
@@ -62,5 +65,24 @@ final class DecisionRulesTest extends WP_UnitTestCase
 
         self::assertSame([$first, $second], $rules->core());
         self::assertSame([$third, $fourth], $rules->extension());
+    }
+
+    public function testAllKeepsReadingOrderAndTheDeclaredStatesAndLabels(): void
+    {
+        $rules = new DecisionRules();
+        $extension = new TestRule('ext', ['x' => 'Iksz'], label: 'Bővítmény');
+        $core = new TestRule('core', ['b' => 'Bé', 'a' => 'Á'], label: 'Mag');
+
+        $rules->add($extension, false);
+        $rules->add($core, true);
+
+        self::assertSame([$core, $extension], $rules->all());
+        self::assertSame(['b' => 'Bé', 'a' => 'Á'], $rules->all()[0]->states());
+    }
+
+    public function testTheBootPublishesTheRegistryTheEvaluationUses(): void
+    {
+        self::assertSame(DecisionRules::current(), DecisionRules::current());
+        self::assertSame([], DecisionRules::current()->all());
     }
 }

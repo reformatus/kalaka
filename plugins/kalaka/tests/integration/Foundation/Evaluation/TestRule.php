@@ -23,19 +23,25 @@ final class TestRule implements DecisionRule
     public ?\Closure $onDecide = null;
 
     /**
-     * @param list<string> $states
+     * @param array<string, string> $states state => label
      * @param ?\ArrayObject<int, string> $asked shared list that gets the kind each time the rule is asked
      */
     public function __construct(
         private readonly string $kind,
-        private readonly array $states = ['on', 'off'],
+        private readonly array $states = ['on' => 'Be', 'off' => 'Ki'],
         private readonly ?\ArrayObject $asked = null,
+        private readonly string $label = 'Teszt',
     ) {
     }
 
     public function kind(): string
     {
         return $this->kind;
+    }
+
+    public function label(): string
+    {
+        return $this->label;
     }
 
     public function states(): array

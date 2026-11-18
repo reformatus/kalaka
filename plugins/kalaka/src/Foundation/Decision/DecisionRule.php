@@ -9,7 +9,10 @@ interface DecisionRule
 {
     public function kind(): string;
 
-    /** @return list<string> */
+    /** The kind's Hungarian label, as the grid shows it. */
+    public function label(): string;
+
+    /** @return array<string, string> the states, each with its Hungarian label, in display order */
     public function states(): array;
 
     public function decide(DecisionInput $input): ?Transition;

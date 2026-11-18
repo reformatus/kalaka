@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Decision;
 
 use Kalaka\Foundation\Decision\DecisionQuery;
+use Kalaka\Foundation\Decision\DecisionRule;
+use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -14,8 +16,40 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class Decisions
 {
-    public function __construct(private readonly DecisionQuery $query = new DecisionQuery())
+    /** @param ?DecisionRules $rules the declarations; none: the registry the evaluation uses */
+    public function __construct(
+        private readonly DecisionQuery $query = new DecisionQuery(),
+        private readonly ?DecisionRules $rules = null,
+    ) {
+    }
+
+    /**
+     * Every declared decision kind, in reading order: core first, then extensions, each as registered.
+     *
+     * @return list<DecisionKind>
+     */
+    public function kinds(): array
     {
+        return array_map(
+            static fn (DecisionRule $rule): DecisionKind => new DecisionKind(
+                $rule->kind(),
+                $rule->label(),
+                $rule->states()
+            ),
+            ($this->rules ?? DecisionRules::current())->all()
+        );
+    }
+
+    /** The declared kind, or null when nothing declares it. */
+    public function kind(string $kind): ?DecisionKind
+    {
+        foreach ($this->kinds() as $declared) {
+            if ($declared->kind === $kind) {
+                return $declared;
+            }
+        }
+
+        return null;
     }
 
     /** @return array<string, CurrentDecision> by kind */
@@ -49,5 +83,15 @@ final class Decisions
     public function kindsIn(int $eventId): array
     {
         return $this->query->kindsIn($eventId);
+    }
+
+    /**
+     * The distinct states recorded for a kind in an event, in byte order.
+     *
+     * @return list<string>
+     */
+    public function statesIn(int $eventId, string $kind): array
+    {
+        return $this->query->statesIn($eventId, $kind);
     }
 }

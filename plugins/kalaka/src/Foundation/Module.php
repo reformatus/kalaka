@@ -152,7 +152,9 @@ SQL;
     {
         $clock = new WordPressClock();
         $binlog = new BinlogCheck();
-        $evaluation = new Evaluation(new DecisionRules(), money: new Materializer());
+        $rules = new DecisionRules();
+        DecisionRules::publish($rules);
+        $evaluation = new Evaluation($rules, money: new Materializer());
         $runner = new Runner($clock, evaluation: $evaluation, binlog: $binlog);
         Runner::publish($runner);
 
