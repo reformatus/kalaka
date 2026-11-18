@@ -56,7 +56,7 @@ final class SubmitGuard
         $limiter->hit($client, Runner::current()->clock()->now());
     }
 
-    /** [UNAPPROVED #196 N2] whom an attempt counts for: the account when logged in, else the address. */
+    /** Whom an attempt counts for (N2, owner 2026-11-18): the account when logged in, else the address. */
     public static function client(SubmitAttempt $attempt): string
     {
         if ($attempt->actor instanceof AccountActor) {
