@@ -153,8 +153,8 @@ values and conditions, prefill and form links
   type writes to a table. Core ships no money-relevant field type.
 - A field type whose value is a path (`Api\PathFieldType`) is never compared
   with `equals`: the parser refuses it where the scope knows the key's field
-  type (`FormScope`, a mail body's check through `DeclaredScope`'s path
-  keys), and the editor mirrors it (`pathFieldTypes`). A fact source
+  type (`FormScope`, a mail body's check and `Availability::check()` through
+  `DeclaredScope`'s path keys), and the editor mirrors it (`pathFieldTypes`). A fact source
   (`ContextScope`) knows no field types and does not refuse it.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.

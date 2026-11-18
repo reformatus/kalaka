@@ -186,4 +186,21 @@ final class AvailabilityTest extends TestCase
         $this->expectException(SystemFailure::class);
         $this->availability->check(self::equals('tier', 'alap'), $declared);
     }
+
+    public function testACheckOnSaveRefusesEqualsOnAPathKey(): void
+    {
+        $declared = ['gyulekezet' => ValueType::Choice];
+        $this->availability->check(self::contains('gyulekezet', 'district_teszt'), $declared, ['gyulekezet']);
+        $this->availability->check(self::equals('gyulekezet', 'district_teszt'), $declared);
+
+        $this->expectException(SystemFailure::class);
+        $this->expectExceptionMessage('invalid_condition gyulekezet');
+        $this->availability->check(self::equals('gyulekezet', 'district_teszt'), $declared, ['gyulekezet']);
+    }
+
+    /** @return array<string, mixed> */
+    private static function contains(string $key, string $value): array
+    {
+        return ['match' => 'all', 'items' => [['key' => $key, 'operator' => 'contains', 'value' => $value]]];
+    }
 }

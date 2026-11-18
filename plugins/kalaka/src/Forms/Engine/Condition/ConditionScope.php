@@ -21,8 +21,8 @@ interface ConditionScope
     public function choices(string $key): ?array;
 
     /**
-     * Whether the key's value is a path (`Api\PathFieldType`), which a condition never compares with
-     * `equals`; false where the scope does not know the key's field type.
+     * [UNAPPROVED N11] (Shapes) Whether the key's value is a path (`Api\PathFieldType`), which a condition
+     * never compares with `equals`; false where the scope does not know the key's field type.
      */
     public function isPath(string $key): bool;
 }

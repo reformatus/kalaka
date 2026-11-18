@@ -244,20 +244,31 @@ function describe(field) {
 	}
 }
 
-/** How far down a fixed or sticky header (a theme's, the WordPress toolbar) covers the top of the viewport. */
+/**
+ * How far down fixed or sticky headers (a theme's, the WordPress toolbar above it) cover the top of the viewport:
+ * probed from the top, then just below each header found, so stacked headers add up.
+ */
 function coveredTop() {
 	let covered = 0;
-	for (const x of [1, Math.floor(window.innerWidth / 2), window.innerWidth - 2]) {
-		for (let element = document.elementFromPoint?.(x, 1) ?? null; element; element = element.parentElement) {
-			const position = window.getComputedStyle(element).position;
-			if (position === 'fixed' || position === 'sticky') {
-				const rect = element.getBoundingClientRect();
-				if (rect.top <= 1 && rect.bottom < window.innerHeight / 2) {
-					covered = Math.max(covered, rect.bottom);
+	for (let round = 0; round < 4; round++) {
+		let next = covered;
+		for (const x of [1, Math.floor(window.innerWidth / 2), window.innerWidth - 2]) {
+			let element = document.elementFromPoint?.(x, covered + 1) ?? null;
+			for (; element; element = element.parentElement) {
+				const position = window.getComputedStyle(element).position;
+				if (position === 'fixed' || position === 'sticky') {
+					const rect = element.getBoundingClientRect();
+					if (rect.top <= covered + 1 && rect.bottom < window.innerHeight / 2) {
+						next = Math.max(next, rect.bottom);
+					}
+					break;
 				}
-				break;
 			}
 		}
+		if (next <= covered) {
+			break;
+		}
+		covered = next;
 	}
 
 	return covered;
@@ -585,8 +596,8 @@ export function pick(field, item) {
 }
 
 /**
- * Removes the pick (H5). The focus goes to the emptied field, which stays closed: [UNAPPROVED] the × does not
- * open the dropdown as a focus by the registrant does (H3); typing or an arrow key opens it.
+ * Removes the pick (H5). The focus goes to the emptied field, which stays closed (UX's default, approved): the ×
+ * does not open the dropdown as a focus by the registrant does (H3); typing or an arrow key opens it.
  */
 function remove(field) {
 	const state = fields.get(field);

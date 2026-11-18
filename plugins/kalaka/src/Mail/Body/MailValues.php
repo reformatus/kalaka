@@ -104,8 +104,9 @@ final class MailValues
     }
 
     /**
-     * The participant fields of the event whose value is a path (`PathFieldType`, the congregation field):
-     * a mail's condition reads them with `contains`, never `equals`, as a form's does. Checked with `types()`.
+     * [UNAPPROVED N11] (Shapes) The participant fields of the event whose value is a path (`PathFieldType`,
+     * the congregation field): a mail's condition reads them with `contains`, never `equals`, as a form's
+     * does. Checked with `types()`.
      *
      * @return list<string>
      */

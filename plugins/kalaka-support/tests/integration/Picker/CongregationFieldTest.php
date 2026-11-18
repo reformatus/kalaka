@@ -335,6 +335,8 @@ final class CongregationFieldTest extends FormsTestCase
         $leaf = $this->branching(self::compare('contains', 'D1-A-1'));
         self::assertTrue($shows($leaf, 'D1-A-1'));
         self::assertFalse($shows($leaf, 'D1-A-2'));
+        // a node's ID is never matched inside another's: a prefix of every path names no node
+        self::assertFalse($shows($this->branching(self::compare('contains', 'D1-')), 'D1-A-1'));
 
         // a deactivated node can still be named, so an old rule stays valid
         $this->node('D1', 'ROOT', 'Egyházkerület', 'Északi Teszt Egyházkerület', false);

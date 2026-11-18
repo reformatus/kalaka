@@ -75,10 +75,12 @@ final class Availability
      *
      * @param array<array-key, mixed> $condition
      * @param array<string, ValueType> $declared
+     * @param list<string> $paths [UNAPPROVED N11] the declared keys whose value is a path (`PathFieldType`),
+     *     which a condition never compares with `equals`
      * @throws SystemFailure an invalid condition or a key that is not declared
      */
-    public function check(array $condition, array $declared): void
+    public function check(array $condition, array $declared, array $paths = []): void
     {
-        $this->parser->parse($condition, new DeclaredScope($declared));
+        $this->parser->parse($condition, new DeclaredScope($declared, $paths));
     }
 }
