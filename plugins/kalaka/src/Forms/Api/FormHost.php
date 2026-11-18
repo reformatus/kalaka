@@ -100,7 +100,7 @@ interface FormHost
     /**
      * Whether the form needs an account for someone not logged in (`Required`), or offers one with a skip
      * (`Offered`); null when the form has no accounts (then a logged-in person is not the owner either).
-     * Reads no current user: the form page and the sign-up redirect ask only for someone not logged in.
+     * Reads no current user: the form page, its re-fetch and the account block ask it for anyone.
      */
     public function accountStep(Form $form): ?AccountStep;
 }

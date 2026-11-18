@@ -58,7 +58,10 @@ abstract class MailBodyTestCase extends MailTestCase
     /** A published registration-slot form of the event: name, contact email and a choice of camps. */
     protected function slotForm(int $event): int
     {
-        $content = $this->block('kalaka/name-field', ['key' => 'name', 'label' => 'Név', 'displayName' => true])
+        // The account block, which a registration form of an event with accounts must hold (S15, owner ruling
+        // 2026-11-18); it renders nothing in `off` mode.
+        $content = '<!-- wp:kalaka/account /-->'
+            . $this->block('kalaka/name-field', ['key' => 'name', 'label' => 'Név', 'displayName' => true])
             . $this->block('kalaka/email-field', ['key' => 'email', 'label' => 'E-mail', 'contactEmail' => true])
             . $this->block('kalaka/choice-field', [
                 'key' => 'camps',

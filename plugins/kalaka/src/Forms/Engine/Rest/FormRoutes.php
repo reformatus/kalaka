@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Rest;
 
+use Kalaka\Forms\Api\AccessRefusal;
+use Kalaka\Forms\Api\AccountStep;
+use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormCaching;
+use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormRefused;
+use Kalaka\Forms\Api\SignUp;
+use Kalaka\Forms\Engine\AccountMarkup;
 use Kalaka\Forms\Engine\ChoiceParts;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPage as FormsPage;
@@ -26,9 +32,14 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * (foundation.md, "Errors"). Both are open to anyone: the form's own access checks (`FormHost::refusals()`)
  * decide, with the current user's roles and whether the form's password was given.
  *
- * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?}` → `{availability, parts}`:
- *   what the form shows for the answers (`FormAvailability::toArray()`, with `page`'s errors) and the
- *   choice fields with option conditions re-rendered (`ChoiceParts`). It reads only; it never writes.
+ * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?, account?}` →
+ *   `{availability, parts, account?}`: what the form shows for the answers (`FormAvailability::toArray()`,
+ *   with `page`'s errors) and the choice fields with option conditions re-rendered (`ChoiceParts`). It reads
+ *   only; it never writes. The account (S15, owner ruling 2026-11-18) never refuses it: in `mandatory` mode
+ *   the account block is `page`'s error instead, while it shows on that page (`AccountMarkup::ERROR_KEY`).
+ *   With `account` (the form's page, as the script knows it), the answer carries the account block
+ *   re-rendered for the current visitor and the contact email's value for someone logged in
+ *   (`{html, filled}`), after a login in the block's window.
  * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
  *   `Registrations\Api\RegistrationSubmit`).
@@ -158,12 +169,13 @@ final class FormRoutes
             $error = new NotFound();
             throw $error;
         }
-        $refusals = $this->host->refusals(
+        $all = $this->host->refusals(
             $form,
             Runner::current()->clock()->now(),
             FormsPage::currentRoles(),
             !post_password_required($post)
         );
+        $refusals = FormsPage::withoutAccount($all);
         if ($refusals !== []) {
             $error = new FormRefused($refusals);
             throw $error;
@@ -171,9 +183,65 @@ final class FormRoutes
 
         $definition = $this->forms->latestDefinition($form, $this->version($body));
         $availability = $this->forms->availability($definition, $this->answers($body), $values, $page);
+        $guest = in_array(AccessRefusal::AccountRequired, $all, true);
+        if ($page !== null && $guest && self::accountShows($definition, $availability, $page)) {
+            // [UNAPPROVED N28] In `mandatory` mode the account block validates like a required field on its page.
+            $availability = $availability->withError(AccountMarkup::ERROR_KEY, AccountMarkup::ERROR);
+        }
         $parts = $this->parts->of($form, $definition->version, $availability, $values);
+        $answer = ['availability' => $availability->toArray(), 'parts' => $parts === [] ? new \stdClass() : $parts];
+        $step = $this->host->accountStep($form);
+        $here = $body['account'] ?? null;
+        if ($step !== null && is_string($here)) {
+            $answer['account'] = $this->account($step, $form->id, $definition, $here);
+        }
 
-        return ['availability' => $availability->toArray(), 'parts' => $parts === [] ? new \stdClass() : $parts];
+        return $answer;
+    }
+
+    /**
+     * Whether the form's account block shows on the page: it sits on that page, the page shows and is not
+     * terminal, and every branch around it is the held one of its chain (validation follows what is shown).
+     */
+    private static function accountShows(FormDefinition $definition, FormAvailability $availability, int $page): bool
+    {
+        $place = $definition->account;
+        if ($place === null || $place->page !== $page || ($availability->pages[$page] ?? false) !== true) {
+            return false;
+        }
+        if ($definition->pages[$page]->terminal) {
+            return false;
+        }
+        foreach ($place->branches as $branch) {
+            if ($availability->heldBranch($branch->chain) !== $branch->index) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The account block re-rendered for the current visitor, its logout returning to the form's page found
+     * on the server (`SignUp::page()`; `$requested` only picks among the pages that place the form), and,
+     * for someone logged in, the contact email's value, which the script fills in only while it is empty.
+     *
+     * @return array{html: string, filled: array<string, string>|\stdClass}
+     */
+    private function account(AccountStep $step, int $formId, FormDefinition $definition, string $requested): array
+    {
+        $page = SignUp::page($formId, $requested) ?? home_url('/');
+        $filled = [];
+        $email = wp_get_current_user()->user_email;
+        if (is_user_logged_in() && $email !== '') {
+            foreach ($definition->fields as $field) {
+                if ($field->isContactEmail()) {
+                    $filled[$field->key] = $email;
+                }
+            }
+        }
+
+        return ['html' => AccountMarkup::html($step, $page), 'filled' => $filled === [] ? new \stdClass() : $filled];
     }
 
     /**

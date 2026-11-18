@@ -73,7 +73,7 @@ erDiagram
   creating a preset from that registration).
 - **Default flows are seamless:** guest registration where the event's
   account mode allows it, and registration with an account created on
-  WordPress's registration page on the way to the form
+  WordPress's registration page, opened from the form
   ([below](#accounts-on-the-registration-form)). Flows with several
   registrations under one account may ask more of the user, with short
   explanations.
@@ -81,19 +81,23 @@ erDiagram
 ## Accounts on the registration form
 
 - **Each event has one account mode:** mandatory, optional or off, for all
-  its registration forms. In mandatory and optional mode, someone not logged
-  in who opens a registration form is sent first to WordPress's own login
-  page, which links to its registration page. Both name the event and return
-  to the form, and so does logging in after the password is set through the
-  registration mail's link. In optional mode both pages link back to the form
-  without an account. Kaláka extends the pages through their hooks; logging
-  in is WordPress's own, and any WordPress user counts.
-  Skipping lands the registration with no account, as a guest's. Off is the
-  form without accounts. Additional forms never send anyone to sign up.
-- In optional mode the login and registration pages say signing up is for
-  people aged 16 or over (Hungary's age of digital consent), and that younger
-  people continue without an account. Nobody's age is checked. IVK's
-  participants are all adults.
+  its registration forms. In mandatory and optional mode, the whole form
+  shows to everyone, with an account block
+  ([Forms implementation](events-and-forms.md#forms-implementation)) whose
+  button opens WordPress's own login page in a window of its own; it links to
+  the registration page. Both name the event, and logging in or signing up
+  there returns to the form in place, keeping what was typed; so does logging
+  in after the password is set through the registration mail's link, which
+  returns to the form's page. Logged in, the block names the account and
+  offers to log out. Kaláka extends the pages through their hooks; logging in
+  is WordPress's own, and any WordPress user counts. In mandatory mode the
+  form cannot be sent without an account. In optional mode sending without
+  logging in lands the registration with no account, as a guest's. Off is
+  the form without accounts. Additional forms never ask anyone to sign up.
+- In optional mode the account block says signing up is for people aged 16
+  or over (Hungary's age of digital consent), and that younger people
+  continue without an account. Nobody's age is checked. IVK's participants
+  are all adults.
 - **Kaláka never asks for or handles a password.** Signing up creates the
   account and logs it in at once. It is verified when its password is set
   through WordPress's own link, which travels in the registration's mail

@@ -94,10 +94,12 @@ final class RegistrationSubmit
         for ($attempt = 1;; $attempt++) {
             $event = $this->events->find($form->eventId) ?? throw new NotFound();
             $account ??= $this->accountOutcome($event, $actor);
+            // `account.logged_in`: an account submits a registration form of an event with accounts.
+            $loggedIn = $actor instanceof AccountActor && $event->accountMode !== AccountMode::Off;
             $answers = $this->forms->validate(
                 $definition,
                 $request->answers,
-                new ValueContext(EventValues::of($event))
+                new ValueContext(EventValues::form($event, $loggedIn))
             );
             $useCase = new SubmitRegistration(
                 $form,

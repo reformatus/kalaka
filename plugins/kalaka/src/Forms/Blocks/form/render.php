@@ -3,12 +3,11 @@
 /**
  * Server render of the embed block: events-and-forms.md, "Forms implementation". It places the form it
  * names on any page. In place of the form it renders one refusal (a paragraph, or WordPress's own password
- * form, or the link to sign up when the form needs an account, S15); otherwise the JavaScript warning,
+ * form); otherwise the JavaScript warning,
  * the form, its buttons (Vissza and Tovább only on a multi-page form, shown by the script) and the
  * loading spinner, which the script shows after 2 seconds. Without JavaScript the form stays as the
  * server rendered it for its prefilled answers (none for a new registration) and the buttons stay
- * disabled; the script enables them when it starts. Under them, for someone logged in, the footer: who is
- * logged in and the logout link (OP4, `FormPage::footer()`).
+ * disabled; the script enables them when it starts.
  * All of it renders inside the form's one error boundary (`FormPage::html()`).
  *
  * @var array<string, mixed> $attributes
@@ -35,14 +34,6 @@ $kalakaFormId = is_int($attributes['formId'] ?? null) ? $attributes['formId'] : 
 echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (FormPageView $kalakaView): void {
     if ($kalakaView->refusal === FormPageView::PASSWORD_REQUIRED && $kalakaView->post !== null) {
         echo get_the_password_form($kalakaView->post);
-    } elseif ($kalakaView->refusal === FormPageView::ACCOUNT_REQUIRED) {
-        // S15 T1: a page the sign-up redirect could not see links to WordPress's login page (OP5).
-        printf(
-            '<p>%s <a href="%s">%s</a></p>',
-            esc_html('A jelentkezéshez fiók szükséges.'),
-            esc_url($kalakaView->signUpUrl),
-            esc_html('Fiókot készítek vagy bejelentkezem')
-        );
     } elseif ($kalakaView->refusal !== null) {
         $kalakaTexts = [
             FormPageView::SYSTEM_FAILURE => (new SystemFailure())->getMessage(),
@@ -86,10 +77,6 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
     </div>
     <div role="status" class="kalaka-visually-hidden" data-kalaka-status
         data-kalaka-loading="<?php echo esc_attr('Betöltés…'); ?>"></div>
-        <?php if ($kalakaView->accountName !== '') : ?>
-    <p><?php echo esc_html('Bejelentkezve: ' . $kalakaView->accountName . '. Nem te vagy?'); ?>
-        <a href="<?php echo esc_url($kalakaView->logoutUrl); ?>"><?php echo esc_html('Kijelentkezés'); ?></a></p>
-        <?php endif; ?>
 </form>
         <?php
     }

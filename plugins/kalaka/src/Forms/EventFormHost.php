@@ -41,14 +41,19 @@ final class EventFormHost implements FormHost
 
     public function factTypes(): array
     {
-        return EventValues::TYPES;
+        return EventValues::FORM_TYPES;
     }
 
+    /** The event's keys and `account.logged_in`: someone logged in on a form with an account step. */
     public function facts(Form $form): ?ValueContext
     {
         $event = $this->event($form);
+        if ($event === null) {
+            return null;
+        }
+        $loggedIn = is_user_logged_in() && self::accountStepOf($form, $event) !== null;
 
-        return $event === null ? null : new ValueContext(EventValues::of($event));
+        return new ValueContext(EventValues::form($event, $loggedIn));
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array

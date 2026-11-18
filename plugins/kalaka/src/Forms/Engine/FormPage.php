@@ -35,10 +35,10 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * and pages are numbered once, by `Condition\ChainMarks` (`FormEngine::blocks()`); this page renumbers nothing.
  * A multi-page form renders every page, each hidden (`PageMarkup`): the script shows the current one.
  *
- * A form whose host gives an account step (`FormHost::accountStep()`, S15) is not shown to someone not
- * logged in (unless they skipped, in `optional` mode): the sign-up redirect sends them to WordPress's
- * registration page first, and a page it could not see shows the link to it instead. For someone logged
- * in, the form's contact email is filled in with the account's address and stays editable.
+ * A form whose host gives an account step (`FormHost::accountStep()`, S15) shows to everyone (owner ruling
+ * 2026-11-18): its account block (`Api\SignUp::BLOCK`, `AccountMarkup`) offers the login in a window of its
+ * own, and in `mandatory` mode only the submit refuses someone not logged in (`account_required`). For
+ * someone logged in, the form's contact email is filled in with the account's address and stays editable.
  */
 final class FormPage
 {
@@ -57,6 +57,9 @@ final class FormPage
 
     /** @var list<array<string, string>> the filled-in values of each form page rendering, by field key */
     private static array $filled = [];
+
+    /** @var list<array{AccountStep, string}|null> the account step and the page of each rendering; null for none */
+    private static array $accounts = [];
 
     /**
      * The whole form, or its one refusal, inside one error boundary (foundation.md, "Errors"): a form
@@ -105,20 +108,36 @@ final class FormPage
         if ($refusals !== []) {
             return $this->refusal($refusals[0], $form, $now, $post);
         }
-        $step = $this->host->accountStep($form);
-        if ($step !== null && !is_user_logged_in() && !$this->skipped($step, $form)) {
-            // The sign-up redirect (`Forms\SignUpRedirect`) sends the visitor to sign up first; a page it could
-            // not see (a theme's or a builder's template) shows the link instead of a form that cannot be sent.
-            return FormPageView::refused(FormPageView::ACCOUNT_REQUIRED, null, SignUp::url($form->id, self::here()));
-        }
 
-        return $this->view($form, $facts, $step);
+        return $this->view($form, $facts, $this->host->accountStep($form));
     }
 
-    /** @return list<AccessRefusal> */
+    /**
+     * What keeps the form from showing: the host's refusals without the account (owner ruling 2026-11-18). In
+     * `mandatory` mode the whole form shows to someone not logged in; only its submit refuses them.
+     *
+     * @return list<AccessRefusal>
+     */
     private function refusals(Form $form, \WP_Post $post, \DateTimeImmutable $now): array
     {
-        return $this->host->refusals($form, $now, self::currentRoles(), !post_password_required($post));
+        return self::withoutAccount(
+            $this->host->refusals($form, $now, self::currentRoles(), !post_password_required($post))
+        );
+    }
+
+    /**
+     * The refusals without `AccountRequired`: the form's page and its re-fetch show the form to someone not
+     * logged in; the submit keeps the refusal.
+     *
+     * @param list<AccessRefusal> $refusals
+     * @return list<AccessRefusal>
+     */
+    public static function withoutAccount(array $refusals): array
+    {
+        return array_values(array_filter(
+            $refusals,
+            static fn (AccessRefusal $refusal): bool => $refusal !== AccessRefusal::AccountRequired
+        ));
     }
 
     private function refusal(
@@ -131,13 +150,9 @@ final class FormPage
             AccessRefusal::PasswordRequired => FormPageView::refused(FormPageView::PASSWORD_REQUIRED, $post),
             AccessRefusal::RoleRequired => FormPageView::refused(FormPageView::ROLE_REQUIRED),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
-            AccessRefusal::EventNotOpen => FormPageView::refused(FormPageView::UNAVAILABLE),
-            // A `mandatory` event's form for someone not logged in (S15): the link to sign up, after any other
-            // refusal, so a closed form says it is closed first.
-            AccessRefusal::AccountRequired => FormPageView::refused(
-                FormPageView::ACCOUNT_REQUIRED,
-                null,
-                SignUp::url($form->id, self::here())
+            // The account never refuses the page (`withoutAccount()`); listed for the match only.
+            AccessRefusal::EventNotOpen, AccessRefusal::AccountRequired => FormPageView::refused(
+                FormPageView::UNAVAILABLE
             ),
         };
     }
@@ -157,16 +172,6 @@ final class FormPage
         }
 
         return FormPageView::UNAVAILABLE;
-    }
-
-    /**
-     * In `optional` mode, the form shows to someone not logged in when the request carries its skip marker
-     * (`SignUp::skipUrl()`, the registration page's skip link).
-     */
-    private function skipped(AccountStep $step, Form $form): bool
-    {
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a link back from sign-up
-        return $step === AccountStep::Offered && SignUp::skipped($form->id, wp_unslash($_GET));
     }
 
     /** The page the form is on: the singular page's permalink, else the home page. */
@@ -195,11 +200,13 @@ final class FormPage
         // and what the form shows for them.
         $answers = $this->prefilled($definition, $this->host->prefill($form));
         $availability = $this->forms->availability($definition, $answers, $values);
+        $here = self::here();
         $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(
             $this->blocks($form, $form->version, $availability),
             $values,
             $availability,
-            $filled
+            $filled,
+            $step === null ? null : [$step, $here]
         ));
 
         return new FormPageView(null, $content, [
@@ -213,34 +220,49 @@ final class FormPage
             // (S12 N3) the REST nonce for a logged-in person, so the routes see the account and not a
             // guest; empty for a guest. The page is never cached (`Api\FormCaching::preventCaching()`).
             'nonce' => is_user_logged_in() ? wp_create_nonce('wp_rest') : '',
-            // S15: when that nonce stops working (`Rest\FormRoutes::SESSION_ENDED`), the way back: logging in
-            // again, back to this page, and the link's text (#191 T8, owner 2026-11-17).
-            'loginUrl' => is_user_logged_in() ? wp_login_url(self::here()) : '',
+            // [UNAPPROVED N24] S15: when that nonce stops working (`Rest\FormRoutes::SESSION_ENDED`), the way back:
+            // logging in again, back to this page, and the link's text (#191 T8, owner 2026-11-17). A form with an
+            // account step logs in again through its account block's window (`account`) instead.
+            'loginUrl' => is_user_logged_in() && $step === null ? wp_login_url($here) : '',
             'logIn' => 'Bejelentkezés',
+            // S15 (owner ruling 2026-11-18): the account block's window, for a form with an account step.
+            'account' => $step === null ? null : self::account($form, $here),
             'triggers' => $availability->triggers,
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, $this->host->submitToken(), '', ...self::footer($step));
+        ], null, $this->host->submitToken());
     }
 
     /**
-     * The form's footer (OP4, owner 2026-11-17): who is logged in and the logout link, which returns to the
-     * form's page. Only when logged in and the form has an account step (a registration form of an event
-     * whose account mode is not `off`). The name is the account's display name, unless it is empty or only
-     * the login name (WordPress's default, and a Kaláka sign-up's, `LoginName`): then the e-mail address.
+     * [UNAPPROVED N29] What the page's script needs for the account block's window: the marked login page
+     * (`SignUp::url()`, returning through the return page), where it reads the REST nonce once someone has
+     * logged in (WordPress's own `admin-ajax.php?action=rest-nonce`, which answers only a logged-in
+     * request), the form's page, which the re-fetch's re-rendered block returns to on logout, and the block's
+     * error in `mandatory` mode.
      *
-     * @return array{accountName: string, logoutUrl: string}
+     * @return array{url: string, nonceUrl: string, page: string, loggedIn: bool, error: string}
      */
-    private static function footer(?AccountStep $step): array
+    private static function account(Form $form, string $here): array
     {
-        $user = wp_get_current_user();
-        if ($step === null || !is_user_logged_in()) {
-            return ['accountName' => '', 'logoutUrl' => ''];
-        }
-        $name = trim($user->display_name);
-        $real = $name !== '' && $name !== $user->user_login;
+        return [
+            'url' => SignUp::url($form->id, $here),
+            'nonceUrl' => admin_url('admin-ajax.php?action=rest-nonce'),
+            'page' => $here,
+            'loggedIn' => is_user_logged_in(),
+            'error' => AccountMarkup::ERROR,
+        ];
+    }
 
-        return ['accountName' => $real ? $name : $user->user_email, 'logoutUrl' => wp_logout_url(self::here())];
+    /**
+     * The account block of the form being rendered (`Blocks/account/render.php`): its markup for the current
+     * visitor, or nothing outside a form page or for a form without an account step (an additional form, or
+     * an event whose account mode is `off`).
+     */
+    public static function accountBlock(): string
+    {
+        $account = self::$accounts === [] ? null : self::$accounts[array_key_last(self::$accounts)];
+
+        return $account === null ? '' : AccountMarkup::html(...$account);
     }
 
     /** The form's contact email (`$email`) or display name field; null when it has none. */
@@ -301,16 +323,19 @@ final class FormPage
      *
      * @param list<array<string, mixed>|string> $blocks
      * @param array<string, string> $filled field key → the value its control starts with
+     * @param array{AccountStep, string}|null $account the account step and the form's page; null for none
      */
     private function render(
         array $blocks,
         ValueContext $context,
         FormAvailability $availability,
-        array $filled = []
+        array $filled = [],
+        ?array $account = null
     ): string {
         RenderStack::push($context);
         self::$rendering[] = $availability;
         self::$filled[] = $filled;
+        self::$accounts[] = $account;
         add_filter('render_block', [$this, 'forFormPage'], 10, 2);
         try {
             $html = '';
@@ -325,6 +350,7 @@ final class FormPage
             remove_filter('render_block', [$this, 'forFormPage'], 10);
             array_pop(self::$rendering);
             array_pop(self::$filled);
+            array_pop(self::$accounts);
             RenderStack::pop();
         }
     }

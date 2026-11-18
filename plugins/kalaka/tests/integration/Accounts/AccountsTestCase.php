@@ -25,6 +25,8 @@ abstract class AccountsTestCase extends FormsTestCase
 {
     protected const ANSWERS = ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org'];
 
+    protected const ACCOUNT_BLOCK = '<!-- wp:kalaka/account /-->';
+
     /** @var list<array<string, mixed>> what `wp_mail` was called with */
     protected array $mails = [];
 
@@ -73,8 +75,8 @@ abstract class AccountsTestCase extends FormsTestCase
         return true;
     }
 
-    /** A published event in the account mode, and a form of it in the placement. */
-    protected function openForm(string $mode, string $placement = 'registration'): int
+    /** A published event in the account mode, and a form of it in the placement (with `$content`, that). */
+    protected function openForm(string $mode, string $placement = 'registration', ?string $content = null): int
     {
         $event = $this->create('Nyári tábor');
         $this->update($event, ['capacity' => 10, 'name' => 'Nyári tábor']);
@@ -82,7 +84,10 @@ abstract class AccountsTestCase extends FormsTestCase
         global $wpdb;
         $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => $mode], ['id' => $event]);
         ObjectCache::clear();
-        $content = $placement === 'registration' ? $this->slotFields() : $this->field('text', 'megjegyzes');
+        // A registration form of an event with accounts holds the account block (owner ruling 2026-11-18).
+        $content ??= $placement === 'registration'
+            ? self::ACCOUNT_BLOCK . $this->slotFields()
+            : $this->field('text', 'megjegyzes');
 
         return $this->insertForm($content, ['kalaka_event_id' => $event, 'kalaka_placement' => $placement]);
     }

@@ -17,6 +17,7 @@ final readonly class FormDefinition
      * @param list<string> $triggers
      * @param list<PageDefinition> $pages the pages in order of their numbers; none
      *     for a form without pages (one page)
+     * @param AccountPlace|null $account where the form's account block sits; null when it has none
      */
     public function __construct(
         public int $formId,
@@ -25,19 +26,21 @@ final readonly class FormDefinition
         public array $chains = [],
         public array $triggers = [],
         public array $pages = [],
+        public ?AccountPlace $account = null,
     ) {
     }
 
     /**
      * The chains that are not answer-driven (N11): their conditions read a key that is not a field of
      * this form (an event value, a held fact; later a link-only field). The page never ships the
-     * branches of these that do not show.
+     * branches of these that do not show. `account.logged_in` (`SignUp::LOGGED_IN`) counts like an
+     * answer: the in-place login changes it, so its chains ship every branch.
      *
      * @return list<int> chain numbers, ascending
      */
     public function withheldChains(): array
     {
-        $fields = [];
+        $fields = [SignUp::LOGGED_IN => true];
         foreach ($this->fields as $field) {
             $fields[$field->key] = true;
         }

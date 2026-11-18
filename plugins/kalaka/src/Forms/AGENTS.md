@@ -258,20 +258,32 @@ values and conditions, prefill and form links
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form
   page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
   engine.
-- A form whose host gives an account step (`FormHost::accountStep()`) is
-  never shown to someone not logged in: `SignUpRedirect` sends them, on
-  `template_redirect`, to WordPress's login page with the form's marker and
-  the page as `redirect_to` (`Api\SignUp`), and a page it cannot see shows
-  the link instead (`FormPageView::ACCOUNT_REQUIRED`). In `mandatory` mode the
-  account is the last of the form's refusals (`account_required`), so a form
-  refused for another reason says that first, and `SignUpRedirect` skips a form
-  refused for a reason logging in cannot change. Every way back to the
-  form built from a marker is the form's page found on the server
-  (`SignUp::page()`), never an address from the request. Only the form's
-  skip marker (`kalaka_skip`, `optional` mode) shows it to a guest; it fills
-  nothing in. Logged in, the contact email starts with the account's
-  address, and the form's footer names the account with a logout link back
-  to the form.
+- A form whose host gives an account step (`FormHost::accountStep()`) shows
+  to everyone; it is never redirected. Its account block (`Api\SignUp::BLOCK`,
+  `Engine\AccountMarkup`) is the only way in: a live registration form of an
+  event with accounts must hold it (`AccountBlock`, `account_block_missing`,
+  existence only), the editor offers it only where the form can have
+  accounts, and anywhere else it renders nothing. Its button opens
+  WordPress's login page in a window of its own (`SignUp::url()`); a login
+  there lands on the return page (`SignUp::returnUrl()`), which tells the
+  form's page by `postMessage` to its own origin only and closes. The page
+  then reads its REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`)
+  and re-fetches with the block re-rendered, never reloading and never
+  overwriting a typed answer; without a message it checks on focus or
+  visibility while it waits, and a send waits for that check. The page and
+  the re-fetch never refuse for the account; in `mandatory` mode the submit
+  does (`account_required`, the last of the form's refusals, so a form
+  refused for another reason says that first), and the re-fetch gives the
+  block's error for a page check while the block shows on that page. Every
+  way back to the form built from a marker is the form's page found on the
+  server (`SignUp::page()`), never an address from the request. Logged in,
+  the contact email starts with the account's address, and the block names
+  the account with a logout link back to the form.
+- `account.logged_in` (`SignUp::LOGGED_IN`) is a fact of a registration
+  form's conditions (`EventValues::FORM_TYPES`): `yes` only while someone is
+  logged in on a form with an account step, at render, re-fetch and submit
+  alike. A chain that reads it ships every branch
+  (`FormDefinition::withheldChains()`), since a login changes it in place.
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.

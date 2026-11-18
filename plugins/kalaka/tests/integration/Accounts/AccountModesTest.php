@@ -8,6 +8,7 @@ use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\SignUp;
+use Kalaka\Forms\Engine\AccountMarkup;
 use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
@@ -15,8 +16,8 @@ use Kalaka\Foundation\Api\Actor\AccountActor;
 
 /**
  * S15: the event's account mode on its forms and their submits. Off changes nothing; in mandatory mode
- * someone not logged in is sent to sign up and cannot submit; in optional mode they may skip; a logged-in
- * person owns the registration.
+ * someone not logged in sees the whole form and its account block but cannot submit; in optional mode they
+ * may send without an account; a logged-in person owns the registration.
  */
 final class AccountModesTest extends AccountsTestCase
 {
@@ -98,51 +99,57 @@ final class AccountModesTest extends AccountsTestCase
         self::assertSame('', get_userdata($user)->user_activation_key);
     }
 
-    public function testTheFormPageLinksToSignUpForSomeoneNotLoggedIn(): void
+    /** Owner ruling 2026-11-18: no redirect and no refusal; the whole form shows with the account block. */
+    public function testAGuestSeesTheWholeMandatoryFormWithTheAccountBlock(): void
     {
         $form = $this->openForm('mandatory');
+        $here = home_url('/');
 
         $view = (new FormPage(new EventFormHost()))->open($form);
 
-        self::assertSame(FormPageView::ACCOUNT_REQUIRED, $view->refusal);
-        // OP5: the login page first.
-        self::assertStringContainsString('wp-login.php', $view->signUpUrl);
-        self::assertStringNotContainsString('action=register', $view->signUpUrl);
-        self::assertStringContainsString(SignUp::MARKER . '=' . $form, $view->signUpUrl);
-        self::assertStringContainsString('redirect_to=', $view->signUpUrl);
+        self::assertNull($view->refusal);
+        $account = $view->context['account'];
+        self::assertIsArray($account);
+        self::assertSame(SignUp::url($form, $here), $account['url']);
+        self::assertStringContainsString(SignUp::MARKER . '=' . $form, $account['url']);
+        self::assertStringContainsString(rawurlencode(SignUp::returnUrl($form, $here)), $account['url']);
+        self::assertSame(admin_url('admin-ajax.php?action=rest-nonce'), $account['nonceUrl']);
+        self::assertSame(AccountMarkup::ERROR, $account['error']);
+        self::assertFalse($account['loggedIn']);
+        self::assertSame('', $view->context['nonce']);
 
         $html = do_shortcode('[kalaka_form id="' . $form . '"]');
-        self::assertStringContainsString('A jelentkezéshez fiók szükséges.', $html);
-        self::assertStringContainsString(esc_url($view->signUpUrl), $html);
-        self::assertStringNotContainsString('<form', $html);
+        self::assertStringContainsString('<form', $html);
+        self::assertStringContainsString(
+            '<div class="kalaka-account" data-kalaka-account="out"><p>' . AccountMarkup::REQUIRED . ' '
+            . AccountMarkup::GIVES . '</p><p><button type="button" data-kalaka-account-login'
+            . ' data-wp-on--click="actions.logIn">' . AccountMarkup::BUTTON . '</button></p>',
+            $html
+        );
+        self::assertStringContainsString('id="kalaka-account-error"', $html);
+        self::assertStringNotContainsString(AccountMarkup::AGE, $html);
+        self::assertSame(1, substr_count($html, '<button type="button" data-kalaka-account-login'));
     }
 
-    /** #191 review B1/C1-1: the account comes after the form's other refusals, so a closed form says so first. */
-    public function testAClosedMandatoryFormSaysItIsClosedBeforeAskingForAnAccount(): void
+    public function testInOptionalModeTheBlockHoldsWhatGoingWithoutCostsAndTheAgeNotice(): void
+    {
+        $html = do_shortcode('[kalaka_form id="' . $this->openForm('optional') . '"]');
+
+        self::assertStringContainsString(
+            '<p>' . AccountMarkup::GIVES . '</p><p>' . AccountMarkup::WITHOUT . '</p><p>'
+            . AccountMarkup::AGE . '</p>',
+            $html
+        );
+        self::assertStringNotContainsString(AccountMarkup::REQUIRED, $html);
+    }
+
+    /** #191 review B1/C1-1: the account comes after the form's other refusals, so a closed form says so. */
+    public function testAClosedMandatoryFormSaysItIsClosed(): void
     {
         $form = $this->openForm('mandatory');
         $this->closeRegistration($form);
 
-        $view = (new FormPage(new EventFormHost()))->open($form);
-
-        self::assertNotSame(FormPageView::ACCOUNT_REQUIRED, $view->refusal);
-        self::assertNotNull($view->refusal);
-        self::assertSame('', $view->signUpUrl);
-    }
-
-    public function testInOptionalModeTheSkipMarkerShowsTheFormAndOnlyThere(): void
-    {
-        $form = $this->openForm('optional');
-        $mandatory = $this->openForm('mandatory');
-
-        self::assertSame(FormPageView::ACCOUNT_REQUIRED, (new FormPage(new EventFormHost()))->open($form)->refusal);
-
-        $_GET = [SignUp::SKIP => (string) $form];
-        self::assertNull((new FormPage(new EventFormHost()))->open($form)->refusal);
-
-        $_GET = [SignUp::SKIP => (string) $mandatory];
-        $page = new FormPage(new EventFormHost());
-        self::assertSame(FormPageView::ACCOUNT_REQUIRED, $page->open($mandatory)->refusal);
+        self::assertSame(FormPageView::CLOSED, (new FormPage(new EventFormHost()))->open($form)->refusal);
     }
 
     public function testLoggedInTheFormShowsWithTheContactEmailFilledIn(): void
@@ -154,41 +161,29 @@ final class AccountModesTest extends AccountsTestCase
 
         self::assertNull($view->refusal);
         self::assertStringContainsString('value="teszt.csilla@example.org"', $view->content);
+        self::assertTrue($view->context['account']['loggedIn']);
+        self::assertSame('', $view->context['loginUrl'], 'a form with a block logs in again through it');
     }
 
-    public function testAnAdditionalFormIsNeverRefusedForAnAccount(): void
-    {
-        $form = $this->openForm('mandatory', 'additional');
-
-        self::assertNotSame(FormPageView::ACCOUNT_REQUIRED, (new FormPage(new EventFormHost()))->open($form)->refusal);
-    }
-
-    public function testTheFooterNamesTheAccountOnlyWhenLoggedIn(): void
+    public function testTheLoggedInBlockNamesTheAccountWithTheLogoutBackToTheForm(): void
     {
         $form = $this->openForm('optional');
-
-        $_GET = [SignUp::SKIP => (string) $form];
-        $guest = (new FormPage(new EventFormHost()))->open($form);
-        self::assertNull($guest->refusal);
-        self::assertSame('', $guest->accountName);
-        self::assertStringNotContainsString('Bejelentkezve:', do_shortcode('[kalaka_form id="' . $form . '"]'));
-        $_GET = [];
-
         wp_set_current_user($this->verifiedUser());
-        $view = (new FormPage(new EventFormHost()))->open($form);
-        self::assertSame(wp_logout_url(home_url('/')), $view->logoutUrl);
+
         $html = do_shortcode('[kalaka_form id="' . $form . '"]');
-        self::assertStringContainsString('Bejelentkezve: teszt.csilla@example.org. Nem te vagy?', $html);
+
         self::assertStringContainsString(
-            '<a href="' . esc_url(wp_logout_url(home_url('/'))) . '">Kijelentkezés</a>',
+            '<div class="kalaka-account" data-kalaka-account="in"><p>Bejelentkezve: teszt.csilla@example.org.'
+            . ' Nem te vagy? <a href="' . esc_url(wp_logout_url(home_url('/'))) . '">Kijelentkezés</a></p></div>',
             $html
         );
+        self::assertStringNotContainsString(AccountMarkup::BUTTON, $html);
     }
 
-    public function testTheFootersNameIsARealDisplayNameElseTheEmailEscaped(): void
+    public function testTheBlocksNameIsARealDisplayNameElseTheEmailEscaped(): void
     {
         $form = $this->openForm('mandatory');
-        $name = static fn (): string => (new FormPage(new EventFormHost()))->open($form)->accountName;
+        $html = static fn (): string => do_shortcode('[kalaka_form id="' . $form . '"]');
 
         // A Kaláka sign-up's display name is its login, even a suffixed one: the e-mail instead.
         $signUp = self::factory()->user->create([
@@ -197,14 +192,14 @@ final class AccountModesTest extends AccountsTestCase
         ]);
         wp_set_current_user($signUp);
         self::assertSame('teszt.anna2', wp_get_current_user()->display_name);
-        self::assertSame('teszt.anna@example.org', $name());
+        self::assertStringContainsString('Bejelentkezve: teszt.anna@example.org.', $html());
 
         $named = self::factory()->user->create([
             'user_email' => 'kovacs@example.org',
             'display_name' => 'Kovács Anna',
         ]);
         wp_set_current_user($named);
-        self::assertSame('Kovács Anna', $name());
+        self::assertStringContainsString('Bejelentkezve: Kovács Anna.', $html());
 
         // Stored as is (WordPress filters it on save), the name is escaped on the page.
         global $wpdb;
@@ -212,22 +207,34 @@ final class AccountModesTest extends AccountsTestCase
         clean_user_cache($named);
         wp_set_current_user(0);
         wp_set_current_user($named);
-        $html = do_shortcode('[kalaka_form id="' . $form . '"]');
-        self::assertStringContainsString(
-            'Bejelentkezve: Kovács &lt;b&gt;Anna&lt;/b&gt; &amp; &quot;Co&quot;.',
-            $html
-        );
-        self::assertStringNotContainsString('<b>Anna', $html);
+        $escaped = 'Bejelentkezve: Kovács &lt;b&gt;Anna&lt;/b&gt; &amp; &quot;Co&quot;.';
+        self::assertStringContainsString($escaped, $html());
+        self::assertStringNotContainsString('<b>Anna', $html());
     }
 
-    public function testNoFooterInOffModeOrOnAnAdditionalForm(): void
+    /** Off mode, or an additional form: the block renders nothing, logged in or not, and the context has none. */
+    public function testTheBlockRendersNothingInOffModeOrOnAnAdditionalForm(): void
     {
-        wp_set_current_user($this->verifiedUser());
-
-        foreach ([$this->openForm('off'), $this->openForm('mandatory', 'additional')] as $form) {
-            $view = (new FormPage(new EventFormHost()))->open($form);
-            self::assertSame('', $view->accountName);
-            self::assertStringNotContainsString('Bejelentkezve:', do_shortcode('[kalaka_form id="' . $form . '"]'));
+        $forms = [
+            $this->openForm('off'),
+            $this->openForm('mandatory', 'additional', self::ACCOUNT_BLOCK . $this->field('text', 'megjegyzes')),
+        ];
+        foreach ([0, $this->verifiedUser()] as $user) {
+            wp_set_current_user($user);
+            foreach ($forms as $form) {
+                $view = (new FormPage(new EventFormHost()))->open($form);
+                self::assertNull($view->refusal);
+                self::assertNull($view->context['account']);
+                $html = do_shortcode('[kalaka_form id="' . $form . '"]');
+                self::assertStringNotContainsString('data-kalaka-account', $html);
+                self::assertStringNotContainsString('Bejelentkezve:', $html);
+            }
         }
+    }
+
+    /** Outside a form page (a post that has the block by itself), nothing. */
+    public function testTheBlockOutsideAFormRendersNothing(): void
+    {
+        self::assertSame('', trim(do_blocks(self::ACCOUNT_BLOCK)));
     }
 }

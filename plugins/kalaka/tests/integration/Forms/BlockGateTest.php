@@ -70,6 +70,7 @@ final class BlockGateTest extends WP_UnitTestCase
                 'kalaka/else',
                 'kalaka/form-page',
                 'kalaka/after-submit',
+                'kalaka/account',
                 'core/paragraph',
                 'core/heading',
                 'core/list',
@@ -92,7 +93,7 @@ final class BlockGateTest extends WP_UnitTestCase
 
             $hidden = BlockGate::hidden($postType, 'core/edit-post', Contributions::current());
             self::assertEqualsCanonicalizing(
-                [...self::FIELDS, 'kalaka/form-page', 'kalaka/after-submit'],
+                [...self::FIELDS, 'kalaka/form-page', 'kalaka/after-submit', 'kalaka/account'],
                 $hidden,
                 $postType
             );

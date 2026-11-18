@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 /**
- * The way from a registration form that needs an account to WordPress's own login and registration pages
- * and back (owner rulings 2026-11-14 and 2026-11-17; registrations-and-identity.md, "Accounts on the
- * registration form"):
+ * [UNAPPROVED N3] The way from a registration form that needs or offers an account to WordPress's own login and
+ * registration pages and back (owner rulings 2026-11-14, 2026-11-17 and 2026-11-18; registrations-and-identity.md,
+ * "Accounts on the registration form"). The form's account block (`BLOCK`) opens the login page in a window of
+ * its own:
  *
- * - `url()`: WordPress's login page first (OP5), `wp_login_url()` with `redirect_to` (the form's page) and
- *   the marker `kalaka_form` (the form's ID), which the login and registration pages read to know a Kaláka
- *   form sent the visitor; `registerUrl()` is the registration page with the same two;
- * - `skipUrl()`: the form's page with `kalaka_skip` (the form's ID), the skip link of `optional` mode. The
- *   form page then shows the form to someone not logged in instead of sending them to sign up. It only
- *   avoids the redirect: it fills nothing in;
+ * - `url()`: WordPress's login page first (OP5), `wp_login_url()` with the marker `kalaka_form` (the form's
+ *   ID), which the login and registration pages read to know a Kaláka form sent the visitor, and the return
+ *   page as `redirect_to`; `registerUrl()` is the registration page with the same two;
+ * - `returnUrl()`: the return page (`wp-login.php?action=kalaka_account`), where a login or sign-up from the
+ *   form's window lands. It tells the form's page it opened from (`postMessage`, same origin only) and closes
+ *   itself; with no such page left, it goes to the form's page;
  * - `page()`: the form's page, resolved on the server from the form's ID alone (OP1, OP5). Every way back
  *   Kaláka builds from a marker is this, never an address taken from the request.
  */
@@ -23,40 +24,62 @@ final class SignUp
     /** The marker on the registration page: the ID of the form that sent the visitor. */
     public const MARKER = 'kalaka_form';
 
-    /** The skip marker on the form's page: the ID of the form shown without an account. */
-    public const SKIP = 'kalaka_skip';
+    /** The account block (owner ruling 2026-11-18): on every registration form of an event with accounts. */
+    public const BLOCK = 'kalaka/account';
 
-    /** WordPress's login page for the form, returning to `$return` (the form's page). */
-    public static function url(int $formId, string $return): string
+    /**
+     * [UNAPPROVED N30] The condition subject „Bejelentkezve” (owner ruling 2026-11-18): `yes` while someone is
+     * logged in on a form with an account step, else `no`. A chain reading it ships every branch, like an
+     * answer-driven one (`FormDefinition::withheldChains()`), because the in-place login changes it.
+     */
+    public const LOGGED_IN = 'account.logged_in';
+
+    /** [UNAPPROVED T11] The subject's name, for a condition editor that names subjects (none names any yet). */
+    public const LOGGED_IN_LABEL = 'Bejelentkezve';
+
+    /** The return page's `action` on `wp-login.php` (`returnUrl()`). */
+    public const RETURN_ACTION = 'kalaka_account';
+
+    /** WordPress's login page for the form, returning through the return page to `$page` (the form's page). */
+    public static function url(int $formId, string $page): string
     {
-        return add_query_arg(self::MARKER, $formId, wp_login_url($return));
+        return add_query_arg(self::MARKER, $formId, wp_login_url(self::returnUrl($formId, $page)));
     }
 
-    /** WordPress's registration page for the form, returning to `$return` (the form's page). */
-    public static function registerUrl(int $formId, string $return): string
+    /** WordPress's registration page for the form, returning through the return page to `$page`. */
+    public static function registerUrl(int $formId, string $page): string
     {
         return add_query_arg(
-            [self::MARKER => $formId, 'redirect_to' => rawurlencode($return)],
+            [self::MARKER => $formId, 'redirect_to' => rawurlencode(self::returnUrl($formId, $page))],
             wp_registration_url()
         );
     }
 
-    /** The form's page with the skip marker for the form. */
-    public static function skipUrl(int $formId, string $return): string
+    /**
+     * The return page for the form: `wp-login.php?action=kalaka_account` with the marker and the form's page
+     * as `redirect_to`, which only picks among the pages placing the form (`page()`). It is core's own
+     * `wp-login.php` address, as `wp_login_url()` starts from, without that function's filter: Kaláka's
+     * `login_url` filter builds this address itself.
+     */
+    public static function returnUrl(int $formId, string $page): string
     {
-        return add_query_arg(self::SKIP, $formId, $return);
+        return add_query_arg(
+            ['action' => self::RETURN_ACTION, self::MARKER => $formId, 'redirect_to' => rawurlencode($page)],
+            site_url('wp-login.php', 'login')
+        );
     }
 
     /**
-     * Whether the request skips the sign-up for the form: its query carries the form's skip marker.
-     *
-     * @param array<string, mixed> $query the request's query parameters
+     * [UNAPPROVED N25] The page a request's `redirect_to` asks for: the address itself, or, for a return page's address
+     * (`returnUrl()`), the page it carries. It only ever picks among the form's pages (`page()`).
      */
-    public static function skipped(int $formId, array $query): bool
+    public static function requested(string $redirectTo): string
     {
-        $skip = $query[self::SKIP] ?? null;
+        $query = (string) wp_parse_url($redirectTo, PHP_URL_QUERY);
+        parse_str($query, $args);
+        $inner = $args['redirect_to'] ?? null;
 
-        return is_string($skip) && $skip === (string) $formId;
+        return ($args['action'] ?? null) === self::RETURN_ACTION && is_string($inner) ? $inner : $redirectTo;
     }
 
     /**
@@ -99,6 +122,8 @@ final class SignUp
         if ($pages === []) {
             return null;
         }
+
+        $requested = self::requested($requested);
 
         return in_array($requested, $pages, true) ? $requested : $pages[0];
     }

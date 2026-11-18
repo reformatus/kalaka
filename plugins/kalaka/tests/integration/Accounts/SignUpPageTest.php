@@ -8,7 +8,6 @@ use Kalaka\Forms\Api\SignUp;
 use Kalaka\Registrations\Account\LoginName;
 use Kalaka\Registrations\Account\SettingsWarning;
 use Kalaka\Registrations\Account\SignUpPage;
-use Kalaka\Registrations\Api\Accounts;
 
 /**
  * S15: WordPress's own registration page as the sign-up (owner ruling 2026-11-14), the checks the native
@@ -121,7 +120,8 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertInstanceOf(\WP_Error::class, $result);
         self::assertContains('email_exists', $result->get_error_codes());
         $message = $result->get_error_message('email_exists');
-        self::assertStringContainsString('redirect_to=' . rawurlencode($back), $message);
+        // Back to the form through the return page (owner ruling 2026-11-18).
+        self::assertStringContainsString('redirect_to=' . rawurlencode(SignUp::returnUrl($form, $back)), $message);
     }
 
     public function testTheLoginUrlReturnsToTheFormsOwnPageOnlyWithAValidMarker(): void
@@ -129,7 +129,7 @@ final class SignUpPageTest extends AccountsTestCase
         $form = $this->openForm('mandatory');
         $off = $this->openForm('off');
         $unplaced = $this->openForm('mandatory');
-        $back = $this->placed($form);
+        $back = SignUp::returnUrl($form, $this->placed($form));
         $this->placed($off);
 
         self::assertStringNotContainsString('redirect_to', wp_login_url());
@@ -155,7 +155,10 @@ final class SignUpPageTest extends AccountsTestCase
             'post_content' => '[kalaka_form id="' . $form . '"]',
         ]);
         $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => (string) get_permalink($second)];
-        $picked = (string) get_permalink($second);
+        $picked = SignUp::returnUrl($form, (string) get_permalink($second));
+        self::assertStringContainsString('redirect_to=' . rawurlencode($picked), wp_login_url());
+        // A return page's own address picks by the page it carries.
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => $picked];
         self::assertStringContainsString('redirect_to=' . rawurlencode($picked), wp_login_url());
 
         // No page places the form: WordPress's own login URL.
@@ -185,58 +188,52 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertSame('', $this->captured($page->markerField(...)));
     }
 
-    public function testTheSkipBlockShowsBelowTheLoginAndRegistrationBoxesInOptionalModeOnly(): void
+    /** Owner ruling 2026-11-18: no skip block any more; the registration page alone gets Kaláka's CSS and script. */
+    public function testOnlyTheRegistrationPageGetsItsStylesAndScript(): void
     {
-        $page = new SignUpPage();
-        $optional = $this->openForm('optional');
-        $mandatory = $this->openForm('mandatory');
-        $skip = esc_url(SignUp::skipUrl($optional, $this->placed($optional)));
-        $this->placed($mandatory);
-        $notice = 'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
-        $note = 'Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.';
-        $button = '<a class="button button-large" href="' . $skip . '">Fiók nélkül folytatom</a>';
-
-        foreach (['login', 'register'] as $action) {
-            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $optional];
-            $html = $this->captured($page->skip(...));
-            self::assertStringStartsWith('<div id="kalaka-sign-up-skip">', $html, $action);
-            self::assertLessThan(strpos($html, $note), strpos($html, $notice), $action . ': the notice first');
-            self::assertLessThan(strpos($html, $button), strpos($html, $note), $action . ': the texts first');
-            self::assertStringNotContainsString('name="' . SignUp::MARKER . '"', $html, 'outside the form');
-
-            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $mandatory];
-            self::assertSame('', $this->captured($page->skip(...)), $action);
-        }
-        self::assertStringNotContainsString($notice, $this->captured($page->markerField(...)), 'not in the box');
-
-        foreach (['lostpassword', 'rp', 'resetpass', 'checkemail'] as $action) {
-            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $optional];
-            self::assertSame('', $this->captured($page->skip(...)), $action);
-        }
-
-        $_REQUEST = [SignUp::MARKER => (string) $optional];
-        self::assertStringContainsString($button, $this->captured($page->skip(...)), 'login without an action');
-        $_REQUEST = ['action' => 'login'];
-        self::assertSame('', $this->captured($page->skip(...)));
-    }
-
-    public function testTheSkipBlockIsPlacedUnderTheBoxOnTheLoginAndRegistrationPagesOnly(): void
-    {
-        foreach (['login' => false, 'register' => true, 'rp' => null] as $action => $register) {
+        foreach (['login' => false, 'register' => true, 'rp' => false] as $action => $register) {
             wp_deregister_style('kalaka-sign-up');
             wp_deregister_script('kalaka-sign-up');
             $_REQUEST = ['action' => $action];
             (new SignUpPage())->styles();
-            if ($register === null) {
-                self::assertFalse(wp_style_is('kalaka-sign-up', 'registered'), $action);
+            self::assertSame($register, wp_style_is('kalaka-sign-up', 'registered'), $action);
+            if (!$register) {
                 continue;
             }
             $css = implode('', (array) wp_styles()->get_data('kalaka-sign-up', 'after'));
             $js = implode('', (array) wp_scripts()->get_data('kalaka-sign-up', 'after'));
-            self::assertStringContainsString(SignUpPage::PLACEMENT, $css, $action);
-            self::assertStringContainsString(SignUpPage::MOVE_SCRIPT, $js, $action);
-            self::assertSame($register, str_contains($css, '#reg_passmail'), $action);
-            self::assertSame($register, str_contains($js, SignUpPage::FOCUS_SCRIPT), $action);
+            self::assertStringContainsString('#reg_passmail', $css);
+            self::assertSame(SignUpPage::FOCUS_SCRIPT, $js);
+        }
+        $_REQUEST = ['action' => 'login', SignUp::MARKER => (string) $this->openForm('optional')];
+        self::assertFalse(has_action('login_footer', [new SignUpPage(), 'skip']));
+    }
+
+    /** [UNAPPROVED N29] The return page: on `wp-login.php?action=kalaka_account`, through WordPress's own hook. */
+    public function testTheReturnPageIsWordPresssLoginActionAndTellsOnlyItsOwnOrigin(): void
+    {
+        $form = $this->openForm('optional');
+        $page = $this->placed($form);
+        $url = SignUp::returnUrl($form, $page);
+        parse_str((string) wp_parse_url($url, PHP_URL_QUERY), $query);
+
+        self::assertStringStartsWith(site_url('wp-login.php', 'login'), $url);
+        self::assertSame(
+            ['action' => SignUp::RETURN_ACTION, SignUp::MARKER => (string) $form, 'redirect_to' => $page],
+            $query
+        );
+        self::assertSame($page, SignUp::requested($url));
+        self::assertSame($page, SignUp::requested($page));
+        self::assertNotFalse(has_action('login_form_' . SignUp::RETURN_ACTION));
+        // The message goes to this site's origin only and carries nothing; the window then closes or goes on.
+        $parts = [
+            'postMessage({kalaka:"account"},location.origin)',
+            'o.location.origin===location.origin',
+            'window.close()',
+            'location.replace(p)',
+        ];
+        foreach ($parts as $part) {
+            self::assertStringContainsString($part, SignUpPage::RETURN_SCRIPT);
         }
     }
 
@@ -278,7 +275,7 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertSame('x', $page->message('x'));
     }
 
-    public function testALoginWithAValidMarkerReturnsToTheFormsPage(): void
+    public function testALoginWithAValidMarkerReturnsToTheFormThroughTheReturnPage(): void
     {
         $form = $this->openForm('mandatory');
         $back = $this->placed($form);
@@ -299,7 +296,9 @@ final class SignUpPageTest extends AccountsTestCase
         $user = get_userdata($this->verifiedUser());
         $admin = admin_url();
 
-        // OP1: with the marker, back to the form, whatever the request asked for.
+        // OP5 (owner ruling 2026-11-18): with the marker, back to the form through the return page, whatever the
+        // request asked for.
+        $back = SignUp::returnUrl($form, $back);
         $_REQUEST = [SignUp::MARKER => (string) $form];
         self::assertSame($back, apply_filters('login_redirect', $admin, '', $user));
         $_REQUEST = [SignUp::MARKER => (string) $form, 'redirect_to' => 'https://evil.example.com/'];
@@ -342,21 +341,6 @@ final class SignUpPageTest extends AccountsTestCase
             );
             self::assertSame('', $page->message(''));
         }
-    }
-
-    /** N27: an extension asks whether a WordPress sign-up request is Kaláka's, and for which form. */
-    public function testAnExtensionLearnsTheSignUpsFormFromTheMarkerOnly(): void
-    {
-        $form = $this->openForm('optional');
-        $off = $this->openForm('off');
-        $accounts = new Accounts();
-
-        $_REQUEST = [SignUp::MARKER => (string) $form];
-        self::assertSame($form, $accounts->signUpForm());
-        $_REQUEST = [SignUp::MARKER => (string) $off];
-        self::assertNull($accounts->signUpForm());
-        $_REQUEST = [];
-        self::assertNull($accounts->signUpForm());
     }
 
     public function testThePasswordResetClearsTheMarkWordPressAndWooCommerceAlike(): void

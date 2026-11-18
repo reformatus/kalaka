@@ -1,0 +1,12 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/account",
+  "title": "Fiók",
+  "category": "kalaka",
+  "supports": {
+    "html": false,
+    "multiple": false
+  },
+  "editorScript": "kalaka-form-editor-script",
+  "render": "file:./render.php"
+}

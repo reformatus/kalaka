@@ -13,8 +13,9 @@ use Kalaka\Forms\Api\SignUp;
 
 /**
  * WordPress's own login and registration pages (`wp-login.php`, `?action=register`) as Kaláka's way in (S15;
- * owner rulings 2026-11-14 and 2026-11-17), extended through their hooks. A form sends people to the login
- * page first (OP5), which links to the registration page; both name the event and link to each other. Kaláka
+ * owner rulings 2026-11-14, 2026-11-17 and 2026-11-18), extended through their hooks. A form's account block
+ * opens the login page first (OP5) in a window of its own; it links to the registration page; both name the
+ * event and link to each other. Kaláka
  * never handles a password: logging in is `wp_login_url()`, setting the password is WordPress's own
  * `?action=rp` screen, and any WordPress user counts.
  *
@@ -25,12 +26,12 @@ use Kalaka\Forms\Api\SignUp;
  *   to `redirect_to`), and suppresses WordPress's own new-user mails, to the user and to the admin.
  * - **The marker** (`SignUp::MARKER`, a published registration form whose published event has accounts): it
  *   keeps itself across every POST of the login, registration and reset screens as a hidden field, names the
- *   event on the login and registration pages (OP5), puts the skip block below the login and
- *   registration pages' box in `optional` mode, and makes WordPress's links and redirects return to the form:
- *   the "Log in" and "Register" links, the registration's own redirect, the login's (`login_redirect`), and
- *   the "Log in" link after a password is set through the registration mail's link, which carries the marker
- *   (OP1). The way back is always the form's page resolved on the server (`SignUp::page()`), never an
- *   address from the request.
+ *   event on the login and registration pages (OP5), and makes WordPress's links and redirects return to the
+ *   form: the "Log in" and "Register" links, the registration's own redirect and the login's
+ *   (`login_redirect`) through the return page (`returnPage()`, `SignUp::returnUrl()`), which tells the
+ *   form's window opener and closes itself, and the "Log in" link after a password is set through the
+ *   registration mail's link, which carries the marker (OP1), straight to the form's page. The way back is
+ *   always the form's page resolved on the server (`SignUp::page()`), never an address from the request.
  *
  * `kalaka_unverified` stays until the password is set through a reset link (WordPress's or WooCommerce's
  * reset, both fire `password_reset` and `after_password_reset`). It limits only what Kaláka does with the
@@ -49,14 +50,15 @@ final class SignUpPage
     /** How long a reset link lasts for an unverified account: 7 days. */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
 
-    /** The login and registration pages' script: the skip block (`skip()`) moved to just below WordPress's box. */
-    public const MOVE_SCRIPT = '(function(){var b=document.getElementById("kalaka-sign-up-skip");'
-        . 'var f=document.getElementById("loginform")||document.getElementById("registerform");'
-        . 'if(b&&f){f.after(b);}})();';
-
-    /** The skip block's placement: WordPress's column (320px, centred) and the side padding of its links. */
-    public const PLACEMENT = '#kalaka-sign-up-skip { box-sizing: border-box; max-width: 320px;'
-        . ' margin: 0 auto; padding: 0 24px; }';
+    /**
+     * [UNAPPROVED N29] The return page's script, `%s` the form's page as JSON: it tells the page that opened
+     * the window (same origin only) that someone logged in, and closes the window; with no such page (a tab
+     * whose opener is gone), or when the window stays open, it goes to the form's page. The message carries
+     * nothing: the form reads its new REST nonce itself.
+     */
+    public const RETURN_SCRIPT = '(function(p){var o=window.opener;try{if(o&&o!==window'
+        . '&&o.location.origin===location.origin){o.postMessage({kalaka:"account"},location.origin);'
+        . 'window.close();}}catch(e){}setTimeout(function(){location.replace(p);},500);})(%s);';
 
     /** The registration page's script: the error tied to the e-mail field, then the focus on it. */
     public const FOCUS_SCRIPT = 'window.addEventListener("load",function(){'
@@ -93,7 +95,7 @@ final class SignUpPage
         add_filter('login_redirect', [$this, 'loginRedirect'], 10, 3);
         add_filter('login_message', [$this, 'message']);
         add_action('login_form', [$this, 'markerField']);
-        add_action('login_footer', [$this, 'skip']);
+        add_action('login_form_' . SignUp::RETURN_ACTION, [$this, 'returnPage']);
         add_action('resetpass_form', [$this, 'markerField']);
         add_action('password_reset', [self::class, 'firstPassword'], 1);
         add_filter('woocommerce_disable_password_change_notification', [self::class, 'wooCommerceNotification']);
@@ -141,41 +143,30 @@ final class SignUpPage
     }
 
     /**
-     * `login_footer`, on the login and registration pages with a valid marker in `optional` mode: the way on
-     * without an account, below WordPress's box (the owner, 2026-11-17). The 16+ notice (S15-4 ii, owner ruling
-     * 2026-11-16; unchecked) and what skipping costs (OP3, owner 2026-11-17), then the skip back to the form as
-     * a link with the login screen's own button classes. `login_footer` prints after WordPress's column, so
-     * `styles()` moves the block under the box. Nothing without a page to go back to.
-     * [UNAPPROVED OP-skip-look]
+     * `login_form_kalaka_account`: the return page (`SignUp::returnUrl()`), where a login or sign-up from the
+     * form's account block lands. It prints no text: its script (`RETURN_SCRIPT`) tells the form's page and
+     * closes the window, or goes to the form's page (resolved on the server; the home page without a valid
+     * marker or a page that places the form).
      *
      * @internal
      */
-    public function skip(): void
+    public function returnPage(): void
     {
         $marked = $this->marked();
-        $action = self::input('request', 'action') ?? 'login';
-        $optional = $marked !== null && $marked[1] === AccountMode::Optional;
-        $return = $optional && in_array($action, ['login', 'register'], true) ? self::page($marked[0]) : null;
-        if ($marked === null || $return === null) {
-            return;
-        }
-        echo '<div id="kalaka-sign-up-skip">';
-        // T7, approved by the owner 2026-11-17.
+        $page = ($marked === null ? null : self::page($marked[0])) ?? home_url('/');
+        nocache_headers();
+        header('Content-Type: text/html; charset=utf-8');
+        // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped -- a constant script; JSON with `<` hexed
         printf(
-            '<p class="kalaka-sign-up-age">%s</p>',
-            esc_html('Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+                . '<title>%s</title></head><body><script>%s</script>'
+                . '<noscript><meta http-equiv="refresh" content="0;url=%s"></noscript></body></html>',
+            esc_html(get_bloginfo('name')),
+            sprintf(self::RETURN_SCRIPT, (string) wp_json_encode($page, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES)),
+            esc_url($page)
         );
-        // OP3, approved by the owner 2026-11-17.
-        printf(
-            '<p class="kalaka-sign-up-skip-note">%s</p>',
-            esc_html('Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.')
-        );
-        printf(
-            '<p class="kalaka-sign-up-skip"><a class="button button-large" href="%s">%s</a></p>',
-            esc_url(SignUp::skipUrl($marked[0], $return)),
-            esc_html('Fiók nélkül folytatom')
-        );
-        echo '</div>';
+        // phpcs:enable WordPress.Security.EscapeOutput.OutputNotEscaped
+        exit;
     }
 
     /**
@@ -232,8 +223,7 @@ final class SignUpPage
     }
 
     /**
-     * `login_enqueue_scripts`: on the login and registration pages, the skip block's placement under the box
-     * (`skip()`, `PLACEMENT`, `MOVE_SCRIPT`). On the registration page, the username field and the
+     * `login_enqueue_scripts`: on the registration page, the username field and the
      * "confirmation will be emailed" line hidden, and the focus on the e-mail (S15-8, S15-9, owner 2026-11-16).
      * When WordPress shows an error (`#login_error`), the e-mail field is marked invalid and described by it
      * before it takes the focus, so a screen reader reads the error with the field (S15 UX review 9).
@@ -242,23 +232,19 @@ final class SignUpPage
      */
     public function styles(): void
     {
-        $action = self::input('request', 'action') ?? 'login';
-        if (!in_array($action, ['login', 'register'], true)) {
+        if ((self::input('request', 'action') ?? 'login') !== 'register') {
             return;
         }
-        $register = $action === 'register';
         wp_register_style('kalaka-sign-up', false, [], KALAKA_VERSION);
         wp_enqueue_style('kalaka-sign-up');
         wp_add_inline_style(
             'kalaka-sign-up',
-            self::PLACEMENT . ($register
-                ? ' #registerform p:has(> #user_login), #registerform label[for="user_login"],'
-                    . ' #registerform #user_login, #reg_passmail { display: none !important; }'
-                : '')
+            '#registerform p:has(> #user_login), #registerform label[for="user_login"],'
+                . ' #registerform #user_login, #reg_passmail { display: none !important; }'
         );
         wp_register_script('kalaka-sign-up', false, [], KALAKA_VERSION, true);
         wp_enqueue_script('kalaka-sign-up');
-        wp_add_inline_script('kalaka-sign-up', self::MOVE_SCRIPT . ($register ? self::FOCUS_SCRIPT : ''));
+        wp_add_inline_script('kalaka-sign-up', self::FOCUS_SCRIPT);
     }
 
     /**
@@ -312,9 +298,9 @@ final class SignUpPage
 
     /**
      * `login_url`: with a valid marker, WordPress's "Log in" links (the "already registered" one among them)
-     * keep the marker and return to the form's page. On the reset screens (OP1) the link only returns to the
-     * form, without the marker, so the login page shows no event line to someone who has already sent the
-     * form. A caller's own redirect is kept.
+     * keep the marker and return to the form through the return page. On the reset screens (OP1) the link
+     * only returns to the form's page, without the marker, so the login page shows no event line to someone
+     * who has already sent the form. A caller's own redirect is kept.
      *
      * @internal
      */
@@ -324,18 +310,20 @@ final class SignUpPage
         if ($marked === null) {
             return $url;
         }
+        $action = self::input('request', 'action') ?? 'login';
+        $reset = in_array($action, ['rp', 'resetpass'], true);
         $return = is_string($redirect) && $redirect !== '' ? null : self::page($marked[0]);
         if ($return !== null) {
-            $url = add_query_arg('redirect_to', rawurlencode($return), $url);
+            $back = $reset ? $return : SignUp::returnUrl($marked[0], $return);
+            $url = add_query_arg('redirect_to', rawurlencode($back), $url);
         }
-        $action = self::input('request', 'action') ?? 'login';
 
-        return in_array($action, ['rp', 'resetpass'], true) ? $url : add_query_arg(SignUp::MARKER, $marked[0], $url);
+        return $reset ? $url : add_query_arg(SignUp::MARKER, $marked[0], $url);
     }
 
     /**
      * `register_url`: with a valid marker, the login page's links to the registration page keep the marker and
-     * return to the form's page.
+     * return to the form through the return page.
      *
      * @internal
      */
@@ -349,34 +337,42 @@ final class SignUpPage
         $return = self::page($marked[0]);
         $url = add_query_arg(SignUp::MARKER, $marked[0], $url);
 
-        return $return === null ? $url : add_query_arg('redirect_to', rawurlencode($return), $url);
+        return $return === null
+            ? $url
+            : add_query_arg('redirect_to', rawurlencode(SignUp::returnUrl($marked[0], $return)), $url);
     }
 
     /**
      * `registration_redirect`: with a valid marker, where the registration page's form returns after the
-     * sign-up, the form's page; WordPress's own otherwise.
+     * sign-up, the return page for the form's page; WordPress's own otherwise.
      *
      * @internal
      */
     public function back(mixed $redirect): mixed
     {
-        $marked = $this->marked();
+        return $this->returnTo() ?? $redirect;
+    }
 
-        return ($marked === null ? null : self::page($marked[0])) ?? $redirect;
+    /** [UNAPPROVED N12] With a valid marker and a page placing the form, the return page for it; else null. */
+    private function returnTo(): ?string
+    {
+        $marked = $this->marked();
+        $page = $marked === null ? null : self::page($marked[0]);
+
+        return $marked === null || $page === null ? null : SignUp::returnUrl($marked[0], $page);
     }
 
     /**
-     * `login_redirect`: a successful login with a valid marker returns to the form's page (OP1, OP5); any
-     * other login lands as WordPress (or WooCommerce) sends it.
+     * `login_redirect`: a successful login with a valid marker returns to the form through the return page
+     * (OP5, owner 2026-11-18); any other login lands as WordPress (or WooCommerce) sends it.
      *
      * @internal
      */
     public function loginRedirect(mixed $redirect, mixed $requested = '', mixed $user = null): mixed
     {
         unset($requested);
-        $marked = $user instanceof \WP_User ? $this->marked() : null;
 
-        return ($marked === null ? null : self::page($marked[0])) ?? $redirect;
+        return ($user instanceof \WP_User ? $this->returnTo() : null) ?? $redirect;
     }
 
     /**
@@ -464,15 +460,6 @@ final class SignUpPage
         nocache_headers();
 
         return true;
-    }
-
-    /**
-     * The registration form this login, registration or reset request is for: the marker's form, when it is a
-     * published registration form whose published event has accounts; null otherwise (`Accounts::signUpForm()`).
-     */
-    public function markedForm(): ?int
-    {
-        return $this->marked()[0] ?? null;
     }
 
     /**

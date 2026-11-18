@@ -148,7 +148,7 @@ flowchart LR
 - **WordPress-owned data is changed before or after our transaction, never
   inside it,** ordered so that a failure leaves a harmless state:
   - Creating a WordPress account happens on WordPress's own registration
-    page, before the form is shown, outside any of our transactions. If the
+    page, before the form is sent, outside any of our transactions. If the
     registration then fails, the account simply exists, as after a plain
     sign-up. The set-password link that
     activates it travels in the registration's own mail

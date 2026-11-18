@@ -23,7 +23,25 @@ final class EventValues
     public const START = 'event.start';
     public const END = 'event.end';
 
-    /** Every event key and its type: what a form's condition may read besides the earlier answers. */
+    /**
+     * What a registration form's condition may read besides the earlier answers: the event's keys and
+     * `account.logged_in` (`SignUp::LOGGED_IN`, owner ruling 2026-11-18). Mails and the after-submit section
+     * read only `TYPES`.
+     */
+    public const FORM_TYPES = self::TYPES + [SignUp::LOGGED_IN => ValueType::Choice];
+
+    /**
+     * `FORM_TYPES`' values: the event's, and `yes` for `account.logged_in` when `$loggedIn` (someone logged in
+     * on a form with an account step), else `no`.
+     *
+     * @return array<string, Value>
+     */
+    public static function form(Event $event, bool $loggedIn): array
+    {
+        return self::of($event) + [SignUp::LOGGED_IN => Value::choice([$loggedIn ? 'yes' : 'no'], '')];
+    }
+
+    /** Every event key and its type. */
     public const TYPES = [
         self::NAME => ValueType::Text,
         self::REGISTRATION_OPENS => ValueType::Date,
