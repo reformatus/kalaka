@@ -22,6 +22,6 @@ enum FilterKind: string
     case Date = 'date';
     /** A yes/no field: stored `1` is yes, stored `0` is no, no value is neither (`is`, `isNot`). */
     case YesNo = 'yesno';
-    /** The pseudo column `unanswered`: every listed field or decision column has no answer (`isAll`). */
+    /** The pseudo column `unanswered`: some of the listed field or decision columns has no answer (`isAny`). */
     case Unanswered = 'unanswered';
 }

@@ -169,7 +169,7 @@ final class ViewNarrowingTest extends AdminTestCase
         self::assertSame(['00A0', '00A5', '00A8', '00B0'], $this->where('field:photo', 'isNot', false));
         self::assertSame(
             ['00A5', '00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:photo'])])
+            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:photo'])])
         );
     }
 
@@ -217,17 +217,21 @@ final class ViewNarrowingTest extends AdminTestCase
         );
         self::assertSame(
             ['00A8'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAll', ['decision:confirmation'])])
+            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['decision:confirmation'])])
         );
-        // „Nincs válasz” on several columns: all of them unanswered. An empty value is no answer.
+        // „Nincs válasz” on several columns: some of them unanswered. An empty value is no answer.
         $this->addValue(self::EVENT, '00B0', 'note', '');
         self::assertSame(
+            ['00A5', '00B0'],
+            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:note', 'field:photo'])])
+        );
+        self::assertSame(
             ['00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:note', 'field:photo'])])
+            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:note'])])
         );
         self::assertSame(
             ['00A5', '00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:photo'])])
+            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:photo'])])
         );
     }
 
@@ -348,9 +352,9 @@ final class ViewNarrowingTest extends AdminTestCase
             self::filter('status', 'isAny', ['registered']),
             self::filter('status', 'isNone', ['removed']),
         ]];
-        yield 'unanswered on the code' => [[self::filter(ColumnFilter::UNANSWERED, 'isAll', ['code'])]];
+        yield 'unanswered on the code' => [[self::filter(ColumnFilter::UNANSWERED, 'isAny', ['code'])]];
         yield 'unanswered on an unlisted column' => [[
-            self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:ghost']),
+            self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:ghost']),
         ]];
         yield 'too many filters' => [
             array_fill(0, Narrowing::MAX_FILTERS + 1, self::filter('status', 'isAny', ['registered'])),
