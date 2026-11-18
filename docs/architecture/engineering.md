@@ -92,9 +92,9 @@ title: Engineering
   totals, schemas), so the admin screens use WordPress's own data layer and
   admin components (DataViews, DataForm) over core-data entities.
 - **Admin actions are also WordPress abilities** (create a payment link,
-  award aid, re-price, admit from the waitlist, …): schema-checked input,
-  permission checks and REST access come from WordPress. Admin table data
-  stays on our own REST API.
+  award aid, apply money settings, admit from the waitlist, …):
+  schema-checked input, permission checks and REST access come from
+  WordPress. Admin table data stays on our own REST API.
 - **Block editor** for forms, field definitions and mail bodies; the
   **Interactivity API** for public forms.
 - **Participant pages have no look of their own: they follow the site's

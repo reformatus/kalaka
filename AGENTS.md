@@ -53,7 +53,7 @@ Links are relative to the repository root. Read these sections, not whole pages.
 | Ledger | [Ledger](docs/architecture/money.md#ledger), [Recording payments by hand](docs/architecture/money.md#recording-payments-by-hand) |
 | Confirmation | [Confirmation](docs/architecture/money.md#confirmation) |
 | Withdrawal, removal and substitution | [Withdrawal, removal and substitution](docs/architecture/money.md#withdrawal-removal-and-substitution) |
-| Tariff snapshot, re-price, materializer | [Tariff snapshot and re-price](docs/architecture/money.md#tariff-snapshot-and-re-price), [Materializer](docs/architecture/money.md#materializer) |
+| Money settings apply, materializer | [Money settings apply](docs/architecture/money.md#money-settings-apply), [Materializer](docs/architecture/money.md#materializer) |
 | Payments, paying several registrations, refunds | [Payments](docs/architecture/money.md#payments), [Paying several registrations at once](docs/architecture/money.md#paying-several-registrations-at-once), [Refunds](docs/architecture/money.md#refunds) |
 | Sponsor and church support | [Sponsor and church support](docs/architecture/money.md#sponsor-and-church-support) |
 | Congregation share | [Congregation share](docs/architecture/money.md#congregation-share) |
