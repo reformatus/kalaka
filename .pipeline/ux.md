@@ -1,7 +1,8 @@
 # UX notes for Kaláka
 
-Today `plugins/kalaka/` registers no admin menus, blocks, shortcodes or REST
-routes, so there are no user-facing pages yet. This file grows as pages are built.
+Today `plugins/kalaka/` registers the public form blocks and the
+`[kalaka_form]` shortcode, and the per-event „Jelentkezők” grid with its
+menus and read REST routes. This file grows as pages are built.
 
 Who uses it:
 
