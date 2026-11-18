@@ -223,7 +223,7 @@ final class ViewQueryCostTest extends PerEventCostTestCase
             ColumnFilter::of('serial', FilterKind::Range, 'between', [1, 5]),
             ColumnFilter::of('field:module', FilterKind::Members, 'isNone', ['c']),
             ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['confirmed', 'pending']),
-            ColumnFilter::of(ColumnFilter::UNANSWERED, FilterKind::Unanswered, 'isAll', ['field:module']),
+            ColumnFilter::of(ColumnFilter::UNANSWERED, FilterKind::Unanswered, 'isAny', ['field:module']),
         ], [
             new SearchWord('a', [
                 'status' => ['registered'],

@@ -33,7 +33,7 @@ final readonly class ColumnFilter
     {
         $value = match ($kind) {
             FilterKind::Members => self::list($operator, ['isAny', 'isNone'], $value),
-            FilterKind::Unanswered => self::list($operator, ['isAll'], $value),
+            FilterKind::Unanswered => self::list($operator, ['isAny'], $value),
             FilterKind::Text => self::text($operator, $value),
             FilterKind::Number => $operator === 'between'
                 ? self::pair($value, false)

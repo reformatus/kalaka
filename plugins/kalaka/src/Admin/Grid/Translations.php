@@ -20,7 +20,7 @@ final class Translations
 
     /**
      * Kaláka's own Hungarian text for DataViews' msgids, in the `default` domain; a list is a plural's forms,
-     * and a context is the part before the `\u{0004}`. Only strings the grid can show. [UNAPPROVED N18]
+     * and a context is the part before the `\u{0004}`. Only strings the grid can show. [UNAPPROVED N6]
      *
      * @var array<string, string|list<string>>
      */
@@ -63,8 +63,6 @@ final class Translations
         'Between (inc)' => 'Között',
         '<Name>%1$s between (inc): </Name><Value>%2$s and %3$s</Value>'
             => '<Name>%1$s: </Name><Value>%2$s és %3$s között</Value>',
-        // „Nincs válasz” (`isAll` over the columns): „Nincs válasz: Ebéd, Megjegyzés”.
-        '<Name>%1$s includes all: </Name><Value>%2$s</Value>' => '<Name>%1$s: </Name><Value>%2$s</Value>',
     ];
 
     /** Before the app's script: core's translations of `SOURCE` in the `default` domain, then `OVERRIDES`. */

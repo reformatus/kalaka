@@ -488,7 +488,7 @@ final class ViewQuery extends Query
     }
 
     /**
-     * „Nincs válasz”: every named column has no answer: no non-empty value for a field, no decision for a
+     * „Nincs válasz”: some named column has no answer: no non-empty value for a field, no decision for a
      * decision column.
      *
      * @param list<string> $listed
@@ -518,7 +518,7 @@ final class ViewQuery extends Query
             }
         }
 
-        return ['(' . implode(' AND ', $parts) . ')', $args];
+        return ['(' . implode(' OR ', $parts) . ')', $args];
     }
 
     /**
