@@ -141,10 +141,19 @@ final class FormValidationTest extends FormsTestCase
 
         $validated = $this->validate($answers);
 
-        foreach (['phone', 'born', 'note', 'extras', 'news', 'story'] as $key) {
+        foreach (['phone', 'born', 'note', 'extras', 'story'] as $key) {
             self::assertArrayNotHasKey($key, $validated->stored(), $key);
             self::assertArrayNotHasKey($key, $validated->submitted(), $key);
         }
+        // `news` is an optional consent: unticked (false) is the answer "no", stored `0`; any other blank is none
+        if ($blank === false) {
+            self::assertSame('0', $validated->stored()['news']);
+            self::assertSame(['name', 'email', 'size', 'gdpr', 'news'], array_keys($validated->stored()));
+
+            return;
+        }
+        self::assertArrayNotHasKey('news', $validated->stored());
+        self::assertArrayNotHasKey('news', $validated->submitted());
         self::assertSame(['name', 'email', 'size', 'gdpr'], array_keys($validated->stored()));
     }
 

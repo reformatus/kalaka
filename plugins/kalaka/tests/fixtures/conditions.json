@@ -1513,7 +1513,7 @@
       "expected": false
     },
     {
-      "name": "number none fails equals (not)",
+      "name": "number none is unknown for equals (not stays unknown)",
       "values": {
         "k": {
           "type": "number",
@@ -1531,7 +1531,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "number none fails lessThan",
@@ -1554,7 +1554,7 @@
       "expected": false
     },
     {
-      "name": "number none fails lessThan (not)",
+      "name": "number none is unknown for lessThan (not stays unknown)",
       "values": {
         "k": {
           "type": "number",
@@ -1572,7 +1572,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "number none fails lessOrEqual",
@@ -1595,7 +1595,7 @@
       "expected": false
     },
     {
-      "name": "number none fails lessOrEqual (not)",
+      "name": "number none is unknown for lessOrEqual (not stays unknown)",
       "values": {
         "k": {
           "type": "number",
@@ -1613,7 +1613,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "number none fails greaterThan",
@@ -1636,7 +1636,7 @@
       "expected": false
     },
     {
-      "name": "number none fails greaterThan (not)",
+      "name": "number none is unknown for greaterThan (not stays unknown)",
       "values": {
         "k": {
           "type": "number",
@@ -1654,7 +1654,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "number none fails greaterOrEqual",
@@ -1677,7 +1677,7 @@
       "expected": false
     },
     {
-      "name": "number none fails greaterOrEqual (not)",
+      "name": "number none is unknown for greaterOrEqual (not stays unknown)",
       "values": {
         "k": {
           "type": "number",
@@ -1695,7 +1695,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "date none is empty",
@@ -1757,7 +1757,7 @@
       "expected": false
     },
     {
-      "name": "date none fails equals (not)",
+      "name": "date none is unknown for equals (not stays unknown)",
       "values": {
         "k": {
           "type": "date",
@@ -1775,7 +1775,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "date none fails lessThan",
@@ -1798,7 +1798,7 @@
       "expected": false
     },
     {
-      "name": "date none fails lessThan (not)",
+      "name": "date none is unknown for lessThan (not stays unknown)",
       "values": {
         "k": {
           "type": "date",
@@ -1816,7 +1816,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "date none fails lessOrEqual",
@@ -1839,7 +1839,7 @@
       "expected": false
     },
     {
-      "name": "date none fails lessOrEqual (not)",
+      "name": "date none is unknown for lessOrEqual (not stays unknown)",
       "values": {
         "k": {
           "type": "date",
@@ -1857,7 +1857,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "date none fails greaterThan",
@@ -1880,7 +1880,7 @@
       "expected": false
     },
     {
-      "name": "date none fails greaterThan (not)",
+      "name": "date none is unknown for greaterThan (not stays unknown)",
       "values": {
         "k": {
           "type": "date",
@@ -1898,7 +1898,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "date none fails greaterOrEqual",
@@ -1921,7 +1921,7 @@
       "expected": false
     },
     {
-      "name": "date none fails greaterOrEqual (not)",
+      "name": "date none is unknown for greaterOrEqual (not stays unknown)",
       "values": {
         "k": {
           "type": "date",
@@ -1939,7 +1939,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "text none is empty",
@@ -2001,7 +2001,7 @@
       "expected": false
     },
     {
-      "name": "text none fails equals (not)",
+      "name": "text none is unknown for equals (not stays unknown)",
       "values": {
         "k": {
           "type": "text",
@@ -2019,7 +2019,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "text none fails contains",
@@ -2042,7 +2042,7 @@
       "expected": false
     },
     {
-      "name": "text none fails contains (not)",
+      "name": "text none is unknown for contains (not stays unknown)",
       "values": {
         "k": {
           "type": "text",
@@ -2060,7 +2060,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "choice none is empty",
@@ -2122,7 +2122,7 @@
       "expected": false
     },
     {
-      "name": "choice none fails equals (not)",
+      "name": "choice none is unknown for equals (not stays unknown)",
       "values": {
         "k": {
           "type": "choice",
@@ -2140,7 +2140,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "choice none fails contains",
@@ -2163,7 +2163,7 @@
       "expected": false
     },
     {
-      "name": "choice none fails contains (not)",
+      "name": "choice none is unknown for contains (not stays unknown)",
       "values": {
         "k": {
           "type": "choice",
@@ -2181,7 +2181,7 @@
           }
         ]
       },
-      "expected": true
+      "expected": false
     },
     {
       "name": "all: one fails",

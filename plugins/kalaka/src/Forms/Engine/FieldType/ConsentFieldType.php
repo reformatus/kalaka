@@ -9,7 +9,7 @@ use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
-/** A consent: sent as a boolean, stored as `1`. A consent not given is not answered. */
+/** A consent: sent as a boolean, stored as `1` when ticked and `0` when shown and left unticked. */
 final class ConsentFieldType extends AbstractFieldType
 {
     public const BLOCK_NAME = 'kalaka/consent-field';
@@ -28,10 +28,10 @@ final class ConsentFieldType extends AbstractFieldType
             throw new InvalidInput();
         }
 
-        return $input->value ? FieldAnswer::stored('1') : FieldAnswer::notAnswered();
+        return $input->value ? FieldAnswer::stored('1') : FieldAnswer::stored('0');
     }
 
-    /** A given consent is a ticked box; null for none. */
+    /** A given consent is a ticked box; null for none and for a stored `0`, which reopens unticked. */
     public function prefill(FieldTypeInput $input): mixed
     {
         return $input->value === '1' ? true : null;
