@@ -10,9 +10,9 @@ namespace Kalaka\Registrations\Api;
  * or expired. 128 random bits as 22 characters of unpadded base64url; only its SHA-256 is stored. A secret:
  * never in a log line, a URL or the audit.
  *
- * The cookie is `HttpOnly; SameSite=Lax; Path=/`, `Secure` on https, with no `Domain`, like the active
- * registration's: `Lax` is what lets it travel on the 303 that answers the quiz's cross-site POST and back
- * through WordPress's login and sign-up.
+ * The cookie follows the registrant cookie policy (`RegistrantCookie`), like the active registration's: `Lax`
+ * is what lets it travel on the 303 that answers the quiz's cross-site POST and back through WordPress's login
+ * and sign-up.
  */
 final class DraftClaim
 {
@@ -56,15 +56,10 @@ final class DraftClaim
         } else {
             $_COOKIE[self::COOKIE] = $token;
         }
-        if (headers_sent()) {
-            return;
-        }
-        setcookie(self::COOKIE, $token ?? '', [
-            'expires' => $token === null || $expires === null ? 1 : $expires->getTimestamp(),
-            'path' => '/',
-            'secure' => is_ssl(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ]);
+        RegistrantCookie::set(
+            self::COOKIE,
+            $token ?? '',
+            $token === null || $expires === null ? -1 : $expires->getTimestamp(),
+        );
     }
 }
