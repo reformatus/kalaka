@@ -572,6 +572,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     actor. The current state is the latest record.
   - The records live in their own table, indexed by event first.
   - **A decision is never recomputed;** only a named transition changes it.
+  - **A kind is declared with a Hungarian label and its states, each with a
+    Hungarian label;** the grid shows them for every kind.
   - Extensions contribute transition rules through a decision point, and core
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).

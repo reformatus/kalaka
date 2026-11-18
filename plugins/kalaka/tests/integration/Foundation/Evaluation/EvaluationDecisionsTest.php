@@ -112,7 +112,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         $asked = new \ArrayObject();
         $rules = [];
         foreach (['a', 'b', 'x', 'y'] as $kind) {
-            $rules[$kind] = new TestRule($kind, ['p', 'q'], $asked);
+            $rules[$kind] = new TestRule($kind, ['p' => 'P', 'q' => 'Q'], $asked);
             $rules[$kind]->answer = 'q';
         }
         $this->rules->add($rules['a'], true);
@@ -149,7 +149,7 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
     /** @dataProvider failingRules */
     public function testARuleFailureRollsBackTheWholeUseCaseAndFailsTheAudit(string $how): void
     {
-        $earlier = new TestRule('earlier', ['on', 'off']);
+        $earlier = new TestRule('earlier', ['on' => 'Be', 'off' => 'Ki']);
         $earlier->answer = 'on';
         $rule = new TestRule('test_state');
         $rule->onDecide = static function ($input) use ($rule, $how): void {

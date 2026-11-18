@@ -152,7 +152,7 @@ final class Evaluation
         if ($transition === null) {
             return;
         }
-        if (!in_array($transition->state, $states, true)) {
+        if (!array_key_exists($transition->state, $states)) {
             $error = self::failed($kind, null);
             throw $error;
         }

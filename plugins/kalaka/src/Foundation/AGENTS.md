@@ -147,6 +147,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Only the evaluation writes `kalaka_decisions`; its records are append-only
   and nobody sets a decision directly. The current state of a kind is its
   latest record.
+- A decision kind is declared with a Hungarian label and its states, each
+  with a Hungarian label; the grid shows those labels for every kind.
 - A decision rule returns a transition or nothing and never writes; core
   writes the record, and only when the state changes. A core rule reads its
   own kind and the core kinds decided before it; an extension rule reads its

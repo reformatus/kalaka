@@ -107,4 +107,25 @@ final class DecisionQuery extends Query
             return $kinds;
         });
     }
+
+    /**
+     * The distinct states recorded for one kind in an event, in byte order.
+     *
+     * @return list<string>
+     */
+    public function statesIn(int $eventId, string $kind): array
+    {
+        return $this->scope(function () use ($eventId, $kind): array {
+            $rows = $this->select(
+                'decision_state',
+                'SELECT DISTINCT state FROM %i WHERE event_id = %d AND kind = %s',
+                [$this->table(DecisionTables::DECISIONS), $eventId, $kind]
+            );
+
+            $states = array_map(static fn (array $row): string => (string) $row['state'], $rows);
+            sort($states, SORT_STRING);
+
+            return $states;
+        });
+    }
 }
