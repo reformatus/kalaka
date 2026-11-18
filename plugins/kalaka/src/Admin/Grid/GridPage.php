@@ -51,19 +51,18 @@ final class GridPage
                 continue;
             }
             $slug = sprintf(self::SLUG, $event->id);
-            $title = esc_html($event->name);
-            add_menu_page($title, $title, 'read', $slug, [self::class, 'render'], '', 4 + ++$position / 100);
+            // WordPress escapes the page title where it prints it; the menu title is printed as given.
+            add_menu_page(
+                $event->name,
+                esc_html($event->name),
+                'read',
+                $slug,
+                [self::class, 'render'],
+                '',
+                4 + ++$position / 100
+            );
             add_submenu_page($slug, Texts::REGISTRANTS, Texts::REGISTRANTS, 'read', $slug, [self::class, 'render']);
         }
-    }
-
-    /**
-     * `woocommerce_prevent_admin_access`: WooCommerce keeps users who cannot edit posts out of wp-admin; a
-     * user who may reach Kaláka's admin side (full access or a grant) is let in.
-     */
-    public static function allowAdmin(mixed $prevent): mixed
-    {
-        return Access::mayReachAdmin(get_current_user_id()) ? false : $prevent;
     }
 
     /** `admin_enqueue_scripts`: the app's script and styles on the grid page only. */

@@ -16,6 +16,7 @@ import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
 import { writeClipboard } from './clipboard';
 import * as api from './api';
+import { serial } from './serial';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
 import ViewsDialog from './ViewsDialog';
@@ -237,11 +238,15 @@ export default function Page( { config } ) {
 		timer.current = setTimeout( () => setMessage( '' ), 6000 );
 	};
 
-	// The counted members are saved at once, one save at a time in click order; a failure reloads the stored state.
-	const queue = useRef( Promise.resolve() );
+	// The counted members are saved at once, one save at a time in click order; a failure reloads the stored
+	// state. A failed reload leaves the row as it is, and the next pick still runs.
+	const queue = useRef( null );
+	if ( ! queue.current ) {
+		queue.current = serial();
+	}
 	const seq = useRef( 0 );
 	const pick = ( column, members ) => {
-		queue.current = queue.current.then( async () => {
+		queue.current( async () => {
 			const mine = ++seq.current;
 			try {
 				const result = await api.saveCounts( config, tab.view, column.column, members );
