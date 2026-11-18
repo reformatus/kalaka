@@ -1,6 +1,6 @@
 /**
  * The „Nézetek” dialog's content (S37). Full access: every view of the event with its condition, columns
- * and grants, renamed, its parameter removed (A1, A2) or deleted (A3) through the views routes, and „Új
+ * and grants, renamed, its parameter removed (A1, A2) or deleted (A3) through the abilities, and „Új
  * nézet”. A grant holder: their own views, read-only.
  */
 import { useState } from '@wordpress/element';
