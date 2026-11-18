@@ -1,7 +1,6 @@
 /**
  * The „Nézetek” dialog's content (S37). Full access: every view of the event with its condition, columns
- * and grants, renamed, its parameter removed (A1, A2) or deleted (A3) through the abilities, and „Új
- * nézet”. A grant holder: their own views, read-only.
+ * and grants, renamed, its parameter removed (A1, A2) or deleted (A3) through the abilities. A grant holder: their own views, read-only.
  */
 import { useState } from '@wordpress/element';
 import {
@@ -102,11 +101,11 @@ function ViewItem( { view, full, onOpen, onSave, onDelete } ) {
 	const head = (
 		<div className="kv-head">
 			<a
-				href={ tabUrl( view.view ) }
+				href={ tabUrl( view.key ) }
 				className="kv-name"
 				onClick={ ( event ) => {
 					event.preventDefault();
-					onOpen( view.view );
+					onOpen( view.key );
 				} }
 			>
 				{ view.name }
@@ -196,7 +195,7 @@ function ViewItem( { view, full, onOpen, onSave, onDelete } ) {
  * @param {Object}   props
  * @param {Object}   props.data     the views list (`GET …/views`): { full, views }
  * @param {Function} props.onOpen   opens a view's tab
- * @param {Function} props.onChange runs a change ( 'save' | 'delete' | 'add', view, … ); resolves true on success
+ * @param {Function} props.onChange runs a change ( 'save' | 'delete', view, … ); resolves true on success
  * @param {string}   props.error    the last change's error, shown above the list
  */
 export default function ViewsDialog( { data, onOpen, onChange, error } ) {
@@ -212,7 +211,7 @@ export default function ViewsDialog( { data, onOpen, onChange, error } ) {
 				<ul className="kv-list">
 					{ data.views.map( ( view ) => (
 						<ViewItem
-							key={ view.view }
+							key={ view.key }
 							view={ view }
 							full={ full }
 							onOpen={ onOpen }
@@ -223,13 +222,6 @@ export default function ViewsDialog( { data, onOpen, onChange, error } ) {
 				</ul>
 			) : (
 				<p style={ { margin: 0 } }>{ full ? T.emptyFull : T.emptyGrant }</p>
-			) }
-			{ full && (
-				<div className="kv-foot">
-					<Button variant="secondary" onClick={ () => onChange( 'add' ) }>
-						{ T.add }
-					</Button>
-				</div>
 			) }
 		</div>
 	);

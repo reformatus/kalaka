@@ -29,7 +29,6 @@ const STATUS_ICON = {
 	withdrawn: [ 'dashicons-undo', 'kg-off' ],
 	removed: [ 'dashicons-dismiss', 'kg-off' ],
 };
-const DECISION_ICON = { 'decision:confirmation': [ 'dashicons-yes', 'kg-ok' ] };
 
 /** A cell as shown: the status with its icon, a decision as an icon with screen-reader text, the code in monospace. */
 function Cell( { column, item } ) {
@@ -47,7 +46,7 @@ function Cell( { column, item } ) {
 		);
 	}
 	if ( column.type === 'decision' ) {
-		const [ icon, tone ] = DECISION_ICON[ column.column ] || [ 'dashicons-marker', '' ];
+		const [ icon, tone ] = [ 'dashicons-marker', '' ];
 		return (
 			<span className="kg-mark" title={ text }>
 				<span className={ `dashicons ${ icon } ${ tone }` } aria-hidden="true" />
@@ -119,13 +118,13 @@ const freshView = ( tab, perPage ) => ( {
 			}
 		),
 	},
-	_tab: tab.view,
+	_tab: tab.key,
 } );
 
 export default function Page( { config } ) {
 	const [ tabs, setTabs ] = useState( config.tabs );
 	const [ current, setCurrent ] = useState( config.current );
-	const tab = tabs.find( ( t ) => t.view === current ) || tabs[ 0 ];
+	const tab = tabs.find( ( t ) => t.key === current ) || tabs[ 0 ];
 	const [ view, setView ] = useState( () => freshView( tab, 50 ) );
 	const [ data, setData ] = useState( { rows: [], total: 0 } );
 	const [ sums, setSums ] = useState( null );
@@ -135,7 +134,7 @@ export default function Page( { config } ) {
 	const [ viewsError, setViewsError ] = useState( '' );
 	const [ message, setMessage ] = useState( '' );
 	const [ host, setHost ] = useState( null );
-	const v = view._tab === tab.view ? view : freshView( tab, view.perPage );
+	const v = view._tab === tab.key ? view : freshView( tab, view.perPage );
 	const sort = v.sort ? v.sort.field : null;
 	const desc = v.sort ? v.sort.direction === 'desc' : false;
 
@@ -150,7 +149,7 @@ export default function Page( { config } ) {
 	useEffect( () => {
 		let live = true;
 		setLoading( true );
-		api.fetchPage( config, tab.view, { sort, desc, perPage: v.perPage, page: v.page } ).then(
+		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page } ).then(
 			( result ) => {
 				if ( live ) {
 					setData( result );
@@ -162,18 +161,18 @@ export default function Page( { config } ) {
 		return () => {
 			live = false;
 		};
-	}, [ tab.view, sort, desc, v.page, v.perPage ] );
+	}, [ tab.key, sort, desc, v.page, v.perPage ] );
 
 	useEffect( () => {
 		let live = true;
-		api.fetchSums( config, tab.view ).then(
+		api.fetchSums( config, tab ).then(
 			( result ) => live && setSums( result ),
 			() => {}
 		);
 		return () => {
 			live = false;
 		};
-	}, [ tab.view ] );
+	}, [ tab.key ] );
 
 	// The default order is the sorszám order: the Sorszám header cell says so (`aria-sort`).
 	useLayoutEffect( () => {
@@ -228,7 +227,7 @@ export default function Page( { config } ) {
 		setMessage( '' );
 		setBusy( true );
 		try {
-			const rows = await api.fetchAll( config, tab.view, sort, desc );
+			const rows = await api.fetchAll( config, tab, sort, desc );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
 			setMessage( fmt( GRID.copied, rows.length ) );
 		} catch {
@@ -247,17 +246,17 @@ export default function Page( { config } ) {
 		queue.current = serial();
 	}
 	const seq = useRef( 0 );
-	const shown = useRef( tab.view );
-	shown.current = tab.view;
+	const shown = useRef( tab.key );
+	shown.current = tab.key;
 	const pick = ( column, members ) => {
-		const view = tab.view;
+		const picked = tab;
 		queue.current( () => {
 			const mine = ++seq.current;
 			return runPick( {
-				save: () => api.saveCounts( config, view, column.column, members ),
-				reload: () => api.fetchSums( config, view ),
+				save: () => api.saveCounts( config, picked, column.column, members ),
+				reload: () => api.fetchSums( config, picked ),
 				apply: setSums,
-				isShown: () => shown.current === view,
+				isShown: () => shown.current === picked.key,
 				isLatest: () => mine === seq.current,
 			} );
 		} );
@@ -267,7 +266,7 @@ export default function Page( { config } ) {
 		api.fetchViews( config ).then( ( result ) => {
 			setViews( result );
 			if ( result.full ) {
-				setTabs( [ tabs[ 0 ] ].concat( result.views.map( ( x ) => ( { view: x.view, name: x.name, columns: x.tab } ) ) ) );
+				setTabs( [ tabs[ 0 ] ].concat( result.views.map( ( x ) => ( { key: x.key, view: x.view, grant: 0, name: x.name, columns: x.tab } ) ) ) );
 			}
 			return result;
 		} );
@@ -281,15 +280,9 @@ export default function Page( { config } ) {
 		try {
 			if ( what === 'delete' ) {
 				await api.deleteView( config, target.view, target.version );
-				if ( target.view === current ) {
-					select( 0 );
+				if ( target.key === current ) {
+					select( 'v0' );
 				}
-			} else if ( what === 'add' ) {
-				await api.saveView( config, 0, {
-					name: VIEWS.newName,
-					filter: [],
-					columns: [ 'serial', 'code', 'status' ].map( ( column ) => ( { column, write: false } ) ),
-				} );
 			} else {
 				await api.saveView( config, target.view, {
 					version: target.version,
@@ -300,8 +293,8 @@ export default function Page( { config } ) {
 				} );
 			}
 			await loadViews();
-			if ( what === 'save' && target.view === current ) {
-				setSums( await api.fetchSums( config, current ) );
+			if ( what === 'save' && target.key === current ) {
+				setSums( await api.fetchSums( config, tab ) );
 				setView( { ...v, page: 1 } );
 			}
 			return true;
@@ -329,7 +322,7 @@ export default function Page( { config } ) {
 		<Fragment>
 			<div className="kg-above">
 				<div className="kg-tabrow">
-					<Tabs tabs={ tabs } current={ tab.view } onSelect={ select } />
+					<Tabs tabs={ tabs } current={ tab.key } onSelect={ select } />
 					<Button variant="secondary" size="compact" className="kg-manage" onClick={ openDialog }>
 						{ GRID.manage }
 					</Button>
@@ -365,7 +358,7 @@ export default function Page( { config } ) {
 					data={ data.rows }
 					fields={ fields }
 					view={ v }
-					onChangeView={ ( next ) => setView( { ...next, _tab: tab.view } ) }
+					onChangeView={ ( next ) => setView( { ...next, _tab: tab.key } ) }
 					isLoading={ loading }
 					paginationInfo={ {
 						totalItems: data.total,
@@ -397,7 +390,7 @@ export default function Page( { config } ) {
 							error={ viewsError }
 							onChange={ change }
 							onOpen={ ( id ) => {
-								if ( tabs.some( ( t ) => t.view === id ) ) {
+								if ( tabs.some( ( t ) => t.key === id ) ) {
 									setDialog( false );
 									select( id );
 								}

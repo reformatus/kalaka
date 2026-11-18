@@ -13,9 +13,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
- * Sets which members the master view's sum row counts in one column (S37): `status`, or a participant
- * field with options. A site-level use case: only full access. The counts are stored in the event's master
- * row of `kalaka_views` (`master` 1), written through `ViewRepository` and audited with it; the row is
+ * Sets which members the master view's sum row counts in one column (S37): `status`, a decision column's
+ * states or a participant field with options. A site-level use case: only full access. The counts are stored in the
+ * event's master row of `kalaka_views` (`master` 1), written through `ViewRepository` and audited with it; the row is
  * inserted on the first save, and the unique key on `master_event` keeps it the only one. An empty list
  * returns the column to its default. The last save wins: the picker sends no version. Returns
  * `['id' => the master row's id]`, null while the event has no master row (an empty first save), so the
@@ -50,6 +50,10 @@ final class SaveMasterCounts implements AdminUseCase
                     static fn (array $option): string => $option['value'],
                     $field->options
                 );
+            }
+            $column = $input['column'] ?? null;
+            if (is_string($column) && str_starts_with($column, 'decision:')) {
+                $options[$column] = DecisionStates::of($eventId, substr($column, 9));
             }
         }
 
@@ -125,6 +129,8 @@ final class SaveMasterCounts implements AdminUseCase
     {
         if ($column === 'status') {
             $valid = array_map(static fn (RegistrationStatus $s): string => $s->value, RegistrationStatus::cases());
+        } elseif (str_starts_with($column, 'decision:')) {
+            $valid = $this->options[$column] ?? [];
         } elseif (str_starts_with($column, 'field:')) {
             $valid = $this->options[substr($column, 6)] ?? [];
         } else {

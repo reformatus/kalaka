@@ -328,7 +328,12 @@ final class ViewCountsTest extends GrantTestCase
         );
         self::assertTrue(View::newMaster(1, [])->master);
 
+        // A decision column's states are counted like a field's; a column that has no members is refused.
+        self::assertSame(
+            ['decision:confirmation' => ['confirmed']],
+            ViewShape::forMaster(['decision:confirmation' => ['confirmed']])->counts
+        );
         $this->expectException(InvalidInput::class);
-        ViewShape::forMaster(['decision:confirmation' => ['confirmed']]);
+        ViewShape::forMaster(['code' => ['x']]);
     }
 }

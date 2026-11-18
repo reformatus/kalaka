@@ -13,7 +13,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * that must all hold; a term is a column with the strings it may hold, or the one parameter term
  * (`in` null) that is bound when access is checked. The stored JSON is always the canonical form.
  *
- * `counts` are the members the grid's sum row counts per column (S37): a listed `status` or `field:`
+ * `counts` are the members the grid's sum row counts per column (S37): a listed `status`, `field:` or `decision:`
  * column with the values to count, each once. A column without an entry counts its default. Whether a
  * value is a member of the column is the saver's check (`SaveView`), which knows the field's options.
  *
@@ -355,7 +355,8 @@ final readonly class ViewShape
             if (
                 !in_array($column, $listed, true)
                 || !self::validColumn($column)
-                || ($column !== 'status' && !str_starts_with($column, 'field:'))
+                || (!in_array($column, ['status'], true) && !str_starts_with($column, 'field:')
+                    && !str_starts_with($column, 'decision:'))
             ) {
                 throw new InvalidInput();
             }

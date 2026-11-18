@@ -3,7 +3,7 @@
  * `%d`, `%s` and `%1$s` are filled by `fmt()`.
  */
 
-/** The grid page: tabs, toolbar, copy, paging, sorting. [UNAPPROVED N13] */
+/** The grid page: tabs, toolbar, copy, paging, sorting. */
 export const GRID = {
 	copy: 'Táblázat másolása',
 	copied: '%d sor a vágólapra másolva.',
@@ -18,7 +18,7 @@ export const GRID = {
 	resetSortShort: 'Alapértelmezett sorrend visszaállítása',
 };
 
-/** The sum row. [UNAPPROVED N13] */
+/** The sum row. */
 export const SUM = {
 	rows: '%d sor',
 	members: '%1$s (%2$s): %3$d jelentkező',
@@ -29,10 +29,10 @@ export const SUM = {
 	total: 'Összesen: %s',
 };
 
-/** The average of a scale field: a new text. [UNAPPROVED N16] */
+/** The average of a scale field: a new text. */
 export const SUM_AVERAGE = 'Átlag: %s';
 
-/** The „Nézetek” dialog. [UNAPPROVED N15] */
+/** The „Nézetek” dialog. */
 export const VIEWS = {
 	dialog: 'Nézetek',
 	count: '%d jelentkező',
@@ -43,8 +43,6 @@ export const VIEWS = {
 	noGrants: 'Senki sem fér hozzá.',
 	edit: 'Szerkesztés',
 	del: 'Törlés',
-	add: 'Új nézet',
-	newName: 'Új nézet',
 	name: 'Név',
 	removeParam: 'Feltétel eltávolítása',
 	save: 'Mentés',

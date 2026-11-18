@@ -24,9 +24,9 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  * (`{view}` 0 is the master view, which is full access only). The app's writes are the abilities
  * (`kalaka/save-view`, `kalaka/delete-view`, `kalaka/save-master-counts`), through core's run endpoint.
  *
- * - `GET /events/{id}/views/{view}/rows?page&per_page&orderby&order`: one page, following core's paging
+ * - `GET /events/{id}/views/{view}/rows?grant&page&per_page&orderby&order`: one page, following core's paging
  *   (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than `code` and `serial`.
- * - `GET /events/{id}/views/{view}/sums`: the sum row over the whole view; the aggregates are built here
+ * - `GET /events/{id}/views/{view}/sums?grant`: the sum row over the whole view; the aggregates are built here
  *   from the view's columns, the field definitions and the stored counts, never taken from the client.
  * - `GET /events/{id}/views`: the „Nézetek” dialog's list (`ViewsData`); for full access each view also
  *   carries its `version`, which a save sends back.
@@ -43,6 +43,8 @@ final class GridRoutes
     {
         $id = ['type' => 'integer', 'minimum' => 1, 'required' => true];
         $view = ['type' => 'integer', 'minimum' => 0, 'required' => true];
+        // A grant holder names the grant whose view they open: one tab per grant, even on the same view.
+        $grant = ['type' => 'integer', 'minimum' => 0, 'default' => 0];
         $gate = [self::class, 'permission'];
 
         Boundary::route(self::NAMESPACE, self::VIEW . '/rows', [
@@ -52,6 +54,7 @@ final class GridRoutes
             'args' => [
                 'id' => $id,
                 'view' => $view,
+                'grant' => $grant,
                 'page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1],
                 'per_page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => ViewQuery::MAX_LIMIT, 'default' => 50],
                 'orderby' => ['type' => 'string'],
@@ -62,7 +65,7 @@ final class GridRoutes
             'methods' => 'GET',
             'callback' => [self::class, 'sums'],
             'permission_callback' => $gate,
-            'args' => ['id' => $id, 'view' => $view],
+            'args' => ['id' => $id, 'view' => $view, 'grant' => $grant],
         ]);
         Boundary::route(self::NAMESPACE, self::EVENT . '/views', [
             'methods' => 'GET',
@@ -142,7 +145,7 @@ final class GridRoutes
 
     /**
      * The view the current user opens: the master view (0) or a stored one through full access, otherwise
-     * the first of their held views on that view.
+     * the view of the grant the request names (`grant`), which must be on that view.
      *
      * @param \WP_REST_Request<array<string, mixed>> $request
      * @throws NotFound for an event that does not exist
@@ -152,13 +155,14 @@ final class GridRoutes
     {
         $eventId = self::event($request);
         $viewId = (int) $request->get_param('view');
+        $grant = (int) $request->get_param('grant');
         $actor = self::actor();
         $access = new Access();
         if ($access->isFull($actor)) {
             return $viewId === 0 ? $access->master($actor, $eventId) : $access->fullView($actor, $eventId, $viewId);
         }
         foreach ($access->heldViews($actor, $eventId) as $held) {
-            if (($held->viewId ?? 0) === $viewId) {
+            if ($held->grantId === $grant && ($held->viewId ?? 0) === $viewId) {
                 return $held;
             }
         }

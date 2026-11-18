@@ -12,33 +12,34 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  */
 final class Texts
 {
-    /** The submenu item, the page title and the full-access default tab. [UNAPPROVED N12] */
+    /** The submenu item, the page title and the full-access default tab. */
     public const REGISTRANTS = 'Jelentkezők';
 
-    /** The column labels of Kaláka's own columns. [UNAPPROVED N14] */
+    /** The column labels of Kaláka's own columns. */
     public const CODE = 'Kód';
     public const STATUS = 'Állapot';
     public const SERIAL = 'Sorszám';
 
-    /** The confirmation decision: its column and its `confirmed` state. [UNAPPROVED N14] */
-    public const CONFIRMATION = 'Visszaigazolás';
-    public const CONFIRMED = 'Visszaigazolva';
-
-    /** A given consent in a cell and as the counted member. [UNAPPROVED N14] */
+    /** A given consent in a cell and as the counted member; a shown but unticked one (stored '0'). */
     public const YES = 'Igen';
+    /** [UNAPPROVED N20] */
+    public const NO = 'Nem';
 
-    /** A parameter term in a view's condition: the value is given at each grant. [UNAPPROVED N15] */
+    /** A parameter term in a view's condition: the value is given at each grant. */
     public const PER_GRANT = 'a hozzáférésnél megadott értékkel';
 
-    /** A grant holder with no view on the event. [UNAPPROVED N12] */
+    /** A grant's tab with a bound value: the view, a no-break space, an en dash, the value. [UNAPPROVED N19] */
+    public const TAB_BOUND = "%1\$s\u{00A0}– %2\$s";
+
+    /** A grant holder with no view on the event. */
     public const NO_VIEW = 'Ehhez az eseményhez nincs nézeted.';
 
-    /** The ability of `kalaka/save-master-counts`. [UNAPPROVED N16] */
+    /** The ability of `kalaka/save-master-counts`. */
     public const MASTER_COUNTS_LABEL = 'Összesítés mentése';
     public const MASTER_COUNTS_DESCRIPTION =
         'Annak beállítása, hogy egy oszlopban mit számoljon a Jelentkezők összesítő sora.';
 
-    /** A status as the grid shows it: `RegistrationStatus::word()` with a capital. [UNAPPROVED N14] */
+    /** A status as the grid shows it: `RegistrationStatus::word()` with a capital. */
     public static function status(RegistrationStatus $status): string
     {
         $word = $status->word();

@@ -7,7 +7,7 @@ const columns = [
 	{ column: 'code', label: 'Kód', type: 'code', numeric: false },
 	{ column: 'status', label: 'Állapot', type: 'status', options: { registered: 'Rögzített' } },
 	{ column: 'field:lunch', label: 'Ebéd', type: 'choice', options: { veg: 'Vegetáriánus', normal: 'Normál' } },
-	{ column: 'field:photo', label: 'Fénykép', type: 'consent', options: { 1: 'Igen' } },
+	{ column: 'field:photo', label: 'Fénykép', type: 'consent', options: { 1: 'Igen', 0: 'Nem' } },
 	{ column: 'field:nights', label: 'Éjszakák', type: 'number', numeric: true },
 	{ column: 'field:born', label: 'Születési idő', type: 'date' },
 	{
@@ -38,6 +38,17 @@ describe( 'fmt', () => {
 	it( 'fills placeholders in order and by position', () => {
 		expect( fmt( '%d sor', 46 ) ).toBe( '46 sor' );
 		expect( fmt( '%1$s (%2$s): %3$d jelentkező', 'Ebéd', 'Normál', 9 ) ).toBe( 'Ebéd (Normál): 9 jelentkező' );
+	} );
+} );
+
+describe( 'a consent cell', () => {
+	const consent = columns.find( ( c ) => c.type === 'consent' );
+	it( 'is Igen for 1, Nem for 0 and empty without a value', () => {
+		const cell = ( value ) => cellText( consent, { values: { [ consent.column ]: value } } );
+		expect( cell( '1' ) ).toBe( 'Igen' );
+		expect( cell( '0' ) ).toBe( 'Nem' );
+		expect( cell( null ) ).toBe( '' );
+		expect( cell( undefined ) ).toBe( '' );
 	} );
 } );
 

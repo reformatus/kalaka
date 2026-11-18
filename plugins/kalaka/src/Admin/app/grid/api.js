@@ -8,12 +8,12 @@ import apiFetch from '@wordpress/api-fetch';
  * One page of a view: `{ rows, total }`, from core's paging headers.
  *
  * @param {Object} config window.kalakaGrid
- * @param {number} view   the view (0: the master view)
+ * @param {Object} tab    the tab: { view, grant } (view 0: the master view; grant: the grant a grant holder's tab is)
  * @param {Object} query  { sort, desc, perPage, page }
  */
 export async function fetchPage(
 	config,
-	view,
+	tab,
 	{ sort = null, desc = false, perPage = 50, page = 1 }
 ) {
 	const params = new URLSearchParams( {
@@ -24,8 +24,11 @@ export async function fetchPage(
 	if ( sort ) {
 		params.set( 'orderby', sort );
 	}
+	if ( tab.grant ) {
+		params.set( 'grant', String( tab.grant ) );
+	}
 	const response = await apiFetch( {
-		path: `${ config.rest }/views/${ view }/rows?${ params.toString() }`,
+		path: `${ config.rest }/views/${ tab.view }/rows?${ params.toString() }`,
 		parse: false,
 	} );
 	const rows = await response.json();
@@ -36,10 +39,10 @@ export async function fetchPage(
 }
 
 /** Every row of a view, in pages of the most one page may hold, in the given order. */
-export async function fetchAll( config, view, sort = null, desc = false ) {
+export async function fetchAll( config, tab, sort = null, desc = false ) {
 	const rows = [];
 	for ( let page = 1; ; page++ ) {
-		const result = await fetchPage( config, view, {
+		const result = await fetchPage( config, tab, {
 			sort,
 			desc,
 			perPage: config.maxLimit,
@@ -52,8 +55,10 @@ export async function fetchAll( config, view, sort = null, desc = false ) {
 	}
 }
 
-export const fetchSums = ( config, view ) =>
-	apiFetch( { path: `${ config.rest }/views/${ view }/sums` } );
+export const fetchSums = ( config, tab ) =>
+	apiFetch( {
+		path: `${ config.rest }/views/${ tab.view }/sums${ tab.grant ? `?grant=${ tab.grant }` : '' }`,
+	} );
 
 export const fetchViews = ( config ) =>
 	apiFetch( { path: `${ config.rest }/views` } );
@@ -74,11 +79,11 @@ export const runAbility = ( name, input ) =>
 	} );
 
 /**
- * Saves a view through `kalaka/save-view`: a new one (`view` 0) or a stored one, whose `version` is sent back.
+ * Saves a stored view through `kalaka/save-view`; its `version` is sent back.
  * Only the keys the ability's schema names are sent.
  *
  * @param {Object} config window.kalakaGrid
- * @param {number} view   the view's ID, or 0 for a new view
+ * @param {number} view   the view's ID
  * @param {Object} data   { name, filter, columns, counts?, version? }
  */
 export const saveView = (
@@ -86,11 +91,7 @@ export const saveView = (
 	view,
 	{ name, filter, columns, counts, version }
 ) => {
-	const input = { event_id: config.event, name, filter, columns };
-	if ( view ) {
-		input.id = view;
-		input.version = version;
-	}
+	const input = { event_id: config.event, id: view, name, filter, columns, version };
 	if ( counts !== undefined && counts !== null ) {
 		input.counts = counts;
 	}
@@ -105,7 +106,8 @@ export const deleteView = ( config, view, version ) =>
  * `kalaka/save-master-counts`; for a view through `kalaka/save-view`, with its stored shape and version read
  * just before. No members removes the column's entry.
  */
-export async function saveCounts( config, view, column, members ) {
+export async function saveCounts( config, tab, column, members ) {
+	const view = tab.view;
 	if ( ! view ) {
 		await runAbility( 'kalaka/save-master-counts', {
 			event_id: config.event,
@@ -132,5 +134,5 @@ export async function saveCounts( config, view, column, members ) {
 			counts,
 		} );
 	}
-	return fetchSums( config, view );
+	return fetchSums( config, tab );
 }

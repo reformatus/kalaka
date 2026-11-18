@@ -15,8 +15,8 @@ use Kalaka\Foundation\Api\Seed\Seeding;
 /**
  * A view and a grant holder for the first published sample event, so the admin grid shows views and a
  * grant holder's side: the view „Ebédlista” with a parameter on the lunch choice, and the user
- * `GRANTEE_LOGIN` (the minimal role, password `password`) with a grant on it, bound to the vegetarian
- * lunch. The texts are seed data, not UI strings.
+ * `GRANTEE_LOGIN` (the minimal role, password `password`) with two grants on it, bound to the vegetarian
+ * and the gluten-free lunch. The texts are seed data, not UI strings.
  */
 final class AdminSeeder implements Seeder
 {
@@ -48,13 +48,17 @@ final class AdminSeeder implements Seeder
         ];
         $viewId = $seeding->run(SaveView::prepared($input), $input);
 
-        $seeding->run(new SaveGrant(), [
-            'event_id' => $eventId,
-            'user_id' => $this->grantee(),
-            'view_id' => $viewId,
-            'bound_value' => 'vegetarianus',
-            'actions' => [],
-        ]);
+        // Two grants on the one view: the grid gives the holder one tab per grant.
+        $grantee = $this->grantee();
+        foreach (['vegetarianus', 'glutenmentes'] as $bound) {
+            $seeding->run(new SaveGrant(), [
+                'event_id' => $eventId,
+                'user_id' => $grantee,
+                'view_id' => $viewId,
+                'bound_value' => $bound,
+                'actions' => [],
+            ]);
+        }
     }
 
     /** @throws CommandFailure */
