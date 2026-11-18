@@ -57,3 +57,7 @@ So far it holds the directory and the congregation picker.
   asked with `contains`, and `equals` is refused (`PathFieldType`). The
   value's text is the leaf's current name. The public route never shows
   external IDs.
+- The field's editor is built from core's field-editor pieces
+  (`window.kalakaFieldEditor`; `block.json` names `kalaka-form-editor-script`
+  first): the one keeper of keys, so a copy gets a fresh key, the settings,
+  the participant-field and key panels. It copies none of them.

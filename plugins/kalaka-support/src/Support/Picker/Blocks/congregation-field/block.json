@@ -19,7 +19,10 @@
       "default": false
     }
   },
-  "editorScript": "file:./index.js",
+  "editorScript": [
+    "kalaka-form-editor-script",
+    "file:./index.js"
+  ],
   "style": "file:./style-index.css",
   "viewScriptModule": "file:./view.js",
   "render": "file:./render.php"
