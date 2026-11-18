@@ -97,7 +97,7 @@ final class ParticipantFieldSync
      * `Assignments\Api\AssignmentSets::tieRequestField()`), once the fields are declared: one use case per
      * set, a set already tied to the key writing nothing. The save check refuses a second field for a set, so
      * a refusal here (a form written around it, or two forms saved at the same moment) is only reported.
-     * [UNAPPROVED N7] the tie is written here and never released.
+     * The tie is written here and never released.
      *
      * @param list<string> $skipped the keys the declaration skipped
      * @return list<string> the ties that were refused
@@ -108,7 +108,7 @@ final class ParticipantFieldSync
         $ties = [];
         foreach ((new FormPosts())->ofEvent($eventId) as $form) {
             foreach (FieldBlocks::requests($form->post_content, $contributions) as ['key' => $key, 'set' => $set]) {
-                if ($set !== null && !in_array($key, $skipped, true)) {
+                if (!in_array($key, $skipped, true)) {
                     $ties[$set . ' ' . $key] = [$set, $key];
                 }
             }

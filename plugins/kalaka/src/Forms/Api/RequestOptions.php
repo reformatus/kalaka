@@ -9,7 +9,7 @@ namespace Kalaka\Forms\Api;
  * set's options in their order, each `{value, label}` with its `condition` in the one format when it has
  * one, and the set's choice window. Outside the window the field does not show and writes nothing (S44, C3).
  *
- * [UNAPPROVED N4] the shape the host hands the engine.
+ * The shape the host hands the engine.
  */
 final readonly class RequestOptions
 {

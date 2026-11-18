@@ -99,10 +99,12 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   - **request** (e.g. IVK's modules): the participant writes a request (a
     field value; the ranking field type comes from the `kalaka-ranking`
     extension), which an additional form holding it can change while the
-    window is open. The request field's block names its set, and its options
-    are the set's; the participant field it declares becomes the set's one
-    **request field**, recorded on the set, and a second, different field
-    naming the same set is refused on save. The request is locked at close;
+    window is open. The request field's block either names its set, and its
+    options are then the set's, or names none and holds its own options; the
+    author picks one per block. The participant field a block that names a
+    set declares becomes the set's one **request field**, recorded on the
+    set, and a second, different field naming the same set is refused on
+    save. The request is locked at close;
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
@@ -110,7 +112,9 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
     into the report;
   - **none** (talk groups, rooms, meal turns): staff place people, or a
     proposer proposes and staff confirm; shown once published.
-  - Staff can place or override in every mode.
+  - Staff can place or override in every mode. Staff are warned first when
+    the option is full or the registration does not meet its conditions; the
+    warning never stops the placing.
 - **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
   set **computed from another set through an option map**, never stored,
   unless staff placed someone by hand, which is stored as a fact;

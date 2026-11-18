@@ -16,7 +16,7 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * Staff place a registration into an option of a set by hand, or override its assignment
  * (modules-and-extensions.md, "Assignment sets": staff can place or override in every mode). The fact is
- * written confirmed, with the source `staff` ([UNAPPROVED N5]), replacing whatever the registration held
+ * written confirmed, with the source `staff`, replacing whatever the registration held
  * in that set. Staff override: neither the option's capacity nor its eligibility is checked. The
  * registration row is locked first; the option must be one of the set's, and the set the registration's
  * event's.
@@ -51,7 +51,7 @@ final class PlaceRegistration implements AdminUseCase
         ];
     }
 
-    /** [UNAPPROVED N5] the per-event action a grant would carry (grants are S36's). */
+    /** The per-event action a grant would carry (grants are S36's). */
     public function action(): string
     {
         return 'place-assignment';

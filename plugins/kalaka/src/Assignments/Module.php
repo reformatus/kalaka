@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Module\Schema;
 final class Module extends AbstractModule
 {
     /**
-     * [UNAPPROVED N1] modules-and-extensions.md, "Assignment sets": one row per set of an event. The window's
+     * See modules-and-extensions.md, "Assignment sets": one row per set of an event. The window's
      * ends are UTC `datetime(6)`; `request_field_key` is the set's one request field (S44-1), `utf8mb4_nopad_bin` like
      * every field key.
      */
@@ -37,7 +37,7 @@ SQL;
     /**
      * One row per option of a set, keyed by set and option key (`utf8mb4_nopad_bin`, compared exactly).
      * `eligibility` is the option's condition in the one format, as JSON (a `longtext` like the audit's
-     * JSON; `condition` is a reserved word); null when everybody is eligible. [UNAPPROVED N2] Options show by
+     * JSON; `condition` is a reserved word); null when everybody is eligible. Options show by
      * `position`, then key.
      */
     private const OPTIONS = <<<'SQL'

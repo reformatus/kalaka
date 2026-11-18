@@ -8,6 +8,7 @@ use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\KeyDerivation;
+use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
@@ -20,12 +21,15 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * Stored as that list in JSON, like a multiple choice; for a condition it is a choice value (the order
  * is not compared), and its text numbers the option labels.
  *
- * The block names its assignment set (`set`, S44-1) and its options are the set's: core fills the block's
- * `options` attribute from the set (`RequestFieldType`), each `{value, label}` with its eligibility
- * condition, and offers only the options whose condition holds for the answers before it (S76). The field
- * the block declares is the set's one request field.
+ * The `set` attribute decides where its options come from (the owner's ruling, 2026-11-18). A block that
+ * names a set (S44-1) has the set's options: core fills the block's `options` attribute from the set
+ * (`RequestFieldType`), each `{value, label}` with its eligibility condition, and offers only the options
+ * whose condition holds for the answers before it (S76); the field it declares is the set's one request
+ * field. A block with no `set` holds its own list of `{value, label}` in `options`, every option offered, and
+ * is an `OptionsFieldType` there: core derives a missing option key on save and the definition check refuses
+ * a block without a valid option, as for a choice.
  */
-final class RankingFieldType extends AbstractFieldType implements RequestFieldType
+final class RankingFieldType extends AbstractFieldType implements RequestFieldType, OptionsFieldType
 {
     public const BLOCK_NAME = 'kalaka/ranking-field';
 
@@ -78,12 +82,15 @@ final class RankingFieldType extends AbstractFieldType implements RequestFieldTy
         return self::BLOCK_NAME;
     }
 
-    /** The set the block names: its `set` attribute, a positive ID. */
+    /**
+     * The set the block names: its `set` attribute, an integer; none (own options) when the attribute is absent.
+     * 0 is "a set, none chosen yet": a problem on save.
+     */
     public function requestSet(array $attributes): ?int
     {
         $set = $attributes['set'] ?? null;
 
-        return is_int($set) && $set > 0 ? $set : null;
+        return is_int($set) ? $set : null;
     }
 
     /**

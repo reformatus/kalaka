@@ -155,14 +155,17 @@ final class RankingSetTest extends FormsTestCase
         return $this->forms->availability($definition, $answers, $this->facts())->offeredOptions('modulok');
     }
 
-    public function testTheBlockNamesItsSetAndHoldsNoOptions(): void
+    public function testTheSetAttributeDecidesTheMode(): void
     {
         $block = \WP_Block_Type_Registry::get_instance()->get_registered(RankingFieldType::BLOCK_NAME);
         self::assertInstanceOf(\WP_Block_Type::class, $block);
         self::assertSame('integer', $block->attributes['set']['type'] ?? null);
-        self::assertArrayNotHasKey('options', $block->attributes);
+        self::assertArrayHasKey('options', $block->attributes);
         self::assertSame(5, (new RankingFieldType())->requestSet(['set' => 5]));
+        // 0 is a set, none chosen yet; no attribute (a block of the own-options days) is own options.
+        self::assertSame(0, (new RankingFieldType())->requestSet(['set' => 0]));
         self::assertNull((new RankingFieldType())->requestSet(['set' => '5']));
+        self::assertNull((new RankingFieldType())->requestSet(['set' => null]));
         self::assertNull((new RankingFieldType())->requestSet([]));
     }
 
@@ -297,11 +300,12 @@ final class RankingSetTest extends FormsTestCase
         );
     }
 
-    public function testARankingNamingNoSetOrAnotherEventsSetIsRefused(): void
+    public function testARankingWithNoSetChosenOrAnotherEventsSetIsRefused(): void
     {
         $content = $this->slotFields() . $this->track() . $this->block(RankingFieldType::BLOCK_NAME, [
             'key' => 'modulok',
             'label' => 'Modulok',
+            'set' => 0,
         ]);
         self::assertSame(
             [SharedKeyCheck::UNKNOWN_SET, 'modulok'],

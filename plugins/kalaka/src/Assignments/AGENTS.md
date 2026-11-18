@@ -30,8 +30,12 @@ mode (S65) and the screens (S72/S48) come later.
   (`Registrations\Api\Registrations::lock()`); the assignment rows sit after it
   (`LockLevel::Other`).
 - Staff placing (`kalaka/place-registration`) writes a confirmed `staff` fact,
-  replacing what the registration held in that set; it checks neither
-  capacity nor eligibility. The option must be the set's and the set the
+  replacing what the registration held in that set; neither capacity nor
+  eligibility stops it (staff override), but staff are warned first
+  (`Api\AssignmentSets::placementWarnings()`, a plain read): the option is
+  full (the confirmed assignments to it, not counting the registration's own,
+  have reached its capacity), or the registration does not meet its
+  condition. The option must be the set's and the set the
   registration's event's.
 - An option's eligibility is one condition in the one format, decided only
   through `Forms\Api\Availability` (an option is a `Forms\Api\Conditional`);

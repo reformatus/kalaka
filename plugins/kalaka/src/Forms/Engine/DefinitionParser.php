@@ -366,8 +366,10 @@ final class DefinitionParser
             }
         }
         $type = $contributions->fieldTypes()[$name] ?? null;
-        // A block that holds options (a choice's, or any `OptionsFieldType`'s) needs valid ones, none repeated.
-        if ($type instanceof OptionsFieldType && ChoiceFieldType::optionValues($attributes) === null) {
+        // A block that holds options (a choice's, or any `OptionsFieldType`'s) needs valid ones, none repeated; a
+        // request field that names a set holds the set's instead.
+        $namesSet = $type instanceof RequestFieldType && $type->requestSet($attributes) !== null;
+        if ($type instanceof OptionsFieldType && !$namesSet && ChoiceFieldType::optionValues($attributes) === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('invalid_options ' . $key);
         }
@@ -390,7 +392,8 @@ final class DefinitionParser
 
     /**
      * A request field's attributes with its set's options in `options`, and whether the set's choice window is
-     * closed now (S44, [UNAPPROVED N6]). A field naming no set, or a set the host does not have, is a problem.
+     * closed now (S44). A field naming a set the host does not have is a problem; one naming none keeps its own
+     * options.
      *
      * @param array<string, mixed> $attributes
      * @return array{array<string, mixed>, bool}
@@ -399,7 +402,11 @@ final class DefinitionParser
     private function requestAttributes(RequestFieldType $type, string $key, array $attributes): array
     {
         $setId = $type->requestSet($attributes);
-        $options = $setId === null || $this->host === null || $this->form === null
+        if ($setId === null) {
+            // It names no set: its options are its own, as authored.
+            return [$attributes, false];
+        }
+        $options = $this->host === null || $this->form === null
             ? null
             : $this->host->requestOptions($this->form, $setId);
         if ($options === null) {

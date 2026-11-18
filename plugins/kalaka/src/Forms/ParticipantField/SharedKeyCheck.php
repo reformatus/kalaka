@@ -19,10 +19,10 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * (owner ruling 2026-11-13). First of all, no
  * two blocks of one form hold the same key (`duplicate_key`), whatever the form's status.
  *
- * A request field (`Api\RequestFieldType`, S44-1) names one request-mode set of the form's event
- * (`unknown_set`), and a set has one request field: a field naming a set whose request field is another
- * key, two fields of the form naming one set, or a field that is already another set's request field
- * (`request_field_taken`). [UNAPPROVED N7] Run on every save and on every read of a live form's definition,
+ * A request field (`Api\RequestFieldType`, S44-1; a block that names no set is none) names one request-mode
+ * set of the form's event (`unknown_set`), and a set has one request field: a field naming a set whose
+ * request field is another key, two fields of the form naming one set, or a field that is already another
+ * set's request field (`request_field_taken`). Run on every save and on every read of a live form's definition,
  * so a form written around it stays closed.
  */
 final class SharedKeyCheck
@@ -98,7 +98,7 @@ final class SharedKeyCheck
         }
         $named = [];
         foreach ($requests as ['key' => $key, 'set' => $setId]) {
-            $set = $setId === null ? null : ($sets[$setId] ?? null);
+            $set = $sets[$setId] ?? null;
             if ($set === null) {
                 return [self::UNKNOWN_SET, $key];
             }

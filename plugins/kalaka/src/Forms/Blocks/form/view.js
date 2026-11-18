@@ -62,7 +62,6 @@ const forms = new WeakMap();
 /**
  * The event a re-rendered field's new wrapper gets once it is in place, with the values it was ticked with
  * (`detail.chosen`, in the order they were ticked in or held), for a field type's own script.
- * [UNAPPROVED N10]
  */
 export const SWAPPED = 'kalaka:field-swapped';
 

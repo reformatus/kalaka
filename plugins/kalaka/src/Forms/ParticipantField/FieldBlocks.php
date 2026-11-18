@@ -36,9 +36,9 @@ final class FieldBlocks
 
     /**
      * The request fields of the content (`Api\RequestFieldType`) with a valid key, in document order: each
-     * key with the set its block names (null when it names none).
+     * key with the set its block names; a block that names none (its own options) is no request field.
      *
-     * @return list<array{key: string, set: ?int}>
+     * @return list<array{key: string, set: int}>
      */
     public static function requests(string $content, Contributions $contributions): array
     {
@@ -55,7 +55,7 @@ final class FieldBlocks
     /**
      * @param array<array<string, mixed>> $blocks
      * @param array<string, \Kalaka\Forms\Api\FieldType> $fieldTypes
-     * @param list<array{key: string, set: ?int}> $requests
+     * @param list<array{key: string, set: int}> $requests
      */
     private static function collectRequests(array $blocks, array $fieldTypes, array &$requests): void
     {
@@ -66,8 +66,9 @@ final class FieldBlocks
                 /** @var array<string, mixed> $attributes */
                 $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
                 $key = $attributes['key'] ?? null;
-                if (is_string($key) && preg_match(KeyDerivation::KEY_PATTERN, $key) === 1) {
-                    $requests[] = ['key' => $key, 'set' => $type->requestSet($attributes)];
+                $set = $type->requestSet($attributes);
+                if ($set !== null && is_string($key) && preg_match(KeyDerivation::KEY_PATTERN, $key) === 1) {
+                    $requests[] = ['key' => $key, 'set' => $set];
                 }
             }
             if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {

@@ -1,8 +1,12 @@
 /**
- * The ranking field in the editor: its title, its set's options as a static list of checkboxes, and its
- * settings (required, the fewest and the most options a ranking holds, and the assignment set it names,
- * S44-1). The options are the set's (configured outside the editor until S72/S48); the canvas lists them
- * all, whatever their conditions. Labels shown here are proposed text, not yet approved by the owner.
+ * The ranking field in the editor: its title, its options as a static list of checkboxes, and its settings
+ * (required, the fewest and the most options a ranking holds, and where the options come from). The author
+ * picks the source (the owner's ruling, 2026-11-18): the block's own options, edited by core's options editor
+ * (the choice's own: a label each; the form editor derives a key from it on save, shown in the key panel); or an
+ * assignment set (S44-1), whose options are
+ * configured outside the editor until S72/S48 and which the canvas lists all, whatever their conditions. One
+ * attribute decides: `set`, absent for own options, a number for a set (0 until one is chosen). Switching
+ * keeps what the other source held. The texts of the source choice are proposed, not yet approved by the owner.
  *
  * Like every core field block, it is built from core's field-editor pieces (`window.kalakaFieldEditor`, set by
  * the form editor's script, which `block.json` loads first): the one keeper of keys, so a copied ranking gets a
@@ -13,7 +17,7 @@ import apiFetch from '@wordpress/api-fetch';
 import { useBlockProps } from '@wordpress/block-editor';
 import { PanelBody, SelectControl, TextControl } from '@wordpress/components';
 import { useSelect } from '@wordpress/data';
-import { createElement as el, useEffect, useState } from '@wordpress/element';
+import { createElement as el, Fragment, useEffect, useState } from '@wordpress/element';
 
 /** Core's field-editor pieces, read when the editor renders (`Blocks/form/index.js` in core). */
 const core = () => window.kalakaFieldEditor;
@@ -36,10 +40,14 @@ function Count({ label, value, fallback, onChange }) {
 }
 
 /**
- * [UNAPPROVED N8, N9] The texts of the set picker (S44-1), proposed and not yet approved by the owner.
+ * The texts of the set picker (S44-1), approved by the owner; and of the source choice (`source`, `own`,
+ * `fromSet`), [UNAPPROVED N14]: proposed and not yet approved by the owner.
  */
 export const TEXT = {
 	panel: 'Lehetőségek',
+	source: 'Lehetőségek forrása',
+	own: 'Saját lehetőségek',
+	fromSet: 'Beosztás',
 	select: 'Beosztás',
 	choose: 'Válassz beosztást',
 	loading: 'A beosztások betöltése…',
@@ -79,7 +87,7 @@ function useSets(eventId) {
 }
 
 /** The set picker: the event's sets by name; choosing one names it in the block's `set`. */
-function SetPicker({ sets, value, setAttributes }) {
+export function SetPicker({ sets, value, setAttributes }) {
 	let help = null;
 	if (sets.state === 'loading') {
 		help = TEXT.loading;
@@ -93,16 +101,51 @@ function SetPicker({ sets, value, setAttributes }) {
 		{ title: TEXT.panel },
 		el(SelectControl, {
 			label: TEXT.select,
-			value: value === undefined ? '' : String(value),
+			value: value > 0 ? String(value) : '',
 			options: [
 				{ label: TEXT.choose, value: '' },
 				...sets.list.map((set) => ({ label: set.name, value: String(set.id) })),
 			],
-			onChange: (chosen) => setAttributes({ set: chosen === '' ? undefined : Number(chosen) }),
+			// Clearing the choice keeps the set mode, with no set chosen yet.
+			onChange: (chosen) => setAttributes({ set: chosen === '' ? 0 : Number(chosen) }),
 			help,
 			__next40pxDefaultSize: true,
 			__nextHasNoMarginBottom: true,
 		})
+	);
+}
+
+/**
+ * The options' source: the own options, or a set. `set` absent is own options, so a block saved before sets
+ * existed reads as that, with no migration. Switching changes only `set`: the other source's options stay.
+ * The own options are edited by core's options editor (`window.kalakaFieldEditor.Options`, the choice's own).
+ */
+export function Source({ sets, attributes, setAttributes, commit }) {
+	const bySet = Number.isInteger(attributes.set);
+	const options = Array.isArray(attributes.options) ? attributes.options : [];
+	const { Options } = core();
+	return el(
+		Fragment,
+		null,
+		el(
+			PanelBody,
+			{ title: TEXT.source },
+			el(SelectControl, {
+				label: TEXT.source,
+				hideLabelFromVision: true,
+				value: bySet ? 'set' : 'own',
+				options: [
+					{ label: TEXT.own, value: 'own' },
+					{ label: TEXT.fromSet, value: 'set' },
+				],
+				onChange: (mode) => setAttributes({ set: mode === 'set' ? 0 : undefined }),
+				__next40pxDefaultSize: true,
+				__nextHasNoMarginBottom: true,
+			})
+		),
+		bySet
+			? el(SetPicker, { sets, value: attributes.set, setAttributes })
+			: el(Options, { options, setAttributes, commit })
 	);
 }
 
@@ -112,8 +155,10 @@ export default function Edit({ name, attributes, setAttributes, clientId, isSele
 	// A marker and a red side rule when the server would refuse its participant field.
 	const canvas = useFieldCanvas(name, clientId, attributes);
 	const sets = useSets(useEventId());
-	const chosen = sets.list.find((set) => set.id === attributes.set);
-	const options = Array.isArray(chosen?.options) ? chosen.options : [];
+	const bySet = Number.isInteger(attributes.set);
+	const chosen = bySet ? sets.list.find((set) => set.id === attributes.set) : undefined;
+	const own = Array.isArray(attributes.options) ? attributes.options : [];
+	const options = bySet ? (Array.isArray(chosen?.options) ? chosen.options : []) : own;
 	return el(
 		'div',
 		useBlockProps(canvas.props),
@@ -143,24 +188,26 @@ export default function Edit({ name, attributes, setAttributes, clientId, isSele
 					}),
 				],
 			},
-			el(SetPicker, { sets, value: attributes.set, setAttributes })
+			el(Source, { sets, attributes, setAttributes, commit })
 		),
 		el(FieldTitle, { name, attributes, setAttributes, required: attributes.required === true, onBlur: commit }),
-		chosen === undefined
+		bySet && chosen === undefined
 			? el('p', { className: 'kalaka-editor-control' }, TEXT.noSet)
 			: el(
 					'ul',
 					null,
-					options.map((option) =>
+					options.map((option, index) =>
 						el(
 							'li',
-							{ key: option.value },
+							{ key: bySet ? option.value : index },
 							el(
 								'label',
 								null,
 								preview('input', { type: 'checkbox' }),
 								' ',
-								option.label
+								(option?.label ?? '') !== ''
+									? option.label
+									: el('span', { className: 'kalaka-editor-control' }, `${index + 1}. lehetőség`)
 							)
 						)
 					)

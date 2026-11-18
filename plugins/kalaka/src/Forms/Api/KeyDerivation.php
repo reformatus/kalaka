@@ -11,7 +11,7 @@ namespace Kalaka\Forms\Api;
  * letter (leading digits are dropped); a value may start with a digit. With no usable text, a key falls
  * back to the field type's name and a value to `option`.
  *
- * [UNAPPROVED N3] In `Forms\Api`, so Assignments derives a set option's key by the same rules.
+ * In `Forms\Api`, so Assignments derives a set option's key by the same rules.
  */
 final class KeyDerivation
 {

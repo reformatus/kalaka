@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Assignments\Cli;
 
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Assignments\PlaceRegistration;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * Places registrations into assignment sets by hand, until the staff screens (S72/S48).
@@ -21,7 +23,8 @@ final class AssignmentCommand
      *
      * Runs kalaka/place-registration as the global --user (without --user the CLI has full access). The
      * assignment is written confirmed, with the source staff, whatever the registration held in that set;
-     * neither the option's capacity nor its eligibility is checked.
+     * neither the option's capacity nor its eligibility stops it (staff override), but a warning is printed first
+     * when the option is full or the registration does not meet its condition.
      *
      * ## OPTIONS
      *
@@ -43,6 +46,16 @@ final class AssignmentCommand
     public function place(array $args, array $assoc): void
     {
         Boundary::cli(static function () use ($args): void {
+            // Staff override: the placing goes ahead, but they are told first when the option is full or the
+            // registration does not meet its condition.
+            $warnings = (new AssignmentSets())->placementWarnings(
+                new RegistrationKey((int) $args[0], $args[1]),
+                (int) $args[2],
+                $args[3]
+            );
+            foreach ($warnings as $warning) {
+                \WP_CLI::warning($warning);
+            }
             Runner::current()->run(new PlaceRegistration(), [
                 'event_id' => (int) $args[0],
                 'code' => $args[1],

@@ -2,14 +2,21 @@
  * The ranking field in the editor (`Blocks/ranking-field/edit.js`): it is built from core's field-editor pieces
  * (`window.kalakaFieldEditor`), so the form editor's one keeper of keys gives a copied ranking a fresh key.
  */
-import { createKeeper } from '../../../kalaka/src/Forms/Blocks/form/keys';
-import Edit from '../../src/Ranking/Blocks/ranking-field/edit';
+import { createKeeper, missing } from '../../../kalaka/src/Forms/Blocks/form/keys';
+import Edit, { SetPicker, Source, TEXT } from '../../src/Ranking/Blocks/ranking-field/edit';
 
 // The block editor's packages are not installed for Jest: the ranking's editor uses only these of them.
 jest.mock('@wordpress/block-editor', () => ({ useBlockProps: (props = {}) => props }), { virtual: true });
 jest.mock(
 	'@wordpress/components',
-	() => ({ PanelBody: 'PanelBody', SelectControl: 'SelectControl', TextControl: 'TextControl' }),
+	() => ({
+		Button: 'Button',
+		Flex: 'Flex',
+		FlexBlock: 'FlexBlock',
+		PanelBody: 'PanelBody',
+		SelectControl: 'SelectControl',
+		TextControl: 'TextControl',
+	}),
 	{ virtual: true }
 );
 jest.mock('@wordpress/api-fetch', () => () => new Promise(() => {}), { virtual: true });
@@ -61,6 +68,34 @@ describe('a copied ranking', () => {
 		expect(store.getBlockAttributes('a').key).toBe('modulok');
 		expect(store.getBlockAttributes('copy')).toEqual({ key: 'modulok_1', label: 'Modulok', set: 1 });
 	});
+
+	test('with its own options: they get fresh keys from their labels, the original keeps its own', () => {
+		const options = [
+			{ label: 'Modul A', value: 'quiz_1' },
+			{ label: 'Modul B', value: 'modul_b' },
+		];
+		const store = editor([ranking('a', { key: 'modulok', label: 'Modulok', options })]);
+		const keeper = createKeeper();
+		store.update('a', keeper.mount(store, 'a'));
+
+		store.insert(ranking('copy', { ...store.getBlockAttributes('a') }), 1);
+		store.update('copy', keeper.mount(store, 'copy'));
+
+		expect(store.getBlockAttributes('a').key).toBe('modulok');
+		expect(store.getBlockAttributes('copy').key).toBe('modulok_1');
+		// Core's rule for a copy's options: their values are derived again from the labels, a typed one too.
+		expect(store.getBlockAttributes('a').options).toEqual(options);
+		expect(store.getBlockAttributes('copy').options).toEqual([
+			{ label: 'Modul A', value: 'modul_a' },
+			{ label: 'Modul B', value: 'modul_b' },
+		]);
+	});
+
+	test('an own option without a key gets one from its label when the label loses focus', () => {
+		const store = editor([ranking('a', { key: 'modulok', label: 'Modulok', options: [{ label: 'Modul Á' }] })]);
+
+		expect(missing(store, 'a')).toEqual({ options: [{ label: 'Modul Á', value: 'modul_a' }] });
+	});
 });
 
 describe('the ranking’s editor uses core’s field-editor pieces', () => {
@@ -68,6 +103,7 @@ describe('the ranking’s editor uses core’s field-editor pieces', () => {
 	const pieces = {
 		FieldInspector: 'FieldInspector',
 		FieldTitle: 'FieldTitle',
+		Options: function Options() {},
 		preview: (tag, props) => ({ type: tag, props: { ...props, disabled: true } }),
 		REQUIRED: ['required', 'Kötelező'],
 		useFieldCanvas: jest.fn(() => ({ props: { className: 'has-kalaka-problem' }, marker: 'marker' })),
@@ -105,9 +141,62 @@ describe('the ranking’s editor uses core’s field-editor pieces', () => {
 			'Legkevesebb választás',
 			'Legtöbb választás',
 		]);
-		// The set picker, after the settings.
-		expect(inspector.props.children.props).toMatchObject({ value: 1 });
+		// The source of the options, after the settings: a set here.
+		expect(inspector.props.children.type).toBe(Source);
+		expect(inspector.props.children.props).toMatchObject({ attributes, commit });
 		const [title] = find(tree, 'FieldTitle');
 		expect(title.props).toMatchObject({ name: RANKING, required: true, onBlur: commit });
+	});
+
+	/** What the source panel shows: its mode control and the control under it. */
+	const panel = (attributes, setAttributes = jest.fn()) => {
+		const tree = Source({ sets: { state: 'ready', list: [] }, attributes, setAttributes, commit });
+		const [header, under] = tree.props.children;
+		return { mode: header.props.children, under, setAttributes };
+	};
+
+	test('a block with no set attribute (an own-options block of #187) reads as own options, with no migration', () => {
+		const { mode, under } = panel({ key: 'modulok', options: [{ label: 'Modul A', value: 'modul_a' }] });
+
+		expect(mode.props.value).toBe('own');
+		expect(mode.props.label).toBe(TEXT.source);
+		// Core's options editor, the choice's own, edits them: no copy of it here.
+		expect(under.type).toBe(pieces.Options);
+		expect(under.props).toMatchObject({ options: [{ label: 'Modul A', value: 'modul_a' }], commit });
+		expect(under.props.sets).toBeUndefined();
+	});
+
+	test('a block with a set attribute, even 0, is in set mode and offers the picker', () => {
+		for (const set of [0, 7]) {
+			const { mode, under } = panel({ key: 'modulok', set, options: [{ label: 'Régi', value: 'regi' }] });
+			expect(mode.props.value).toBe('set');
+			expect(under.props.sets).toBeDefined();
+			expect(under.type).toBe(SetPicker);
+			expect(SetPicker(under.props).props.children.props.value).toBe(set > 0 ? String(set) : '');
+		}
+	});
+
+	test('switching the mode changes only the set attribute: own options stay when a set is picked', () => {
+		const { mode, setAttributes } = panel({ key: 'modulok', options: [{ label: 'Modul A', value: 'modul_a' }] });
+
+		mode.props.onChange('set');
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 0 });
+
+		const back = panel({ key: 'modulok', set: 7, options: [{ label: 'Modul A', value: 'modul_a' }] });
+		back.mode.props.onChange('own');
+		expect(back.setAttributes).toHaveBeenLastCalledWith({ set: undefined });
+		// The own options were never touched: the back switch hands the same list to the options editor.
+		expect(back.setAttributes).not.toHaveBeenCalledWith(expect.objectContaining({ options: expect.anything() }));
+		expect(back.mode.props.options.map((option) => option.label)).toEqual([TEXT.own, TEXT.fromSet]);
+	});
+
+	test('clearing the set choice stays in set mode with no set chosen', () => {
+		const { under, setAttributes } = panel({ key: 'modulok', set: 7 });
+
+		const select = SetPicker(under.props).props.children;
+		select.props.onChange('');
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 0 });
+		select.props.onChange('9');
+		expect(setAttributes).toHaveBeenLastCalledWith({ set: 9 });
 	});
 });

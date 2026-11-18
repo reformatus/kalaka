@@ -89,7 +89,7 @@ final class Availability
     /**
      * Checks a set option's condition where a live form holds the set's request field, as that form's
      * definition would parse it: it may read only the fields before the request field and the host's keys.
-     * Pure, so a use case runs it inside its transaction on scopes read before it (S44, [UNAPPROVED N11]).
+     * Pure, so a use case runs it inside its transaction on scopes read before it (S44).
      *
      * @param array<array-key, mixed> $condition
      * @throws SystemFailure the problem the form's definition would have

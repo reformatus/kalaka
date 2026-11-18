@@ -236,6 +236,55 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame('modul_b', $this->sets->assignment($key, $set)?->optionKey);
     }
 
+    public function testStaffAreWarnedBeforePlacingIntoAFullOptionOrOneTheRegistrationDoesNotMeet(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'PRO', self::trackIs('pro'), ['capacity' => 5]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $second = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($first, $second);
+        $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings(
+            $key,
+            $set,
+            $option
+        );
+
+        // Nobody holds Modul A yet: nothing to warn about, and a registration's own place never makes it full.
+        self::assertSame([], $warn($second, 'modul_a'));
+        $this->place($first, $set, 'modul_a');
+        self::assertSame([], $warn($first, 'modul_a'));
+        // Another registration would exceed the capacity of one.
+        self::assertSame(
+            ['Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, túllépi a létszámkeretet.'],
+            $warn($second, 'modul_a')
+        );
+
+        // PRO is open to the PRO track only: no track at all, and another one, do not meet it; PRO does.
+        $this->setTrack($second, null);
+        self::assertSame(['A jelentkező nem felel meg a lehetőség feltételeinek.'], $warn($second, 'pro'));
+        $this->setTrack($second, 'ifivezeto');
+        self::assertSame(['A jelentkező nem felel meg a lehetőség feltételeinek.'], $warn($second, 'pro'));
+        $this->setTrack($second, 'pro');
+        self::assertSame([], $warn($second, 'pro'));
+
+        // Warnings never stop the placing (staff override), and an unknown option has none.
+        $this->place($second, $set, 'modul_a');
+        self::assertSame('modul_a', $this->sets->assignment($second, $set)?->optionKey);
+        self::assertSame([], $warn($second, 'nincs'));
+    }
+
+    private function setTrack(RegistrationKey $key, ?string $track): void
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'kalaka_field_values';
+        $row = ['event_id' => $key->eventId, 'code' => $key->code, 'field_key' => 'szolgalati_terulet'];
+        $wpdb->delete($table, $row);
+        if ($track !== null) {
+            $wpdb->insert($table, $row + ['version' => 1, 'value' => $track]);
+        }
+    }
+
     public function testAnOptionOfAnotherSetIsRefused(): void
     {
         $set = $this->newSet();

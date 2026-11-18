@@ -25,8 +25,8 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * unique within the set); a key never changes. The eligibility condition is in the one condition format and is
  * checked when saved (`Availability::check()`) against what a fact source of the event declares: the event's
  * participant fields that are not retired, with their types, and the event's keys (`EventValues`), and against
- * every published form that holds the set's request field, as that form would read it ([UNAPPROVED N11];
- * `LiveFormWouldBreak`). A site-level use case, like `kalaka/save-assignment-set`.
+ * every published form that holds the set's request field, as that form would read it
+ * (`LiveFormWouldBreak`). A site-level use case, like `kalaka/save-assignment-set`.
  */
 final class SaveAssignmentOption implements AdminUseCase
 {
@@ -153,8 +153,8 @@ final class SaveAssignmentOption implements AdminUseCase
     }
 
     /**
-     * Refuses a condition that a published form holding the set's request field could not read there
-     * ([UNAPPROVED N11]): the form would break, so the save is refused and the form stays as it was.
+     * Refuses a condition that a published form holding the set's request field could not read there:
+     * the form would break, so the save is refused and the form stays as it was.
      *
      * @param array<array-key, mixed> $condition
      * @throws LiveFormWouldBreak

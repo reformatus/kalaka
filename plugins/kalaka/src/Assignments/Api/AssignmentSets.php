@@ -7,6 +7,7 @@ namespace Kalaka\Assignments\Api;
 use Kalaka\Assignments\AssignmentRepository;
 use Kalaka\Assignments\OptionRecord;
 use Kalaka\Assignments\OptionRepository;
+use Kalaka\Assignments\PlacementWarnings;
 use Kalaka\Assignments\SaveAssignmentOption;
 use Kalaka\Assignments\SaveAssignmentSet;
 use Kalaka\Assignments\SetRecord;
@@ -62,6 +63,18 @@ final class AssignmentSets
     }
 
     /**
+     * What staff are told before placing the registration into the option by hand: the option is full, or the
+     * registration does not meet its condition (`Assignments\PlacementWarnings`). Placing never refuses for
+     * either; a plain read for a screen or the command to ask first.
+     *
+     * @return list<string> the warnings' texts, none when there is nothing to warn about
+     */
+    public function placementWarnings(RegistrationKey $registration, int $setId, string $optionKey): array
+    {
+        return (new PlacementWarnings())->of($registration, $setId, $optionKey);
+    }
+
+    /**
      * Creates or updates a set (`kalaka/save-assignment-set`); the input is passed on as given.
      *
      * @param array<string, mixed> $input
@@ -76,7 +89,7 @@ final class AssignmentSets
     /**
      * Adds or updates an option of a set (`kalaka/save-assignment-option`); the input is passed on as given.
      * Where the published forms of the set's event hold its request field is read first and passed in, so the
-     * use case refuses a condition that would break one (`LiveFormWouldBreak`, [UNAPPROVED N11]).
+     * use case refuses a condition that would break one (`LiveFormWouldBreak`).
      *
      * @param array<string, mixed> $input
      * @return string the option's key

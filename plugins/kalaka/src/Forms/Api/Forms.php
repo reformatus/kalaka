@@ -63,7 +63,7 @@ final class Forms
      * set's options may read there (`RequestScope`): the fields before it and the host's keys. Each form is
      * parsed with the set's options stripped of their conditions, so the read does not depend on them; a
      * form broken for another reason is already closed and is left out. Reads WordPress posts: before a use
-     * case's transaction (S44, [UNAPPROVED N11]).
+     * case's transaction (S44).
      *
      * @return list<RequestScope>
      */
