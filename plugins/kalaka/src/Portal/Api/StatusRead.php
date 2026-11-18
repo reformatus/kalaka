@@ -134,7 +134,9 @@ final class StatusRead
         }
 
         $due = $held ? null : $event->paymentDue($registration->registeredAt);
-        $overdue = !$confirmed && !$held && $due !== null && $now >= $due;
+        // Overdue only while something is still payable, the same rule as the deadline line (SB-3).
+        $owes = $participant->balance->roundedUpToPayableUnit()->isPositive();
+        $overdue = $owes && !$confirmed && !$held && $due !== null && $now >= $due;
 
         return new PaymentView($participant, $lines, $others, $held, $due, $overdue);
     }
