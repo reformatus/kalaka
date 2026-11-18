@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
@@ -61,15 +62,13 @@ final class MailValues
     }
 
     /**
-     * Whether a body reads the set-password link: an inline value or a `kalaka/value` binding naming
-     * `account.password_link`. The save check of the "Jelentkezés rögzítve" mail asks it (S15).
+     * Whether a body places the set-password link: an inline value or a `kalaka/value` binding naming
+     * `account.password_link`, as the engine's value walk finds them (a condition naming it is not a value).
+     * The save check of the "Jelentkezés rögzítve" mail asks it (S15).
      */
     public static function readsPasswordLink(string $content): bool
     {
-        $key = preg_quote(self::ACCOUNT_PASSWORD_LINK, '/');
-
-        return preg_match('/data-kalaka-value=(["\'])' . $key . '\1/', $content) === 1
-            || preg_match('/"key"\s*:\s*"' . $key . '"/', $content) === 1;
+        return in_array(self::ACCOUNT_PASSWORD_LINK, (new Values())->placedKeys($content), true);
     }
 
     /**

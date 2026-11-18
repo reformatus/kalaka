@@ -261,4 +261,38 @@ describe('an ended session', () => {
 		expect(JSON.parse(sends[1].options.body).answers.name).toBe('Teszt Anna');
 		expect(root()).toBeNull();
 	});
+
+	test('a retry waiting for the ended session\'s login survives its link, but a fresh login from the block drops it', async () => {
+		const refused = { code: 'kalaka_session_ended', message: 'Lépj be újra.', data: { status: 401 } };
+		let calls = server({ refused });
+		await load(form(block() + text('name'), { account, nonce: 'old0000000', logIn: 'Bejelentkezés' }));
+		type(root(), 'name', 'Teszt Anna');
+		submit(root());
+		await settle();
+
+		// The window was abandoned; the person logs in from the block's button instead.
+		document.querySelector('[data-kalaka-account-login]').click();
+		message();
+		await settle();
+		await settle();
+		await settle();
+
+		expect(calls.filter((call) => call.url.endsWith('/submit'))).toHaveLength(1);
+		expect(root()).not.toBeNull();
+
+		// The ended session's own link keeps the retry.
+		calls = server({ refused });
+		document.body.innerHTML = '';
+		await load(form(block() + text('name'), { account, nonce: 'old0000000', logIn: 'Bejelentkezés' }));
+		type(root(), 'name', 'Teszt Anna');
+		submit(root());
+		await settle();
+		alert().querySelector('a').click();
+		message();
+		await settle();
+		await settle();
+		await settle();
+
+		expect(calls.filter((call) => call.url.endsWith('/submit'))).toHaveLength(2);
+	});
 });

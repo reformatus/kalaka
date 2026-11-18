@@ -89,11 +89,11 @@ final class RegistrationSubmit
         }
         $definition = $this->forms->latestDefinition($form, $request->version);
         $runner = $this->runner ?? Runner::current();
-        $account = null;
 
         for ($attempt = 1;; $attempt++) {
             $event = $this->events->find($form->eventId) ?? throw new NotFound();
-            $account ??= $this->accountOutcome($event, $actor);
+            // Decided on every attempt: a retry reads the event again, and its account mode may have changed.
+            $account = $this->accountOutcome($event, $actor);
             // `account.logged_in`: an account submits a registration form of an event with accounts.
             $loggedIn = $actor instanceof AccountActor && $event->accountMode !== AccountMode::Off;
             $answers = $this->forms->validate(

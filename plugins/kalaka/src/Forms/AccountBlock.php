@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
-use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
@@ -53,12 +52,11 @@ final class AccountBlock
      */
     public static function offered(?FormPlacement $placement, ?int $eventId): bool
     {
-        if ($placement === FormPlacement::Additional) {
-            return false;
-        }
         $event = $eventId === null ? null : (new Events())->find($eventId);
 
-        return $event === null || $event->accountMode !== AccountMode::Off;
+        return $event === null
+            ? $placement !== FormPlacement::Additional
+            : EventFormHost::stepFor($placement ?? FormPlacement::Registration, $event->accountMode) !== null;
     }
 
     /**
@@ -69,11 +67,12 @@ final class AccountBlock
      */
     public static function problem(FormDefinition $definition, FormPlacement $placement, ?int $eventId): ?array
     {
-        if ($placement !== FormPlacement::Registration || $eventId === null || $definition->account !== null) {
-            return null;
-        }
-        $event = (new Events())->find($eventId);
-        if ($event === null || $event->accountMode === AccountMode::Off) {
+        $event = $eventId === null ? null : (new Events())->find($eventId);
+        if (
+            $event === null
+            || $definition->account !== null
+            || EventFormHost::stepFor($placement, $event->accountMode) === null
+        ) {
             return null;
         }
 

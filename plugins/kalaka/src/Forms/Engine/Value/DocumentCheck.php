@@ -51,7 +51,51 @@ final class DocumentCheck
             }
         };
         $this->walk(array_values(parse_blocks($content)), $scope, true, $refuse);
-        $this->inline($content, $scope);
+        $this->inlineKeys($content, static function (string $key) use ($scope): void {
+            $scope->typeOf($key);
+        });
+    }
+
+    /**
+     * The keys a document places as values: every `kalaka/value` binding and every outermost inline value
+     * span, as `check()` reads them. A key that only a condition names is not placed.
+     *
+     * @return list<string>
+     */
+    public function placedKeys(string $content): array
+    {
+        $keys = [];
+        $this->bindingKeys(array_values(parse_blocks($content)), $keys);
+        $this->inlineKeys($content, static function (string $key) use (&$keys): void {
+            $keys[] = $key;
+        });
+
+        return array_values(array_unique($keys));
+    }
+
+    /**
+     * @param list<array<string, mixed>|string> $blocks
+     * @param list<string> $keys
+     */
+    private function bindingKeys(array $blocks, array &$keys): void
+    {
+        foreach ($blocks as $block) {
+            if (!is_array($block)) {
+                continue;
+            }
+            $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+            $metadata = is_array($attributes['metadata'] ?? null) ? $attributes['metadata'] : [];
+            $bindings = is_array($metadata['bindings'] ?? null) ? $metadata['bindings'] : [];
+            foreach ($bindings as $binding) {
+                if (is_array($binding) && ($binding['source'] ?? null) === BindingSource::NAME) {
+                    $args = is_array($binding['args'] ?? null) ? $binding['args'] : [];
+                    if (is_string($args['key'] ?? null)) {
+                        $keys[] = $args['key'];
+                    }
+                }
+            }
+            $this->bindingKeys(Chains::sequenceOf($block), $keys);
+        }
     }
 
     /**
@@ -100,8 +144,10 @@ final class DocumentCheck
     /**
      * The inline value spans, as `InlineValues` renders them: only an outermost value span is a value; a span
      * inside one is part of its placeholder text and is never read, so it is not checked either.
+     *
+     * @param \Closure(string): void $found called with each key
      */
-    private function inline(string $content, DeclaredScope $scope): void
+    private function inlineKeys(string $content, \Closure $found): void
     {
         $processor = new \WP_HTML_Tag_Processor($content);
         $depth = 0;
@@ -116,7 +162,7 @@ final class DocumentCheck
             } else {
                 $key = $processor->get_attribute(self::ATTRIBUTE);
                 if ($key !== null) {
-                    $scope->typeOf(is_string($key) ? $key : '');
+                    $found(is_string($key) ? $key : '');
                     $depth = 1;
                 }
             }

@@ -13,6 +13,7 @@ use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\ObjectCache;
 
 /**
  * S15: the event's account mode on its forms and their submits. Off changes nothing; in mandatory mode
@@ -50,6 +51,46 @@ final class AccountModesTest extends AccountsTestCase
         self::assertSame(AccountStep::Required, $host->accountStep($this->readForm($this->openForm('mandatory'))));
         self::assertSame(AccountStep::Offered, $host->accountStep($this->readForm($this->openForm('optional'))));
         self::assertNull($host->accountStep($this->readForm($this->openForm('mandatory', 'additional'))));
+    }
+
+    /**
+     * The account mode changes under a submit that conflicts on the event's version: the retry reads the event
+     * again and decides the owner by the mode it saves under, never by the first attempt's (C3-1).
+     */
+    public function testTheOwnerFollowsTheModeTheSaveUsedAcrossAVersionConflictRetry(): void
+    {
+        foreach ([['off', 'mandatory', true], ['mandatory', 'off', false]] as [$from, $to, $owned]) {
+            $form = $this->openForm($from);
+            $user = $this->verifiedUser('teszt.' . $from . '@example.org');
+            $event = (int) get_post_meta($form, 'kalaka_event_id', true);
+            $changed = false;
+            $change = function (string $sql) use (&$changed, $event, $to): string {
+                global $wpdb;
+                // Just before the run's savepoint, so the rollback of the conflicting attempt keeps the change.
+                if (!$changed && str_starts_with($sql, 'SAVEPOINT kalaka_run')) {
+                    $changed = true;
+                    $wpdb->query($wpdb->prepare(
+                        'UPDATE %i SET account_mode = %s, version = version + 1 WHERE id = %d',
+                        $wpdb->prefix . 'kalaka_events',
+                        $to,
+                        $event
+                    ));
+                    ObjectCache::clear();
+                }
+
+                return $sql;
+            };
+            add_filter('query', $change);
+            try {
+                $answers = ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org'];
+                $result = $this->submit($form, new AccountActor($user), $answers);
+            } finally {
+                remove_filter('query', $change);
+            }
+
+            self::assertTrue($changed, $from);
+            self::assertSame($owned ? $user : null, $this->ownerOf($result), $from . ' to ' . $to);
+        }
     }
 
     public function testMandatoryModeRefusesAGuestSubmitWithNothingWritten(): void

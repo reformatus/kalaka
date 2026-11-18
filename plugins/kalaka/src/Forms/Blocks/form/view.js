@@ -1221,8 +1221,14 @@ store('kalaka/form', {
 		// Synchronous: the window opens in the click, so the browser does not block it.
 		logIn: withSyncEvent(() => {
 			const form = getElement().ref.closest('form');
+			// A fresh login from the block's button: a pending retry of an earlier, abandoned window is dropped
+			// (the ended session's own link keeps it).
+			const started = forms.get(form);
+			if (started) {
+				started.retry = null;
+			}
 			if (!openLogin(form)) {
-				const url = forms.get(form)?.account?.url;
+				const url = started?.account?.url;
 				if (typeof url === 'string' && url !== '') {
 					window.location.assign(url);
 				}

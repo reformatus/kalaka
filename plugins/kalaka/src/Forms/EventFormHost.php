@@ -161,16 +161,22 @@ final class EventFormHost implements FormHost
 
     /**
      * Whether a form of the event needs an account (owner ruling 2026-11-14): a registration form in
-     * `mandatory` mode needs one, in `optional` mode offers one with a skip; an additional form never does,
+     * `mandatory` mode needs one, in `optional` mode offers one; an additional form never does,
      * and in `off` mode no form has accounts.
      */
     public static function accountStepOf(Form $form, Event $event): ?AccountStep
     {
-        if ($form->placement !== FormPlacement::Registration) {
+        return self::stepFor($form->placement, $event->accountMode);
+    }
+
+    /** The one rule behind `accountStepOf()`, for a caller that has the placement and the mode only. */
+    public static function stepFor(FormPlacement $placement, AccountMode $mode): ?AccountStep
+    {
+        if ($placement !== FormPlacement::Registration) {
             return null;
         }
 
-        return match ($event->accountMode) {
+        return match ($mode) {
             AccountMode::Mandatory => AccountStep::Required,
             AccountMode::Optional => AccountStep::Offered,
             AccountMode::Off => null,

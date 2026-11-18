@@ -140,6 +140,11 @@ final class AccountMailKeysTest extends MailBodyTestCase
         $button = '<!-- wp:button {"metadata":{"bindings":' . $binding . '}} /-->';
         self::assertTrue(MailValues::readsPasswordLink($button));
         self::assertFalse(MailValues::readsPasswordLink('<p>account.password_link</p>'));
+        $condition = '{"condition":{"match":"all","items":[{"key":"account.password_link","operator":"empty"}]}}';
+        $conditionOnly = '<!-- wp:kalaka/if ' . $condition . ' --><p>x</p><!-- /wp:kalaka/if -->';
+        self::assertFalse(MailValues::readsPasswordLink($conditionOnly));
+        $nested = '<!-- wp:kalaka/if ' . $condition . ' -->' . $button . '<!-- /wp:kalaka/if -->';
+        self::assertTrue(MailValues::readsPasswordLink($nested));
         self::assertFalse(MailValues::readsPasswordLink('<span data-kalaka-value="registration.link">x</span>'));
     }
 

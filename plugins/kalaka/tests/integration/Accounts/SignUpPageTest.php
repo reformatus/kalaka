@@ -13,8 +13,8 @@ use Kalaka\Registrations\Account\SignUpPage;
  * S15: WordPress's own registration page as the sign-up (owner ruling 2026-11-14), the checks the native
  * sign-up research asks for, where PHP reaches them: the hidden login name, the account logged in at once,
  * the opaque nicename and author 404s, the flag off for social sign-ups, WordPress's mails suppressed,
- * `kalaka_unverified` and its clearing, the 7-day reset link, the marker-gated login URL and skip block,
- * N27's sign-up form read, and the settings warning.
+ * `kalaka_unverified` and its clearing, the 7-day reset link, the marker-gated login URL, the return page
+ * and the settings warning.
  */
 final class SignUpPageTest extends AccountsTestCase
 {
@@ -106,6 +106,16 @@ final class SignUpPageTest extends AccountsTestCase
         do_action('login_form_register');
 
         self::assertFalse(SignUpPage::flagged());
+    }
+
+    public function testTheFormsPageIsFoundAfterMoreThanOneBatchOfOtherPosts(): void
+    {
+        $form = $this->openForm('mandatory');
+        // Older posts that mention Kaláka but place no form fill the first batch of 100 and then some.
+        self::factory()->post->create_many(101, ['post_status' => 'publish', 'post_content' => 'Teszt kalaka']);
+        $late = $this->placed($form);
+
+        self::assertSame($late, SignUp::page($form));
     }
 
     public function testAnExistingEmailGetsWordPresssErrorWithALoginLinkBackToTheForm(): void
@@ -205,8 +215,15 @@ final class SignUpPageTest extends AccountsTestCase
             self::assertStringContainsString('#reg_passmail', $css);
             self::assertSame(SignUpPage::FOCUS_SCRIPT, $js);
         }
-        $_REQUEST = ['action' => 'login', SignUp::MARKER => (string) $this->openForm('optional')];
-        self::assertFalse(has_action('login_footer', [new SignUpPage(), 'skip']));
+        // No `login_footer` callback of Kaláka's at all: the skip block is gone.
+        global $wp_filter;
+        foreach ($wp_filter['login_footer']->callbacks ?? [] as $callbacks) {
+            foreach ($callbacks as $callback) {
+                $function = $callback['function'];
+                $owner = is_array($function) ? $function[0] : null;
+                self::assertFalse(is_object($owner) && str_starts_with($owner::class, 'Kalaka\\'));
+            }
+        }
     }
 
     /** [UNAPPROVED N29] The return page: on `wp-login.php?action=kalaka_account`, through WordPress's own hook. */

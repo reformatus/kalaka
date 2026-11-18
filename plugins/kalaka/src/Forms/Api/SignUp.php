@@ -21,6 +21,9 @@ namespace Kalaka\Forms\Api;
  */
 final class SignUp
 {
+    /** How many posts `page()` reads at a time. */
+    private const BATCH = 100;
+
     /** The marker on the registration page: the ID of the form that sent the visitor. */
     public const MARKER = 'kalaka_form';
 
@@ -99,24 +102,31 @@ final class SignUp
      */
     public static function page(int $formId, string $requested = ''): ?string
     {
-        $posts = get_posts([
-            'post_type' => 'any',
-            'post_status' => 'publish',
-            's' => 'kalaka',
-            'search_columns' => ['post_content'],
-            'orderby' => 'ID',
-            'order' => 'ASC',
-            'posts_per_page' => 100,
-            'no_found_rows' => true,
-        ]);
         $pages = [];
-        foreach ($posts as $post) {
-            $placed = in_array($formId, FormCaching::formIds($post->post_content), true);
-            if ($placed && is_post_publicly_viewable($post)) {
-                $link = get_permalink($post);
-                if ($link !== '') {
-                    $pages[] = $link;
+        // Every post whose content mentions Kaláka, in batches until one comes back short: none is missed.
+        for ($batch = 1;; $batch++) {
+            $posts = get_posts([
+                'post_type' => 'any',
+                'post_status' => 'publish',
+                's' => 'kalaka',
+                'search_columns' => ['post_content'],
+                'orderby' => 'ID',
+                'order' => 'ASC',
+                'posts_per_page' => self::BATCH,
+                'paged' => $batch,
+                'no_found_rows' => true,
+            ]);
+            foreach ($posts as $post) {
+                $placed = in_array($formId, FormCaching::formIds($post->post_content), true);
+                if ($placed && is_post_publicly_viewable($post)) {
+                    $link = get_permalink($post);
+                    if ($link !== '') {
+                        $pages[] = $link;
+                    }
                 }
+            }
+            if (count($posts) < self::BATCH) {
+                break;
             }
         }
         if ($pages === []) {
