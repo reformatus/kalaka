@@ -1,7 +1,7 @@
 /*
  * Kaláka's form page CSS (engineering.md, "WordPress surfaces"), in two parts:
- * - the structure, unlayered: the error colour, the loading state, hidden branches and buttons, which must
- *   hold whatever the theme does;
+ * - the structure, unlayered: the error colour, the loading state, hidden branches and buttons, the labels
+ *   above their controls, which must hold whatever the theme does;
  * - the neutral base for Kaláka's own controls, in the `kalaka` cascade layer (the end of this file),
  *   which any theme or site rule outweighs.
  *
@@ -28,6 +28,13 @@ form[data-wp-interactive="kalaka/form"] :is(.kalaka-field__error, .kalaka-field_
 
 form[data-wp-interactive="kalaka/form"] .kalaka-field__required {
 	font-weight: bold;
+}
+
+/* A text-like field's label sits on its own line above its control, on every theme (owner, 2026-11-18): a
+   layout rule, so it is structure. Only the `label` that names a control (`for`); a consent's label wraps
+   its checkbox and stays beside it. */
+form[data-wp-interactive="kalaka/form"] .kalaka-field > label[for] {
+	display: block;
 }
 
 /* A hidden navigation button stays hidden even where a theme gives buttons a display of their own (Divi's
@@ -128,6 +135,10 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
  * - `--kalaka-control-background`, `--kalaka-control-color`: a control's background (none) and text
  *   (inherited);
  * - `--kalaka-control-hover-background`: a button's background under a hovering pointer (a faint tint);
+ * - `--kalaka-button-background`, `--kalaka-button-color`, `--kalaka-button-hover-background`: a filled
+ *   control that Kaláka draws itself and that cannot carry `wp-element-button`, such as the ranking's
+ *   „+”/„×” (the theme's `contrast` preset, else the text colour; its `base` preset, else the page's colour;
+ *   the fill at 85% under a hovering pointer);
  * - `--kalaka-disabled-opacity`: a disabled button, and a control that does nothing now, such as the
  *   ranking's edge move buttons (0.4). The form's own buttons stay `aria-disabled` while a request runs,
  *   and are dimmed then with the form, not by this.

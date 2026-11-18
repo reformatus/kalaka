@@ -103,6 +103,10 @@ values and conditions, prefill and form links
 - A theme adapter only returns data (classes per element role, a `div` or `p`
   wrapper, an error colour); core renders the markup and applies it. A failing
   adapter is skipped and the form renders without it.
+- A text-like field's label sits on its own line above its control, on
+  every theme: one structural rule in `Blocks/form/view.css`, outside the
+  `kalaka` layer (owner, 2026-11-18). A consent's label, which wraps its
+  checkbox, stays beside it.
 - A form version is the ID of one of the form's revisions, every usable form
   has at least one, and revisions of forms are never pruned, so a submission's
   version resolves to the definition it was checked against for as long as

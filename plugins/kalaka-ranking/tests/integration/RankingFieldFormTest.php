@@ -148,16 +148,18 @@ final class RankingFieldFormTest extends FormsTestCase
         // The text is no label: a tap on it does nothing.
         self::assertStringNotContainsString('<label', substr($html, (int) strpos($html, '</legend>')));
         self::assertStringContainsString('<span data-kalaka-label>Modul A</span>', $html);
-        // The handle and the move buttons show only once the option is ranked; the buttons carry
-        // `wp-element-button` and a name that says which option they move.
+        self::assertStringNotContainsString('wp-element-button" data-kalaka-move', $html);
+        // The handle and the move buttons show only once the option is ranked; the buttons are core's outlined
+        // base buttons, without `wp-element-button` (the filled look is the toggle's), and their name says which
+        // option they move.
         self::assertSame(3, substr_count($html, '<span data-kalaka-handle aria-hidden="true" hidden>⠿</span>'));
         self::assertStringContainsString(
-            '<button type="button" class="wp-element-button" data-kalaka-move="up"'
+            '<button type="button" data-kalaka-move="up"'
                 . ' aria-label="Modul B feljebb mozgatása" hidden>',
             $html
         );
         self::assertStringContainsString(
-            '<button type="button" class="wp-element-button" data-kalaka-move="down"'
+            '<button type="button" data-kalaka-move="down"'
                 . ' aria-label="Modul C lejjebb mozgatása" hidden>',
             $html
         );

@@ -32,18 +32,20 @@ final class Module extends AbstractModule
     /**
      * Kaláka's neutral base (core's `kalaka` cascade layer) mapped onto Divi's form look: its documented
      * `--kalaka-*` variables, set on Divi's contact form, give Kaláka's own controls the grey of Divi's form
-     * inputs (`#eee`, their text `#666`, a darker grey on hover), with no border or radius. Divi styles its
-     * own inputs and buttons (`et_pb_button`) itself; this reaches only what Kaláka draws.
+     * inputs (`#eee`, their text `#666`, a darker grey on hover), with no border or radius; a filled control
+     * (the ranking's +/×) takes the same greys. Divi styles its own inputs and buttons (`et_pb_button`)
+     * itself; this reaches only what Kaláka draws.
      */
     private const BASE = '.et_pb_contact_form{--kalaka-control-background:#eee;--kalaka-control-color:#666;'
-        . '--kalaka-control-hover-background:#ddd;--kalaka-border-color:transparent;--kalaka-radius:0}';
+        . '--kalaka-control-hover-background:#ddd;--kalaka-border-color:transparent;--kalaka-radius:0;'
+        . '--kalaka-button-background:#eee;--kalaka-button-color:#666;--kalaka-button-hover-background:#ddd}';
 
     /**
      * What the variables cannot reach in Divi:
-     * - the ranking's ↑/↓, whose `wp-element-button` takes WordPress's global button colours (`:root
-     *   :where(.wp-element-button)`, unlayered, so it outweighs the base): Divi's grey again, as the toggle
-     *   beside them (owner, S45 round 2, approved as built); their border stays WordPress's (none), so a
-     *   forced-colours border still shows; no hover on one that does nothing now;
+     * - the ranking's ↑/↓, outlined beside the filled +/× (owner, 2026-11-18): core's base button would take
+     *   the input grey as its background and a transparent border, so they get no fill, a 2-pixel border
+     *   in Divi's input grey (Divi's buttons' border width) and its text grey, and the grey fill under a
+     *   hovering pointer; none on one that does nothing now;
      * - a dark focus ring on the ranking's controls, which Divi's `:focus { outline: 0 }` removes
      *   (unlayered, so it wins over Divi's rule);
      * - the row gap; the handle in Divi's input text grey (`#999`); thin lines between ranked rows;
@@ -54,10 +56,10 @@ final class Module extends AbstractModule
      * - a white, lifted row while it is dragged (owner, S45 round 2, approved as built).
      */
     private const RANKING = '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button'
-        . '{background:var(--kalaka-control-background);color:var(--kalaka-control-color);'
+        . '{background:transparent;color:var(--kalaka-control-color);border:2px solid #eee;'
         . 'border-radius:var(--kalaka-radius)}'
         . '@media (hover:hover){.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]'
-        . '>button:not([aria-disabled=true]):hover{background:var(--kalaka-control-hover-background)}}'
+        . '>button:not([aria-disabled=true]):hover{background:var(--kalaka-control-background)}}'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>button:focus-visible,'
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-controls]>input[data-kalaka-toggle]:focus-visible'
         . '{outline:2px solid #333;outline-offset:2px}'

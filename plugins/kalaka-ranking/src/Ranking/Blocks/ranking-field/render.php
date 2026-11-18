@@ -68,12 +68,13 @@ $kalakaItem = static function (
         . '<span data-kalaka-label' . FieldMarkup::classAttribute(ElementRole::Option) . '>'
         . esc_html($label) . '</span>'
         // Each control's accessible name names its option, in the editor's pattern ("… feljebb mozgatása").
-        // The controls are one group, so a narrow screen wraps them under the text together.
+        // The controls are one group, so a phone puts them under the text together. The ↑/↓ are the base's
+        // outlined buttons, without `wp-element-button`: the filled look is the toggle's (owner, 2026-11-18).
         . '<span data-kalaka-controls>'
-        . '<button type="button" class="wp-element-button" data-kalaka-move="up" aria-label="'
+        . '<button type="button" data-kalaka-move="up" aria-label="'
         . esc_attr(sprintf(RankingFieldType::UP_NAME, $label)) . '"' . $hidden . '>'
         . $kalakaIcon(RankingFieldType::UP_ICON) . '</button>'
-        . '<button type="button" class="wp-element-button" data-kalaka-move="down" aria-label="'
+        . '<button type="button" data-kalaka-move="down" aria-label="'
         . esc_attr(sprintf(RankingFieldType::DOWN_NAME, $label)) . '"' . $hidden . '>'
         . $kalakaIcon(RankingFieldType::DOWN_ICON) . '</button>'
         . '<input type="checkbox" name="' . esc_attr($kalakaKey) . '[]" value="' . esc_attr($value) . '"'

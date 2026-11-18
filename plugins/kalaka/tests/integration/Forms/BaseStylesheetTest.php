@@ -53,4 +53,28 @@ final class BaseStylesheetTest extends WP_UnitTestCase
         }
         self::assertStringContainsString('font: inherit;', $layer);
     }
+
+    public function testATextFieldsLabelSitsAboveItsControlOutsideTheLayerAndAConsentsLabelIsLeftAlone(): void
+    {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local source file
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/src/Forms/Blocks/form/view.css');
+        $structure = substr($css, 0, (int) strpos($css, '@layer kalaka {'));
+
+        // Structure, so no theme's look outweighs it; only a `label` that names a control (`for`).
+        self::assertMatchesRegularExpression(
+            '/form\[data-wp-interactive="kalaka\/form"\] \.kalaka-field > label\[for\] \{\s*display: block;\s*\}/',
+            $structure
+        );
+    }
+
+    public function testTheFilledControlsPropertiesAreDocumented(): void
+    {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local source file
+        $css = (string) file_get_contents(dirname(__DIR__, 3) . '/src/Forms/Blocks/form/view.css');
+
+        $properties = ['--kalaka-button-background', '--kalaka-button-color', '--kalaka-button-hover-background'];
+        foreach ($properties as $property) {
+            self::assertStringContainsString('`' . $property . '`', $css, 'documented: ' . $property);
+        }
+    }
 }

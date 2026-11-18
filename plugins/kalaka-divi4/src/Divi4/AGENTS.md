@@ -28,9 +28,9 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
   (`et_required_module_assets`) on pages whose content places a form. The
   plugin's own CSS maps core's neutral base onto Divi's form look: the
   `--kalaka-…` properties set on Divi's contact form (Divi's input greys, no
-  border or radius), plus what they cannot reach (the spacing of `div`
-  fields; the ranking's ↑/↓, whose `wp-element-button` takes WordPress's
-  global button colours, in the same greys; a focus ring Divi's
+  border or radius; the filled +/× in the same greys), plus what they cannot
+  reach (the spacing of `div` fields; the ranking's outlined ↑/↓: no fill,
+  a 2-pixel border in Divi's input grey, its text grey; a focus ring Divi's
   `:focus { outline: 0 }` removes; the ranking's row gap, handle, lines,
   lists, the empty rows' dashed places Divi's reset hides, and the dragged
   row's lift, white with a shadow). It never changes markup.

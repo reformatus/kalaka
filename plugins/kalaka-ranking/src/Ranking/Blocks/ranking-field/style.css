@@ -42,7 +42,7 @@
 }
 
 /* The text takes the room the controls leave, but never less than a few words' width: on a narrow
- * screen the controls wrap under it instead, kept to the right. */
+ * column the controls wrap under it instead, kept to the right. */
 [data-kalaka-ranking] [data-kalaka-row] {
 	flex-wrap: wrap;
 }
@@ -61,8 +61,33 @@
 	margin-left: auto;
 }
 
-/* The up and down buttons carry WordPress's `wp-element-button`, so a theme's button look reaches them;
- * their size stays a 44-pixel square whatever padding that look brings. */
+/* On a phone (WordPress's 600-pixel breakpoint) the controls always sit under the option's text, kept to
+ * the right, in both lists (owner, 2026-11-18): the handle and the text keep the first line. */
+@media (max-width: 599px) {
+	[data-kalaka-ranking] [data-kalaka-controls] {
+		flex-basis: 100%;
+		justify-content: flex-end;
+	}
+}
+
+/* While only one option is ranked there is nothing to reorder (owner, 2026-11-18): its ↑/↓ go, and its
+ * handle keeps its place but shows nothing and takes no press, so the texts stay in line. The row drags
+ * no more either. Right in the server's render too (a stored ranking of one, a maximum of one). */
+[data-kalaka-ranking] [data-kalaka-ranked] > li:only-child [data-kalaka-controls] > [data-kalaka-move] {
+	display: none;
+}
+
+[data-kalaka-ranking] [data-kalaka-ranked] > li:only-child [data-kalaka-handle] {
+	visibility: hidden;
+}
+
+[data-kalaka-ranking] [data-kalaka-ranked] > li:only-child [data-kalaka-row] {
+	cursor: auto;
+}
+
+/* The up and down buttons are core's base buttons (outlined, `Forms/Blocks/form/view.css`), without
+ * `wp-element-button`: the filled look is the toggle's (owner, 2026-11-18). Their size stays a 44-pixel
+ * square whatever padding a theme's button look brings. */
 [data-kalaka-ranking] [data-kalaka-controls] > button {
 	display: inline-flex;
 	align-items: center;
@@ -123,11 +148,13 @@
 	cursor: grabbing;
 }
 
-/* The option's checkbox, drawn as „+” while unticked and „×” while ticked (owner, r2). It stays the
- * browser's checkbox, so the form, the re-fetch and the draft read it as before; the icon is a mask in
- * the text colour (`@wordpress/icons` `plus` and `close`), driven by `:checked`, so it is right without
- * the script too. Three attribute selectors outweigh themes' `… input` rules (Divi: `.iphone
- * .et_pb_contact_form input { -webkit-appearance: initial }`). */
+/* The option's checkbox, drawn as a filled „+” while unticked and „×” while ticked (owner, r2 and
+ * 2026-11-18). It stays the browser's checkbox, so the form, the re-fetch and the draft read it as before,
+ * and the theme's focus ring stays on it. The fill is its `::after`, a box over the whole control; the icon
+ * is its `::before`, a mask above the fill (`@wordpress/icons` `plus` and `close`), driven by `:checked`,
+ * so it is right without the script too. A theme's own checkbox drawing is removed: its background and
+ * border, and its mark (Twenty Twenty-One draws a tick on `::after`). Three attribute selectors outweigh
+ * themes' `… input` rules (Divi: `.iphone .et_pb_contact_form input { -webkit-appearance: initial }`). */
 [data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle] {
 	-webkit-appearance: none;
 	appearance: none;
@@ -136,24 +163,37 @@
 	justify-content: center;
 	box-sizing: border-box;
 	flex: none;
+	position: relative;
+	isolation: isolate;
 	width: 44px;
 	height: 44px;
 	margin: 0;
 	padding: 0;
+	border: 0;
+	background: none;
 	cursor: pointer;
 }
 
-/* A theme that draws its own checkbox mark (Twenty Twenty-One's `::after` tick) draws none on the toggle. */
 [data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::after {
-	content: none;
-	display: none;
+	content: "";
+	display: block;
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	width: auto;
+	height: auto;
+	margin: 0;
+	border: 0;
+	transform: none;
+	opacity: 1;
 }
 
 [data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::before {
 	content: "";
+	position: relative;
+	z-index: 1;
 	width: 24px;
 	height: 24px;
-	background-color: currentColor;
 	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
 		 fill='none' stroke='black' stroke-width='1.5'\
 		%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
@@ -199,30 +239,37 @@
 		forced-color-adjust: none;
 	}
 
-	[data-kalaka-ranking] [data-kalaka-controls] > * {
+	[data-kalaka-ranking] [data-kalaka-controls] > :is(button, input[data-kalaka-toggle]) {
 		border: 1px solid ButtonText;
 	}
 
-	[data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"] {
+	[data-kalaka-ranking] [data-kalaka-controls] > :is(button, input[data-kalaka-toggle])[aria-disabled="true"] {
 		border-color: GrayText;
 		color: GrayText;
 	}
 }
 
-/* The neutral look (see the top): the +/× toggle drawn like core's base buttons, a faint edge or
- * maximum control, the empty rows as dashed places, the other options without bullets. */
+/* The neutral look (see the top): the +/× toggle filled, in core's filled-button properties (the theme's
+ * `contrast` and `base` presets, else the text colour and the page's), a faint edge or maximum control,
+ * the empty rows as dashed places. The ↑/↓ take core's outlined base button. */
 @layer kalaka {
-	:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]) {
-		border: 1px solid var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle])::after {
 		border-radius: var(--kalaka-radius, 2px);
-		background: var(--kalaka-control-background, transparent);
-		color: var(--kalaka-control-color, inherit);
-		font: inherit;
+		background: var(--kalaka-button-background, var(--wp--preset--color--contrast, currentColor));
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle])::before {
+		background-color: var(--kalaka-button-color, var(--wp--preset--color--base, Canvas));
 	}
 
 	@media (hover: hover) {
-		:where([data-kalaka-ranking] [data-kalaka-controls] > [data-kalaka-toggle]:not([aria-disabled="true"]):hover) {
-			background: var(--kalaka-control-hover-background, color-mix(in srgb, currentColor 8%, transparent));
+		:where(
+			[data-kalaka-ranking] [data-kalaka-controls] > [data-kalaka-toggle]:not([aria-disabled="true"]):hover
+		)::after {
+			background: var(
+				--kalaka-button-hover-background,
+				color-mix(in srgb, var(--wp--preset--color--contrast, currentColor) 85%, transparent)
+			);
 		}
 	}
 

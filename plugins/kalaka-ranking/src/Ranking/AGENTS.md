@@ -64,13 +64,21 @@ It holds the ranking field type now and the ranking proposer later (S77).
   (on an optional field only after the first addition: "none, or at least
   the minimum"), the first with a line, in a third named list („Üres helyek
   a sorrendben”); a counter that updates, „{k} / {max} kiválasztva”. Every
-  toggle is described by the counter and the line. The script mirrors `RankingFieldType`'s texts and rules for
+  toggle is described by the counter and the line. While only one option is
+  ranked, its ↑/↓ are not shown and its handle keeps its place, empty (CSS,
+  so the server's render is right too). On a phone (below 600 pixels) the
+  controls sit under the option's text in both lists. The script mirrors `RankingFieldType`'s texts and rules for
   them; it holds no rule beyond them, and the server checks everything at
   submit.
 - The CSS (`style.css`) is the structure, unlayered (layout, 44-pixel
   targets, what dragging and the toggle need), and a neutral look in the
   `kalaka` cascade layer with `:where()` selectors on core's `--kalaka-…`
-  variables. The ↑/↓ buttons carry `wp-element-button`; the toggle does not,
-  since a theme's checkbox rules and its button rules would mix on it (Twenty
-  Twenty-One: white on white), and a theme's own checkbox mark is removed.
+  variables. The +/× toggle is filled and the ↑/↓ are outlined (owner,
+  2026-11-18): the ↑/↓ are core's outlined base buttons, without
+  `wp-element-button`; the toggle cannot carry it either, since a theme's
+  checkbox rules and its button rules would mix on it (Twenty Twenty-One:
+  white on white), so its fill is a box of its own (`::after`, under the
+  icon) in core's `--kalaka-button-…` properties, and a theme's own checkbox
+  drawing (background, border, mark) is removed. A theme that fills every
+  `button` (Twenty Twenty-One) fills the ↑/↓ too: the theme wins.
 - The plugin stores nothing of its own.
