@@ -26,7 +26,7 @@ final class Texts
     public const NO = 'Nem';
 
     /** A parameter term in a view's condition: the value is given at each grant. */
-    public const PER_GRANT = 'a hozzáférésnél megadott értékkel';
+    public const PER_GRANT = 'a hozzáférésnél megadott érték';
 
     /** A grant's tab with a bound value: the view, a no-break space, an en dash, the value. */
     public const TAB_BOUND = "%1\$s\u{00A0}– %2\$s";
