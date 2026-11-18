@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Admin;
 
 use Kalaka\Admin\Api\Abilities;
+use Kalaka\Admin\Cli\AdminSeeder;
 use Kalaka\Admin\Cli\FullAccessCommand;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\ProfileField;
@@ -19,6 +20,7 @@ use Kalaka\Admin\View\DeleteView;
 use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -98,6 +100,11 @@ SQL;
     public function capabilities(): array
     {
         return ['kalaka_notes', 'kalaka_audit_history'];
+    }
+
+    public function contribute(Contributions $to): void
+    {
+        $to->seeder(new AdminSeeder());
     }
 
     public function boot(): void
