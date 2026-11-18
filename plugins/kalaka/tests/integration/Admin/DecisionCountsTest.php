@@ -8,9 +8,10 @@ use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Grid\GridModel;
 use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
-use Kalaka\Foundation\Api\Decision\DecisionKind;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
 /**
  * S37: a decision column has no special case. Its name and its states' names come from the kind's
@@ -38,17 +39,16 @@ final class DecisionCountsTest extends GrantTestCase
         $this->addDecision($this->event, '00A5', 'hold', 'open');
     }
 
-    /** A declaration of the invented kind `approval`, as Backend's decisions API will give it. */
+    /** The invented kind `approval`, declared in a registry of its own. */
     private function declared(): Decisions
     {
-        return new class extends Decisions {
-            public function kind(string $kind): ?DecisionKind
-            {
-                return $kind === 'approval'
-                    ? new DecisionKind('approval', 'Jóváhagyás', ['pending' => 'Függőben', 'granted' => 'Megadva'])
-                    : null;
-            }
-        };
+        $rules = new DecisionRules();
+        $rules->add(
+            new TestRule('approval', ['pending' => 'Függőben', 'granted' => 'Megadva'], label: 'Jóváhagyás'),
+            false
+        );
+
+        return new Decisions(rules: $rules);
     }
 
     /** @param list<string> $members */
