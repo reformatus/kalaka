@@ -228,8 +228,16 @@ final class GridRoutesTest extends GrantTestCase
             'members' => ['waitlisted'],
         ]);
         self::assertSame(200, $master->get_status());
+        $row = (new ViewList())->master($this->event);
+        self::assertNotNull($row);
+        // Never an empty body: the master row's id.
+        self::assertSame(['id' => $row['id']], $master->get_data());
         self::assertSame(['status' => ['waitlisted']], (new ViewList())->masterCounts($this->event));
         self::assertSame(1, ((array) $this->rest('GET', '/views/0/sums')->get_data())['status']['n']);
+
+        $deleted = $this->ability('kalaka/delete-view', ['id' => $listed, 'version' => 2]);
+        self::assertSame(200, $deleted->get_status());
+        self::assertSame(['id' => $listed], $deleted->get_data());
     }
 
     public function testAnUnknownEventOrViewIsNotFound(): void

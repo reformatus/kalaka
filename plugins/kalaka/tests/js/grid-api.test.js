@@ -5,25 +5,17 @@ import {
 	saveCounts,
 	saveView,
 } from '../../src/Admin/app/grid/api';
+import { runPick } from '../../src/Admin/app/grid/pick';
 import { serial } from '../../src/Admin/app/grid/serial';
 
 // WordPress gives the script `wp-api-fetch`; it is not installed here.
 jest.mock( '@wordpress/api-fetch', () => jest.fn(), { virtual: true } );
-jest.mock( '@wordpress/i18n', () => ( { __: ( text ) => text } ), {
-	virtual: true,
-} );
 
 const config = { event: 7, rest: '/kalaka-admin/v1/events/7' };
-const run = ( name ) => `/wp-abilities/v1/abilities/${ name }/run`;
-/** What `apiFetch` answers unparsed: a response whose body is the JSON of the value, or empty for undefined. */
-const body = ( value ) => ( {
-	text: async () => ( value === undefined ? '' : JSON.stringify( value ) ),
-} );
 const call = ( name, input ) => ( {
-	path: run( name ),
+	path: `/wp-abilities/v1/abilities/${ name }/run`,
 	method: 'POST',
 	data: { input },
-	parse: false,
 } );
 
 beforeEach( () => {
@@ -32,12 +24,13 @@ beforeEach( () => {
 
 describe( 'the grid writes through the abilities', () => {
 	test( 'a new view runs kalaka/save-view with the event and no id', async () => {
-		apiFetch.mockResolvedValue( body( 3 ) );
+		apiFetch.mockResolvedValue( 3 );
+		const columns = [ { column: 'code', write: false } ];
 		expect(
 			await saveView( config, 0, {
 				name: 'Új nézet',
 				filter: [],
-				columns: [ { column: 'code', write: false } ],
+				columns,
 			} )
 		).toBe( 3 );
 		expect( apiFetch ).toHaveBeenCalledWith(
@@ -45,13 +38,13 @@ describe( 'the grid writes through the abilities', () => {
 				event_id: 7,
 				name: 'Új nézet',
 				filter: [],
-				columns: [ { column: 'code', write: false } ],
+				columns,
 			} )
 		);
 	} );
 
 	test( 'a stored view sends its id and version back, and counts only when given', async () => {
-		apiFetch.mockResolvedValue( body( 4 ) );
+		apiFetch.mockResolvedValue( 4 );
 		await saveView( config, 4, {
 			name: 'A',
 			filter: [],
@@ -68,42 +61,40 @@ describe( 'the grid writes through the abilities', () => {
 			columns: [],
 			counts: { status: [ 'registered' ] },
 		} );
+		apiFetch.mockClear();
+		await saveView( config, 4, {
+			name: 'A',
+			filter: [],
+			columns: [],
+			version: 2,
+		} );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).not.toHaveProperty(
+			'counts'
+		);
 	} );
 
-	test( 'a delete runs kalaka/delete-view, whose empty answer is null', async () => {
-		apiFetch.mockResolvedValue( body( undefined ) );
-		expect( await deleteView( config, 4, 2 ) ).toBeNull();
+	test( 'a delete runs kalaka/delete-view and answers its { id }', async () => {
+		apiFetch.mockResolvedValue( { id: 4 } );
+		expect( await deleteView( config, 4, 2 ) ).toEqual( { id: 4 } );
 		expect( apiFetch ).toHaveBeenCalledWith(
 			call( 'kalaka/delete-view', { id: 4, version: 2 } )
 		);
 	} );
 
-	test( 'a refusal rejects with its error, as the dialog shows it', async () => {
+	test( 'a refusal rejects with the error apiFetch gives', async () => {
 		const error = {
 			code: 'kalaka_version_conflict',
 			message: 'Valaki időközben módosította ezeket az adatokat.',
 		};
-		apiFetch.mockRejectedValue( { json: async () => error } );
-		await expect( runAbility( 'kalaka/save-view', {} ) ).rejects.toEqual(
-			error
-		);
-		apiFetch.mockRejectedValue( {
-			json: async () => JSON.parse( '<html>' ),
-		} );
-		await expect( runAbility( 'kalaka/save-view', {} ) ).rejects.toEqual( {
-			code: 'invalid_json',
-			message: 'The response is not a valid JSON response.',
-		} );
-		const offline = { code: 'fetch_error', message: 'offline' };
-		apiFetch.mockRejectedValue( offline );
+		apiFetch.mockRejectedValue( error );
 		await expect( runAbility( 'kalaka/save-view', {} ) ).rejects.toBe(
-			offline
+			error
 		);
 	} );
 
 	test( 'the master view’s counts run kalaka/save-master-counts, then reload the sums', async () => {
 		apiFetch
-			.mockResolvedValueOnce( body( true ) )
+			.mockResolvedValueOnce( { id: 9 } )
 			.mockResolvedValueOnce( { status: { n: 1 } } );
 		expect(
 			await saveCounts( config, 0, 'status', [ 'waitlisted' ] )
@@ -133,7 +124,7 @@ describe( 'the grid writes through the abilities', () => {
 		};
 		apiFetch
 			.mockResolvedValueOnce( { full: true, views: [ stored ] } )
-			.mockResolvedValueOnce( body( 4 ) )
+			.mockResolvedValueOnce( 4 )
 			.mockResolvedValueOnce( {} );
 		await saveCounts( config, 4, 'field:lunch', [] );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual( {
@@ -153,32 +144,56 @@ describe( 'the grid writes through the abilities', () => {
 	} );
 } );
 
-test( 'an expired nonce is renewed once and the ability runs again', async () => {
-	const expired = {
-		json: async () => ( {
-			code: 'rest_cookie_invalid_nonce',
-			message: '',
-		} ),
+describe( 'a pick', () => {
+	const pick = ( overrides ) => {
+		const apply = jest.fn();
+		return [
+			apply,
+			{
+				save: async () => 'saved',
+				reload: async () => 'reloaded',
+				apply,
+				isShown: () => true,
+				isLatest: () => true,
+				...overrides,
+			},
+		];
 	};
-	apiFetch.nonceEndpoint = '/wp-admin/admin-ajax.php?action=rest-nonce';
-	apiFetch.nonceMiddleware = { nonce: 'old' };
-	globalThis.fetch = jest
-		.fn()
-		.mockResolvedValue( { ok: true, text: async () => 'new' } );
-	apiFetch
-		.mockRejectedValueOnce( expired )
-		.mockResolvedValueOnce( body( undefined ) );
-	expect( await deleteView( config, 4, 2 ) ).toBeNull();
-	expect( apiFetch.nonceMiddleware.nonce ).toBe( 'new' );
-	expect( apiFetch ).toHaveBeenCalledTimes( 2 );
 
-	apiFetch.mockReset();
-	apiFetch.mockRejectedValue( expired );
-	await expect( deleteView( config, 4, 2 ) ).rejects.toEqual( {
-		code: 'rest_cookie_invalid_nonce',
-		message: '',
+	test( 'shows the sum row its save answers', async () => {
+		const [ apply, args ] = pick();
+		await runPick( args );
+		expect( apply ).toHaveBeenCalledWith( 'saved' );
 	} );
-	expect( apiFetch ).toHaveBeenCalledTimes( 2 );
+
+	test( 'that ends after a tab switch leaves the new tab’s row alone, saved or reloaded', async () => {
+		let [ apply, args ] = pick( { isShown: () => false } );
+		await runPick( args );
+		expect( apply ).not.toHaveBeenCalled();
+
+		[ apply, args ] = pick( {
+			isShown: () => false,
+			save: async () => {
+				throw new Error( 'save' );
+			},
+		} );
+		await runPick( args );
+		expect( apply ).not.toHaveBeenCalled();
+	} );
+
+	test( 'overtaken by a later pick shows nothing; a failed save shows the reloaded row', async () => {
+		let [ apply, args ] = pick( { isLatest: () => false } );
+		await runPick( args );
+		expect( apply ).not.toHaveBeenCalled();
+
+		[ apply, args ] = pick( {
+			save: async () => {
+				throw new Error( 'save' );
+			},
+		} );
+		await runPick( args );
+		expect( apply ).toHaveBeenCalledWith( 'reloaded' );
+	} );
 } );
 
 describe( 'serial', () => {

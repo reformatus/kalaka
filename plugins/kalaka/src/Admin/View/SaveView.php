@@ -14,16 +14,17 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
- * Stores a new view of an event, or replaces the name, filter and columns of a stored one (with its
+ * Stores a new view of an event, or replaces the name, filter, columns and counts of a stored one (with its
  * `id` and current `version`). A site-level use case: only full access. Returns the view's id.
  *
  * Removing the parameter term or moving it to another column takes the bound value from every grant of
  * the view, each audited; those holders then see the whole view (S36-4, owner ruling 2026-11-16).
  *
  * `counts` (S37), the members the grid's sum row counts per column, must be members of their column: a
- * status, or an option of the participant field. The options are read before the run (`prepared()`), as
- * `ParticipantFields::of()` reads outside a transaction; a `SaveView` made without them refuses counts on
- * a field column.
+ * status, or an option of the participant field. With a `counts` key (even an empty one) the save replaces
+ * the stored counts; without one, a stored view keeps its counts for the columns it still lists. The
+ * options are read before the run (`prepared()`), as `ParticipantFields::of()` reads outside a transaction;
+ * a `SaveView` made without them refuses counts on a field column.
  */
 final class SaveView implements AdminUseCase
 {
@@ -133,6 +134,16 @@ final class SaveView implements AdminUseCase
                 if ($grant !== null) {
                     $grant->boundValue = null;
                     $this->grantRepository->upsert($grant, $context);
+                }
+            }
+        }
+
+        if (!array_key_exists('counts', $input)) {
+            // Counts left out are kept: the stored ones, for the columns the view still lists.
+            $listed = array_column($shape->columns, 'column');
+            foreach ($view->shape->counts as $column => $members) {
+                if (in_array($column, $listed, true)) {
+                    $shape = $shape->withCounts($column, $members);
                 }
             }
         }
