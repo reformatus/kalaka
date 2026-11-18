@@ -14,7 +14,7 @@ enum PaymentMethod: string
     case Cash = 'cash';
     case CardTerminal = 'card_terminal';
 
-    /** The Hungarian label, a draft for the lektor. [UNAPPROVED T2, T3, T4] */
+    /** The Hungarian label, approved by the owner 2026-11-18. */
     public function label(): string
     {
         return match ($this) {
