@@ -81,6 +81,29 @@ final class ViewCountsTest extends GrantTestCase
         );
     }
 
+    public function testASaveWithoutCountsKeepsTheStoredOnesForTheColumnsStillListedAndEmptyCountsClearThem(): void
+    {
+        $event = $this->createEvent();
+        $input = $this->viewInput($event, ['field:lunch' => ['veg'], 'status' => ['waitlisted']]);
+        $id = $this->exec(new SaveView(options: self::OPTIONS), $input);
+        self::assertIsInt($id);
+
+        // Renamed, without a `counts` key: the counts stay.
+        $renamed = ['id' => $id, 'version' => 1, 'name' => 'Átnevezve'] + $input;
+        unset($renamed['counts']);
+        $this->exec(new SaveView(), $renamed);
+        self::assertSame('{"status":["waitlisted"],"field:lunch":["veg"]}', $this->viewRow($id)['counts']);
+
+        // Without `counts` and without the Ebéd column: only the status counts stay.
+        $narrowed = ['version' => 2, 'columns' => array_slice($input['columns'], 0, 2)] + $renamed;
+        $this->exec(new SaveView(), $narrowed);
+        self::assertSame('{"status":["waitlisted"]}', $this->viewRow($id)['counts']);
+
+        // An empty `counts` replaces them: every column counts its default again.
+        $this->exec(new SaveView(), ['version' => 3, 'counts' => []] + $narrowed);
+        self::assertSame('{}', $this->viewRow($id)['counts']);
+    }
+
     /** @return iterable<string, array{array<string, mixed>}> */
     public static function badCounts(): iterable
     {

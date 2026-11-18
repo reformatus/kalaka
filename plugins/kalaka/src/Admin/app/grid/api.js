@@ -3,7 +3,6 @@
  * abilities through core's run endpoint (`POST /wp-abilities/v1/abilities/{name}/run`, `{ input }`).
  */
 import apiFetch from '@wordpress/api-fetch';
-import { __ } from '@wordpress/i18n';
 
 /**
  * One page of a view: `{ rows, total }`, from core's paging headers.
@@ -59,62 +58,20 @@ export const fetchSums = ( config, view ) =>
 export const fetchViews = ( config ) =>
 	apiFetch( { path: `${ config.rest }/views` } );
 
-/** Core's own error for a body that is not JSON, as `apiFetch` gives it (core translates the text). */
-const invalidJson = () => ( {
-	code: 'invalid_json',
-	message: __( 'The response is not a valid JSON response.' ),
-} );
-
 /**
- * Runs an ability through core's run endpoint and answers what it returned, or null. An ability that returns
- * nothing (`kalaka/delete-view`, `kalaka/save-master-counts`) answers 200 with an empty body, which
- * `apiFetch` cannot parse, so the body is read here. Unparsed, `apiFetch` neither normalizes an error nor
- * renews an expired nonce, so both are done here as `apiFetch` does them. Rejects with the error as
- * `apiFetch` gives it (`{ code, message, data }`).
+ * Runs an ability through core's run endpoint and answers what it returned; every ability the grid runs
+ * returns a value (`kalaka/delete-view` and `kalaka/save-master-counts`: `{ id }`). Rejects with the error
+ * as `apiFetch` gives it (`{ code, message, data }`).
  *
- * @param {string}  name    the ability
- * @param {Object}  input   its input
- * @param {boolean} renewed whether the nonce was renewed for this call already
+ * @param {string} name  the ability
+ * @param {Object} input its input
  */
-export async function runAbility( name, input, renewed = false ) {
-	let response;
-	try {
-		response = await apiFetch( {
-			path: `/wp-abilities/v1/abilities/${ name }/run`,
-			method: 'POST',
-			data: { input },
-			parse: false,
-		} );
-	} catch ( raw ) {
-		// Unparsed, a refusal comes as the response itself; a network failure comes already normalized.
-		const error =
-			raw && typeof raw.json === 'function'
-				? await raw.json().catch( invalidJson )
-				: raw;
-		if (
-			error &&
-			error.code === 'rest_cookie_invalid_nonce' &&
-			! renewed &&
-			apiFetch.nonceEndpoint
-		) {
-			const nonce = await globalThis.fetch( apiFetch.nonceEndpoint );
-			if ( nonce.ok ) {
-				apiFetch.nonceMiddleware.nonce = await nonce.text();
-				return runAbility( name, input, true );
-			}
-		}
-		throw error;
-	}
-	const text = await response.text();
-	if ( text === '' ) {
-		return null;
-	}
-	try {
-		return JSON.parse( text );
-	} catch {
-		throw invalidJson();
-	}
-}
+export const runAbility = ( name, input ) =>
+	apiFetch( {
+		path: `/wp-abilities/v1/abilities/${ name }/run`,
+		method: 'POST',
+		data: { input },
+	} );
 
 /**
  * Saves a view through `kalaka/save-view`: a new one (`view` 0) or a stored one, whose `version` is sent back.
