@@ -58,7 +58,11 @@ final class DeleteView implements AdminUseCase
 
     public function execute(array $input, Context $context): null
     {
-        $view = $this->repository->findForUpdate((int) $input['id'], $context) ?? throw new NotFound();
+        $view = $this->repository->findForUpdate((int) $input['id'], $context);
+        // The event's master row (S37) is not a view that can be deleted.
+        if ($view === null || $view->master) {
+            throw new NotFound();
+        }
         // S36-4 (owner ruling 2026-11-16, (c)): the view's grants go with it, each through a nested
         // `kalaka/delete-grant`, so each has its own audit entry under this one.
         foreach ($this->grants->usingView($view->eventId, $view->id) as $grantId) {

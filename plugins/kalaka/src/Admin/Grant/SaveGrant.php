@@ -91,7 +91,8 @@ final class SaveGrant implements AdminUseCase
         $parameter = false;
         if ($viewId !== null) {
             $view = $this->views->find($viewId);
-            if ($view === null || $view->eventId !== $eventId) {
+            // The master view is `view_id` null; a grant never points at the event's master row (S37).
+            if ($view === null || $view->eventId !== $eventId || $view->master) {
                 throw new InvalidInput();
             }
             $parameter = $view->shape->hasParameter();
