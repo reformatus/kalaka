@@ -9,6 +9,9 @@ const browser = {
 	document: 'readonly',
 	Element: 'readonly',
 	Event: 'readonly',
+	HTMLElement: 'readonly',
+	KeyboardEvent: 'readonly',
+	MouseEvent: 'readonly',
 	fetch: 'readonly',
 	performance: 'readonly',
 	PopStateEvent: 'readonly',
@@ -30,7 +33,7 @@ module.exports = [
 	js.configs.recommended,
 	{ languageOptions: { globals: browser } },
 	{
-		files: ['plugins/kalaka/tests/js/**/*.js'],
+		files: ['plugins/*/tests/js/**/*.js'],
 		languageOptions: { globals: { ...browser, ...jest, require: 'readonly' } },
 	},
 	{

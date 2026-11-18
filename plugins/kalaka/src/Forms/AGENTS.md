@@ -28,8 +28,8 @@ values and conditions, prefill and form links
 - The server accepts only declared fields of the form's definition, checked
   against the same definition the page was built from; a value the browser
   sends for anything else is refused.
-- A field key and a choice option's value are derived once from the title or
-  label, by the same rules in two places: the form editor
+- A field key and an option's value (a choice's, or any
+  `Api\OptionsFieldType`'s) are derived once from the title or label, by the same rules in two places: the form editor
   (`Blocks/form/keys.js`) sets them in the block when the field or option is
   created, and gives a copied field fresh ones; on save, `FieldKeys` (the only
   writer on the server) derives any that is still missing or invalid. After
@@ -92,7 +92,11 @@ values and conditions, prefill and form links
   `renameParticipantField` in `participant-store.js`) changes them. Joining a
   choice field never replaces the form's own option labels.
 - The form editor is one script (`Blocks/form/index.js`) for every Kaláka
-  block, so all field blocks share one keeper of keys. JavaScript never evaluates a condition. The
+  block, so all field blocks share one keeper of keys. An extension's field
+  block reaches the same pieces (the keeper's hook, the inspector, the title and
+  its list-view label, the participant-field and key panels) only through
+  `window.kalakaFieldEditor`, which that script sets, and names its handle
+  first in its `editorScript`; it has no copy of them. JavaScript never evaluates a condition. The
   editor checks a condition against the server's rules (`ConditionParser`,
   `FormScope`, with the types, keys and bounds the server prints) only to show
   problems while editing; the server's check on save stays the judge.
@@ -103,6 +107,11 @@ values and conditions, prefill and form links
 - A theme adapter only returns data (classes per element role, a `div` or `p`
   wrapper, an error colour); core renders the markup and applies it. A failing
   adapter is skipped and the form renders without it.
+- A text-like field's label sits on its own line above its control, on
+  every theme, an extension's field included: one structural rule in
+  `Blocks/form/view.css` on a field's `label[for]`, outside the `kalaka`
+  layer (owner, 2026-11-18). A consent's or a choice option's label, which
+  wraps its control, stays beside it.
 - A form version is the ID of one of the form's revisions, every usable form
   has at least one, and revisions of forms are never pruned, so a submission's
   version resolves to the definition it was checked against for as long as
@@ -218,7 +227,8 @@ values and conditions, prefill and form links
 - A form opens with its host's stored values (`FormHost::prefill()`), each
   turned into its field's answer by `FieldType::prefill()` (null opens it
   empty: a type that refuses prefill). The page is walked and rendered for
-  those answers; each field block renders its own (`Engine\FieldMarkup::prefilled()`).
+  those answers; each field block renders its own (`Engine\FieldMarkup::prefilled()`;
+  an extension's through `Api\FieldMarkup::prefilled()`).
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
   answers of fields that show; it keeps nothing across a reload.

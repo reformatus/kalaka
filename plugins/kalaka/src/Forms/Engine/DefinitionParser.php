@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
+use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Engine\Condition\Chain;
@@ -331,7 +332,9 @@ final class DefinitionParser
                 throw new SystemFailure('duplicate_key ' . $key);
             }
         }
-        if ($name === ChoiceFieldType::BLOCK_NAME && ChoiceFieldType::optionValues($attributes) === null) {
+        // A block that holds options (a choice's, or any `OptionsFieldType`'s) needs valid ones, none repeated.
+        $holdsOptions = ($contributions->fieldTypes()[$name] ?? null) instanceof OptionsFieldType;
+        if ($holdsOptions && ChoiceFieldType::optionValues($attributes) === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('invalid_options ' . $key);
         }

@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Forms\Api\FieldType;
+use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Engine\FieldMarkup;
 use Kalaka\Forms\Engine\FormPosts;
-use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
- * Sets the keys of a form's fields and the values of its choice options when the form is saved, by
- * any path (the block editor through REST, code, WP-CLI): events-and-forms.md, "Fields".
+ * Sets the keys of a form's fields and the values of their options (a choice's, or any `Api\OptionsFieldType`'s)
+ * when the form is saved, by any path (the block editor through REST, code, WP-CLI): events-and-forms.md,
+ * "Fields".
  *
  * A key or value, once set, stays: renaming the title or label changes nothing. A key is derived
  * (`KeyDerivation`) only where it is missing or invalid; a value where it is missing, invalid or repeats one
@@ -145,7 +147,7 @@ final class FieldKeys
      * Second pass: a key for every field without one, and a value for every option without one.
      *
      * @param array<array<string, mixed>> $blocks
-     * @param array<string, mixed> $fieldTypes
+     * @param array<string, FieldType> $fieldTypes
      * @param array<string, true> $taken
      */
     private function fill(array &$blocks, array $fieldTypes, array &$taken, bool &$changed): void
@@ -162,7 +164,7 @@ final class FieldKeys
                     $attributes['key'] = $key;
                     $changed = true;
                 }
-                if ($name === ChoiceFieldType::BLOCK_NAME && is_array($attributes['options'] ?? null)) {
+                if ($fieldTypes[$name] instanceof OptionsFieldType && is_array($attributes['options'] ?? null)) {
                     $attributes['options'] = $this->options($attributes['options'], $changed);
                 }
                 $block['attrs'] = $attributes;

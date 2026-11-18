@@ -245,7 +245,9 @@ final class FormBlockTest extends FormsTestCase
             $html
         );
         self::assertMatchesRegularExpression(
-            '/<button type="submit" class="theme_button"\s+data-kalaka-send disabled>Küldés<\/button>/',
+            // WordPress's `wp-element-button` first (the neutral base), then the adapter's classes.
+            '/<button type="submit" class="wp-element-button theme_button"\s+data-kalaka-send disabled>'
+                . 'Küldés<\/button>/',
             $html
         );
     }

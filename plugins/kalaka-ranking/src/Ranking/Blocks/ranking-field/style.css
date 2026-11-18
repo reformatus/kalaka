@@ -1,0 +1,300 @@
+/*
+ * The ranking field's CSS (engineering.md, "WordPress surfaces"), in two parts:
+ * - the structure, unlayered: layout, the 44-pixel targets and what dragging needs, which must hold
+ *   whatever the theme does;
+ * - its neutral look, in the `kalaka` cascade layer with zero-specificity `:where()` selectors, on core's
+ *   base (`Forms/Blocks/form/view.css`) and its `--kalaka-*` variables: any theme or site rule wins over
+ *   it, and a theme adapter maps the variables onto the theme's look (`kalaka-divi4` under Divi 4).
+ */
+
+/* A row: the handle, the option's text, the up and down buttons, the +/× toggle. The row is a flex box
+ * inside the `li`, so the ranked list keeps its numbers. */
+[data-kalaka-ranking] [data-kalaka-row] {
+	display: flex;
+	align-items: center;
+	gap: 0.25em;
+	min-height: 44px;
+}
+
+/* A fieldset is as wide as its widest row by default; the field stays within the form's width instead,
+ * and a long option text wraps. */
+[data-kalaka-ranking] fieldset {
+	min-width: 0;
+}
+
+/* The rank's number stays the ordered list's own marker, outside the row, so a theme's `inside` markers
+ * do not take a line of their own above the flex row. */
+[data-kalaka-ranking] [data-kalaka-ranked] > li {
+	list-style-position: outside;
+	margin-left: 1.5em;
+}
+
+/* The other options are rows with their own „+”, not a bulleted list. */
+[data-kalaka-ranking] [data-kalaka-unranked] {
+	list-style: none;
+	padding-left: 0;
+}
+
+/* The numbered lists keep only the room their markers need (the `li`'s margin), not the list's default
+ * indent as well, so a phone's width goes to the rows. */
+[data-kalaka-ranking] :is([data-kalaka-ranked], [data-kalaka-empty]) {
+	padding-left: 0;
+}
+
+/* The text takes the room the controls leave, but never less than a few words' width: on a narrow
+ * column the controls wrap under it instead, kept to the right. */
+[data-kalaka-ranking] [data-kalaka-row] {
+	flex-wrap: wrap;
+}
+
+[data-kalaka-ranking] [data-kalaka-label] {
+	flex: 1 1 8em;
+	min-width: 8em;
+	overflow-wrap: break-word;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] {
+	display: flex;
+	align-items: center;
+	gap: inherit;
+	flex: none;
+	margin-left: auto;
+}
+
+/* On a phone (WordPress's 600-pixel breakpoint) the controls always sit under the option's text, kept to
+ * the right, in both lists (owner, 2026-11-18): the handle and the text keep the first line. */
+@media (max-width: 599px) {
+	[data-kalaka-ranking] [data-kalaka-controls] {
+		flex-basis: 100%;
+		justify-content: flex-end;
+	}
+}
+
+/* While only one option is ranked there is nothing to reorder (owner, 2026-11-18): its ↑/↓ go, and its
+ * handle keeps its place but shows nothing and takes no press, so the texts stay in line. The row drags
+ * no more either. Right in the server's render too (a stored ranking of one, a maximum of one). */
+[data-kalaka-ranking] [data-kalaka-ranked] > li:only-child [data-kalaka-controls] > [data-kalaka-move] {
+	display: none;
+}
+
+[data-kalaka-ranking] [data-kalaka-ranked] > li:only-child [data-kalaka-handle] {
+	visibility: hidden;
+}
+
+[data-kalaka-ranking] [data-kalaka-ranked] > li:only-child [data-kalaka-row] {
+	cursor: auto;
+}
+
+/* The up and down buttons are core's base buttons (outlined, `Forms/Blocks/form/view.css`), without
+ * `wp-element-button`: the filled look is the toggle's (owner, 2026-11-18). Their size stays a 44-pixel
+ * square whatever padding a theme's button look brings. */
+[data-kalaka-ranking] [data-kalaka-controls] > button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 44px;
+	height: 44px;
+	min-width: 44px;
+	min-height: 44px;
+	padding: 0;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > [hidden],
+[data-kalaka-ranking] [data-kalaka-row] > [hidden] {
+	display: none;
+}
+
+/* A ranked row drags: a mouse from anywhere on it, a finger after a long press (`view.js`). The row
+ * scrolls the page as usual (`touch-action` stays), but selects no text and opens no callout, so a long
+ * press is free for the drag. */
+[data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-row] {
+	user-select: none;
+	-webkit-user-select: none;
+	-webkit-touch-callout: none;
+	cursor: grab;
+}
+
+[data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-controls] > button,
+[data-kalaka-ranking] [data-kalaka-ranked] [data-kalaka-controls] > input {
+	cursor: pointer;
+}
+
+/* A control that does nothing now (`aria-disabled`: an edge ↑/↓, every „+” at the maximum) shows no hand
+ * under the pointer. Unlayered, and weightier than the two `cursor: pointer` rules above, since a hand
+ * would say the control works. */
+[data-kalaka-ranking] [data-kalaka-row] [data-kalaka-controls] > :is(button, input)[aria-disabled="true"] {
+	cursor: default;
+}
+
+/* The handle drags at once, also by touch: the only part of a row with `touch-action: none`. A box of
+ * 44 by 44 pixels with the grip in its middle, so a finger on it lands on it. */
+[data-kalaka-ranking] [data-kalaka-handle] {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	flex: none;
+	min-width: 44px;
+	min-height: 44px;
+	touch-action: none;
+}
+
+[data-kalaka-ranking] [data-kalaka-dragging] {
+	opacity: 0.5;
+}
+
+[data-kalaka-ranking] [data-kalaka-dragging] [data-kalaka-row] {
+	cursor: grabbing;
+}
+
+/* The option's checkbox, drawn as a filled „+” while unticked and „×” while ticked (owner, r2 and
+ * 2026-11-18). It stays the browser's checkbox, so the form, the re-fetch and the draft read it as before,
+ * and the theme's focus ring stays on it. The fill is its `::after`, a box over the whole control; the icon
+ * is its `::before`, a mask above the fill (`@wordpress/icons` `plus` and `close`), driven by `:checked`,
+ * so it is right without the script too. A theme's own checkbox drawing is removed: its background and
+ * border, and its mark (Twenty Twenty-One draws a tick on `::after`). Three attribute selectors outweigh
+ * themes' `… input` rules (Divi: `.iphone .et_pb_contact_form input { -webkit-appearance: initial }`). */
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle] {
+	-webkit-appearance: none;
+	appearance: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	flex: none;
+	position: relative;
+	isolation: isolate;
+	width: 44px;
+	height: 44px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::after {
+	content: "";
+	display: block;
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	width: auto;
+	height: auto;
+	margin: 0;
+	border: 0;
+	transform: none;
+	opacity: 1;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::before {
+	content: "";
+	position: relative;
+	z-index: 1;
+	width: 24px;
+	height: 24px;
+	-webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M12 18V6M18 12H6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]:checked::before {
+	-webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+	mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'\
+		 fill='none' stroke='black' stroke-width='1.5'\
+		%3E%3Cpath d='M7.75 16.25L16.25 7.75M16.25 16.25L7.75 7.75'/%3E%3C/svg%3E");
+}
+
+/* The empty rows under the ranked options, as many as the minimum still lacks (owner, Q1): places of the
+ * same height as a row, numbered on from the ranked list. */
+[data-kalaka-ranking] [data-kalaka-empty] > li {
+	list-style-position: outside;
+	margin-left: 1.5em;
+	min-height: 44px;
+	box-sizing: border-box;
+	display: list-item;
+	padding: 0.5em;
+}
+
+[data-kalaka-ranking] [data-kalaka-empty][hidden] {
+	display: none;
+}
+
+/* The controls take a tap at once: no double-tap zoom on a quick second tap. */
+[data-kalaka-ranking] [data-kalaka-controls] > * {
+	touch-action: manipulation;
+}
+
+/* In forced colours (Windows High Contrast) a mask filled with `currentColor` would be repainted as the
+ * background: the icon takes the system's button text colour instead, and every control a border. */
+@media (forced-colors: active) {
+	[data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle]::before {
+		background-color: ButtonText;
+		forced-color-adjust: none;
+	}
+
+	[data-kalaka-ranking] [data-kalaka-controls] > :is(button, input[data-kalaka-toggle]) {
+		border: 1px solid ButtonText;
+	}
+
+	[data-kalaka-ranking] [data-kalaka-controls] > :is(button, input[data-kalaka-toggle])[aria-disabled="true"] {
+		border-color: GrayText;
+		color: GrayText;
+	}
+}
+
+/* The neutral look (see the top): the +/× toggle filled, in core's filled-button properties (the theme's
+ * `contrast` and `base` presets, else the text colour and the page's), a faint edge or maximum control,
+ * the empty rows as dashed places. The ↑/↓ take core's outlined base button. */
+@layer kalaka {
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle])::after {
+		border-radius: var(--kalaka-radius, 2px);
+		background: var(--kalaka-button-background, var(--wp--preset--color--contrast, currentColor));
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[data-kalaka-toggle])::before {
+		background-color: var(--kalaka-button-color, var(--wp--preset--color--base, Canvas));
+	}
+
+	@media (hover: hover) {
+		:where(
+			[data-kalaka-ranking] [data-kalaka-controls] > [data-kalaka-toggle]:not([aria-disabled="true"]):hover
+		)::after {
+			background: var(
+				--kalaka-button-hover-background,
+				color-mix(in srgb, var(--wp--preset--color--contrast, currentColor) 85%, transparent)
+			);
+		}
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"]) {
+		opacity: var(--kalaka-disabled-opacity, 0.4);
+	}
+
+	/* A faded control fades its focus ring too, whoever draws it (the theme, an adapter): while it has the
+	 * keyboard's focus, only its icon is faint, so the ring shows in full. */
+	:where([data-kalaka-ranking] [data-kalaka-controls] > [aria-disabled="true"]:focus-visible) {
+		opacity: 1;
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-controls] > button[aria-disabled="true"]:focus-visible > svg),
+	:where([data-kalaka-ranking] [data-kalaka-controls] > input[aria-disabled="true"]:focus-visible)::before {
+		opacity: var(--kalaka-disabled-opacity, 0.4);
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-empty] > li) {
+		border: 1px dashed var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
+		border-radius: var(--kalaka-radius, 2px);
+		margin-bottom: 0.25em;
+	}
+
+	:where([data-kalaka-ranking] [data-kalaka-counter]) {
+		margin: 0.25em 0;
+	}
+}

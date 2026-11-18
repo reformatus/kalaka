@@ -97,8 +97,8 @@ title: Engineering
   WordPress. Admin table data stays on our own REST API.
 - **Block editor** for forms, field definitions and mail bodies; the
   **Interactivity API** for public forms.
-- **Participant pages have no look of their own: they follow the site's
-  theme.** Kaláka content is authored only in the block editor (forms,
+- **Participant pages follow the site's theme, with only a neutral base
+  of their own.** Kaláka content is authored only in the block editor (forms,
   field definitions, mails, participant pages); a page builder only places a
   form or a participant block, through its shortcode
   ([Forms](events-and-forms.md#forms-implementation)). Kaláka adds logic and
@@ -106,15 +106,26 @@ title: Engineering
   the same way. Markup is
   semantic (`label`, `fieldset`, `input`, `button`) and uses WordPress's
   element classes such as `wp-element-button`; blocks declare the standard
-  block supports; Kaláka's CSS is structural only (layout, hidden branches,
-  error state), with no colours or fonts except the error colour.
+  block supports. Kaláka's CSS is the structure (layout, hidden branches,
+  error state, what a control needs to work) plus a **neutral base that
+  follows the theme, in the `kalaka` layer**, for Kaláka's own controls: it
+  looks right on any sane theme by itself and is easy to restyle. Fonts and
+  colours are inherited (`currentColor`, the theme's `--wp--preset--…`
+  values with neutral fallbacks), borders are a faded text colour, and there
+  are no shadows, big radii or browser-default buttons, and no outlines: a
+  focus ring is the one allowed outline. Every base rule is in the CSS
+  cascade layer `kalaka` with zero-specificity `:where()` selectors, so the
+  theme's and the site's CSS always win for the look without `!important`;
+  the structure stays. The base reads a few documented `--kalaka-…` custom
+  properties that a site or a theme adapter sets.
 - **The error colour** is the theme's where the theme has one, otherwise a
   fixed red.
 - **Theme adapters** cover themes that style their own components instead of
   WordPress's: an extension per theme, through the typed theme-adapter point
   ([Modules](modules-and-extensions.md#the-extension-surface)). Core keeps
   producing the markup; the adapter supplies classes, a wrapper choice and
-  the error colour. The first is for **Divi 4**, which both organizations
+  the error colour, and maps the base's `--kalaka-…` properties and classes
+  onto the theme's look in its own stylesheet. The first is for **Divi 4**, which both organizations
   run ([Extensions in view](modules-and-extensions.md#extensions-in-view)).
   It keeps visible labels and the browser's own radio buttons and
   checkboxes, which Divi's own form hides from the keyboard. Divi 5 and other
@@ -217,10 +228,13 @@ src/Registrations/
 
 - **PHP is buildless:** PSR-4 autoloading straight from `src/`. The PHP build
   only packages, and Strauss touches only bundled libraries.
-- **One JavaScript build for everything:** a single `@wordpress/scripts`
-  build covers all JavaScript, including the Interactivity API `view.js`
-  files (built as script modules). There are no buildless modules alongside
-  built scripts. During development `npm start` runs it in watch mode.
+- **One JavaScript build command for everything:** `npm run build` runs one
+  `@wordpress/scripts` build per plugin that has JavaScript, core's first and
+  then each extension plugin's, chained, covering all JavaScript, including
+  the Interactivity API `view.js` files (built as script modules). There are
+  no buildless modules alongside built scripts. During development
+  `npm start` runs core's in watch mode, and an extension plugin has its own
+  watch script (`npm run start:ranking`).
 - **Source maps** are part of the build and ship in the zip, so the shipped
   JavaScript stays readable.
 - **`@wordpress/scripts`** scans `src/` for `block.json` (with

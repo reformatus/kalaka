@@ -13,6 +13,8 @@ import { addFilter } from '@wordpress/hooks';
 import { hide } from './hidden';
 import { hiddenBlocks } from './server';
 import { beforeSave, plainText, withPatches } from './keys';
+import { FieldInspector, FieldTitle, preview, REQUIRED, useStableKey } from './field';
+import { useFieldCanvas } from './participant-ui';
 import { branchLabel, branchSave } from './branch';
 import formEdit from './edit';
 import nameEdit from '../name-field/edit';
@@ -64,6 +66,22 @@ const blocks = {
 for (const [name, settings] of Object.entries(blocks)) {
 	registerBlockType(name, settings);
 }
+
+/**
+ * The field-editor pieces every field block's editor uses, for an extension's field block: the one way it
+ * reaches them, so it shares this script's one keeper of keys and has no copy of them. The extension's
+ * `block.json` names this script's handle (`kalaka-form-editor-script`) before its own script in `editorScript`,
+ * so this runs first; its editor reads them when it renders. Kept as small as the extension blocks need.
+ */
+window.kalakaFieldEditor = Object.freeze({
+	fieldLabel,
+	FieldInspector,
+	FieldTitle,
+	preview,
+	REQUIRED,
+	useFieldCanvas,
+	useStableKey,
+});
 
 // Before every save: a field the editor has not given a key yet, or an option without a value, gets one
 // now, so the server never derives one for a form built here. An autosave sets only those that have text:

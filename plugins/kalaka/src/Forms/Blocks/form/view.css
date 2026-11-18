@@ -1,4 +1,10 @@
 /*
+ * Kaláka's form page CSS (engineering.md, "WordPress surfaces"), in two parts:
+ * - the structure, unlayered: the error colour, the loading state, hidden branches and buttons, the labels
+ *   above their controls, which must hold whatever the theme does;
+ * - the neutral base for Kaláka's own controls, in the `kalaka` cascade layer (the end of this file),
+ *   which any theme or site rule outweighs.
+ *
  * The form's error colour (engineering.md "WordPress surfaces", events-and-forms.md "Required fields"): a
  * field's message and the bold required asterisk take `--kalaka-error-color`, which render.php sets from the
  * theme adapter; without an adapter colour a fixed red (WordPress's own alert red) is used.
@@ -22,6 +28,14 @@ form[data-wp-interactive="kalaka/form"] :is(.kalaka-field__error, .kalaka-field_
 
 form[data-wp-interactive="kalaka/form"] .kalaka-field__required {
 	font-weight: bold;
+}
+
+/* A text-like field's label sits on its own line above its control, on every theme (owner, 2026-11-18): a
+   layout rule, so it is structure. Only a `label` that names a control (`for`), anywhere in the field, so an
+   extension's field is reached too; a consent's or a choice option's label wraps its control and stays
+   beside it. */
+form[data-wp-interactive="kalaka/form"] .kalaka-field label[for] {
+	display: block;
 }
 
 /* A hidden navigation button stays hidden even where a theme gives buttons a display of their own (Divi's
@@ -107,3 +121,65 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 	white-space: nowrap;
 	border: 0;
 }
+
+/*
+ * The neutral base (owner 2026-11-17): Kaláka's own controls look right on any sane theme by themselves,
+ * with no look of their own beyond it: fonts and colours inherited, borders a faded text colour, no
+ * shadows, outlines or big radii, and never the browser's default buttons. Every rule is in the `kalaka`
+ * cascade layer with `:where()` selectors, so any theme or site rule wins without `!important`; buttons
+ * carry WordPress's `wp-element-button`, so a block theme's button look (theme.json) replaces this one.
+ *
+ * The documented custom properties, which a site or a theme adapter sets on the form or above it:
+ * - `--kalaka-error-color`: a field's message and the required asterisk (above);
+ * - `--kalaka-border-color`: the border of controls (a faded text colour);
+ * - `--kalaka-radius`: their corner radius (2px);
+ * - `--kalaka-control-background`, `--kalaka-control-color`: a control's background (none) and text
+ *   (inherited);
+ * - `--kalaka-control-hover-background`: a button's background under a hovering pointer (a faint tint);
+ * - `--kalaka-button-background`, `--kalaka-button-color`, `--kalaka-button-hover-background`: a filled
+ *   control that Kaláka draws itself and that cannot carry `wp-element-button`, such as the ranking's
+ *   „+”/„×” (the theme's `contrast` preset, else the text colour; its `base` preset, else the page's colour;
+ *   the fill at 85% under a hovering pointer);
+ * - `--kalaka-disabled-opacity`: a disabled button, and a control that does nothing now, such as the
+ *   ranking's edge move buttons (0.4). The form's own buttons stay `aria-disabled` while a request runs,
+ *   and are dimmed then with the form, not by this.
+ */
+@layer kalaka {
+	:where(form[data-wp-interactive="kalaka/form"]) :where(
+		input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="submit"], [type="button"]),
+		textarea,
+		select
+	) {
+		box-sizing: border-box;
+		max-width: 100%;
+		padding: 0.5em 0.75em;
+		border: 1px solid var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
+		border-radius: var(--kalaka-radius, 2px);
+		background: var(--kalaka-control-background, var(--wp--preset--color--base, transparent));
+		color: var(--kalaka-control-color, inherit);
+		font: inherit;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(button) {
+		padding: 0.5em 1em;
+		border: 1px solid var(--kalaka-border-color, color-mix(in srgb, currentColor 35%, transparent));
+		border-radius: var(--kalaka-radius, 2px);
+		background: var(--kalaka-control-background, transparent);
+		color: var(--kalaka-control-color, inherit);
+		font: inherit;
+		line-height: 1.2;
+		cursor: pointer;
+	}
+
+	@media (hover: hover) {
+		:where(form[data-wp-interactive="kalaka/form"]) :where(button:not(:disabled, [aria-disabled="true"]):hover) {
+			background: var(--kalaka-control-hover-background, color-mix(in srgb, currentColor 8%, transparent));
+		}
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(button:disabled) {
+		opacity: var(--kalaka-disabled-opacity, 0.4);
+		cursor: default;
+	}
+}
+

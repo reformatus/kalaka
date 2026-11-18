@@ -46,12 +46,10 @@ short. The architecture pages say how things are built; this page says when.
 6. **Organizer side:** full access; the master view with the grid, the detail
    page, field editing, and exports that write an audit entry.
 7. **Form links:** locked and editable values, single use and expiry. Partner
-   links and the recommender depend on them.
-8. **Module recommender** ([NR-2](modules-and-extensions.md#extensions-in-view)):
-   the page; the scorer behind one interface; the form link created by a
-   portal or system use case; a rate limit and the consent notice. Before
-   go-live: the data-processing agreement and the API key, placed by the
-   owner.
+   links depend on them.
+8. **Module ranking** ([Extensions in view](modules-and-extensions.md#extensions-in-view)):
+   the ranking field type, in `kalaka-ranking`. The module recommender is
+   IVK's own quiz, outside Kaláka.
 9. **Operations:** deployment to the IVK site and to a staging copy; a real
    system cron verified on IVK's host, with WP-Cron as the fallback, a
    warning when the last run is older than 20 minutes, and a lock
@@ -92,9 +90,8 @@ sheets.
 
 - **SQ-3** (support versus congregation share order) confirms the share
   formula.
-- **SQ-4** (which survey questions the recommender replaces) fixes the form.
-- **The scorer:** its evaluation, the data-processing agreement and the API
-  key.
+- **SQ-4** (which survey questions IVK's quiz, outside Kaláka, replaces)
+  fixes the form.
 - **SQ-2** (what the bookkeeper's views contain) may follow opening by a few
   days, while payments are still few. It also settles who is invoiced for
   the congregation's part.

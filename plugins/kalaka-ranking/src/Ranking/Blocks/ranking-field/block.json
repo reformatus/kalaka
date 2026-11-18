@@ -1,0 +1,41 @@
+{
+  "apiVersion": 3,
+  "name": "kalaka/ranking-field",
+  "title": "Rangsor",
+  "category": "kalaka",
+  "supports": {
+    "html": false
+  },
+  "attributes": {
+    "key": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string",
+      "default": ""
+    },
+    "required": {
+      "type": "boolean",
+      "default": false
+    },
+    "options": {
+      "type": "array",
+      "default": []
+    },
+    "min": {
+      "type": "integer",
+      "default": 1
+    },
+    "max": {
+      "type": "integer",
+      "default": 3
+    }
+  },
+  "editorScript": [
+    "kalaka-form-editor-script",
+    "file:./index.js"
+  ],
+  "viewScriptModule": "file:./view.js",
+  "style": "file:./style-index.css",
+  "render": "file:./render.php"
+}
