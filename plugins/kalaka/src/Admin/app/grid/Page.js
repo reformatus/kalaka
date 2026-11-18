@@ -17,6 +17,7 @@ import { cellText, fmt, plainText, tableHtml } from './format';
 import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { serial } from './serial';
+import { runPick } from './pick';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
 import ViewsDialog from './ViewsDialog';
@@ -239,23 +240,26 @@ export default function Page( { config } ) {
 	};
 
 	// The counted members are saved at once, one save at a time in click order; a failure reloads the stored
-	// state. A failed reload leaves the row as it is, and the next pick still runs.
+	// state. A failed reload leaves the row as it is, and the next pick still runs. A save or reload that ends
+	// after a tab switch leaves the new tab's row alone.
 	const queue = useRef( null );
 	if ( ! queue.current ) {
 		queue.current = serial();
 	}
 	const seq = useRef( 0 );
+	const shown = useRef( tab.view );
+	shown.current = tab.view;
 	const pick = ( column, members ) => {
-		queue.current( async () => {
+		const view = tab.view;
+		queue.current( () => {
 			const mine = ++seq.current;
-			try {
-				const result = await api.saveCounts( config, tab.view, column.column, members );
-				if ( mine === seq.current ) {
-					setSums( result );
-				}
-			} catch {
-				setSums( await api.fetchSums( config, tab.view ) );
-			}
+			return runPick( {
+				save: () => api.saveCounts( config, view, column.column, members ),
+				reload: () => api.fetchSums( config, view ),
+				apply: setSums,
+				isShown: () => shown.current === view,
+				isLatest: () => mine === seq.current,
+			} );
 		} );
 	};
 

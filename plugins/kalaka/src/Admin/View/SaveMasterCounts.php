@@ -17,7 +17,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * field with options. A site-level use case: only full access. The counts are stored in the event's master
  * row of `kalaka_views` (`master` 1), written through `ViewRepository` and audited with it; the row is
  * inserted on the first save, and the unique key on `master_event` keeps it the only one. An empty list
- * returns the column to its default. The last save wins: the picker sends no version.
+ * returns the column to its default. The last save wins: the picker sends no version. Returns
+ * `['id' => the master row's id]`, null while the event has no master row (an empty first save), so the
+ * ability's REST answer is never an empty body.
  *
  * The field's options are read before the run (`prepared()`), as `ParticipantFields::of()` reads outside a
  * transaction.
@@ -88,7 +90,8 @@ final class SaveMasterCounts implements AdminUseCase
         return [];
     }
 
-    public function execute(array $input, Context $context): null
+    /** @return array{id: ?int} */
+    public function execute(array $input, Context $context): array
     {
         $eventId = (int) $input['event_id'];
         $column = (string) $input['column'];
@@ -100,19 +103,18 @@ final class SaveMasterCounts implements AdminUseCase
         $stored = $this->list->master($eventId);
         $view = $stored === null ? null : $this->repository->findForUpdate($stored['id'], $context);
         if ($view === null) {
-            if ($members !== []) {
-                $this->repository->upsert(View::newMaster($eventId, [$column => $members]), $context);
+            if ($members === []) {
+                return ['id' => null];
             }
 
-            return null;
+            return ['id' => $this->repository->upsert(View::newMaster($eventId, [$column => $members]), $context)->id];
         }
-        if (($view->shape->counts[$column] ?? []) === $members) {
-            return null;
+        if (($view->shape->counts[$column] ?? []) !== $members) {
+            $view->shape = $view->shape->withCounts($column, $members);
+            $this->repository->upsert($view, $context);
         }
-        $view->shape = $view->shape->withCounts($column, $members);
-        $this->repository->upsert($view, $context);
 
-        return null;
+        return ['id' => $view->id];
     }
 
     /**
