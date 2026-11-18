@@ -3,7 +3,7 @@
  * setting. The field has no other settings: every live root of the directory is offered (TODO(S54) limiting
  * a field to some churches). Labels shown here are proposed text, not yet approved by the owner.
  *
- * [UNAPPROVED N13] (UI) Like every core field block, it is built from core's field-editor pieces
+ * Like every core field block, it is built from core's field-editor pieces
  * (`window.kalakaFieldEditor`, set by the form editor's script, which `block.json` loads first): the one keeper
  * of keys, so a copied field gets a fresh key; the title; the settings; the participant-field and key panels;
  * and the canvas marker of a field the server would refuse.

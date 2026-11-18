@@ -19,19 +19,19 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * leaf by hand where one is needed). A new answer must be live (active, under active ancestors) and have no
  * children; the node is read when the answer is checked, so a deactivated node or a level is refused.
  *
- * [UNAPPROVED P1] (Shapes) The stored answer is JSON, `{"node":<id>,"path":[{"ext":"…","type":"…"},…]}`: the
+ * The stored answer is JSON, `{"node":<id>,"path":[{"ext":"…","type":"…"},…]}`: the
  * leaf's id and a snapshot of its path, each node's external ID and type, root first, ending with the leaf,
  * taken when the answer is checked. A new answer takes a new snapshot; a re-import of the directory never
  * changes a stored one.
  *
- * [UNAPPROVED P2] (Shapes) For a condition the value is a choice whose data is the path's external IDs, root
+ * For a condition the value is a choice whose data is the path's external IDs, root
  * first (`PathFieldType`): "<level> is <one node>" is `contains <its external ID>`, and `equals` is refused.
  * External IDs stay the same between the imports of two sites; database ids never show in a value. Its text
  * is the leaf's live name from the directory (owner ruling, 2026-11-18): a node is never deleted, so a stored
  * id always resolves. An answer stored as a bare id (before the snapshot) reads its path from the directory
  * when it is read.
  *
- * [UNAPPROVED N4] (Shapes) Money-relevant: the congregation share and the support offers read it (S29, S30).
+ * Money-relevant: the congregation share and the support offers read it (S29, S30).
  *
  * TODO(S60/S73) a stored node that is no longer live or no longer a leaf stays valid when an additional form
  * sends it back unchanged; the check does not know the current value yet, so such a resend is refused for now.
@@ -40,7 +40,7 @@ final class CongregationFieldType extends AbstractFieldType implements MoneyRele
 {
     public const BLOCK_NAME = 'kalaka/congregation-field';
 
-    /** [UNAPPROVED N5] (Text) The error of an answer that is not a live terminal leaf. */
+    /** The error of an answer that is not a live terminal leaf. */
     public const NOT_LISTED = 'Érvénytelen választás. Válassz a listából.';
 
     /** A node id as the browser sends it: digits that fit in an integer. */

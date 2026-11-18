@@ -2,7 +2,7 @@
 
 /**
  * Server render of the congregation field (money.md, "Sponsor and church support"; events-and-forms.md,
- * "Forms implementation"). [UNAPPROVED N9] (UI) The owner's design (2026-11-17): one text field, an ARIA
+ * "Forms implementation"). The owner's design (2026-11-17): one text field, an ARIA
  * 1.2 combobox, with a dropdown listbox below it that `view.js` fills from the public directory route (its URL
  * is `data-kalaka-nodes`). Above the field, the breadcrumbs: the path being browsed, or the picked leaf's
  * parents. Inside it, on an optional field, the × that removes the pick (H5). The answer is the hidden input
@@ -50,7 +50,7 @@ $kalakaPath = $kalakaCurrent === null
     ? ''
     : implode(', ', array_column($kalakaCurrent['ancestors'], 'name'));
 
-// [UNAPPROVED N10] (Text) the texts, after the lektor; view.js holds the rest.
+// the texts, after the lektor; view.js holds the rest.
 $kalakaPlaceholder = 'Keress, vagy válassz a listából';
 $kalakaCrumbsName = 'Útvonal – ' . $kalakaLabel;
 $kalakaRemoveName = 'Választás törlése – ' . $kalakaLabel;

@@ -54,7 +54,7 @@ final class NodeList extends Query
     /**
      * @param ?string $search trimmed, every word must occur in the name or an alias
      * @param ?int $parent 0 for the roots, a node's id for its children, null for any node
-     * @param ?int $within [UNAPPROVED N8] (Shapes) a node's id: only the nodes below it, at any depth, never
+     * @param ?int $within a node's id: only the nodes below it, at any depth, never
      *     the node itself (the picker's search inside an opened node, H2); null for the whole directory
      * @return array{
      *     items: list<array{

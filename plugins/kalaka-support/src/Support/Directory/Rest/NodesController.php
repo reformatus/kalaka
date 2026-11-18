@@ -116,7 +116,7 @@ final class NodesController
         $args = [
             'search' => ['type' => 'string', 'minLength' => 2, 'maxLength' => 100],
             'parent' => ['type' => 'integer', 'minimum' => 0],
-            // [UNAPPROVED N8] (Shapes) only the nodes below this one, at any depth (the picker's search inside a node)
+            // only the nodes below this one, at any depth (the picker's search inside a node)
             'within' => ['type' => 'integer', 'minimum' => 1],
             'page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1],
             'per_page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 10],
@@ -151,7 +151,7 @@ final class NodesController
                     'name' => ['type' => 'string'],
                     'type' => ['type' => 'string'],
                     'parent' => ['type' => 'integer'],
-                    // [UNAPPROVED N3] (Shapes) whether the node is a terminal leaf (NodeList::LEAF)
+                    // whether the node is a terminal leaf (NodeList::LEAF)
                     'leaf' => ['type' => 'boolean'],
                     'ancestors' => ['type' => 'array', 'items' => $reference],
                 ],

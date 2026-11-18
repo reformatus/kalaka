@@ -75,7 +75,7 @@ final class Availability
      *
      * @param array<array-key, mixed> $condition
      * @param array<string, ValueType> $declared
-     * @param list<string> $paths [UNAPPROVED N11] the declared keys whose value is a path (`PathFieldType`),
+     * @param list<string> $paths the declared keys whose value is a path (`PathFieldType`),
      *     which a condition never compares with `equals`
      * @throws SystemFailure an invalid condition or a key that is not declared
      */

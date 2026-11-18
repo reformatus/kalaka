@@ -1,5 +1,5 @@
 /**
- * The congregation field on the form page (`render.php`). [UNAPPROVED N9] (UI) The owner's design
+ * The congregation field on the form page (`render.php`). The owner's design
  * (2026-11-17): one text field, an ARIA 1.2 combobox, with a dropdown listbox below it, read from the public
  * route (`data-kalaka-nodes`), which lists live nodes only. H1–H9 as the owner decided them, with the owner's
  * eight changes of 2026-11-17 night (marked „(R2-n)” below):
@@ -39,7 +39,7 @@
  * arrives later (a branch the server sends on a re-fetch) is started when anything in it first takes the focus.
  */
 
-/** [UNAPPROVED N10] (Text) The texts the picker shows and says, after the lektor. */
+/** The texts the picker shows and says, after the lektor. */
 export const TEXT = {
 	picked: (name) => `Kiválasztva: ${name}`,
 	noMatch: 'Nincs találat.',
