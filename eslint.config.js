@@ -43,7 +43,7 @@ module.exports = [
 		},
 	},
 	{
-		files: ['plugins/kalaka/tests/js/**/*.js'],
+		files: ['plugins/*/tests/js/**/*.js'],
 		languageOptions: { globals: { ...browser, ...jest, require: 'readonly' } },
 	},
 	{
