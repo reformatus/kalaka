@@ -14,7 +14,7 @@ use Kalaka\Registrations\Api\Accounts;
  * S15: WordPress's own registration page as the sign-up (owner ruling 2026-11-14), the checks the native
  * sign-up research asks for, where PHP reaches them: the hidden login name, the account logged in at once,
  * the opaque nicename and author 404s, the flag off for social sign-ups, WordPress's mails suppressed,
- * `kalaka_unverified` and its clearing, the 7-day reset link, the marker-gated login URL and skip link,
+ * `kalaka_unverified` and its clearing, the 7-day reset link, the marker-gated login URL and skip block,
  * N27's sign-up form read, and the settings warning.
  */
 final class SignUpPageTest extends AccountsTestCase
@@ -166,62 +166,78 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertSame(wp_login_url(), site_url('wp-login.php', 'login'));
     }
 
-    public function testTheMarkerKeepsItselfAndTheSkipLinkShowsOnlyInOptionalMode(): void
+    public function testTheMarkerKeepsItselfAsAHiddenField(): void
     {
         $page = new SignUpPage();
         $optional = $this->openForm('optional');
         $mandatory = $this->openForm('mandatory');
-        $back = $this->placed($optional);
+        $this->placed($optional);
         $this->placed($mandatory);
 
-        $_REQUEST = [SignUp::MARKER => (string) $optional];
-        $html = $this->captured(static fn () => $page->formFields());
-        self::assertStringContainsString('name="' . SignUp::MARKER . '" value="' . $optional . '"', $html);
-        self::assertStringContainsString('Fiók nélkül folytatom', $html);
-        self::assertStringContainsString(esc_url(SignUp::skipUrl($optional, $back)), $html);
-        self::assertStringNotContainsString('kalaka_draft_reminders', $html, 'The opt-in is the reminder plugin\'s.');
-
-        $_REQUEST = [SignUp::MARKER => (string) $mandatory];
-        $html = $this->captured(static fn () => $page->formFields());
-        self::assertStringContainsString('name="' . SignUp::MARKER . '"', $html);
-        self::assertStringNotContainsString('Fiók nélkül folytatom', $html);
+        foreach ([$optional, $mandatory] as $form) {
+            $_REQUEST = [SignUp::MARKER => (string) $form];
+            $html = $this->captured($page->markerField(...));
+            self::assertSame('<input type="hidden" name="' . SignUp::MARKER . '" value="' . $form . '">', $html);
+            self::assertStringNotContainsString('kalaka_draft_reminders', $html, 'The reminder plugin\'s.');
+        }
 
         $_REQUEST = [];
-        self::assertSame('', $this->captured(static fn () => $page->formFields()));
+        self::assertSame('', $this->captured($page->markerField(...)));
     }
 
-    public function testTheSkipBlockShowsOnTheLoginAndRegistrationPagesInOptionalModeOnly(): void
+    public function testTheSkipBlockShowsBelowTheLoginAndRegistrationBoxesInOptionalModeOnly(): void
     {
         $page = new SignUpPage();
         $optional = $this->openForm('optional');
         $mandatory = $this->openForm('mandatory');
         $skip = esc_url(SignUp::skipUrl($optional, $this->placed($optional)));
         $this->placed($mandatory);
-        $block = [
-            'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.',
-            'Fiók nélkül folytatom',
-            'Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.',
-        ];
+        $notice = 'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
+        $note = 'Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.';
+        $button = '<a class="button button-large" href="' . $skip . '">Fiók nélkül folytatom</a>';
 
         foreach (['login', 'register'] as $action) {
-            $fields = $action === 'login' ? $page->loginFields(...) : $page->formFields(...);
             $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $optional];
-            $html = $this->captured($fields);
-            foreach ($block as $text) {
-                self::assertStringContainsString($text, $html, $action);
-            }
-            self::assertStringContainsString('href="' . $skip . '"', $html, $action);
-            self::assertStringContainsString('name="' . SignUp::MARKER . '" value="' . $optional . '"', $html);
+            $html = $this->captured($page->skip(...));
+            self::assertStringStartsWith('<div id="kalaka-sign-up-skip">', $html, $action);
+            self::assertLessThan(strpos($html, $note), strpos($html, $notice), $action . ': the notice first');
+            self::assertLessThan(strpos($html, $button), strpos($html, $note), $action . ': the texts first');
+            self::assertStringNotContainsString('name="' . SignUp::MARKER . '"', $html, 'outside the form');
 
             $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $mandatory];
-            $html = $this->captured($fields);
-            foreach ($block as $text) {
-                self::assertStringNotContainsString($text, $html, $action);
-            }
+            self::assertSame('', $this->captured($page->skip(...)), $action);
+        }
+        self::assertStringNotContainsString($notice, $this->captured($page->markerField(...)), 'not in the box');
+
+        foreach (['lostpassword', 'rp', 'resetpass', 'checkemail'] as $action) {
+            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $optional];
+            self::assertSame('', $this->captured($page->skip(...)), $action);
         }
 
+        $_REQUEST = [SignUp::MARKER => (string) $optional];
+        self::assertStringContainsString($button, $this->captured($page->skip(...)), 'login without an action');
         $_REQUEST = ['action' => 'login'];
-        self::assertSame('', $this->captured($page->loginFields(...)));
+        self::assertSame('', $this->captured($page->skip(...)));
+    }
+
+    public function testTheSkipBlockIsPlacedUnderTheBoxOnTheLoginAndRegistrationPagesOnly(): void
+    {
+        foreach (['login' => false, 'register' => true, 'rp' => null] as $action => $register) {
+            wp_deregister_style('kalaka-sign-up');
+            wp_deregister_script('kalaka-sign-up');
+            $_REQUEST = ['action' => $action];
+            (new SignUpPage())->styles();
+            if ($register === null) {
+                self::assertFalse(wp_style_is('kalaka-sign-up', 'registered'), $action);
+                continue;
+            }
+            $css = implode('', (array) wp_styles()->get_data('kalaka-sign-up', 'after'));
+            $js = implode('', (array) wp_scripts()->get_data('kalaka-sign-up', 'after'));
+            self::assertStringContainsString(SignUpPage::PLACEMENT, $css, $action);
+            self::assertStringContainsString(SignUpPage::MOVE_SCRIPT, $js, $action);
+            self::assertSame($register, str_contains($css, '#reg_passmail'), $action);
+            self::assertSame($register, str_contains($js, SignUpPage::FOCUS_SCRIPT), $action);
+        }
     }
 
     public function testTheLoginAndRegistrationPagesNameTheEventAndLinkToEachOther(): void
@@ -426,23 +442,6 @@ final class SignUpPageTest extends AccountsTestCase
         foreach (['login_error', 'aria-invalid', 'aria-describedby', 'focus()'] as $part) {
             self::assertStringContainsString($part, SignUpPage::FOCUS_SCRIPT);
         }
-    }
-
-    public function testTheSixteenPlusNoticeShowsOnlyInOptionalModeWithTheSkip(): void
-    {
-        $page = new SignUpPage();
-        $notice = 'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
-
-        $optional = $this->openForm('optional');
-        $mandatory = $this->openForm('mandatory');
-        $this->placed($optional);
-        $this->placed($mandatory);
-
-        $_REQUEST = [SignUp::MARKER => (string) $optional];
-        self::assertStringContainsString($notice, $this->captured(static fn () => $page->formFields()));
-
-        $_REQUEST = [SignUp::MARKER => (string) $mandatory];
-        self::assertStringNotContainsString($notice, $this->captured(static fn () => $page->formFields()));
     }
 
     public function testTheResetLinkLastsSevenDaysOnlyForAnUnverifiedAccount(): void

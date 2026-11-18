@@ -25,8 +25,8 @@ use Kalaka\Forms\Api\SignUp;
  *   to `redirect_to`), and suppresses WordPress's own new-user mails, to the user and to the admin.
  * - **The marker** (`SignUp::MARKER`, a published registration form whose published event has accounts): it
  *   keeps itself across every POST of the login, registration and reset screens as a hidden field, names the
- *   event on the login and registration pages (OP5), puts the skip block on the login and
- *   registration pages in `optional` mode, and makes WordPress's links and redirects return to the form:
+ *   event on the login and registration pages (OP5), puts the skip block below the login and
+ *   registration pages' box in `optional` mode, and makes WordPress's links and redirects return to the form:
  *   the "Log in" and "Register" links, the registration's own redirect, the login's (`login_redirect`), and
  *   the "Log in" link after a password is set through the registration mail's link, which carries the marker
  *   (OP1). The way back is always the form's page resolved on the server (`SignUp::page()`), never an
@@ -48,6 +48,15 @@ final class SignUpPage
 
     /** How long a reset link lasts for an unverified account: 7 days. */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
+
+    /** The login and registration pages' script: the skip block (`skip()`) moved to just below WordPress's box. */
+    public const MOVE_SCRIPT = '(function(){var b=document.getElementById("kalaka-sign-up-skip");'
+        . 'var f=document.getElementById("loginform")||document.getElementById("registerform");'
+        . 'if(b&&f){f.after(b);}})();';
+
+    /** The skip block's placement: WordPress's column (320px, centred) and the side padding of its links. */
+    public const PLACEMENT = '#kalaka-sign-up-skip { box-sizing: border-box; max-width: 320px;'
+        . ' margin: 0 auto; padding: 0 24px; }';
 
     /** The registration page's script: the error tied to the e-mail field, then the focus on it. */
     public const FOCUS_SCRIPT = 'window.addEventListener("load",function(){'
@@ -71,7 +80,7 @@ final class SignUpPage
     public function register(): void
     {
         add_action('login_form_register', [$this, 'beforeRegister'], 10);
-        add_action('register_form', [$this, 'formFields'], 5);
+        add_action('register_form', [$this, 'markerField'], 5);
         add_action('login_enqueue_scripts', [$this, 'styles']);
         add_filter('pre_user_nicename', [$this, 'nicename']);
         add_action('user_register', [$this, 'markUnverified'], 10);
@@ -83,7 +92,8 @@ final class SignUpPage
         add_filter('registration_redirect', [$this, 'back']);
         add_filter('login_redirect', [$this, 'loginRedirect'], 10, 3);
         add_filter('login_message', [$this, 'message']);
-        add_action('login_form', [$this, 'loginFields']);
+        add_action('login_form', [$this, 'markerField']);
+        add_action('login_footer', [$this, 'skip']);
         add_action('resetpass_form', [$this, 'markerField']);
         add_action('password_reset', [self::class, 'firstPassword'], 1);
         add_filter('woocommerce_disable_password_change_notification', [self::class, 'wooCommerceNotification']);
@@ -131,74 +141,46 @@ final class SignUpPage
     }
 
     /**
-     * `register_form`, priority 5 (above Turnstile and social buttons): with a valid marker, the marker kept
-     * as a hidden field (the form's action drops the query), and in `optional` mode the skip link back to
-     * the form.
+     * `login_footer`, on the login and registration pages with a valid marker in `optional` mode: the way on
+     * without an account, below WordPress's box (the owner, 2026-11-17). The 16+ notice (S15-4 ii, owner ruling
+     * 2026-11-16; unchecked) and what skipping costs (OP3, owner 2026-11-17), then the skip back to the form as
+     * a link with the login screen's own button classes. `login_footer` prints after WordPress's column, so
+     * `styles()` moves the block under the box. Nothing without a page to go back to.
+     * [UNAPPROVED OP-skip-look]
      *
      * @internal
      */
-    public function formFields(): void
+    public function skip(): void
     {
         $marked = $this->marked();
-        if ($marked === null) {
+        $action = self::input('request', 'action') ?? 'login';
+        $optional = $marked !== null && $marked[1] === AccountMode::Optional;
+        $return = $optional && in_array($action, ['login', 'register'], true) ? self::page($marked[0]) : null;
+        if ($marked === null || $return === null) {
             return;
         }
-        [$formId, $mode] = $marked;
-        $this->markerField();
-        if ($mode === AccountMode::Optional) {
-            $this->skip($formId);
-        }
-    }
-
-    /**
-     * In `optional` mode, the way on without an account: the 16+ notice (S15-4 ii, owner ruling 2026-11-16;
-     * unchecked), the skip link back to the form, and under it what skipping costs (OP3, owner 2026-11-17).
-     * Nothing without a page to go back to.
-     */
-    private function skip(int $formId): void
-    {
-        $return = self::page($formId);
-        if ($return === null) {
-            return;
-        }
+        echo '<div id="kalaka-sign-up-skip">';
         // T7, approved by the owner 2026-11-17.
         printf(
             '<p class="kalaka-sign-up-age">%s</p>',
             esc_html('Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.')
-        );
-        printf(
-            '<p class="kalaka-sign-up-skip"><a href="%s">%s</a></p>',
-            esc_url(SignUp::skipUrl($formId, $return)),
-            esc_html('Fiók nélkül folytatom')
         );
         // OP3, approved by the owner 2026-11-17.
         printf(
             '<p class="kalaka-sign-up-skip-note">%s</p>',
             esc_html('Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.')
         );
+        printf(
+            '<p class="kalaka-sign-up-skip"><a class="button button-large" href="%s">%s</a></p>',
+            esc_url(SignUp::skipUrl($marked[0], $return)),
+            esc_html('Fiók nélkül folytatom')
+        );
+        echo '</div>';
     }
 
     /**
-     * `login_form`: with a valid marker, the marker kept as a hidden field, and in `optional` mode the same way
-     * on without an account as on the registration page (`skip()`; the owner, 2026-11-17).
-     *
-     * @internal
-     */
-    public function loginFields(): void
-    {
-        $marked = $this->marked();
-        if ($marked === null) {
-            return;
-        }
-        $this->markerField();
-        if ($marked[1] === AccountMode::Optional) {
-            $this->skip($marked[0]);
-        }
-    }
-
-    /**
-     * `resetpass_form` (and `loginFields()`, the registration page's `formFields()`): with a valid marker, the
-     * marker kept as a hidden field, since the screens' forms post to an address without the query.
+     * `login_form`, `register_form` (priority 5) and `resetpass_form`: with a valid marker, the marker kept as a
+     * hidden field, since the screens' forms post to an address without the query.
      *
      * @internal
      */
@@ -250,31 +232,33 @@ final class SignUpPage
     }
 
     /**
-     * `login_enqueue_scripts`: on the registration page, the username field and the "confirmation will be
-     * emailed" line hidden, and the focus on the e-mail (S15-8, S15-9, owner 2026-11-16). When WordPress shows
-     * an error (`#login_error`), the e-mail field is marked invalid and described by it before it takes the
-     * focus, so a screen reader reads the error with the field (S15 UX review 9).
+     * `login_enqueue_scripts`: on the login and registration pages, the skip block's placement under the box
+     * (`skip()`, `PLACEMENT`, `MOVE_SCRIPT`). On the registration page, the username field and the
+     * "confirmation will be emailed" line hidden, and the focus on the e-mail (S15-8, S15-9, owner 2026-11-16).
+     * When WordPress shows an error (`#login_error`), the e-mail field is marked invalid and described by it
+     * before it takes the focus, so a screen reader reads the error with the field (S15 UX review 9).
      *
      * @internal
      */
     public function styles(): void
     {
-        if (self::input('request', 'action') !== 'register') {
+        $action = self::input('request', 'action') ?? 'login';
+        if (!in_array($action, ['login', 'register'], true)) {
             return;
         }
+        $register = $action === 'register';
         wp_register_style('kalaka-sign-up', false, [], KALAKA_VERSION);
         wp_enqueue_style('kalaka-sign-up');
         wp_add_inline_style(
             'kalaka-sign-up',
-            '#registerform p:has(> #user_login), #registerform label[for="user_login"],'
-            . ' #registerform #user_login, #reg_passmail { display: none !important; }'
+            self::PLACEMENT . ($register
+                ? ' #registerform p:has(> #user_login), #registerform label[for="user_login"],'
+                    . ' #registerform #user_login, #reg_passmail { display: none !important; }'
+                : '')
         );
         wp_register_script('kalaka-sign-up', false, [], KALAKA_VERSION, true);
         wp_enqueue_script('kalaka-sign-up');
-        wp_add_inline_script(
-            'kalaka-sign-up',
-            self::FOCUS_SCRIPT
-        );
+        wp_add_inline_script('kalaka-sign-up', self::MOVE_SCRIPT . ($register ? self::FOCUS_SCRIPT : ''));
     }
 
     /**
