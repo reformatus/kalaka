@@ -13,8 +13,6 @@ namespace Kalaka\Forms\Engine;
  *
  * An IPv6 address counts by its /64 network, which one subscriber usually holds whole; a mapped IPv4
  * address counts as IPv4.
- *
- * [UNAPPROVED #196 N4] the address, the constant and the /64.
  */
 final class ClientAddress
 {

@@ -12,8 +12,6 @@ use Kalaka\Foundation\Api\Error\KalakaException;
  * until the window ends in the data (`retry_after`), which the form's routes send as `Retry-After`. Its own
  * code (`kalaka_rate_limited`) lets the page show it as its own case. Not audited: it is refused before
  * any use case, and a flood must not fill the audit.
- *
- * [UNAPPROVED #196 N5] the code, the status and `Retry-After`.
  */
 final class RateLimited extends KalakaException
 {
