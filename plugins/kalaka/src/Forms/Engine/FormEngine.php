@@ -52,12 +52,17 @@ final class FormEngine
      * The definition of the form's current version, or of an earlier revision of the same form. The current
      * version must also agree with the keys beyond the form (`FormHost::keyProblem()`: in an event form, a
      * key of another type, or a `system` field's key, makes it unusable): a form written around the save
-     * check stays closed and is named in the broken-form warning. So is a form whose host gives an account step
-     * (`FormHost::accountStep()`, now) and that holds no account block. An earlier version is read as it was.
+     * check stays closed and is named in the broken-form warning. An earlier version is read as it was.
+     *
+     * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
+     * scan) whose host gives an account step (`FormHost::accountStep()`, the event's current mode) must also
+     * hold the account block, so an event switched to accounts closes its published forms that lack it, like
+     * any other broken form. A stored submission's definition (a mail's recipient and context) is read
+     * without it: a mode change never costs an existing registration its mail.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
-    public function definition(Form $form, ?int $version = null): FormDefinition
+    public function definition(Form $form, ?int $version = null, bool $serving = false): FormDefinition
     {
         $version ??= $form->version;
         $content = $this->posts->content($form, $version);
@@ -68,9 +73,7 @@ final class FormEngine
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
                 throw new SystemFailure($problem[0] . ' ' . $problem[1]);
             }
-            // A form with an account step (the host's, from the event's CURRENT mode) holds the account block: an
-            // event switched to accounts closes its published forms that lack it, like any other broken form.
-            if ($this->host->accountStep($form) !== null && $definition->account === null) {
+            if ($serving && $this->host->accountStep($form) !== null && $definition->account === null) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name
                 throw new SystemFailure(SignUp::BLOCK_MISSING . ' ' . SignUp::BLOCK);
             }
@@ -93,7 +96,7 @@ final class FormEngine
             throw $error;
         }
 
-        return $this->definition($form, $version);
+        return $this->definition($form, $version, true);
     }
 
     /**

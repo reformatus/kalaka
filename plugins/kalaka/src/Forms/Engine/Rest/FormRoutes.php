@@ -39,9 +39,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  *   with `page`'s errors) and the choice fields with option conditions re-rendered (`ChoiceParts`). It reads
  *   only; it never writes. The account (S15, owner ruling 2026-11-18) never refuses it: in `mandatory` mode
  *   the account block is `page`'s error instead, while it shows on that page (`AccountMarkup::ERROR_KEY`).
- *   With `account` (the form's page, as the script knows it), the answer carries the account block
- *   re-rendered for the current visitor and the contact email's value for someone logged in
- *   (`{html, filled}`), after a login in the block's window.
+ *   With `account` (the form's page, as the script knows it), a logged-in request's answer carries the
+ *   account block re-rendered for it and the contact email's value (`{html, filled}`), after a login in the
+ *   block's window; a guest's carries no account part, since only a login makes one.
  * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
  *   `Registrations\Api\RegistrationSubmit`).
@@ -192,9 +192,12 @@ final class FormRoutes
         }
         $parts = $this->parts->of($form, $definition->version, $availability, $values);
         $answer = ['availability' => $availability->toArray(), 'parts' => $parts === [] ? new \stdClass() : $parts];
+        // The account part is only meaningful after a login: it is resolved for a logged-in request only, so a
+        // guest's re-fetch never runs the form's page scan (`SignUp::page()`, a site-wide content read) on this
+        // open route. With no account step it answers nothing either.
         $step = $this->host->accountStep($form);
         $here = $body['account'] ?? null;
-        if ($step !== null && is_string($here)) {
+        if ($step !== null && is_string($here) && is_user_logged_in()) {
             $answer['account'] = $this->account($step, $form, $definition, $here);
         }
 

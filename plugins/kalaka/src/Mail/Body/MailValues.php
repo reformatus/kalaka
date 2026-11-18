@@ -202,8 +202,9 @@ final class MailValues
 
     /**
      * The definition of the slot form's version the registration was submitted with: its marked fields are
-     * the ones the answers were given in, and a later save that breaks the current version does not lose the
-     * recipient.
+     * the ones the answers were given in. It is read as a stored submission's, never as a form being served:
+     * neither a later save that breaks the current version nor an event switched to accounts (whose forms
+     * then lack the account block) loses the recipient or the context.
      *
      * @param array{form_id: int, form_version: int} $record
      * @throws SystemFailure when the slot form is not usable now (`no_form`), or the version is not one of its

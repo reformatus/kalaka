@@ -43,14 +43,18 @@ final class Forms
      * The definition of the form's current version, or of an earlier revision of the same form. The current
      * version must also agree with the event's participant fields (a key of another type, or a `system`
      * field's key, makes it unusable): a form written around the save check stays closed and is named in
-     * the broken-form warning. So is a form with an account step (the event's current account mode) and no account
-     * block (`account_block_missing`). An earlier version is read as it was.
+     * the broken-form warning. An earlier version is read as it was.
+     *
+     * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
+     * scan) with an account step (the event's current account mode) must also hold the account block
+     * (`account_block_missing`). A stored submission's definition (a mail's recipient and context) is read
+     * without that check, so a mode change never costs an existing registration its mail.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
-    public function definition(Form $form, ?int $version = null): FormDefinition
+    public function definition(Form $form, ?int $version = null, bool $serving = false): FormDefinition
     {
-        return $this->engine->definition($form, $version);
+        return $this->engine->definition($form, $version, $serving);
     }
 
     /**

@@ -75,7 +75,7 @@ final class BrokenForms
             try {
                 $form = $forms->form($id);
                 if ($form !== null) {
-                    $forms->definition($form);
+                    $forms->definition($form, null, true);
                 }
             } catch (SystemFailure $e) {
                 [$code, $subject] = DefinitionCheck::split($e);

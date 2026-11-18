@@ -203,6 +203,9 @@ flowchart TB
   required field, and the send is refused without an account. In off mode,
   and on additional forms, the block is not offered and renders nothing
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
+  **Changing an event's account mode** is refused while a published
+  registration form of the event lacks the block, and the broken-forms list
+  is refreshed after a mode change (S72).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
   (UI text approved when built). A multi-page form shows none of its pages

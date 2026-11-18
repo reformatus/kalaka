@@ -187,7 +187,7 @@ final class FormPage
     /** @throws SystemFailure */
     private function view(Form $form, ValueContext $values, ?AccountStep $step = null): FormPageView
     {
-        $definition = $this->forms->definition($form);
+        $definition = $this->forms->definition($form, null, true);
 
         // What the form opens with: the host's stored values as answers (none for a new registration),
         // and what the form shows for them.

@@ -127,7 +127,8 @@ final class AccountBlockTest extends AccountsTestCase
         $line = '#' . $form . ' Regisztráció: account_block_missing kalaka/account';
         $closed = function () use ($form): ?array {
             try {
-                $this->forms->definition($this->readForm($form));
+                // Read as the page and the broken-form scan read it (`$serving`).
+                $this->forms->definition($this->readForm($form), null, true);
             } catch (SystemFailure $e) {
                 return DefinitionCheck::split($e);
             }
@@ -299,23 +300,43 @@ final class AccountBlockTest extends AccountsTestCase
         self::assertTrue($this->gated($form, 0, ['fiok' => 'igen']));
     }
 
+    /**
+     * C1-2 (#191 review 3): the account part is resolved only for a logged-in request. A guest's re-fetch with
+     * `account` answers no account part and never runs `SignUp::page()`, the site-wide content scan, on this open
+     * route; a logged-in one still re-renders the block and fills the contact email.
+     */
     public function testTheRefetchReRendersTheBlockAndGivesTheContactEmailAfterALogin(): void
     {
         $form = $this->openForm('optional');
         $page = $this->placed($form);
 
-        $guest = $this->refetch($form, null, [], ['account' => $page]);
-        self::assertStringContainsString('data-kalaka-account="out"', $guest['account']['html']);
-        self::assertSame([], $guest['account']['filled']);
+        $searches = 0;
+        $count = static function (mixed $pre, \WP_Query $query) use (&$searches): mixed {
+            if ($query->get('s') === 'kalaka') {
+                $searches++;
+            }
 
-        wp_set_current_user($this->verifiedUser());
-        $in = $this->refetch($form, null, [], ['account' => $page]);
-        self::assertStringContainsString('Bejelentkezve: teszt.csilla@example.org.', $in['account']['html']);
-        // The logout returns to the form's page found on the server; a foreign address only picks among them.
-        self::assertStringContainsString(esc_url(wp_logout_url($page)), $in['account']['html']);
-        self::assertSame(['email' => 'teszt.csilla@example.org'], $in['account']['filled']);
-        $foreign = $this->refetch($form, null, [], ['account' => 'https://evil.example.com/']);
-        self::assertStringContainsString(esc_url(wp_logout_url($page)), $foreign['account']['html']);
+            return $pre;
+        };
+        add_filter('posts_pre_query', $count, 10, 2);
+        try {
+            $guest = $this->refetch($form, null, [], ['account' => $page]);
+            self::assertArrayNotHasKey('account', $guest);
+            self::assertSame(0, $searches);
+
+            wp_set_current_user($this->verifiedUser());
+            $in = $this->refetch($form, null, [], ['account' => $page]);
+            self::assertGreaterThan(0, $searches);
+            self::assertStringContainsString('Bejelentkezve: teszt.csilla@example.org.', $in['account']['html']);
+            // The logout returns to the form's page found on the server; a foreign address only picks among them.
+            self::assertStringContainsString(esc_url(wp_logout_url($page)), $in['account']['html']);
+            self::assertSame(['email' => 'teszt.csilla@example.org'], $in['account']['filled']);
+            $foreign = $this->refetch($form, null, [], ['account' => 'https://evil.example.com/']);
+            self::assertStringContainsString(esc_url(wp_logout_url($page)), $foreign['account']['html']);
+        } finally {
+            remove_filter('posts_pre_query', $count, 10);
+            wp_set_current_user(0);
+        }
 
         // Without `account`, or for a form without accounts, no block in the answer.
         self::assertArrayNotHasKey('account', $this->refetch($form));

@@ -8,7 +8,11 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\SignUp;
+use Kalaka\Forms\BrokenForms;
+use Kalaka\Forms\Engine\FormPage;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Mail\Body\AccountLinkRule;
 use Kalaka\Mail\Body\BodyCheck;
@@ -30,11 +34,17 @@ final class AccountMailKeysTest extends MailBodyTestCase
     private function event(string $mode): int
     {
         $event = $this->published();
+        $this->setMode($event, $mode);
+
+        return $event;
+    }
+
+    /** Changes an event's account mode as a write around the use cases does (there is no act yet). */
+    private function setMode(int $event, string $mode): void
+    {
         global $wpdb;
         $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => $mode], ['id' => $event]);
         ObjectCache::clear();
-
-        return $event;
     }
 
     private function own(RegistrationKey $key, int $user): void
@@ -143,6 +153,54 @@ final class AccountMailKeysTest extends MailBodyTestCase
         self::assertFalse($this->showsBranch($event, $key, $this->branched('equals', 'yes')));
         self::assertFalse($this->showsBranch($event, $key, $this->branched('equals', 'no')));
         self::assertTrue($this->showsBranch($event, $key, $this->branched('empty')));
+    }
+
+    /**
+     * C1-1 (#191 review 3): an event switched to accounts closes the live form that lacks the account block,
+     * and the form is named in the site warning. A registration submitted on that current version still reads
+     * its recipient and its context, and its mail still renders: a stored submission is never read as a form
+     * being served.
+     */
+    public function testAModeChangeClosesTheFormWithoutCostingARegistrationItsMail(): void
+    {
+        $event = $this->event('off');
+        $form = $this->slotForm($event, false);
+        $key = $this->registration(
+            $event,
+            '12A3',
+            ['name' => 'Teszt Elek', 'email' => 'teszt@example.test'],
+            'registered',
+            $form
+        );
+        $this->switchOn($event, 'registered', $this->document($event, $this->withLink()));
+
+        $this->setMode($event, 'mandatory');
+
+        // The form being served is closed and named, like any broken form.
+        self::assertSame(
+            ['#' . $form . ' Jelentkezés: account_block_missing kalaka/account'],
+            BrokenForms::compute()
+        );
+        $this->expectSystemFailure(static fn () => (new FormPage(new EventFormHost()))->open($form));
+
+        // The registration on the current version keeps its recipient and context, and its mail renders.
+        $values = new MailValues();
+        self::assertSame('teszt@example.test', $values->recipient($key));
+        self::assertSame('teszt@example.test', $values->context($key)->get(MailValues::RECIPIENT_EMAIL)->text);
+        self::assertSame('Teszt Elek', $values->context($key)->get(MailValues::RECIPIENT_NAME)->text);
+        self::assertStringContainsString('Köszönjük!', $this->render($event, $key));
+    }
+
+    /** A serving read that must fail: the page's own read of the broken form. */
+    private function expectSystemFailure(callable $read): void
+    {
+        try {
+            $read();
+        } catch (SystemFailure) {
+            return;
+        }
+
+        self::fail('The form being served must stay closed.');
     }
 
     /** Q2: both facts' yes and no read „Igen” and „Nem”, the approved texts of the participant prompt's buttons. */

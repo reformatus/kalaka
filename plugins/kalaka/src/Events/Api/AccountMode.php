@@ -10,6 +10,9 @@ namespace Kalaka\Events\Api;
  * `Mandatory` and `Optional` mode every registration form holds the account block, which opens WordPress's
  * own login and registration pages in a window (in `Mandatory` mode the send needs the account); `Off` is
  * the behaviour before accounts: no sign-up and no owner.
+ *
+ * Changing the mode is refused while a published registration form of the event lacks the block, and the
+ * broken-forms list is refreshed after a mode change (S72's event setting).
  */
 enum AccountMode: string
 {
