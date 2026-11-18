@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Admin\FullAccessOnActivation;
+use Kalaka\Admin\FullAccess\FullAccessOnActivation;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Tests\Integration\Foundation\AuditTestCase;
 

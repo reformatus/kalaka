@@ -23,6 +23,7 @@ final class AdminProbe implements AdminUseCase
         private readonly array $schema = ['type' => 'object'],
         private readonly ?int $event = null,
         private readonly array $targets = [],
+        private readonly ?string $action = null,
     ) {
     }
 
@@ -38,7 +39,7 @@ final class AdminProbe implements AdminUseCase
 
     public function action(): ?string
     {
-        return null;
+        return $this->action;
     }
 
     public function event(array $input): ?int

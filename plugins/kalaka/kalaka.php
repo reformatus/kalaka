@@ -40,7 +40,7 @@ $kalakaBoot = static function (): void {
 add_action('plugins_loaded', $kalakaBoot, 10);
 register_activation_hook(__FILE__, static function () use ($kalakaBoot): void {
     $kalakaBoot();
-    \Kalaka\Admin\FullAccessOnActivation::grant(get_current_user_id());
+    \Kalaka\Admin\FullAccess\FullAccessOnActivation::grant(get_current_user_id());
 });
 register_deactivation_hook(__FILE__, static function (): void {
     \Kalaka\Foundation\Periodic\PeriodicSchedule::clear();

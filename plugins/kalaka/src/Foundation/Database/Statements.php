@@ -270,6 +270,30 @@ final class Statements
         return $this->wpdb->prefix . $name;
     }
 
+    /**
+     * A WordPress users table (`users` or `usermeta`) by its site-wide name, which on multisite has no
+     * blog prefix.
+     *
+     * @throws \LogicException for any other table
+     */
+    public function usersTable(string $name): string
+    {
+        if ($name === 'users') {
+            return $this->wpdb->users;
+        }
+        if ($name === 'usermeta') {
+            return $this->wpdb->usermeta;
+        }
+        $error = new \LogicException('Not a WordPress users table.');
+        throw $error;
+    }
+
+    /** The `usermeta` key that holds a user's roles and per-user capabilities on this site. */
+    public function capabilitiesMetaKey(): string
+    {
+        return $this->wpdb->get_blog_prefix() . 'capabilities';
+    }
+
     /** The connection's thread id, read without a statement; null when there is no connection. */
     public function threadId(): ?int
     {

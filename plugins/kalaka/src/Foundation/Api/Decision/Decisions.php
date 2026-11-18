@@ -9,8 +9,8 @@ use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * The public reader of a registration's current decisions (foundation.md, "Facts, decisions and computed
- * values"): the latest record of each kind. A plain read in one statement; it never evaluates, so a page
- * that shows a registration writes nothing.
+ * values"): the latest record of each kind. Plain reads, one statement each; they never evaluate, so a
+ * page that shows registrations writes nothing.
  */
 final class Decisions
 {
@@ -27,5 +27,27 @@ final class Decisions
         }
 
         return $current;
+    }
+
+    /**
+     * The current state of each listed kind for each listed code of one event, in one statement.
+     *
+     * @param list<string> $codes
+     * @param list<string> $kinds
+     * @return array<string, array<string, string>> the states by code and kind; no record, no entry
+     */
+    public function currentStates(int $eventId, array $codes, array $kinds): array
+    {
+        return $this->query->currentStates($eventId, $codes, $kinds);
+    }
+
+    /**
+     * Every decision kind recorded in an event, in byte order.
+     *
+     * @return list<string>
+     */
+    public function kindsIn(int $eventId): array
+    {
+        return $this->query->kindsIn($eventId);
     }
 }
