@@ -207,8 +207,8 @@ values and conditions, prefill and form links
   walk's errors filtered to that page's shown fields.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
-- The form page's two public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`)
-  are registered only through `Boundary::route()` and call
+- The form page's public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`:
+  the availability, the submit, the draft and the draft claim) are registered only through `Boundary::route()` and call
   `LoadState::requireOpen()` first. The availability route only reads: it
   never runs a use case or writes. The submit route calls `SubmitGuard` (S14's
   rate limit, `RateLimiter`: per account when logged in, else per address from
