@@ -9,24 +9,29 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\MoneyRelevantFieldType;
+use Kalaka\Forms\Api\PathFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
+use Kalaka\Forms\Engine\FieldMarkup as EngineFieldMarkup;
 use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\ObjectCache;
+use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Support\Directory\SaveDirectoryNode;
 use Kalaka\Support\Picker\CongregationFieldType;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
  * The congregation field in a form: contributed and registered, an answer checked against the live
- * directory at submit (only a live terminal leaf, owner ruling S28-1), stored as the node id, read back as
- * the node's external ID and name, rendered with core's field markup, and declared as the event's
- * participant field like any field. The directory is synthetic: a church with a district, a deanery and two
- * congregations, and a second body with no levels.
+ * directory at submit (only a live terminal leaf, owner ruling S28-1), stored as the node id with a snapshot
+ * of its path (P1), read back as the path's external IDs and the leaf's live name (P2), compared by
+ * `contains` and never `equals`, in a form and in a mail, opened with its pick (prefill), rendered with
+ * core's field markup, and declared as the event's participant field like any field. The directory is
+ * synthetic: a church with a district, a deanery and two congregations, and a second body with no levels.
  */
 final class CongregationFieldTest extends FormsTestCase
 {
@@ -109,6 +114,51 @@ final class CongregationFieldTest extends FormsTestCase
             ?? null;
     }
 
+    /** What an answer stores: the leaf's id and the path's external IDs and types, root first. */
+    private function snapshot(string $leaf): string
+    {
+        $types = [
+            'ROOT' => 'Egyház',
+            'D1' => 'Egyházkerület',
+            'D1-A' => 'Egyházmegye',
+            'D1-A-1' => 'Gyülekezet',
+            'D1-A-2' => 'Gyülekezet',
+            'D1-A-X' => 'Egyéb',
+            'OTHER' => 'Közösség',
+        ];
+        $path = [];
+        $parents = $leaf === 'OTHER' ? [] : ['ROOT', 'D1', 'D1-A'];
+        foreach ([...$parents, $leaf] as $ext) {
+            $path[] = ['ext' => $ext, 'type' => $types[$ext]];
+        }
+
+        return (string) wp_json_encode(
+            ['node' => $this->ids[$leaf], 'path' => $path],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    /**
+     * A slot form with the congregation field and a branch on the condition, read back as its definition.
+     *
+     * @param array<string, mixed> $condition
+     */
+    private function branching(array $condition): FormDefinition
+    {
+        return $this->forms->definition($this->readForm($this->slotForm(
+            $this->congregation()
+            . '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $condition]) . ' -->'
+            . $this->field('text', 'kerdes')
+            . '<!-- /wp:kalaka/if -->'
+        )));
+    }
+
+    /** @return array<string, mixed> "<key> <operator> <value>" as a condition */
+    private static function compare(string $operator, string $value): array
+    {
+        return ['match' => 'all', 'items' => [['key' => 'gyulekezet', 'operator' => $operator, 'value' => $value]]];
+    }
+
     private function type(): CongregationFieldType
     {
         $type = Contributions::current()->fieldTypes()[CongregationFieldType::BLOCK_NAME] ?? null;
@@ -120,6 +170,7 @@ final class CongregationFieldTest extends FormsTestCase
     public function testTheTypeIsContributedMoneyRelevantAndItsBlockRegistered(): void
     {
         self::assertInstanceOf(MoneyRelevantFieldType::class, $this->type());
+        self::assertInstanceOf(PathFieldType::class, $this->type());
         self::assertSame(ValueType::Choice, $this->type()->valueType());
         $block = \WP_Block_Type_Registry::get_instance()->get_registered(CongregationFieldType::BLOCK_NAME);
         self::assertInstanceOf(\WP_Block_Type::class, $block);
@@ -130,20 +181,26 @@ final class CongregationFieldTest extends FormsTestCase
         }
     }
 
-    public function testALiveTerminalLeafIsStoredAsItsNodeIdAlone(): void
+    public function testALiveTerminalLeafIsStoredAsItsIdWithASnapshotOfItsPath(): void
     {
         $definition = $this->definition();
 
-        self::assertSame((string) $this->ids['D1-A-1'], $this->stored($definition, (string) $this->ids['D1-A-1']));
+        self::assertSame($this->snapshot('D1-A-1'), $this->stored($definition, (string) $this->ids['D1-A-1']));
+        self::assertSame(
+            '{"node":' . $this->ids['D1-A-1'] . ',"path":[{"ext":"ROOT","type":"Egyház"},'
+            . '{"ext":"D1","type":"Egyházkerület"},{"ext":"D1-A","type":"Egyházmegye"},'
+            . '{"ext":"D1-A-1","type":"Gyülekezet"}]}',
+            $this->stored($definition, (string) $this->ids['D1-A-1'])
+        );
 
         // an "egyéb" leaf added by hand is an ordinary leaf
-        self::assertSame((string) $this->ids['D1-A-X'], $this->stored($definition, (string) $this->ids['D1-A-X']));
+        self::assertSame($this->snapshot('D1-A-X'), $this->stored($definition, (string) $this->ids['D1-A-X']));
 
-        // a body with no levels is a leaf at the root
-        self::assertSame((string) $this->ids['OTHER'], $this->stored($definition, (string) $this->ids['OTHER']));
+        // a body with no levels is a leaf at the root: its path is itself
+        self::assertSame($this->snapshot('OTHER'), $this->stored($definition, (string) $this->ids['OTHER']));
 
-        // spaces around it and leading zeros are not stored
-        self::assertSame((string) $this->ids['D1-A-2'], $this->stored($definition, ' 00' . $this->ids['D1-A-2'] . ' '));
+        // spaces around it and leading zeros do not matter
+        self::assertSame($this->snapshot('D1-A-2'), $this->stored($definition, ' 00' . $this->ids['D1-A-2'] . ' '));
     }
 
     public function testALevelIsNoAnswer(): void
@@ -214,36 +271,47 @@ final class CongregationFieldTest extends FormsTestCase
         self::assertArrayNotHasKey('gyulekezet', $validated->stored());
     }
 
-    public function testTheValueIsTheNodesExternalIdAndNameLiveOrNot(): void
+    public function testTheValueIsThePathsExternalIdsAndTheLeafsLiveName(): void
     {
-        $value = $this->type()->value(new FieldTypeInput((string) $this->ids['D1-A-1'], []));
+        $stored = $this->snapshot('D1-A-1');
+        $value = $this->type()->value(new FieldTypeInput($stored, []));
         self::assertSame(ValueType::Choice, $value->type);
-        self::assertSame(['D1-A-1'], $value->data);
+        self::assertSame(['ROOT', 'D1', 'D1-A', 'D1-A-1'], $value->data);
         self::assertSame('Óbudai Teszt Gyülekezet', $value->text);
 
-        // a node is never deleted: a stored id still reads after the node is deactivated
-        $this->node('D1-A-1', 'D1-A', 'Gyülekezet', 'Óbudai Teszt Gyülekezet', false);
-        $value = $this->type()->value(new FieldTypeInput((string) $this->ids['D1-A-1'], []));
-        self::assertSame(['D1-A-1'], $value->data);
-        self::assertSame('Óbudai Teszt Gyülekezet', $value->text);
+        // a re-import moves the leaf, renames it and deactivates it: the path stays as stored, the name is live
+        $this->node('D2', 'ROOT', 'Egyházkerület', 'Déli Teszt Egyházkerület');
+        $this->node('D1-A-1', 'D2', 'Gyülekezet', 'Óbudai Új Teszt Gyülekezet', false);
+        $value = $this->type()->value(new FieldTypeInput($stored, []));
+        self::assertSame(['ROOT', 'D1', 'D1-A', 'D1-A-1'], $value->data);
+        self::assertSame('Óbudai Új Teszt Gyülekezet', $value->text);
 
-        // nothing chosen for an id with no node
-        $value = $this->type()->value(new FieldTypeInput('999999', []));
-        self::assertTrue($value->isEmpty());
+        // nothing chosen for an id with no node, nor for what is no stored answer
+        foreach (['999999', '{"node":999999,"path":[]}', '{"node":"x"}', 'abc', ''] as $stored) {
+            self::assertTrue($this->type()->value(new FieldTypeInput($stored, []))->isEmpty(), $stored);
+        }
     }
 
-    public function testAConditionComparesTheNodesExternalId(): void
+    public function testAnAnswerStoredAsABareIdReadsItsPathFromTheDirectory(): void
     {
-        $condition = [
-            'match' => 'all',
-            'items' => [['key' => 'gyulekezet', 'operator' => 'equals', 'value' => 'D1-A-1']],
-        ];
-        $definition = $this->forms->definition($this->readForm($this->slotForm(
-            $this->congregation()
-            . '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $condition]) . ' -->'
-            . $this->field('text', 'kerdes')
-            . '<!-- /wp:kalaka/if -->'
-        )));
+        $value = $this->type()->value(new FieldTypeInput((string) $this->ids['D1-A-2'], []));
+
+        self::assertSame(['ROOT', 'D1', 'D1-A', 'D1-A-2'], $value->data);
+        self::assertSame('Ottó Teszt', $value->text);
+    }
+
+    public function testAStoredAnswerOpensAsItsLeafsId(): void
+    {
+        $id = (string) $this->ids['D1-A-1'];
+        self::assertSame($id, $this->type()->prefill(new FieldTypeInput($this->snapshot('D1-A-1'), [])));
+        self::assertSame($id, $this->type()->prefill(new FieldTypeInput($id, [])));
+        foreach (['', 'abc', '0', '{"node":0,"path":[]}'] as $stored) {
+            self::assertNull($this->type()->prefill(new FieldTypeInput($stored, [])), $stored);
+        }
+    }
+
+    public function testAConditionAsksWhetherTheLevelIsOneNode(): void
+    {
         $facts = new ValueContext([
             EventValues::NAME => Value::text('Teszt tábor', 'Teszt tábor'),
             EventValues::REGISTRATION_OPENS => Value::none(ValueType::Date),
@@ -251,31 +319,69 @@ final class CongregationFieldTest extends FormsTestCase
             EventValues::START => Value::none(ValueType::Date),
             EventValues::END => Value::none(ValueType::Date),
         ]);
-
-        $picked = $this->forms->availability(
+        $shows = fn (FormDefinition $definition, string $leaf): bool => $this->forms->availability(
             $definition,
-            self::REQUIRED + ['gyulekezet' => (string) $this->ids['D1-A-1']],
+            self::REQUIRED + ['gyulekezet' => (string) $this->ids[$leaf]],
             $facts
-        );
-        self::assertTrue($picked->shows('kerdes'));
+        )->shows('kerdes');
 
-        $other = $this->forms->availability(
-            $definition,
-            self::REQUIRED + ['gyulekezet' => (string) $this->ids['D1-A-2']],
-            $facts
-        );
-        self::assertFalse($other->shows('kerdes'));
+        // "egyházmegye is D1-A": both its congregations, nothing else
+        $deanery = $this->branching(self::compare('contains', 'D1-A'));
+        self::assertTrue($shows($deanery, 'D1-A-1'));
+        self::assertTrue($shows($deanery, 'D1-A-2'));
+        self::assertFalse($shows($deanery, 'OTHER'));
+
+        // "gyülekezet is D1-A-1": the leaf alone; an external ID is never matched inside another
+        $leaf = $this->branching(self::compare('contains', 'D1-A-1'));
+        self::assertTrue($shows($leaf, 'D1-A-1'));
+        self::assertFalse($shows($leaf, 'D1-A-2'));
+
+        // a deactivated node can still be named, so an old rule stays valid
+        $this->node('D1', 'ROOT', 'Egyházkerület', 'Északi Teszt Egyházkerület', false);
+        self::assertInstanceOf(FormDefinition::class, $this->branching(self::compare('contains', 'D1')));
     }
 
-    public function testItRendersASearchBoxWithoutANameAndTheAnswerAsAHiddenInput(): void
+    public function testAConditionNeverComparesThePathWithEquals(): void
     {
-        $html = render_block([
+        try {
+            $this->branching(self::compare('equals', 'D1-A-1'));
+            self::fail('A condition with equals was accepted.');
+        } catch (SystemFailure $e) {
+            self::assertStringContainsString('invalid_condition gyulekezet', $e->getMessage());
+        }
+    }
+
+    public function testAMailConditionNeverComparesThePathWithEquals(): void
+    {
+        $this->insertChecked(
+            $this->congregation(),
+            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+        );
+        $body = static fn (string $operator): string => '<!-- wp:kalaka/if '
+            . wp_json_encode(['condition' => self::compare($operator, 'D1-A')])
+            . ' --><!-- wp:paragraph --><p>Teszt</p><!-- /wp:paragraph --><!-- /wp:kalaka/if -->';
+
+        self::assertNull(BodyCheck::problem($body('contains'), self::EVENT));
+        self::assertSame('invalid_condition gyulekezet', BodyCheck::problem($body('equals'), self::EVENT));
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function rendered(array $attributes = [], ?string $prefilled = null): string
+    {
+        $render = static fn (): string => render_block([
             'blockName' => CongregationFieldType::BLOCK_NAME,
-            'attrs' => ['key' => 'gyulekezet', 'label' => 'Gyülekezet', 'required' => true],
+            'attrs' => $attributes + ['key' => 'gyulekezet', 'label' => 'Gyülekezet', 'required' => true],
             'innerBlocks' => [],
             'innerHTML' => '',
             'innerContent' => [],
         ]);
+
+        return $prefilled === null ? $render() : EngineFieldMarkup::withPrefill(['gyulekezet' => $prefilled], $render);
+    }
+
+    public function testItRendersAComboboxWithoutANameAndTheAnswerAsAHiddenInput(): void
+    {
+        $html = $this->rendered();
 
         self::assertStringContainsString('data-kalaka-field="gyulekezet"', $html);
         self::assertStringContainsString('data-kalaka-congregation', $html);
@@ -283,32 +389,79 @@ final class CongregationFieldTest extends FormsTestCase
             'data-kalaka-nodes="' . esc_url(rest_url('kalaka-support/v1/nodes')) . '"',
             $html
         );
+        self::assertStringNotContainsString('data-kalaka-current', $html);
         self::assertMatchesRegularExpression(
             '/<label for="[^"]+">Gyülekezet<span class="kalaka-field__required"/',
             $html
         );
         self::assertMatchesRegularExpression(
-            '/<input type="search" id="[^"]+" autocomplete="off"[^>]* aria-required="true" data-kalaka-search>/',
+            '/<input type="text" id="kalaka-field-gyulekezet" role="combobox" autocomplete="off"'
+            . ' aria-autocomplete="list" aria-expanded="false" aria-controls="kalaka-field-gyulekezet-options"'
+            . ' placeholder="Keress, vagy válassz a listából" value=""[^>]* aria-required="true" data-kalaka-search>/',
             $html
         );
         self::assertSame(1, substr_count($html, ' name="'));
-        self::assertStringContainsString('<input type="hidden" name="gyulekezet" value="" autocomplete="off">', $html);
-        self::assertStringContainsString('<button type="button" data-kalaka-up>Egy szinttel feljebb</button>', $html);
-        self::assertStringContainsString('class="kalaka-field__error" hidden', $html);
-        // the search box comes before the hidden input: a field error focuses the search box
-        self::assertLessThan(strpos($html, 'type="hidden"'), strpos($html, 'type="search"'));
-        // the title and the search box sit in a `p` of their own, as a text field's do
         self::assertMatchesRegularExpression(
-            '/<p>\s*<label for="[^"]+">.*<\/label>\s*<input type="search"[^>]*>\s*<\/p>/s',
+            '/<input type="hidden" name="gyulekezet" autocomplete="off"\s+value="">/',
             $html
         );
-        // the picked line comes after the list, so a pick never moves the list
-        self::assertLessThan(strpos($html, 'data-kalaka-picked'), strpos($html, 'data-kalaka-list'));
-        self::assertStringContainsString('<p data-kalaka-message tabindex="-1" hidden></p>', $html);
-        // the picker's own stylesheet: a visible focus and the picked button's mark
+        self::assertStringContainsString('class="kalaka-field__error" hidden', $html);
+        // a required field has no ×
+        self::assertStringNotContainsString('data-kalaka-remove', $html);
+        // the field comes before the hidden input: a field error focuses the field
+        self::assertLessThan(strpos($html, 'type="hidden"'), strpos($html, 'role="combobox"'));
+        // the dropdown's message line is at its top, before the options
+        self::assertLessThan(strpos($html, 'role="listbox"'), strpos($html, 'data-kalaka-message'));
+        // the picker's own stylesheet
         $block = \WP_Block_Type_Registry::get_instance()->get_registered(CongregationFieldType::BLOCK_NAME);
         self::assertInstanceOf(\WP_Block_Type::class, $block);
         self::assertNotEmpty($block->style_handles);
+
+        // an optional field has the ×, hidden while there is no pick
+        self::assertMatchesRegularExpression(
+            '/<button type="button" aria-label="Választás törlése – Gyülekezet" data-kalaka-remove\s+hidden>/',
+            $this->rendered(['required' => false])
+        );
+    }
+
+    public function testItOpensWithItsPickShownItsPathDescribingIt(): void
+    {
+        $html = $this->rendered(['required' => false], (string) $this->ids['D1-A-1']);
+
+        self::assertStringContainsString('value="Óbudai Teszt Gyülekezet"', $html);
+        self::assertMatchesRegularExpression(
+            '/<input type="hidden" name="gyulekezet" autocomplete="off"\s+value="' . $this->ids['D1-A-1'] . '">/',
+            $html
+        );
+        self::assertStringContainsString('aria-describedby="kalaka-field-gyulekezet-path"', $html);
+        self::assertMatchesRegularExpression(
+            '/id="kalaka-field-gyulekezet-path"[^>]*\s*>'
+            . 'Teszt Egyház, Északi Teszt Egyházkerület, Budai Teszt Egyházmegye</',
+            $html
+        );
+        // never an external ID
+        self::assertStringNotContainsString('D1-A', $html);
+        self::assertStringContainsString('&quot;live&quot;:true', $html);
+        // H7's line stays hidden for a live pick, and the × shows
+        self::assertMatchesRegularExpression('/data-kalaka-stale\s+hidden>/', $html);
+        self::assertMatchesRegularExpression('/data-kalaka-remove\s+>/', $html);
+    }
+
+    public function testAPickThatIsNoLongerAnAnswerOpensWithItsLine(): void
+    {
+        $this->node('D1-A-2', 'D1-A', 'Gyülekezet', 'Ottó Teszt', false);
+        $html = $this->rendered([], (string) $this->ids['D1-A-2']);
+
+        self::assertStringContainsString('value="Ottó Teszt"', $html);
+        self::assertStringContainsString(
+            'aria-describedby="kalaka-field-gyulekezet-path kalaka-field-gyulekezet-stale"',
+            $html
+        );
+        self::assertMatchesRegularExpression(
+            '/data-kalaka-stale\s*>A választott elem már nem választható\. Válassz a listából\.</',
+            $html
+        );
+        self::assertStringContainsString('&quot;live&quot;:false', $html);
     }
 
     public function testItIsDeclaredAsTheEventsParticipantFieldWithoutOptions(): void
