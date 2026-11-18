@@ -8,7 +8,7 @@ use Kalaka\Forms\Api\FormCaching;
 
 /**
  * The forms a page's content places: the embed block `kalaka/form` (also nested) and the `[kalaka_form]`
- * shortcode, as their form IDs, each once, in the order they appear.
+ * shortcode (not an escaped `[[kalaka_form …]]`), as their form IDs, each once, in the order they appear.
  */
 final class PlacedForms
 {
@@ -17,9 +17,14 @@ final class PlacedForms
     {
         $ids = self::fromBlocks(parse_blocks($content));
         if (str_contains($content, '[' . FormCaching::SHORTCODE)) {
-            preg_match_all('/' . get_shortcode_regex([FormCaching::SHORTCODE]) . '/', $content, $matches);
-            foreach ($matches[3] as $attributes) {
-                $id = absint(shortcode_parse_atts($attributes)['id'] ?? 0);
+            $pattern = '/' . get_shortcode_regex([FormCaching::SHORTCODE]) . '/';
+            preg_match_all($pattern, $content, $matches, PREG_SET_ORDER);
+            foreach ($matches as $m) {
+                if ($m[1] === '[' && $m[6] === ']') {
+                    // An escaped `[[kalaka_form …]]` is literal text, as `do_shortcode_tag()` leaves it.
+                    continue;
+                }
+                $id = absint(shortcode_parse_atts($m[3])['id'] ?? 0);
                 if ($id > 0) {
                     $ids[] = $id;
                 }
