@@ -20,8 +20,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Evaluates one registration now, in a transaction of its own (foundation.md, "Failures" and "Bulk changes"): the
  * periodic run and a money settings apply both come through here. A failure that is not retryable (a held lock, a
  * version conflict) gets the "evaluation failed" flag, so the hourly sweep retries it, and is then thrown on.
- *
- * [UNAPPROVED N1] A new Foundation Api (#185 review B1), replacing Pricing's copy of `EvaluateRegistration`.
  */
 final class Evaluations
 {
