@@ -498,7 +498,18 @@ describe('dragging a ranked option', () => {
 			pointer('lostpointercapture', field.querySelector('[data-kalaka-ranked]'), 45);
 			pointer('pointerdown', handle, 10, { pointerType: 'mouse' });
 			pointer('pointermove', handle, 45, { pointerType: 'mouse', buttons: 0 });
+			expect(held()).toBe(0);
 
+			// A ranking the form re-rendered and restarted, again and again (S44): nothing stacks on the window.
+			for (let i = 0; i < 3; i++) {
+				const swapped = render({ ticked: ['modul_a', 'modul_b'], wire: false });
+				restart(swapped, ['modul_a', 'modul_b']);
+				layOut(swapped);
+				const grip = itemOf(swapped, 'modul_a').querySelector('[data-kalaka-handle]');
+				pointer('pointerdown', grip, 10);
+				expect(held()).toBe(2);
+				pointer('pointerup', grip, 10);
+			}
 			expect(held()).toBe(0);
 		} finally {
 			added.mockRestore();

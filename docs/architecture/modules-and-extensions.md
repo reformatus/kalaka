@@ -82,8 +82,9 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 
 - **A set** belongs to an event: a name, an optional time slot,
   required or optional, a choice window, an access mode and a **published
-  switch** (unpublished, it is hidden from participants; for a direct set,
-  publishing also opens the choice).
+  switch** (for a direct set, unpublished, it is hidden from participants
+  and publishing opens the choice; a request set's field follows its choice
+  window only).
 - **An option** has a capacity, leaders (display text), a place and
   eligibility conditions on field values (e.g. age, gender).
 - **A registration holds at most one option per set,** stored as an

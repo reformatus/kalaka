@@ -2,16 +2,24 @@
  * The ranking field in the editor (`Blocks/ranking-field/edit.js`): it is built from core's field-editor pieces
  * (`window.kalakaFieldEditor`), so the form editor's one keeper of keys gives a copied ranking a fresh key.
  */
-import { createKeeper, missing } from '../../../kalaka/src/Forms/Blocks/form/keys';
+import { createKeeper } from '../../../kalaka/src/Forms/Blocks/form/keys';
 import Edit from '../../src/Ranking/Blocks/ranking-field/edit';
 
 // The block editor's packages are not installed for Jest: the ranking's editor uses only these of them.
 jest.mock('@wordpress/block-editor', () => ({ useBlockProps: (props = {}) => props }), { virtual: true });
 jest.mock(
 	'@wordpress/components',
-	() => ({ Button: 'Button', Flex: 'Flex', FlexBlock: 'FlexBlock', PanelBody: 'PanelBody', TextControl: 'TextControl' }),
+	() => ({ PanelBody: 'PanelBody', SelectControl: 'SelectControl', TextControl: 'TextControl' }),
 	{ virtual: true }
 );
+jest.mock('@wordpress/api-fetch', () => () => new Promise(() => {}), { virtual: true });
+jest.mock('@wordpress/data', () => ({ useSelect: () => 0 }), { virtual: true });
+// The editor is called as a function here, outside React: its own state is its first value.
+jest.mock('@wordpress/element', () => ({
+	...jest.requireActual('@wordpress/element'),
+	useState: (value) => [value, () => {}],
+	useEffect: () => {},
+}));
 
 const RANKING = 'kalaka/ranking-field';
 
@@ -41,12 +49,8 @@ describe('a copied ranking', () => {
 		globalThis.kalakaFormEditor = { ...globalThis.kalakaFormEditor, fieldTypes };
 	});
 
-	test('gets a fresh key from its title, and its options fresh keys; the original keeps its own', () => {
-		const options = [
-			{ label: 'Modul A', value: 'quiz_1' },
-			{ label: 'Modul B', value: 'modul_b' },
-		];
-		const store = editor([ranking('a', { key: 'modulok', label: 'Modulok', options })]);
+	test('gets a fresh key from its title; the original keeps its own', () => {
+		const store = editor([ranking('a', { key: 'modulok', label: 'Modulok', set: 1 })]);
 		const keeper = createKeeper();
 		store.update('a', keeper.mount(store, 'a'));
 
@@ -55,19 +59,7 @@ describe('a copied ranking', () => {
 		store.update('copy', keeper.mount(store, 'copy'));
 
 		expect(store.getBlockAttributes('a').key).toBe('modulok');
-		expect(store.getBlockAttributes('copy').key).toBe('modulok_1');
-		// Core's rule for a copy's options: their values are derived again from the labels, a typed one too.
-		expect(store.getBlockAttributes('a').options).toEqual(options);
-		expect(store.getBlockAttributes('copy').options).toEqual([
-			{ label: 'Modul A', value: 'modul_a' },
-			{ label: 'Modul B', value: 'modul_b' },
-		]);
-	});
-
-	test('an option without a key gets one from its label when the label loses focus', () => {
-		const store = editor([ranking('a', { key: 'modulok', label: 'Modulok', options: [{ label: 'Modul Á' }] })]);
-
-		expect(missing(store, 'a')).toEqual({ options: [{ label: 'Modul Á', value: 'modul_a' }] });
+		expect(store.getBlockAttributes('copy')).toEqual({ key: 'modulok_1', label: 'Modulok', set: 1 });
 	});
 });
 
@@ -101,7 +93,7 @@ describe('the ranking’s editor uses core’s field-editor pieces', () => {
 	};
 
 	test('the keeper, the canvas marker, the inspector with its panels and the title', () => {
-		const attributes = { key: 'modulok', label: 'Modulok', required: true, min: 1, max: 2, options: [] };
+		const attributes = { key: 'modulok', label: 'Modulok', required: true, min: 1, max: 2, set: 1 };
 		const tree = Edit({ name: RANKING, attributes, setAttributes: jest.fn(), clientId: 'c1', isSelected: true });
 
 		expect(pieces.useStableKey).toHaveBeenCalledWith('c1', true);
@@ -113,8 +105,8 @@ describe('the ranking’s editor uses core’s field-editor pieces', () => {
 			'Legkevesebb választás',
 			'Legtöbb választás',
 		]);
-		const [options] = find(inspector, inspector.props.children.type);
-		expect(options.props.commit).toBe(commit);
+		// The set picker, after the settings.
+		expect(inspector.props.children.props).toMatchObject({ value: 1 });
 		const [title] = find(tree, 'FieldTitle');
 		expect(title.props).toMatchObject({ name: RANKING, required: true, onBlur: commit });
 	});

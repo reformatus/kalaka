@@ -7,6 +7,7 @@ namespace Kalaka\Ranking;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\KeyDerivation;
 use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
@@ -27,9 +28,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 final class RankingFieldType extends AbstractFieldType implements RequestFieldType
 {
     public const BLOCK_NAME = 'kalaka/ranking-field';
-
-    /** An option key: the same rule as a choice option's value. */
-    public const OPTION_KEY_PATTERN = '/\A[a-z0-9][a-z0-9_-]{0,63}\z/';
 
     /** The fewest and most options a ranking holds when the block sets none (S45-1: min 1, max 3). */
     public const DEFAULT_MIN = 1;
@@ -247,7 +245,7 @@ final class RankingFieldType extends AbstractFieldType implements RequestFieldTy
         foreach ($options as $option) {
             $key = is_array($option) ? ($option['value'] ?? null) : null;
             if (
-                is_string($key) && preg_match(self::OPTION_KEY_PATTERN, $key) === 1
+                is_string($key) && preg_match(KeyDerivation::VALUE_PATTERN, $key) === 1
                 && !array_key_exists($key, $labels)
             ) {
                 $label = $option['label'] ?? '';
