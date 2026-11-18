@@ -60,9 +60,9 @@ final class FormRoutes
     /** The refusal of a request whose session ended: logging in again is the way on. */
     public const SESSION_ENDED = 'kalaka_session_ended';
 
-    // #191 T8 (owner, 2026-11-17).
+    // #191 T8 (the owner's ruling 2026-11-18, shortened).
     public const SESSION_ENDED_TEXT
-        = 'Ebben a böngészőben már nem vagy bejelentkezve. Jelentkezz be újra, és töltsd ki ismét az űrlapot.';
+        = 'Ebben a böngészőben már nem vagy bejelentkezve. Jelentkezz be újra.';
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';
@@ -185,7 +185,7 @@ final class FormRoutes
         $availability = $this->forms->availability($definition, $this->answers($body), $values, $page);
         $guest = in_array(AccessRefusal::AccountRequired, $all, true);
         if ($page !== null && $guest && self::accountShows($definition, $availability, $page)) {
-            // [UNAPPROVED N28] In `mandatory` mode the account block validates like a required field on its page.
+            // In `mandatory` mode the account block validates like a required field on its page.
             $availability = $availability->withError(AccountMarkup::ERROR_KEY, AccountMarkup::ERROR);
         }
         $parts = $this->parts->of($form, $definition->version, $availability, $values);

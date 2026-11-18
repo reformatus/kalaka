@@ -27,13 +27,15 @@ use Kalaka\Registrations\Api\SecretLinks;
  * reads as none. The recipient comes from the marked fields of
  * the slot form (the form of the first submission). It reads WordPress posts, so it runs outside any use case.
  *
- * The owner account's keys (S15, owner ruling 2026-11-16): `account.unverified`, `1` while the registration's
- * owner is an account Kaláka created whose password was never set, and `account.password_link`, that
- * account's set-password link, made when the mail is rendered (`Registrations\Api\Accounts::passwordLink()`;
- * the newest link wins), and only for a body that reads it. Both are none for a guest's registration, an
- * owner who is verified (a social sign-up among them), or a recipient other than the account's own address,
- * so a link to set someone's password never goes to another address. The link carries the slot form's marker,
- * so the login after the password is set returns to the form (OP1, owner 2026-11-17).
+ * The owner account's keys (S15, owner ruling 2026-11-16; true, false and null apart, owner ruling 2026-11-18):
+ * `account.unverified`, a choice: `yes` while the registration's owner is an account Kaláka created whose
+ * password was never set, `no` for an owner who is verified (a social sign-up among them), none for a guest's
+ * registration (an event without accounts has none) or a recipient other than the account's own address. And
+ * `account.password_link`, that account's set-password link, made when the mail is rendered
+ * (`Registrations\Api\Accounts::passwordLink()`; the newest link wins), and only for a body that reads it; it is
+ * none wherever `account.unverified` is not `yes`, so a link to set someone's password never goes to another
+ * address. The link carries the slot form's marker, so the login after the password is set returns to the form
+ * (OP1, owner 2026-11-17).
  */
 final class MailValues
 {
@@ -92,7 +94,7 @@ final class MailValues
             self::STATUS => ValueType::Choice,
             self::LINK => ValueType::Text,
             self::FROM_WAITLIST => ValueType::Choice,
-            self::ACCOUNT_UNVERIFIED => ValueType::Text,
+            self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
         ];
     }
@@ -146,8 +148,14 @@ final class MailValues
         $name = $this->marked($definition, false);
         $recipient = $email === null ? '' : ($record['values'][$email] ?? '');
         $owner = $this->registrations->find($key)?->ownerUserId;
-        $unverified = $owner !== null && $this->ownAddress($owner, $recipient) && $this->accounts->isUnverified($owner);
-        $setPassword = $unverified && $passwordLink ? $this->accounts->passwordLink($owner, $record['form_id']) : null;
+        // True, false and null stay apart (owner ruling 2026-11-18): none unless the registration has an owner
+        // and the recipient is the owner's own address, then yes (unverified) or no (verified).
+        $unverified = $owner !== null && $this->ownAddress($owner, $recipient)
+            ? $this->accounts->isUnverified($owner)
+            : null;
+        $setPassword = $unverified === true && $passwordLink
+            ? $this->accounts->passwordLink($owner, $record['form_id'])
+            : null;
 
         return new ValueContext([
             ...$this->forms->participantValues($key->eventId, $record['values']),
@@ -158,7 +166,10 @@ final class MailValues
             self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
             self::FROM_WAITLIST => Value::choice(['no'], ''),
-            self::ACCOUNT_UNVERIFIED => self::text($unverified ? '1' : ''),
+            // The text of yes and no is `''` until the owner approves one (asked of the owner).
+            self::ACCOUNT_UNVERIFIED => $unverified === null
+                ? Value::none(ValueType::Choice)
+                : Value::choice([$unverified ? 'yes' : 'no'], ''),
             self::ACCOUNT_PASSWORD_LINK => self::text($setPassword ?? ''),
         ]);
     }

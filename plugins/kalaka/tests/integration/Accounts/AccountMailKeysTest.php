@@ -56,14 +56,71 @@ final class AccountMailKeysTest extends MailBodyTestCase
         return $id;
     }
 
-    /** The body an author writes: the link inside a branch on `account.unverified`. */
+    /** The body an author writes: the link inside a branch on `account.unverified` equal to yes. */
     private function withLink(): string
     {
         return $this->paragraph('Köszönjük!') . "\n" . $this->branch(
             'if',
             $this->paragraph('Jelszó: <span data-kalaka-value="account.password_link">link</span>'),
-            ['match' => 'all', 'items' => [['key' => 'account.unverified', 'operator' => 'empty', 'not' => true]]]
+            ['match' => 'all', 'items' => [['key' => 'account.unverified', 'operator' => 'equals', 'value' => 'yes']]]
         );
+    }
+
+    /** A body with one branch on `account.unverified`: its text shows when the condition holds. */
+    private function branched(string $operator, ?string $value = null): string
+    {
+        $item = ['key' => 'account.unverified', 'operator' => $operator];
+        if ($value !== null) {
+            $item['value'] = $value;
+        }
+
+        return $this->branch('if', $this->paragraph('Szakasz'), ['match' => 'all', 'items' => [$item]]);
+    }
+
+    private function showsBranch(int $event, RegistrationKey $key, string $body): bool
+    {
+        $this->switchOn($event, 'registered', $this->document($event, $this->withLink() . "\n" . $body));
+
+        return str_contains($this->render($event, $key), 'Szakasz');
+    }
+
+    /** Owner ruling 2026-11-18: true, false and null are separate; `empty` is none only, `equals no` is no only. */
+    public function testUnverifiedIsYesNoOrNoneAndEachBranchReadsItsOwn(): void
+    {
+        $event = $this->event('optional');
+        $unverified = $this->registration($event, '12A3');
+        $this->own($unverified, $this->user(true));
+        $verified = $this->registration(
+            $event,
+            '34B4',
+            ['name' => 'Teszt Csilla', 'email' => 'teszt.csilla@example.test', 'camps' => '["ff"]']
+        );
+        $this->own($verified, $this->user(false, 'teszt.csilla@example.test'));
+        $guest = $this->registration($event, '56B4');
+        $other = $this->registration(
+            $event,
+            '00A0',
+            ['name' => 'Teszt Gábor', 'email' => 'teszt.gabor@example.test', 'camps' => '["ff"]']
+        );
+        $this->own($other, $this->user(true, 'teszt.ferenc@example.test'));
+        $off = $this->event('off');
+        $offKey = $this->registration($off, '00B0');
+
+        // An owner who is the recipient: yes or no. Everyone else: none.
+        $expected = [
+            ['equals', 'yes', [true, false, false, false]],
+            ['equals', 'no', [false, true, false, false]],
+            ['empty', null, [false, false, true, true]],
+        ];
+        foreach ($expected as [$operator, $value, $shows]) {
+            $body = $this->branched($operator, $value);
+            foreach ([$unverified, $verified, $guest, $other] as $i => $key) {
+                self::assertSame($shows[$i], $this->showsBranch($event, $key, $body), "$operator $value $key->code");
+            }
+        }
+        // An event without accounts has no owner: none.
+        self::assertTrue($this->showsBranch($off, $offKey, $this->branched('empty')));
+        self::assertFalse($this->showsBranch($off, $offKey, $this->branched('equals', 'no')));
     }
 
     private function render(int $event, RegistrationKey $key): string

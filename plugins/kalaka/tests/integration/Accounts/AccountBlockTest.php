@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Accounts;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Forms\AccountBlock;
+use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\DefinitionCheck;
@@ -204,7 +206,42 @@ final class AccountBlockTest extends AccountsTestCase
         self::assertArrayNotHasKey('account', $this->refetch($this->openForm('off'), null, [], ['account' => $page]));
     }
 
-    /** [UNAPPROVED N30] The subject „Bejelentkezve”: a chain on it ships both branches and follows the login. */
+    /**
+     * Owner ruling 2026-11-18: true, false and null are separate. `account.logged_in` is yes or no
+     * only on a form with an account step; on an off event's form and on an additional form it is none, so a branch
+     * on `equals no` never shows to a logged-in person there.
+     */
+    public function testLoggedInIsNoneWhereTheFormHasNoAccountStep(): void
+    {
+        $chain = '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $this->when(SignUp::LOGGED_IN, 'no')]) . ' -->'
+            . $this->field('text', 'megjegyzes')
+            . '<!-- /wp:kalaka/if -->';
+        $optional = $this->openForm('optional', 'registration', self::ACCOUNT_BLOCK . $this->slotFields() . $chain);
+        $mandatory = $this->openForm('mandatory', 'registration', self::ACCOUNT_BLOCK . $this->slotFields() . $chain);
+        $off = $this->openForm('off', 'registration', $this->slotFields() . $chain);
+        $additional = $this->openForm('optional', 'additional', $chain);
+
+        // Where the step exists: no for a guest, yes (the branch hidden) for an account.
+        foreach ([$optional, $mandatory] as $form) {
+            self::assertSame([0 => 0], $this->refetch($form)['availability']['chains']);
+        }
+        // Where it does not: none for a guest and for a logged-in person alike.
+        foreach ([$off, $additional] as $form) {
+            self::assertSame([0 => null], $this->refetch($form)['availability']['chains']);
+        }
+        wp_set_current_user($this->verifiedUser());
+        foreach ([$optional, $mandatory, $off, $additional] as $form) {
+            self::assertSame([0 => null], $this->refetch($form)['availability']['chains']);
+        }
+
+        $event = (new Events())->find((int) get_post_meta($optional, 'kalaka_event_id', true));
+        self::assertNotNull($event);
+        self::assertSame(['yes'], EventValues::form($event, true)[SignUp::LOGGED_IN]->data);
+        self::assertSame(['no'], EventValues::form($event, false)[SignUp::LOGGED_IN]->data);
+        self::assertTrue(EventValues::form($event, null)[SignUp::LOGGED_IN]->isEmpty());
+    }
+
+    /** The subject „Bejelentkezve”: a chain on it ships both branches and follows the login. */
     public function testLoggedInIsAConditionSubjectThatChangesInPlace(): void
     {
         $chain = '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => $this->when(SignUp::LOGGED_IN, 'yes')]) . ' -->'
@@ -220,7 +257,7 @@ final class AccountBlockTest extends AccountsTestCase
         wp_set_current_user($this->verifiedUser());
         self::assertSame([0 => 0], $this->refetch($form)['availability']['chains']);
 
-        // In off mode it is `no` even logged in.
+        // In off mode it is none, even logged in.
         $off = $this->openForm('off', 'registration', $this->slotFields() . $chain);
         self::assertSame([0 => null], $this->refetch($off)['availability']['chains']);
         wp_set_current_user(0);

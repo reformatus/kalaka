@@ -31,14 +31,20 @@ final class EventValues
     public const FORM_TYPES = self::TYPES + [SignUp::LOGGED_IN => ValueType::Choice];
 
     /**
-     * `FORM_TYPES`' values: the event's, and `yes` for `account.logged_in` when `$loggedIn` (someone logged in
-     * on a form with an account step), else `no`.
+     * `FORM_TYPES`' values: the event's, and `account.logged_in`: `yes` or `no` where the form has an account
+     * step (`$loggedIn` says whether someone is logged in), none where it has none (`$loggedIn` null: account
+     * mode off, or an additional form). True, false and null stay apart, never conflated (owner ruling
+     * 2026-11-18). The text of yes and no is `''` until the owner approves one (asked of the owner).
      *
      * @return array<string, Value>
      */
-    public static function form(Event $event, bool $loggedIn): array
+    public static function form(Event $event, ?bool $loggedIn): array
     {
-        return self::of($event) + [SignUp::LOGGED_IN => Value::choice([$loggedIn ? 'yes' : 'no'], '')];
+        $fact = $loggedIn === null
+            ? Value::none(ValueType::Choice)
+            : Value::choice([$loggedIn ? 'yes' : 'no'], '');
+
+        return self::of($event) + [SignUp::LOGGED_IN => $fact];
     }
 
     /** Every event key and its type. */

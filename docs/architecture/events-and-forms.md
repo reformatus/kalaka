@@ -391,8 +391,9 @@ is no other participant-side edit.
     form branching on the camp chosen at registration). Fields the form holds
     are always read from its answers. Event values are also rendered at page
     load. A registration form's conditions may also read whether someone is
-    logged in (`account.logged_in`, „Bejelentkezve”), which is never yes in
-    the event's off account mode.
+    logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
+    form has an account step, and none where it has none (the event's off
+    account mode, an additional form), never no there.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as

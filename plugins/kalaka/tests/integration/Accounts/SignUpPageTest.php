@@ -226,7 +226,7 @@ final class SignUpPageTest extends AccountsTestCase
         }
     }
 
-    /** [UNAPPROVED N29] The return page: on `wp-login.php?action=kalaka_account`, through WordPress's own hook. */
+    /** The return page: on `wp-login.php?action=kalaka_account`, through WordPress's own hook. */
     public function testTheReturnPageIsWordPresssLoginActionAndTellsOnlyItsOwnOrigin(): void
     {
         $form = $this->openForm('optional');

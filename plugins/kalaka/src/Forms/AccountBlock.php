@@ -11,7 +11,7 @@ use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Engine\FormPosts;
 
 /**
- * [UNAPPROVED N28] The account block (`SignUp::BLOCK`, owner ruling 2026-11-18) in a form's editor and its save:
+ * The account block (`SignUp::BLOCK`, owner ruling 2026-11-18) in a form's editor and its save:
  *
  * - `allowed()`: the block is not offered in the editor of a form that cannot have accounts: an additional
  *   form, or a form whose event's account mode is `off`. It stays offered while the form's event or placement

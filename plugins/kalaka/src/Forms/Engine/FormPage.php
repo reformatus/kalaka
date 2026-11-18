@@ -225,7 +225,7 @@ final class FormPage
             // (S12 N3) the REST nonce for a logged-in person, so the routes see the account and not a
             // guest; empty for a guest. The page is never cached (`Api\FormCaching::preventCaching()`).
             'nonce' => is_user_logged_in() ? wp_create_nonce('wp_rest') : '',
-            // [UNAPPROVED N24] S15: when that nonce stops working (`Rest\FormRoutes::SESSION_ENDED`), the way back:
+            // S15: when that nonce stops working (`Rest\FormRoutes::SESSION_ENDED`), the way back:
             // logging in again, back to this page, and the link's text (#191 T8, owner 2026-11-17). A form with an
             // account step logs in again through its account block's window (`account`) instead.
             'loginUrl' => is_user_logged_in() && $step === null ? wp_login_url($here) : '',
@@ -239,7 +239,7 @@ final class FormPage
     }
 
     /**
-     * [UNAPPROVED N29] What the page's script needs for the account block's window: the marked login page
+     * What the page's script needs for the account block's window: the marked login page
      * (`SignUp::url()`, returning through the return page), where it reads the REST nonce once someone has
      * logged in (WordPress's own `admin-ajax.php?action=rest-nonce`, which answers only a logged-in
      * request), the form's page, which the re-fetch's re-rendered block returns to on logout, and the block's

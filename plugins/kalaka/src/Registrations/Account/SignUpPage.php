@@ -51,7 +51,7 @@ final class SignUpPage
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
 
     /**
-     * [UNAPPROVED N29] The return page's script, `%s` the form's page as JSON: it tells the page that opened
+     * The return page's script, `%s` the form's page as JSON: it tells the page that opened
      * the window (same origin only) that someone logged in, and closes the window; with no such page (a tab
      * whose opener is gone), or when the window stays open, it goes to the form's page. The message carries
      * nothing: the form reads its new REST nonce itself.
@@ -353,7 +353,7 @@ final class SignUpPage
         return $this->returnTo() ?? $redirect;
     }
 
-    /** [UNAPPROVED N12] With a valid marker and a page placing the form, the return page for it; else null. */
+    /** With a valid marker and a page placing the form, the return page for it; else null. */
     private function returnTo(): ?string
     {
         $marked = $this->marked();

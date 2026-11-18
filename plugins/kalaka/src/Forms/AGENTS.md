@@ -280,9 +280,10 @@ values and conditions, prefill and form links
   the contact email starts with the account's address, and the block names
   the account with a logout link back to the form.
 - `account.logged_in` (`SignUp::LOGGED_IN`) is a fact of a registration
-  form's conditions (`EventValues::FORM_TYPES`): `yes` only while someone is
-  logged in on a form with an account step, at render, re-fetch and submit
-  alike. A chain that reads it ships every branch
+  form's conditions (`EventValues::FORM_TYPES`): `yes` or `no` on a form with
+  an account step (yes only while someone is logged in), none on a form
+  without one, at render, re-fetch and submit alike; true, false and none are
+  never conflated. A chain that reads it ships every branch
   (`FormDefinition::withheldChains()`), since a login changes it in place.
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.

@@ -40,10 +40,11 @@ record, the check-in act, and so on.
 - **The set-password link**
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form))
   has no mail of its own. A body places it, as the key
-  `account.password_link`, in a branch on `account.unverified`, which holds
+  `account.password_link`, in a branch on `account.unverified`, which is yes
   while the registration's account is still unverified and the mail goes to
-  that account's own address. While an event's account mode is mandatory or
-  optional, its "registered" mail must contain the key and cannot be switched
+  that account's own address, no when that account is verified, and none for
+  a guest or another recipient. While an event's
+  account mode is mandatory or optional, its "registered" mail must contain the key and cannot be switched
   off. WordPress keeps one such link per account, so each new one replaces
   the last.
 - **Scheduled mails are defined freely by admins** at a date reference

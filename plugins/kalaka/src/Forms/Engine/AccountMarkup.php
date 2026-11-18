@@ -26,18 +26,18 @@ final class AccountMarkup
     /** The key of the block's error in a re-fetch's `errors`: never a field key (those have no `/`). */
     public const ERROR_KEY = 'kalaka/account';
 
-    // [UNAPPROVED T9]
+    // T9 (approved by the owner).
     public const GIVES = 'Fiókkal később bejelentkezve is eléred a jelentkezésedet.';
 
-    // [UNAPPROVED T1] Approved 2026-11-17 for the fallback; in the block since 2026-11-18.
+    // Approved 2026-11-17 for the fallback; in the block since 2026-11-18.
     public const REQUIRED = 'A jelentkezéshez fiók szükséges.';
     public const BUTTON = 'Fiókot készítek vagy bejelentkezem';
 
-    // [UNAPPROVED OP3] [UNAPPROVED T7] Approved 2026-11-17 on the sign-up pages; moved into the block 2026-11-18.
+    // Approved 2026-11-17 on the sign-up pages; moved into the block 2026-11-18.
     public const WITHOUT = 'Fiók nélkül később csak az e-mailben kapott linkkel éred el a jelentkezésedet.';
     public const AGE = 'Fiókot 16 éves kortól készíthetsz. Ha még nem vagy 16 éves, folytasd fiók nélkül.';
 
-    // [UNAPPROVED T10] The block's error in `mandatory` mode.
+    // The block's error in `mandatory` mode.
     public const ERROR = 'Előbb készíts fiókot, vagy jelentkezz be.';
 
     /** The block for the current visitor; `$page` is the form's page, where the logout returns. */
@@ -46,7 +46,7 @@ final class AccountMarkup
         return is_user_logged_in() ? self::loggedIn($page) : self::loggedOut($step);
     }
 
-    /** [UNAPPROVED N26] The account the block names: the display name, unless empty or the login; else the e-mail. */
+    /** The account the block names: the display name, unless empty or the login; else the e-mail. */
     public static function name(\WP_User $user): string
     {
         $name = trim($user->display_name);
@@ -56,7 +56,7 @@ final class AccountMarkup
 
     private static function loggedIn(string $page): string
     {
-        // [UNAPPROVED OP4] Approved 2026-11-17 as the footer; in the block since the owner's ruling 2026-11-18.
+        // Approved 2026-11-17 as the footer; in the block since the owner's ruling 2026-11-18.
         return sprintf(
             '<div class="kalaka-account" data-kalaka-account="in"><p>%s <a href="%s">%s</a></p></div>',
             esc_html('Bejelentkezve: ' . self::name(wp_get_current_user()) . '. Nem te vagy?'),

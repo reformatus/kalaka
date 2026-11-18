@@ -32,7 +32,7 @@ final class Values
     }
 
     /**
-     * [UNAPPROVED N31] The keys a document places as values (a `kalaka/value` binding or an inline value), found
+     * The keys a document places as values (a `kalaka/value` binding or an inline value), found
      * by the same walk the save check and the render use; a key that only a condition names is not among
      * them. The mail's save check asks it for the set-password link.
      *

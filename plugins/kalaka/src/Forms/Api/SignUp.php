@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 /**
- * [UNAPPROVED N3] The way from a registration form that needs or offers an account to WordPress's own login and
+ * The way from a registration form that needs or offers an account to WordPress's own login and
  * registration pages and back (owner rulings 2026-11-14, 2026-11-17 and 2026-11-18; registrations-and-identity.md,
  * "Accounts on the registration form"). The form's account block (`BLOCK`) opens the login page in a window of
  * its own:
@@ -31,13 +31,14 @@ final class SignUp
     public const BLOCK = 'kalaka/account';
 
     /**
-     * [UNAPPROVED N30] The condition subject „Bejelentkezve” (owner ruling 2026-11-18): `yes` while someone is
-     * logged in on a form with an account step, else `no`. A chain reading it ships every branch, like an
+     * The condition subject „Bejelentkezve” (owner ruling 2026-11-18): `yes` while someone is
+     * logged in on a form with an account step, `no` there when not, none on a form without one (owner ruling
+     * 2026-11-18: true, false and null are separate). A chain reading it ships every branch, like an
      * answer-driven one (`FormDefinition::withheldChains()`), because the in-place login changes it.
      */
     public const LOGGED_IN = 'account.logged_in';
 
-    /** [UNAPPROVED T11] The subject's name, for a condition editor that names subjects (none names any yet). */
+    /** The subject's name, for a condition editor that names subjects (none names any yet). */
     public const LOGGED_IN_LABEL = 'Bejelentkezve';
 
     /** The return page's `action` on `wp-login.php` (`returnUrl()`). */
@@ -73,7 +74,7 @@ final class SignUp
     }
 
     /**
-     * [UNAPPROVED N25] The page a request's `redirect_to` asks for: the address itself, or, for a return page's address
+     * The page a request's `redirect_to` asks for: the address itself, or, for a return page's address
      * (`returnUrl()`), the page it carries. It only ever picks among the form's pages (`page()`).
      */
     public static function requested(string $redirectTo): string

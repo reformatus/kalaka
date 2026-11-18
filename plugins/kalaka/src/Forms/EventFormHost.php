@@ -44,14 +44,14 @@ final class EventFormHost implements FormHost
         return EventValues::FORM_TYPES;
     }
 
-    /** The event's keys and `account.logged_in`: someone logged in on a form with an account step. */
+    /** The event's keys and `account.logged_in`: yes or no on a form with an account step, none on one without. */
     public function facts(Form $form): ?ValueContext
     {
         $event = $this->event($form);
         if ($event === null) {
             return null;
         }
-        $loggedIn = is_user_logged_in() && self::accountStepOf($form, $event) !== null;
+        $loggedIn = self::accountStepOf($form, $event) === null ? null : is_user_logged_in();
 
         return new ValueContext(EventValues::form($event, $loggedIn));
     }
