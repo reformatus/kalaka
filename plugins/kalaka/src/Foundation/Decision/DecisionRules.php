@@ -57,7 +57,7 @@ final class DecisionRules
         }
     }
 
-    /** The registry the evaluation uses; the readers of the declarations (`Decisions`) ask it. */
+    /** The registry the evaluation uses; the readers of the declarations (`Decisions`) ask it. [UNAPPROVED N1] */
     public static function current(): self
     {
         return self::$current ?? throw new \LogicException('Foundation has not booted: no decision rules yet.');
