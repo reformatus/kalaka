@@ -81,15 +81,21 @@ abstract class AccountsTestCase extends FormsTestCase
         $event = $this->create('Nyári tábor');
         $this->update($event, ['capacity' => 10, 'name' => 'Nyári tábor']);
         $this->transition(new PublishEvent(), $event);
-        global $wpdb;
-        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => $mode], ['id' => $event]);
-        ObjectCache::clear();
+        $this->setMode($event, $mode);
         // A registration form of an event with accounts holds the account block (owner ruling 2026-11-18).
         $content ??= $placement === 'registration'
             ? self::ACCOUNT_BLOCK . $this->slotFields()
             : $this->field('text', 'megjegyzes');
 
         return $this->insertForm($content, ['kalaka_event_id' => $event, 'kalaka_placement' => $placement]);
+    }
+
+    /** Sets an event's account mode as a write around the use cases does (there is no act yet). */
+    protected function setMode(int $event, string $mode): void
+    {
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => $mode], ['id' => $event]);
+        ObjectCache::clear();
     }
 
     /** Closes the registration window of the form's event: it closed long ago. */

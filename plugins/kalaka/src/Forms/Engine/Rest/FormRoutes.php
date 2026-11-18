@@ -6,9 +6,11 @@ namespace Kalaka\Forms\Engine\Rest;
 
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AccountStep;
+use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\SignUp;
@@ -193,7 +195,7 @@ final class FormRoutes
         $step = $this->host->accountStep($form);
         $here = $body['account'] ?? null;
         if ($step !== null && is_string($here)) {
-            $answer['account'] = $this->account($step, $form->id, $definition, $here);
+            $answer['account'] = $this->account($step, $form, $definition, $here);
         }
 
         return $answer;
@@ -224,22 +226,20 @@ final class FormRoutes
     /**
      * The account block re-rendered for the current visitor, its logout returning to the form's page found
      * on the server (`SignUp::page()`; `$requested` only picks among the pages that place the form), and,
-     * for someone logged in, the contact email's value, which the script fills in only while it is empty.
+     * for someone logged in, the values the host's prefill gives (the contact email's), which the script fills in
+     * only while the field is empty.
      *
      * @return array{html: string, filled: array<string, string>|\stdClass}
      */
-    private function account(AccountStep $step, int $formId, FormDefinition $definition, string $requested): array
+    private function account(AccountStep $step, Form $form, FormDefinition $definition, string $requested): array
     {
-        $page = SignUp::page($formId, $requested) ?? home_url('/');
-        $filled = [];
-        $email = wp_get_current_user()->user_email;
-        if (is_user_logged_in() && $email !== '') {
-            foreach ($definition->fields as $field) {
-                if ($field->isContactEmail()) {
-                    $filled[$field->key] = $email;
-                }
-            }
-        }
+        $page = SignUp::page($form->id, $requested) ?? home_url('/');
+        // The host's values the form opens with (the account's address in the contact email), as the page's.
+        $stored = $this->host->prefill($form);
+        $filled = array_intersect_key($stored, array_flip(array_map(
+            static fn (FormField $field): string => $field->key,
+            $definition->fields
+        )));
 
         return ['html' => AccountMarkup::html($step, $page), 'filled' => $filled === [] ? new \stdClass() : $filled];
     }

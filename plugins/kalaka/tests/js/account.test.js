@@ -130,6 +130,78 @@ describe('the login window', () => {
 		// Still logged out: nothing changes.
 		expect(accountBlock().getAttribute('data-kalaka-account')).toBe('out');
 	});
+
+	test('a login window seen closed ends the wait after one last check', async () => {
+		const popup = { closed: false };
+		window.open = jest.fn(() => popup);
+		const calls = server({ nonce: null });
+		await load(form(block() + text('name'), { account }));
+		document.querySelector('[data-kalaka-account-login]').click();
+
+		// Open: every focus checks (the message may have been lost).
+		window.dispatchEvent(new Event('focus'));
+		await settle();
+		expect(calls).toHaveLength(1);
+
+		popup.closed = true;
+		window.dispatchEvent(new Event('focus'));
+		await settle();
+		expect(calls).toHaveLength(2);
+
+		// The wait is over: later focuses ask nothing.
+		window.dispatchEvent(new Event('focus'));
+		await settle();
+		expect(calls).toHaveLength(2);
+	});
+
+	test('a window closed after a login still logs the form in', async () => {
+		const popup = { closed: true };
+		window.open = jest.fn(() => popup);
+		server();
+		await load(form(block() + text('name'), { account }));
+		document.querySelector('[data-kalaka-account-login]').click();
+
+		window.dispatchEvent(new Event('focus'));
+		await settle();
+		await settle();
+
+		expect(accountBlock().getAttribute('data-kalaka-account')).toBe('in');
+	});
+
+	test('with no window to look at (a tab the person came back from), every focus still checks', async () => {
+		window.open = jest.fn(() => null);
+		const calls = server({ nonce: null });
+		await load(form(block() + text('name'), { account }));
+		document.querySelector('[data-kalaka-account-login]').click();
+
+		for (let i = 0; i < 3; i += 1) {
+			window.dispatchEvent(new Event('focus'));
+			await settle();
+		}
+
+		expect(calls).toHaveLength(3);
+	});
+
+	test('once the closed window was seen, a send does not wait for another check and goes out as a guest', async () => {
+		const popup = { closed: false };
+		window.open = jest.fn(() => popup);
+		const calls = server({ nonce: null });
+		await load(form(block() + text('name'), { account }));
+		document.querySelector('[data-kalaka-account-login]').click();
+		popup.closed = true;
+		window.dispatchEvent(new Event('focus'));
+		await settle();
+		const nonces = () => calls.filter((call) => call.url === NONCE_URL).length;
+		expect(nonces()).toBe(1);
+
+		submit(root());
+		await settle();
+		await settle();
+
+		expect(nonces()).toBe(1);
+		const sent = calls.find((call) => call.url.endsWith('/submit'));
+		expect(sent.options.headers['X-WP-Nonce']).toBeUndefined();
+	});
 });
 
 describe('sending after the window opened', () => {

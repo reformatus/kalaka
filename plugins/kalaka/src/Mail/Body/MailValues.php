@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Body;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
@@ -30,7 +31,8 @@ use Kalaka\Registrations\Api\SecretLinks;
  * The owner account's keys (S15, owner ruling 2026-11-16; true, false and null apart, owner ruling 2026-11-18):
  * `account.unverified`, a choice: `yes` while the registration's owner is an account Kaláka created whose
  * password was never set, `no` for an owner who is verified (a social sign-up among them), none for a guest's
- * registration (an event without accounts has none) or a recipient other than the account's own address. And
+ * registration or for an event whose account mode is `off` (no account step, no account facts), or a recipient
+ * other than the account's own address. The texts of yes and no are „Igen” and „Nem” (`EventValues::yesNo()`). And
  * `account.password_link`, that account's set-password link, made when the mail is rendered
  * (`Registrations\Api\Accounts::passwordLink()`; the newest link wins), and only for a body that reads it; it is
  * none wherever `account.unverified` is not `yes`, so a link to set someone's password never goes to another
@@ -148,11 +150,14 @@ final class MailValues
         $name = $this->marked($definition, false);
         $recipient = $email === null ? '' : ($record['values'][$email] ?? '');
         $owner = $this->registrations->find($key)?->ownerUserId;
-        // True, false and null stay apart (owner ruling 2026-11-18): none unless the registration has an owner
-        // and the recipient is the owner's own address, then yes (unverified) or no (verified).
-        $unverified = $owner !== null && $this->ownAddress($owner, $recipient)
-            ? $this->accounts->isUnverified($owner)
-            : null;
+        // True, false and null stay apart (owner ruling 2026-11-18): none unless the event has an account step (mode
+        // not `off`: no account step, no account facts), the registration has an owner and the recipient is the
+        // owner's own address, then yes (unverified) or no (verified).
+        $unverified = $event->accountMode !== AccountMode::Off
+            && $owner !== null
+            && $this->ownAddress($owner, $recipient)
+                ? $this->accounts->isUnverified($owner)
+                : null;
         $setPassword = $unverified === true && $passwordLink
             ? $this->accounts->passwordLink($owner, $record['form_id'])
             : null;
@@ -166,10 +171,9 @@ final class MailValues
             self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
             self::FROM_WAITLIST => Value::choice(['no'], ''),
-            // The text of yes and no is `''` until the owner approves one (asked of the owner).
             self::ACCOUNT_UNVERIFIED => $unverified === null
                 ? Value::none(ValueType::Choice)
-                : Value::choice([$unverified ? 'yes' : 'no'], ''),
+                : EventValues::yesNo($unverified),
             self::ACCOUNT_PASSWORD_LINK => self::text($setPassword ?? ''),
         ]);
     }

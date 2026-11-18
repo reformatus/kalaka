@@ -262,7 +262,10 @@ values and conditions, prefill and form links
   to everyone; it is never redirected. Its account block (`Api\SignUp::BLOCK`,
   `Engine\AccountMarkup`) is the only way in: a live registration form of an
   event with accounts must hold it (`AccountBlock`, `account_block_missing`,
-  existence only), the editor offers it only where the form can have
+  existence only; `Forms::definition()` runs the same check against the
+  event's current mode, so a published form that lacks it, say after the
+  event switched to accounts, stays closed and is named in the site warning
+  like any broken form), the editor offers it only where the form can have
   accounts, and anywhere else it renders nothing. Its button opens
   WordPress's login page in a window of its own (`SignUp::url()`); a login
   there lands on the return page (`SignUp::returnUrl()`), which tells the

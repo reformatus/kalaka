@@ -23,7 +23,7 @@ use Kalaka\Forms\Engine\FormPosts;
 final class AccountBlock
 {
     /** The save check's problem code. */
-    public const MISSING = 'account_block_missing';
+    public const MISSING = SignUp::BLOCK_MISSING;
 
     /**
      * `allowed_block_types_all`, after `Engine\BlockGate` (priority 11): the account block taken out of a form

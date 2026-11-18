@@ -34,7 +34,7 @@ final class EventValues
      * `FORM_TYPES`' values: the event's, and `account.logged_in`: `yes` or `no` where the form has an account
      * step (`$loggedIn` says whether someone is logged in), none where it has none (`$loggedIn` null: account
      * mode off, or an additional form). True, false and null stay apart, never conflated (owner ruling
-     * 2026-11-18). The text of yes and no is `''` until the owner approves one (asked of the owner).
+     * 2026-11-18). The text of yes and no is „Igen” and „Nem” (`yesNo()`).
      *
      * @return array<string, Value>
      */
@@ -42,9 +42,19 @@ final class EventValues
     {
         $fact = $loggedIn === null
             ? Value::none(ValueType::Choice)
-            : Value::choice([$loggedIn ? 'yes' : 'no'], '');
+            : self::yesNo($loggedIn);
 
         return self::of($event) + [SignUp::LOGGED_IN => $fact];
+    }
+
+    /**
+     * A yes/no fact's value: the choice `yes` or `no`, shown as „Igen” or „Nem” (the texts of the participant-field
+     * prompt's buttons, already approved UI text). Both account facts (`account.logged_in`, `account.unverified`)
+     * use it.
+     */
+    public static function yesNo(bool $yes): Value
+    {
+        return Value::choice([$yes ? 'yes' : 'no'], $yes ? 'Igen' : 'Nem');
     }
 
     /** Every event key and its type. */

@@ -15,6 +15,7 @@ use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
@@ -120,12 +121,32 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * Nothing yet: a registration form opens empty. An additional form's current values (S60) and a draft
-     * (S74) come here.
+     * What a form opens with: on a form with an account step, the logged-in account's address in the contact email
+     * field (it stays editable; the page and the re-fetch's block fill it only while the field is empty, never over
+     * an answer typed). Nothing else yet: an additional form's current values (S60) and a draft (S74) come here.
      */
     public function prefill(Form $form): array
     {
-        return [];
+        $event = $this->event($form);
+        if ($event === null || self::accountStepOf($form, $event) === null || !is_user_logged_in()) {
+            return [];
+        }
+        $email = wp_get_current_user()->user_email;
+        $contact = $email === '' ? null : $this->contactEmail($form);
+
+        return $contact === null ? [] : [$contact => $email];
+    }
+
+    /** The key of the form's contact email field; null when the definition has none. */
+    private function contactEmail(Form $form): ?string
+    {
+        foreach ((new Forms())->definition($form)->fields as $field) {
+            if ($field->isContactEmail()) {
+                return $field->key;
+            }
+        }
+
+        return null;
     }
 
     public function submitToken(): string

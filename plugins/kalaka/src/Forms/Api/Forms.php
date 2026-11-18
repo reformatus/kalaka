@@ -43,7 +43,8 @@ final class Forms
      * The definition of the form's current version, or of an earlier revision of the same form. The current
      * version must also agree with the event's participant fields (a key of another type, or a `system`
      * field's key, makes it unusable): a form written around the save check stays closed and is named in
-     * the broken-form warning. An earlier version is read as it was.
+     * the broken-form warning. So is a form with an account step (the event's current account mode) and no account
+     * block (`account_block_missing`). An earlier version is read as it was.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */

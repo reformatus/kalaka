@@ -10,7 +10,6 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
-use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
@@ -38,7 +37,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * A form whose host gives an account step (`FormHost::accountStep()`, S15) shows to everyone (owner ruling
  * 2026-11-18): its account block (`Api\SignUp::BLOCK`, `AccountMarkup`) offers the login in a window of its
  * own, and in `mandatory` mode only the submit refuses someone not logged in (`account_required`). For
- * someone logged in, the form's contact email is filled in with the account's address and stays editable.
+ * someone logged in, the form's contact email opens with the account's address and stays editable (the host's
+ * `FormHost::prefill()`, like any other value a form opens with).
  */
 final class FormPage
 {
@@ -54,9 +54,6 @@ final class FormPage
 
     /** @var list<FormAvailability> the availability of each form page rendering, innermost last */
     private static array $rendering = [];
-
-    /** @var list<array<string, string>> the filled-in values of each form page rendering, by field key */
-    private static array $filled = [];
 
     /** @var list<array{AccountStep, string}|null> the account step and the page of each rendering; null for none */
     private static array $accounts = [];
@@ -191,15 +188,6 @@ final class FormPage
     private function view(Form $form, ValueContext $values, ?AccountStep $step = null): FormPageView
     {
         $definition = $this->forms->definition($form);
-        $filled = [];
-        if ($step !== null && is_user_logged_in()) {
-            // Logged in, the contact email starts with the account's address and stays editable.
-            $contact = self::marked($definition, true);
-            $email = wp_get_current_user()->user_email;
-            if ($contact !== null && $email !== '') {
-                $filled[$contact->key] = $email;
-            }
-        }
 
         // What the form opens with: the host's stored values as answers (none for a new registration),
         // and what the form shows for them.
@@ -210,7 +198,6 @@ final class FormPage
             $this->blocks($form, $form->version, $availability),
             $values,
             $availability,
-            $filled,
             $step === null ? null : [$step, $here]
         ));
 
@@ -270,18 +257,6 @@ final class FormPage
         return $account === null ? '' : AccountMarkup::html(...$account);
     }
 
-    /** The form's contact email (`$email`) or display name field; null when it has none. */
-    private static function marked(FormDefinition $definition, bool $email): ?FormField
-    {
-        foreach ($definition->fields as $field) {
-            if ($email ? $field->isContactEmail() : $field->isDisplayName()) {
-                return $field;
-            }
-        }
-
-        return null;
-    }
-
     /**
      * The answers a form opens with: each of its fields with a stored value, as its type prefills it
      * (`FieldType::prefill()`); a type that refuses, or a value it makes nothing of, opens empty.
@@ -327,19 +302,16 @@ final class FormPage
      * inline values.
      *
      * @param list<array<string, mixed>|string> $blocks
-     * @param array<string, string> $filled field key → the value its control starts with
      * @param array{AccountStep, string}|null $account the account step and the form's page; null for none
      */
     private function render(
         array $blocks,
         ValueContext $context,
         FormAvailability $availability,
-        array $filled = [],
         ?array $account = null
     ): string {
         RenderStack::push($context);
         self::$rendering[] = $availability;
-        self::$filled[] = $filled;
         self::$accounts[] = $account;
         add_filter('render_block', [$this, 'forFormPage'], 10, 2);
         try {
@@ -354,7 +326,6 @@ final class FormPage
         } finally {
             remove_filter('render_block', [$this, 'forFormPage'], 10);
             array_pop(self::$rendering);
-            array_pop(self::$filled);
             array_pop(self::$accounts);
             RenderStack::pop();
         }
@@ -443,10 +414,6 @@ final class FormPage
         if ($availability !== null && !$availability->shows($key)) {
             $html = $this->disabled($html);
         }
-        $filled = self::$filled === [] ? [] : self::$filled[array_key_last(self::$filled)];
-        if (isset($filled[$key])) {
-            $html = self::filledIn($html, $key, $filled[$key]);
-        }
 
         $first = new \WP_HTML_Tag_Processor($html);
         $wrapper = $first->next_tag() && $first->get_attribute('data-kalaka-field') === $key
@@ -491,20 +458,6 @@ final class FormPage
     private static function current(): ?FormAvailability
     {
         return self::$rendering === [] ? null : self::$rendering[array_key_last(self::$rendering)];
-    }
-
-    /** The field's text control (`name` = its key) starting with the value. */
-    private static function filledIn(string $html, string $key, string $value): string
-    {
-        $tags = new \WP_HTML_Tag_Processor($html);
-        while ($tags->next_tag(['tag_name' => 'INPUT'])) {
-            if ($tags->get_attribute('name') === $key) {
-                $tags->set_attribute('value', $value);
-                break;
-            }
-        }
-
-        return $tags->get_updated_html();
     }
 
     private function disabled(string $html): string

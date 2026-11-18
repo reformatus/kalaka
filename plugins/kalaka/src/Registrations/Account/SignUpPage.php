@@ -271,14 +271,16 @@ final class SignUpPage
     }
 
     /**
-     * `wp_send_new_user_notification_to_user` and `…_to_admin`: none for a native sign-up. The set-password
-     * link travels in the registration's own mail; admins get none (S15-7, owner 2026-11-16).
+     * `wp_send_new_user_notification_to_user` and `…_to_admin`: none for a native sign-up that carries a valid
+     * form marker (`marked()`). The set-password link travels in the registration's own mail; admins get none
+     * (S15-7, owner 2026-11-16). A sign-up without the marker (a direct `wp-login.php?action=register`) gets
+     * WordPress's own mails, as on any site (the owner's ruling 2026-11-18, #191 review C2-1, option (b)).
      *
      * @internal
      */
     public function sendWordPressMail(mixed $send): bool
     {
-        return self::$flag ? false : (bool) $send;
+        return self::$flag && $this->marked() !== null ? false : (bool) $send;
     }
 
     /**

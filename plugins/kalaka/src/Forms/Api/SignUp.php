@@ -31,6 +31,12 @@ final class SignUp
     public const BLOCK = 'kalaka/account';
 
     /**
+     * The problem code of a registration form with an account step and no account block: the save check's, and
+     * the code `Forms::definition()` closes the live form with (named in the broken-form warning).
+     */
+    public const BLOCK_MISSING = 'account_block_missing';
+
+    /**
      * The condition subject „Bejelentkezve” (owner ruling 2026-11-18): `yes` while someone is
      * logged in on a form with an account step, `no` there when not, none on a form without one (owner ruling
      * 2026-11-18: true, false and null are separate). A chain reading it ships every branch, like an

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Accounts;
 
+use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Foundation\Api\Error\RuleViolation;
@@ -121,6 +123,51 @@ final class AccountMailKeysTest extends MailBodyTestCase
         // An event without accounts has no owner: none.
         self::assertTrue($this->showsBranch($off, $offKey, $this->branched('empty')));
         self::assertFalse($this->showsBranch($off, $offKey, $this->branched('equals', 'no')));
+    }
+
+    /**
+     * Master's default 2026-11-18 (Q1), the same rule as R4: no account step, no account facts. An owned
+     * registration of an event switched to `off` reads `account.unverified` as none, whoever owns it.
+     */
+    public function testUnverifiedIsNoneWhenTheEventHasNoAccountStep(): void
+    {
+        $event = $this->event('optional');
+        $key = $this->registration($event);
+        $this->own($key, $this->user(true));
+        self::assertTrue($this->showsBranch($event, $key, $this->branched('equals', 'yes')));
+
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => 'off'], ['id' => $event]);
+        ObjectCache::clear();
+
+        self::assertFalse($this->showsBranch($event, $key, $this->branched('equals', 'yes')));
+        self::assertFalse($this->showsBranch($event, $key, $this->branched('equals', 'no')));
+        self::assertTrue($this->showsBranch($event, $key, $this->branched('empty')));
+    }
+
+    /** Q2: both facts' yes and no read „Igen” and „Nem”, the approved texts of the participant prompt's buttons. */
+    public function testTheYesAndNoValuesReadIgenAndNem(): void
+    {
+        $event = $this->event('optional');
+        $unverified = $this->registration($event, '12A3');
+        $this->own($unverified, $this->user(true));
+        $verified = $this->registration(
+            $event,
+            '34B4',
+            ['name' => 'Teszt Csilla', 'email' => 'teszt.csilla@example.test', 'camps' => '["ff"]']
+        );
+        $this->own($verified, $this->user(false, 'teszt.csilla@example.test'));
+        $inline = $this->paragraph('Fiók: <span data-kalaka-value="account.unverified">x</span>.');
+        $this->switchOn($event, 'registered', $this->document($event, $this->withLink() . "\n" . $inline));
+
+        self::assertMatchesRegularExpression('#Fiók: <span[^>]*>Igen</span>#', $this->render($event, $unverified));
+        self::assertMatchesRegularExpression('#Fiók: <span[^>]*>Nem</span>#', $this->render($event, $verified));
+
+        $loggedIn = $this->event('optional');
+        $eventRecord = (new Events())->find($loggedIn);
+        self::assertNotNull($eventRecord);
+        self::assertSame('Igen', EventValues::form($eventRecord, true)[SignUp::LOGGED_IN]->text);
+        self::assertSame('Nem', EventValues::form($eventRecord, false)[SignUp::LOGGED_IN]->text);
     }
 
     private function render(int $event, RegistrationKey $key): string

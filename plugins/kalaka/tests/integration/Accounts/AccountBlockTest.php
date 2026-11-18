@@ -4,16 +4,24 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Accounts;
 
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\AccountBlock;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\SignUp;
+use Kalaka\Forms\BrokenForms;
+use Kalaka\Forms\BrokenFormsWarning;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Engine\AccountMarkup;
 use Kalaka\Forms\Engine\BlockGate;
+use Kalaka\Forms\Engine\FormPage;
+use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
+use Kalaka\Forms\EventFormHost;
+use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
@@ -90,6 +98,114 @@ final class AccountBlockTest extends AccountsTestCase
             // Additional forms never need it.
             self::assertNull($check($this->field('text', 'megjegyzes'), FormPlacement::Additional), $mode);
         }
+    }
+
+    private function open(int $form): FormPageView
+    {
+        return (new FormPage(new EventFormHost()))->open($form);
+    }
+
+    /** Whether the form's page shows its form (a closed one throws the failure the block turns into its text). */
+    private function opens(int $form): bool
+    {
+        try {
+            return $this->open($form)->content !== null;
+        } catch (SystemFailure) {
+            return false;
+        }
+    }
+
+    /**
+     * B1 (#191 review 2): the block's presence is checked at use too, with the event's CURRENT mode. A published
+     * form without it, once its event is switched to accounts, is closed and named in the site warning like any
+     * other broken form; saving it with the block reopens it; the mode back to off is fine again.
+     */
+    public function testAnEventSwitchedToAccountsClosesItsPublishedFormsWithoutTheBlock(): void
+    {
+        $form = $this->openForm('off', 'registration', $this->slotFields());
+        $event = $this->readForm($form)->eventId;
+        $line = '#' . $form . ' Regisztráció: account_block_missing kalaka/account';
+        $closed = function () use ($form): ?array {
+            try {
+                $this->forms->definition($this->readForm($form));
+            } catch (SystemFailure $e) {
+                return DefinitionCheck::split($e);
+            }
+
+            return null;
+        };
+
+        self::assertNull($closed());
+        self::assertSame([], BrokenForms::compute());
+
+        foreach (['optional', 'mandatory'] as $mode) {
+            $this->setMode($event, $mode);
+            self::assertSame([AccountBlock::MISSING, SignUp::BLOCK], $closed(), $mode);
+            self::assertSame([$line], BrokenForms::compute(), $mode);
+            BrokenForms::refresh();
+            self::assertSame($line, (new BrokenFormsWarning())->check()?->details, $mode);
+            // The form's page and its re-fetch stay closed: no form, no answer is taken.
+            self::assertFalse($this->opens($form), $mode);
+
+            $this->setMode($event, 'off');
+            self::assertNull($closed(), $mode);
+            self::assertSame([], BrokenForms::compute(), $mode);
+        }
+
+        // Adding the block and saving reopens it, per the existing rules.
+        $this->setMode($event, 'mandatory');
+        (new Module())->registerMeta();
+        $author = get_userdata(self::factory()->user->create());
+        self::assertInstanceOf(\WP_User::class, $author);
+        $author->add_cap(AdminAccess::FULL_ACCESS);
+        wp_set_current_user($author->ID);
+        $saved = wp_update_post(['ID' => $form, 'post_content' => self::ACCOUNT_BLOCK . $this->slotFields()], true);
+        self::assertSame($form, $saved);
+        wp_set_current_user(0);
+
+        self::assertNull($closed());
+        self::assertSame([], BrokenForms::compute());
+        self::assertTrue($this->opens($form));
+        // An earlier version is read as it was: the version without the block still parses.
+        $revisions = $this->revisionIds($form);
+        self::assertNotEmpty($revisions);
+        self::assertSame($form, $this->forms->definition($this->readForm($form), $revisions[0])->formId);
+
+        // An additional form never needs it, whatever the mode.
+        $additional = $this->openForm('mandatory', 'additional');
+        self::assertSame([], BrokenForms::compute());
+        self::assertSame($additional, $this->forms->definition($this->readForm($additional))->formId);
+    }
+
+    /**
+     * B2 (#191 review 2): the logged-in account's address reaches the contact email through the host's prefill
+     * seam (`FormHost::prefill()`), the page's only prefill path; the re-fetch's block gives the same value.
+     */
+    public function testTheAccountsEmailComesThroughTheHostsPrefill(): void
+    {
+        $form = $this->openForm('optional');
+        $host = new EventFormHost();
+        $read = $this->readForm($form);
+
+        self::assertSame([], $host->prefill($read));
+        self::assertStringNotContainsString('value="teszt.csilla@example.org"', (string) $this->open($form)->content);
+
+        wp_set_current_user($this->verifiedUser());
+        self::assertSame(['email' => 'teszt.csilla@example.org'], $host->prefill($read));
+        self::assertMatchesRegularExpression(
+            '#name="email"[^>]* value="teszt.csilla@example.org"#',
+            (string) $this->open($form)->content
+        );
+        // The re-fetch's block gives what the host gives.
+        $answer = $this->refetch($form, null, [], ['account' => $this->placed($form)]);
+        self::assertSame($host->prefill($read), $answer['account']['filled']);
+
+        // Only on a form with an account step: none in `off` mode and on an additional form.
+        self::assertSame([], $host->prefill($this->readForm($this->openForm('off'))));
+        self::assertSame([], $host->prefill($this->readForm($this->openForm('optional', 'additional'))));
+        // Nothing of an account with no address.
+        wp_get_current_user()->user_email = '';
+        self::assertSame([], $host->prefill($read));
     }
 
     public function testARestSaveWithoutTheBlockIsRefusedWithTheGenericMessage(): void

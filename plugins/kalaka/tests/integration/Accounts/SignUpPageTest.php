@@ -79,8 +79,36 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertMatchesRegularExpression('/\Au[0-9a-f]{12}\z/', $user->user_nicename);
         self::assertSame($id, get_current_user_id());
         self::assertTrue(SignUpPage::isUnverified($id));
-        // WordPress's own mails (to the user, to the admin) are not sent; nothing is mailed in the request.
+    }
+
+    /**
+     * Only a sign-up that carries a valid form marker is Kaláka's for the mails (the owner's ruling 2026-11-18,
+     * #191 review C2-1, option (b)): a marked one gets none of WordPress's own new-user mails, a direct
+     * `wp-login.php?action=register` one gets them as on any site.
+     */
+    public function testWordPressesOwnMailsAreSuppressedOnlyForAMarkedSignUp(): void
+    {
+        $form = $this->openForm('optional');
+
+        self::assertIsInt($this->signUp('teszt.anna@example.org', [SignUp::MARKER => (string) $form]));
         self::assertSame([], $this->mails);
+
+        SignUpPage::reset();
+        $this->mails = [];
+        self::assertIsInt($this->signUp('teszt.bence@example.org'));
+        // To the user and to the admin, WordPress's own.
+        self::assertCount(2, $this->mails);
+        self::assertContains('teszt.bence@example.org', array_column($this->mails, 'to'));
+
+        // A marker that names nothing valid (an event without accounts, a form that is not one) is no marker.
+        foreach ([(string) $this->openForm('off'), '99999999', 'x'] as $marker) {
+            SignUpPage::reset();
+            $this->mails = [];
+            self::assertIsInt($this->signUp('teszt.' . strtolower(wp_generate_password(6, false)) . '@example.org', [
+                SignUp::MARKER => $marker,
+            ]));
+            self::assertCount(2, $this->mails, $marker);
+        }
     }
 
     public function testASocialSignUpIsNotFlagged(): void

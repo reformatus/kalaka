@@ -90,10 +90,12 @@ the waitlist and reference codes
   `action=register` without `loginSocial`, never from
   `did_action('login_form_register')`. The flag alone decides the hidden
   login name (`Account\LoginName`: `[a-z0-9._-]`, never empty, at most 60,
-  free and not illegal), the opaque nicename, `kalaka_unverified`, the
-  login at once and the suppressed WordPress mails; the marker
+  free and not illegal), the opaque nicename, `kalaka_unverified` and the
+  login at once; the marker
   (`kalaka_form`, a registration form whose published event has accounts)
-  alone decides the hidden marker field, the event's line on the login and
+  alone decides the suppressed WordPress mails (a sign-up without a valid
+  marker, a direct `wp-login.php?action=register`, gets WordPress's own),
+  the hidden marker field, the event's line on the login and
   registration pages, and the returns to the form: the login and
   registration links, `registration_redirect` and `login_redirect`, each
   through the return page (`Account\SignUpPage::returnPage()`, on

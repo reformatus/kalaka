@@ -12,6 +12,7 @@ use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
@@ -51,7 +52,8 @@ final class FormEngine
      * The definition of the form's current version, or of an earlier revision of the same form. The current
      * version must also agree with the keys beyond the form (`FormHost::keyProblem()`: in an event form, a
      * key of another type, or a `system` field's key, makes it unusable): a form written around the save
-     * check stays closed and is named in the broken-form warning. An earlier version is read as it was.
+     * check stays closed and is named in the broken-form warning. So is a form whose host gives an account step
+     * (`FormHost::accountStep()`, now) and that holds no account block. An earlier version is read as it was.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
@@ -65,6 +67,12 @@ final class FormEngine
             if ($problem !== null) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
                 throw new SystemFailure($problem[0] . ' ' . $problem[1]);
+            }
+            // A form with an account step (the host's, from the event's CURRENT mode) holds the account block: an
+            // event switched to accounts closes its published forms that lack it, like any other broken form.
+            if ($this->host->accountStep($form) !== null && $definition->account === null) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name
+                throw new SystemFailure(SignUp::BLOCK_MISSING . ' ' . SignUp::BLOCK);
             }
         }
 

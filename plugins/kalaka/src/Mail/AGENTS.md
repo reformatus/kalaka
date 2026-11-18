@@ -59,8 +59,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   `Registrations\Api\Accounts::passwordLink()`, made only when the body
   being rendered reads it, and only while `account.unverified` is `yes`: the
   registration's owner is unverified and the recipient is that account's own
-  address. It is `no` for a verified owner and none for any other case; the
-  three are never conflated. Each one replaces the account's last link.
+  address. It is `no` for a verified owner and none for any other case,
+  including an event whose account mode is `off` (no account step, no account
+  facts); the three are never conflated. Each one replaces the account's last link.
 - While an event's account mode is not `off`, its "registered" mail must
   read `account.password_link` and cannot be switched off
   (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in

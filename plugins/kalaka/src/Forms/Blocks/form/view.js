@@ -40,7 +40,8 @@
  * its new REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`, which answers only someone logged in)
  * and re-fetches with the block re-rendered: the block shows who is logged in, and an empty contact email
  * gets the account's address. Nothing typed is lost or overwritten. If no message comes (the window's opener
- * was gone), the form checks again whenever it regains focus or becomes visible while it waits for a login.
+ * was gone), the form checks again whenever it regains focus or becomes visible while it waits for a login; a
+ * login window seen closed (`window.closed`) ends the wait after one last check.
  * A send waits for that check, so nobody logged in sends as a guest. When the session ends, the login window
  * opens (or its link, where the browser blocks it) and the refused request is retried after the login. In
  * `mandatory` mode the block's error shows under it when „Tovább” or „Küldés” is refused for the account.
@@ -551,6 +552,8 @@ function openLogin(form) {
 		'kalaka-account',
 		'popup=yes,width=520,height=720'
 	);
+	// Kept to see the window closed; none when the browser gave no reference (then focus alone wakes the form).
+	started.popup = opened ?? null;
 
 	return opened !== null && opened !== undefined;
 }
@@ -601,10 +604,17 @@ async function refreshNow(form) {
 		return 'failed';
 	}
 	if (nonce === null) {
+		if (started.popup?.closed === true) {
+			// The window was closed without a login: stop waiting, so a focus or a send asks no more.
+			started.awaiting = false;
+			started.popup = null;
+		}
+
 		return 'out';
 	}
 	started.nonce = nonce;
 	started.awaiting = false;
+	started.popup = null;
 	started.wantAccount = true;
 	const applied = await refetch(form);
 
@@ -1259,6 +1269,7 @@ store('kalaka/form', {
 				ticks: new Map(),
 				timer: null,
 				awaiting: false,
+				popup: null,
 				refreshing: null,
 				wantAccount: false,
 				retry: null,
