@@ -16,6 +16,10 @@ final readonly class NewLine
      * @param ?string $valueDate a calendar day, `Y-m-d`, stored as 00:00 of it in the site time zone;
      *                           on `manual_payment`, `manual_refund` and `transfer`
      * @param ?\DateTimeImmutable $paidAt on `payment` and `refund`
+     * @param ?PaymentMethod $method on `manual_payment` and `manual_refund`
+     * @param bool $correction on `manual_refund`: a refund that corrects an entry; it needs a `$note`, the reason
+     * @param ?string $note free text (a bank reference, a payer note, a reason) of at most 500 characters: kept
+     *                      in a side record that erasure can reach, never in the ledger line
      */
     public function __construct(
         public RegistrationKey $registration,
@@ -26,6 +30,9 @@ final readonly class NewLine
         public string $idempotencyKey,
         public ?string $valueDate = null,
         public ?\DateTimeImmutable $paidAt = null,
+        public ?PaymentMethod $method = null,
+        public bool $correction = false,
+        public ?string $note = null,
     ) {
     }
 }
