@@ -9,11 +9,13 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\PathFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -99,6 +101,25 @@ final class MailValues
             self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
         ];
+    }
+
+    /**
+     * The participant fields of the event whose value is a path (`PathFieldType`, the congregation field):
+     * a mail's condition reads them with `contains`, never `equals`, as a form's does. Checked with `types()`.
+     *
+     * @return list<string>
+     */
+    public function paths(int $eventId): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $paths = [];
+        foreach ($this->forms->participantFields($eventId, true) as $field) {
+            if (($types[$field->type] ?? null) instanceof PathFieldType) {
+                $paths[] = $field->key;
+            }
+        }
+
+        return $paths;
     }
 
     /**

@@ -11,6 +11,7 @@ use Kalaka\Forms\Engine\Condition\Comparison;
 use Kalaka\Forms\Engine\Condition\Condition;
 use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\ContextScope;
+use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Forms\Engine\Condition\MatchMode;
 use Kalaka\Forms\Engine\Condition\Operator;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -212,5 +213,20 @@ final class ConditionParserTest extends TestCase
             self::assertStringContainsString('invalid_condition age', $e->getMessage());
             self::assertStringNotContainsString('titkos', $e->getMessage());
         }
+    }
+
+    public function testAPathIsAskedWhetherItContainsANodeAndNeverWhetherItEqualsOne(): void
+    {
+        $scope = new DeclaredScope(['church' => ValueType::Choice, 'fee' => ValueType::Choice], ['church']);
+        $compare = fn (string $key, string $operator): Condition => $this->parser->parse(
+            $this->condition(['key' => $key, 'operator' => $operator, 'value' => 'teszt/eszak']),
+            $scope
+        );
+
+        self::assertSame(Operator::Contains, $compare('church', 'contains')->items[0]->operator);
+        self::assertInstanceOf(Condition::class, $compare('fee', 'equals'));
+        $this->expectException(SystemFailure::class);
+        $this->expectExceptionMessage('invalid_condition church');
+        $compare('church', 'equals');
     }
 }

@@ -71,7 +71,7 @@ final class ConditionParser
         }
 
         $type = $scope->typeOf($key);
-        if (!$operator->isAllowedFor($type)) {
+        if (!$operator->isAllowedFor($type) || ($operator === Operator::Equals && $scope->isPath($key))) {
             self::fail($key);
         }
         if ($operator === Operator::Empty) {

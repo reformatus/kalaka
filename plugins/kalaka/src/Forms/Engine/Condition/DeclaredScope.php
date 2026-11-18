@@ -10,9 +10,17 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 /** A condition reads the keys of a declaration (key → type), e.g. when it is saved, before any fact exists. */
 final readonly class DeclaredScope implements ConditionScope
 {
-    /** @param array<string, ValueType> $declared */
-    public function __construct(private array $declared)
+    /**
+     * @param array<string, ValueType> $declared
+     * @param list<string> $paths the declared keys whose value is a path (`Api\PathFieldType`)
+     */
+    public function __construct(private array $declared, private array $paths = [])
     {
+    }
+
+    public function isPath(string $key): bool
+    {
+        return in_array($key, $this->paths, true);
     }
 
     public function typeOf(string $key): ValueType

@@ -77,7 +77,7 @@ bodies, the renderer and the per-event action-mail catalogue.
 - The sender composes before the claim. `compose()` throws `BodyUnusable`
   when the body cannot render for its own reason: none assigned (`no_body`),
   gone (`missing`), unpublished (`unpublished`) or of another event
-  (`other_event`), or, by `Values::check()` against `MailValues::types()`, an
+  (`other_event`), or, by `Values::check()` against `MailValues::types()` (and `paths()`), an
   undeclared key, an invalid condition, a misplaced branch; the delivery is failed with `body <problem>`, no attempt and no
   count toward pausing. Any other throw is an error, recorded after the claim.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):

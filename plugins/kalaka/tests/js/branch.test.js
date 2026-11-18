@@ -372,6 +372,39 @@ describe("what the server tells the editor (server.js)", () => {
     },
   );
 
+  test("a path field type (the congregation picker) takes contains and empty, never equals", () => {
+    const before = globalThis.kalakaFormEditor;
+    globalThis.kalakaFormEditor = {
+      ...before,
+      fieldTypes: { ...before.fieldTypes, "acme/path-field": "choice" },
+      pathFieldTypes: ["acme/path-field"],
+    };
+    try {
+      const scope = scopeOf(
+        editor([
+          {
+            clientId: "path",
+            name: "acme/path-field",
+            attributes: { key: "gyulekezet" },
+          },
+          { clientId: "if", name: "kalaka/if", attributes: {} },
+        ]),
+        "if",
+      );
+      const condition = (operator) => ({
+        match: "all",
+        items: [{ key: "gyulekezet", operator, value: "teszt/eszak" }],
+      });
+      expect(checkCondition(condition("contains"), scope)).toBeNull();
+      expect(checkCondition(condition("equals"), scope)).toEqual({
+        problem: "value",
+        key: "gyulekezet",
+      });
+    } finally {
+      globalThis.kalakaFormEditor = before;
+    }
+  });
+
   test("an extension field type the server names is a field of the scope, with its value type", () => {
     const before = globalThis.kalakaFormEditor;
     globalThis.kalakaFormEditor = {

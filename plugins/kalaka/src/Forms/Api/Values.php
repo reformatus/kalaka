@@ -24,11 +24,13 @@ final class Values
      * with those keys.
      *
      * @param array<string, ValueType> $declared
+     * @param list<string> $paths the declared keys whose value is a path (`PathFieldType`), which a condition
+     *     never compares with `equals`
      * @throws SystemFailure `<code> <subject>`: a misplaced branch, an invalid condition, an undeclared key
      */
-    public function check(string $content, array $declared): void
+    public function check(string $content, array $declared, array $paths = []): void
     {
-        $this->check->check($content, $declared);
+        $this->check->check($content, $declared, $paths);
     }
 
     /**
