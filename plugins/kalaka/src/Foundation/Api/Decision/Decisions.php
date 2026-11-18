@@ -10,9 +10,10 @@ use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * The public reader of a registration's current decisions (foundation.md, "Facts, decisions and computed
- * values"): the latest record of each kind. Plain reads, one statement each; they never evaluate, so a
- * page that shows registrations writes nothing.
+ * The public reader of decisions (foundation.md, "Facts, decisions and computed values"): the declared
+ * kinds with their Hungarian labels and labelled states, read from the registry the evaluation uses, and
+ * a registration's current decisions, the latest record of each kind. Plain reads, one statement each at
+ * most; they never evaluate, so a page that shows registrations writes nothing.
  */
 final class Decisions
 {
