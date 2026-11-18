@@ -8,4 +8,6 @@ At the module root: `Registration` and `RegistrationRepository` (the only writer
 
 Tables, created by the schema in `Module.php`: `kalaka_registrations`, `kalaka_field_values`, `kalaka_submissions`.
 
-Entry points: none yet; the form page (S12) calls `Api\RegistrationSubmit`.
+`Cli/RegistrationSeeder` contributes sample registrations to `wp kalaka seed`: guests submit the Forms seeder's sample form through `RegistrationSubmit`, so the event fills up and the last ones are waitlisted.
+
+Entry points: `wp kalaka seed` (`Cli/RegistrationSeeder`); the form page (S12) calls `Api\RegistrationSubmit`.
