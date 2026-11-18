@@ -62,7 +62,7 @@ final class RecordRefundTest extends ManualEntryTestCase
     {
         $this->exec(new RecordRefund(), $this->paymentInput(['correction' => true, 'note' => 'ok']));
 
-        $this->expectException(\Kalaka\Foundation\Api\Error\SystemFailure::class);
+        $this->expectException(\Kalaka\Ledger\Api\IdempotencyConflict::class);
         $this->exec(new RecordRefund(), $this->paymentInput(['correction' => false, 'note' => 'ok']));
     }
 

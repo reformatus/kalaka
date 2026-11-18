@@ -69,6 +69,20 @@ final class ManualEntryAbilityTest extends ManualEntryTestCase
         self::assertCount(1, $this->lines());
     }
 
+    public function testAReusedKeyWithOtherInputIsA409NotAServerError(): void
+    {
+        wp_set_current_user($this->admin->userId);
+        $this->ability('kalaka/record-payment')->execute($this->paymentInput());
+
+        $result = $this->ability('kalaka/record-payment')->execute($this->paymentInput(['amount' => '9999']));
+
+        self::assertInstanceOf(\WP_Error::class, $result);
+        self::assertSame('kalaka_idempotency_conflict', $result->get_error_code());
+        self::assertSame(409, $result->get_error_data()['status'] ?? null);
+        self::assertSame('A művelet nem hajtható végre.', $result->get_error_message());
+        self::assertCount(1, $this->lines());
+    }
+
     public function testWordPressChecksTheInputAgainstTheSchema(): void
     {
         wp_set_current_user($this->admin->userId);

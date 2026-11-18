@@ -109,7 +109,11 @@ abstract class ManualEntryTestCase extends AdminTestCase
     {
         global $wpdb;
         $rows = $wpdb->get_results(
-            $wpdb->prepare('SELECT * FROM %i WHERE event_id = %d ORDER BY id', $wpdb->prefix . 'kalaka_ledger_lines', $this->event),
+            $wpdb->prepare(
+                'SELECT * FROM %i WHERE event_id = %d ORDER BY id',
+                $wpdb->prefix . 'kalaka_ledger_lines',
+                $this->event
+            ),
             ARRAY_A
         );
         self::assertIsArray($rows);
@@ -123,7 +127,11 @@ abstract class ManualEntryTestCase extends AdminTestCase
     {
         global $wpdb;
         $rows = $wpdb->get_results(
-            $wpdb->prepare('SELECT * FROM %i WHERE event_id = %d ORDER BY line_id', $wpdb->prefix . 'kalaka_payment_notes', $this->event),
+            $wpdb->prepare(
+                'SELECT * FROM %i WHERE event_id = %d ORDER BY line_id',
+                $wpdb->prefix . 'kalaka_payment_notes',
+                $this->event
+            ),
             ARRAY_A
         );
         self::assertIsArray($rows);

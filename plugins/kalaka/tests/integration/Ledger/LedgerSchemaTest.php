@@ -107,16 +107,23 @@ final class LedgerSchemaTest extends WP_UnitTestCase
         self::assertIsArray($columns);
         $declared = [];
         foreach ($columns as $column) {
-            $declared[$column['COLUMN_NAME']] = $column['COLUMN_TYPE'] . ($column['IS_NULLABLE'] === 'YES' ? ' null' : '');
+            $nullable = $column['IS_NULLABLE'] === 'YES' ? ' null' : '';
+            $declared[$column['COLUMN_NAME']] = $column['COLUMN_TYPE'] . $nullable;
         }
         self::assertSame(self::NOTE_COLUMNS, $declared);
 
         $statement = str_replace('{prefix}', $wpdb->prefix, (new Module())->schema()->tables[1]);
         self::assertSame([], IndexCheck::mismatches($name, $statement));
-        $keys = $wpdb->get_results("SHOW INDEX FROM {$name}", ARRAY_A);
+        $keys = $wpdb->get_results($wpdb->prepare('SHOW INDEX FROM %i', $name), ARRAY_A);
         self::assertIsArray($keys);
         self::assertSame(
-            ['PRIMARY:event_id', 'PRIMARY:line_id', 'registration:event_id', 'registration:code', 'registration:line_id'],
+            [
+                'PRIMARY:event_id',
+                'PRIMARY:line_id',
+                'registration:event_id',
+                'registration:code',
+                'registration:line_id',
+            ],
             array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
         );
     }
