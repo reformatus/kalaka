@@ -100,7 +100,7 @@ final class GridModel
     /**
      * The tab's name: the view's name, and for a grant with a bound value „{nézet} – {érték}” (the value as
      * the dialog shows it). A grant without a bound value, which sees the whole view, is named by the view
-     * alone; the master view is „Jelentkezők”. [UNAPPROVED N19]
+     * alone; the master view is „Jelentkezők”.
      *
      * @param array<string, FieldDefinition> $fields
      */
