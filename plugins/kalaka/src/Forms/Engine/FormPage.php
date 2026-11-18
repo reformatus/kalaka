@@ -148,7 +148,12 @@ final class FormPage
     ): FormPageView {
         return match ($refusal) {
             AccessRefusal::PasswordRequired => FormPageView::refused(FormPageView::PASSWORD_REQUIRED, $post),
-            AccessRefusal::RoleRequired => FormPageView::refused(FormPageView::ROLE_REQUIRED),
+            // Someone not logged in may hold the role: the refusal links to WordPress's login, back to the page.
+            AccessRefusal::RoleRequired => FormPageView::refused(
+                FormPageView::ROLE_REQUIRED,
+                null,
+                is_user_logged_in() ? '' : wp_login_url(self::here())
+            ),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             // The account never refuses the page (`withoutAccount()`); listed for the match only.
             AccessRefusal::EventNotOpen, AccessRefusal::AccountRequired => FormPageView::refused(

@@ -43,6 +43,10 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
             FormPageView::ROLE_REQUIRED => 'Az űrlap kitöltéséhez jelentkezz be egy megfelelő jogosultságú fiókkal.',
         ];
         echo '<p>' . esc_html($kalakaTexts[$kalakaView->refusal] ?? $kalakaTexts[FormPageView::UNAVAILABLE]) . '</p>';
+        if ($kalakaView->loginUrl !== '') {
+            // T8's approved link text: the role refusal of someone not logged in, who may hold the role.
+            echo '<p><a href="' . esc_url($kalakaView->loginUrl) . '">' . esc_html('Bejelentkezés') . '</a></p>';
+        }
     } else {
         // The theme adapter's error colour, for the stylesheet: `--kalaka-error-color` on the form.
         $kalakaColour = ThemeAdapters::current()->errorColour;
