@@ -1,20 +1,31 @@
 /**
- * The grid's REST calls. Reads go to Kaláka's own routes (`kalaka-admin/v1`, `GridRoutes`); a write would run an
- * ability through core's run endpoint (`POST /wp-abilities/v1/abilities/{name}/run`, `{ input }`).
+ * The grid's REST calls. Reads go to Kaláka's own routes (`kalaka-admin/v1`, `GridRoutes`); writes run the
+ * abilities through core's run endpoint (`POST /wp-abilities/v1/abilities/{name}/run`, `{ input }`).
  */
 import apiFetch from '@wordpress/api-fetch';
+
+/** The query parameters of the grid's filters and search; none when nothing narrows. */
+function narrowing( params, narrow ) {
+	if ( narrow && narrow.filters.length ) {
+		params.set( 'filters', JSON.stringify( narrow.filters ) );
+	}
+	if ( narrow && narrow.search ) {
+		params.set( 'search', narrow.search );
+	}
+	return params;
+}
 
 /**
  * One page of a view: `{ rows, total }`, from core's paging headers.
  *
  * @param {Object} config window.kalakaGrid
  * @param {Object} tab    the tab: { view, grant } (view 0: the master view; grant: the grant a grant holder's tab is)
- * @param {Object} query  { sort, desc, perPage, page }
+ * @param {Object} query  { sort, desc, perPage, page, narrow } with `narrow` as `{ filters, search }`
  */
 export async function fetchPage(
 	config,
 	tab,
-	{ sort = null, desc = false, perPage = 50, page = 1 }
+	{ sort = null, desc = false, perPage = 50, page = 1, narrow = null }
 ) {
 	const params = new URLSearchParams( {
 		per_page: String( Math.min( perPage, config.maxLimit ) ),
@@ -27,6 +38,7 @@ export async function fetchPage(
 	if ( tab.grant ) {
 		params.set( 'grant', String( tab.grant ) );
 	}
+	narrowing( params, narrow );
 	const response = await apiFetch( {
 		path: `${ config.rest }/views/${ tab.view }/rows?${ params.toString() }`,
 		parse: false,
@@ -38,8 +50,8 @@ export async function fetchPage(
 	};
 }
 
-/** Every row of a view, in pages of the most one page may hold, in the given order. */
-export async function fetchAll( config, tab, sort = null, desc = false ) {
+/** Every row the filters and search leave, in pages of the most one page may hold, in the given order. */
+export async function fetchAll( config, tab, sort = null, desc = false, narrow = null ) {
 	const rows = [];
 	for ( let page = 1; ; page++ ) {
 		const result = await fetchPage( config, tab, {
@@ -47,6 +59,7 @@ export async function fetchAll( config, tab, sort = null, desc = false ) {
 			desc,
 			perPage: config.maxLimit,
 			page,
+			narrow,
 		} );
 		rows.push( ...result.rows );
 		if ( ! result.rows.length || rows.length >= result.total ) {
@@ -56,18 +69,20 @@ export async function fetchAll( config, tab, sort = null, desc = false ) {
 }
 
 /**
- * The sum row over the whole view, with an optional ad hoc choice of counted members (the viewer's own counting
- * for the session, never saved to the view; topic 6a G1, B1).
+ * The sum row over the whole view, or over the rows the filters and search leave, with an optional ad hoc
+ * choice of counted members (a grant holder's own counting, never saved to the shared view; topic 6a G1).
  *
- * @param {Object}      config  window.kalakaGrid
- * @param {Object}      tab     the tab
- * @param {Object|null} counts  column → member list; null: the stored choice
+ * @param {Object}      config window.kalakaGrid
+ * @param {Object}      tab    the tab
+ * @param {Object|null} narrow { filters, search }
+ * @param {Object|null} counts column → member list; null: the stored choice
  */
-export const fetchSums = ( config, tab, counts = null ) => {
+export const fetchSums = ( config, tab, narrow = null, counts = null ) => {
 	const params = new URLSearchParams();
 	if ( tab.grant ) {
 		params.set( 'grant', String( tab.grant ) );
 	}
+	narrowing( params, narrow );
 	if ( counts ) {
 		params.set( 'counts', JSON.stringify( counts ) );
 	}
@@ -77,10 +92,13 @@ export const fetchSums = ( config, tab, counts = null ) => {
 	} );
 };
 
+export const fetchViews = ( config ) =>
+	apiFetch( { path: `${ config.rest }/views` } );
+
 /**
  * Runs an ability through core's run endpoint and answers what it returned; every ability the grid runs
- * returns a value. The grid itself runs none: no view configuration is saved from it (topic 6a B1). Rejects
- * with the error as `apiFetch` gives it (`{ code, message, data }`).
+ * returns a value (`kalaka/save-master-counts`: `{ id }`). Rejects with the error as `apiFetch` gives it
+ * (`{ code, message, data }`).
  *
  * @param {string} name  the ability
  * @param {Object} input its input
@@ -91,3 +109,59 @@ export const runAbility = ( name, input ) =>
 		method: 'POST',
 		data: { input },
 	} );
+
+/**
+ * Saves a stored view through `kalaka/save-view`; its `version` is sent back.
+ * Only the keys the ability's schema names are sent.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {number} view   the view's ID
+ * @param {Object} data   { name, filter, columns, counts?, version? }
+ */
+export const saveView = (
+	config,
+	view,
+	{ name, filter, columns, counts, version }
+) => {
+	const input = { event_id: config.event, id: view, name, filter, columns, version };
+	if ( counts !== undefined && counts !== null ) {
+		input.counts = counts;
+	}
+	return runAbility( 'kalaka/save-view', input );
+};
+
+/**
+ * Saves the members one column's sum counts and answers the new sum row: for the master view (0) through
+ * `kalaka/save-master-counts`; for a view through `kalaka/save-view`, with its stored shape and version read
+ * just before. No members removes the column's entry. The sum row it answers is over the narrowed rows.
+ */
+export async function saveCounts( config, tab, column, members, narrow = null ) {
+	const view = tab.view;
+	if ( ! view ) {
+		await runAbility( 'kalaka/save-master-counts', {
+			event_id: config.event,
+			column,
+			members,
+		} );
+	} else {
+		const list = await fetchViews( config );
+		const stored = ( list.views || [] ).find( ( x ) => x.view === view );
+		if ( ! stored ) {
+			throw new Error( '' );
+		}
+		const counts = { ...stored.shape.counts };
+		if ( members.length ) {
+			counts[ column ] = members;
+		} else {
+			delete counts[ column ];
+		}
+		await saveView( config, view, {
+			version: stored.version,
+			name: stored.name,
+			filter: stored.shape.filter,
+			columns: stored.shape.columns,
+			counts,
+		} );
+	}
+	return fetchSums( config, tab, narrow );
+}

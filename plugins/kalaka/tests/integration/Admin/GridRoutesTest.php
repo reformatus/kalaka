@@ -314,16 +314,20 @@ final class GridRoutesTest extends GrantTestCase
     {
         $this->as($this->holder);
         $route = '/views/' . $this->view;
-        $contains = static fn (string $text): array => [['field' => 'code', 'operator' => 'contains', 'value' => $text]];
+        $contains = static fn (string $text): array => [
+            ['field' => 'code', 'operator' => 'contains', 'value' => $text],
+        ];
+        $total = fn (array $params): string => $this->rest('GET', $route . '/rows', $params)
+            ->get_headers()['X-WP-Total'];
 
         $rows = $this->rest('GET', $route . '/rows', self::narrow($contains('a5')));
         self::assertSame(200, $rows->get_status());
         self::assertSame(['00A5'], array_column($rows->get_data(), 'key'));
         self::assertSame('1', $rows->get_headers()['X-WP-Total']);
         // Their bound value stays in force: a filter or a search for another module's row finds nothing.
-        self::assertSame('0', $this->rest('GET', $route . '/rows', self::narrow($contains('00a2')))->get_headers()['X-WP-Total']);
-        self::assertSame('0', $this->rest('GET', $route . '/rows', self::narrow([], '00a2'))->get_headers()['X-WP-Total']);
-        self::assertSame('2', $this->rest('GET', $route . '/rows', self::narrow($contains('00')))->get_headers()['X-WP-Total']);
+        self::assertSame('0', $total(self::narrow($contains('00a2'))));
+        self::assertSame('0', $total(self::narrow([], '00a2')));
+        self::assertSame('2', $total(self::narrow($contains('00'))));
         // The sum row follows the narrowed rows.
         $sums = (array) $this->rest('GET', $route . '/sums', self::narrow($contains('a5')))->get_data();
         self::assertSame(1, $sums['code']['n']);
@@ -353,9 +357,13 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame('1', $rows->get_headers()['X-WP-Total']);
         self::assertSame('1', $rows->get_headers()['X-WP-TotalPages']);
         // The status word, with a capital and an accent folded away.
-        self::assertSame(['00A8'], array_column($this->rest('GET', '/views/0/rows', self::narrow([], 'VAROLISTAS'))->get_data(), 'key'));
+        $keys = fn (array $params): array => array_column(
+            $this->rest('GET', '/views/0/rows', $params)->get_data(),
+            'key'
+        );
+        self::assertSame(['00A8'], $keys(self::narrow([], 'VAROLISTAS')));
         // A search by the value of a field the master view lists.
-        self::assertSame(['00A2'], array_column($this->rest('GET', '/views/0/rows', self::narrow([], 'b'))->get_data(), 'key'));
+        self::assertSame(['00A2'], $keys(self::narrow([], 'b')));
     }
 
     public function testAGrantHolderSavesNothing(): void

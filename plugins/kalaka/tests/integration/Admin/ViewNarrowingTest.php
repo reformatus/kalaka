@@ -38,7 +38,10 @@ final class ViewNarrowingTest extends AdminTestCase
 
         $rows = [
             // code, status, time, lunch, programs, photo, nights, note, born, confirmation
-            ['00A0', 'registered', '08:00:00', 'veg', '["hike","craft"]', '1', '3', 'Ödön kér', '2010-03-03', 'confirmed'],
+            [
+                '00A0', 'registered', '08:00:00', 'veg', '["hike","craft"]', '1', '3', 'Ödön kér', '2010-03-03',
+                'confirmed',
+            ],
             ['00A2', 'registered', '08:01:00', 'VEG', '["sport"]', '0', '2.5', 'Ütő lesz', '2012-07-12', 'pending'],
             ['00A5', 'registered', '08:02:00', 'normal', '["craft"]', null, '', 'Árpád és Őrs', null, 'confirmed'],
             ['00A8', 'waitlisted', '08:03:00', 'normal', null, '1', '4', 'Űrlap 100% kész', '2014-01-01', null],
@@ -84,7 +87,14 @@ final class ViewNarrowingTest extends AdminTestCase
 
         return [
             'lunch' => new FieldDefinition('lunch', 'kalaka/choice-field', 'Ebéd', $options, true, 'choice'),
-            'programs' => new FieldDefinition('programs', 'kalaka/choice-field', 'Programok', $programs, false, 'choice'),
+            'programs' => new FieldDefinition(
+                'programs',
+                'kalaka/choice-field',
+                'Programok',
+                $programs,
+                false,
+                'choice'
+            ),
             'photo' => new FieldDefinition('photo', FieldDefinitions::CONSENT_TYPE, 'Fénykép', [], false, 'choice'),
             'nights' => new FieldDefinition('nights', 'kalaka/number-field', 'Éjszakák', [], false, 'number'),
             'note' => new FieldDefinition('note', 'kalaka/text-field', 'Megjegyzés', [], false, 'text'),
@@ -112,6 +122,12 @@ final class ViewNarrowingTest extends AdminTestCase
         return array_map(static fn ($row): string => $row->key->code, $page->rows);
     }
 
+    /** The codes one filter leaves in the whole view. */
+    private function where(string $field, string $operator, mixed $value): array
+    {
+        return $this->codes($this->view(), [self::filter($field, $operator, $value)]);
+    }
+
     private static function filter(string $field, string $operator, mixed $value): array
     {
         return ['field' => $field, 'operator' => $operator, 'value' => $value];
@@ -126,16 +142,16 @@ final class ViewNarrowingTest extends AdminTestCase
     {
         $view = $this->view();
 
-        self::assertSame(['00A8', '00B0'], $this->codes($view, [self::filter('status', 'isAny', ['waitlisted'])]));
+        self::assertSame(['00A8', '00B0'], $this->where('status', 'isAny', ['waitlisted']));
         self::assertSame(
             ['00A0', '00A2', '00A5'],
             $this->codes($view, [self::filter('status', 'isNone', ['waitlisted', 'withdrawn'])])
         );
         // The collation folds case, as the view's own filter does: VEG is veg.
-        self::assertSame(['00A0', '00A2', '00B0', '00B3'], $this->codes($view, [self::filter('field:lunch', 'isAny', ['veg'])]));
-        self::assertSame(['00A5', '00A8'], $this->codes($view, [self::filter('field:lunch', 'isNone', ['veg'])]));
+        self::assertSame(['00A0', '00A2', '00B0', '00B3'], $this->where('field:lunch', 'isAny', ['veg']));
+        self::assertSame(['00A5', '00A8'], $this->where('field:lunch', 'isNone', ['veg']));
         // A multiple choice holds the member; no answer is none of them.
-        self::assertSame(['00A0', '00B0'], $this->codes($view, [self::filter('field:programs', 'isAny', ['hike'])]));
+        self::assertSame(['00A0', '00B0'], $this->where('field:programs', 'isAny', ['hike']));
         self::assertSame(
             ['00A2', '00A8', '00B3'],
             $this->codes($view, [self::filter('field:programs', 'isNone', ['hike', 'craft'])])
@@ -146,11 +162,11 @@ final class ViewNarrowingTest extends AdminTestCase
     {
         $view = $this->view();
 
-        self::assertSame(['00A0', '00A8'], $this->codes($view, [self::filter('field:photo', 'is', true)]));
-        self::assertSame(['00A2', '00B3'], $this->codes($view, [self::filter('field:photo', 'is', false)]));
+        self::assertSame(['00A0', '00A8'], $this->where('field:photo', 'is', true));
+        self::assertSame(['00A2', '00B3'], $this->where('field:photo', 'is', false));
         // Not yes is no and no answer; not no is yes and no answer. Nothing is folded into „no”.
-        self::assertSame(['00A2', '00A5', '00B0', '00B3'], $this->codes($view, [self::filter('field:photo', 'isNot', true)]));
-        self::assertSame(['00A0', '00A5', '00A8', '00B0'], $this->codes($view, [self::filter('field:photo', 'isNot', false)]));
+        self::assertSame(['00A2', '00A5', '00B0', '00B3'], $this->where('field:photo', 'isNot', true));
+        self::assertSame(['00A0', '00A5', '00A8', '00B0'], $this->where('field:photo', 'isNot', false));
         self::assertSame(
             ['00A5', '00B0'],
             $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:photo'])])
@@ -161,29 +177,29 @@ final class ViewNarrowingTest extends AdminTestCase
     {
         $view = $this->view();
 
-        self::assertSame(['00A8'], $this->codes($view, [self::filter('field:nights', 'is', 4)]));
-        self::assertSame(['00A2'], $this->codes($view, [self::filter('field:nights', 'is', '2.5')]));
-        self::assertSame(['00A2', '00B3'], $this->codes($view, [self::filter('field:nights', 'lessThan', 3)]));
-        self::assertSame(['00A8', '00B0'], $this->codes($view, [self::filter('field:nights', 'greaterThan', 3)]));
-        self::assertSame(['00A0', '00A2', '00A8'], $this->codes($view, [self::filter('field:nights', 'between', [2.5, 4])]));
+        self::assertSame(['00A8'], $this->where('field:nights', 'is', 4));
+        self::assertSame(['00A2'], $this->where('field:nights', 'is', '2.5'));
+        self::assertSame(['00A2', '00B3'], $this->where('field:nights', 'lessThan', 3));
+        self::assertSame(['00A8', '00B0'], $this->where('field:nights', 'greaterThan', 3));
+        self::assertSame(['00A0', '00A2', '00A8'], $this->where('field:nights', 'between', [2.5, 4]));
         // No value is no number: never matched, even by a range that holds 0.
-        self::assertSame(['00A2', '00B3'], $this->codes($view, [self::filter('field:nights', 'between', [0, 2.5])]));
+        self::assertSame(['00A2', '00B3'], $this->where('field:nights', 'between', [0, 2.5]));
     }
 
     public function testDateTextAndCodeFilters(): void
     {
         $view = $this->view();
 
-        self::assertSame(['00A0', '00B0', '00B3'], $this->codes($view, [self::filter('field:born', 'before', '2011-01-01')]));
-        self::assertSame(['00A2', '00A8'], $this->codes($view, [self::filter('field:born', 'after', '2012-01-01T00:00:00')]));
-        self::assertSame(['00A0'], $this->codes($view, [self::filter('code', 'contains', '0a0')]));
+        self::assertSame(['00A0', '00B0', '00B3'], $this->where('field:born', 'before', '2011-01-01'));
+        self::assertSame(['00A2', '00A8'], $this->where('field:born', 'after', '2012-01-01T00:00:00'));
+        self::assertSame(['00A0'], $this->where('code', 'contains', '0a0'));
         // Accents and case fold, and the LIKE characters of the text are plain: ö/ő and ü/ű included.
-        self::assertSame(['00A0'], $this->codes($view, [self::filter('field:note', 'contains', 'ODON')]));
-        self::assertSame(['00A2'], $this->codes($view, [self::filter('field:note', 'contains', 'utő')]));
-        self::assertSame(['00A5'], $this->codes($view, [self::filter('field:note', 'contains', 'orS')]));
-        self::assertSame(['00A8'], $this->codes($view, [self::filter('field:note', 'contains', 'urlap')]));
-        self::assertSame(['00A8'], $this->codes($view, [self::filter('field:note', 'contains', '100%')]));
-        self::assertSame(['00B3'], $this->codes($view, [self::filter('field:note', 'contains', 'x_y')]));
+        self::assertSame(['00A0'], $this->where('field:note', 'contains', 'ODON'));
+        self::assertSame(['00A2'], $this->where('field:note', 'contains', 'utő'));
+        self::assertSame(['00A5'], $this->where('field:note', 'contains', 'orS'));
+        self::assertSame(['00A8'], $this->where('field:note', 'contains', 'urlap'));
+        self::assertSame(['00A8'], $this->where('field:note', 'contains', '100%'));
+        self::assertSame(['00B3'], $this->where('field:note', 'contains', 'x_y'));
     }
 
     public function testDecisionFiltersAndUnanswered(): void
@@ -235,7 +251,7 @@ final class ViewNarrowingTest extends AdminTestCase
             self::assertSame($want, $sorted, "range $from to $to");
         }
         // A withdrawn registration has no sorszám and is never in a range.
-        self::assertNotContains('00B3', $this->codes($view, [self::filter('serial', 'between', [0, 99])]));
+        self::assertNotContains('00B3', $this->where('serial', 'between', [0, 99]));
     }
 
     public function testSearchMatchesWhatTheCellsShowIgnoringCaseAndAccents(): void
@@ -328,11 +344,20 @@ final class ViewNarrowingTest extends AdminTestCase
         yield 'a range operator on the sorszám that is not between' => [[self::filter('serial', 'is', 1)]];
         yield 'a date that is not a day' => [[self::filter('field:born', 'before', '2011-02-30')]];
         yield 'a yes/no that is not a bool' => [[self::filter('field:photo', 'is', 'yes')]];
-        yield 'the same column twice' => [[self::filter('status', 'isAny', ['registered']), self::filter('status', 'isNone', ['removed'])]];
+        yield 'the same column twice' => [[
+            self::filter('status', 'isAny', ['registered']),
+            self::filter('status', 'isNone', ['removed']),
+        ]];
         yield 'unanswered on the code' => [[self::filter(ColumnFilter::UNANSWERED, 'isAll', ['code'])]];
-        yield 'unanswered on an unlisted column' => [[self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:ghost'])]];
-        yield 'too many filters' => [array_fill(0, Narrowing::MAX_FILTERS + 1, self::filter('status', 'isAny', ['registered']))];
-        yield 'too many values' => [[self::filter('status', 'isAny', array_map('strval', range(1, Narrowing::MAX_VALUES + 1)))]];
+        yield 'unanswered on an unlisted column' => [[
+            self::filter(ColumnFilter::UNANSWERED, 'isAll', ['field:ghost']),
+        ]];
+        yield 'too many filters' => [
+            array_fill(0, Narrowing::MAX_FILTERS + 1, self::filter('status', 'isAny', ['registered'])),
+        ];
+        yield 'too many values' => [[
+            self::filter('status', 'isAny', array_map('strval', range(1, Narrowing::MAX_VALUES + 1))),
+        ]];
         yield 'too long a text' => [[self::filter('code', 'contains', str_repeat('a', Narrowing::MAX_SEARCH + 1))]];
         yield 'too long a search' => [[], str_repeat('a', Narrowing::MAX_SEARCH + 1)];
         yield 'too many words' => [[], implode(' ', range(1, Narrowing::MAX_WORDS + 1))];
@@ -352,7 +377,8 @@ final class ViewNarrowingTest extends AdminTestCase
     {
         $view = $this->view();
         $model = new GridModel();
-        $narrowing = (new GridNarrowing())->of($view, self::fields(), [self::filter('status', 'isAny', ['waitlisted'])], null);
+        $waitlisted = [self::filter('status', 'isAny', ['waitlisted'])];
+        $narrowing = (new GridNarrowing())->of($view, self::fields(), $waitlisted, null);
 
         $all = $model->sums($view, self::fields());
         $narrowed = $model->sums($view, self::fields(), $narrowing);
