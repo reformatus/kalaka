@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Admin;
 
+use Kalaka\Admin\Api\AggregateKind;
+use Kalaka\Admin\Api\AggregateSpec;
 use Kalaka\Admin\Api\HeldView;
 use Kalaka\Admin\Api\ViewPage;
 use Kalaka\Admin\Api\ViewQuery;
@@ -11,7 +13,7 @@ use Kalaka\Admin\View\ViewShape;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
-/** AC9: every statement of the view query stays inside its event. */
+/** AC9: every statement of the view query stays inside its event; S37: the sum row's aggregates too. */
 final class ViewQueryCostTest extends PerEventCostTestCase
 {
     private const CODES = ['00A0', '00A2', '00A5', '00A8', '00B0', '00B3'];
@@ -159,6 +161,42 @@ final class ViewQueryCostTest extends PerEventCostTestCase
                 self::held($event, $shape),
                 [new RegistrationKey($event, '00A0'), new RegistrationKey($event, '00A2')]
             )
+        );
+    }
+
+    /**
+     * S37: one aggregate statement with every kind, over each filter, stays inside its event.
+     *
+     * @dataProvider filters
+     */
+    public function testTheAggregatesStayInsideTheirEvent(string $filter): void
+    {
+        $shape = $this->shape($filter);
+        $specs = [
+            new AggregateSpec('code', AggregateKind::Rows),
+            new AggregateSpec('field:module', AggregateKind::Members, ['a']),
+            new AggregateSpec('decision:confirmation', AggregateKind::Members, ['confirmed']),
+            new AggregateSpec('field:module', AggregateKind::Yes),
+            new AggregateSpec('field:module', AggregateKind::Sum),
+            new AggregateSpec('field:module', AggregateKind::Filled),
+            new AggregateSpec('field:module', AggregateKind::Average),
+        ];
+
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            static fn (int $event): array => (new ViewQuery())->aggregates(self::held($event, $shape), $specs)
+        );
+    }
+
+    /** S37: the aggregates of the master view, with a status member count, stay inside their event. */
+    public function testTheMasterViewsAggregatesStayInsideTheirEvent(): void
+    {
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            static fn (int $event): array => (new ViewQuery())->aggregates(self::held($event, null), [
+                new AggregateSpec('code', AggregateKind::Rows),
+                new AggregateSpec('status', AggregateKind::Members, ['registered', 'waitlisted']),
+            ])
         );
     }
 }

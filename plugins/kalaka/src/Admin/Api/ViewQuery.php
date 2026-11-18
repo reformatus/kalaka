@@ -164,6 +164,62 @@ final class ViewQuery extends Query
     }
 
     /**
+     * Aggregates over every registration the view's filter matches now, never one page (S37, the grid's sum
+     * row): one statement for all the specs, on the event's rows. A grant holder's aggregates cover only
+     * their view (S36-9). By spec index: an integer for the counts, a decimal string (trailing zeros cut) or
+     * null for `sum` and `average`. Choice values compare with the column's collation, as the filter does;
+     * a multiple choice (a JSON list) counts when it holds one of the members.
+     *
+     * @param list<AggregateSpec> $specs
+     * @return list<int|string|null>
+     * @throws InvalidInput when a spec's column is not listed in the view
+     */
+    public function aggregates(HeldView $view, array $specs): array
+    {
+        if ($specs === []) {
+            return [];
+        }
+        $shape = $this->shapeOf($view);
+        foreach ($specs as $spec) {
+            if (!$shape->lists($spec->column)) {
+                throw new InvalidInput();
+            }
+        }
+        [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
+        $values = $this->table(RegistrationTables::FIELD_VALUES);
+        $decisions = $this->table(DecisionTables::DECISIONS);
+
+        /** @var list<literal-string> $selects */
+        $selects = [];
+        $args = [];
+        foreach ($specs as $index => $spec) {
+            [$expression, $expressionArgs] = self::aggregate($spec, $values, $decisions);
+            $selects[] = $expression . ' AS %i';
+            array_push($args, ...$expressionArgs);
+            $args[] = 'a' . $index;
+        }
+
+        $eventId = $view->eventId;
+        $rows = $this->scope(fn (): array => $this->select(
+            'aggregate',
+            'SELECT ' . implode(', ', $selects) . ' FROM %i r WHERE r.event_id = %d' . $conditions,
+            [...$args, $this->table(RegistrationTables::REGISTRATIONS), $eventId, ...$conditionArgs]
+        ));
+        $row = $rows[0] ?? [];
+
+        $results = [];
+        foreach ($specs as $index => $spec) {
+            $value = $row['a' . $index] ?? null;
+            $results[] = match ($spec->kind) {
+                AggregateKind::Sum, AggregateKind::Average => $value === null ? null : self::decimal((string) $value),
+                default => (int) $value,
+            };
+        }
+
+        return $results;
+    }
+
+    /**
      * Whether every given registration is in the view's event and inside its filter now: one statement,
      * none for an empty list. For the access checks.
      *
@@ -255,6 +311,64 @@ final class ViewQuery extends Query
         }
 
         return $values;
+    }
+
+    /**
+     * One aggregate as a select expression over the alias `r`, with its arguments in placeholder order.
+     *
+     * @return array{0: literal-string, 1: list<string>}
+     */
+    private static function aggregate(AggregateSpec $spec, string $values, string $decisions): array
+    {
+        $field = 'SELECT 1 FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code AND s.field_key = %s';
+        $number = '(SELECT CAST(s.value AS DECIMAL(26,8)) FROM %i s WHERE s.event_id = r.event_id'
+            . " AND s.code = r.code AND s.field_key = %s AND s.value <> '')";
+        $key = substr($spec->column, 6);
+        $in = implode(', ', array_fill(0, count($spec->members), '%s'));
+
+        switch ($spec->kind) {
+            case AggregateKind::Rows:
+                return ['COUNT(*)', []];
+            case AggregateKind::Yes:
+                return ['COALESCE(SUM(EXISTS(' . $field . " AND s.value = '1')), 0)", [$values, $key]];
+            case AggregateKind::Filled:
+                return ['COALESCE(SUM(EXISTS(' . $field . " AND s.value <> '')), 0)", [$values, $key]];
+            case AggregateKind::Sum:
+                return ['SUM(' . $number . ')', [$values, $key]];
+            case AggregateKind::Average:
+                return ['AVG(' . $number . ')', [$values, $key]];
+        }
+
+        if ($spec->column === 'status') {
+            return ['COALESCE(SUM(r.status IN (' . $in . ')), 0)', $spec->members];
+        }
+        if (str_starts_with($spec->column, 'decision:')) {
+            return [
+                'COALESCE(SUM(' . DecisionTables::currentState('r', 'd', 'm') . ' IN (' . $in . ')), 0)',
+                [$decisions, $decisions, substr($spec->column, 9), ...$spec->members],
+            ];
+        }
+
+        // A single choice stores the value; a multiple choice a JSON list of values.
+        /** @var literal-string $contains */
+        $contains = implode(' OR ', array_fill(0, count($spec->members), 'JSON_CONTAINS(s.value, JSON_QUOTE(%s))'));
+
+        return [
+            'COALESCE(SUM(EXISTS(' . $field . ' AND (s.value IN (' . $in . ")"
+            . " OR (LEFT(s.value, 1) = '[' AND JSON_VALID(s.value) AND (" . $contains . '))))), 0)',
+            [$values, $key, ...$spec->members, ...$spec->members],
+        ];
+    }
+
+    /** A decimal string without trailing zeros: `183.00000000` → `183`, `4.50000000` → `4.5`. */
+    private static function decimal(string $value): string
+    {
+        if (!str_contains($value, '.')) {
+            return $value;
+        }
+        $value = rtrim(rtrim($value, '0'), '.');
+
+        return $value === '' || $value === '-' ? '0' : $value;
     }
 
     /**

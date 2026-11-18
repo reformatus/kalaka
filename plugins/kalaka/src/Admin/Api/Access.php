@@ -6,9 +6,13 @@ namespace Kalaka\Admin\Api;
 
 use Kalaka\Admin\Grant\Grant;
 use Kalaka\Admin\Grant\GrantQuery;
+use Kalaka\Admin\Grant\GrantRepository;
+use Kalaka\Admin\View\ViewList;
+use Kalaka\Admin\View\ViewRepository;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -27,6 +31,9 @@ final class Access
     public function __construct(
         private readonly GrantQuery $grants = new GrantQuery(),
         private readonly ViewQuery $views = new ViewQuery(),
+        private readonly ViewRepository $viewRepository = new ViewRepository(),
+        private readonly GrantRepository $grantRepository = new GrantRepository(),
+        private readonly ViewList $viewList = new ViewList(),
     ) {
     }
 
@@ -96,7 +103,8 @@ final class Access
                 $grant['view_id'],
                 $grant['name'],
                 $shape,
-                $grant['bound_value']
+                $grant['bound_value'],
+                $shape === null ? $this->viewList->masterCounts($eventId) : []
             );
         }
 
@@ -114,7 +122,57 @@ final class Access
             throw new PermissionDenied();
         }
 
-        return new HeldView($eventId, null, null, null, null, null);
+        return new HeldView($eventId, null, null, null, null, null, $this->viewList->masterCounts($eventId));
+    }
+
+    /**
+     * A stored view of the event as full access opens it, for the grid's tabs (S37): its filter and columns,
+     * with no bound value, so a parameter term does not apply and the whole view shows, as for a grant
+     * without one (S36-4).
+     *
+     * @throws PermissionDenied without full access
+     * @throws NotFound when the view is not one of the event's
+     */
+    public function fullView(Actor $actor, int $eventId, int $viewId): HeldView
+    {
+        if (!$this->isFull($actor)) {
+            throw new PermissionDenied();
+        }
+        $view = $this->viewRepository->find($viewId);
+        if ($view === null || $view->eventId !== $eventId || $view->master) {
+            throw new NotFound();
+        }
+
+        return new HeldView($eventId, null, $view->id, $view->name, $view->shape, null);
+    }
+
+    /**
+     * The view one grant of the event holds, as its holder sees it, through full access only: for the
+     * views dialog's count per grant (S37). Null when the grant's view is missing (it holds nothing).
+     *
+     * @throws PermissionDenied without full access
+     * @throws NotFound when the grant is not one of the event's
+     */
+    public function grantView(Actor $actor, int $eventId, int $grantId): ?HeldView
+    {
+        if (!$this->isFull($actor)) {
+            throw new PermissionDenied();
+        }
+        $grant = $this->grantRepository->find($grantId);
+        if ($grant === null || $grant->eventId !== $eventId) {
+            throw new NotFound();
+        }
+        if ($grant->viewId === null) {
+            $counts = $this->viewList->masterCounts($eventId);
+
+            return new HeldView($eventId, $grant->id, null, null, null, null, $counts);
+        }
+        $view = $this->viewRepository->find($grant->viewId);
+        if ($view === null || $view->eventId !== $eventId || $view->master) {
+            return null;
+        }
+
+        return new HeldView($eventId, $grant->id, $view->id, $view->name, $view->shape, $grant->boundValue);
     }
 
     /**
