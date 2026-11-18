@@ -9,7 +9,6 @@ namespace Kalaka\Registrations\Api;
  * with no `Domain`. Portal's active registration (`kalaka_active`, and its bad-link flag) and the guest draft's
  * claim token (`DraftClaim`) both set their cookies here. `Lax` is what lets a cookie travel on a top-level
  * redirect from another site (the 303 that answers the quiz's POST) and back through WordPress's login.
- * [UNAPPROVED N14] (#194 review B3: shared instead of repeated.)
  */
 final class RegistrantCookie
 {
