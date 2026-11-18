@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\Repository\AppendOnlyRepository;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Ledger\Api\LedgerLine;
 use Kalaka\Ledger\Api\LineKind;
+use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -66,12 +67,13 @@ final class LedgerLineRepository extends AppendOnlyRepository
             'value_date' => $entity->valueDate === null ? null : Instant::toStorage($entity->valueDate),
             'paid_at' => $entity->paidAt === null ? null : Instant::toStorage($entity->paidAt),
             'recorded_at' => Instant::toStorage($entity->recordedAt),
+            'method' => $entity->method?->value,
+            'correction' => $entity->correction ? 1 : 0,
         ];
     }
 
     protected function fromRow(array $row): object
     {
-
         return new LedgerLine(
             (int) $row['id'],
             new RegistrationKey((int) $row['event_id'], (string) $row['code']),
@@ -87,6 +89,8 @@ final class LedgerLineRepository extends AppendOnlyRepository
             $row['value_date'] === null ? null : Instant::fromStorage((string) $row['value_date']),
             $row['paid_at'] === null ? null : Instant::fromStorage((string) $row['paid_at']),
             Instant::fromStorage((string) $row['recorded_at']),
+            $row['method'] === null ? null : PaymentMethod::from((string) $row['method']),
+            (int) $row['correction'] === 1,
         );
     }
 

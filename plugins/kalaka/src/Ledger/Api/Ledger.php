@@ -10,6 +10,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
 use Kalaka\Ledger\ChargeTotalQuery;
 use Kalaka\Ledger\LedgerLineRepository;
+use Kalaka\Ledger\LineListQuery;
+use Kalaka\Ledger\PaymentNote;
+use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Ledger\PaymentFactQuery;
 use Kalaka\Ledger\SummaryQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -23,13 +26,16 @@ final class Ledger
         private readonly PaymentFactQuery $facts = new PaymentFactQuery(),
         private readonly SummaryQuery $summaries = new SummaryQuery(),
         private readonly ChargeTotalQuery $charges = new ChargeTotalQuery(),
+        private readonly PaymentNoteRepository $notes = new PaymentNoteRepository(),
+        private readonly LineListQuery $listing = new LineListQuery(),
     ) {
     }
 
     /**
      * Appends the line, or returns the stored one when the registration already holds the same line
      * under the key. A value date, a day, is stored as 00:00 of it in the site time zone at the moment
-     * of recording. The run must hold the registration's row lock (`Context::holdsRegistration()`).
+     * of recording. The run must hold the registration's row lock (`Context::holdsRegistration()`). The line's
+     * free text, when it has one, is written to its own side record (`kalaka_payment_notes`), in the same run.
      *
      * @throws SystemFailure when the run does not hold the registration, the line breaks a rule, the key
      *                       holds a different line, or the insert fails
@@ -45,7 +51,7 @@ final class Ledger
 
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
         if ($stored !== null) {
-            if (!self::isSame($stored, $line, $valueDate)) {
+            if (!self::isSame($stored, $line, $valueDate) || $this->noteOf($stored) !== self::noteText($line)) {
                 $error = new SystemFailure(null, new \LogicException('The idempotency key holds a different line.'));
                 throw $error;
             }
@@ -53,7 +59,7 @@ final class Ledger
             return $stored;
         }
 
-        return $this->lines->insert(
+        $inserted = $this->lines->insert(
             new LedgerLine(
                 0,
                 $line->registration,
@@ -65,9 +71,70 @@ final class Ledger
                 $valueDate,
                 $line->paidAt,
                 $context->now(),
+                $line->method,
+                $line->correction,
             ),
             $context
         );
+        $note = self::noteText($line);
+        if ($note !== null) {
+            $this->notes->upsert(new PaymentNote($line->registration, $inserted->id, $note), $context);
+        }
+
+        return $inserted;
+    }
+
+    /**
+     * The registration's lines for display, newest first, each with its note. A plain read, without a lock,
+     * of one statement; rules never read it.
+     *
+     * @return list<LedgerEntry>
+     */
+    public function entriesOf(RegistrationKey $registration): array
+    {
+        return $this->listing->of($registration);
+    }
+
+    /**
+     * Erases the registration's notes: the free text of its manual lines, which a privacy erase must reach
+     * (the lines themselves are kept). The run must hold the registration's row lock. Returns how many it
+     * erased. No erase use case exists yet; it calls this when it is built.
+     *
+     * @throws SystemFailure when the run does not hold the registration
+     */
+    public function eraseNotesOf(RegistrationKey $registration, Context $context): int
+    {
+        if (!$context->holdsRegistration($registration)) {
+            $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
+            throw $error;
+        }
+        $notes = $this->notes->forRegistration($registration, $context);
+        foreach ($notes as $note) {
+            $this->notes->delete($note, $context);
+        }
+
+        return count($notes);
+    }
+
+    private function noteOf(LedgerLine $stored): ?string
+    {
+        foreach ($this->notes->forRegistration($stored->registration) as $note) {
+            if ($note->lineId === $stored->id) {
+                return $note->note;
+            }
+        }
+
+        return null;
+    }
+
+    private static function noteFits(?string $note): bool
+    {
+        return $note === null || mb_check_encoding($note, 'UTF-8') && mb_strlen($note, 'UTF-8') <= 500;
+    }
+
+    private static function noteText(NewLine $line): ?string
+    {
+        return $line->note === null || trim($line->note) === '' ? null : trim($line->note);
     }
 
     /** A plain read, without a lock. */
@@ -117,6 +184,11 @@ final class Ledger
                 || ($line->paidAt !== null) !== $line->kind->carriesPaidTime() => 'The time does not fit the kind.',
             $line->valueDate !== null && Instant::startOfDay($line->valueDate) === null
                 => 'The value date is not a day.',
+            $line->method !== null && !$line->kind->carriesMethod() => 'The kind has no method.',
+            $line->correction && $line->kind !== LineKind::ManualRefund => 'Only a manual refund is a correction.',
+            $line->correction && self::noteText($line) === null => 'A correction needs its reason.',
+            $line->note !== null && !$line->kind->mayHaveNote() => 'The kind has no note.',
+            !self::noteFits(self::noteText($line)) => 'The note is not 1 to 500 characters.',
             default => null,
         };
         if ($problem !== null) {
@@ -134,7 +206,9 @@ final class Ledger
             && $stored->source->eventId === $line->source->eventId
             && $stored->source->key === $line->source->key
             && self::instant($stored->valueDate) === self::instant($valueDate)
-            && self::instant($stored->paidAt) === self::instant($line->paidAt);
+            && self::instant($stored->paidAt) === self::instant($line->paidAt)
+            && $stored->method === $line->method
+            && $stored->correction === $line->correction;
     }
 
     private static function instant(?\DateTimeImmutable $time): ?string
