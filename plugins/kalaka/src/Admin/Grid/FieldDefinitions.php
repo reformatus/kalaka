@@ -25,8 +25,8 @@ final class FieldDefinitions
     /** The type key of a scale field (built on another PR): its sum is the average. Kept here only. */
     public const SCALE_TYPE = 'kalaka/scale-field';
 
-    /** A consent: stored as `1` when given; the grid counts the yes answers. */
-    public const CONSENT_TYPE = 'kalaka/consent-field';
+    /** A consent (`Forms::CONSENT_FIELD`): stored as `1` when given; the grid counts the yes answers. */
+    public const CONSENT_TYPE = Forms::CONSENT_FIELD;
 
     /** @var array<int, ?FormDefinition> by form ID */
     private array $definitions = [];

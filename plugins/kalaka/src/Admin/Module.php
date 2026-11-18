@@ -153,9 +153,6 @@ SQL;
         add_action('admin_menu', [GridPage::class, 'menu']);
         add_action('admin_enqueue_scripts', [GridPage::class, 'enqueue']);
         add_action('rest_api_init', [GridRoutes::class, 'register']);
-        // WooCommerce sends users who cannot edit posts from wp-admin to "My account"; a grant holder (the
-        // minimal role) must still reach the grid.
-        add_filter('woocommerce_prevent_admin_access', [GridPage::class, 'allowAdmin']);
 
         if (defined('WP_CLI') && WP_CLI) {
             FullAccessCommand::register();

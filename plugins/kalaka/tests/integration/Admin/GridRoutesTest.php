@@ -12,7 +12,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * S37: the grid's routes under `kalaka-admin/v1`. The gate lets in full access and grant holders only; a
- * grant holder reads only their own views, never the master view or another view, and saves nothing.
+ * grant holder reads only their own views, never the master view or another view. The routes only read:
+ * the app's writes run the abilities through core's run endpoint, as `app/grid/api.js` calls them, and a
+ * grant holder saves nothing there.
  */
 final class GridRoutesTest extends GrantTestCase
 {
@@ -78,6 +80,22 @@ final class GridRoutesTest extends GrantTestCase
         return $response;
     }
 
+    /**
+     * An ability over core's run endpoint, as the app calls it: `POST`, the input under `input`.
+     *
+     * @param array<string, mixed> $input
+     */
+    private function ability(string $name, array $input): \WP_REST_Response
+    {
+        $request = new \WP_REST_Request('POST', '/wp-abilities/v1/abilities/' . $name . '/run');
+        $request->set_header('content-type', 'application/json');
+        $request->set_body((string) wp_json_encode(['input' => $input]));
+        $response = rest_do_request($request);
+        self::assertInstanceOf(\WP_REST_Response::class, $response);
+
+        return $response;
+    }
+
     private function as(int $user): void
     {
         wp_set_current_user($user);
@@ -124,23 +142,46 @@ final class GridRoutesTest extends GrantTestCase
     public function testAGrantHolderSavesNothing(): void
     {
         $this->as($this->holder);
-        $version = (new ViewList())->ofEvent($this->event)[0]['version'];
+        $stored = (new ViewList())->ofEvent($this->event)[0];
 
-        self::assertSame(403, $this->rest('PUT', '/views/' . $this->view . '/counts', [
+        self::assertSame(403, $this->ability('kalaka/save-view', [
+            'id' => $stored['id'],
+            'version' => $stored['version'],
+            'event_id' => $this->event,
+            'name' => $stored['name'],
+            'filter' => json_decode($stored['filter'], true),
+            'columns' => json_decode($stored['columns'], true),
+            'counts' => ['status' => ['waitlisted']],
+        ])->get_status());
+        self::assertSame(403, $this->ability('kalaka/save-master-counts', [
+            'event_id' => $this->event,
             'column' => 'status',
             'members' => ['waitlisted'],
         ])->get_status());
-        self::assertSame(403, $this->rest('PUT', '/views/0/counts', [
-            'column' => 'status',
-            'members' => ['waitlisted'],
+        self::assertSame(403, $this->ability('kalaka/delete-view', [
+            'id' => $stored['id'],
+            'version' => $stored['version'],
         ])->get_status());
-        self::assertSame(403, $this->rest('DELETE', '/views/' . $this->view, ['version' => $version])->get_status());
-        self::assertSame(403, $this->rest('POST', '/views', [
+        self::assertSame(403, $this->ability('kalaka/save-view', [
+            'event_id' => $this->event,
             'name' => 'X',
             'filter' => [],
             'columns' => [['column' => 'code', 'write' => false]],
         ])->get_status());
         self::assertCount(2, (new ViewList())->ofEvent($this->event));
+        self::assertSame([], (new ViewList())->masterCounts($this->event));
+    }
+
+    public function testTheViewsRoutesOnlyRead(): void
+    {
+        $this->as($this->admin->userId);
+
+        $writes = ['POST' => '/views', 'PUT' => '/views/' . $this->view, 'DELETE' => '/views/' . $this->view];
+        foreach ($writes as $method => $route) {
+            self::assertSame(404, $this->rest($method, $route)->get_status(), $method . ' ' . $route);
+        }
+        self::assertSame(404, $this->rest('PUT', '/views/0/counts', ['members' => []])->get_status());
+        self::assertSame(404, $this->rest('POST', '/grants')->get_status());
     }
 
     public function testAUserWithoutAGrantOrAGuestIsStoppedAtTheGate(): void
@@ -152,7 +193,7 @@ final class GridRoutesTest extends GrantTestCase
         }
     }
 
-    public function testFullAccessSavesTheCountsOfAViewAndOfTheMasterView(): void
+    public function testFullAccessSavesTheCountsOfAViewAndOfTheMasterViewThroughTheAbilities(): void
     {
         $listed = $this->exec(new SaveView(), [
             'event_id' => $this->event,
@@ -162,23 +203,33 @@ final class GridRoutesTest extends GrantTestCase
         ]);
         self::assertIsInt($listed);
         $this->as($this->admin->userId);
+        $input = [
+            'id' => $listed,
+            'version' => 1,
+            'event_id' => $this->event,
+            'name' => 'Állapotok',
+            'filter' => [],
+            'columns' => [['column' => 'code', 'write' => false], ['column' => 'status', 'write' => false]],
+        ];
 
-        $view = $this->rest('PUT', '/views/' . $listed . '/counts', [
+        $saved = $this->ability('kalaka/save-view', $input + ['counts' => ['status' => ['waitlisted']]]);
+        self::assertSame(200, $saved->get_status());
+        self::assertSame('{"status":["waitlisted"]}', $this->viewRow($listed)['counts']);
+        $sums = (array) $this->rest('GET', '/views/' . $listed . '/sums')->get_data();
+        self::assertSame(1, $sums['status']['n']);
+        // A stale version is refused with the conflict the dialog shows.
+        $stale = $this->ability('kalaka/save-view', $input + ['counts' => ['status' => ['registered']]]);
+        self::assertSame(409, $stale->get_status());
+        self::assertSame('kalaka_version_conflict', ((array) $stale->get_data())['code']);
+
+        $master = $this->ability('kalaka/save-master-counts', [
+            'event_id' => $this->event,
             'column' => 'status',
             'members' => ['waitlisted'],
         ]);
-        self::assertSame(200, $view->get_status());
-        self::assertSame('{"status":["waitlisted"]}', $this->viewRow($listed)['counts']);
-        // A column the view does not list cannot carry counts.
-        self::assertSame(400, $this->rest('PUT', '/views/' . $this->other . '/counts', [
-            'column' => 'status',
-            'members' => ['waitlisted'],
-        ])->get_status());
-
-        $master = $this->rest('PUT', '/views/0/counts', ['column' => 'status', 'members' => ['waitlisted']]);
         self::assertSame(200, $master->get_status());
-        self::assertSame(1, ((array) $master->get_data())['status']['n']);
         self::assertSame(['status' => ['waitlisted']], (new ViewList())->masterCounts($this->event));
+        self::assertSame(1, ((array) $this->rest('GET', '/views/0/sums')->get_data())['status']['n']);
     }
 
     public function testAnUnknownEventOrViewIsNotFound(): void

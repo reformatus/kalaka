@@ -12,8 +12,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * The grid's columns and its sum row for one held view (S37). The columns come from the view query, in the
- * order Sorszám, Kód, Név, Állapot, then the rest (field columns in the fields' declared order); each
- * carries what the app needs to show it. The sum row's rule is fixed for Kaláka's own columns and the
+ * order Sorszám, Kód, Név, Állapot, then the rest (the other columns keep their listed slots, and the
+ * field columns fill the field slots in the fields' declared order); each carries what the app needs to
+ * show it. The sum row's rule is fixed for Kaláka's own columns and the
  * confirmation, and follows the field's type for a participant field (owner ruling 2026-11-17):
  *
  * - a field with options: the members counted for the view (`counts`), none until some are chosen;
@@ -233,18 +234,23 @@ final class GridModel
             static fn (?string $c): bool => $c !== null && in_array($c, $listed, true)
         ));
 
+        // The other columns keep their listed slots; the field columns fill the slots fields hold, in the
+        // fields' declared order (a field no longer declared last, then by listed order).
         $positions = array_flip(array_map(static fn (string $key): string => 'field:' . $key, array_keys($fields)));
         $rest = array_values(array_diff($listed, $first));
         $order = array_flip($rest);
-        usort($rest, static function (string $a, string $b) use ($positions, $order): int {
-            $fieldA = str_starts_with($a, 'field:');
-            $fieldB = str_starts_with($b, 'field:');
-            if ($fieldA && $fieldB) {
-                return [$positions[$a] ?? PHP_INT_MAX, $order[$a]] <=> [$positions[$b] ?? PHP_INT_MAX, $order[$b]];
+        $fieldColumns = array_values(array_filter($rest, static fn (string $c): bool => str_starts_with($c, 'field:')));
+        usort(
+            $fieldColumns,
+            static fn (string $a, string $b): int => [$positions[$a] ?? PHP_INT_MAX, $order[$a]]
+                <=> [$positions[$b] ?? PHP_INT_MAX, $order[$b]]
+        );
+        $next = 0;
+        foreach ($rest as $slot => $column) {
+            if (str_starts_with($column, 'field:')) {
+                $rest[$slot] = $fieldColumns[$next++];
             }
-
-            return $order[$a] <=> $order[$b];
-        });
+        }
 
         return [...$first, ...$rest];
     }
