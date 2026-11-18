@@ -99,8 +99,8 @@ final class GridModel
 
     /**
      * The tab's name: the view's name, and for a grant with a bound value „{nézet} – {érték}” (the value as
-     * the dialog shows it). A grant without a bound value, which sees the whole view, is named by the view
-     * alone; the master view is „Jelentkezők”.
+     * the dialog shows it). A grant without a bound value, or with a blank one, is named by the view alone;
+     * the one without a bound value sees the whole view. The master view is „Jelentkezők”.
      *
      * @param array<string, FieldDefinition> $fields
      */
@@ -109,7 +109,7 @@ final class GridModel
         $name = $view->name ?? Texts::REGISTRANTS;
         $column = $view->shape()?->parameterColumn();
         $bound = $view->bound();
-        if ($column === null || $bound === null) {
+        if ($column === null || $bound === null || trim($bound) === '') {
             return $name;
         }
 
