@@ -4,7 +4,7 @@
  * Server render of the scale field: events-and-forms.md, "Forms implementation". The markup is
  * `Kalaka\Forms\Engine\FieldMarkup`'s, with the theme adapter's classes and wrapper: the title as the
  * `legend`, then one radio per point, labelled with the point's label or else its number. A stopgap, with no
- * look of its own; UX prototypes the look. [UNAPPROVED N5]
+ * look of its own; UX prototypes the look.
  *
  * @var array<string, mixed> $attributes
  */

@@ -15,7 +15,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * One point of a scale from `min` (default 1) to `max` (default 5), 2 to 11 points in all, each with an
  * optional label (`pointLabels`, a list from `min` on). Sent and stored as the integer's string; its value is
  * a number, its text the number and, when the point has one, its label (`5 – inkább egyetértek`).
- * [UNAPPROVED N1] [UNAPPROVED N2] [UNAPPROVED N3]
  */
 final class ScaleFieldType extends AbstractFieldType
 {
@@ -26,7 +25,10 @@ final class ScaleFieldType extends AbstractFieldType
     public const MIN_POINTS = 2;
     public const MAX_POINTS = 11;
 
-    /** Between the number and the point's label in the value's text. [UNAPPROVED T6] */
+    /** The farthest a point may be from 0, as the editor keeps it (`range.js`), so every point can be sent. */
+    public const LIMIT = 100;
+
+    /** Between the number and the point's label in the value's text. */
     public const SEPARATOR = ' – ';
 
     /** An integer as the browser sends it and as it is stored: no sign on 0, no leading zero. */
@@ -39,7 +41,7 @@ final class ScaleFieldType extends AbstractFieldType
 
     /**
      * The scale's first and last point, or null when its settings are not valid: `min` and `max` integers
-     * (1 and 5 when absent), with 2 to 11 points from one to the other.
+     * (1 and 5 when absent) within ±`LIMIT`, with 2 to 11 points from one to the other.
      *
      * @param array<string, mixed> $attributes
      * @return array{int, int}|null
@@ -48,7 +50,7 @@ final class ScaleFieldType extends AbstractFieldType
     {
         $min = $attributes['min'] ?? self::DEFAULT_MIN;
         $max = $attributes['max'] ?? self::DEFAULT_MAX;
-        if (!is_int($min) || !is_int($max)) {
+        if (!is_int($min) || !is_int($max) || $min < -self::LIMIT || $max > self::LIMIT) {
             return null;
         }
         $points = $max - $min + 1;
@@ -96,7 +98,7 @@ final class ScaleFieldType extends AbstractFieldType
         }
         $point = self::point($input->value, $input->attributes);
 
-        // The choice's text, reused for a point that is not on the scale. [UNAPPROVED T7]
+        // The choice's text, reused for a point that is not on the scale.
         return $point === null
             ? FieldAnswer::error('Válassz a megadott lehetőségek közül.')
             : FieldAnswer::stored((string) $point);
@@ -104,7 +106,7 @@ final class ScaleFieldType extends AbstractFieldType
 
     /**
      * The stored point when it is one of the scale's points; anything else opens the field empty, as a
-     * choice that is not offered does. [UNAPPROVED N4]
+     * choice that is not offered does.
      */
     public function prefill(FieldTypeInput $input): mixed
     {

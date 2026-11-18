@@ -54,6 +54,9 @@ final class ScaleFieldTest extends FormsTestCase
         self::assertNull(ScaleFieldType::range(['min' => 0, 'max' => 11]), 'twelve points');
         self::assertNull(ScaleFieldType::range(['min' => '1', 'max' => 5]), 'a string');
         self::assertNull(ScaleFieldType::range(['min' => 1.0, 'max' => 5]), 'a float');
+        self::assertSame([-100, -96], ScaleFieldType::range(['min' => -100, 'max' => -96]));
+        self::assertNull(ScaleFieldType::range(['min' => 1000000000, 'max' => 1000000004]), 'beyond ±100');
+        self::assertNull(ScaleFieldType::range(['min' => -101, 'max' => -97]), 'below −100');
     }
 
     public function testAFormWithAnInvalidRangeIsAProblemNamingTheKey(): void

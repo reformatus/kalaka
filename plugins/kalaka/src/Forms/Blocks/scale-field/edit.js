@@ -35,8 +35,7 @@ function Bound({ which, label, range, setAttributes }) {
 
 /**
  * The settings: the first and last point, and a label per point (a list from the first point on). The texts,
- * and the block's title „Skála” in `block.json`, are proposed, not approved: [UNAPPROVED T1] [UNAPPROVED T2]
- * [UNAPPROVED T3] [UNAPPROVED T4] [UNAPPROVED T5] [UNAPPROVED T8]
+ * and the block's title „Skála” in `block.json`, are the owner's (approved 2026-11-18).
  */
 function Settings({ range, labels, setAttributes }) {
 	const number = (which, label) => el(Bound, { key: which, which, label, range, setAttributes });
@@ -68,7 +67,7 @@ function Settings({ range, labels, setAttributes }) {
 	];
 }
 
-/** The scale field in the editor: its title, one static radio button per point and its settings. [UNAPPROVED N6] */
+/** The scale field in the editor: its title, one static radio button per point and its settings. */
 export default function Edit({ name, attributes, setAttributes, clientId, isSelected }) {
 	const commit = useStableKey(clientId, isSelected);
 	// A marker and a red side rule when the server would refuse its participant field.
