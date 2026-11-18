@@ -49,13 +49,20 @@ final class NodesController
     {
         $search = $request->get_param('search');
         $parent = $request->get_param('parent');
+        $within = $request->get_param('within');
         $page = $request->get_param('page') ?? 1;
         $perPage = $request->get_param('per_page') ?? 10;
 
         $args = self::args();
         $search = is_string($search) ? trim($search) : $search;
         $checked = [];
-        $given = ['search' => $search, 'parent' => $parent, 'page' => $page, 'per_page' => $perPage];
+        $given = [
+            'search' => $search,
+            'parent' => $parent,
+            'within' => $within,
+            'page' => $page,
+            'per_page' => $perPage,
+        ];
         foreach ($given as $name => $value) {
             if ($value === null) {
                 continue;
@@ -86,6 +93,7 @@ final class NodesController
             isset($checked['parent']) ? (int) $checked['parent'] : null,
             (int) $checked['page'],
             (int) $checked['per_page'],
+            isset($checked['within']) ? (int) $checked['within'] : null,
         );
 
         $response = new \WP_REST_Response($result['items']);
@@ -108,6 +116,8 @@ final class NodesController
         $args = [
             'search' => ['type' => 'string', 'minLength' => 2, 'maxLength' => 100],
             'parent' => ['type' => 'integer', 'minimum' => 0],
+            // [UNAPPROVED N8] (Shapes) only the nodes below this one, at any depth (the picker's search inside a node)
+            'within' => ['type' => 'integer', 'minimum' => 1],
             'page' => ['type' => 'integer', 'minimum' => 1, 'default' => 1],
             'per_page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 10],
         ];
