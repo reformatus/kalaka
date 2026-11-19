@@ -46,7 +46,10 @@ It holds two fee components at the extras stage and the amount field type.
   `Pricing\Api\MoneySettings`): preview, then apply. A lunch condition is
   checked against the keys a registration's facts declare, and the donation
   field must be an active amount field of the event, before anything is
-  saved.
+  saved. Both components are `Pricing\Api\ConfigurableFeeComponent`s: the
+  money settings file of `wp kalaka money-settings` reads and writes their
+  settings through `settingsToArray()` and `settingsFromArray()`, which only
+  call these `Api` classes.
 - Only this module writes `kalaka_extras_lunch_items` and
   `kalaka_extras_donations`; `LunchItemRepository` and `DonationRepository`
   are their only writers.
