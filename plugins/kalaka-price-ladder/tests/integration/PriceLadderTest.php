@@ -59,17 +59,47 @@ final class PriceLadderTest extends PriceLadderTestCase
         self::assertSame('69500', $this->balance($anna));
     }
 
-    public function testNoApplyingTierOwesNothingUnlessTheEventHasAFixedPrice(): void
+    public function testWithALadderTheFixedPriceIsNeverTheBaseEvenWhenNoTierApplies(): void
     {
         $this->applyLadder(self::ivkTiers());
-        $bela = $this->registerAnswering('00A0', null, null);
-        self::assertSame([], $this->charges($bela));
-
         $this->setPrice('40000');
+        $bela = $this->registerAnswering('00A0', null, null);
 
-        self::assertSame(['fixed_price participant 40000 charge:fixed_price:participant:1'], $this->charges($bela));
+        self::assertSame([], $this->charges($bela));
         $anna = $this->registerAnswering('00A2', 'nincs', 'alap');
         self::assertSame([self::line('49500')], $this->charges($anna));
+    }
+
+    public function testWithoutALadderTheFixedPriceIsTheBase(): void
+    {
+        $this->setPrice('40000');
+        $bela = $this->registerAnswering('00A0', null, null);
+
+        self::assertSame(['fixed_price participant 40000 charge:fixed_price:participant:1'], $this->charges($bela));
+    }
+
+    public function testATierOwingNothingChargesNoFixedPriceEither(): void
+    {
+        $this->setPrice('40000');
+        $this->applyLadder([self::tier('ingyenes', 'Ingyenes', '0')]);
+        $bela = $this->registerAnswering('00A0', null, null);
+
+        self::assertSame([], $this->charges($bela));
+    }
+
+    public function testNoTierCarriesAShareTheLadderChargesTheBasePriceOnly(): void
+    {
+        $this->applyLadder(self::ivkTiers());
+        $anna = $this->registerAnswering('00A8', 'teljes', 'alap');
+
+        self::assertSame([self::line('34500')], $this->charges($anna));
+        self::assertSame(
+            ['key', 'label', 'amount', 'condition', 'until'],
+            array_map(
+                static fn (\ReflectionProperty $p): string => $p->getName(),
+                (new \ReflectionClass(Tier::class))->getProperties()
+            )
+        );
     }
 
     public function testAnEarlyTierCountsFromRegisteredAtNeverFromNow(): void

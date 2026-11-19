@@ -4,8 +4,9 @@ PriceLadder is the price ladder: an event's price tiers, one feature plugin,
 `kalaka-price-ladder` (module `price_ladder`), an extension that uses only
 core's public API
 ([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
-So far it holds the tier stage; a tier's share is S29's and tier quotas come
-later.
+So far it holds the tier stage; tier quotas come later. The ladder sets only
+the base price: the share between payers is decided by the registrant's
+answers (the share extension, S29), never by a tier.
 
 ## Sections it implements
 
@@ -31,8 +32,11 @@ later.
   the registration's `registered_at` and whose condition holds over its
   facts, through `Forms\Api\Availability`; the module never evaluates a
   condition itself. No time-dependent rule reads "now" or the submit time.
-- With no applying tier the ladder owes nothing, and core's fixed price, when
-  the event has one, is the base instead.
+- An event with tiers has its base from the ladder (`ProvidesBase`), so core's
+  fixed price is never charged for it: a registration no tier applies to, or
+  whose tier owes nothing, owes nothing for the base.
+- A tier carries no share mode, and the ladder's charge is the participant's
+  whole tier amount: the base price only.
 - A deadline is stored as the instant its last day ends in the site time
   zone, fixed when it is saved; the component compares instants only.
 - The ladder changes only through `kalaka/set-price-ladder`, the save step of
