@@ -37,7 +37,7 @@ final class AfterSubmit
     /** The context the after-submit section renders with. */
     public static function context(Event $event, string $code, string $status): ValueContext
     {
-        return new ValueContext(EventValues::of($event) + [
+        return new ValueContext(EventValues::of($event) + EventValues::now() + [
             self::CODE => Value::text($code, $code),
             // The status words a mail shows too (N20, approved 2026-11-16).
             self::STATUS => Value::choice([$status], RegistrationStatus::tryFrom($status)?->word() ?? ''),
