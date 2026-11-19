@@ -99,12 +99,15 @@ final class GridRoutes
         if ($sort === 'serial') {
             throw new InvalidInput();
         }
+        $model = new GridModel();
+        $numeric = $model->numericColumns($view, (new FieldDefinitions())->of($view->eventId));
         $page = (new ViewQuery())->page(
             $view,
             $sort,
             $request->get_param('order') === 'desc',
             $perPage,
-            ((int) $request->get_param('page') - 1) * $perPage
+            ((int) $request->get_param('page') - 1) * $perPage,
+            $numeric
         );
 
         $rows = [];
