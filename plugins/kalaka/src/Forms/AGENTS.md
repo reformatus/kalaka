@@ -210,7 +210,12 @@ values and conditions, prefill and form links
 - The form page's two public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`)
   are registered only through `Boundary::route()` and call
   `LoadState::requireOpen()` first. The availability route only reads: it
-  never runs a use case or writes. The submit route calls `SubmitGuard` before
+  never runs a use case or writes. The submit route calls `SubmitGuard` (S14's
+  rate limit, `RateLimiter`: per account when logged in, else per address from
+  `ClientAddress`, which trusts a forwarded header only from a proxy the site
+  names; every attempt counts; the count is a transient named by a keyed hash,
+  never an address and never our tables; a failing count lets the submit
+  through; over the limit, `RateLimited`, 429 with `Retry-After`) before
   the host's submit (`FormHost::submit()`; for an event form the submit seam
   `Registrations\Api\RegistrationSubmit`). Every answer of
   both, refusals included, carries `Cache-Control: no-store`. A malformed body

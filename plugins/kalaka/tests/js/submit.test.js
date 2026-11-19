@@ -243,6 +243,39 @@ describe('the answer to a send', () => {
 		expect(alert().querySelector('a').textContent).toBe(loginUrl);
 	});
 
+	test('a send over the rate limit shows its own message, keeps the answers and a later send goes (S14)', async () => {
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(429, { code: 'kalaka_rate_limited', message: 'Várj egy kicsit.', data: { status: 429 } })
+		);
+		await load(page);
+		type(root(), 'name', 'Anna');
+
+		submit(root());
+		await settle();
+
+		expect(alert().textContent).toBe('Várj egy kicsit.');
+		expect(document.activeElement).toBe(alert());
+		expect(root().querySelector('[name="name"]').value).toBe('Anna');
+
+		submit(root());
+		await settle();
+
+		expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+		expect(document.querySelector('form')).toBeNull();
+	});
+
+	test('while its text is a placeholder, a send over the rate limit shows the code, never an empty alert', async () => {
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(429, { code: 'kalaka_rate_limited', message: '', data: { status: 429 } })
+		);
+		await load(page);
+
+		submit(root());
+		await settle();
+
+		expect(alert().textContent).toBe('kalaka_rate_limited');
+	});
+
 	test('a network failure shows the system failure text the page passes in', async () => {
 		globalThis.fetch.mockRejectedValueOnce(new TypeError('network'));
 		await load(page);

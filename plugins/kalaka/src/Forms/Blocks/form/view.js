@@ -32,7 +32,8 @@
  * check already moves on.
  *
  * A request refused because the person's session ended (S15, `kalaka_session_ended`) shows its own message
- * with the page's link to log in again, not the system failure text.
+ * with the page's link to log in again, not the system failure text. A send refused by the rate limit (S14,
+ * `kalaka_rate_limited`) shows its own message, or its code while that is empty.
  *
  * The account block (S15, owner ruling 2026-11-18; `Engine\AccountMarkup`) opens WordPress's login page in a
  * window of its own (`window.open` in the click; a new tab on phones). A login or sign-up there lands on the
@@ -66,6 +67,13 @@ const OWN_CODE = /^kalaka_/;
  * meanwhile, say by setting the password on another device. A retry never helps; logging in again does.
  */
 const SESSION_ENDED = 'kalaka_session_ended';
+
+/**
+ * The refusal of a send over the rate limit (S14, `RateLimited`): too many sends from this person or
+ * address in a short time. It shows its own message, or its code while the message is empty; the answers
+ * stay, and a later send may go through.
+ */
+const RATE_LIMITED = 'kalaka_rate_limited';
 
 /** The account block's error in a re-fetch's `errors` (`AccountMarkup::ERROR_KEY`). */
 const ACCOUNT_KEY = 'kalaka/account';
@@ -1024,6 +1032,15 @@ function outcome({ ok, body }, failure) {
 	if (body?.code === SESSION_ENDED) {
 		return { sessionEnded: true, message: body.message };
 	}
+	if (body?.code === RATE_LIMITED) {
+		return {
+			rateLimited: true,
+			message:
+				typeof body.message === 'string' && body.message !== ''
+					? body.message
+					: RATE_LIMITED,
+		};
+	}
 	const refusals = Array.isArray(body?.data?.refusals) ? body.data.refusals : [];
 	const fields = body?.data?.fields;
 	const hasFields = fields !== null && typeof fields === 'object';
@@ -1143,6 +1160,11 @@ async function send(form) {
 	reflect(form);
 	if (result.sessionEnded) {
 		sessionEnded(form, result.message, 'send');
+		focusOn(alertOf(form));
+		return;
+	}
+	if (result.rateLimited) {
+		alertOf(form).textContent = result.message;
 		focusOn(alertOf(form));
 		return;
 	}
