@@ -6,6 +6,7 @@ import {
 	formatDay,
 	formatMinor,
 	formatMoney,
+	methodsFor,
 	parseAmount,
 	toMinor,
 	today,
@@ -166,5 +167,26 @@ describe( 'the recording dialog\'s checks', () => {
 	test( 'every wrong field is reported at once', () => {
 		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', refund: true }, day );
 		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'note', 'payer', 'value_date' ] );
+	} );
+} );
+
+describe( 'methodsFor', () => {
+	const methods = [
+		{ value: 'bank_transfer', label: 'Átutalás' },
+		{ value: 'cash', label: 'Készpénz' },
+		{ value: 'card_terminal', label: 'Bankkártya' },
+	];
+
+	it( 'offers all methods for a payment', () => {
+		expect( methodsFor( { methods, refund_methods: [ methods[ 0 ] ] }, false ) ).toEqual( methods );
+	} );
+
+	it( 'uses the read refund_methods for a refund when present', () => {
+		const refundMethods = [ { value: 'cash', label: 'Készpénz' } ];
+		expect( methodsFor( { methods, refund_methods: refundMethods }, true ) ).toEqual( refundMethods );
+	} );
+
+	it( 'falls back to the methods without the card terminal when refund_methods is absent', () => {
+		expect( methodsFor( { methods }, true ).map( ( m ) => m.value ) ).toEqual( [ 'bank_transfer', 'cash' ] );
 	} );
 } );

@@ -8,7 +8,7 @@ import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl } from '@wordpress/components';
 import * as api from './api';
 import { MONEY } from './texts';
-import { amountString, balanceAfter, balanceText, parseAmount, toMinor, today, validateEntry } from './money';
+import { amountString, balanceAfter, balanceText, methodsFor, parseAmount, toMinor, today, validateEntry } from './money';
 
 /** A fresh idempotency key for one entry (lower-case hex, the ability's pattern). */
 function newKey() {
@@ -29,7 +29,7 @@ function newKey() {
 export default function RecordDialog( { config, refund, code, money, onClose, onDone } ) {
 	const several = money.payers.length > 1;
 	// A refund or a correction is returned by transfer or cash only (settled); a payment may also be by card.
-	const methods = money.methods.filter( ( m ) => ! refund || m.value !== 'card_terminal' );
+	const methods = methodsFor( money, refund );
 	const [ payer, setPayer ] = useState( several ? '' : money.payers[ 0 ].payer );
 	const [ amount, setAmount ] = useState( '' ); // never prefilled
 	const [ date, setDate ] = useState( () => today( config.timezone ) );
