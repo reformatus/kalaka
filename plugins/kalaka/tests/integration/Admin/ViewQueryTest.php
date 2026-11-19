@@ -301,6 +301,30 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame(['code', 'status', 'field:name', 'decision:confirmation'], $this->columnIds($page->columns));
     }
 
+    /** C1-1: a number-valued field sorts by its number, not by the stored text. */
+    public function testANumberFieldSortsByItsNumberWithEmptyAndMissingValuesFirst(): void
+    {
+        $this->seedStatuses();
+        $this->addValue(self::EVENT, '00A0', 'nights', '10');
+        $this->addValue(self::EVENT, '00A2', 'nights', '9');
+        $this->addValue(self::EVENT, '00A5', 'nights', '100');
+        $this->addValue(self::EVENT, '00A8', 'nights', '');
+        // 00B0 has no value stored.
+        $view = $this->held($this->shape([], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'field:nights', 'write' => false],
+        ]));
+        $codes = fn (bool $descending): array => array_map(
+            static fn (ViewRow $row): string => $row->key->code,
+            $this->query->page($view, 'field:nights', $descending, 50, 0, ['field:nights'])->rows
+        );
+
+        // Empty and missing values keep the text order's place: first ascending, last descending. The
+        // sorszám tie-break stays ascending, as it does for a text sort.
+        self::assertSame(['00A8', '00B0', '00A2', '00A0', '00A5'], $codes(false));
+        self::assertSame(['00A5', '00A0', '00A2', '00A8', '00B0'], $codes(true));
+    }
+
     /** @return iterable<string, array{?string, int, int}> */
     public static function refusedPages(): iterable
     {

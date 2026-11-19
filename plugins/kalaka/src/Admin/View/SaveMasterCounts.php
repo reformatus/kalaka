@@ -122,6 +122,9 @@ final class SaveMasterCounts implements AdminUseCase
     }
 
     /**
+     * An empty list is a clear: it is accepted even when the column has no known members left, so stored
+     * counts can always be removed. A non-empty list must be members of the column.
+     *
      * @return list<string> each once, in the order given
      * @throws InvalidInput when the column cannot carry counts or a value is not one of its members
      */
@@ -134,9 +137,15 @@ final class SaveMasterCounts implements AdminUseCase
         } elseif (str_starts_with($column, 'field:')) {
             $valid = $this->options[substr($column, 6)] ?? [];
         } else {
-            $valid = [];
+            throw new InvalidInput();
         }
-        if ($valid === [] || !is_array($members)) {
+        if (!is_array($members)) {
+            throw new InvalidInput();
+        }
+        if ($members === []) {
+            return [];
+        }
+        if ($valid === []) {
             throw new InvalidInput();
         }
 

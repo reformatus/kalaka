@@ -70,6 +70,11 @@ final class ViewQuery extends Query
      * `registered_at` for `registered` and `created_at` for every other status), then by the sorszám
      * order and the code. Rows without a value sort first ascending.
      *
+     * A column in `$numeric` (the grid's number-valued fields) sorts by its number, not by the stored
+     * text: the value is cast to a decimal, with an empty value treated as missing. Empty and missing
+     * values therefore both sort first ascending and last descending, as they do for text.
+     *
+     * @param list<string> $numeric the columns to order by number
      * @throws InvalidInput when `$sort` is not a listed column, or the limit or offset is out of range
      */
     public function page(
@@ -78,6 +83,7 @@ final class ViewQuery extends Query
         bool $descending = false,
         int $limit = 50,
         int $offset = 0,
+        array $numeric = [],
     ): ViewPage {
         if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0) {
             throw new InvalidInput();
@@ -98,8 +104,11 @@ final class ViewQuery extends Query
         if ($sort === 'status') {
             $order = 'r.status' . $direction . ', ' . $serialOrder;
         } elseif ($sort !== null && str_starts_with($sort, 'field:')) {
-            $order = '(SELECT s.value FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code'
-                . ' AND s.field_key = %s)' . $direction . ', ' . $serialOrder;
+            $value = '(SELECT s.value FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code'
+                . ' AND s.field_key = %s)';
+            $order = (in_array($sort, $numeric, true)
+                ? 'CAST(NULLIF(' . $value . ", '') AS DECIMAL(20,4))"
+                : $value) . $direction . ', ' . $serialOrder;
             $sortArgs = [$this->table(RegistrationTables::FIELD_VALUES), substr($sort, 6)];
         } elseif ($sort !== null && str_starts_with($sort, 'decision:')) {
             $order = DecisionTables::currentState('r', 's', 'n') . $direction . ', ' . $serialOrder;
