@@ -14,4 +14,6 @@ At the module root: `Delivery` (one row of the send log) with `DeliveryStatus`, 
 
 Tables, created by the schema in `Module.php`: `kalaka_deliveries`, `kalaka_mail_states`, `kalaka_action_mails` and `kalaka_mail_layouts`. Post type: `kalaka_mail`, with the meta `kalaka_event_id`; the module contributes a `BlockHost` so its editor offers the condition blocks (`Module::BODY_BLOCKS`).
 
-Entry points: the WP-Cron hook `kalaka_send_mail` (the nudge; the plugin's deactivation clears it) and the periodic run's step `mail_sender`. The use cases have no REST route or screen yet.
+`Cli/` holds `ActionMailCommand`, `wp kalaka action-mail list|show|on|off|body|layout <event_id> …`, over the two use cases of the catalogue: `body` and `layout` take their content from `--file`, and a first body needs its subject, `--title`.
+
+Entry points: the WP-Cron hook `kalaka_send_mail` (the nudge; the plugin's deactivation clears it) and the periodic run's step `mail_sender`. The use cases have no REST route or screen yet; WP-CLI is their entry point meanwhile.

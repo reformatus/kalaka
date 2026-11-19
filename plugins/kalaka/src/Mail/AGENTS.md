@@ -115,6 +115,14 @@ bodies, the renderer and the per-event action-mail catalogue.
   warnings read it, never the deliveries table.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it.
+- `wp kalaka action-mail list|show|on|off|body|layout <event_id> …` (`Cli/`) is a
+  thin entry point: it changes only through `UpdateActionMail` and
+  `SetEventMailLayout`, as the command line or as WP-CLI's `--user`, and prints
+  the use case's own refusal. `body` is the one write outside a use case: the
+  `kalaka_mail` post, saved published under the editor's check (`BodyCheck`,
+  `AccountLinkRule`, checked ahead so its text is printed) and only after the
+  actor passed the use case's access check; it assigns a first body through
+  `UpdateActionMail` and never switches a mail on.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.
