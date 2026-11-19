@@ -11,6 +11,9 @@ use Kalaka\Forms\Api\MoneyRelevantFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\Money\MoneyText;
 
 /**
  * An amount in whole forints (`kalaka/amount-field`), e.g. a donation: a whole number of at least 0, at most
@@ -27,12 +30,6 @@ final class AmountFieldType extends AbstractFieldType implements MoneyRelevantFi
 
     /** At most this many digits: far below what `DECIMAL(26,8)` holds. */
     public const DIGITS = 12;
-
-    /** The no-break space (U+00A0) of an amount's text. */
-    private const NBSP = "\u{00A0}";
-
-    /** The currency after an amount, joined by a no-break space. */
-    private const FT = self::NBSP . 'Ft';
 
     public function blockName(): string
     {
@@ -84,19 +81,10 @@ final class AmountFieldType extends AbstractFieldType implements MoneyRelevantFi
         return Value::number((string) $amount, self::forints($amount));
     }
 
-    /**
-     * An amount's text: a no-break space (U+00A0) between each group of three digits and before „Ft”, so a line
-     * never breaks inside an amount (Hungarian typography; T5): `5 000 Ft`.
-     */
-    public static function forints(int $amount): string
+    /** An amount's text (Hungarian typography; T5): `5 000 Ft`. */
+    private static function forints(int $amount): string
     {
-        return self::grouped($amount) . self::FT;
-    }
-
-    /** As `forints()`, without the currency. */
-    private static function grouped(int $amount): string
-    {
-        return number_format($amount, 0, '', self::NBSP);
+        return MoneyText::of(Money::of($amount, Currency::HUF));
     }
 
     /**
