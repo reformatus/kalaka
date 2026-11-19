@@ -23,7 +23,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  *   kept (owner ruling 2026-11-13, B3(a)), and one held again is active again;
  * - a `form` field no form holds any more is retired. Its key is never derived again (`FieldKeys`).
  *
- * `staff`, `extension` and `system` fields are not retired here, and neither are their options.
+ * `staff`, `extension` and `system` fields are not retired here, and neither are their options; an
+ * `extension` field's options are not in the union either, since they are its declarer's.
  * Site-level: forms are edited by full access only.
  */
 final class DeclareParticipantFields implements AdminUseCase
@@ -139,12 +140,16 @@ final class DeclareParticipantFields implements AdminUseCase
             $record->retiredAt = null;
             // The title is the participant field's own: set when it is declared, changed only by
             // `RenameParticipantField` (owner ruling 2026-11-13).
-            $record->options = self::merged(
-                $record->options,
-                $field['options'],
-                $record->source === ParticipantFieldRecord::SOURCE_FORM,
-                $now,
-            );
+            // An extension field's options are its declarer's: a form offers a subset of them, never adds one
+            // (`SharedKeyCheck`'s `extension_option`). [UNAPPROVED, #200 N9]
+            if ($record->source !== ParticipantFieldRecord::SOURCE_EXTENSION) {
+                $record->options = self::merged(
+                    $record->options,
+                    $field['options'],
+                    $record->source === ParticipantFieldRecord::SOURCE_FORM,
+                    $now,
+                );
+            }
             $this->save($record, $before, $now, $context);
         }
 

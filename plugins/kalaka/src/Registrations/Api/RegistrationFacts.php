@@ -33,18 +33,55 @@ final readonly class RegistrationFacts implements Facts
 
     private ValueContext $values;
 
-    /** @param array<string, Value> $fieldValues field key → value (`Forms::participantValues()`) */
+    /**
+     * @param array<string, Value> $fieldValues field key → value (`Forms::participantValues()`)
+     * @param array<string, Value> $computed computed values the caller puts in (never stored), dotted keys that
+     *     no other key of the source has (`withComputed()`)
+     */
     public function __construct(
         public RegistrationKey $registration,
         public RegistrationStatus $status,
         public ?\DateTimeImmutable $registeredAt,
-        Event $event,
-        array $fieldValues = [],
+        private Event $event,
+        private array $fieldValues = [],
+        private array $computed = [],
     ) {
         $this->values = new ValueContext($fieldValues + EventValues::of($event) + [
             self::CODE => Value::text($registration->code, $registration->code),
             self::STATUS => Value::choice([$status->value], ''),
-        ]);
+        ] + $computed);
+    }
+
+    /**
+     * The same facts with computed values added (foundation.md, "Facts, decisions and computed values": computed
+     * values are put into the fact source by the caller, never stored), e.g. a fee component's applied price
+     * tier for the later stages. [UNAPPROVED, #200 N12]
+     *
+     * @param array<string, Value> $computed dotted keys
+     * @throws \InvalidArgumentException a key that is not dotted or that the source already has
+     */
+    public function withComputed(array $computed): self
+    {
+        foreach (array_keys($computed) as $key) {
+            if (!str_contains((string) $key, '.') || $this->has((string) $key)) {
+                throw new \InvalidArgumentException('A computed value takes a dotted key the facts do not have.');
+            }
+        }
+
+        return new self(
+            $this->registration,
+            $this->status,
+            $this->registeredAt,
+            $this->event,
+            $this->fieldValues,
+            [...$this->computed, ...$computed],
+        );
+    }
+
+    /** Whether the source declares the key: a reader of an optional computed value asks first. */
+    public function has(string $key): bool
+    {
+        return $this->values->has($key);
     }
 
     /**
