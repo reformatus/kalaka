@@ -15,7 +15,10 @@ use Kalaka\Admin\Grid\FieldDefinitions;
 use Kalaka\Admin\Grid\GridModel;
 use Kalaka\Admin\Grid\GridNarrowing;
 use Kalaka\Admin\View\ViewShape;
+use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 use Kalaka\Registrations\Api\Serials;
 
 /**
@@ -110,7 +113,18 @@ final class ViewNarrowingTest extends AdminTestCase
      */
     private function codes(HeldView $view, array $filters = [], ?string $search = null): array
     {
-        $narrowing = (new GridNarrowing())->of($view, self::fields(), $filters, $search);
+        // A declared confirmation kind gives the decision column its Hungarian label, as a module's rule does.
+        $rules = new DecisionRules();
+        $rules->add(
+            new TestRule(
+                'confirmation',
+                ['pending' => 'Függőben', 'confirmed' => 'Visszaigazolva'],
+                label: 'Visszaigazolás'
+            ),
+            false
+        );
+        $model = new GridModel(decisions: new Decisions(rules: $rules));
+        $narrowing = (new GridNarrowing($model))->of($view, self::fields(), $filters, $search);
         $page = (new ViewQuery())->page($view, limit: ViewQuery::MAX_LIMIT, narrowing: $narrowing);
         self::assertSame(
             count($page->rows),
