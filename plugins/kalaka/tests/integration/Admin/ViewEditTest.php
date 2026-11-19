@@ -241,6 +241,55 @@ final class ViewEditTest extends GrantTestCase
         self::assertSame($grants, $this->grantCount());
     }
 
+    public function testRemovingTheParameterIsRefusedWhenTheUserAlsoHoldsAnUnboundGrantOfTheView(): void
+    {
+        $view = $this->parameterView($this->event);
+        $user = $this->plainUser();
+        $bound = $this->saveGrant($this->event, $user, ['view_id' => $view, 'bound_value' => 'építő']);
+        // The save refuses an unbound grant of a parameter view, so the stored one is written directly.
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_grants', [
+            'event_id' => $this->event,
+            'version' => 1,
+            'user_id' => $user,
+            'view_id' => $view,
+            'actions' => '["' . self::EDIT . '"]',
+        ]);
+        $unbound = (int) $wpdb->insert_id;
+        $filterBefore = $this->viewRow($view)['filter'];
+        try {
+            $this->exec(new SaveView(), $this->edit($view, []));
+            self::fail('The run should have thrown.');
+        } catch (DuplicateGrant) {
+            self::assertSame($filterBefore, $this->viewRow($view)['filter']);
+            self::assertSame('építő', $this->grantRow($bound)['bound_value']);
+            self::assertNull($this->grantRow($unbound)['bound_value']);
+        }
+    }
+
+    public function testCopyingViewsWithGrantsIsRefusedWhenTheTargetHoldsTheSameMasterGrant(): void
+    {
+        $leader = $this->plainUser();
+        $this->saveGrant($this->event, $leader, ['actions' => [self::WITHDRAW]]);
+        $this->parameterView($this->event);
+        $next = $this->createEvent('Jövő évi tábor');
+        $this->saveGrant($next, $leader, ['actions' => [self::EDIT]]);
+        $views = $this->viewCount();
+        $grants = $this->grantCount();
+
+        try {
+            $this->exec(new CopyViews(), [
+                'from_event_id' => $this->event,
+                'to_event_id' => $next,
+                'with_grants' => true,
+            ]);
+            self::fail('The run should have thrown.');
+        } catch (DuplicateGrant) {
+            self::assertSame($views, $this->viewCount());
+            self::assertSame($grants, $this->grantCount());
+        }
+    }
+
     public function testCopyingViewsWithTheirGrantsPointsTheGrantsAtTheCopies(): void
     {
         $parameter = $this->parameterView($this->event);

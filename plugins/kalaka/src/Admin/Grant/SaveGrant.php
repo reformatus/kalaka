@@ -8,6 +8,7 @@ use Kalaka\Admin\View\ViewRepository;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -114,6 +115,11 @@ final class SaveGrant implements AdminUseCase
         $grant = $this->repository->findForUpdate((int) $input['id'], $context);
         if ($grant === null || $grant->eventId !== $eventId) {
             throw new NotFound();
+        }
+        // A stale edit is a version conflict before it is anything else.
+        if ($grant->version !== (int) $input['version']) {
+            $error = new VersionConflict();
+            throw $error;
         }
         $this->refuseDuplicate($eventId, $userId, $viewId, $bound, $grant->id);
         $grant->userId = $userId;

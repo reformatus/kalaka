@@ -75,6 +75,18 @@ final class SaveGrantTest extends GrantTestCase
         self::assertSame('[]', $row['actions']);
     }
 
+    public function testAStaleEditThatAlsoDuplicatesIsAVersionConflict(): void
+    {
+        $event = $this->createEvent();
+        $user = $this->plainUser();
+        $this->saveGrant($event, $user, ['actions' => [self::EDIT]]);
+        $view = $this->plainView($event);
+        $second = $this->saveGrant($event, $user, ['view_id' => $view]);
+
+        $this->expectException(VersionConflict::class);
+        $this->exec(new SaveGrant(), $this->grantInput($event, $user, ['id' => $second, 'version' => 99]));
+    }
+
     public function testAnUpdateWithTheCurrentVersionChangesTheGrantAndAStaleOneIsAVersionConflict(): void
     {
         $event = $this->createEvent();

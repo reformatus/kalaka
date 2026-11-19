@@ -34,7 +34,9 @@ Events is events, their states, timeline points, date types, capacity and the
 - Other modules read and lock events only through `Events\Api`; only Events
   writes its tables.
 - The event row is the first lock level; another module locks it only through
-  `Events\Api\EventCapacity::lockForRegistration()`, and only that path and
+  `Events\Api\EventCapacity::lockForRegistration()` or, for a change of what
+  belongs to the event other than a registration (Admin's grants and views),
+  `Events\Api\Events::lock()`, and only `lockForRegistration()` and
   `kalaka/reopen-event` write the latch.
 - Only a published event takes the full latch.
 - `currency` is `utf8mb4_nopad_bin`: compared exactly.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\View;
 
+use Kalaka\Admin\Grant\DuplicateGrant;
 use Kalaka\Admin\Grant\Grant;
 use Kalaka\Admin\Grant\GrantQuery;
 use Kalaka\Admin\Grant\GrantRepository;
@@ -17,7 +18,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Copies every view of one event to another, optionally with their grants (foundation.md, "Views and
  * grants": "copied to the next event, optionally with their grants"). Grants on the master view are
  * copied with the grants too. Meant to run nested, from the use case that duplicates an event; a
- * site-level use case: only full access. Returns the new view ids by the old ones.
+ * site-level use case: only full access. With grants, a copy that would repeat a grant the target event already
+ * holds is refused as `DuplicateGrant`, before anything is written. Returns the new view ids by the old ones.
  */
 final class CopyViews implements AdminUseCase
 {
@@ -72,8 +74,23 @@ final class CopyViews implements AdminUseCase
         if ($from === $to) {
             throw new InvalidInput();
         }
-        if ($this->events->find($from) === null || $this->events->find($to) === null) {
+        if ($this->events->find($from) === null) {
             throw new NotFound();
+        }
+        // The target event's row is the run's first lock, as in SaveGrant: the check and the writes are one step.
+        $this->events->lock($context, $to);
+
+        $grants = [];
+        if (!empty($input['with_grants'])) {
+            $grants = $this->grants->ofEvent($from);
+            foreach ($grants as $grant) {
+                // The copied views are new rows, so only a master-view grant can repeat a grant the target holds.
+                $held = $grant['view_id'] === null
+                    && $this->grants->holdsSame($to, $grant['user_id'], null, $grant['bound_value'], 0);
+                if ($held) {
+                    throw new DuplicateGrant();
+                }
+            }
         }
 
         $copied = [];
@@ -82,17 +99,15 @@ final class CopyViews implements AdminUseCase
             $copied[$view['id']] = $this->views->upsert(new View($to, $view['name'], $shape), $context)->id;
         }
 
-        if (!empty($input['with_grants'])) {
-            foreach ($this->grants->ofEvent($from) as $grant) {
-                $viewId = $grant['view_id'] === null ? null : ($copied[$grant['view_id']] ?? null);
-                if ($grant['view_id'] !== null && $viewId === null) {
-                    continue; // The grant's view is gone: it held nothing, and the copy would hold nothing.
-                }
-                $this->grantRepository->upsert(
-                    new Grant($to, $grant['user_id'], $viewId, $grant['bound_value'], $grant['actions']),
-                    $context
-                );
+        foreach ($grants as $grant) {
+            $viewId = $grant['view_id'] === null ? null : ($copied[$grant['view_id']] ?? null);
+            if ($grant['view_id'] !== null && $viewId === null) {
+                continue; // The grant's view is gone: it held nothing, and the copy would hold nothing.
             }
+            $this->grantRepository->upsert(
+                new Grant($to, $grant['user_id'], $viewId, $grant['bound_value'], $grant['actions']),
+                $context
+            );
         }
 
         return $copied;
