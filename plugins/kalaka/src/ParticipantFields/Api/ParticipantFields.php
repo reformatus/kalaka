@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\ParticipantFields\Api;
 
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\ParticipantFields\DeclareExtensionField;
 use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\ParticipantFields\ParticipantFieldQuery;
 use Kalaka\ParticipantFields\RenameParticipantField;
@@ -14,7 +16,7 @@ use Kalaka\ParticipantFields\RenameParticipantField;
  * The event's participant fields, for every other module: the read, and the two writes, each run as its
  * audited use case through the runner (the `Registrations\Api\RegistrationSubmit` pattern). The read uses
  * Kaláka's own table and the block registry, so it runs outside a use case's transaction; so do the writes,
- * which open their own.
+ * which open their own, except an extension's declaration, which runs nested in the extension's own use case.
  */
 final class ParticipantFields
 {
@@ -87,6 +89,34 @@ final class ParticipantFields
         );
 
         return array_values(array_filter(is_array($skipped) ? $skipped : [], 'is_string'));
+    }
+
+    /**
+     * An extension declares one field of the event, source `extension` (`kalaka/declare-extension-field`), nested
+     * in the extension's own use case: its type, title and choice options (the declarer's texts; an option it no
+     * longer declares is retired, its label kept) and whether forms may hold its key. [UNAPPROVED, #200 N10]
+     *
+     * @param ?list<array{value: string, label: string}> $options null for a field without options
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws: `RuleViolation` when the key is
+     *     held by another source or with another type
+     */
+    public function declareExtensionField(
+        Context $context,
+        int $eventId,
+        string $key,
+        string $type,
+        string $title,
+        ?array $options,
+        bool $formWritable,
+    ): void {
+        $context->run(new DeclareExtensionField(), [
+            'event_id' => $eventId,
+            'key' => $key,
+            'type' => $type,
+            'title' => $title,
+            'options' => $options,
+            'form_writable' => $formWritable,
+        ]);
     }
 
     /**

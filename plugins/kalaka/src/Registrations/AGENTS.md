@@ -77,7 +77,9 @@ the waitlist and reference codes
   it last became `registered` (`registered_at`, null while it is not), which
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
-  read.
+  read. A caller may add computed values under dotted keys the source does
+  not have (`withComputed()`, e.g. the fee composer's `price_tier.applied`);
+  they are never stored.
 - The owner account (`owner_user_id`, a WordPress user ID) is set once, by
   the submit of a logged-in person, and nothing changes or clears it. In
   the event's account mode `off` a submit records no owner; in `mandatory`

@@ -295,7 +295,9 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key;
+    then may a form hold its key. A form that joins an extension's choice
+    field offers only options the extension declared, any subset of them,
+    and never adds one;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -350,7 +352,8 @@ flowchart TB
   when the type is the same; with another type the save is refused.
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
-  keeping its label, so stored values still read.
+  keeping its label, so stored values still read. An extension field's
+  options are its declarer's, not the forms' union.
 - **Every form-to-backend link is by key.** An admin adds a backend thing
   (a charge, the donation), authors a form, adds a field, and sets the
   field's key to the backend thing's key; the backend names no field. The
@@ -358,8 +361,9 @@ flowchart TB
   does nothing.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
-- **Money-relevance is a type capability** supplied by plugins; core ships no
-  money field types. Values are stored like any other, **locked after their
+- **Money-relevance is a type capability** supplied by plugins, or declared
+  by an extension for a field it declares; core ships no money field types.
+  Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
   only through use cases that re-materialize the money.
 
