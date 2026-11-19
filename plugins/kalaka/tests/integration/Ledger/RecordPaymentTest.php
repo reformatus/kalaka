@@ -10,7 +10,6 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Money\Currency;
-use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\IdempotencyConflict;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\RecordPayment;
@@ -260,21 +259,28 @@ final class RecordPaymentTest extends ManualEntryTestCase
         $this->exec(new RecordPayment(), $this->paymentInput(['note' => 'Teszt']));
         $key = new RegistrationKey($this->event, '00A0');
 
-        $erased = $this->runner->run(
-            new \Kalaka\Tests\Integration\Foundation\AdminProbe(
-                function (array $input, Context $context, int $call) use ($key): int {
-                    $this->lockRegistrations($context, $key);
-
-                    return (new Ledger())->eraseNotesOf($key, $context);
-                }
-            ),
-            [],
-            new SystemActor()
-        );
+        $erased = $this->eraseNotes($key);
 
         self::assertSame(1, $erased);
         self::assertSame([], $this->notes());
         self::assertCount(1, $this->lines());
+    }
+
+    /** C1-1: a replay of the original entry after its note was erased finds its line; another amount does not. */
+    public function testAReplayAfterTheNoteWasErasedFindsTheLineAndIsNoConflict(): void
+    {
+        $first = $this->exec(new RecordPayment(), $this->paymentInput(['note' => 'Teszt']));
+        $this->eraseNotes(new RegistrationKey($this->event, '00A0'));
+        self::assertSame([], $this->notes());
+
+        $replay = $this->exec(new RecordPayment(), $this->paymentInput(['note' => 'Teszt']));
+
+        self::assertSame($first, $replay);
+        self::assertCount(1, $this->lines());
+        self::assertSame([], $this->notes());
+
+        $this->expectException(IdempotencyConflict::class);
+        $this->exec(new RecordPayment(), $this->paymentInput(['amount' => '5001', 'note' => 'Teszt']));
     }
 
     public function testTheLineIsAPaymentFactAndTheBalanceMoves(): void

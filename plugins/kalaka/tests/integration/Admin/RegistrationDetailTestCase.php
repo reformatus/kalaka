@@ -30,10 +30,10 @@ abstract class RegistrationDetailTestCase extends FormsTestCase
      *
      * @return array<string, mixed>
      */
-    protected function detail(int $user, string $code = '00A0', ?Decisions $decisions = null): array
+    protected function detail(int $user, string $code = '00A0', ?Decisions $decisions = null, int $event = 0): array
     {
         return (new RegistrationDetail(decisions: $decisions ?? new Decisions()))
-            ->of(new UserActor($user), $this->event, $code);
+            ->of(new UserActor($user), $event === 0 ? $this->event : $event, $code);
     }
 
     protected function addRegistration(

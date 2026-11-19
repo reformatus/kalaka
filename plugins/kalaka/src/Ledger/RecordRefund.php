@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Ledger;
 
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
 
 /**
@@ -21,7 +22,7 @@ final class RecordRefund extends RecordManualEntry
 
     public function action(): string
     {
-        return 'kalaka_record_refund';
+        return Ledger::RECORD_REFUND;
     }
 
     protected function kind(): LineKind

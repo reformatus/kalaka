@@ -299,12 +299,44 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->detail($user);
     }
 
-    public function testAnUnknownCodeAndAnUnknownEventAreNotFound(): void
+    public function testAnUnknownCodeIsNotFound(): void
     {
         $this->addRegistration('00A0');
 
         $this->expectException(NotFound::class);
         $this->detail($this->admin->userId, '00A1');
+    }
+
+    public function testAnUnknownEventIsNotFound(): void
+    {
+        $this->addRegistration('00A0');
+
+        $this->expectException(NotFound::class);
+        $this->detail($this->admin->userId, event: $this->event + 1000);
+    }
+
+    /** C3-1: a grant on one event never reaches the same code in another event. */
+    public function testTheSameCodeInAnotherEventIsNotFoundForAHolderOfThisEvent(): void
+    {
+        $other = $this->create();
+        $this->addRegistration('00A0');
+        $this->addRegistration('00A0', event: $other);
+        $user = $this->plainUser();
+        $this->grant($user, [], [['column' => 'code', 'write' => false]], []);
+
+        $this->expectException(NotFound::class);
+        $this->detail($user, event: $other);
+    }
+
+    /** C3-1: full access reaches every event, so another event's registration reads. */
+    public function testFullAccessReadsARegistrationInAnotherEvent(): void
+    {
+        $other = $this->create();
+        $this->addRegistration('00A0', event: $other);
+
+        $detail = $this->detail($this->admin->userId, event: $other);
+
+        self::assertSame('00A0', $detail['registration']['code']);
     }
 
     /** The money is only there through the grant whose view holds the row. */

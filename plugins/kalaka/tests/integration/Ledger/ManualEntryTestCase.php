@@ -6,13 +6,18 @@ namespace Kalaka\Tests\Integration\Ledger;
 
 use Kalaka\Admin\Grant\SaveGrant;
 use Kalaka\Admin\View\SaveView;
+use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
+use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Admin\AdminTestCase;
+use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
 /** The base of the manual payment and refund tests: an event, registrations, views, grants and a fixed clock. */
 abstract class ManualEntryTestCase extends AdminTestCase
@@ -102,6 +107,22 @@ abstract class ManualEntryTestCase extends AdminTestCase
     protected function plainUser(): int
     {
         return self::factory()->user->create(['role' => 'editor']);
+    }
+
+    /** Erases the registration's notes as a run that holds it, as a privacy erase will. */
+    protected function eraseNotes(RegistrationKey $key): int
+    {
+        return (int) $this->runner->run(
+            new AdminProbe(
+                function (array $input, Context $context) use ($key): int {
+                    $this->lockRegistrations($context, $key);
+
+                    return (new Ledger())->eraseNotesOf($key, $context);
+                }
+            ),
+            [],
+            new SystemActor()
+        );
     }
 
     /** @return list<array<string, ?string>> */
