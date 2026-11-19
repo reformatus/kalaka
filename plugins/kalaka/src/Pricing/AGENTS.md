@@ -71,6 +71,13 @@ retention and the materializer
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
   refuses (a negative price).
+- A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings
+  as plain data and reads them back (`settingsToArray()`, `settingsFromArray()`
+  into `ProposedComponentSettings`), so `wp kalaka money-settings show|preview|apply`
+  (`Cli/`) carries every component's settings as JSON by component ID without core
+  knowing any of them; core itself reads and writes only the fixed price. The
+  command is a thin entry point over `Api\MoneySettings`: it runs as the command
+  line, or as WP-CLI's `--user`, and the apply asks first.
 - Once confirmed, a registration never becomes unconfirmed because amounts
   change later, an apply included (owner rule, 2026-11-14; confirmation is
   S20's).
