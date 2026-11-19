@@ -34,11 +34,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * Reads the field blocks of a form's block markup, in document order, whatever core blocks and condition branches
  * they sit in; each field carries the branches it sits in, and a choice field the availability conditions of its
  * options. A request field (`Api\RequestFieldType`) gets its options from the set it names, through the host
- * (`FormHost::requestOptions()`), with their conditions, which are then read like a choice field's; outside the set's
- * choice window it is closed (S44). The chains are numbered in document order, and every key a condition reads is
- * collected. The chain numbers are read from `Condition\ChainMarks`, the marks the branch blocks render with. Any
- * problem makes the form unusable (`SystemFailure`, naming the problem and the field key, never a label or an
- * option).
+ * (`FormHost::requestOptions()`), with their conditions, which are then read like a choice field's (a stored earlier
+ * version takes them without, S44); outside the set's choice window it is closed (S44). The chains are numbered in
+ * document order, and every key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`,
+ * the marks the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming the problem
+ * and the field key, never a label or an option).
  */
 final class DefinitionParser
 {
@@ -71,6 +71,12 @@ final class DefinitionParser
     /** The form being parsed. */
     private ?Form $form = null;
 
+    /**
+     * Whether the version being parsed is the form's current one: a stored earlier version takes a set's options
+     * without their conditions (S44).
+     */
+    private bool $current = true;
+
     /** the page whose blocks are being collected; null outside pages */
     private ?int $page = null;
 
@@ -94,6 +100,7 @@ final class DefinitionParser
         $this->factTypes = $host->factTypes();
         $this->host = $host;
         $this->form = $form;
+        $this->current = $version === $form->version;
         $this->afterSubmitTypes = $host->afterSubmitTypes();
         $this->chains = [];
         $this->read = [];
@@ -129,6 +136,7 @@ final class DefinitionParser
             $this->pages = [];
             $this->host = null;
             $this->form = null;
+            $this->current = true;
         }
     }
 
@@ -393,7 +401,8 @@ final class DefinitionParser
     /**
      * A request field's attributes with its set's options in `options`, and whether the set's choice window is
      * closed now (S44). A field naming a set the host does not have is a problem; one naming none keeps its own
-     * options.
+     * options. A stored earlier version takes the options without their conditions: the answers of a submission
+     * were given against that version, whose fields need not hold a key a condition reads now (S44).
      *
      * @param array<string, mixed> $attributes
      * @return array{array<string, mixed>, bool}
@@ -413,7 +422,12 @@ final class DefinitionParser
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
             throw new SystemFailure('unknown_set ' . $key);
         }
-        $attributes['options'] = $options->options;
+        $attributes['options'] = $this->current
+            ? $options->options
+            : array_map(
+                static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
+                $options->options
+            );
 
         return [$attributes, !$options->openAt(Runner::current()->clock()->now())];
     }

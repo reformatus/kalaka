@@ -265,7 +265,9 @@ values and conditions, prefill and form links
   stored values the form opens with, the options and window of the set a
   request field names, the submit token and the submit, the after-submit
   section's keys, and whether the form needs an account (`accountStep()`).
-  Kaláka's
+  Kaláka's event form, `EventFormHost`, is the first host; `Api\Forms` and
+  the form page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to
+  the engine.
 - A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
   that names an assignment set holds no options of its own: the definition
   parse fills its `options` from the host (`FormHost::requestOptions()`),
@@ -292,10 +294,7 @@ values and conditions, prefill and form links
   a set option's condition against it, purely, inside the use case.
 - A re-rendered choice or request field's new wrapper gets the event
   `kalaka:field-swapped` (`SWAPPED` in `Blocks/form/view.js`) with the
-  values it was ticked with, for a field type's own script. Kaláka's
-  event form, `EventFormHost`, is the first host; `Api\Forms` and the form
-  page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
-  engine.
+  values it was ticked with, for a field type's own script.
 - A form whose host gives an account step (`FormHost::accountStep()`) shows
   to everyone; it is never redirected. Its account block (`Api\SignUp::BLOCK`,
   `Engine\AccountMarkup`) is the only way in: a live registration form of an
