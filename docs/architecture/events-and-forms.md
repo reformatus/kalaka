@@ -224,8 +224,9 @@ flowchart TB
   coalesce into one follow-up with the latest answers. A click on Next or
   Send during a request is queued, not lost; Back is ignored while the form
   is busy.
-- **The server validates against the same form definition:** only declared,
-  visible fields are accepted.
+- **The server validates against the same form definition:** only declared
+  fields that show are accepted, and a hidden field only with a value from a
+  link or a prefill.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
 - **Stable field keys**; pickers for conditions come later
@@ -330,8 +331,10 @@ flowchart TB
   separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
 - **Hidden fields** hold values the registrant does not see, such as an
-  attribution key. They get their values only from the form link record;
-  values the browser sends for them are rejected.
+  attribution key. They get their values from the form link record or from a
+  public prefill ([Prefill from a link](#prefill-from-a-link)), never from the
+  registrant's typing; a prefilled one can be forged, so it is attribution
+  only.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Keys and option values come from the visible text.** A field's key is

@@ -4,8 +4,8 @@ title: Release plan
 
 # Release plan
 
-What each release must contain, and what gives way first when time runs
-short. The architecture pages say how things are built; this page says when.
+What each release must contain. When time runs short, the owner decides
+what is dropped. The architecture pages say how things are built; this page says when.
 
 ## IVK: registration opens 2026-11-30
 
@@ -25,28 +25,26 @@ short. The architecture pages say how things are built; this page says when.
    IVK) and activated through a set-password link in the registration's
    mail (the account area itself may only say "Coming soon").
 2. **Money core:** the ledger with payers, the materializer and the money
-   settings apply; IVK's price tiers (examples only: 48 000 Ft with no share,
-   42 000 Ft with a declared share, 32 000 Ft with the whole tier as the
-   share; the 68 000 Ft "Teljes ár" is the 48 000 Ft tier plus a 20 000 Ft
-   donation); donation, lunch, the invoice request and billing fields, with
+   settings apply; IVK's price tiers, which set only the base price (examples
+   only: 32 000 Ft, 42 000 Ft, 48 000 Ft, and the 68 000 Ft "Teljes ár", a
+   tier of its own); the share between payers is set by the form's own
+   questions, which may offer different share choices on different tiers;
+   donation, lunch, the invoice request and billing fields, with
    every line shown on the invoice and the part another payer pays marked;
    the payment-due date with its one anchor; confirmation per payer;
    recording a payment by hand.
 3. **Congregation share** ([NR-1](money.md#congregation-share)): the
    organization directory, the congregation picker and the share pair.
 4. **Support and decisions:** support offers with quota places (Baptist,
-   Dunamellék); pending decisions with the payment hold (discount or aid
-   requests, partner confirmation). Until partners have their own views, IVK
-   staff record a partner's confirmation on its behalf, audited with a
-   reason.
+   Dunamellék); pending decisions with the payment hold (support offers that IVK
+   staff evaluate, and aid requests).
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
    sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
    sent during an interactive request.
 6. **Organizer side:** full access; the master view with the grid, the detail
    page, field editing, and exports that write an audit entry.
-7. **Form links:** locked and editable values, single use and expiry. Partner
-   links depend on them.
+7. **Form links:** locked and editable values, single use and expiry.
 8. **Module ranking** ([Extensions in view](modules-and-extensions.md#extensions-in-view)):
    the ranking field type, in `kalaka-ranking`. The module recommender is
    IVK's own quiz, outside Kaláka.
@@ -61,13 +59,11 @@ short. The architecture pages say how things are built; this page says when.
 
 ### Order of sacrifice
 
-If the date is at risk, these give way, in this order:
+Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **Card payment through WooCommerce:** bank transfer only on opening day,
    card payment in early December.
-2. **Partner self-service views:** staff record confirmations meanwhile
-   (item 4).
-3. **The Evangélikus and Akadémia support offers,** which also wait on
+2. **The Evangélikus and Akadémia support offers,** which also wait on
    stakeholder question SQ-5.
 
 ### Not in this release
