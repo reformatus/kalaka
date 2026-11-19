@@ -6,7 +6,11 @@ namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\AggregateKind;
 use Kalaka\Admin\Api\AggregateSpec;
+use Kalaka\Admin\Api\ColumnFilter;
+use Kalaka\Admin\Api\FilterKind;
 use Kalaka\Admin\Api\HeldView;
+use Kalaka\Admin\Api\Narrowing;
+use Kalaka\Admin\Api\SearchWord;
 use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Admin\Api\ViewRow;
 use Kalaka\Admin\View\ViewShape;
@@ -223,6 +227,43 @@ final class ViewQueryTest extends AdminTestCase
                 new AggregateSpec('decision:confirmation', AggregateKind::Members, ['confirmed']),
             ])
         );
+
+        // The grid's ad hoc filters, „Nincs válasz”, search and sort read it the same way.
+        $view = $this->held($this->shape([], $columns));
+        $narrowed = fn (array $filters, array $words = [], ?string $sort = null): array => array_map(
+            static fn (ViewRow $row): string => $row->key->code,
+            $this->query->page($view, $sort, narrowing: new Narrowing($filters, $words))->rows
+        );
+        $unconfirmedOnly = ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['unconfirmed']);
+        self::assertSame(['00A5'], $narrowed([$unconfirmedOnly]));
+        self::assertSame(
+            ['00A2', '00A5', '00A8', '00B0'],
+            $this->sorted($narrowed([
+                ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isNone', ['confirmed']),
+            ]))
+        );
+        self::assertSame(
+            ['00A2', '00A8', '00B0'],
+            $this->sorted($narrowed([
+                ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', [ColumnFilter::NO_ANSWER]),
+            ]))
+        );
+        self::assertSame(
+            ['00A5'],
+            $narrowed([], [new SearchWord('nincs', ['decision:confirmation' => ['unconfirmed']])])
+        );
+        self::assertSame(['00A0', '00A5'], array_slice($narrowed([], [], 'decision:confirmation'), -2));
+    }
+
+    /**
+     * @param list<string> $codes
+     * @return list<string>
+     */
+    private function sorted(array $codes): array
+    {
+        sort($codes);
+
+        return $codes;
     }
 
     public function testTwoTermsTogetherMatchOnlyRegistrationsMeetingBoth(): void

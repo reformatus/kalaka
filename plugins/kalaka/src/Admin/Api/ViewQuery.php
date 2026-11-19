@@ -44,7 +44,8 @@ final class ViewQuery extends Query
 
     /**
      * The view's columns: the stored ones, or for the master view `code`, `status`, `serial`, every field
-     * key stored in the event (read-write) and every decision kind recorded in it, in byte order.
+     * key stored in the event (read-write) and every decision kind recorded in it or with a base state, in byte
+     * order.
      *
      * @return list<array{column: string, write: bool}>
      */
@@ -659,7 +660,7 @@ final class ViewQuery extends Query
     }
 
     /**
-     * A decision column's `isAny` / `isNone` over its latest state; `NO_ANSWER` in the list is „no record”.
+     * A decision column's `isAny` / `isNone` over its latest state; `NO_ANSWER` in the list is „no state”.
      *
      * @param literal-string $state the latest state of the kind, as a select expression
      * @param list<string|int> $kindArgs the placeholders' arguments of one use of `$state`
@@ -792,7 +793,10 @@ final class ViewQuery extends Query
         return $view->shape() ?? $this->masterShape($view->eventId);
     }
 
-    /** The master view of an event: every field key stored in it and every decision kind recorded in it. */
+    /**
+     * The master view of an event: every field key stored in it and every decision kind recorded in it or with a
+     * base state.
+     */
     private function masterShape(int $eventId): ViewShape
     {
         return $this->scope(function () use ($eventId): ViewShape {
