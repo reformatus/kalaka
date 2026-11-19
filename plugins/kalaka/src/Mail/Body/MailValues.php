@@ -165,6 +165,7 @@ final class MailValues
         return new ValueContext([
             ...$this->forms->participantValues($key->eventId, $record['values']),
             ...EventValues::of($event),
+            ...EventValues::now(),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
             self::CODE => self::text($key->code),

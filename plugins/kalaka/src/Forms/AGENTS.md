@@ -170,6 +170,10 @@ values and conditions, prefill and form links
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
   database, hook, current user, request or clock. Whoever evaluates fills the
   fact source; the evaluator never runs the materializer on a draft.
+- "Now" in a condition is the date reference `{"ref": "now"}`, read from the
+  fact source's `Facts::NOW` (`EventValues::now()`, the runner's `Clock`, a day
+  in the site's time zone): never a key a condition names, never read from a
+  clock by the evaluator. A chain that reads it is withheld.
 - A form is walked the same way for a draft's re-render and at submit
   (`FormWalk`). In a form, a condition reads only answers of fields before it
   and the event's keys (`Api\EventValues`). At submit, an answer in a branch
