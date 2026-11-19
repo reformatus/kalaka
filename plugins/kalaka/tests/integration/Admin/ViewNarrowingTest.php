@@ -300,6 +300,20 @@ final class ViewNarrowingTest extends AdminTestCase
         self::assertSame([], $this->codes($view, [], 'normal-key'));
     }
 
+    public function testASearchOfOnlyDotsIsNoSearch(): void
+    {
+        $view = $this->view();
+        $all = $this->codes($view);
+
+        // A word that is only dots trims to nothing, so it is dropped rather than matching every date.
+        self::assertSame($all, $this->codes($view, [], '.'));
+        self::assertSame($all, $this->codes($view, [], '..'));
+        self::assertSame($all, $this->codes($view, [], '. ..'));
+        // A longer search keeps its other words and drops the dot-only ones.
+        self::assertSame(['00A2'], $this->codes($view, [], '. 2,5'));
+        self::assertSame(['00A2'], $this->codes($view, [], '.. 2012. 07.'));
+    }
+
     public function testFiltersAndSearchOnlyNarrowTheViewsOwnFilter(): void
     {
         $parameter = [['column' => 'field:lunch', 'parameter' => true]];

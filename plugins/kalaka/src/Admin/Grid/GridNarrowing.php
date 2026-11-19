@@ -120,6 +120,9 @@ final class GridNarrowing
 
         $words = [];
         foreach ($texts as $text) {
+            if (trim($text, '.') === '') {
+                continue;
+            }
             $folded = self::fold($text);
             $keys = [];
             $likes = [];
