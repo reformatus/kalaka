@@ -116,23 +116,34 @@ final class MaterializerTest extends PricingTestCase
         self::assertSame(0, $this->registrationCount());
     }
 
-    public function testTheFixedPriceIsTheBaseOnlyWhileNoOtherTierComponentOwesAnything(): void
+    public function testTheFixedPriceIsChargedOnlyWhenNoComponentProvidesTheBase(): void
     {
-        $ladder = new TierComponent('49500');
+        $ladder = new TierComponent('49500', 'tier', true);
         $this->useComponents($ladder);
         $this->setPrice('40000');
         $anna = $this->register('00A0');
 
+        // A ladder with a tier owing X: only X.
         self::assertSame(['tier participant 49500 charge:tier:participant:1'], $this->charges($anna));
 
+        // A ladder whose tier owes nothing: the fixed price is still not charged.
         $ladder->amount = null;
         $this->inRun(static fn (array $input, Context $context) => $context->markTouched($anna));
 
         self::assertSame([
             'tier participant 49500 charge:tier:participant:1',
-            'fixed_price participant 40000 charge:fixed_price:participant:1',
             'tier participant -49500 charge:tier:participant:2',
         ], $this->charges($anna));
+        self::assertSame('0', $this->balance($anna));
+
+        // No ladder: the fixed price is the base.
+        $ladder->base = false;
+        $this->inRun(static fn (array $input, Context $context) => $context->markTouched($anna));
+
+        self::assertSame(
+            'fixed_price participant 40000 charge:fixed_price:participant:1',
+            $this->charges($anna)[2]
+        );
         self::assertSame('40000', $this->balance($anna));
     }
 
