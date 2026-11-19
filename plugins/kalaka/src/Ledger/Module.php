@@ -97,5 +97,11 @@ SQL;
             'Visszatérítés rögzítése',
             'Egy jelentkezőnek kézzel visszautalt összeg rögzítése.'
         );
+        // [UNAPPROVED T16, T17]
+        Abilities::register(
+            new RecordAdjustment(),
+            'Korrekció rögzítése',
+            'Egy jelentkező tartozásának módosítása indoklással, például egy rövid utalás hátralékának elengedése.'
+        );
     }
 }

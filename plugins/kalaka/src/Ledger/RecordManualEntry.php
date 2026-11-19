@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Ledger;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Foundation\Api\Actor\Actor;
-use Kalaka\Foundation\Api\Actor\CliActor;
-use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -120,7 +117,10 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new InvalidInput();
         }
         $amount = Money::of((string) $input['amount'], $currency);
-        if (!$amount->isPositive() || self::decimals((string) $input['amount']) > $currency->minorUnitDecimals()) {
+        if (
+            !$amount->isPositive()
+            || ManualLine::decimals((string) $input['amount']) > $currency->minorUnitDecimals()
+        ) {
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
@@ -152,7 +152,7 @@ abstract class RecordManualEntry implements AdminUseCase
             $kind,
             $payer,
             $kind === LineKind::ManualPayment ? $amount->negated() : $amount,
-            self::sourceOf($context->actor()),
+            ManualLine::sourceOf($context->actor()),
             'manual:' . $input['idempotency_key'],
             $valueDate,
             null,
@@ -185,24 +185,5 @@ abstract class RecordManualEntry implements AdminUseCase
         }
 
         return ['id' => $recorded->line->id];
-    }
-
-    /** Who recorded it, as the line's source: the WordPress user, or the system for a run without one. */
-    private static function sourceOf(Actor $actor): Subject
-    {
-        $userId = $actor instanceof UserActor || $actor instanceof CliActor ? $actor->userId : null;
-
-        if ($userId === null) {
-            return new Subject('system', null, 'system');
-        }
-
-        return new Subject('wp_user', null, (string) $userId);
-    }
-
-    private static function decimals(string $amount): int
-    {
-        $point = strpos($amount, '.');
-
-        return $point === false ? 0 : strlen(rtrim(substr($amount, $point + 1), '0'));
     }
 }

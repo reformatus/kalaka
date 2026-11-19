@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Ledger;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Ledger\RecordAdjustment;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Ledger\RecordRefund;
 
@@ -43,12 +44,13 @@ final class ManualEntryAbilityTest extends ManualEntryTestCase
         return $ability;
     }
 
-    public function testBothAreAbilitiesOfTheKalakaCategoryWithTheirInputSchema(): void
+    public function testAllAreAbilitiesOfTheKalakaCategoryWithTheirInputSchema(): void
     {
         foreach (
             [
                 'kalaka/record-payment' => [new RecordPayment(), 'Befizetés rögzítése'],
                 'kalaka/record-refund' => [new RecordRefund(), 'Visszatérítés rögzítése'],
+                'kalaka/record-adjustment' => [new RecordAdjustment(), 'Korrekció rögzítése'],
             ] as $name => [$useCase, $label]
         ) {
             $ability = $this->ability($name);

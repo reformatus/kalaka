@@ -93,7 +93,13 @@ final class RegistrationDetail
         if ($viewMoney) {
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
-        $read['can'] = ['view_money' => $viewMoney, 'record_payment' => $record, 'record_refund' => $refund];
+        // An adjustment is carried by the money-write action of the manual payment (an [UNAPPROVED N23] reading).
+        $read['can'] = [
+            'view_money' => $viewMoney,
+            'record_payment' => $record,
+            'record_refund' => $refund,
+            'record_adjustment' => $record,
+        ];
 
         return $read;
     }

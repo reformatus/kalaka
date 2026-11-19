@@ -199,7 +199,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $money['methods']
         );
         self::assertSame(
-            ['view_money' => true, 'record_payment' => true, 'record_refund' => true],
+            ['view_money' => true, 'record_payment' => true, 'record_refund' => true, 'record_adjustment' => true],
             $detail['can']
         );
     }
@@ -274,7 +274,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false],
+            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_adjustment' => false],
             $detail['can']
         );
     }
@@ -356,7 +356,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false],
+            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_adjustment' => false],
             $detail['can']
         );
 
@@ -368,7 +368,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
-            ['view_money' => true, 'record_payment' => false, 'record_refund' => false],
+            ['view_money' => true, 'record_payment' => false, 'record_refund' => false, 'record_adjustment' => false],
             $shown['can']
         );
     }
@@ -379,8 +379,18 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->seedDetail();
 
         $cases = [
-            'kalaka_record_payment' => ['view_money' => true, 'record_payment' => true, 'record_refund' => false],
-            'kalaka_record_refund' => ['view_money' => true, 'record_payment' => false, 'record_refund' => true],
+            'kalaka_record_payment' => [
+                'view_money' => true,
+                'record_payment' => true,
+                'record_refund' => false,
+                'record_adjustment' => true,
+            ],
+            'kalaka_record_refund' => [
+                'view_money' => true,
+                'record_payment' => false,
+                'record_refund' => true,
+                'record_adjustment' => false,
+            ],
         ];
         foreach ($cases as $action => $can) {
             $user = $this->plainUser();
