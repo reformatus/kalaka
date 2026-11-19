@@ -432,11 +432,12 @@ describe( 'the manual confirmation', () => {
 		);
 	} );
 
-	test( 'revoking runs kalaka/revoke-manual-confirmation', async () => {
+	test( 'unconfirming runs kalaka/unconfirm with the reason, not the old revoke', async () => {
 		apiFetch.mockResolvedValue( { changed: true } );
 		await setManualConfirmation( config, '02S2', 'Tévedés', true );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 		expect( apiFetch ).toHaveBeenCalledWith(
-			call( 'kalaka/revoke-manual-confirmation', { event_id: 7, code: '02S2', reason: 'Tévedés' } )
+			call( 'kalaka/unconfirm', { event_id: 7, code: '02S2', reason: 'Tévedés' } )
 		);
 	} );
 } );

@@ -138,17 +138,17 @@ export const MONEY = {
  * The manual confirmation (S20): the button, its two dialogs, the line that says who set it and the snackbars.
  * The decision's own labels („Visszaigazolás”, „Visszaigazolva”, „Nincs visszaigazolva”) come from the server and
  * are approved. Every string here is unapproved until the owner ticks its box: [UNAPPROVED T20] the buttons and
- * dialog titles, [UNAPPROVED T21] the field and its message, [UNAPPROVED T22] the line under the tab,
+ * dialog titles (T3 of #213), [UNAPPROVED T21] the field and its message, [UNAPPROVED T22] the line under the tab,
  * [UNAPPROVED T23] the snackbars.
  */
 export const CONFIRM = {
 	set: 'Visszaigazolás fizetés nélkül',
-	revoke: 'Fizetés nélküli visszaigazolás visszavonása',
+	unconfirm: 'Visszaigazolás visszavonása',
 	reasonField: 'Indoklás',
 	reasonEmpty: 'Add meg az indoklást.',
 	setLine: 'Fizetés nélkül visszaigazolta: %1$s, %2$s',
 	setLineAnon: 'Fizetés nélkül visszaigazolva: %s',
 	reasonLine: 'Indoklás: %s',
 	saved: 'Fizetés nélküli visszaigazolás rögzítve.',
-	revoked: 'Fizetés nélküli visszaigazolás visszavonva.',
+	unconfirmed: 'Visszaigazolás visszavonva.',
 };

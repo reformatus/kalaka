@@ -31,16 +31,25 @@ export function validateReason( reason ) {
 }
 
 /**
- * The buttons of the manual confirmation block: none without `can.confirm_manually`; with the flag unknown (the
- * read carries it only under the money gate) both abilities, which are idempotent; else the one that changes
- * what is shown. [UNAPPROVED N34]
+ * The buttons of the manual confirmation block: `confirm` (the manual flag) with `can.confirm_manually` while the
+ * flag is not set (also when the read does not carry it, which is only under the money gate: the ability is
+ * idempotent); `unconfirm` only with `can.unconfirm`, whatever the flag says. [UNAPPROVED N33] [UNAPPROVED N34]
  */
 export function manualActions( manual, can ) {
-	if ( ! can || ! can.confirm_manually ) {
-		return [];
+	const actions = [];
+	if ( can && can.confirm_manually && ! manual ) {
+		actions.push( 'confirm' );
 	}
-	if ( manual === undefined ) {
-		return [ 'confirm', 'unconfirm' ];
+	if ( can && can.unconfirm ) {
+		actions.push( 'unconfirm' );
 	}
-	return [ manual ? 'unconfirm' : 'confirm' ];
+	return actions;
+}
+
+/**
+ * What a failed save says: the server's own text for a refused unconfirm (a 422: payments reach the threshold, or
+ * it was confirmed because nothing was due), else null for the dialog's general failure text.
+ */
+export function refusalOf( error ) {
+	return error && error.data && error.data.status === 422 && error.message ? String( error.message ) : null;
 }
