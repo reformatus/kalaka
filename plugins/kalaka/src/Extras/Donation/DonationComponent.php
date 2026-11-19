@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Kalaka\Extras\Donation;
 
+use Kalaka\Extras\Api\Donation;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Payer;
-use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ProposedComponentSettings;
 
 /**
  * The donation's fee component, at the extras stage: the whole-number value of the event's number field
@@ -19,7 +22,7 @@ use Kalaka\Pricing\Api\FeeTargets;
  * reads only the earlier stages. It reads the setting as it is now, or the proposed one in a preview.
  * [UNAPPROVED N5, N14]
  */
-final class DonationComponent implements FeeComponent
+final class DonationComponent implements ConfigurableFeeComponent
 {
     public const ID = 'donation';
 
@@ -63,5 +66,20 @@ final class DonationComponent implements FeeComponent
         $amount = Money::of($value->data, $input->currency);
 
         return $amount->isPositive() ? new FeeTargets([Payer::PARTICIPANT => $amount]) : FeeTargets::none();
+    }
+
+    public function settingsToArray(int $eventId): array
+    {
+        return ['field_key' => (new Donation())->field($eventId)];
+    }
+
+    public function settingsFromArray(int $eventId, array $settings): ProposedComponentSettings
+    {
+        $field = $settings['field_key'] ?? null;
+        if (array_keys($settings) !== ['field_key'] || ($field !== null && !is_string($field))) {
+            throw new InvalidInput();
+        }
+
+        return (new Donation())->propose($eventId, $field);
     }
 }

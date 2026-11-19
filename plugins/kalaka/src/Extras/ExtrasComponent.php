@@ -6,14 +6,19 @@ namespace Kalaka\Extras;
 
 use Kalaka\Extras\Api\Charge;
 use Kalaka\Extras\Charges\ChargeRecord;
+use Kalaka\Extras\Api\Extras;
 use Kalaka\Extras\Charges\ChargeRepository;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\PlainAmount;
+use Kalaka\Pricing\Api\ProposedComponentSettings;
 use Kalaka\Forms\Api\Facts;
 
 /**
@@ -25,7 +30,7 @@ use Kalaka\Forms\Api\Facts;
  * current settings, or the proposed ones in a preview. Support and the congregation share compose earlier
  * and never cover it. [UNAPPROVED N4, N13]
  */
-final class ExtrasComponent implements FeeComponent
+final class ExtrasComponent implements ConfigurableFeeComponent
 {
     public const ID = 'extras';
 
@@ -64,6 +69,31 @@ final class ExtrasComponent implements FeeComponent
         }
 
         return $total->isPositive() ? new FeeTargets([Payer::PARTICIPANT => $total]) : FeeTargets::none();
+    }
+
+    public function settingsToArray(int $eventId): array
+    {
+        $charges = [];
+        foreach ((new Extras())->charges($eventId) as $charge) {
+            $charges[] = [
+                'key' => $charge->key,
+                'label' => $charge->label,
+                'amount' => PlainAmount::of($charge->amount),
+                'field' => $charge->field,
+            ];
+        }
+
+        return ['charges' => $charges];
+    }
+
+    public function settingsFromArray(int $eventId, array $settings): ProposedComponentSettings
+    {
+        $charges = $settings['charges'] ?? null;
+        if (array_keys($settings) !== ['charges'] || !is_array($charges) || !array_is_list($charges)) {
+            throw new InvalidInput();
+        }
+
+        return (new Extras())->propose($eventId, $charges);
     }
 
     /**
