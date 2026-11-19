@@ -43,8 +43,9 @@ title: Money
   optional deadline, its last day. The tier that applies is the first, in
   the ladder's order, whose deadline the registration's `registered_at`
   falls within and whose condition holds; the registrant reaches it through
-  ordinary answers such as the support level. With no ladder, or no tier
-  that applies, the event's fixed price is the base.
+  ordinary answers such as the support level. The ladder sets only the base
+  price. The event's fixed price is the base only without a ladder, whatever
+  the ladder owes a registration.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
@@ -215,10 +216,9 @@ An extension: the registrant's congregation pays part or all of the **base
 price** (the chosen tier, or the fixed price without a ladder), never extras
 such as lunch or a donation.
 
-- **Each tier sets its share mode:** none, declared by the participant, or
-  the whole base price. Without a ladder, the fixed price is the tier and
-  the event sets its share mode. The share is then zero, the amount the
-  registrant declares, or the base price. A fee component writes a zero-sum
+- **The ladder sets only the base price;** the share between payers is
+  decided by the registrant's answers, never by the tier. The share is
+  zero, the amount the registrant declares, or the base price. A fee component writes a zero-sum
   pair, participant −X′ and congregation +X′, where
   X′ = max(0, min(share, base price − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.

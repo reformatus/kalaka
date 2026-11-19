@@ -12,6 +12,7 @@ use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ProvidesBase;
 use Kalaka\Pricing\Api\StageTotals;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -49,10 +50,14 @@ final class FeeComposer
         }
 
         // The fixed price is the base only without a ladder (money.md, "Congregation share": "the chosen tier,
-        // or the fixed price without a ladder"): it composes last in the tier stage, and owes nothing once
-        // another tier-stage component owes something. [UNAPPROVED N3]
-        $last = static fn (FeeComponent $component): int => $component instanceof FixedPrice ? 1 : 0;
-        usort($components, static fn (FeeComponent $a, FeeComponent $b): int => $last($a) <=> $last($b));
+        // or the fixed price without a ladder"): by structure, not by what a tier owes. It is charged only
+        // when no component provides the event's base. [UNAPPROVED, #200 N7]
+        $baseProvided = false;
+        foreach ($components as $component) {
+            if ($component instanceof ProvidesBase && $component->providesBase($facts->registration->eventId)) {
+                $baseProvided = true;
+            }
+        }
 
         $before = new StageTotals($currency);
         foreach (FeeStage::cases() as $stage) {
@@ -61,7 +66,7 @@ final class FeeComposer
                 if ($component->stage() !== $stage) {
                     continue;
                 }
-                if ($component instanceof FixedPrice && self::owesAny($stageOwed)) {
+                if ($component instanceof FixedPrice && $baseProvided) {
                     continue;
                 }
                 $owed = $this->owedBy(
@@ -78,18 +83,6 @@ final class FeeComposer
         }
 
         return $composed;
-    }
-
-    /** @param array<string, Money> $owed */
-    private static function owesAny(array $owed): bool
-    {
-        foreach ($owed as $amount) {
-            if ($amount->isPositive() || $amount->isNegative()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @return array<string, Money> */
