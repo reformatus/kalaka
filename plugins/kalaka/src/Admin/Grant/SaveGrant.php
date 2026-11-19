@@ -15,7 +15,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
 /**
  * Stores a new grant (a user's access to one event through a view, with the actions it carries), or
  * replaces the user, view, bound value and actions of a stored one (with its `id` and current
- * `version`). A site-level use case: only full access. Returns the grant's id.
+ * `version`). A site-level use case: only full access. A user holds one grant per event, view and bound value
+ * (a blank bound value is none): a save that repeats another grant's triple is refused as `DuplicateGrant`.
+ * Returns the grant's id.
  */
 final class SaveGrant implements AdminUseCase
 {
@@ -73,18 +75,21 @@ final class SaveGrant implements AdminUseCase
         $eventId = (int) $input['event_id'];
         $userId = (int) $input['user_id'];
         $viewId = isset($input['view_id']) ? (int) $input['view_id'] : null;
-        $bound = isset($input['bound_value']) ? (string) $input['bound_value'] : null;
+        // A blank bound value is none.
+        $bound = isset($input['bound_value']) ? trim((string) $input['bound_value']) : null;
+        if ($bound === '') {
+            $bound = null;
+        }
         $actions = self::actions($input['actions']);
         if ($bound !== null) {
             $length = mb_strlen($bound, 'UTF-8');
-            if ($length < 1 || $length > 191 || !mb_check_encoding($bound, 'UTF-8')) {
+            if ($length > 191 || !mb_check_encoding($bound, 'UTF-8')) {
                 throw new InvalidInput();
             }
         }
 
-        if ($this->events->find($eventId) === null) {
-            throw new NotFound();
-        }
+        // The event row is the run's first lock: the duplicate check below and the write are one step per event.
+        $this->events->lock($context, $eventId);
         if (!$this->query->userExists($userId)) {
             throw new InvalidInput();
         }
@@ -101,6 +106,8 @@ final class SaveGrant implements AdminUseCase
         }
 
         if (!isset($input['id'])) {
+            $this->refuseDuplicate($eventId, $userId, $viewId, $bound, 0);
+
             return $this->repository->upsert(new Grant($eventId, $userId, $viewId, $bound, $actions), $context)->id;
         }
 
@@ -108,6 +115,7 @@ final class SaveGrant implements AdminUseCase
         if ($grant === null || $grant->eventId !== $eventId) {
             throw new NotFound();
         }
+        $this->refuseDuplicate($eventId, $userId, $viewId, $bound, $grant->id);
         $grant->userId = $userId;
         $grant->viewId = $viewId;
         $grant->boundValue = $bound;
@@ -115,6 +123,14 @@ final class SaveGrant implements AdminUseCase
         $grant->version = (int) $input['version'];
 
         return $this->repository->upsert($grant, $context)->id;
+    }
+
+    /** @throws DuplicateGrant when another grant of the event has the same user, view and bound value */
+    private function refuseDuplicate(int $eventId, int $userId, ?int $viewId, ?string $bound, int $exceptId): void
+    {
+        if ($this->query->holdsSame($eventId, $userId, $viewId, $bound, $exceptId)) {
+            throw new DuplicateGrant();
+        }
     }
 
     /**

@@ -80,4 +80,15 @@ final class GrantQueryCostTest extends PerEventCostTestCase
             static fn (int $event): array => (new GrantQuery())->ofEvent($event)
         );
     }
+
+    public function testTheDuplicateCheckStaysInsideItsEventAndUser(): void
+    {
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event): array => [
+                (new GrantQuery())->holdsSame($event, 2, null, null, 0),
+                (new GrantQuery())->holdsSame($event, 2, $this->firstViews[$event], 'x', 0),
+            ]
+        );
+    }
 }

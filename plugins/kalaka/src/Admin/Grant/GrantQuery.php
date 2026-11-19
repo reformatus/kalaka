@@ -113,6 +113,30 @@ final class GrantQuery extends Query
         });
     }
 
+    /**
+     * Whether the user already holds another grant of the event on the same view with the same bound value
+     * (a missing view and a missing bound value each match only a missing one), not counting the grant
+     * `$exceptId`: one statement on `event_user`. The bound value is compared in the column's collation,
+     * as the view's filter compares it.
+     */
+    public function holdsSame(int $eventId, int $userId, ?int $viewId, ?string $bound, int $exceptId): bool
+    {
+        return $this->scope(function () use ($eventId, $userId, $viewId, $bound, $exceptId): bool {
+            $sql = 'SELECT 1 AS found FROM %i WHERE event_id = %d AND user_id = %d AND id <> %d AND '
+                . ($viewId === null ? 'view_id IS NULL' : 'view_id = %d') . ' AND '
+                . ($bound === null ? 'bound_value IS NULL' : 'bound_value = %s') . ' LIMIT 1';
+            $arguments = [$this->table('kalaka_grants'), $eventId, $userId, $exceptId];
+            if ($viewId !== null) {
+                $arguments[] = $viewId;
+            }
+            if ($bound !== null) {
+                $arguments[] = $bound;
+            }
+
+            return $this->select('grant', $sql, $arguments) !== [];
+        });
+    }
+
     /** Whether the user holds a grant on any event: one statement on `user_event`, site-wide. */
     public function anyForUser(int $userId): bool
     {

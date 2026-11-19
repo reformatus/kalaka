@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Grant\DeleteGrant;
+use Kalaka\Admin\Grant\DuplicateGrant;
 use Kalaka\Admin\Grant\SaveGrant;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -205,13 +206,106 @@ final class SaveGrantTest extends GrantTestCase
         ]));
     }
 
+    /** @param array<string, mixed> $overrides */
+    private function assertDuplicate(int $event, int $user, array $overrides, int $before): void
+    {
+        try {
+            $this->exec(new SaveGrant(), $this->grantInput($event, $user, $overrides));
+            self::fail('The run should have thrown.');
+        } catch (DuplicateGrant $error) {
+            self::assertSame('kalaka_duplicate_grant', $error->errorCode());
+            self::assertSame(422, $error->status());
+            self::assertSame($before, $this->grantCount());
+        }
+    }
+
+    public function testASecondGrantForTheSameUserAndViewIsRefused(): void
+    {
+        $event = $this->createEvent();
+        $user = $this->plainUser();
+        $plain = $this->plainView($event);
+        $this->saveGrant($event, $user);
+        $this->saveGrant($event, $user, ['view_id' => $plain]);
+        $before = $this->grantCount();
+
+        $this->assertDuplicate($event, $user, ['actions' => [self::WITHDRAW]], $before);
+        $this->assertDuplicate($event, $user, ['view_id' => $plain, 'actions' => []], $before);
+    }
+
+    public function testASecondGrantForTheSameBoundValueIsRefusedAndBlankIsNone(): void
+    {
+        $event = $this->createEvent();
+        $user = $this->plainUser();
+        $parameter = $this->parameterView($event);
+        $this->saveGrant($event, $user, ['view_id' => $parameter, 'bound_value' => 'építő']);
+        $before = $this->grantCount();
+
+        $this->assertDuplicate($event, $user, ['view_id' => $parameter, 'bound_value' => 'építő'], $before);
+        $this->assertDuplicate($event, $user, ['view_id' => $parameter, 'bound_value' => '  építő '], $before);
+
+        // A blank bound value is none: on the master view it repeats the grant without one.
+        $this->saveGrant($event, $user);
+        $before = $this->grantCount();
+        $this->assertDuplicate($event, $user, ['bound_value' => ' '], $before);
+    }
+
+    public function testAnotherBoundValueViewUserOrEventIsAllowed(): void
+    {
+        $event = $this->createEvent();
+        $user = $this->plainUser();
+        $parameter = $this->parameterView($event);
+        $plain = $this->plainView($event);
+        $this->saveGrant($event, $user, ['view_id' => $parameter, 'bound_value' => 'építő']);
+
+        $this->saveGrant($event, $user, ['view_id' => $parameter, 'bound_value' => 'szakács']);
+        $this->saveGrant($event, $user, ['view_id' => $plain]);
+        $this->saveGrant($event, $user);
+        $this->saveGrant($event, $this->plainUser(), ['view_id' => $parameter, 'bound_value' => 'építő']);
+        $other = $this->createEvent('Másik');
+        $this->saveGrant($other, $user);
+
+        self::assertSame(5, $this->grantCount() - 1);
+    }
+
+    public function testEditingIntoADuplicateIsRefusedButResavingItselfIsAllowed(): void
+    {
+        $event = $this->createEvent();
+        $user = $this->plainUser();
+        $plain = $this->plainView($event);
+        $first = $this->saveGrant($event, $user);
+        $second = $this->saveGrant($event, $user, ['view_id' => $plain]);
+
+        // Saving a grant unchanged, or with other actions, is not a duplicate of itself.
+        $this->exec(new SaveGrant(), $this->grantInput($event, $user, [
+            'id' => $first,
+            'version' => 1,
+            'actions' => [self::WITHDRAW],
+        ]));
+        self::assertSame('2', $this->grantRow($first)['version']);
+
+        try {
+            $this->exec(new SaveGrant(), $this->grantInput($event, $user, [
+                'id' => $second,
+                'version' => 1,
+                'view_id' => null,
+            ]));
+            self::fail('The run should have thrown.');
+        } catch (DuplicateGrant) {
+            $row = $this->grantRow($second);
+            self::assertSame(['1', (string) $plain], [$row['version'], $row['view_id']]);
+        }
+    }
+
     public function testAUserWithoutFullAccessIsRefusedAndNothingChanges(): void
     {
         $event = $this->createEvent();
         $user = $this->plainUser();
         $id = $this->saveGrant($event, $user);
         // Even a grant on the event with every action does not open a site-level use case.
-        $this->saveGrant($event, $user, ['actions' => [self::EDIT, self::WITHDRAW]]);
+        $this->saveGrant($event, $user, [
+            'view_id' => $this->plainView($event),
+            'actions' => [self::EDIT, self::WITHDRAW],
+        ]);
         $before = $this->grantCount();
         $actor = new UserActor($user);
 

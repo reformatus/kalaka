@@ -75,8 +75,11 @@ reached; the grant defines who holds the view.**
   - View definitions are copied to the next event, optionally with their
     grants.
 - **A grant** is (WordPress user, event, view, optional bound value, set of
-  actions). A user may hold several grants for the same event. There are no
-  grants across all events. Grants and changes to a view's columns or filter
+  actions). A user may hold several grants for the same event, but never two
+  with the same view and bound value (a blank bound value is none): a user's
+  actions for a view belong in one grant, and a save that repeats another
+  grant's view and bound value is refused. There are no grants across all
+  events. Grants and changes to a view's columns or filter
   are audited.
 - **A grant never lists registrations.** It covers whatever the view's filter
   matches when access is checked, so the set grows and shrinks as
