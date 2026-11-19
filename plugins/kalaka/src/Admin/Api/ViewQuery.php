@@ -394,7 +394,10 @@ final class ViewQuery extends Query
         $text = is_string($value) ? $value : '';
 
         if ($kind === FilterKind::Range && is_array($value)) {
-            [$ranked, $rankedArgs] = $this->ranked($eventId);
+            [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId
+            );
 
             return [
                 'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE n.serial_no BETWEEN %d AND %d)',
@@ -530,7 +533,10 @@ final class ViewQuery extends Query
             return ['r.code LIKE %s COLLATE ' . self::SQL_COLLATION, [$like]];
         }
         if ($column === 'serial') {
-            [$ranked, $rankedArgs] = $this->ranked($eventId);
+            [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId
+            );
 
             return [
                 'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE CAST(n.serial_no AS CHAR) LIKE %s)',
@@ -572,22 +578,6 @@ final class ViewQuery extends Query
         [$match, $matchArgs] = self::memberMatch('f', $keys);
 
         return [$field . $match . ')', [...$base, ...$matchArgs]];
-    }
-
-    /**
-     * The numbered registrations of the event as a derived table (`code`, `serial_no`): counted separately
-     * within `registered` and `waitlisted`, in the sorszám order (a window function; MariaDB 10.2).
-     *
-     * @return array{0: literal-string, 1: list<string|int>}
-     */
-    private function ranked(int $eventId): array
-    {
-        return [
-            'SELECT q.code, ROW_NUMBER() OVER (PARTITION BY q.status ORDER BY '
-            . RegistrationTables::serialOrder('q') . ') AS serial_no FROM %i q WHERE q.event_id = %d'
-            . " AND q.status IN ('registered', 'waitlisted')",
-            [$this->table(RegistrationTables::REGISTRATIONS), $eventId],
-        ];
     }
 
     /**
