@@ -7,8 +7,8 @@ namespace Kalaka\Admin\Api;
 use Kalaka\Foundation\Api\Error\KalakaException;
 
 /**
- * A grant holder of the event asked for a registration their views do not hold (or that does not exist): "no
- * access", distinct from "not found", which a user with no grant on the event still gets. It shows the
+ * A grant holder of the event asked for an existing registration their views do not hold: "no access",
+ * distinct from "not found", which an unknown code and a user with no grant on the event get. It shows the
  * permission refusal's text, so no new text. [UNAPPROVED Shapes]
  */
 final class RegistrationNotInView extends KalakaException

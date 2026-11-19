@@ -307,14 +307,16 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         }
     }
 
-    /** A grant holder cannot tell a code outside their views from one that does not exist. */
-    public function testAGrantHolderAskingForAnUnknownCodeIsNoAccessToo(): void
+    /** The owner's ruling 2026-11-19: a grant holder of the event is told an unknown code does not exist. */
+    public function testAGrantHolderAskingForAnUnknownCodeIsNotFound(): void
     {
         $this->addRegistration('00A0');
         $user = $this->plainUser();
-        $this->grant($user, [], [['column' => 'code', 'write' => false]], []);
+        $this->grant($user, [['column' => 'status', 'in' => ['waitlisted']]], [
+            ['column' => 'code', 'write' => false],
+        ], []);
 
-        $this->expectException(RegistrationNotInView::class);
+        $this->expectException(NotFound::class);
         $this->detail($user, '00A1');
     }
 
@@ -531,6 +533,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $body = $refused->get_data();
         self::assertIsArray($body);
         self::assertSame('kalaka_registration_not_in_view', $body['code'] ?? null);
+        self::assertSame(
+            404,
+            $this->rest('GET', '/kalaka-admin/v1/events/' . $this->event . '/registrations/00B0')->get_status()
+        );
 
         wp_set_current_user($this->admin->userId);
         self::assertSame(

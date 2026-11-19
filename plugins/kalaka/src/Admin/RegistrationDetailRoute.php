@@ -12,9 +12,9 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 
 /**
  * `GET kalaka-admin/v1/events/{event}/registrations/{code}`: the detail of one registration, as
- * `Api\RegistrationDetail` reads it for the actor's grants and views. A code the views of a grant holder
- * of the event do not hold is a 403 `kalaka_registration_not_in_view`, whether it exists or not; a user with no
- * grant on the event gets a 404. The code is the documented public identifier, not a secret: the view
+ * `Api\RegistrationDetail` reads it for the actor's grants and views. For a grant holder of the event, an
+ * unknown code is a 404 and an existing one outside their views a 403 `kalaka_registration_not_in_view`; a user
+ * with no grant on the event gets a 404. The code is the documented public identifier, not a secret: the view
  * decides what is shown. [UNAPPROVED Access]
  */
 final class RegistrationDetailRoute

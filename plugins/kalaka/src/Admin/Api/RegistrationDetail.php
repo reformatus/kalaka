@@ -42,18 +42,18 @@ final class RegistrationDetail
 
     /**
      * @return array<string, mixed> the read, as JSON-ready data
-     * @throws RegistrationNotInView when the actor holds a grant on the event but no view of theirs holds the
-     *                               code: the same answer whether the code exists or not
-     * @throws NotFound when the event does not exist, or the actor has no grant on it and no full access
+     * @throws RegistrationNotInView when the actor holds a grant on the event and the registration exists, but
+     *                               no view of theirs holds it
+     * @throws NotFound when the event or the registration does not exist, or the actor has no grant on the event
+     *                  and no full access
      */
     public function of(Actor $actor, int $eventId, string $code): array
     {
         try {
             $key = new RegistrationKey($eventId, $code);
         } catch (InvalidInput) {
-            // Not a code at all: as for one the views do not hold.
-            $error = $this->refusal($actor, $eventId);
-            throw $error;
+            // Not a code at all: no such registration.
+            throw new NotFound();
         }
         $event = $this->events->find($eventId);
         if ($event === null) {
@@ -63,7 +63,7 @@ final class RegistrationDetail
         $full = $this->access->isFull($actor);
         $holding = $full ? [] : $this->access->holding($actor, $key);
         if (!$full && $holding === []) {
-            $error = $this->refusal($actor, $eventId);
+            $error = $this->refusal($actor, $key);
             throw $error;
         }
         $views = $full
@@ -106,10 +106,18 @@ final class RegistrationDetail
         return $read;
     }
 
-    /** A grant holder of the event is told "no access"; a user with no grant on it gets "not found". */
-    private function refusal(Actor $actor, int $eventId): KalakaException
+    /**
+     * The owner's ruling 2026-11-19: a grant holder of the event is told "does not exist" for an unknown code
+     * and "no access" for one that exists outside their views (probing codes is accepted); a user with no grant
+     * on the event gets "not found" either way.
+     */
+    private function refusal(Actor $actor, RegistrationKey $key): KalakaException
     {
-        return !$this->access->isFull($actor) && in_array($eventId, $this->access->grantedEventIds($actor), true)
+        if (!in_array($key->eventId, $this->access->grantedEventIds($actor), true)) {
+            return new NotFound();
+        }
+
+        return $this->views->filterHolds($key->eventId, null, null, [$key])
             ? new RegistrationNotInView()
             : new NotFound();
     }
