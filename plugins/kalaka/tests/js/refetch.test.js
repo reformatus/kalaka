@@ -96,6 +96,63 @@ describe('the page as the server rendered it', () => {
 		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 		expect(branchOf('supporter').hidden).toBe(false);
 	});
+
+	/** The page as the server rendered it for prefilled (or a draft's) answers, `opened` in its context. */
+	const prefilled = (opened, ticks) =>
+		form(
+			ticks(
+				radios('fee', ['basic', 'extra_support']) +
+					radios('fee_reason', ['community_pays', 'needs_help'])
+			) +
+				checkboxes('modules', ['ifi_a', 'pro_a']) +
+				text('note'),
+			{ triggers: ['fee', 'fee_reason', 'modules'], opened }
+		);
+	const tick = (markup, key, value) =>
+		markup.replace(
+			`name="${key}" value="${value}"`,
+			`name="${key}" value="${value}" checked`
+		);
+
+	test('is not re-fetched when the script starts with the answers the page opened with', async () => {
+		document.body.innerHTML = '';
+		const markup = tick(
+			tick(
+				prefilled(
+					{ fee: 'extra_support', modules: ['pro_a', 'ifi_a'] },
+					(fields) => tick(fields, 'fee', 'extra_support')
+				),
+				'modules[]',
+				'ifi_a'
+			),
+			'modules[]',
+			'pro_a'
+		);
+
+		await load(markup);
+
+		expect(globalThis.fetch).not.toHaveBeenCalled();
+	});
+
+	test('is re-fetched once when the browser restored another answer of a trigger', async () => {
+		document.body.innerHTML = '';
+		const markup = prefilled({ fee: 'extra_support' }, (fields) =>
+			tick(fields, 'fee', 'basic')
+		);
+
+		await load(markup);
+		await settle();
+
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+	});
+
+	test('is re-fetched once when the browser cleared an answer of a trigger the page opened with', async () => {
+		document.body.innerHTML = '';
+		await load(prefilled({ fee_reason: 'needs_help' }, (fields) => fields));
+		await settle();
+
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe('a change of a trigger', () => {

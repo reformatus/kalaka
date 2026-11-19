@@ -207,8 +207,8 @@ values and conditions, prefill and form links
   walk's errors filtered to that page's shown fields.
 - A re-fetch or a submit accepts only the form's latest version
   (`Forms::latestDefinition()`); an earlier one is `FormOutdated`.
-- The form page's two public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`)
-  are registered only through `Boundary::route()` and call
+- The form page's public routes (`Engine\Rest\FormRoutes`, `kalaka-portal/v1`:
+  the availability, the submit, the draft and the draft claim) are registered only through `Boundary::route()` and call
   `LoadState::requireOpen()` first. The availability route only reads: it
   never runs a use case or writes. The submit route calls `SubmitGuard` (S14's
   rate limit, `RateLimiter`: per account when logged in, else per address from
@@ -241,7 +241,28 @@ values and conditions, prefill and form links
   an extension's through `Api\FieldMarkup::prefilled()`).
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
-  answers of fields that show; it keeps nothing across a reload.
+  answers of fields that show. It keeps nothing across a reload itself: a
+  logged-in person's answers survive only as their draft, which the autosave
+  sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
+  once a send starts, once the person's choice on a link's answers is sent,
+  or once the route refuses a save as from before a claim.
+- A form opens with its host's draft (`FormHost::draft()`) over its stored
+  values. The engine keeps only the draft answers the form's types accept,
+  each checked alone (`FormEngine::accepted()`); the rest open empty.
+- Public prefill (`kalaka[<key>]`) is read only by `DraftHandoff`, on `wp`,
+  for a page placing one usable registration form: each answer is first
+  cleaned by its type's prefill rules (`FieldType::prefill()`, as a stored
+  value is: bad parts dropped, the rest kept, null drops it), then checked
+  alone with the type (`Forms::linkAnswers()`). What is left becomes a
+  guest draft, and the request ends in an
+  uncached 303 without them. No value of the request is logged. A logged-in
+  request to that page claims the cookie's guest draft there, never in the
+  render.
+- The claim popup (`Blocks/form/claim.js`, a `@wordpress/components` Modal)
+  is the only React on a public page: `render.php` enqueues it only while the
+  page's context carries `draftClaimUrl`. It sends the choice only through the
+  store action `resolveDraftClaim`, and its texts come from the server
+  (`Engine\DraftClaimTexts`).
 - The submit token (`FormHost::submitToken()`; for an event form
   `Registrations\Api\SubmitToken`) is issued by the server on every render of a form page, into a hidden field, and sent back
   unchanged on every send of that page; it never goes into a cookie,

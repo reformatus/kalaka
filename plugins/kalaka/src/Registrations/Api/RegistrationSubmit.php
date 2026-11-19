@@ -111,6 +111,7 @@ final class RegistrationSubmit
                 self::fieldTypes($definition),
                 $this->participantFields->of($form->eventId),
                 account: $account,
+                draftClaimHash: $request->draftClaim === null ? null : DraftClaim::hash($request->draftClaim),
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);

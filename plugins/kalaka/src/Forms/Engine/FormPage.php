@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
@@ -189,9 +190,14 @@ final class FormPage
     {
         $definition = $this->forms->definition($form, null, true);
 
-        // What the form opens with: the host's stored values as answers (none for a new registration),
-        // and what the form shows for them.
-        $answers = $this->prefilled($definition, $this->host->prefill($form));
+        // What the form opens with: the host's stored values (none for a new registration) with the person's
+        // draft over them (S74), as answers, and what the form shows for them. A draft's text its type finds an
+        // error in opens as typed; any other draft answer this version's types do not accept opens empty.
+        $draft = $this->host->draft($form);
+        $answers = $this->prefilled(
+            $definition,
+            array_replace($this->host->prefill($form), $this->forms->acceptedValues($definition, $draft->answers))
+        ) + $this->forms->rejectedText($definition, $draft->answers);
         $availability = $this->forms->availability($definition, $answers, $values);
         $here = self::here();
         $content = FieldMarkup::withPrefill($answers, fn (): string => $this->render(
@@ -220,9 +226,73 @@ final class FormPage
             // S15 (owner ruling 2026-11-18): the account block's window, for a form with an account step.
             'account' => $step === null ? null : self::account($form, $here),
             'triggers' => $availability->triggers,
+            // The answers the page opened with, of the triggers that show: the script re-fetches at start-up only
+            // when the browser restored others (#193's review).
+            'opened' => self::opened($answers, $availability),
             // (#167, MP-4) page number → whether it shows; none for a form without pages.
             'pages' => $availability->pages,
-        ], null, $this->host->submitToken());
+        ] + self::draftData($form, $draft), null, $this->host->submitToken());
+    }
+
+    /**
+     * The answers the page opened with of the triggers that show, which the script compares at start-up with
+     * what the browser holds. A trigger that does not show is not sent, and the script does not read it; of
+     * a choice, only the options it offers, the ones its markup renders.
+     *
+     * @param array<string, mixed> $answers
+     * @return array<string, mixed>
+     */
+    private static function opened(array $answers, FormAvailability $availability): array
+    {
+        $opened = [];
+        foreach ($availability->triggers as $key) {
+            if (!$availability->shows($key) || !array_key_exists($key, $answers)) {
+                continue;
+            }
+            $answer = $answers[$key];
+            $offered = $availability->offeredOptions($key);
+            if ($offered !== null && is_array($answer)) {
+                $answer = array_values(array_intersect($answer, $offered));
+            } elseif ($offered !== null && is_string($answer) && !in_array($answer, $offered, true)) {
+                continue;
+            }
+            $opened[$key] = $answer;
+        }
+
+        return $opened;
+    }
+
+    /**
+     * The script's part of the draft (S74): the autosave route while the person's draft is saved, and the
+     * claim route while a link's answers wait for the person's choice against the draft. Nothing otherwise.
+     *
+     * @return array<string, mixed>
+     */
+    private static function draftData(Form $form, FormDraft $draft): array
+    {
+        $data = [];
+        if ($draft->autosave) {
+            // `Rest\FormRoutes::saveDraft()`.
+            $data['draftUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft');
+            // The draft's claim count, sent back with every save: a save from before a claim is refused.
+            $data['draftClaims'] = $draft->claims;
+        }
+        if ($draft->claimConflict) {
+            // `Rest\FormRoutes::resolveDraftClaim()`; the choice is the person's (the popup, UX).
+            $data['draftClaimUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft/claim');
+            // How many fields the link's answers would change (pass 2): the merge choice's line.
+            $data['draftClaimChanges'] = $draft->linkChanges;
+            // The popup's texts (`Blocks/form/claim.js`), the count in merge's line.
+            $data['draftClaimTexts'] = DraftClaimTexts::popup($draft->linkChanges);
+        }
+        if ($draft->claimNotice !== null) {
+            // The choice that settled the claim, on the load after it, and its one-line notice, shown once
+            // above the form by the form's script. [UNAPPROVED N12]
+            $data['draftClaimNotice'] = $draft->claimNotice->value;
+            $data['draftClaimNoticeText'] = DraftClaimTexts::notice($draft->claimNotice);
+        }
+
+        return $data;
     }
 
     /**

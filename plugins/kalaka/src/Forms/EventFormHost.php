@@ -11,15 +11,22 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Forms\Api\AccessRefusal;
 use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\AfterSubmit;
+use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Api\DraftClaim;
+use Kalaka\Registrations\Api\DraftClaimRefused;
+use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -37,6 +44,7 @@ final class EventFormHost implements FormHost
     public function __construct(
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
+        private readonly Drafts $drafts = new Drafts(),
     ) {
     }
 
@@ -123,7 +131,8 @@ final class EventFormHost implements FormHost
     /**
      * What a form opens with: on a form with an account step, the logged-in account's address in the contact email
      * field (it stays editable; the page and the re-fetch's block fill it only while the field is empty, never over
-     * an answer typed). Nothing else yet: an additional form's current values (S60) and a draft (S74) come here.
+     * an answer typed). The person's draft is `draft()`. Nothing else yet: an additional form's current values (S60)
+     * come here.
      */
     public function prefill(Form $form): array
     {
@@ -149,6 +158,59 @@ final class EventFormHost implements FormHost
         return null;
     }
 
+    /**
+     * A registration form's draft (S74): the logged-in person's own, or a link's or the quiz's guest draft
+     * the cookie names. An additional form has none (re-asked with S60).
+     *
+     * TODO(S15): no draft in the event's account mode `off` (S15-6) once S15 records the mode.
+     * [UNAPPROVED N9]
+     */
+    public function draft(Form $form): FormDraft
+    {
+        if ($form->placement !== FormPlacement::Registration) {
+            return new FormDraft();
+        }
+        $user = get_current_user_id();
+        $draft = $this->drafts->opening($form->eventId, $form->id, $user > 0 ? $user : null, DraftClaim::current());
+        $notice = $user > 0 ? DraftHandoff::settledNow() : null;
+
+        return $notice === null ? $draft : new FormDraft(
+            $draft->answers,
+            $draft->autosave,
+            $draft->claimConflict,
+            $draft->claims,
+            $draft->linkChanges,
+            $notice
+        );
+    }
+
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void {
+        if ($form->placement !== FormPlacement::Registration) {
+            $error = new RuleViolation();
+            throw $error;
+        }
+        $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
+    }
+
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
+    {
+        $token = DraftClaim::current();
+        if ($token === null) {
+            $error = new DraftClaimRefused();
+            throw $error;
+        }
+        // The cookie stays, so a repeat after a lost answer finds the same claim; the next load of the form's
+        // page clears it (`DraftHandoff`: the guest draft is gone).
+        $this->drafts->resolve($form->eventId, $form->id, $token, $choice, $actor);
+    }
+
     public function submitToken(): string
     {
         return SubmitToken::generate();
@@ -163,9 +225,15 @@ final class EventFormHost implements FormHost
         bool $passwordGiven,
         Actor $actor
     ): array {
-        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven);
+        $claim = DraftClaim::current();
+        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven, $claim);
+        $result = ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
+        // The submit deleted the cookie's guest draft when it was this form's (S74): the cookie is done then.
+        if ($claim !== null && !$this->drafts->holds($claim)) {
+            DraftClaim::setCookie(null);
+        }
 
-        return ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
+        return $result;
     }
 
     public function afterSubmitTypes(): array
