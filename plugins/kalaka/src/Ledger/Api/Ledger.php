@@ -20,6 +20,13 @@ use Kalaka\Registrations\Api\RegistrationKey;
 /** The ledger's contract: the only way to write a line, and the plain reads. */
 final class Ledger
 {
+    /** The per-event action that lets a grant holder see the money of the registrations of its view. */
+    public const VIEW_MONEY = 'kalaka_view_money';
+
+    public const RECORD_PAYMENT = 'kalaka_record_payment';
+
+    public const RECORD_REFUND = 'kalaka_record_refund';
+
     public function __construct(
         private readonly LedgerLineRepository $lines = new LedgerLineRepository(),
         private readonly BalanceQuery $balances = new BalanceQuery(),
@@ -51,7 +58,7 @@ final class Ledger
 
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
         if ($stored !== null) {
-            if (!self::isSame($stored, $line, $valueDate) || $this->noteOf($stored) !== self::noteText($line)) {
+            if (!self::isSame($stored, $line, $valueDate) || !$this->sameNote($stored, self::noteText($line))) {
                 $error = new SystemFailure(null, new \LogicException('The idempotency key holds a different line.'));
                 throw $error;
             }
@@ -127,6 +134,19 @@ final class Ledger
         return null;
     }
 
+    /**
+     * Whether the stored line's note matches the incoming one. A line with no stored note compares no note:
+     * it never had one, or `eraseNotesOf()` erased it, and the table keeps no trace of which. A replay of the
+     * original entry after an erase therefore still finds its line; the same key with another amount is still
+     * a different line.
+     */
+    private function sameNote(LedgerLine $stored, ?string $note): bool
+    {
+        $storedNote = $this->noteOf($stored);
+
+        return $storedNote === null || $storedNote === $note;
+    }
+
     private static function noteFits(?string $note): bool
     {
         return $note === null || mb_check_encoding($note, 'UTF-8') && mb_strlen($note, 'UTF-8') <= 500;
@@ -148,7 +168,7 @@ final class Ledger
 
         return $stored !== null
             && (!self::isSame($stored, $line, $line->valueDate === null ? null : Instant::startOfDay($line->valueDate))
-                || $this->noteOf($stored) !== self::noteText($line));
+                || !$this->sameNote($stored, self::noteText($line)));
     }
 
     /** A plain read, without a lock. */

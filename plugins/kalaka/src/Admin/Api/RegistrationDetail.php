@@ -28,13 +28,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class RegistrationDetail
 {
-    /** The per-event action that lets a grant holder see the money of the registrations of its view. */
-    public const VIEW_MONEY = 'kalaka_view_money';
-
-    public const RECORD_PAYMENT = 'kalaka_record_payment';
-
-    public const RECORD_REFUND = 'kalaka_record_refund';
-
     public function __construct(
         private readonly Access $access = new Access(),
         private readonly ViewQuery $views = new ViewQuery(),
@@ -89,9 +82,9 @@ final class RegistrationDetail
             return false;
         };
         // The owner's ruling 2026-11-18: money-write includes money-view.
-        $record = $carried(self::RECORD_PAYMENT);
-        $refund = $carried(self::RECORD_REFUND);
-        $viewMoney = $carried(self::VIEW_MONEY) || $record || $refund;
+        $record = $carried(Ledger::RECORD_PAYMENT);
+        $refund = $carried(Ledger::RECORD_REFUND);
+        $viewMoney = $carried(Ledger::VIEW_MONEY) || $record || $refund;
 
         $read = [
             'registration' => $this->registrationPart($registration),
@@ -196,48 +189,43 @@ final class RegistrationDetail
 
     /**
      * The money of the registration. A line's `amount` is the stored signed amount (a payment is negative, a
-     * refund positive), shown with its `kind`; a payer's `charged` and `paid` are positive sums and its
-     * `balance` is signed (above zero due, below zero overpaid). The read invents no display amount.
+     * refund positive), shown with its `kind`; a payer's `charged`, `paid` and `balance` come from the Ledger's
+     * own summary, with `charged` and `paid` positive and `balance` signed (above zero due, below zero
+     * overpaid). The read invents no display amount.
      *
      * @return array<string, mixed>
      */
     private function moneyPart(RegistrationKey $key, string $currency): array
     {
         $entries = $this->ledger->entriesOf($key);
-        $zero = Money::zero(Currency::from($currency));
+        $summary = $this->ledger->summaryOf($key);
+        $money = Currency::from($currency);
+        $zero = Money::zero($money);
 
         // The participant first, then the event's other payer kinds (with or without lines), then payers that
-        // have lines but no declared kind. The sums come from the lines this read shows: charged from the lines
-        // that are not payment facts, paid from the payment facts (a refund lowers it), so one statement reads
-        // the money.
+        // have lines but no declared kind, in the order the lines are shown. Each payer's totals are the
+        // Ledger's, never recomputed here.
         $order = [];
         foreach ($this->payerKinds->of($key->eventId) as $kind) {
             $order[$kind->id] = $kind->label;
         }
-        $sums = [];
         foreach ($entries as $entry) {
             $order[$entry->payer] ??= null;
-            $sums[$entry->payer] ??= ['charged' => $zero, 'paid' => $zero];
-            if ($entry->kind->isPaymentFact()) {
-                $sums[$entry->payer]['paid'] = $sums[$entry->payer]['paid']->minus($entry->amount);
-            } else {
-                $sums[$entry->payer]['charged'] = $sums[$entry->payer]['charged']->plus($entry->amount);
-            }
         }
 
         $payers = [];
         $charged = $zero;
         $paid = $zero;
         foreach ($order as $payer => $label) {
-            $sum = $sums[$payer] ?? ['charged' => $zero, 'paid' => $zero];
-            $charged = $charged->plus($sum['charged']);
-            $paid = $paid->plus($sum['paid']);
+            $sum = $summary->of($payer, $money);
+            $charged = $charged->plus($sum->charged);
+            $paid = $paid->plus($sum->paid);
             $payers[] = [
                 'payer' => $payer,
                 'label' => $label,
-                'charged' => $sum['charged']->amount(),
-                'paid' => $sum['paid']->amount(),
-                'balance' => $sum['charged']->minus($sum['paid'])->amount(),
+                'charged' => $sum->charged->amount(),
+                'paid' => $sum->paid->amount(),
+                'balance' => $sum->balance->amount(),
             ];
         }
 
