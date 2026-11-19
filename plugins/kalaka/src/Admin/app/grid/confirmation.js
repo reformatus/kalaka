@@ -29,3 +29,18 @@ export const markOf = ( state ) => MARK[ state ] || [ 'dashicons-marker', '' ];
 export function validateReason( reason ) {
 	return String( reason ).trim() === '' ? CONFIRM.reasonEmpty : '';
 }
+
+/**
+ * The buttons of the manual confirmation block: none without `can.confirm_manually`; with the flag unknown (the
+ * read carries it only under the money gate) both abilities, which are idempotent; else the one that changes
+ * what is shown. [UNAPPROVED N34]
+ */
+export function manualActions( manual, can ) {
+	if ( ! can || ! can.confirm_manually ) {
+		return [];
+	}
+	if ( manual === undefined ) {
+		return [ 'confirm', 'unconfirm' ];
+	}
+	return [ manual ? 'unconfirm' : 'confirm' ];
+}

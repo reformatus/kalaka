@@ -4,18 +4,12 @@
  * direction is signed, and the balance with it: positive is still owed, a real minus is in the payer's favour
  * (owner's walk, topic 6a G11). One „Tétel rögzítése” action records a payment or a refund, the correction
  * keeps its own (G12). [UNAPPROVED N39] [UNAPPROVED N42] [UNAPPROVED N17] [UNAPPROVED N18]
- *
- * S20: under the two actions, the manual confirmation: who set it, when and why, and the button that sets or
- * revokes it (only with `can.confirm_manually`). It sits here because the flag is read under the money gate.
- * [UNAPPROVED N32] [UNAPPROVED N34]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
-import ConfirmDialog from './ConfirmDialog';
 import RecordDialog from './RecordDialog';
-import { fmt } from './format';
-import { formatDay, formatEntry, formatMoment, formatMoney } from './money';
-import { CONFIRM, MONEY } from './texts';
+import { formatDay, formatEntry, formatMoney } from './money';
+import { MONEY } from './texts';
 
 /** How long the success snackbar stays. [UNAPPROVED N19] */
 const SNACKBAR_MS = 5000;
@@ -26,12 +20,11 @@ const SNACKBAR_MS = 5000;
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.money   the read's money part
  * @param {Object}   props.can     the read's `can`
- * @param {?Object}  props.manual  the read's `registration.manual_confirmation`: { set_at, reason, set_by } or null
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {boolean}  props.stale   the last re-read failed: the figures are hidden, the snackbar stays
  * @param {Function} props.onSaved tells the grid an entry was saved
  */
-export default function MoneyTab( { config, code, money, can, manual, reload, stale, onSaved } ) {
+export default function MoneyTab( { config, code, money, can, reload, stale, onSaved } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -140,25 +133,6 @@ export default function MoneyTab( { config, code, money, can, manual, reload, st
 					) }
 				</div>
 			) }
-			{ ( manual || can.confirm_manually ) && (
-				<div className="kg-manual">
-					{ manual && (
-						<Fragment>
-							<p>
-								{ manual.set_by
-									? fmt( CONFIRM.setLine, manual.set_by, formatMoment( manual.set_at, config.timezone ) )
-									: fmt( CONFIRM.setLineAnon, formatMoment( manual.set_at, config.timezone ) ) }
-							</p>
-							<p>{ fmt( CONFIRM.reasonLine, manual.reason ) }</p>
-						</Fragment>
-					) }
-					{ can.confirm_manually && (
-						<Button variant="secondary" onClick={ ( e ) => open( manual ? 'unconfirm' : 'confirm', e ) }>
-							{ manual ? CONFIRM.revoke : CONFIRM.set }
-						</Button>
-					) }
-				</div>
-			) }
 			<h3 className="kg-sub">{ MONEY.entries }</h3>
 			{ money.lines.length === 0 ? (
 				<p className="kg-none">{ MONEY.none }</p>
@@ -202,22 +176,13 @@ export default function MoneyTab( { config, code, money, can, manual, reload, st
 					</table>
 				</div>
 			) }
-			{ ( dialog === 'payment' || dialog === 'refund' ) && (
+			{ dialog && (
 				<RecordDialog
 					config={ config }
 					mode={ dialog }
 					can={ can }
 					code={ code }
 					money={ money }
-					onClose={ close }
-					onDone={ done }
-				/>
-			) }
-			{ ( dialog === 'confirm' || dialog === 'unconfirm' ) && (
-				<ConfirmDialog
-					config={ config }
-					revoke={ dialog === 'unconfirm' }
-					code={ code }
 					onClose={ close }
 					onDone={ done }
 				/>

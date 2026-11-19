@@ -1,4 +1,4 @@
-import { CONFIRMATION_KIND, confirmationOf, markOf, validateReason } from '../../src/Admin/app/grid/confirmation';
+import { CONFIRMATION_KIND, confirmationOf, manualActions, markOf, validateReason } from '../../src/Admin/app/grid/confirmation';
 import { formatMoment } from '../../src/Admin/app/grid/money';
 import { CONFIRM } from '../../src/Admin/app/grid/texts';
 
@@ -52,5 +52,25 @@ describe( 'the moment of the flag', () => {
 
 	test( 'is empty for no instant', () => {
 		expect( formatMoment( null, 'UTC' ) ).toBe( '' );
+	} );
+} );
+
+describe( 'the buttons of the manual confirmation block', () => {
+	const can = { confirm_manually: true };
+	const flag = { set_at: '2026-11-19T10:00:00Z', reason: 'Telefonon', set_by: 'Teszt' };
+
+	test( 'none without the action', () => {
+		expect( manualActions( null, { confirm_manually: false } ) ).toEqual( [] );
+		expect( manualActions( undefined, {} ) ).toEqual( [] );
+		expect( manualActions( flag, undefined ) ).toEqual( [] );
+	} );
+
+	test( 'the flag not set offers setting it, the flag set offers revoking it', () => {
+		expect( manualActions( null, can ) ).toEqual( [ 'confirm' ] );
+		expect( manualActions( flag, can ) ).toEqual( [ 'unconfirm' ] );
+	} );
+
+	test( 'a read without the flag (no money view) offers both, as the abilities are idempotent', () => {
+		expect( manualActions( undefined, can ) ).toEqual( [ 'confirm', 'unconfirm' ] );
 	} );
 } );

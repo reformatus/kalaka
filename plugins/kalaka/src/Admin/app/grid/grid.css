@@ -142,7 +142,7 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 .kg-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid #996800; border-radius: 3px; color: #996800; font-size: 11px; line-height: 16px; }
 .kg-manual { margin: 8px 0 4px; }
 .kg-manual p { margin: 0 0 4px; overflow-wrap: anywhere; }
-.kg-manual .components-button { margin-top: 4px; }
+
 .kg-sub { font-size: 14px; margin: 20px 0 6px; }
 .kg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .kg-snacks { position: fixed; left: auto; right: 12px; bottom: 12px; z-index: 9996; }
