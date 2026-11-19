@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Ranking;
 
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module as FormsModule;
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -20,11 +22,13 @@ use Kalaka\Tests\Integration\Forms\PrefillingHost;
 /**
  * The ranking field in a form: contributed and registered, checked at submit by the form's walk, rendered
  * with core's field markup, opened with a stored ranking in its order, and declared as the event's
- * participant field like any field.
+ * participant field like any field. Its options are its set's (S44; `RankingSetTest`).
  */
 final class RankingFieldFormTest extends FormsTestCase
 {
-    private const EVENT = 7;
+    private int $event;
+
+    private int $set;
 
     private const OPTIONS = [
         ['value' => 'modul_a', 'label' => 'Modul A'],
@@ -40,10 +44,55 @@ final class RankingFieldFormTest extends FormsTestCase
         // The harness unregisters all meta keys after each test, so register them again the way `init` does.
         (new FormsModule())->registerMeta();
         wp_set_current_user($this->fullAccessUser());
+        $this->event = $this->create();
+        $sets = new AssignmentSets($this->runner);
+        $this->set = $sets->save([
+            'event_id' => $this->event,
+            'name' => 'Modulok',
+            'required' => false,
+            'window_opens_at' => null,
+            'window_closes_at' => null,
+            'published' => false,
+        ], new CliActor(null));
+        foreach (self::OPTIONS as $position => $option) {
+            $sets->saveOption([
+                'set_id' => $this->set,
+                'key' => $option['value'],
+                'label' => $option['label'],
+                'capacity' => null,
+                'leaders' => '',
+                'place' => '',
+                'condition' => null,
+                'position' => $position,
+            ], new CliActor(null));
+        }
+    }
+
+    /** A registration-slot form of the event with the two marked fields and more. */
+    private function eventForm(string $more): int
+    {
+        return $this->insertForm($this->slotFields() . $more, ['kalaka_event_id' => $this->event]);
     }
 
     /** @param array<string, mixed> $attributes */
     private function ranking(string $key = 'modulok', array $attributes = []): string
+    {
+        return $this->block(RankingFieldType::BLOCK_NAME, $attributes + [
+            'key' => $key,
+            'label' => 'Modulok',
+            'set' => $this->set,
+            'min' => 1,
+            'max' => 2,
+        ]);
+    }
+
+    /**
+     * A ranking with its own options and no set (the owner's ruling, 2026-11-18: the set attribute decides the
+     * mode), as #187 had it.
+     *
+     * @param array<string, mixed> $attributes
+     */
+    private function own(string $key = 'modulok', array $attributes = []): string
     {
         return $this->block(RankingFieldType::BLOCK_NAME, $attributes + [
             'key' => $key,
@@ -77,12 +126,12 @@ final class RankingFieldFormTest extends FormsTestCase
         self::assertSame('kalaka', $block->category);
         self::assertSame(1, $block->attributes['min']['default'] ?? null);
         self::assertSame(3, $block->attributes['max']['default'] ?? null);
-        self::assertArrayHasKey('options', $block->attributes);
+        self::assertArrayHasKey('set', $block->attributes);
     }
 
     public function testASubmitStoresTheOrderedKeysAndRefusesTooMany(): void
     {
-        $definition = $this->forms->definition($this->readForm($this->slotForm($this->ranking())));
+        $definition = $this->forms->definition($this->readForm($this->eventForm($this->ranking())));
         $required = ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org'];
 
         $validated = $this->forms->validate($definition, $required + ['modulok' => ['modul_c', 'modul_a']]);
@@ -99,7 +148,7 @@ final class RankingFieldFormTest extends FormsTestCase
     public function testARequiredRankingLeftEmptyHasCoresRequiredError(): void
     {
         $definition = $this->forms->definition(
-            $this->readForm($this->slotForm($this->ranking('modulok', ['required' => true])))
+            $this->readForm($this->eventForm($this->ranking('modulok', ['required' => true])))
         );
 
         try {
@@ -221,8 +270,8 @@ final class RankingFieldFormTest extends FormsTestCase
             ['value' => 'modul_b', 'label' => 'Modul D'],
         ];
         $id = $this->insertChecked(
-            $this->ranking('modulok', ['options' => $options]),
-            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+            $this->own('modulok', ['options' => $options]),
+            ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional']
         );
         self::assertSame('publish', get_post_status($id));
 
@@ -250,8 +299,8 @@ final class RankingFieldFormTest extends FormsTestCase
         ];
         foreach ($bad as $why => $options) {
             $id = $this->insertUnderived(
-                $this->ranking('modulok', ['options' => $options]),
-                ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+                $this->own('modulok', ['options' => $options]),
+                ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional']
             );
             try {
                 $this->forms->definition($this->readForm($id));
@@ -262,8 +311,8 @@ final class RankingFieldFormTest extends FormsTestCase
         }
         // The save check refuses to publish it: a new form stays a draft.
         $refused = $this->insertChecked(
-            $this->ranking('modulok', ['options' => []]),
-            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+            $this->own('modulok', ['options' => []]),
+            ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional']
         );
         self::assertSame('draft', get_post_status($refused));
     }
@@ -274,14 +323,14 @@ final class RankingFieldFormTest extends FormsTestCase
             'match' => 'all',
             'items' => [['key' => 'modulok', 'operator' => 'equals', 'value' => $value]],
         ]]) . ' -->' . $this->field('text', 'x') . '<!-- /wp:kalaka/if -->';
-        $meta = ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional'];
+        $meta = ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional'];
 
         // An option key of the ranking is accepted.
-        $good = $this->insertUnderived($this->ranking() . $branch('modul_a'), $meta);
+        $good = $this->insertUnderived($this->own() . $branch('modul_a'), $meta);
         self::assertCount(1, $this->forms->definition($this->readForm($good))->field('x')?->branches ?? []);
 
         // A stale key, one the ranking no longer has, is refused.
-        $stale = $this->insertUnderived($this->ranking() . $branch('modul_x'), $meta);
+        $stale = $this->insertUnderived($this->own() . $branch('modul_x'), $meta);
         try {
             $this->forms->definition($this->readForm($stale));
             self::fail('A condition on a key that is not an option of the ranking was accepted.');
@@ -290,15 +339,75 @@ final class RankingFieldFormTest extends FormsTestCase
         }
     }
 
+    public function testAnOwnOptionsRankingSubmitsLikeASetsAndRefusesAnOptionItDoesNotHave(): void
+    {
+        $definition = $this->forms->definition($this->readForm($this->eventForm($this->own())));
+        $required = ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org'];
+
+        $validated = $this->forms->validate($definition, $required + ['modulok' => ['modul_c', 'modul_a']]);
+        self::assertSame('["modul_c","modul_a"]', $validated->stored()['modulok']);
+        foreach ([['modul_x'], ['modul_a', 'modul_a']] as $sent) {
+            try {
+                $this->forms->validate($definition, $required + ['modulok' => $sent]);
+                self::fail('An option the block does not have, or a repeat, was accepted.');
+            } catch (InvalidAnswers $e) {
+                self::assertSame(['modulok' => RankingFieldType::NOT_OFFERED], $e->fields);
+            }
+        }
+    }
+
+    public function testAnOwnOptionsRankingOpensInItsOrderAndIsNoSetsRequestField(): void
+    {
+        $html = $this->page(['modulok' => '["modul_c","modul_a"]'], 2, true);
+
+        self::assertSame(2, preg_match_all('#value="(modul_[a-c])"[^>]* checked>#', self::ranked($html), $keys));
+        self::assertSame(['modul_c', 'modul_a'], $keys[1]);
+        self::assertStringNotContainsString('Hibás vagy hiányzó adat.', $html);
+        // It names no set, so no set has it as its request field.
+        $set = (new AssignmentSets($this->runner))->find($this->set);
+        self::assertNotNull($set);
+        self::assertNull($set->requestFieldKey);
+    }
+
+    public function testAFormMayHoldARankingOfASetAndOneWithItsOwnOptions(): void
+    {
+        $id = $this->insertChecked(
+            $this->slotFields() . $this->ranking('modulok') . $this->own('masodik'),
+            ['kalaka_event_id' => $this->event]
+        );
+        self::assertSame('publish', get_post_status($id));
+        $definition = $this->forms->definition($this->readForm($id));
+        // Each reads its own options: the set's three, and the block's three.
+        self::assertSame(['modul_a', 'modul_b', 'modul_c'], RankingFieldType::optionKeys(
+            $definition->field('modulok')?->attributes ?? []
+        ));
+        self::assertSame(['modul_a', 'modul_b', 'modul_c'], RankingFieldType::optionKeys(
+            $definition->field('masodik')?->attributes ?? []
+        ));
+        $set = (new AssignmentSets($this->runner))->find($this->set);
+        self::assertSame('modulok', $set?->requestFieldKey);
+    }
+
+    public function testASetsBlockIgnoresOptionsLeftOverFromItsOwnDays(): void
+    {
+        $left = [['value' => 'regi_a', 'label' => 'Régi A'], ['label' => 'Régi B']];
+        $id = $this->insertChecked(
+            $this->slotFields() . $this->ranking('modulok', ['options' => $left]),
+            ['kalaka_event_id' => $this->event]
+        );
+        $field = $this->forms->definition($this->readForm($id))->field('modulok');
+        self::assertSame(['modul_a', 'modul_b', 'modul_c'], RankingFieldType::optionKeys($field?->attributes ?? []));
+    }
+
     public function testItIsDeclaredAsTheEventsParticipantFieldWithoutOptions(): void
     {
         $this->insertChecked(
             $this->ranking(),
-            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+            ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional']
         );
 
         $fields = [];
-        foreach ($this->forms->participantFields(self::EVENT) as $field) {
+        foreach ($this->forms->participantFields($this->event) as $field) {
             $fields[$field->key] = $field;
         }
         self::assertArrayHasKey('modulok', $fields);
@@ -310,28 +419,26 @@ final class RankingFieldFormTest extends FormsTestCase
     }
 
     /**
-     * The form page of a published event's registration form holding the ranking, opened with the stored values
-     * (`FormHost::prefill()`: a draft, an additional form's current values).
+     * The form page of the event's registration form holding the ranking (its options the set's, or its own), the event
+     * published, opened with the stored values (`FormHost::prefill()`: a draft, an additional form's current
+     * values).
      *
      * @param array<string, string> $stored
      */
-    private function page(array $stored, int $max = 2): string
+    private function page(array $stored, int $max = 2, bool $own = false): string
     {
         $day = static fn (int $offset): string => Runner::current()->clock()->now()->setTimezone(wp_timezone())
             ->setTime(0, 0)->modify(sprintf('%+d days', $offset))->format('Y-m-d H:i');
-        $event = $this->create('Nyári tábor');
-        $this->update($event, [
+        $this->update($this->event, [
             'name' => 'Nyári tábor',
             'registration_opens_at' => $day(-1),
             'registration_closes_at' => $day(10),
             'starts_at' => $day(30),
             'ends_at' => $day(36),
         ]);
-        $this->transition(new PublishEvent(), $event);
-        $formId = $this->insertForm(
-            $this->slotFields() . $this->ranking('modulok', ['required' => true, 'max' => $max]),
-            ['kalaka_event_id' => $event]
-        );
+        $this->transition(new PublishEvent(), $this->event);
+        $attributes = ['required' => true, 'max' => $max];
+        $formId = $this->eventForm($own ? $this->own('modulok', $attributes) : $this->ranking('modulok', $attributes));
 
         return (new FormPage(new PrefillingHost(new EventFormHost(), $stored)))->html(
             $formId,
@@ -393,7 +500,7 @@ final class RankingFieldFormTest extends FormsTestCase
     public function testASubmittedRankingOpensAgainInTheOrderItWasSent(): void
     {
         // The form sends `modulok[]` in rank order; the type stores that list, and the page opens with it.
-        $definition = $this->forms->definition($this->readForm($this->slotForm($this->ranking())));
+        $definition = $this->forms->definition($this->readForm($this->eventForm($this->ranking())));
         $stored = $this->forms->validate($definition, [
             'name' => 'Teszt Anna',
             'email' => 'teszt.anna@example.org',

@@ -12,11 +12,11 @@ use Kalaka\Foundation\Api\Actor\Actor;
  * never imports Events, Registrations, ParticipantFields or Admin; it asks here (deptrac: the
  * `Forms Engine` layer). Like `BlockHost`, it lets the engine work without knowing the module behind it.
  *
- * The seven ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
+ * The eight ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), what
- * the after-submit section reads (`afterSubmitTypes()`), and whether the form needs an account
- * (`accountStep()`).
+ * the values the form opens with (`prefill()`), the options of the set a request field names
+ * (`requestOptions()`), what a submit does (`submitToken()`, `submit()`), what the after-submit section
+ * reads (`afterSubmitTypes()`), and whether the form needs an account (`accountStep()`).
  */
 interface FormHost
 {
@@ -68,6 +68,13 @@ interface FormHost
      * @return array<string, string>
      */
     public function prefill(Form $form): array;
+
+    /**
+     * The options and the choice window of the set a request field names (`RequestFieldType`), for the
+     * form: null when the form's event has no such set in request mode (the form is then unusable). Read
+     * when the definition is parsed, outside any transaction.
+     */
+    public function requestOptions(Form $form, int $setId): ?RequestOptions;
 
     /** A new submit token, issued on every render of the form's page into its hidden field. */
     public function submitToken(): string;

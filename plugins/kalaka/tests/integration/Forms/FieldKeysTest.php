@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\FormDefinition;
-use Kalaka\Forms\KeyDerivation;
+use Kalaka\Forms\Api\KeyDerivation;
 
 /** Keys and option values come from the visible text, set on save (events-and-forms.md, "Fields"). */
 final class FieldKeysTest extends FormsTestCase

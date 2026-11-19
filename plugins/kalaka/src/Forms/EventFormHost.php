@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
@@ -16,6 +17,7 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
@@ -29,14 +31,17 @@ use Kalaka\Registrations\Api\SubmitToken;
  * (`Form::$eventId`). The conditions read the event's keys (`EventValues`), the access refusals are the
  * event's (`refusalsOf()`), a field key is unique across the event's participant fields
  * (`ParticipantField\SharedKeyCheck`), a submit is a registration (`Registrations\Api\RegistrationSubmit`),
- * the after-submit section reads the event's keys and the new registration's (`AfterSubmit`), and a
- * registration form needs or offers an account by the event's account mode (`accountStepOf()`).
+ * the after-submit section reads the event's keys and the new registration's (`AfterSubmit`), a
+ * registration form needs or offers an account by the event's account mode (`accountStepOf()`), and a
+ * request field's options are those of a request-mode set of the form's event
+ * (`Assignments\Api\AssignmentSets`).
  */
 final class EventFormHost implements FormHost
 {
     public function __construct(
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
+        private readonly AssignmentSets $sets = new AssignmentSets(),
     ) {
     }
 
@@ -147,6 +152,21 @@ final class EventFormHost implements FormHost
         }
 
         return null;
+    }
+
+    public function requestOptions(Form $form, int $setId): ?RequestOptions
+    {
+        $set = $this->sets->find($setId);
+        if ($set === null || $set->eventId !== $form->eventId) {
+            return null;
+        }
+        $options = [];
+        foreach ($set->options as $option) {
+            $options[] = ['value' => $option->key, 'label' => $option->label]
+                + ($option->condition === null ? [] : ['condition' => $option->condition]);
+        }
+
+        return new RequestOptions($options, $set->windowOpens, $set->windowCloses);
     }
 
     public function submitToken(): string

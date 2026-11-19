@@ -10,7 +10,7 @@ import { FieldInspector, FieldTitle, preview, REQUIRED, useStableKey } from '../
  * it is shown only in the key panel. Adding an option, by the button or Enter in a label, moves the focus
  * to the new label.
  */
-function Options({ options, setAttributes, commit }) {
+export function Options({ options, setAttributes, commit }) {
 	const inputs = useRef([]);
 	const [focus, setFocus] = useState(null);
 	useEffect(() => {

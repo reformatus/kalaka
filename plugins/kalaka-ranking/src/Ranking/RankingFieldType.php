@@ -7,7 +7,9 @@ namespace Kalaka\Ranking;
 use Kalaka\Forms\Api\AbstractFieldType;
 use Kalaka\Forms\Api\FieldAnswer;
 use Kalaka\Forms\Api\FieldTypeInput;
+use Kalaka\Forms\Api\KeyDerivation;
 use Kalaka\Forms\Api\OptionsFieldType;
+use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -19,17 +21,17 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * Stored as that list in JSON, like a multiple choice; for a condition it is a choice value (the order
  * is not compared), and its text numbers the option labels.
  *
- * The options are the block's own list of `{value, label}` until S44's assignment sets exist (S44-1,
- * default; re-asked in S44), so it is an `OptionsFieldType`: core derives a missing option key on save and
- * the definition check refuses a block without a valid option, as for a choice's options. Every option is
- * offered: TODO(S76) the set's options are filtered by their eligibility conditions once S44 holds them.
+ * The `set` attribute decides where its options come from (the owner's ruling, 2026-11-18). A block that
+ * names a set (S44-1) has the set's options: core fills the block's `options` attribute from the set
+ * (`RequestFieldType`), each `{value, label}` with its eligibility condition, and offers only the options
+ * whose condition holds for the answers before it (S76); the field it declares is the set's one request
+ * field. A block with no `set` holds its own list of `{value, label}` in `options`, every option offered, and
+ * is an `OptionsFieldType` there: core derives a missing option key on save and the definition check refuses
+ * a block without a valid option, as for a choice.
  */
-final class RankingFieldType extends AbstractFieldType implements OptionsFieldType
+final class RankingFieldType extends AbstractFieldType implements RequestFieldType, OptionsFieldType
 {
     public const BLOCK_NAME = 'kalaka/ranking-field';
-
-    /** An option key: the same rule as a choice option's value. */
-    public const OPTION_KEY_PATTERN = '/\A[a-z0-9][a-z0-9_-]{0,63}\z/';
 
     /** The fewest and most options a ranking holds when the block sets none (S45-1: min 1, max 3). */
     public const DEFAULT_MIN = 1;
@@ -78,6 +80,17 @@ final class RankingFieldType extends AbstractFieldType implements OptionsFieldTy
     public function blockName(): string
     {
         return self::BLOCK_NAME;
+    }
+
+    /**
+     * The set the block names: its `set` attribute, an integer; none (own options) when the attribute is absent.
+     * 0 is "a set, none chosen yet": a problem on save.
+     */
+    public function requestSet(array $attributes): ?int
+    {
+        $set = $attributes['set'] ?? null;
+
+        return is_int($set) ? $set : null;
     }
 
     /**
@@ -239,7 +252,7 @@ final class RankingFieldType extends AbstractFieldType implements OptionsFieldTy
         foreach ($options as $option) {
             $key = is_array($option) ? ($option['value'] ?? null) : null;
             if (
-                is_string($key) && preg_match(self::OPTION_KEY_PATTERN, $key) === 1
+                is_string($key) && preg_match(KeyDerivation::VALUE_PATTERN, $key) === 1
                 && !array_key_exists($key, $labels)
             ) {
                 $label = $option['label'] ?? '';
