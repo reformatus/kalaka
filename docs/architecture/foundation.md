@@ -66,10 +66,10 @@ reached; the grant defines who holds the view.**
     contribute columns and filterable facts.
   - Filters and sorts use only stored facts and decisions
     ([Facts and decisions](#facts-decisions-and-computed-values)), so they
-    stay per-event indexed queries under the `EXPLAIN` test. A tree or map
-    lookup is expanded in SQL ("congregation in the descendants of X", "lunch
-    option in the mapped options"). PHP computes only display and export
-    columns.
+    stay per-event indexed queries under the `EXPLAIN` test. A map lookup is
+    expanded in SQL ("lunch option in the mapped options"); a congregation
+    level matches the answer's stored path snapshot. PHP computes only display
+    and export columns.
   - A filter may take **one parameter bound at grant time** (e.g. "program
     roster, program = ?"), so twelve module leaders need one view.
   - View definitions are copied to the next event, optionally with their
