@@ -558,8 +558,8 @@ registration's decisions, money and mail up to date with its facts.
 sort on the first two ([Views and grants](#views-and-grants)).
 
 - **Facts** come from people's acts: field values, payments (with their
-  value date), the manual confirmation flag (with its set time),
-  assignments, status, the "full" latch and "not counted". They are ordinary
+  value date), the manual confirmation flag (with its set time), staff's
+  unconfirm, assignments, status, the "full" latch and "not counted". They are ordinary
   audited writes.
   - **A field value is a fact,** whatever writes it. By the participant
     field's source ([Fields](events-and-forms.md#fields)): answers copied
@@ -575,6 +575,10 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **Each decision is an append-only transition record** with kind, state,
     effective time, recorded time, cause (record type, event and key) and
     actor. The current state is the latest record.
+  - **A kind may declare a base state** for the statuses it is defined for:
+    there, no record reads as the base state, derived and never written; in
+    any other status the kind has no state. Every read applies it, the view
+    filters too (confirmation: `unconfirmed`, for `registered` only).
   - The records live in their own table, indexed by event first.
   - **A decision is never recomputed;** only a named transition changes it.
   - **A kind is declared with a Hungarian label and its states, each with a

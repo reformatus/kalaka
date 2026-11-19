@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Api\Decision\DecisionInput;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Money\Money;
@@ -65,8 +66,8 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
         $this->evaluate($anna);
 
         self::assertSame(
-            'confirmed 2026-11-19 23:00:00 ledger_line',
-            $this->confirmations($anna)[1],
+            ['confirmed 2026-11-19 23:00:00 ledger_line'],
+            $this->confirmations($anna),
             'Confirmation saw the target the support place changed earlier in the same pass.'
         );
         self::assertContains('support participant -4000 charge:support:participant:1', $this->charges($anna));
@@ -84,8 +85,8 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
 
         self::assertSame('confirmed', $this->confirmationState($anna));
         self::assertCount(1, $place->inputs);
-        self::assertSame(['confirmation'], array_keys($place->inputs[0]->decisions));
-        self::assertSame('unconfirmed', $place->inputs[0]->decisions['confirmation']->state);
+        // A rule reads the records: no confirmation record yet, which is the base state, unconfirmed.
+        self::assertSame([], array_keys($place->inputs[0]->decisions));
     }
 
     public function testACoreRuleReadsOnlyItsOwnKindAndTheCoreKindsBeforeIt(): void
@@ -97,9 +98,9 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
             $rules->add($extension, false, readsTarget: true);
         });
         $this->rules->add($coreAfter, true, readsTarget: true);
-        $this->setPrice('10000');
         $coreAfter->inputs = [];
 
+        // Nothing due: confirmation writes its record, and the core rule after it sees it.
         $this->register('00A0');
 
         self::assertSame(['confirmation'], array_keys($coreAfter->inputs[0]->decisions));
@@ -166,6 +167,8 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
     private function decideStatements(RegistrationKey $key): array
     {
         $rule = new ConfirmationRule();
+        // Each measure starts from a cold cache, so earlier runs' reads do not hide a statement.
+        ObjectCache::clear();
 
         return $this->statementsDuring(static function () use ($rule, $key): void {
             $rule->decide(new DecisionInput($key, new \DateTimeImmutable('2026-12-01 10:00:00'), []));

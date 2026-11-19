@@ -16,11 +16,11 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
- * The shared body of setting and revoking the manual confirmation flag (money.md, "Confirmation"): one
+ * The shared body of setting the manual confirmation flag and of unconfirming (money.md, "Confirmation"): one
  * registration and a required reason, which the audit entry carries. Both are idempotent: setting a set flag
- * or revoking one that is not set writes nothing and succeeds. Carried by `kalaka_confirm_manually` inside its
- * grant's view, or full access. The registration's status does not matter: the flag is a fact, and
- * confirmation reads it only while the registration is `registered`. [UNAPPROVED N6]
+ * or unconfirming a registration that is not confirmed writes nothing and succeeds. Carried by
+ * `kalaka_confirm_manually` inside its grant's view, or full access. Setting the flag works in any status: the
+ * flag is a fact, and confirmation reads it only while the registration is `registered`. [UNAPPROVED N6, N12]
  */
 abstract class ManualConfirmationChange implements AdminUseCase
 {
@@ -31,7 +31,7 @@ abstract class ManualConfirmationChange implements AdminUseCase
     }
 
     /**
-     * Sets or revokes the flag of the locked registration; the stored record or null as it was.
+     * Changes the locked registration; `$flag` is its stored flag or null, as it was.
      *
      * @return bool whether anything was written
      */

@@ -55,10 +55,13 @@ retention and the materializer
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
   refuses (a negative price).
-- Once confirmed, a registration never becomes unconfirmed because amounts
-  change later, an apply included (owner rule, 2026-11-14): only a run that
-  records a refund or revokes the manual flag can unconfirm it, and only
-  while its payments are then below a threshold and no flag is set.
+- Once confirmed, a registered registration never becomes unconfirmed because
+  amounts change later, an apply included (owner rule, 2026-11-14), nor by a
+  refund (the owner's ruling 2026-11-19): only staff's unconfirm
+  (`kalaka/unconfirm`, newer than the current `confirmed` record) unconfirms
+  it. `Api\ManualConfirmations::canUnconfirm()` is the one check of whether
+  it is allowed (confirmed, not because nothing was due, payments below a
+  threshold), for the use case and the detail read alike.
 - There is one fee composition, `Api\FeeComposition`: the materializer records
   its difference, and confirmation reads each payer's target from it
   read-only, inside the decision; it reads no ledger line and writes nothing.
@@ -68,13 +71,17 @@ retention and the materializer
   that reads a target: every payer with something owed must reach its own
   threshold (core: the full target; `Api\ConfirmationThreshold` may lower it,
   held between zero and the target). It decides only for a `registered`
-  registration; leaving `registered` closes a confirmed sequence with an
-  `unconfirmed` record, so a restore writes a new record.
-- The manual flag is a fact in `kalaka_manual_confirmations`, set and revoked
-  only by `kalaka/set-manual-confirmation` and
-  `kalaka/revoke-manual-confirmation` (the per-event action
-  `kalaka_confirm_manually`), with a required reason, idempotently; a revoke
-  keeps the row with its revoke time.
+  registration and writes no first record: its declared base state
+  (`defaultState()`) makes no record read `unconfirmed` for a `registered`
+  registration and no state for any other. Leaving `registered` closes a
+  confirmed sequence with an `unconfirmed` record, so a restore writes a new
+  record.
+- The manual flag is a fact in `kalaka_manual_confirmations`, set only by
+  `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
+  Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
+  registration), written only by `kalaka/unconfirm`. Both use cases take the
+  per-event action `kalaka_confirm_manually` and a required reason, and are
+  idempotent; a revoke keeps the flag's row with its revoke time.
 - No mail comes from Pricing; its UI texts are the decision's labels and the
   abilities' labels.
 - Only Pricing writes its tables.

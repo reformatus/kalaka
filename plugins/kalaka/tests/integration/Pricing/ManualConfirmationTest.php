@@ -16,16 +16,16 @@ use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Pricing\CoreFeeComponents;
-use Kalaka\Pricing\RevokeManualConfirmation;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Pricing\SetManualConfirmation;
+use Kalaka\Pricing\Unconfirm;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 
 /**
- * The manual confirmation flag's use cases (money.md, "Confirmation"): set and revoke with a required reason,
- * audited, idempotent, carried by `kalaka_confirm_manually` inside its grant's view or full access, and
- * evaluated in the same run.
+ * The manual confirmation flag and staff's unconfirm (money.md, "Confirmation"; the owner's ruling 2026-11-19):
+ * set and unconfirm with a required reason, audited, idempotent, carried by `kalaka_confirm_manually` inside
+ * its grant's view or full access, and evaluated in the same run.
  */
 final class ManualConfirmationTest extends ManualEntryTestCase
 {
@@ -62,12 +62,12 @@ final class ManualConfirmationTest extends ManualEntryTestCase
     }
 
     /** @return list<array<string, ?string>> */
-    private function flagRows(): array
+    private function flagRows(string $table = 'kalaka_manual_confirmations'): array
     {
         global $wpdb;
         $rows = $wpdb->get_results($wpdb->prepare(
             'SELECT * FROM %i WHERE event_id = %d',
-            $wpdb->prefix . 'kalaka_manual_confirmations',
+            $wpdb->prefix . $table,
             $this->event
         ), ARRAY_A);
         self::assertIsArray($rows);
@@ -122,27 +122,34 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         self::assertContains('registration/' . $this->event . '/00A0', $this->subjectsOf($entry['id']));
     }
 
-    public function testRevokingUnconfirmsBelowAndKeepsTheRowWithItsRevokeTime(): void
+    public function testUnconfirmingBelowRevokesTheFlagRecordsWhoWhenWhyAndIsAudited(): void
     {
         $this->exec(new SetManualConfirmation(), $this->input());
         $this->runner = $this->runnerAt('2026-12-01 10:00');
 
         self::assertSame(
             ['changed' => true],
-            $this->exec(new RevokeManualConfirmation(), $this->input(['reason' => 'Teszt visszavonás']))
+            $this->exec(new Unconfirm(), $this->input(['reason' => 'Teszt visszavonás']))
         );
 
         self::assertSame('unconfirmed', $this->confirmationState());
-        $rows = $this->flagRows();
-        self::assertSame('2026-12-01 09:00:00.000000', $rows[0]['revoked_at']);
-        self::assertSame('Teszt visszavonás', $this->entryOf('kalaka/revoke-manual-confirmation')['reason']);
+        self::assertSame('2026-12-01 09:00:00.000000', $this->flagRows()[0]['revoked_at']);
+        $unconfirmed = $this->flagRows('kalaka_unconfirmations');
+        self::assertCount(1, $unconfirmed);
+        self::assertSame('2026-12-01 09:00:00.000000', $unconfirmed[0]['unconfirmed_at']);
+        self::assertSame((string) $this->admin->userId, $unconfirmed[0]['unconfirmed_by']);
+        self::assertSame('Teszt visszavonás', $unconfirmed[0]['reason']);
+        $entry = $this->entryOf('kalaka/unconfirm');
+        self::assertSame('Teszt visszavonás', $entry['reason']);
+        self::assertStringNotContainsString('Teszt visszavonás', (string) $entry['changes']);
         self::assertNull((new ManualConfirmations())->of(new RegistrationKey($this->event, '00A0')));
     }
 
     public function testBothAreIdempotentAndASetFlagKeepsItsTimeAndReason(): void
     {
-        self::assertSame(['changed' => false], $this->exec(new RevokeManualConfirmation(), $this->input()));
+        self::assertSame(['changed' => false], $this->exec(new Unconfirm(), $this->input()), 'Not confirmed.');
         self::assertSame([], $this->flagRows());
+        self::assertSame([], $this->flagRows('kalaka_unconfirmations'));
 
         $this->exec(new SetManualConfirmation(), $this->input());
         $this->runner = $this->runnerAt('2026-12-01 10:00');
@@ -160,10 +167,11 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         self::assertSame('[]', (string) $entry['changes']);
     }
 
-    public function testASetAfterARevokeReplacesTheFlag(): void
+    public function testASetAfterAnUnconfirmReplacesTheFlagAndConfirmsAgain(): void
     {
         $this->exec(new SetManualConfirmation(), $this->input());
-        $this->exec(new RevokeManualConfirmation(), $this->input());
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+        $this->exec(new Unconfirm(), $this->input());
         $this->runner = $this->runnerAt('2026-12-02 10:00');
 
         $this->exec(new SetManualConfirmation(), $this->input(['reason' => 'Új indok']));
@@ -234,17 +242,19 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         $this->grantOn($user, [ManualConfirmations::CONFIRM_MANUALLY], 'waitlisted');
 
         $this->expectException(PermissionDenied::class);
-        $this->exec(new RevokeManualConfirmation(), $this->input(), new UserActor($user));
+        $this->exec(new Unconfirm(), $this->input(), new UserActor($user));
     }
 
-    public function testAGrantWithTheActionInsideItsViewSetsAndRevokes(): void
+    public function testAGrantWithTheActionInsideItsViewSetsAndUnconfirms(): void
     {
         $user = $this->plainUser();
         $this->grantOn($user, [ManualConfirmations::CONFIRM_MANUALLY]);
 
         $this->exec(new SetManualConfirmation(), $this->input(), new UserActor($user));
         self::assertSame((string) $user, $this->flagRows()[0]['set_by']);
-        $this->exec(new RevokeManualConfirmation(), $this->input(), new UserActor($user));
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+        $this->exec(new Unconfirm(), $this->input(), new UserActor($user));
         self::assertNotNull($this->flagRows()[0]['revoked_at']);
+        self::assertSame((string) $user, $this->flagRows('kalaka_unconfirmations')[0]['unconfirmed_by']);
     }
 }

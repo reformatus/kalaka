@@ -148,7 +148,12 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   and nobody sets a decision directly. The current state of a kind is its
   latest record.
 - A decision kind is declared with a Hungarian label and its states, each
-  with a Hungarian label; the grid shows those labels for every kind.
+  with a Hungarian label; the grid shows those labels for every kind. A kind
+  may declare a base state (`DecisionDefault`) for the statuses it is defined
+  for: no record reads as it there, and any other status reads no state. It
+  is never written; `Decisions` applies it in PHP and
+  `DecisionTables::stateOf()` in SQL, the one read every view column, filter,
+  sort and aggregate uses. The evaluation's rules read the records.
 - A decision rule returns a transition or nothing and never writes; core
   writes the record, and only when the state changes. The decisions phase
   runs the rules that change a target or read none first (core, then

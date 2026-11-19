@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Decision\DecisionDefault;
 use Kalaka\Foundation\Api\Decision\DecisionInput;
 use Kalaka\Foundation\Api\Decision\DecisionRule;
 use Kalaka\Foundation\Api\Decision\Transition;
@@ -31,6 +32,7 @@ final class TestRule implements DecisionRule
         private readonly array $states = ['on' => 'Be', 'off' => 'Ki'],
         private readonly ?\ArrayObject $asked = null,
         private readonly string $label = 'Teszt',
+        private readonly ?DecisionDefault $default = null,
     ) {
     }
 
@@ -47,6 +49,11 @@ final class TestRule implements DecisionRule
     public function states(): array
     {
         return $this->states;
+    }
+
+    public function defaultState(): ?DecisionDefault
+    {
+        return $this->default;
     }
 
     public function decide(DecisionInput $input): ?Transition

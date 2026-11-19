@@ -6,11 +6,17 @@ namespace Kalaka\Tests\Integration\Pricing;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Pricing\RevokeManualConfirmation;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Pricing\Api\Materializer;
+use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Pricing\SetManualConfirmation;
+use Kalaka\Pricing\Unconfirm;
 use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 
-/** S20: setting and revoking the manual confirmation flag as WordPress abilities, through WordPress's own path. */
+/** S20: setting the manual confirmation flag and unconfirming as WordPress abilities, through WordPress's own path. */
 final class ManualConfirmationAbilityTest extends ManualEntryTestCase
 {
     private Runner $production;
@@ -35,6 +41,15 @@ final class ManualConfirmationAbilityTest extends ManualEntryTestCase
         parent::tear_down();
     }
 
+    protected function runnerAt(string $local): Runner
+    {
+        $money = new Materializer(new CoreFeeComponents([]));
+        $rules = new DecisionRules();
+        $rules->add(new ConfirmationRule($money->composition()), true, true);
+
+        return new Runner($this->clockAt($local), true, new Evaluation($rules, money: $money));
+    }
+
     private function ability(string $name): \WP_Ability
     {
         $ability = wp_get_ability($name);
@@ -48,10 +63,7 @@ final class ManualConfirmationAbilityTest extends ManualEntryTestCase
         foreach (
             [
                 'kalaka/set-manual-confirmation' => [new SetManualConfirmation(), 'Visszaigazolás fizetés nélkül'],
-                'kalaka/revoke-manual-confirmation' => [
-                    new RevokeManualConfirmation(),
-                    'Fizetés nélküli visszaigazolás visszavonása',
-                ],
+                'kalaka/unconfirm' => [new Unconfirm(), 'Visszaigazolás visszavonása'],
             ] as $name => [$useCase, $label]
         ) {
             $ability = $this->ability($name);
@@ -62,13 +74,15 @@ final class ManualConfirmationAbilityTest extends ManualEntryTestCase
         }
     }
 
-    public function testAFullAccessUserSetsAndRevokesThroughTheAbilities(): void
+    public function testAFullAccessUserSetsAndUnconfirmsThroughTheAbilities(): void
     {
         wp_set_current_user($this->admin->userId);
+        $this->exec(new SetFixedPrice(), ['event_id' => $this->event, 'amount' => '8000', 'currency' => 'HUF']);
         $input = ['event_id' => $this->event, 'code' => '00A0', 'reason' => 'Teszt indok'];
 
         self::assertSame(['changed' => true], $this->ability('kalaka/set-manual-confirmation')->execute($input));
-        self::assertSame(['changed' => true], $this->ability('kalaka/revoke-manual-confirmation')->execute($input));
+        Runner::publish($this->runnerAt('2026-12-01 10:00'));
+        self::assertSame(['changed' => true], $this->ability('kalaka/unconfirm')->execute($input));
     }
 
     public function testWordPressRefusesAMissingReason(): void

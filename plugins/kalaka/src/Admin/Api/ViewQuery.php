@@ -153,12 +153,8 @@ final class ViewQuery extends Query
                 : $value) . $direction . ', ' . $serialOrder;
             $sortArgs = [$this->table(RegistrationTables::FIELD_VALUES), substr($sort, 6)];
         } elseif ($sort !== null && str_starts_with($sort, 'decision:')) {
-            $order = DecisionTables::currentState('r', 's', 'n') . $direction . ', ' . $serialOrder;
-            $sortArgs = [
-                $this->table(DecisionTables::DECISIONS),
-                $this->table(DecisionTables::DECISIONS),
-                substr($sort, 9),
-            ];
+            [$state, $sortArgs] = $this->decisionState(substr($sort, 9), 's', 'n');
+            $order = $state . $direction . ', ' . $serialOrder;
         }
 
         $total = $this->count($view, $narrowing);
@@ -193,7 +189,11 @@ final class ViewQuery extends Query
             $codes = array_map(static fn (array $row): string => (string) $row['code'], $registrations);
 
             $fields = $this->fieldValues($eventId, $codes, $shape->fieldKeys());
-            $decisions = $this->decisions->currentStates($eventId, $codes, $shape->decisionKinds());
+            $statuses = [];
+            foreach ($registrations as $registration) {
+                $statuses[(string) $registration['code']] = RegistrationStatus::from((string) $registration['status']);
+            }
+            $decisions = $this->decisions->currentStates($eventId, $statuses, $shape->decisionKinds());
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
             $submitted = $shape->lists('submitted_at') ? $this->firstSubmissionTimes($eventId, $codes) : [];
 
@@ -280,13 +280,12 @@ final class ViewQuery extends Query
         $conditions .= $narrow;
         array_push($conditionArgs, ...$narrowArgs);
         $values = $this->table(RegistrationTables::FIELD_VALUES);
-        $decisions = $this->table(DecisionTables::DECISIONS);
 
         /** @var list<literal-string> $selects */
         $selects = [];
         $args = [];
         foreach ($specs as $index => $spec) {
-            [$expression, $expressionArgs] = self::aggregate($spec, $values, $decisions);
+            [$expression, $expressionArgs] = $this->aggregate($spec, $values);
             $selects[] = $expression . ' AS %i';
             array_push($args, ...$expressionArgs);
             $args[] = 'a' . $index;
@@ -580,9 +579,7 @@ final class ViewQuery extends Query
             return ['r.status ' . $not . 'IN (' . $in . ')', $value];
         }
         if (str_starts_with($column, 'decision:')) {
-            $state = DecisionTables::currentState('r', 'd', 'm');
-            $decisions = $this->table(DecisionTables::DECISIONS);
-            $kindArgs = [$decisions, $decisions, substr($column, 9)];
+            [$state, $kindArgs] = $this->decisionState(substr($column, 9));
             if (is_array($value)) {
                 return $this->decisionMembers($filter, $state, $kindArgs, $value);
             }
@@ -733,9 +730,7 @@ final class ViewQuery extends Query
             ];
         }
         if (str_starts_with($column, 'decision:')) {
-            $state = DecisionTables::currentState('r', 'd', 'm');
-            $decisions = $this->table(DecisionTables::DECISIONS);
-            $kindArgs = [$decisions, $decisions, substr($column, 9)];
+            [$state, $kindArgs] = $this->decisionState(substr($column, 9));
             if ($keys === null) {
                 return ['(' . $state . ' LIKE %s COLLATE ' . self::SQL_COLLATION . ')', [...$kindArgs, $like]];
             }
@@ -874,7 +869,7 @@ final class ViewQuery extends Query
      *
      * @return array{0: literal-string, 1: list<string>}
      */
-    private static function aggregate(AggregateSpec $spec, string $values, string $decisions): array
+    private function aggregate(AggregateSpec $spec, string $values): array
     {
         $field = 'SELECT 1 FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code AND s.field_key = %s';
         $number = '(SELECT CAST(s.value AS DECIMAL(26,8)) FROM %i s WHERE s.event_id = r.event_id'
@@ -899,9 +894,11 @@ final class ViewQuery extends Query
             return ['COALESCE(SUM(r.status IN (' . $in . ')), 0)', $spec->members];
         }
         if (str_starts_with($spec->column, 'decision:')) {
+            [$state, $stateArgs] = $this->decisionState(substr($spec->column, 9));
+
             return [
-                'COALESCE(SUM(' . DecisionTables::currentState('r', 'd', 'm') . ' IN (' . $in . ')), 0)',
-                [$decisions, $decisions, substr($spec->column, 9), ...$spec->members],
+                'COALESCE(SUM(' . $state . ' IN (' . $in . ')), 0)',
+                [...$stateArgs, ...$spec->members],
             ];
         }
 
@@ -961,17 +958,35 @@ final class ViewQuery extends Query
                     . ' AND f.field_key = %s AND f.value IN (' . $in . '))';
                 array_push($args, $this->table(RegistrationTables::FIELD_VALUES), substr($column, 6), ...$values);
             } else {
-                $fragments[] = ' AND ' . DecisionTables::currentState('r', 'd', 'm') . ' IN (' . $in . ')';
-                array_push(
-                    $args,
-                    $this->table(DecisionTables::DECISIONS),
-                    $this->table(DecisionTables::DECISIONS),
-                    substr($column, 9),
-                    ...$values
-                );
+                [$state, $stateArgs] = $this->decisionState(substr($column, 9));
+                $fragments[] = ' AND ' . $state . ' IN (' . $in . ')';
+                array_push($args, ...$stateArgs, ...$values);
             }
         }
 
         return [implode('', $fragments), $args];
+    }
+
+    /**
+     * The current state of a decision kind for the row `r`, as a column of the grid reads it: the one SQL read
+     * (`DecisionTables::stateOf()`), with the kind's declared base state. [UNAPPROVED N7]
+     *
+     * @param literal-string $outer
+     * @param literal-string $inner
+     * @return array{0: literal-string, 1: list<string>}
+     */
+    private function decisionState(string $kind, string $outer = 'd', string $inner = 'm'): array
+    {
+        $default = $this->decisions->kind($kind)?->default;
+
+        return DecisionTables::stateOf(
+            'r',
+            $outer,
+            $inner,
+            $this->table(DecisionTables::DECISIONS),
+            $kind,
+            $default?->state,
+            $default === null ? [] : $default->statusValues()
+        );
     }
 }

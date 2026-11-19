@@ -30,8 +30,9 @@ final class DecisionRules
     private array $readers = [];
 
     /**
-     * @throws \InvalidArgumentException when the kind is taken or malformed, a state is malformed or missing, or
-     *                                   the kind or a state has no label; nothing is registered then
+     * @throws \InvalidArgumentException when the kind is taken or malformed, a state is malformed or missing, the
+     *                                   kind or a state has no label, or the base state is not a declared state;
+     *                                   nothing is registered then
      * @param bool $readsTarget whether the rule reads a payer's target (the late fee, confirmation): it is
      *                          evaluated after every rule that does not [UNAPPROVED N2]
      */
@@ -58,6 +59,11 @@ final class DecisionRules
             if (trim($label) === '') {
                 throw new \InvalidArgumentException('A state has a label.');
             }
+        }
+
+        $default = $rule->defaultState();
+        if ($default !== null && !isset($states[$default->state])) {
+            throw new \InvalidArgumentException('A base state is a declared state.');
         }
 
         $this->kinds[$kind] = true;

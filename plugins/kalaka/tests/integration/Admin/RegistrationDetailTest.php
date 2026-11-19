@@ -210,6 +210,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'view_money' => true,
                 'record_money' => true,
                 'confirm_manually' => true,
+                'unconfirm' => false,
             ],
             $detail['can']
         );
@@ -344,6 +345,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'view_money' => false,
                 'record_money' => false,
                 'confirm_manually' => false,
+                'unconfirm' => false,
             ],
             $detail['can']
         );
@@ -503,6 +505,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'view_money' => false,
                 'record_money' => false,
                 'confirm_manually' => false,
+                'unconfirm' => false,
             ],
             $detail['can']
         );
@@ -519,6 +522,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'view_money' => true,
                 'record_money' => false,
                 'confirm_manually' => false,
+                'unconfirm' => false,
             ],
             $shown['can']
         );
@@ -534,6 +538,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'view_money' => true,
                 'record_money' => true,
                 'confirm_manually' => false,
+                'unconfirm' => false,
             ],
         ];
         foreach ($cases as $action => $can) {
@@ -708,5 +713,44 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         ObjectCache::clear();
         self::assertNull($this->detail($viewer, decisions: $this->decisions())['registration']['manual_confirmation']);
+    }
+
+    /**
+     * The owner's ruling 2026-11-19: `can.unconfirm` is the unconfirm's own check. It holds for a holder of
+     * `kalaka_confirm_manually` on a confirmed registration whose payments are below the threshold; never at
+     * or above it, never for a confirmation because nothing was due, never without the action.
+     */
+    public function testCanUnconfirmFollowsTheUnconfirmsOwnCheck(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_fixed_prices', [
+            'event_id' => $this->event,
+            'amount' => '10000',
+            'currency' => 'HUF',
+            'version' => 1,
+        ]);
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        self::assertTrue($this->detail($confirmer)['can']['unconfirm'], 'Confirmed, nothing paid.');
+        self::assertTrue($this->detail($this->admin->userId)['can']['unconfirm']);
+        self::assertFalse($this->detail($viewer)['can']['unconfirm'], 'No action.');
+
+        $this->addLine('manual_payment', '-10000', 'manual:p1');
+        ObjectCache::clear();
+        self::assertFalse($this->detail($confirmer)['can']['unconfirm'], 'The payments reach the threshold.');
+
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_decisions',
+            ['cause_type' => 'registration', 'cause_key' => '00A0'],
+            ['event_id' => $this->event, 'code' => '00A0']
+        );
+        $wpdb->delete($wpdb->prefix . 'kalaka_ledger_lines', ['event_id' => $this->event, 'code' => '00A0']);
+        ObjectCache::clear();
+        self::assertFalse($this->detail($confirmer)['can']['unconfirm'], 'Confirmed because nothing was due.');
     }
 }

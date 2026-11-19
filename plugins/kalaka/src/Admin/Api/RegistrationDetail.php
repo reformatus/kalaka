@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
@@ -21,6 +22,7 @@ use Kalaka\Ledger\Api\Side;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
+use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -111,6 +113,7 @@ final class RegistrationDetail
             'view_money' => $viewMoney,
             'record_money' => $record,
             'confirm_manually' => $confirmManually,
+            'unconfirm' => $confirmManually && $this->canUnconfirm($key),
         ];
 
         return $read;
@@ -187,6 +190,19 @@ final class RegistrationDetail
         }
 
         return $part;
+    }
+
+    /**
+     * `can.unconfirm`: the same check `kalaka/unconfirm` makes, at the clock's moment; false when a fee
+     * component fails, as the unconfirm would then fail too. [UNAPPROVED N11, N12]
+     */
+    private function canUnconfirm(RegistrationKey $key): bool
+    {
+        try {
+            return $this->manualConfirmations->canUnconfirm($key, Runner::current()->clock()->now());
+        } catch (FeeComponentFailed) {
+            return false;
+        }
     }
 
     /**

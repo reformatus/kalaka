@@ -7,10 +7,7 @@ namespace Kalaka\Ledger\Api;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Money;
 
-/**
- * A payment-fact line as recorded; the value date, the paid time and the recorded time are UTC instants. The
- * recorded time is the run's moment that wrote it, so a rule can tell a line its own run wrote.
- */
+/** A payment-fact line as recorded; the value date and the paid time are UTC instants. */
 final readonly class PaymentFact
 {
     public function __construct(
@@ -20,7 +17,6 @@ final readonly class PaymentFact
         public Money $amount,
         public ?\DateTimeImmutable $valueDate,
         public ?\DateTimeImmutable $paidAt,
-        public ?\DateTimeImmutable $recordedAt = null,
     ) {
     }
 
