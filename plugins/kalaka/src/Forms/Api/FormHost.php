@@ -103,4 +103,13 @@ interface FormHost
      * Reads no current user: the form page, its re-fetch and the account block ask it for anyone.
      */
     public function accountStep(Form $form): ?AccountStep;
+
+    /**
+     * The participant field keys the host's current state requires a registration form to hold, required and
+     * outside any condition (`Engine\SlotRules::requiredFieldProblem()`); none for another placement. A form
+     * being served that lacks one is closed, like one without the account block. [UNAPPROVED, #200 N16]
+     *
+     * @return list<string>
+     */
+    public function slotRequiredKeys(Form $form): array;
 }

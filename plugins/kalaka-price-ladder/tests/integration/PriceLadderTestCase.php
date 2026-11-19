@@ -12,8 +12,8 @@ use Kalaka\Tests\Integration\Pricing\PricingTestCase;
 
 /**
  * The base of the price-ladder tests: core's Pricing test case (an event in HUF, the money phase, the
- * contributed ladder component) with IVK's two questions, the support level and the price, and helpers to
- * save a ladder through a money settings apply.
+ * contributed ladder component) with IVK's two questions, the support level and the price (ordinary answers,
+ * which no tier reads), and helpers to save a ladder through a money settings apply.
  */
 abstract class PriceLadderTestCase extends PricingTestCase
 {
@@ -36,46 +36,25 @@ abstract class PriceLadderTestCase extends PricingTestCase
     }
 
     /**
-     * IVK's tiers, configured as an organizer would: each condition reads the support level, and where a
-     * level has two tiers, the price question too. The amounts are examples.
+     * IVK's five tiers as configured (the amounts are examples): a tier is a key, a label and an amount.
      *
      * @return list<array<string, mixed>>
      */
     protected static function ivkTiers(): array
     {
         return [
-            self::tier('alap', 'Alap ár', '49500', ['tamogatas' => 'nincs', 'ar' => 'alap']),
-            self::tier('teljes', 'Teljes ár', '69500', ['tamogatas' => 'nincs', 'ar' => 'emelt']),
-            self::tier('gy_megosztott', 'Gyülekezeti megosztott ár', '44500', ['tamogatas' => 'megosztott']),
-            self::tier('gy', 'Gyülekezeti ár', '34500', ['tamogatas' => 'teljes', 'ar' => 'alap']),
-            self::tier('gy_alap', 'Alap ár', '49500', ['tamogatas' => 'teljes', 'ar' => 'emelt']),
+            self::tier('alap', 'Alap ár', '49500'),
+            self::tier('teljes', 'Teljes ár', '69500'),
+            self::tier('gy_megosztott', 'Gyülekezeti megosztott ár', '44500'),
+            self::tier('gy', 'Gyülekezeti ár', '34500'),
+            self::tier('gy_alap', 'Alap ár', '49500'),
         ];
     }
 
-    /**
-     * @param array<string, string> $equals field key → option value, all of which must hold; none: for everyone
-     * @return array<string, mixed>
-     */
-    protected static function tier(
-        string $key,
-        string $label,
-        string $amount,
-        array $equals = [],
-        ?string $until = null,
-    ): array {
-        $tier = ['key' => $key, 'label' => $label, 'amount' => $amount];
-        if ($equals !== []) {
-            $items = [];
-            foreach ($equals as $field => $value) {
-                $items[] = ['key' => $field, 'operator' => 'equals', 'value' => $value];
-            }
-            $tier['condition'] = ['match' => 'all', 'items' => $items];
-        }
-        if ($until !== null) {
-            $tier['until'] = $until;
-        }
-
-        return $tier;
+    /** @return array<string, mixed> */
+    protected static function tier(string $key, string $label, string $amount): array
+    {
+        return ['key' => $key, 'label' => $label, 'amount' => $amount];
     }
 
     /** @param list<array<string, mixed>> $tiers */

@@ -40,21 +40,21 @@ title: Money
   `extras` line, with no condition of its own. The donation is the value of
   the event's number field, a whole number, as one `donation` line; empty or
   0 writes none. Support and the congregation share never cover either.
-- **The price ladder** is a fee component at the tier stage. Each tier has
-  an amount, an availability condition over the registration's facts and an
-  optional deadline, its last day. A tier is available when the
-  registration's `registered_at` falls within its deadline and its
-  condition holds. The ladder declares the participant field `price_tier`,
-  a choice of its tiers that forms join; the tier chosen there applies when
-  it is available and is never swapped for another. Without a chosen tier (a
-  form that does not hold the field), the first available tier in the
-  ladder's order applies. A chosen tier that is not available, or no
-  available tier at all, is never a base of zero: the use case is refused,
-  saying why. Staff set a tier that applies before an admission or a
-  restore, a registrant's own submit is refused, and the periodic run flags
-  the registration "evaluation failed" ([Foundation](foundation.md#failures)).
-  The ladder sets only the base price. The event's fixed price is the base
-  only without a ladder, whatever the ladder owes a registration.
+- **The price ladder** is a fee component at the tier stage. A tier is a
+  key, a label and an amount, in order; it has no condition and no
+  deadline. A registration chooses its tier only through the participant
+  field `price_tier` the ladder declares, a choice of its tiers that forms
+  join, and the chosen tier's current amount is its base price. A
+  registration form of an event with tiers must hold `price_tier` as a
+  required field, outside any condition, or it is closed until fixed; a
+  form's own conditions on the field's options decide who may pick which
+  tier. A later change of any other answer never re-checks the tier. A
+  chosen tier no longer in the ladder, or no answer at all, is never a base
+  of zero: the use case is refused, saying why. Staff set a tier before an
+  admission or a restore, and the periodic run flags the registration
+  "evaluation failed" ([Foundation](foundation.md#failures)). The ladder
+  sets only the base price. The event's fixed price is the base only
+  without a ladder, whatever the ladder owes a registration.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
@@ -276,11 +276,11 @@ such as lunch or a donation.
 - **There is no tariff snapshot.** Money is always computed from the event's
   current settings plus the registration's field values and facts. A fee
   component reads its own current settings; a registration admitted from the
-  waitlist pays today's price.
+  waitlist pays today's price, with a ladder the current amount of the tier
+  it chose.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: price-tier deadlines, payment due,
-  everything. A registration that became `registered` before an early price
+  "now" and never from the submit: payment due, everything. A registration that became `registered` before an early price
   ended keeps that price at every later evaluation. A waitlisted registration
   is not registered, so an admission from the waitlist counts from its
   admission. A deadline's day ends at midnight in the site time zone

@@ -13,10 +13,10 @@ use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\ProvidesBase;
 
 /**
- * The price ladder's fee component, at the tier stage: the applying tier's amount, owed by the participant
- * (`TierSelection`: the tier chosen in `price_tier` when it is available, else the first available one when
- * none is chosen; otherwise it refuses). An event with tiers has its base from the ladder (`providesBase()`),
- * so core's fixed price is not charged. It puts the applied tier into the facts of the later stages as the
+ * The price ladder's fee component, at the tier stage: the chosen tier's current amount, owed by the
+ * participant (`TierSelection`: the tier chosen in `price_tier`; no answer, or a tier no longer in the ladder,
+ * refuses). An event with tiers has its base from the ladder (`providesBase()`), so core's fixed price is not
+ * charged. It puts the applied tier into the facts of the later stages as the
  * computed value `price_tier.applied`, never stored. It reads the ladder as it is now (no tariff snapshot), or
  * the proposed tiers in a preview. The ladder sets only the base price; who pays how much of it is decided by
  * the registrant's answers (the share extension, S29), never by the tier.
@@ -66,13 +66,13 @@ final class PriceLadderComponent implements ProvidesBase
         if ($tiers === []) {
             return FeeTargets::none();
         }
-        $tier = $this->selection->select($tiers, $input->facts, $input->facts->registeredAt, self::chosen($input));
+        $tier = $this->selection->select($tiers, self::chosen($input));
         $computed = [self::APPLIED => Value::choice([$tier->key], $tier->label)];
 
         return new FeeTargets($tier->amount->isPositive() ? [Payer::PARTICIPANT => $tier->amount] : [], $computed);
     }
 
-    /** The tier the registration chose in `price_tier`, or null: none chosen, or no such field yet. */
+    /** The tier the registration chose in `price_tier`, or null: no answer, or no such field yet. */
     private static function chosen(FeeComponentInput $input): ?string
     {
         if (!$input->facts->has(self::FIELD)) {

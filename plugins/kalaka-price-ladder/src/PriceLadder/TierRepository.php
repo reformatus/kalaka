@@ -8,7 +8,6 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
-use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
@@ -64,23 +63,17 @@ final class TierRepository extends EntityRepository
             'label' => $entity->label,
             'amount' => $entity->amount->amount(),
             'currency' => $entity->amount->currency()->value,
-            'availability' => $entity->condition === null ? null : (string) wp_json_encode($entity->condition),
-            'until_at' => $entity->until === null ? null : Instant::toStorage($entity->until),
         ];
     }
 
     protected function fromRow(array $row): object
     {
-        $condition = $row['availability'] === null ? null : json_decode((string) $row['availability'], true);
-
         return new TierRecord(
             (int) $row['event_id'],
             (string) $row['tier_key'],
             (int) $row['position'],
             (string) $row['label'],
             Money::of((string) $row['amount'], Currency::from((string) $row['currency'])),
-            is_array($condition) ? $condition : null,
-            $row['until_at'] === null ? null : Instant::fromStorage((string) $row['until_at']),
             (int) $row['version'],
         );
     }
