@@ -224,6 +224,19 @@ final class EventFormHost implements FormHost
         };
     }
 
+    public function slotRequiredKeys(Form $form): array
+    {
+        if ($form->placement !== FormPlacement::Registration) {
+            return [];
+        }
+        $keys = [];
+        foreach (Contributions::current()->slotRequirements() as $requirement) {
+            array_push($keys, ...$requirement->requiredKeys($form->eventId));
+        }
+
+        return array_values(array_unique($keys));
+    }
+
     private function event(Form $form): ?Event
     {
         return $this->events->find($form->eventId);

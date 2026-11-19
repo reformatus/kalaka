@@ -12,9 +12,8 @@ final class Module extends AbstractModule
 {
     /**
      * money.md, "Core money scope": an event's price ladder, one row per tier, keyed by (event ID, tier key);
-     * `position` is the ladder order. `availability` is the tier's condition as JSON (null: for everyone),
-     * `until_at` the first instant the tier no longer applies (null: no deadline). The amounts are read as they
-     * are now: there is no tariff snapshot.
+     * `position` is the ladder order. A tier has no condition and no deadline: it is chosen through the declared
+     * field `price_tier` only. The amounts are read as they are now: there is no tariff snapshot.
      */
     private const TIERS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_price_ladder_tiers (
@@ -24,8 +23,6 @@ CREATE TABLE {prefix}kalaka_price_ladder_tiers (
   label varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   amount decimal(26,8) NOT NULL,
   currency char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
-  availability longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
-  until_at datetime(6) DEFAULT NULL,
   version int(10) unsigned NOT NULL,
   PRIMARY KEY  (event_id,tier_key)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
@@ -50,6 +47,7 @@ SQL;
     public function contribute(Contributions $to): void
     {
         $to->feeComponent(new PriceLadderComponent());
+        $to->slotRequirement(new LadderSlotRequirement());
     }
 
     public function boot(): void
