@@ -63,6 +63,34 @@ final class GridModel
     }
 
     /**
+     * The columns to order by number, as the column metadata marks them `numeric`: the number-valued
+     * fields, besides the sorszám, which the grid does not sort. For the master view it names every
+     * numeric field of the event; one with no stored value is not listed, so it is never sorted.
+     *
+     * @param array<string, FieldDefinition> $fields
+     * @return list<string>
+     */
+    public function numericColumns(HeldView $view, array $fields): array
+    {
+        $shape = $view->shape();
+        $listed = $shape === null
+            ? array_map(static fn (string $key): string => 'field:' . $key, array_keys($fields))
+            : array_column($shape->columns, 'column');
+        $numeric = [];
+        foreach ($listed as $column) {
+            // `meta()` marks no other column numeric; skipping the rest avoids reading the decision kinds.
+            if (
+                ($column === 'serial' || str_starts_with($column, 'field:'))
+                && $this->meta($column, $fields, $view->eventId)['numeric']
+            ) {
+                $numeric[] = $column;
+            }
+        }
+
+        return $numeric;
+    }
+
+    /**
      * A decision kind as the grid shows it: the label and the states' labels its module declares; for a
      * kind nothing declares, the kind's key and the states recorded in the event, each by its key.
      *

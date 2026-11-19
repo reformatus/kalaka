@@ -169,6 +169,36 @@ final class ViewCountsTest extends GrantTestCase
         self::assertSame('1', $this->masterRows($event)[0]['version']);
     }
 
+    /** C3-1: a clear is accepted even when everything the column had to count is gone. */
+    public function testAClearIsAcceptedWhenTheColumnsMembersAreGone(): void
+    {
+        $event = $this->createEvent();
+        $this->exec(
+            new SaveMasterCounts(options: self::OPTIONS),
+            ['event_id' => $event, 'column' => 'field:lunch', 'members' => ['veg']]
+        );
+        $this->exec(
+            new SaveMasterCounts(options: ['decision:confirmation' => ['yes']]),
+            ['event_id' => $event, 'column' => 'decision:confirmation', 'members' => ['yes']]
+        );
+        self::assertSame(
+            ['decision:confirmation' => ['yes'], 'field:lunch' => ['veg']],
+            (new ViewList())->masterCounts($event)
+        );
+
+        // The field's options and the decision kind's states are gone: the clears still go through.
+        $this->exec(
+            new SaveMasterCounts(options: ['field:lunch' => []]),
+            ['event_id' => $event, 'column' => 'field:lunch', 'members' => []]
+        );
+        $this->exec(
+            new SaveMasterCounts(options: []),
+            ['event_id' => $event, 'column' => 'decision:confirmation', 'members' => []]
+        );
+
+        self::assertSame([], (new ViewList())->masterCounts($event));
+    }
+
     /** @return iterable<string, array{string, list<string>}> */
     public static function badMasterCounts(): iterable
     {
