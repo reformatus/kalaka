@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
@@ -23,6 +25,7 @@ final class Registrations
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
+        private readonly Forms $forms = new Forms(),
     ) {
     }
 
@@ -71,8 +74,10 @@ final class Registrations
     }
 
     /**
-     * The registration's fact source, from a plain read without a lock (inside the evaluation the run already
-     * holds the row). Null when there is no such registration.
+     * The registration's fact source, from plain reads without a lock (inside the evaluation the run already
+     * holds the row): the row, its field values (`values()`, one statement) typed over the event's participant
+     * fields (`Forms::participantValues()`: one statement and the block registry, no post). Null when there is
+     * no such registration.
      */
     public function factsOf(RegistrationKey $key, Event $event): ?RegistrationFacts
     {
@@ -81,7 +86,24 @@ final class Registrations
             return null;
         }
 
-        return new RegistrationFacts($key, $registration->status, $registration->registeredAt, $event);
+        return new RegistrationFacts(
+            $key,
+            $registration->status,
+            $registration->registeredAt,
+            $event,
+            $this->forms->participantValues($key->eventId, $this->values($key)),
+        );
+    }
+
+    /**
+     * The keys and types a registration's facts declare for the event (`RegistrationFacts::declared()`), with
+     * every participant field of the event: what a condition over them is checked against when it is saved.
+     *
+     * @return array<string, ValueType>
+     */
+    public function declaredFacts(Event $event): array
+    {
+        return RegistrationFacts::declared($event, $this->forms->participantValues($event->id, []));
     }
 
     /**

@@ -48,7 +48,8 @@ values and conditions, prefill and form links
   forms. A block that arrives without its key takes back its stored key
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
-  kept.
+  kept. An `extension` field's options are its declarer's: a form joining it
+  offers any subset of them and never adds one (`extension_option`).
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
@@ -147,10 +148,17 @@ values and conditions, prefill and form links
   to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
   a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
-  transaction, never inside it. The one exception is `Forms::refusals()`,
-  which reads nothing: a submit checks it under the event's lock.
+  transaction, never inside it. The exceptions are `Forms::refusals()`,
+  which reads nothing: a submit checks it under the event's lock; and
+  `Forms::participantValues()`, which reads no post, only
+  `ParticipantFields::of()` (its table and the block registry): the
+  evaluation types a registration's field values with it (S25), and a money
+  setting's save checks its conditions against them (S26).
 - Field types contribute through the typed point and return values; no field
-  type writes to a table. Core ships no money-relevant field type.
+  type writes to a table. Core ships no money-relevant field type. A field
+  type's `valueType()` and `value()` fire no hook and write nothing (they may
+  read), so the evaluation may call them inside the transaction; the rest of
+  the point runs outside it.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,

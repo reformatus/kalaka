@@ -6,7 +6,9 @@
 		"./plugins/kalaka",
 		"./plugins/kalaka-support",
 		"./plugins/kalaka-divi4",
-		"./plugins/kalaka-ranking"
+		"./plugins/kalaka-ranking",
+		"./plugins/kalaka-extras",
+		"./plugins/kalaka-price-ladder"
 	],
 	"mappings": {
 		"wp-content/kalaka-dev-vendor": "./vendor"

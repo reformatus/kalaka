@@ -18,7 +18,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
  * after a use case's transaction, never inside it: a submit reads the form and its definition
- * first and passes them in.
+ * first and passes them in. `participantValues()` is the one exception: it reads no post.
  */
 final class Forms
 {
@@ -151,6 +151,10 @@ final class Forms
      * form holds reads as `Value::none()` of its type and never fails. A field with no stored answer, a
      * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
      * none too. A stored answer of a key the event does not have is left out.
+     *
+     * Unlike the rest of this class it reads no post, only `ParticipantFields::of()` (its table and the block
+     * registry), and each stored answer is typed by its field type's `value()`, which fires no hook and writes
+     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`). [UNAPPROVED N1]
      *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value

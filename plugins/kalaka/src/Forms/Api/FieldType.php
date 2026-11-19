@@ -9,7 +9,9 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 /**
  * A kind of field, contributed through `Contributions::fieldType()`. An outside point: it runs
  * outside any transaction, returns a value and writes nothing. Core applies `required` and the
- * blank answers itself; a type is asked only about an answer that is not blank.
+ * blank answers itself; a type is asked only about an answer that is not blank. `valueType()` and
+ * `value()` fire no WordPress hook and write nothing (they may read), so the evaluation calls them
+ * inside the transaction to type a registration's field values (S25). [UNAPPROVED N1]
  */
 interface FieldType
 {

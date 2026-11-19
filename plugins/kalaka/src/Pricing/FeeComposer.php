@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Pricing;
 
+use Kalaka\Forms\Api\Value;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Payer;
@@ -12,6 +13,7 @@ use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ProvidesBase;
 use Kalaka\Pricing\Api\StageTotals;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -48,31 +50,77 @@ final class FeeComposer
             return $composed;
         }
 
+        // The fixed price is the base only without a ladder (money.md, "Congregation share": "the chosen tier,
+        // or the fixed price without a ladder"): by structure, not by what a tier owes. It is charged only
+        // when no component provides the event's base. [UNAPPROVED, #200 N7]
+        $baseProvided = false;
+        foreach ($components as $component) {
+            if ($component instanceof ProvidesBase && $component->providesBase($facts->registration->eventId)) {
+                $baseProvided = true;
+            }
+        }
+
         $before = new StageTotals($currency);
         foreach (FeeStage::cases() as $stage) {
             $stageOwed = [];
+            // A stage's computed values reach the later stages only, like its totals. [UNAPPROVED, #200 N12]
+            $stageComputed = [];
             foreach ($components as $component) {
                 if ($component->stage() !== $stage) {
                     continue;
                 }
-                $owed = $this->owedBy(
+                if ($component instanceof FixedPrice && $baseProvided) {
+                    continue;
+                }
+                $targets = $this->targetsOf(
                     $component,
                     new FeeComponentInput($facts->registration, $facts->status, $facts, $before, $currency, $now),
                     $currency
                 );
-                $composed[$component->id()] = $owed;
-                foreach ($owed as $payer => $amount) {
+                $composed[$component->id()] = $targets->owed;
+                foreach ($targets->owed as $payer => $amount) {
                     $stageOwed[$payer] = isset($stageOwed[$payer]) ? $stageOwed[$payer]->plus($amount) : $amount;
                 }
+                $stageComputed = $this->withComputed($component, $stageComputed, $targets->computed, $facts);
             }
             $before = $before->with($stage, $stageOwed);
+            if ($stageComputed !== []) {
+                $facts = $facts->withComputed($stageComputed);
+            }
         }
 
         return $composed;
     }
 
-    /** @return array<string, Money> */
-    private function owedBy(FeeComponent $component, FeeComponentInput $input, Currency $currency): array
+    /**
+     * The stage's computed values with a component's added: each a dotted key no other value of the facts, nor
+     * of the stage, has yet.
+     *
+     * @param array<string, Value> $stage
+     * @param array<array-key, mixed> $computed
+     * @return array<string, Value>
+     * @throws FeeComponentFailed on a malformed value or a key that is taken
+     */
+    private function withComputed(
+        FeeComponent $component,
+        array $stage,
+        array $computed,
+        RegistrationFacts $facts,
+    ): array {
+        foreach ($computed as $key => $value) {
+            $key = (string) $key;
+            if (!$value instanceof Value || !str_contains($key, '.') || $facts->has($key) || isset($stage[$key])) {
+                $error = new FeeComponentFailed($component->id());
+                throw $error;
+            }
+            $stage[$key] = $value;
+        }
+
+        return $stage;
+    }
+
+    /** The component's targets, its amounts checked: payers, currency. */
+    private function targetsOf(FeeComponent $component, FeeComponentInput $input, Currency $currency): FeeTargets
     {
         try {
             $targets = $component->targets($input);
@@ -99,6 +147,6 @@ final class FeeComposer
             $owed[$payer] = $amount;
         }
 
-        return $owed;
+        return new FeeTargets($owed, $targets->computed);
     }
 }

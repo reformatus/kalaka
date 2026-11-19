@@ -6,6 +6,10 @@ At the module root: `Registration` and `RegistrationRepository` (the only writer
 
 `Api/` holds `RegistrationKey`, `RegistrationStatus`, `Registrations` (`find()`: a plain read as `RegistrationRead`, never the secret; `firstSubmission()`: the form and form version of the first submission; `values()`: the current field values; `lock()`: reads a registration `FOR UPDATE`, so the run holds it; `factsOf()`: its fact source; `openOf()`: an event's `registered` and `waitlisted` registrations), `RegistrationFacts` (the fact source: event values, code, status, submit time), `SecretLinks` (the secret link `kalaka_link=<eventId>.<code>.<secret>` and the signed active-registration token: `matches()`, `url()`, `fromLink()`, `activeToken()`, `verifyActiveToken()`), and the submit seam: `RegistrationSubmit` (`submit(SubmitRequest, Actor): SubmitResult`: checks the answers before the transaction, then runs the use case), `SubmitRequest`, `SubmitResult`, `SubmitToken` (the form page's token against repeated submits) and `SubmitTokenReused` (a token spent on other answers) `FormSubmissions` (whether a form has submissions, for Forms' delete and event guards), `Serials` (the sorszám by code, from `RegistrationList`) and `RegistrationTables` (the tables another module may read by name and the sorszám order, which `RegistrationList` uses too; deptrac lets only the admin view query use it). deptrac's "Registration data" layer holds the readers (`Registrations`, `RegistrationRead`, `Serials`, `FormSubmissions`, `SecretLinks`): Admin reaches them only through the view query, and full-access code (`Admin\FullAccess\`) through its own layer.
 
+`RegistrationFacts` holds the registration's field values too, typed by `Forms::participantValues()`, and
+`Registrations::declaredFacts()` gives the keys and types those facts declare for an event, so a condition read
+over them is checked when it is saved (S25).
+
 Tables, created by the schema in `Module.php`: `kalaka_registrations`, `kalaka_field_values`, `kalaka_submissions`.
 
 Entry points: none yet; the form page (S12) calls `Api\RegistrationSubmit`.

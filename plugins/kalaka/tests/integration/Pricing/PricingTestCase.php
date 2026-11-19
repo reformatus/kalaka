@@ -30,7 +30,9 @@ use Kalaka\Tests\Integration\Registrations\RegistrationsTestCase;
 
 /**
  * The base of the Pricing tests: an event in HUF, a runner whose evaluation has the money phase (built from
- * the runner's TestClock, now = 2026-11-30 08:00 UTC), and helpers to read the charge lines written.
+ * the runner's TestClock, now = 2026-11-30 08:00 UTC unless a test moves it), and helpers to read the
+ * charge lines written. The components are core's, the contributed ones (an extension's suite) and the
+ * test components given.
  */
 abstract class PricingTestCase extends RegistrationsTestCase
 {
@@ -39,6 +41,9 @@ abstract class PricingTestCase extends RegistrationsTestCase
     protected Ledger $ledger;
 
     protected MoneySettings $settings;
+
+    /** The runner clock's time, UTC; a test that moves it calls `useComponents()` again. */
+    protected string $now = '2026-11-30 08:00:00';
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
@@ -63,7 +68,7 @@ abstract class PricingTestCase extends RegistrationsTestCase
     {
         $components = new CoreFeeComponents($more);
         $this->runner = new Runner(
-            new TestClock($this->utc('2026-11-30 08:00:00')),
+            new TestClock($this->utc($this->now)),
             true,
             new Evaluation(new DecisionRules(), money: new Materializer($components))
         );
@@ -136,6 +141,13 @@ abstract class PricingTestCase extends RegistrationsTestCase
                 . self::plain((string) $row['amount']) . ' ' . $row['idempotency_key'],
             $rows
         );
+    }
+
+    protected function lineCount(): int
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_ledger_lines");
     }
 
     private static function plain(string $amount): string

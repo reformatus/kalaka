@@ -13,9 +13,17 @@ parameters:
         - plugins/kalaka-ranking/src
         - plugins/kalaka-ranking/kalaka-ranking.php
         - plugins/kalaka-ranking/uninstall.php
+        - plugins/kalaka-extras/src
+        - plugins/kalaka-extras/kalaka-extras.php
+        - plugins/kalaka-extras/uninstall.php
+        - plugins/kalaka-price-ladder/src
+        - plugins/kalaka-price-ladder/kalaka-price-ladder.php
+        - plugins/kalaka-price-ladder/uninstall.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
         - plugins/kalaka-divi4/vendor/autoload.php
         - plugins/kalaka-ranking/vendor/autoload.php
+        - plugins/kalaka-extras/vendor/autoload.php
+        - plugins/kalaka-price-ladder/vendor/autoload.php
         - phpstan-bootstrap.php
