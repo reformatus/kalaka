@@ -6,7 +6,6 @@ namespace Kalaka\Assignments;
 
 use Kalaka\Assignments\Api\AssignmentSource;
 use Kalaka\Assignments\Api\AssignmentState;
-use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -24,10 +23,9 @@ use Kalaka\Registrations\Api\Registrations;
 final class PlaceRegistration implements AdminUseCase
 {
     public function __construct(
-        private readonly SetRepository $sets = new SetRepository(),
-        private readonly OptionRepository $options = new OptionRepository(),
         private readonly AssignmentRepository $assignments = new AssignmentRepository(),
         private readonly Registrations $registrations = new Registrations(),
+        private readonly PlacementLookup $lookup = new PlacementLookup(),
     ) {
     }
 
@@ -73,24 +71,17 @@ final class PlaceRegistration implements AdminUseCase
         if (!$this->registrations->lock($registration, $context)) {
             throw new NotFound();
         }
-        $set = $this->sets->find((int) $input['set_id']);
-        if ($set === null || $set->eventId !== $registration->eventId) {
-            throw new NotFound();
-        }
-        $optionKey = (string) $input['option'];
-        if ($this->options->find(['setId' => $set->id, 'key' => $optionKey]) === null) {
-            throw new InvalidInput();
-        }
+        $target = $this->lookup->find($registration, (int) $input['set_id'], (string) $input['option']);
 
-        $key = ['registration' => $registration, 'setId' => $set->id];
+        $key = ['registration' => $registration, 'setId' => $target->setId];
         $record = $this->assignments->findForUpdate($key, $context) ?? new AssignmentRecord(
             $registration,
-            $set->id,
-            $optionKey,
+            $target->setId,
+            $target->option->key,
             AssignmentSource::Staff,
             AssignmentState::Confirmed,
         );
-        $record->optionKey = $optionKey;
+        $record->optionKey = $target->option->key;
         $record->source = AssignmentSource::Staff;
         $record->state = AssignmentState::Confirmed;
         $this->assignments->upsert($record, $context);

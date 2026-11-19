@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Assignments;
 use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Assignments\Api\AssignmentSource;
 use Kalaka\Assignments\Api\AssignmentState;
+use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\PlaceRegistration;
 use Kalaka\Events\CreateEvent;
 use Kalaka\Foundation\Api\Actor\CliActor;
@@ -256,7 +257,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame([], $warn($first, 'modul_a'));
         // Another registration would exceed the capacity of one.
         self::assertSame(
-            ['Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, túllépi a létszámkeretet.'],
+            ['Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.'],
             $warn($second, 'modul_a')
         );
 
@@ -272,6 +273,67 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->place($second, $set, 'modul_a');
         self::assertSame('modul_a', $this->sets->assignment($second, $set)?->optionKey);
         self::assertSame([], $warn($second, 'nincs'));
+    }
+
+    public function testAWarningIsNotComputedForARegistrationThePlacingWouldRefuse(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $missing = new RegistrationKey($this->event, '00A0');
+
+        self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a'));
+
+        $this->expectException(NotFound::class);
+        $this->place($missing, $set, 'modul_a');
+    }
+
+    public function testAWarningIsNotComputedForASetOfAnotherEvent(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $other = new RegistrationKey($this->event + 1, '00A0');
+        $this->seedRegistrations($other);
+
+        self::assertSame([], $this->sets->placementWarnings($other, $set, 'modul_a'));
+
+        $this->expectException(NotFound::class);
+        $this->place($other, $set, 'modul_a');
+    }
+
+    public function testACliUserWhoMayNotPlaceIsRefusedBeforeAnyWarning(): void
+    {
+        // WP-CLI is not loaded in PHPUnit: a recording double stands in for it.
+        require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
+        if (defined('WP_CLI::IS_TEST_DOUBLE')) {
+            \WP_CLI::reset();
+        }
+
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $second = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($first, $second);
+        $this->place($first, $set, 'modul_a');
+        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+
+        wp_set_current_user(self::factory()->user->create());
+        try {
+            (new AssignmentCommand())->place(
+                [(string) $this->event, '00A2', (string) $set, 'modul_a'],
+                []
+            );
+            self::fail('The command should have refused the user.');
+        } catch (\RuntimeException) {
+            // The double's error() does not return.
+        } finally {
+            wp_set_current_user(0);
+        }
+
+        self::assertSame([], array_values(array_filter(
+            \WP_CLI::$calls,
+            static fn (array $call): bool => $call[0] === 'warning'
+        )));
+        self::assertSame('error', \WP_CLI::$calls[0][0]);
     }
 
     private function setTrack(RegistrationKey $key, ?string $track): void

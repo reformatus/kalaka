@@ -10,6 +10,8 @@ use Kalaka\Forms\Api\Availability;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -18,7 +20,8 @@ use Kalaka\Registrations\Api\Registrations;
  * What staff are told before they place a registration into an option by hand (`PlaceRegistration`): the
  * option is already full, or the registration does not meet its eligibility condition. Placing checks neither
  * (staff override), so these are warnings, never refusals. A plain read of the current facts, for a screen or
- * the command to ask before the act.
+ * the command to ask before the act, and only after the same checks the placing makes (`PlacementLookup`): a
+ * placement the placing would refuse gives no warnings.
  *
  * Full: the option has a capacity, and the confirmed assignments to it, not counting this registration's own
  * (it may already hold the option), have reached it. A proposed assignment holds no place until staff confirm
@@ -28,11 +31,11 @@ use Kalaka\Registrations\Api\Registrations;
  */
 final class PlacementWarnings
 {
-    public const FULL = 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, túllépi a létszámkeretet.';
+    public const FULL = 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.';
     public const NOT_ELIGIBLE = 'A jelentkező nem felel meg a lehetőség feltételeinek.';
 
     public function __construct(
-        private readonly OptionRepository $options = new OptionRepository(),
+        private readonly PlacementLookup $lookup = new PlacementLookup(),
         private readonly AssignmentRepository $assignments = new AssignmentRepository(),
         private readonly Registrations $registrations = new Registrations(),
     ) {
@@ -40,16 +43,19 @@ final class PlacementWarnings
 
     /**
      * The warnings for placing the registration into the option, in the order full, not eligible; none when
-     * the option is unknown (the placing refuses it).
+     * the placing would refuse the placement (an unknown registration, another event's set, or an unknown
+     * option).
      *
      * @return list<string>
      */
     public function of(RegistrationKey $registration, int $setId, string $optionKey): array
     {
-        $option = $this->options->find(['setId' => $setId, 'key' => $optionKey]);
-        if ($option === null) {
+        try {
+            $target = $this->lookup->find($registration, $setId, $optionKey);
+        } catch (NotFound | InvalidInput) {
             return [];
         }
+        $option = $target->option;
         $warnings = [];
         $full = $option->capacity !== null
             && $this->confirmedOthers($registration, $setId, $optionKey) >= $option->capacity;

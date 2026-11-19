@@ -6,7 +6,7 @@
  * assignment set (S44-1), whose options are
  * configured outside the editor until S72/S48 and which the canvas lists all, whatever their conditions. One
  * attribute decides: `set`, absent for own options, a number for a set (0 until one is chosen). Switching
- * keeps what the other source held. The texts of the source choice are proposed, not yet approved by the owner.
+ * keeps what the other source held. The texts of the source choice are the owner's (2026-11-18).
  *
  * Like every core field block, it is built from core's field-editor pieces (`window.kalakaFieldEditor`, set by
  * the form editor's script, which `block.json` loads first): the one keeper of keys, so a copied ranking gets a
@@ -40,8 +40,8 @@ function Count({ label, value, fallback, onChange }) {
 }
 
 /**
- * The texts of the set picker (S44-1), approved by the owner; and of the source choice (`source`, `own`,
- * `fromSet`), [UNAPPROVED N14]: proposed and not yet approved by the owner.
+ * The texts of the set picker (S44-1) and of the source choice (`source`, `own`, `fromSet`), approved by
+ * the owner (2026-11-18).
  */
 export const TEXT = {
 	panel: 'Lehetőségek',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Assignments\Cli;
 
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Assignments\PlaceRegistration;
 use Kalaka\Foundation\Api\Actor\CliActor;
@@ -46,22 +47,24 @@ final class AssignmentCommand
     public function place(array $args, array $assoc): void
     {
         Boundary::cli(static function () use ($args): void {
-            // Staff override: the placing goes ahead, but they are told first when the option is full or the
-            // registration does not meet its condition.
-            $warnings = (new AssignmentSets())->placementWarnings(
-                new RegistrationKey((int) $args[0], $args[1]),
-                (int) $args[2],
-                $args[3]
-            );
-            foreach ($warnings as $warning) {
-                \WP_CLI::warning($warning);
-            }
-            Runner::current()->run(new PlaceRegistration(), [
+            $registration = new RegistrationKey((int) $args[0], $args[1]);
+            $actor = new CliActor(get_current_user_id() ?: null);
+            $input = [
                 'event_id' => (int) $args[0],
                 'code' => $args[1],
                 'set_id' => (int) $args[2],
                 'option' => $args[3],
-            ], new CliActor(get_current_user_id() ?: null));
+            ];
+            // The same permission check the run makes, before any warning: a refused actor learns nothing
+            // about the option first.
+            AdminAccess::check(new PlaceRegistration(), $input, $actor);
+            // Staff override: the placing goes ahead, but they are told first when the option is full or the
+            // registration does not meet its condition.
+            $warnings = (new AssignmentSets())->placementWarnings($registration, (int) $args[2], $args[3]);
+            foreach ($warnings as $warning) {
+                \WP_CLI::warning($warning);
+            }
+            Runner::current()->run(new PlaceRegistration(), $input, $actor);
             \WP_CLI::success('Placed ' . $args[1] . ' into ' . $args[3] . '.');
         });
     }
