@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Pricing;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
@@ -20,8 +21,8 @@ use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\CoreFeeComponents;
-use Kalaka\Pricing\RevokeManualConfirmation;
 use Kalaka\Pricing\SetManualConfirmation;
+use Kalaka\Pricing\Unconfirm;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
@@ -83,10 +84,10 @@ abstract class ConfirmationTestCase extends PricingTestCase
         $this->line($key, LineKind::ManualRefund, $amount, $payer, $day);
     }
 
-    /** A payment moved away to another registration (`transfer`, positive), with its value date (a day). */
-    protected function moveAway(RegistrationKey $key, string $amount, string $day): void
+    /** A correction that adds a payment (a manual payment flagged `correction`): it counts from its recording. */
+    protected function correct(RegistrationKey $key, string $amount): void
     {
-        $this->line($key, LineKind::Transfer, $amount, Payer::PARTICIPANT, $day);
+        $this->line($key, LineKind::ManualPayment, '-' . $amount, Payer::PARTICIPANT, null, null, true);
     }
 
     /** An online payment with its paid time (UTC). */
@@ -102,6 +103,7 @@ abstract class ConfirmationTestCase extends PricingTestCase
         string $payer,
         ?string $day,
         ?\DateTimeImmutable $paidAt = null,
+        bool $correction = false,
     ): void {
         $line = new NewLine(
             $key,
@@ -112,6 +114,8 @@ abstract class ConfirmationTestCase extends PricingTestCase
             'test:' . (++$this->lineCount),
             $day,
             $paidAt,
+            correction: $correction,
+            note: $correction ? 'Teszt korrekció' : null,
         );
         $work = function (array $input, Context $context) use ($line): void {
             $this->lockRegistrations($context, $line->registration);
@@ -129,10 +133,10 @@ abstract class ConfirmationTestCase extends PricingTestCase
         );
     }
 
-    protected function revokeFlag(RegistrationKey $key, string $reason = 'Teszt visszavonás'): mixed
+    protected function unconfirm(RegistrationKey $key, string $reason = 'Teszt visszavonás'): mixed
     {
         return $this->runner->run(
-            new RevokeManualConfirmation(),
+            new Unconfirm(),
             ['event_id' => $key->eventId, 'code' => $key->code, 'reason' => $reason],
             new CliActor(null)
         );
@@ -173,7 +177,7 @@ abstract class ConfirmationTestCase extends PricingTestCase
     }
 
     /** The state of the registration's latest confirmation record, or null. */
-    protected function confirmationState(RegistrationKey $key): ?string
+    protected function lastRecordState(RegistrationKey $key): ?string
     {
         $records = $this->confirmations($key);
         if ($records === []) {
@@ -181,5 +185,11 @@ abstract class ConfirmationTestCase extends PricingTestCase
         }
 
         return explode(' ', $records[count($records) - 1])[0];
+    }
+
+    /** The confirmation state as every reader reads it (`Decisions`, the base state applied), or null. */
+    protected function confirmationState(RegistrationKey $key): ?string
+    {
+        return (new Decisions(rules: $this->rules))->currentOf($key)[ConfirmationRule::KIND]->state ?? null;
     }
 }

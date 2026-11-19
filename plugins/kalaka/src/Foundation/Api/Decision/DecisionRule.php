@@ -15,5 +15,11 @@ interface DecisionRule
     /** @return array<string, string> the states, each with its Hungarian label, in display order [UNAPPROVED N1] */
     public function states(): array;
 
+    /**
+     * The kind's base state, derived where it has no record, and the statuses it is defined for; null: no
+     * base state, so no record reads as no state in every status. [UNAPPROVED N7]
+     */
+    public function defaultState(): ?DecisionDefault;
+
     public function decide(DecisionInput $input): ?Transition;
 }

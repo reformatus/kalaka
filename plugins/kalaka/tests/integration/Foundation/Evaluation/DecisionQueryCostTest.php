@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Foundation\Evaluation;
 
+use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Decision\DecisionQuery;
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
 /** The per-event cost tests of the queries that read a registration's decisions and an event's states. */
@@ -31,9 +34,38 @@ final class DecisionQueryCostTest extends PerEventCostTestCase
         );
     }
 
+    /** The owner's ruling 2026-11-19: the public reads apply confirmation's base state and stay per event. */
+    public function testThePublicReadsWithTheBaseStateExamineOnlyTheirOwnEventsRows(): void
+    {
+        $this->assertPerEventCost(
+            $this->seedEvent(...),
+            static function (int $event): array {
+                ObjectCache::clear();
+                $decisions = new Decisions();
+                $statuses = array_fill_keys(self::CODES, RegistrationStatus::Registered);
+
+                return [
+                    $decisions->currentOf(new RegistrationKey($event, '00A2')),
+                    $decisions->currentStates($event, $statuses, ['confirmation', 'kind_1']),
+                ];
+            }
+        );
+    }
+
     private function seedEvent(int $event): void
     {
         global $wpdb;
+        foreach (self::CODES as $code) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_registrations', [
+                'event_id' => $event,
+                'code' => $code,
+                'version' => 1,
+                'status' => 'registered',
+                'secret' => str_pad($code, 22, 'x'),
+                'created_at' => '2026-11-29 08:00:00.000000',
+                'registered_at' => '2026-11-29 08:00:00.000000',
+            ]);
+        }
         $values = [];
         foreach (self::CODES as $code) {
             for ($i = 0; $i < self::ROWS_PER_CODE; $i++) {

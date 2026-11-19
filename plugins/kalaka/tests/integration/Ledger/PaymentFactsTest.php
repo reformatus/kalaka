@@ -58,15 +58,6 @@ final class PaymentFactsTest extends LedgerTestCase
         self::assertNotNull($online->paidAt);
         self::assertSame('2026-12-01 10:00:00', $online->paidAt->format('Y-m-d H:i:s'));
         self::assertEquals($online->paidAt, $online->valueAt());
-
-        // S20: each fact carries the moment of the run that recorded it, as stored.
-        foreach ($facts as $fact) {
-            self::assertNotNull($fact->recordedAt);
-            self::assertSame(
-                $stored[0]->recordedAt->format('Y-m-d H:i:s.u'),
-                $fact->recordedAt->format('Y-m-d H:i:s.u')
-            );
-        }
     }
 
     /** #42 AC14: one line of every kind; the facts are every payment-fact kind and no charge or adjustment. */

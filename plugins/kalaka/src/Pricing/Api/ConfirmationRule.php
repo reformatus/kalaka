@@ -5,16 +5,17 @@ declare(strict_types=1);
 namespace Kalaka\Pricing\Api;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Decision\DecisionDefault;
 use Kalaka\Foundation\Api\Decision\DecisionInput;
 use Kalaka\Foundation\Api\Decision\DecisionRule;
 use Kalaka\Foundation\Api\Decision\Transition;
 use Kalaka\Foundation\Api\Money\Money;
-use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\PaymentFact;
 use Kalaka\Pricing\FullAmountThreshold;
 use Kalaka\Pricing\ManualConfirmationRecord;
 use Kalaka\Pricing\ManualConfirmationRepository;
+use Kalaka\Pricing\UnconfirmationRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
@@ -30,13 +31,12 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  *   effective time is the value date (paid time online) of the payment that reached the last required
  *   threshold, the flag's set time, or the moment of the check when nothing is due; with both payments and
  *   the flag, the earlier. [UNAPPROVED N10]
- * - → `unconfirmed` from `confirmed` only in the run that records a refund (any payment fact that adds to what
- *   a payer owes: a refund, a manual refund, a payment moved away) of a payer that is then below its
- *   threshold, or that revokes the flag while a payer is below, and never while the flag is set. A later
- *   charge or a higher threshold changes nothing; a lower one can confirm at the next evaluation.
- *   [UNAPPROVED N9]
- * - A `registered` registration with no record gets `unconfirmed` when it does not qualify, effective when it
- *   became `registered`. [UNAPPROVED N7]
+ * - → `unconfirmed` from `confirmed` only by staff's explicit unconfirm (`kalaka/unconfirm`, newer than the
+ *   current `confirmed` record), effective at its time: a refund, a later charge or a higher threshold never
+ *   unconfirms (the owner's ruling 2026-11-19); a lower threshold can confirm at the next evaluation; a later
+ *   payment or correction that reaches the threshold confirms again. [UNAPPROVED N9, N12]
+ * - No record is the base state: a `registered` registration with none reads `unconfirmed`, derived, never
+ *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state. [UNAPPROVED N7]
  * - Withdrawal or removal closes the sequence: a `confirmed` registration that is no longer `registered` gets
  *   `unconfirmed`, so a restore or admission writes a new `confirmed` record if it qualifies and the old one is
  *   never revived. [UNAPPROVED N8]
@@ -54,6 +54,7 @@ final class ConfirmationRule implements DecisionRule
         private readonly ?ConfirmationThreshold $threshold = null,
         private readonly Ledger $ledger = new Ledger(),
         private readonly ManualConfirmationRepository $flags = new ManualConfirmationRepository(),
+        private readonly UnconfirmationRepository $unconfirmations = new UnconfirmationRepository(),
     ) {
     }
 
@@ -74,6 +75,29 @@ final class ConfirmationRule implements DecisionRule
         return [self::CONFIRMED => 'Visszaigazolva', self::UNCONFIRMED => 'Nincs visszaigazolva'];
     }
 
+    /** No record reads `unconfirmed`, and only a `registered` registration has a confirmation state. */
+    public function defaultState(): DecisionDefault
+    {
+        return new DecisionDefault(self::UNCONFIRMED, [RegistrationStatus::Registered]);
+    }
+
+    /**
+     * Whether the registration's payments reach every required threshold now, or nothing is due: what staff's
+     * unconfirm must not contradict (`ManualConfirmations::canUnconfirm()`). False when it does not exist.
+     *
+     * @throws FeeComponentFailed when a component throws or returns something invalid
+     */
+    public function paymentsQualify(RegistrationKey $key, \DateTimeImmutable $now): bool
+    {
+        $composed = $this->composition->of($key, $now);
+        if ($composed === null) {
+            return false;
+        }
+        $below = [];
+
+        return $this->reached($composed, $this->ledger->paymentFactsOf($key), $now, $below) !== false;
+    }
+
     public function decide(DecisionInput $input): ?Transition
     {
         $key = $input->registration;
@@ -88,25 +112,24 @@ final class ConfirmationRule implements DecisionRule
             return $confirmed ? new Transition(self::UNCONFIRMED, $input->now, Subject::registration($key)) : null;
         }
 
-        $flag = $this->flags->find($key);
-        $flagSet = $flag !== null && $flag->isSet();
-        $facts = $this->ledger->paymentFactsOf($key);
-        $below = [];
-        $reached = $this->reached($composed, $facts, $input, $below);
-
         if (!$confirmed) {
-            return $this->confirmation($key, $reached, $flagSet ? $flag : null, $input)
-                ?? ($current === null ? new Transition(
-                    self::UNCONFIRMED,
-                    $composed->facts->registeredAt ?? $input->now,
-                    Subject::registration($key)
-                ) : null);
+            $flag = $this->flags->find($key);
+            $below = [];
+            $reached = $this->reached($composed, $this->ledger->paymentFactsOf($key), $input->now, $below);
+
+            return $this->confirmation($key, $reached, $flag !== null && $flag->isSet() ? $flag : null, $input);
         }
-        if ($reached !== false || $flagSet) {
+
+        $unconfirmed = $this->unconfirmations->find($key);
+        if ($unconfirmed === null || $unconfirmed->unconfirmedAt <= $current->recordedAt) {
             return null;
         }
 
-        return $this->unconfirmation($key, $facts, $below, $flag, $input->now);
+        return new Transition(
+            self::UNCONFIRMED,
+            $unconfirmed->unconfirmedAt,
+            new Subject('unconfirmation', $key->eventId, $key->code)
+        );
     }
 
     /**
@@ -116,11 +139,15 @@ final class ConfirmationRule implements DecisionRule
      * @param list<PaymentFact> $facts
      * @param array<string, true> $below gets the payers below their threshold
      */
-    private function reached(ComposedFee $composed, array $facts, DecisionInput $input, array &$below): PaymentFact|bool
-    {
+    private function reached(
+        ComposedFee $composed,
+        array $facts,
+        \DateTimeImmutable $now,
+        array &$below,
+    ): PaymentFact|bool {
         $last = true;
         foreach ($composed->targets() as $payer => $target) {
-            $threshold = $this->thresholdOf($composed, $payer, $target, $input->now);
+            $threshold = $this->thresholdOf($composed, $payer, $target, $now);
             if ($threshold->countsAsZero() || $threshold->isNegative()) {
                 continue;
             }
@@ -196,48 +223,5 @@ final class ConfirmationRule implements DecisionRule
         usort($candidates, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
 
         return new Transition(self::CONFIRMED, $candidates[0][0], $candidates[0][1]);
-    }
-
-    /**
-     * The `unconfirmed` transition when this run recorded a refund of a payer now below its threshold, or
-     * revoked the flag, else null: a later charge or a higher threshold never unconfirms, and neither does a
-     * refund of a payer that is still at its threshold.
-     *
-     * @param list<PaymentFact> $facts
-     * @param array<string, true> $below the payers below their threshold
-     */
-    private function unconfirmation(
-        RegistrationKey $key,
-        array $facts,
-        array $below,
-        ?ManualConfirmationRecord $flag,
-        \DateTimeImmutable $now,
-    ): ?Transition {
-        $run = Instant::toStorage($now);
-        $refund = null;
-        foreach ($facts as $fact) {
-            if (
-                $fact->amount->isPositive() && isset($below[$fact->payer]) && $fact->recordedAt !== null
-                && Instant::toStorage($fact->recordedAt) === $run
-            ) {
-                $refund = $fact;
-            }
-        }
-        if ($refund !== null) {
-            return new Transition(
-                self::UNCONFIRMED,
-                $refund->valueAt(),
-                new Subject('ledger_line', $key->eventId, (string) $refund->id)
-            );
-        }
-        if ($flag !== null && $flag->revokedAt !== null && Instant::toStorage($flag->revokedAt) === $run) {
-            return new Transition(
-                self::UNCONFIRMED,
-                $flag->revokedAt,
-                new Subject('manual_confirmation', $key->eventId, $key->code)
-            );
-        }
-
-        return null;
     }
 }
