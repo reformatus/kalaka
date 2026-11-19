@@ -39,9 +39,17 @@ final class DecisionsTest extends WP_UnitTestCase
         self::assertNull($decisions->kind('unknown'));
     }
 
-    public function testWithoutRulesThereAreNoKindsOnARealSite(): void
+    public function testOnARealSiteCoreDeclaresConfirmationWithItsApprovedLabels(): void
     {
-        self::assertSame([], (new Decisions())->kinds());
+        $kinds = (new Decisions())->kinds();
+
+        self::assertCount(1, $kinds);
+        self::assertSame('confirmation', $kinds[0]->kind);
+        self::assertSame('Visszaigazolás', $kinds[0]->label);
+        self::assertSame(
+            ['confirmed' => 'Visszaigazolva', 'unconfirmed' => 'Nincs visszaigazolva'],
+            $kinds[0]->states
+        );
     }
 
     public function testStatesInAreTheDistinctRecordedStatesOfOneKindInOneEventInByteOrder(): void

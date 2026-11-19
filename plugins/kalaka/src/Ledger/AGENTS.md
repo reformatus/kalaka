@@ -47,6 +47,8 @@ corrections
   time zone at recording; a correction (a manual row flagged `correction`,
   the owner's ruling 2026-11-19, with no method) has no entered date and
   stores the time it is recorded. A `charge` carries neither.
+  A payment fact also carries its recorded time, the moment of the run that
+  wrote it, so confirmation can tell a refund of its own run.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - A manual charge or discount is a fact in `kalaka_manual_fees`: inserted

@@ -11,7 +11,8 @@ retention and the materializer
   [Materializer](../../../../docs/architecture/money.md#materializer),
   the split per payer that [Ledger](../../../../docs/architecture/money.md#ledger)'s invoices show,
   the composition order that [Congregation share](../../../../docs/architecture/money.md#congregation-share)
-  relies on. Confirmation and retention come later (S20, S23).
+  relies on, [Confirmation](../../../../docs/architecture/money.md#confirmation).
+  Retention comes later (S23).
 - foundation.md: the money phase of [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Bulk changes](../../../../docs/architecture/foundation.md#bulk-changes) for money settings.
 - modules-and-extensions.md: the fee component of
@@ -55,7 +56,25 @@ retention and the materializer
   and it converges on its next evaluation. The preview refuses what the apply
   refuses (a negative price).
 - Once confirmed, a registration never becomes unconfirmed because amounts
-  change later, an apply included (owner rule, 2026-11-14; confirmation is
-  S20's).
-- No mail and no UI text come from Pricing in S19.
+  change later, an apply included (owner rule, 2026-11-14): only a run that
+  records a refund or revokes the manual flag can unconfirm it, and only
+  while its payments are then below a threshold and no flag is set.
+- There is one fee composition, `Api\FeeComposition`: the materializer records
+  its difference, and confirmation reads each payer's target from it
+  read-only, inside the decision; it reads no ledger line and writes nothing.
+  Confirmation reads payment facts (`Ledger::paymentFactsOf()`) and the
+  manual flag, never charge lines.
+- Confirmation (`Api\ConfirmationRule`, kind `confirmation`) is a core rule
+  that reads a target: every payer with something owed must reach its own
+  threshold (core: the full target; `Api\ConfirmationThreshold` may lower it,
+  held between zero and the target). It decides only for a `registered`
+  registration; leaving `registered` closes a confirmed sequence with an
+  `unconfirmed` record, so a restore writes a new record.
+- The manual flag is a fact in `kalaka_manual_confirmations`, set and revoked
+  only by `kalaka/set-manual-confirmation` and
+  `kalaka/revoke-manual-confirmation` (the per-event action
+  `kalaka_confirm_manually`), with a required reason, idempotently; a revoke
+  keeps the row with its revoke time.
+- No mail comes from Pricing; its UI texts are the decision's labels and the
+  abilities' labels.
 - Only Pricing writes its tables.

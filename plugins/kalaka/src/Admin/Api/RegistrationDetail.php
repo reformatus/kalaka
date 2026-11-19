@@ -21,6 +21,7 @@ use Kalaka\Ledger\Api\Side;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
+use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -28,7 +29,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Everything in it goes through views and grants: the registration data is read through `ViewQuery` for the
  * views that hold the registration (`Access::holding()`), or full access, so it shows only what their columns
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
- * [UNAPPROVED Access]
+ * The manual confirmation flag shows behind the same gate as the money. [UNAPPROVED Access] [UNAPPROVED N11]
  */
 final class RegistrationDetail
 {
@@ -41,6 +42,7 @@ final class RegistrationDetail
         private readonly Ledger $ledger = new Ledger(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
+        private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
     ) {
     }
 
@@ -95,15 +97,21 @@ final class RegistrationDetail
         $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
         // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
         // and a manual discount.
+        $confirmManually = $carried(ManualConfirmations::CONFIRM_MANUALLY);
 
         $read = [
             'registration' => $this->registrationPart($registration),
             'fields' => $this->fieldsPart($registration),
         ];
         if ($viewMoney) {
+            $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
-        $read['can'] = ['view_money' => $viewMoney, 'record_money' => $record];
+        $read['can'] = [
+            'view_money' => $viewMoney,
+            'record_money' => $record,
+            'confirm_manually' => $confirmManually,
+        ];
 
         return $read;
     }
@@ -179,6 +187,27 @@ final class RegistrationDetail
         }
 
         return $part;
+    }
+
+    /**
+     * The manual confirmation flag while it is set: its set time, its reason and the display name of who set
+     * it (null for a run without a user); null when it is not set.
+     *
+     * @return ?array{set_at: string, reason: string, set_by: ?string}
+     */
+    private function manualConfirmationPart(RegistrationKey $key): ?array
+    {
+        $flag = $this->manualConfirmations->of($key);
+        if ($flag === null) {
+            return null;
+        }
+        $by = null;
+        if ($flag->setBy !== null) {
+            $user = get_userdata($flag->setBy);
+            $by = $user === false ? null : (string) $user->display_name;
+        }
+
+        return ['set_at' => self::instant($flag->setAt), 'reason' => $flag->reason, 'set_by' => $by];
     }
 
     /** @return list<array<string, mixed>> */

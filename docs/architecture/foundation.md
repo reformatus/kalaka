@@ -584,9 +584,14 @@ sort on the first two ([Views and grants](#views-and-grants)).
 - **Computed values are never stored:** balance, tallies, the tree's
   ancestors, a meal turn from the option map, the sorszám. The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
-- **Reading order:** core decisions are made first, then extension decisions.
-  A decision reads facts and earlier decisions only. An extension decision
-  reads facts and core decisions, never another extension's decision.
+- **Reading order:** inside the decisions phase, decisions that change a
+  target (tier places, support places) come first, then decisions that read
+  a target (the late fee, then confirmation). A decision that reads a target
+  reads it through the read-only fee composition of the pass so far, never
+  another extension's decision records directly, and never counts its own
+  charge. A decision reads facts and earlier decisions only. An extension
+  decision reads facts and core decisions, never another extension's
+  decision.
 - **No decision, condition or view depends on deliveries.** Only the sender
   and the staff screens that list deliveries read them ([Mail](mail.md)).
 

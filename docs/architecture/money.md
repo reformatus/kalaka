@@ -146,8 +146,6 @@ title: Money
   the fee composition says it owes now, manual charges and discounts
   included; **nothing is due** when every payer's target is zero or below.
   Confirmation reads payment facts, never charge lines.
-- **"The congregation part is required for confirmation"** is a per-event
-  switch, on by default. Off, only the participant's target counts.
 - **The manual flag** ("may come without paying") is a fact: set with a
   reason, audited, carrying its own set time, and kept until staff revoke it.
 
@@ -163,7 +161,10 @@ title: Money
 - **A later charge or a higher threshold changes nothing:** the registration
   stays confirmed, also when a money settings apply raises its amounts. A lower threshold can confirm more registrations at the
   next evaluation.
-- **Withdrawal or removal closes the sequence.** Restore or admission writes a
+- **A `registered` registration that does not qualify is unconfirmed:** its
+  first record is `unconfirmed`, effective when it became `registered`.
+- **Withdrawal or removal closes the sequence:** a confirmed registration gets
+  an `unconfirmed` record. Restore or admission writes a
   new record if the registration qualifies; the old one is never revived.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
@@ -234,8 +235,8 @@ such as lunch or a donation.
   [fee sequence](#materializer), the base price after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
-- Whether the congregation's part is needed for confirmation is a per-event
-  switch ([Confirmation](#confirmation)); a manual confirmation covers a late
+- The congregation's part is always needed for confirmation
+  ([Confirmation](#confirmation)); a manual confirmation covers a late
   payer.
 
 ## Sponsor and church support

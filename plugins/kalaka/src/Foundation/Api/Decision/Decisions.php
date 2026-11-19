@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Decision;
 
 use Kalaka\Foundation\Decision\DecisionQuery;
-use Kalaka\Foundation\Decision\DecisionRule;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Registrations\Api\RegistrationKey;
 

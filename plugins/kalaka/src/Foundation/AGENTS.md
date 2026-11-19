@@ -150,9 +150,17 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - A decision kind is declared with a Hungarian label and its states, each
   with a Hungarian label; the grid shows those labels for every kind.
 - A decision rule returns a transition or nothing and never writes; core
-  writes the record, and only when the state changes. A core rule reads its
-  own kind and the core kinds decided before it; an extension rule reads its
-  own kind and every core kind, never another extension's.
+  writes the record, and only when the state changes. The decisions phase
+  runs the rules that change a target or read none first (core, then
+  extensions), then the rules that read a target (extensions, then core), so
+  confirmation comes last. A core rule reads its own kind and the core kinds
+  decided before it; an extension rule reads its own kind and every core kind
+  (one not yet decided in the pass as it stood before it), never another
+  extension's.
+- The decision rule contract (`DecisionRule`, `DecisionInput`, `Decision`,
+  `Transition`) is `Api`; the registry `DecisionRules` is not. Foundation's
+  boot adds core's rules (Pricing's confirmation, over the materializer's own
+  composition) and publishes the registry.
 - The runner evaluates each touched registration once, at the outermost use
   case, after `execute` and before the audit entry; a rule failure rolls back
   the whole use case.
