@@ -272,7 +272,8 @@ values and conditions, prefill and form links
   that names an assignment set holds no options of its own: the definition
   parse fills its `options` from the host (`FormHost::requestOptions()`),
   each with its eligibility condition, which is read like a choice option's
-  condition (fields before it and the event's keys). `FormEngine::blocks()`
+  condition (fields before it and the event's keys); a stored earlier version
+  of the form takes them without their conditions. `FormEngine::blocks()`
   renders it with those attributes. Outside the set's choice window, decided
   when the definition is built from the runner's clock, it is closed: it does
   not show, renders nothing and whatever is sent for it is dropped; the walk
