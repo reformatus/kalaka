@@ -4,11 +4,23 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Ledger;
 
+use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\IdempotencyConflict;
+use Kalaka\Ledger\Api\Ledger;
+use Kalaka\Ledger\Api\LineKind;
+use Kalaka\Ledger\Api\NewLine;
+use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Ledger\RecordRefund;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
 /** S22: the "record refund" use case (owner ruling 2026-11-18, point 5). */
 final class RecordRefundTest extends ManualEntryTestCase
@@ -98,6 +110,36 @@ final class RecordRefundTest extends ManualEntryTestCase
         self::assertContains('registration/' . $this->event . '/00A0', $this->subjectsOf($entry['id']));
     }
 
+    /** C4-1: the same key reused for a refund after a payment is a conflict. */
+    public function testTheSameKeyOnAPaymentAndARefundIsAConflict(): void
+    {
+        $this->exec(new RecordPayment(), $this->paymentInput());
+
+        try {
+            $this->exec(new RecordRefund(), $this->paymentInput());
+            self::fail('A refund reused the payment key.');
+        } catch (IdempotencyConflict $conflict) {
+            self::assertSame(409, $conflict->status());
+            self::assertSame('kalaka_idempotency_conflict', $conflict->errorCode());
+            self::assertCount(1, $this->lines());
+        }
+    }
+
+    /** C4-1: the same key reused for a payment with another payer is a conflict. */
+    public function testTheSameKeyForAPaymentWithAnotherPayerIsAConflict(): void
+    {
+        $this->recordPaymentWithPayer('sponsor');
+
+        try {
+            $this->exec(new RecordPayment(), $this->paymentInput());
+            self::fail('A payment reused the key of another payer.');
+        } catch (IdempotencyConflict $conflict) {
+            self::assertSame(409, $conflict->status());
+            self::assertSame('kalaka_idempotency_conflict', $conflict->errorCode());
+            self::assertCount(1, $this->lines());
+        }
+    }
+
     public function testTheSameKeyWithADifferentCorrectionFlagIsAnError(): void
     {
         $this->exec(new RecordRefund(), $this->paymentInput(['correction' => true, 'note' => 'ok']));
@@ -135,5 +177,36 @@ final class RecordRefundTest extends ManualEntryTestCase
                 self::assertSame([], $this->lines());
             }
         }
+    }
+
+    /**
+     * Records the payment line the use case's input names, for a payer the extension surface will declare:
+     * the Ledger takes any payer-kind ID, and only the use case checks the event's declared kinds.
+     */
+    private function recordPaymentWithPayer(string $payer): void
+    {
+        $key = new RegistrationKey($this->event, '00A0');
+        $this->runner->run(
+            new AdminProbe(function (array $input, Context $context) use ($key, $payer): int {
+                $this->lockRegistrations($context, $key);
+
+                return (new Ledger())->record(
+                    new NewLine(
+                        $key,
+                        LineKind::ManualPayment,
+                        $payer,
+                        Money::of('-5000', Currency::HUF),
+                        new Subject('wp_user', null, (string) $this->admin->userId),
+                        'manual:k1',
+                        '2026-11-29',
+                        null,
+                        PaymentMethod::BankTransfer,
+                    ),
+                    $context
+                )->line->id;
+            }),
+            [],
+            new SystemActor()
+        );
     }
 }

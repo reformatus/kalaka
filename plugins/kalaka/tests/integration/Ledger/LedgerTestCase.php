@@ -96,7 +96,10 @@ abstract class LedgerTestCase extends RegistrationsTestCase
             $registrations = array_map(static fn (NewLine $line): RegistrationKey => $line->registration, $lines);
             $this->lockRegistrations($context, ...$registrations);
 
-            return array_map(fn (NewLine $line): LedgerLine => $this->ledger->record($line, $context), $lines);
+            return array_map(
+                fn (NewLine $line): LedgerLine => $this->ledger->record($line, $context)->line,
+                $lines
+            );
         });
         self::assertIsArray($stored);
 
