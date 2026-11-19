@@ -8,6 +8,8 @@ At the module root: `LedgerLineRepository` (the only writer of `kalaka_ledger_li
 
 Use cases: `RecordPayment` and `RecordRefund`, the two manual entries (both `RecordManualEntry`: one line and its note, under the registration's lock).
 
+A replay with the same idempotency key and the same line is no conflict, and neither is one after the line's note was erased (`eraseNotesOf()`). Since a line keeps no mark of an erased note, a replay that adds a note to a line recorded without one is accepted too, and the new note is dropped.
+
 Tables, created by the schema in `Module.php`: `kalaka_ledger_lines`, `kalaka_payment_notes`.
 
 Entry points: the abilities `kalaka/record-payment` and `kalaka/record-refund`.
