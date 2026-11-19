@@ -555,6 +555,7 @@ deptrac:
       - Events Api
       - Forms Api
       - Forms Engine Api
+      - ParticipantFields Api
       - Assignments Api
       - Registrations Api
       - Registration data
