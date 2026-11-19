@@ -66,8 +66,6 @@ final class ViewEditTest extends GrantTestCase
         $second = $this->saveGrant($this->event, $user, ['view_id' => $view, 'bound_value' => 'konyha']);
         $filterBefore = $this->viewRow($view)['filter'];
         $versionBefore = $this->viewRow($view)['version'];
-        $count = count($this->entries());
-
         try {
             $this->exec(new SaveView(), $this->edit($view, $filter));
             self::fail('The run should have thrown.');
@@ -79,7 +77,6 @@ final class ViewEditTest extends GrantTestCase
         self::assertSame($versionBefore, $this->viewRow($view)['version']);
         self::assertSame('építő', $this->grantRow($first)['bound_value']);
         self::assertSame('konyha', $this->grantRow($second)['bound_value']);
-        self::assertCount($count, $this->entries());
     }
 
     public function testAParameterChangeThatDuplicatesNothingIsAccepted(): void

@@ -88,7 +88,7 @@ final class SaveView implements AdminUseCase
             return $this->repository->upsert(new View($eventId, $name, $shape), $context)->id;
         }
 
-        // The event row is the run's first lock, as in SaveGrant: the duplicate check below and the writes are one step.
+        // The event row is the run's first lock, as in SaveGrant: the duplicate check and the writes are one step.
         $this->events->lock($context, $eventId);
         $view = $this->repository->findForUpdate((int) $input['id'], $context);
         if ($view === null || $view->eventId !== $eventId) {
@@ -108,8 +108,9 @@ final class SaveView implements AdminUseCase
                     continue;
                 }
                 // Clearing must not make two grants of one user equal: the save is refused then.
-                if (isset($users[$grant->userId])
-                    || $this->grants->holdsSame($eventId, $grant->userId, $view->id, null, $grant->id)) {
+                $repeats = isset($users[$grant->userId])
+                    || $this->grants->holdsSame($eventId, $grant->userId, $view->id, null, $grant->id);
+                if ($repeats) {
                     throw new DuplicateGrant();
                 }
                 $users[$grant->userId] = true;
