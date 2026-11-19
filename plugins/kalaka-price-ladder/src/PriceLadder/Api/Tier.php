@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * One tier of an event's price ladder (money.md, "Core money scope"): its key, the label the organizers gave
  * it, its amount in the event's currency, its availability condition in the one condition format (null: for
  * everyone) and its deadline, the first instant it no longer applies (the end of its last day in the site
- * time zone, fixed when it is stored; null: no deadline). Its share mode is S29's.
+ * time zone, fixed when it is stored; null: no deadline).
  */
 final readonly class Tier implements Conditional
 {
