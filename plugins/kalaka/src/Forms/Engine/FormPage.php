@@ -153,9 +153,11 @@ final class FormPage
             ),
             AccessRefusal::OutsideRegistrationWindow => FormPageView::refused($this->outsideWindow($form, $now)),
             // The account never refuses the page (`withoutAccount()`); listed for the match only.
-            AccessRefusal::EventNotOpen, AccessRefusal::AccountRequired => FormPageView::refused(
-                FormPageView::UNAVAILABLE
-            ),
+            AccessRefusal::EventNotOpen,
+            AccessRefusal::OutsideOpenPeriod,
+            AccessRefusal::AccountRequired,
+            AccessRefusal::RegistrationMayNotSubmit => FormPageView::refused(FormPageView::UNAVAILABLE),
+            AccessRefusal::NoActiveRegistration => FormPageView::refused(FormPageView::NO_ACTIVE_REGISTRATION),
         };
     }
 

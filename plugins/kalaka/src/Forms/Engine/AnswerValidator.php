@@ -53,6 +53,10 @@ final class AnswerValidator
             throw new InvalidAnswers($result->errors);
         }
 
-        return new ValidatedAnswers($result->submitted, $result->stored);
+        return new ValidatedAnswers(
+            $result->submitted,
+            $result->stored,
+            array_keys(array_filter($result->shown, static fn (bool $shown): bool => $shown))
+        );
     }
 }

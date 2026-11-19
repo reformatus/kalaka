@@ -35,7 +35,8 @@ It holds the ranking field type now and the ranking proposer later (S77).
 - A stored ranking opens in its order (`RankingFieldType::prefill()`, the
   field-type contract, rendered from `FieldMarkup::prefilled()`): unknown
   keys and repeats are dropped silently, the rest kept in order, then the
-  first `max`; too few stay, and the submit asks for more.
+  first `max`; too few stay, and the submit asks for more. An
+  additional form opens with the stored ranking ranked in its order.
 - The options are the block's own list of `{value, label}` until S44's
   assignment sets exist; every option is offered until then (TODO(S76)).
   The type is an `OptionsFieldType`, so core derives a missing option key on

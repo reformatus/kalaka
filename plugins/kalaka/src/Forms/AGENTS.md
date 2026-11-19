@@ -11,8 +11,10 @@ values and conditions, prefill and form links
   [Fields](../../../../docs/architecture/events-and-forms.md#fields),
   [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions)
   with [Conditions](../../../../docs/architecture/events-and-forms.md#conditions);
-  later [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
-  [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
+  the additional forms and the prefill from the active registration of
+  [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit)
+  and [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link);
+  later the link prefill and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
 - modules-and-extensions.md: the field-type and theme-adapter points of
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
@@ -141,11 +143,24 @@ values and conditions, prefill and form links
   condition blocks are not gated: every block editor offers them.
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
-- Access checks are pure: they read no current user, cookie or request; the
-  caller passes the roles, whether the password was given and whether someone
-  is logged in. The engine's `FormHost::refusals()` contract leaves the last
-  to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
-  a submit passes whether its actor is an account.
+- An additional form writes only to the active registration
+  (`Portal\Api\ActiveRegistration`) of its own event, while that registration
+  is `registered` or `waitlisted` and the form is within its open period
+  (`OpenPeriod`: each end a date reference in `kalaka_opens` / `kalaka_closes`,
+  a fixed UTC instant or an event point; an end not set does not limit it,
+  one that does not resolve closes the form). Its submit runs as that
+  registration's `SecretLinkActor`; it never creates a registration.
+- A form opens with its host's stored values (`FormHost::prefill()`; for an
+  additional form the registration's current field values), each turned into
+  its field's answer by `FieldType::prefill()` (null opens it empty: a type
+  that refuses prefill). The page is walked and rendered for those answers;
+  each field block renders its own (`FieldMarkup::prefilled()`).
+- Access checks read the request's active registration (an additional form
+  acts on it) and nothing else from the request besides the logged-in user:
+  no other cookie or request state. The caller passes the roles and whether
+  the password was given; the engine's `FormHost::refusals()` contract leaves
+  the logged-in user to the host: `EventFormHost::refusals()` passes
+  `is_user_logged_in()`, and a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
   transaction, never inside it. The one exception is `Forms::refusals()`,
   which reads nothing: a submit checks it under the event's lock.
