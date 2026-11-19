@@ -17,6 +17,9 @@ final class RegistrationTables
     /** The participant field values, keyed `event_id`, `code`, `field_key`. */
     public const FIELD_VALUES = 'kalaka_field_values';
 
+    /** The submissions, append-only, keyed `event_id`, `code`, `number`. */
+    public const SUBMISSIONS = 'kalaka_submissions';
+
     /**
      * The instant the sorszám orders by: `registered_at` for a registered row, `created_at` otherwise.
      *

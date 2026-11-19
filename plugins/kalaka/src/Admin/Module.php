@@ -141,6 +141,7 @@ SQL;
             'Egy felhasználó teljes hozzáférésének visszavonása.'
         );
 
+        add_action('rest_api_init', [RegistrationDetailRoute::class, 'register']);
         add_action('show_user_profile', [ProfileField::class, 'render']);
         add_action('edit_user_profile', [ProfileField::class, 'render']);
         // Checked once core has checked the rest of the form, saved only once core has saved the user.
