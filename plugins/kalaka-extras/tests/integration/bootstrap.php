@@ -16,7 +16,7 @@ $devVendor = dirname(__DIR__, 4) . '/kalaka-dev-vendor';
 require_once $devVendor . '/autoload.php';
 define('WP_TESTS_PHPUNIT_POLYFILLS_PATH', $devVendor . '/yoast/phpunit-polyfills');
 
-// Test classes, cases and doubles load on demand. Kalaka\Tests\Integration\PriceLadder\ maps to this folder and
+// Test classes, cases and doubles load on demand. Kalaka\Tests\Integration\Extras\ maps to this folder and
 // the rest of Kalaka\Tests\Integration\ to core's integration folder, whose cases the extras tests extend.
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Kalaka\\Tests\\Integration\\';
