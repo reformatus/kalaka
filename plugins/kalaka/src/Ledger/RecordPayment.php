@@ -24,7 +24,7 @@ final class RecordPayment extends RecordManualEntry
         return Ledger::RECORD_PAYMENT;
     }
 
-    protected function kind(): LineKind
+    protected function kind(array $input): LineKind
     {
         return LineKind::ManualPayment;
     }

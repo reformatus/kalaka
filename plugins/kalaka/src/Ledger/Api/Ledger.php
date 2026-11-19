@@ -55,11 +55,13 @@ final class Ledger
             throw $error;
         }
         $this->check($line);
-        $valueDate = $line->valueDate === null ? null : Instant::startOfDay($line->valueDate);
+        // A correction has no date of its own: it counts from the moment it is recorded.
+        $valueDate = $line->correction ? $context->now() : self::dayOf($line);
 
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
         if ($stored !== null) {
-            if (!self::isSame($stored, $line, $valueDate) || !$this->sameNote($stored, self::noteText($line))) {
+            $day = $line->correction ? $stored->valueDate : $valueDate;
+            if (!self::isSame($stored, $line, $day) || !$this->sameNote($stored, self::noteText($line))) {
                 $error = new SystemFailure(null, new \LogicException('The idempotency key holds a different line.'));
                 throw $error;
             }
@@ -148,6 +150,11 @@ final class Ledger
         return $storedNote === null || $storedNote === $note;
     }
 
+    private static function dayOf(NewLine $line): ?\DateTimeImmutable
+    {
+        return $line->valueDate === null ? null : Instant::startOfDay($line->valueDate);
+    }
+
     private static function noteFits(?string $note): bool
     {
         return $note === null || mb_check_encoding($note, 'UTF-8') && mb_strlen($note, 'UTF-8') <= 500;
@@ -168,7 +175,7 @@ final class Ledger
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
 
         return $stored !== null
-            && (!self::isSame($stored, $line, $line->valueDate === null ? null : Instant::startOfDay($line->valueDate))
+            && (!self::isSame($stored, $line, $line->correction ? $stored->valueDate : self::dayOf($line))
                 || !$this->sameNote($stored, self::noteText($line)));
     }
 
@@ -215,12 +222,13 @@ final class Ledger
             !$line->kind->allows($line->amount) => 'The amount does not fit the kind.',
             !Payer::isValid($line->payer) => 'The payer is not a payer-kind ID.',
             preg_match('/\A[a-z0-9_:.-]{1,128}\z/', $line->idempotencyKey) !== 1 => 'The key is malformed.',
-            ($line->valueDate !== null) !== $line->kind->carriesValueDate()
+            ($line->valueDate !== null) !== ($line->kind->carriesValueDate() && !$line->correction)
                 || ($line->paidAt !== null) !== $line->kind->carriesPaidTime() => 'The time does not fit the kind.',
             $line->valueDate !== null && Instant::startOfDay($line->valueDate) === null
                 => 'The value date is not a day.',
             $line->method !== null && !$line->kind->carriesMethod() => 'The kind has no method.',
-            $line->correction && $line->kind !== LineKind::ManualRefund => 'Only a manual refund is a correction.',
+            $line->correction && !$line->kind->carriesMethod() => 'Only a manual payment or refund is a correction.',
+            $line->correction && $line->method !== null => 'A correction has no method.',
             $line->correction && self::noteText($line) === null => 'A correction needs its reason.',
             $line->note !== null && !$line->kind->mayHaveNote() => 'The kind has no note.',
             !self::noteFits(self::noteText($line)) => 'The note is not 1 to 500 characters.',

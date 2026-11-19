@@ -97,5 +97,11 @@ SQL;
             'Visszatérítés rögzítése',
             'Egy jelentkezőnek kézzel visszautalt összeg rögzítése.'
         );
+        // [UNAPPROVED T16, T17] drafts for the lektor.
+        Abilities::register(
+            new RecordCorrection(),
+            'Korrekció rögzítése',
+            'Egy jelentkező korábbi bejegyzését javító összeg rögzítése, indoklással.'
+        );
     }
 }

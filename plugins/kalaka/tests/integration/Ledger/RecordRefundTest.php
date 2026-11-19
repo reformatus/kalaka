@@ -46,37 +46,15 @@ final class RecordRefundTest extends ManualEntryTestCase
         self::assertSame([], $this->notes());
     }
 
-    public function testACorrectionNeedsItsReason(): void
+    /** The owner's ruling 2026-11-19: a refund is never a correction; that is the correction's own use case. */
+    public function testARefundTakesNoCorrectionFlag(): void
     {
-        foreach ([[], ['note' => '   ']] as $position => $note) {
-            try {
-                $this->exec(
-                    new RecordRefund(),
-                    $this->paymentInput(['correction' => true, 'idempotency_key' => 'c' . $position] + $note)
-                );
-                self::fail('A correction without a reason was accepted.');
-            } catch (InvalidInput) {
-                self::assertSame([], $this->lines());
-            }
+        try {
+            $this->exec(new RecordRefund(), $this->paymentInput(['correction' => true, 'note' => 'ok']));
+            self::fail('A refund took a correction flag.');
+        } catch (InvalidInput) {
+            self::assertSame([], $this->lines());
         }
-    }
-
-    public function testACorrectionWithItsReasonIsMarkedAndNotLinked(): void
-    {
-        // An earlier line a correction could carry a link to.
-        $this->exec(new RecordPayment(), $this->paymentInput(['idempotency_key' => 'p0']));
-        $this->exec(new RecordRefund(), $this->paymentInput(['correction' => true, 'note' => 'Téves befizetés']));
-
-        $lines = $this->lines();
-        self::assertCount(2, $lines);
-        $correction = $lines[1];
-        self::assertSame('manual_refund', $correction['kind']);
-        self::assertSame('1', $correction['correction']);
-        self::assertSame('Téves befizetés', $this->notes()[0]['note']);
-        // Its only reference is the recording user: no stored column names the line it corrects.
-        self::assertSame('wp_user', $correction['source_type']);
-        self::assertNull($correction['source_event_id']);
-        self::assertSame((string) $this->admin->userId, $correction['source_key']);
     }
 
     /** C4-2: the refund replays like a payment: the same key and input write once. */
@@ -140,12 +118,17 @@ final class RecordRefundTest extends ManualEntryTestCase
         }
     }
 
-    public function testTheSameKeyWithADifferentCorrectionFlagIsAnError(): void
+    /** C2-1: a key with a trailing newline is invalid input, not a system failure. */
+    public function testAKeyWithATrailingNewlineIsInvalidInput(): void
     {
-        $this->exec(new RecordRefund(), $this->paymentInput(['correction' => true, 'note' => 'ok']));
-
-        $this->expectException(\Kalaka\Ledger\Api\IdempotencyConflict::class);
-        $this->exec(new RecordRefund(), $this->paymentInput(['correction' => false, 'note' => 'ok']));
+        foreach ([new RecordPayment(), new RecordRefund()] as $position => $useCase) {
+            try {
+                $this->exec($useCase, $this->paymentInput(['idempotency_key' => "k" . $position . "\n"]));
+                self::fail('A key with a trailing newline was accepted.');
+            } catch (InvalidInput) {
+                self::assertSame([], $this->lines());
+            }
+        }
     }
 
     public function testThePaymentActionDoesNotCarryTheRefund(): void
@@ -179,29 +162,16 @@ final class RecordRefundTest extends ManualEntryTestCase
         }
     }
 
-    public function testARefundTakesTransferOrCashButNotTheCardTerminal(): void
+    public function testARefundTakesEveryPaymentMethod(): void
     {
-        try {
-            $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'card_terminal']));
-            self::fail('A card terminal refund was accepted.');
-        } catch (InvalidInput) {
-            self::assertSame([], $this->lines());
+        foreach (['bank_transfer', 'cash', 'card_terminal'] as $position => $method) {
+            $this->exec(
+                new RecordRefund(),
+                $this->paymentInput(['method' => $method, 'idempotency_key' => 'm' . $position])
+            );
         }
 
-        $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'bank_transfer', 'idempotency_key' => 'k2']));
-        $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'cash', 'idempotency_key' => 'k3']));
-
-        self::assertCount(2, $this->lines());
-        self::assertSame(
-            ['bank_transfer', 'cash'],
-            $this->schemaMethods(new RecordRefund())
-        );
-    }
-
-    /** @return list<string> */
-    private function schemaMethods(RecordRefund $refund): array
-    {
-        return $refund->inputSchema()['properties']['method']['enum'];
+        self::assertCount(3, $this->lines());
     }
 
     /**

@@ -9,6 +9,7 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
@@ -41,15 +42,18 @@ final class RegistrationDetail
 
     /**
      * @return array<string, mixed> the read, as JSON-ready data
-     * @throws NotFound when the event or registration does not exist, or the actor's grants and views do not
-     *                  hold it: the same answer, so a code's existence is never revealed
+     * @throws RegistrationNotInView when the actor holds a grant on the event but no view of theirs holds the
+     *                               code: the same answer whether the code exists or not
+     * @throws NotFound when the event does not exist, or the actor has no grant on it and no full access
      */
     public function of(Actor $actor, int $eventId, string $code): array
     {
         try {
             $key = new RegistrationKey($eventId, $code);
         } catch (InvalidInput) {
-            throw new NotFound();
+            // Not a code at all: as for one the views do not hold.
+            $error = $this->refusal($actor, $eventId);
+            throw $error;
         }
         $event = $this->events->find($eventId);
         if ($event === null) {
@@ -59,7 +63,8 @@ final class RegistrationDetail
         $full = $this->access->isFull($actor);
         $holding = $full ? [] : $this->access->holding($actor, $key);
         if (!$full && $holding === []) {
-            throw new NotFound();
+            $error = $this->refusal($actor, $eventId);
+            throw $error;
         }
         $views = $full
             ? [$this->access->master($actor, $eventId)]
@@ -85,6 +90,7 @@ final class RegistrationDetail
         $record = $carried(Ledger::RECORD_PAYMENT);
         $refund = $carried(Ledger::RECORD_REFUND);
         $viewMoney = $carried(Ledger::VIEW_MONEY) || $record || $refund;
+        // [UNAPPROVED Shapes] a correction is money-write: the same action as recording a payment.
 
         $read = [
             'registration' => $this->registrationPart($registration),
@@ -93,9 +99,19 @@ final class RegistrationDetail
         if ($viewMoney) {
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
-        $read['can'] = ['view_money' => $viewMoney, 'record_payment' => $record, 'record_refund' => $refund];
+        $read['can'] = ['view_money' => $viewMoney, 'record_payment' => $record, 'record_refund' => $refund,
+            'record_correction' => $record,
+        ];
 
         return $read;
+    }
+
+    /** A grant holder of the event is told "no access"; a user with no grant on it gets "not found". */
+    private function refusal(Actor $actor, int $eventId): KalakaException
+    {
+        return !$this->access->isFull($actor) && in_array($eventId, $this->access->grantedEventIds($actor), true)
+            ? new RegistrationNotInView()
+            : new NotFound();
     }
 
     /** @return array<string, mixed> */
@@ -243,11 +259,6 @@ final class RegistrationDetail
             'methods' => array_map(
                 static fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()],
                 PaymentMethod::cases()
-            ),
-            // [UNAPPROVED Shapes] a refund's own list: transfer or cash only (money.md).
-            'refund_methods' => array_map(
-                static fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()],
-                PaymentMethod::forRefund()
             ),
         ];
     }

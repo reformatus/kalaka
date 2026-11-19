@@ -458,12 +458,20 @@ final class GridModel
     private function meta(string $column, array $fields, int $eventId): array
     {
         // Kód carries the default order and sorts both ways; Szám is a plain number sort. [UNAPPROVED N60]
-        $meta = ['column' => $column, 'sortable' => true, 'numeric' => false];
+        // The two times are display-only.
+        $displayOnly = in_array($column, ['registered_at', 'submitted_at'], true);
+        $meta = ['column' => $column, 'sortable' => !$displayOnly, 'numeric' => false];
         if ($column === 'code') {
             return $meta + ['label' => Texts::CODE, 'type' => 'code'];
         }
         if ($column === 'serial') {
             return ['numeric' => true] + $meta + ['label' => Texts::SERIAL, 'type' => 'serial'];
+        }
+        if ($column === 'registered_at' || $column === 'submitted_at') {
+            return $meta + [
+                'label' => $column === 'registered_at' ? Texts::REGISTERED_AT : Texts::SUBMITTED_AT,
+                'type' => 'time',
+            ];
         }
         if ($column === 'status') {
             $members = $this->members($column, $fields, $eventId) ?? [];
