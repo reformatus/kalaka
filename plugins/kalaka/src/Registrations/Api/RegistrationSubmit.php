@@ -109,6 +109,7 @@ final class RegistrationSubmit
                 new ValueContext(EventValues::form($event, $loggedIn))
             );
             $target = $request->target;
+            $fieldTypes = self::fieldTypes($definition);
             if ($form->placement === FormPlacement::Additional && $target !== null) {
                 // An additional form writes a supplementary submission to the registration (S60).
                 $useCase = new SubmitAdditionalForm(
@@ -118,6 +119,7 @@ final class RegistrationSubmit
                     $event->version,
                     $request->roles,
                     $request->passwordGiven,
+                    $fieldTypes,
                     $this->participantFields->of($form->eventId),
                 );
                 $input = [
@@ -134,7 +136,7 @@ final class RegistrationSubmit
                     $event->version,
                     $request->roles,
                     $request->passwordGiven,
-                    self::fieldTypes($definition),
+                    $fieldTypes,
                     $this->participantFields->of($form->eventId),
                     account: $account,
                 );

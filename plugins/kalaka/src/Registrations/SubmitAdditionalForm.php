@@ -57,6 +57,8 @@ final class SubmitAdditionalForm implements PortalUseCase
     /**
      * @param int $eventVersion the version of the event the answers were checked against
      * @param list<string> $roles the current user's roles
+     * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition: a
+     *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      */
     public function __construct(
@@ -66,6 +68,7 @@ final class SubmitAdditionalForm implements PortalUseCase
         private readonly int $eventVersion,
         private readonly array $roles,
         private readonly bool $passwordGiven,
+        private readonly array $fieldTypes = [],
         private readonly array $participantFields = [],
         private readonly EventCapacity $events = new EventCapacity(),
         private readonly Forms $forms = new Forms(),
@@ -167,7 +170,7 @@ final class SubmitAdditionalForm implements PortalUseCase
 
         $stored = SubmitRegistration::declared(
             $this->answers->stored(),
-            self::fieldTypes($this->definition),
+            $this->fieldTypes,
             $this->participantFields
         );
         $current = [];
@@ -225,10 +228,11 @@ final class SubmitAdditionalForm implements PortalUseCase
                 $cleared[] = $value;
             }
         }
-        $this->refuseLockedOverwrites(array_fill_keys(
-            array_map(static fn (FieldValue $value): string => $value->fieldKey, $cleared),
-            ''
-        ), $current);
+        $keys = array_map(static fn (FieldValue $value): string => $value->fieldKey, $cleared);
+        // A clear gets the guard a store gets (#189 C2-1): a field no form may write (or the event no
+        // longer declares) is never cleared by a form, and the submit is refused as a store's would be.
+        SubmitRegistration::declared(array_fill_keys($keys, ''), $this->fieldTypes, $this->participantFields);
+        $this->refuseLockedOverwrites(array_fill_keys($keys, ''), $current);
 
         return $cleared;
     }
@@ -254,16 +258,5 @@ final class SubmitAdditionalForm implements PortalUseCase
                 throw $error;
             }
         }
-    }
-
-    /** @return array<string, string> field key → the field block's name */
-    private static function fieldTypes(FormDefinition $definition): array
-    {
-        $types = [];
-        foreach ($definition->fields as $field) {
-            $types[$field->key] = $field->blockName;
-        }
-
-        return $types;
     }
 }

@@ -12,6 +12,7 @@ use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -188,6 +189,30 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertCount(1, $entries);
         self::assertContains('field:note', $this->changedFields($entries[0]));
         self::assertNotContains('field:other', $this->changedFields($entries[0]));
+    }
+
+    public function testAClearOfAFieldNoFormMayWriteIsRefusedAndItsValueStays(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+
+        // Drift: the field was form-writable when the form was saved, and a later declaration turned it
+        // into an extension field forms may not write. A blank would clear it; the store path refuses such
+        // a key, and so does the clear path.
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['source' => 'extension', 'form_writable' => 0],
+            ['event_id' => $this->event, 'field_key' => 'note']
+        );
+
+        try {
+            $this->send($form, []);
+            self::fail('A clear of a field no form may write went through.');
+        } catch (SystemFailure $failure) {
+            self::assertStringContainsString('extension_field note', $failure->getMessage());
+        }
+        self::assertSame('első', $this->values()['note']);
+        self::assertSame(1, $this->rowCount('kalaka_submissions'));
     }
 
     public function testAWaitlistedRegistrationMaySubmitAndAWithdrawnOneMayNot(): void
