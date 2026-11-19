@@ -1,0 +1,18 @@
+{
+    "name": "kalaka/extras",
+    "description": "Kaláka extras plugin: lunch and donation",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kalaka\\Extras\\": "src/Extras/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}

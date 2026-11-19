@@ -10,12 +10,13 @@ use Kalaka\Events\EventRepository;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Api\ValueType;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
-/** The registration fact source and the open registrations of an event. */
+/** The registration fact source, with the field values (S25), and the open registrations of an event. */
 final class RegistrationFactsTest extends RegistrationsTestCase
 {
     public function testTheFactsHoldTheEventValuesTheCodeTheStatusAndNoRegisteredTimeWhileWaitlisted(): void
@@ -36,6 +37,36 @@ final class RegistrationFactsTest extends RegistrationsTestCase
 
         $this->expectException(SystemFailure::class);
         $facts->get('megjegyzes');
+    }
+
+    public function testTheFactsHoldEveryParticipantFieldOfTheEventTypedAndAnUnansweredOneAsNone(): void
+    {
+        $event = $this->event();
+        $this->declareParticipantField($event->id, 'tamogatas', [
+            ['value' => 'nincs', 'label' => 'Nincs'],
+            ['value' => 'teljes', 'label' => '<strong>Teljes</strong>'],
+        ]);
+        $this->declareParticipantField($event->id, 'megjegyzes', [], 1);
+        $this->insertRegistration($this->newRegistration($event->id, '00A0'));
+        $key = new RegistrationKey($event->id, '00A0');
+        $this->writeValue($key, 'tamogatas', 'teljes');
+
+        $facts = (new Registrations())->factsOf($key, $event);
+
+        self::assertNotNull($facts);
+        self::assertSame(ValueType::Choice, $facts->get('tamogatas')->type);
+        self::assertSame(['teljes'], $facts->get('tamogatas')->data);
+        self::assertSame('Teljes', $facts->get('tamogatas')->text);
+        self::assertSame(ValueType::Text, $facts->get('megjegyzes')->type);
+        self::assertTrue($facts->get('megjegyzes')->isEmpty());
+        self::assertSame(
+            ['tamogatas' => ValueType::Choice, 'megjegyzes' => ValueType::Text],
+            array_intersect_key(
+                (new Registrations())->declaredFacts($event),
+                ['tamogatas' => true, 'megjegyzes' => true]
+            )
+        );
+        self::assertSame(ValueType::Choice, (new Registrations())->declaredFacts($event)[RegistrationFacts::STATUS]);
     }
 
     public function testTheOpenRegistrationsAreTheRegisteredAndWaitlistedOnes(): void

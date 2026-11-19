@@ -48,11 +48,20 @@ final class FeeComposer
             return $composed;
         }
 
+        // The fixed price is the base only without a ladder (money.md, "Congregation share": "the chosen tier,
+        // or the fixed price without a ladder"): it composes last in the tier stage, and owes nothing once
+        // another tier-stage component owes something. [UNAPPROVED N3]
+        $last = static fn (FeeComponent $component): int => $component instanceof FixedPrice ? 1 : 0;
+        usort($components, static fn (FeeComponent $a, FeeComponent $b): int => $last($a) <=> $last($b));
+
         $before = new StageTotals($currency);
         foreach (FeeStage::cases() as $stage) {
             $stageOwed = [];
             foreach ($components as $component) {
                 if ($component->stage() !== $stage) {
+                    continue;
+                }
+                if ($component instanceof FixedPrice && self::owesAny($stageOwed)) {
                     continue;
                 }
                 $owed = $this->owedBy(
@@ -69,6 +78,18 @@ final class FeeComposer
         }
 
         return $composed;
+    }
+
+    /** @param array<string, Money> $owed */
+    private static function owesAny(array $owed): bool
+    {
+        foreach ($owed as $amount) {
+            if ($amount->isPositive() || $amount->isNegative()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return array<string, Money> */
