@@ -122,7 +122,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 							{ MONEY.recordPay }
 						</Button>
 					) }
-					{ can.record_refund && (
+					{ ( can.record_refund || can.record_correction ) && (
 						<Button variant="secondary" onClick={ ( e ) => open( 'refund', e ) }>
 							{ MONEY.recordRefund }
 						</Button>
@@ -176,6 +176,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				<RecordDialog
 					config={ config }
 					refund={ dialog === 'refund' }
+					can={ can }
 					code={ code }
 					money={ money }
 					onClose={ close }

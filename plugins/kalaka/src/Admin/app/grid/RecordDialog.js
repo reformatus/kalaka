@@ -1,14 +1,16 @@
 /**
- * The two recording dialogs of the „Pénzügyek” tab (S38): a manual payment (`kalaka/record-payment`) and a
- * refund flagged a correction (`kalaka/record-refund`). The amount is never prefilled, the payer is asked only
- * with several payers, and the balance before and after follows the amount as it is typed. A failed save keeps
- * the dialog and its values. [UNAPPROVED N14] [UNAPPROVED N15] [UNAPPROVED N16]
+ * The two recording dialogs of the „Pénzügyek” tab (S38): a manual payment (`kalaka/record-payment`) and the one
+ * refund / correction dialog, which switches between a refund (`kalaka/record-refund`: a method and a date) and a
+ * correction (`kalaka/record-correction`: a direction and a required reason, no method, no date). The amount is
+ * never prefilled, the payer is asked only with several payers, and the balance before and after follows the
+ * amount as it is typed. A failed save keeps the dialog and its values. [UNAPPROVED N14] [UNAPPROVED N15]
+ * [UNAPPROVED N16]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl } from '@wordpress/components';
 import * as api from './api';
 import { MONEY } from './texts';
-import { amountString, balanceAfter, balanceText, methodsFor, parseAmount, toMinor, today, validateEntry } from './money';
+import { amountString, balanceAfter, balanceText, parseAmount, toMinor, today, validateEntry } from './money';
 
 /** A fresh idempotency key for one entry (lower-case hex, the ability's pattern). */
 function newKey() {
@@ -21,15 +23,21 @@ function newKey() {
  * @param {Object}   props
  * @param {Object}   props.config  window.kalakaGrid
  * @param {boolean}  props.refund  the refund / correction dialog (else a payment)
+ * @param {Object}   props.can     the read's `can`: which of a refund and a correction the holder may record
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.money   the read's money part
  * @param {Function} props.onClose closes the dialog
  * @param {Function} props.onDone  called with the snackbar text once the entry is saved
  */
-export default function RecordDialog( { config, refund, code, money, onClose, onDone } ) {
+export default function RecordDialog( { config, refund, can, code, money, onClose, onDone } ) {
 	const several = money.payers.length > 1;
-	// A refund or a correction is returned by transfer or cash only (settled); a payment may also be by card.
-	const methods = methodsFor( money, refund );
+	// A refund uses the same methods as a payment, the card terminal included (the owner's ruling 2026-11-19).
+	const methods = money.methods;
+	// The kinds this dialog may record: a payment, or a refund and/or a correction by the holder's grants.
+	const kinds = refund ? [ can.record_refund && 'refund', can.record_correction && 'correction' ].filter( Boolean ) : [ 'payment' ];
+	const [ kind, setKind ] = useState( kinds[ 0 ] );
+	const [ direction, setDirection ] = useState( '' ); // a correction's direction: never defaulted
+	const correction = kind === 'correction';
 	const [ payer, setPayer ] = useState( several ? '' : money.payers[ 0 ].payer );
 	const [ amount, setAmount ] = useState( '' ); // never prefilled
 	const [ date, setDate ] = useState( () => today( config.timezone ) );
@@ -56,7 +64,8 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 
 	const row = money.payers.find( ( p ) => p.payer === payer );
 	const before = row ? toMinor( row.balance ) : null;
-	const after = balanceAfter( before, parseAmount( amount ), refund );
+	// A refund and a correction out raise the balance; a payment and a correction in lower it.
+	const after = balanceAfter( before, correction && ! direction ? null : parseAmount( amount ), kind === 'refund' || direction === 'out' );
 
 	const submit = async ( event ) => {
 		event.preventDefault();
@@ -64,7 +73,7 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 			return;
 		}
 		setFailed( false );
-		const found = validateEntry( { several, payer, amount, date, method, note, refund }, today( config.timezone ) );
+		const found = validateEntry( { several, payer, amount, date, method, note, kind, direction }, today( config.timezone ) );
 		setErrors( found );
 		if ( Object.keys( found ).length ) {
 			// After React has drawn the messages: focus the first invalid field.
@@ -77,13 +86,14 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 			return;
 		}
 		const entry = {
-			refund,
+			kind,
 			code,
 			currency: money.currency,
 			payer,
 			amount: amountString( parseAmount( amount ) ),
-			valueDate: date,
-			method,
+			valueDate: correction ? null : date,
+			method: correction ? null : method,
+			direction: correction ? direction : null,
 			note: note.trim(),
 		};
 		const sig = JSON.stringify( entry );
@@ -93,7 +103,7 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 		setBusy( true );
 		try {
 			await api.recordEntry( config, { ...entry, key: attempt.current.key } );
-			await onDone( refund ? MONEY.savedRefund : MONEY.saved );
+			await onDone( { payment: MONEY.saved, refund: MONEY.savedRefund, correction: MONEY.savedCorrection }[ kind ] );
 		} catch {
 			// Whatever the server refused or lost, the dialog stays with the values. [UNAPPROVED N22]
 			setBusy( false );
@@ -111,6 +121,14 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 			shouldCloseOnClickOutside={ false }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
+				{ kinds.length > 1 && (
+					<RadioControl
+						label={ MONEY.kindField }
+						selected={ kind }
+						options={ kinds.map( ( k ) => ( { value: k, label: k === 'refund' ? MONEY.kindRefund : MONEY.kindCorrection } ) ) }
+						onChange={ setKind }
+					/>
+				) }
 				{ several && (
 					<div className={ errors.payer ? 'kg-radio-bad' : '' }>
 						<RadioControl
@@ -133,28 +151,46 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 					__next40pxDefaultSize
 					__nextHasNoMarginBottom
 				/>
+				{ correction && (
+					<div className={ errors.direction ? 'kg-radio-bad' : '' }>
+						<RadioControl
+							label={ MONEY.directionField }
+							selected={ direction }
+							options={ [
+								{ value: 'in', label: MONEY.directionIn },
+								{ value: 'out', label: MONEY.directionOut },
+							] }
+							onChange={ setDirection }
+							help={ fieldError( 'direction' ) }
+						/>
+					</div>
+				) }
+				{ ! correction && (
+					<Fragment>
+						<TextControl
+							label={ MONEY.dateField }
+							type="date"
+							max={ today( config.timezone ) }
+							value={ date }
+							onChange={ setDate }
+							aria-invalid={ errors.value_date ? 'true' : undefined }
+							help={ fieldError( 'value_date' ) }
+							__next40pxDefaultSize
+							__nextHasNoMarginBottom
+						/>
+						<div className={ errors.method ? 'kg-radio-bad' : '' }>
+							<RadioControl
+								label={ MONEY.methodField }
+								selected={ method }
+								options={ methods.map( ( m ) => ( { value: m.value, label: m.label } ) ) }
+								onChange={ setMethod }
+								help={ fieldError( 'method' ) }
+							/>
+						</div>
+					</Fragment>
+				) }
 				<TextControl
-					label={ MONEY.dateField }
-					type="date"
-					max={ today( config.timezone ) }
-					value={ date }
-					onChange={ setDate }
-					aria-invalid={ errors.value_date ? 'true' : undefined }
-					help={ fieldError( 'value_date' ) }
-					__next40pxDefaultSize
-					__nextHasNoMarginBottom
-				/>
-				<div className={ errors.method ? 'kg-radio-bad' : '' }>
-					<RadioControl
-						label={ MONEY.methodField }
-						selected={ method }
-						options={ methods.map( ( m ) => ( { value: m.value, label: m.label } ) ) }
-						onChange={ setMethod }
-						help={ fieldError( 'method' ) }
-					/>
-				</div>
-				<TextControl
-					label={ refund ? MONEY.reasonField : MONEY.noteField }
+					label={ correction ? MONEY.reasonField : MONEY.noteField }
 					value={ note }
 					onChange={ setNote }
 					autoComplete="off"
