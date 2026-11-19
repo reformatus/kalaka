@@ -7,6 +7,7 @@ namespace Kalaka\Ledger;
 use Kalaka\Admin\Api\Abilities;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Schema;
+use Kalaka\Ledger\Api\Ledger;
 
 final class Module extends AbstractModule
 {
@@ -77,9 +78,9 @@ SQL;
     public function capabilities(): array
     {
         return [
-            'kalaka_record_payment',
-            'kalaka_record_refund',
-            'kalaka_view_money',
+            Ledger::RECORD_PAYMENT,
+            Ledger::RECORD_REFUND,
+            Ledger::VIEW_MONEY,
         ];
     }
 

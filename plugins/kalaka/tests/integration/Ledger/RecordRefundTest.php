@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Ledger;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Ledger\RecordPayment;
 use Kalaka\Ledger\RecordRefund;
 
 /** S22: the "record refund" use case (owner ruling 2026-11-18, point 5). */
@@ -50,12 +51,51 @@ final class RecordRefundTest extends ManualEntryTestCase
 
     public function testACorrectionWithItsReasonIsMarkedAndNotLinked(): void
     {
+        // An earlier line a correction could carry a link to.
+        $this->exec(new RecordPayment(), $this->paymentInput(['idempotency_key' => 'p0']));
         $this->exec(new RecordRefund(), $this->paymentInput(['correction' => true, 'note' => 'Téves befizetés']));
 
         $lines = $this->lines();
-        self::assertSame('1', $lines[0]['correction']);
+        self::assertCount(2, $lines);
+        $correction = $lines[1];
+        self::assertSame('manual_refund', $correction['kind']);
+        self::assertSame('1', $correction['correction']);
         self::assertSame('Téves befizetés', $this->notes()[0]['note']);
-        self::assertArrayNotHasKey('corrects', $lines[0]);
+        // Its only reference is the recording user: no stored column names the line it corrects.
+        self::assertSame('wp_user', $correction['source_type']);
+        self::assertNull($correction['source_event_id']);
+        self::assertSame((string) $this->admin->userId, $correction['source_key']);
+    }
+
+    /** C4-2: the refund replays like a payment: the same key and input write once. */
+    public function testTheSameKeyAndInputWritesOnce(): void
+    {
+        $first = $this->exec(new RecordRefund(), $this->paymentInput(['note' => 'ref 1']));
+        $second = $this->exec(new RecordRefund(), $this->paymentInput(['note' => 'ref 1']));
+
+        self::assertSame($first, $second);
+        self::assertCount(1, $this->lines());
+        self::assertCount(1, $this->notes());
+    }
+
+    /** C4-2: the refund's audit entry holds what was recorded and never the note. */
+    public function testTheAuditEntryHoldsWhatWasRecordedAndNoNote(): void
+    {
+        $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'cash', 'note' => 'Teszt titok']));
+
+        $entry = null;
+        foreach ($this->entries() as $candidate) {
+            if ($candidate['action'] === 'kalaka/record-refund') {
+                $entry = $candidate;
+            }
+        }
+        self::assertNotNull($entry);
+        self::assertSame('succeeded', $entry['outcome']);
+        $changes = (string) $entry['changes'];
+        self::assertStringContainsString('manual_refund', $changes);
+        self::assertStringContainsString('cash', $changes);
+        self::assertStringNotContainsString('titok', $changes);
+        self::assertContains('registration/' . $this->event . '/00A0', $this->subjectsOf($entry['id']));
     }
 
     public function testTheSameKeyWithADifferentCorrectionFlagIsAnError(): void
