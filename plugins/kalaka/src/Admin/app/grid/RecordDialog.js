@@ -166,7 +166,7 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 				{ row && (
 					<dl className="kg-bal">
 						<dt>{ MONEY.balanceNow }</dt>
-						<dd>{ balanceText( before ) }</dd>
+						<dd>{ balanceText( before, money.currency ) }</dd>
 						<dt>{ MONEY.balanceAfter }</dt>
 						<dd aria-live="polite">
 							{ after === null ? (
@@ -175,7 +175,7 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 									<span className="screen-reader-text">{ MONEY.noAmount }</span>
 								</Fragment>
 							) : (
-								balanceText( after )
+								balanceText( after, money.currency )
 							) }
 						</dd>
 					</dl>

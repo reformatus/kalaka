@@ -8,43 +8,45 @@ import { MONEY } from './texts';
 const NBSP = ' ';
 
 /**
- * An amount as the read gives it (`"60000.00000000"`, signed) in fillér, a whole number: the two decimals
- * HUF has, the rest rounded. Null for anything that is not a decimal number.
+ * An amount as the read gives it (`"60000.00000000"`, signed) in minor units, a whole number: the two decimals
+ * HUF has, the rest dropped toward zero, as `Money` does (below one minor unit counts as zero). Null for
+ * anything that is not a decimal number.
  */
 export function toMinor( value ) {
 	const m = /^(-)?(\d+)(?:\.(\d*))?$/.exec( String( value ).trim() );
 	if ( ! m ) {
 		return null;
 	}
-	const fraction = ( m[ 3 ] || '' ).padEnd( 3, '0' );
-	let minor = parseInt( m[ 2 ], 10 ) * 100 + parseInt( fraction.slice( 0, 2 ), 10 );
-	if ( parseInt( fraction[ 2 ], 10 ) >= 5 ) {
-		minor += 1;
-	}
-	return m[ 1 ] ? -minor : minor;
+	const fraction = ( m[ 3 ] || '' ).padEnd( 2, '0' );
+	const minor = parseInt( m[ 2 ], 10 ) * 100 + parseInt( fraction.slice( 0, 2 ), 10 );
+	return m[ 1 ] && minor !== 0 ? -minor : minor;
 }
 
-/** „30 000 Ft”, with no-break spaces, a decimal comma only when there are fillér („1 000,50 Ft”) and a real minus. */
-export function formatMinor( minor ) {
+/** The currency as shown: „Ft” for HUF, any other currency by its code. */
+const UNITS = { HUF: 'Ft' };
+export const unitOf = ( currency ) => UNITS[ currency || 'HUF' ] || currency;
+
+/** „30 000 Ft”, with no-break spaces, a decimal comma only when there are minor units („1 000,50 Ft”) and a real minus. */
+export function formatMinor( minor, currency ) {
 	const sign = minor < 0 ? '−' : '';
 	const abs = Math.abs( minor );
 	const whole = String( Math.floor( abs / 100 ) ).replace( /\B(?=(\d{3})+(?!\d))/g, NBSP );
 	const fil = abs % 100;
-	return sign + whole + ( fil ? ',' + String( fil ).padStart( 2, '0' ) : '' ) + NBSP + 'Ft';
+	return sign + whole + ( fil ? ',' + String( fil ).padStart( 2, '0' ) : '' ) + NBSP + unitOf( currency );
 }
 
 /** An amount of the read as „30 000 Ft”. */
-export const formatMoney = ( value ) => formatMinor( toMinor( value ) ?? 0 );
+export const formatMoney = ( value, currency ) => formatMinor( toMinor( value ) ?? 0, currency );
 
 /** The absolute amount of a signed value: the type word gives the direction. */
-export const formatAbsolute = ( value ) => formatMinor( Math.abs( toMinor( value ) ?? 0 ) );
+export const formatAbsolute = ( value, currency ) => formatMinor( Math.abs( toMinor( value ) ?? 0 ), currency );
 
 /** The balance in words: above zero „… hátralék”, below zero „… túlfizetés”, zero „0 Ft”. [UNAPPROVED T5] */
-export function balanceText( minor ) {
+export function balanceText( minor, currency ) {
 	if ( minor > 0 ) {
-		return formatMinor( minor ) + ' ' + MONEY.due;
+		return formatMinor( minor, currency ) + ' ' + MONEY.due;
 	}
-	return minor < 0 ? formatMinor( -minor ) + ' ' + MONEY.over : formatMinor( 0 );
+	return minor < 0 ? formatMinor( -minor, currency ) + ' ' + MONEY.over : formatMinor( 0, currency );
 }
 
 /**
