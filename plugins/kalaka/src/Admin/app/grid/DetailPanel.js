@@ -15,10 +15,11 @@ import { PANEL } from './texts';
  * @param {Object}   props
  * @param {Object}   props.config  window.kalakaGrid
  * @param {string}   props.code    the registration on screen (the grid row's key)
+ * @param {number}   props.again   changes when the open row is activated again: a failed read is tried again
  * @param {Function} props.onClose closes the panel (the grid returns focus to the row)
  * @param {Function} props.onSaved tells the grid an entry was saved, so it re-reads its rows and sums
  */
-export default function DetailPanel( { config, code, onClose, onSaved } ) {
+export default function DetailPanel( { config, code, again, onClose, onSaved } ) {
 	const [ detail, setDetail ] = useState( null );
 	const [ problem, setProblem ] = useState( null ); // 'missing' (404) or 'failed'
 	const root = useRef();
@@ -59,6 +60,13 @@ export default function DetailPanel( { config, code, onClose, onSaved } ) {
 			}
 		}
 	}, [ config, code ] );
+
+	useEffect( () => {
+		if ( problem ) {
+			reload();
+		}
+		// Only a new activation of the row tries again.
+	}, [ again ] );
 
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	const showsTabs = !! ( detail && detail.can && detail.can.view_money && detail.money );
