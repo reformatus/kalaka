@@ -20,9 +20,10 @@ const SNACKBAR_MS = 5000;
  * @param {Object}   props.money   the read's money part
  * @param {Object}   props.can     the read's `can`
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
+ * @param {boolean}  props.stale   the last re-read failed: the figures are hidden, the snackbar stays
  * @param {Function} props.onSaved tells the grid an entry was saved
  */
-export default function MoneyTab( { config, code, money, can, reload, onSaved } ) {
+export default function MoneyTab( { config, code, money, can, reload, stale, onSaved } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -68,6 +69,17 @@ export default function MoneyTab( { config, code, money, can, reload, onSaved } 
 	const summary = money.payers.concat(
 		several ? [ { payer: '_total', label: MONEY.total, ...money.total } ] : []
 	);
+	const snacks = (
+		<div className="kg-snacks">
+			<SnackbarList
+				notices={ notices }
+				onRemove={ ( id ) => setNotices( ( list ) => list.filter( ( n ) => n.id !== id ) ) }
+			/>
+		</div>
+	);
+	if ( stale ) {
+		return snacks;
+	}
 	return (
 		<Fragment>
 			<div
@@ -95,9 +107,9 @@ export default function MoneyTab( { config, code, money, can, reload, onSaved } 
 						{ summary.map( ( p ) => (
 							<tr key={ p.payer } className={ p.payer === '_total' ? 'is-total' : '' }>
 								<th scope="row">{ p.payer === '_total' ? p.label : payerName( p.payer ) }</th>
-								<td className="is-num">{ formatMoney( p.charged ) }</td>
-								<td className="is-num">{ formatMoney( p.paid ) }</td>
-								<td className="is-num">{ balanceText( toMinor( p.balance ) ?? 0 ) }</td>
+								<td className="is-num">{ formatMoney( p.charged, money.currency ) }</td>
+								<td className="is-num">{ formatMoney( p.paid, money.currency ) }</td>
+								<td className="is-num">{ balanceText( toMinor( p.balance ) ?? 0, money.currency ) }</td>
 							</tr>
 						) ) }
 					</tbody>
@@ -151,7 +163,7 @@ export default function MoneyTab( { config, code, money, can, reload, onSaved } 
 										) }
 									</td>
 									{ several && <td>{ payerName( line.payer ) }</td> }
-									<td className="is-num kg-nowrap">{ formatAbsolute( line.amount ) }</td>
+									<td className="is-num kg-nowrap">{ formatAbsolute( line.amount, money.currency ) }</td>
 									<td>{ line.method_label || '' }</td>
 									<td>{ line.note || '' }</td>
 								</tr>
@@ -170,12 +182,7 @@ export default function MoneyTab( { config, code, money, can, reload, onSaved } 
 					onDone={ done }
 				/>
 			) }
-			<div className="kg-snacks">
-				<SnackbarList
-					notices={ notices }
-					onRemove={ ( id ) => setNotices( ( list ) => list.filter( ( n ) => n.id !== id ) ) }
-				/>
-			</div>
+			{ snacks }
 		</Fragment>
 	);
 }

@@ -26,7 +26,13 @@ describe( 'amounts in fillér', () => {
 	} );
 
 	test( 'a third decimal rounds, and a non-number is null', () => {
-		expect( toMinor( '0.005' ) ).toBe( 1 );
+		expect( toMinor( '0.005' ) ).toBe( 0 );
+		expect( toMinor( '-0.005' ) ).toBe( 0 );
+		expect( Object.is( toMinor( '-0.005' ), 0 ) ).toBe( true );
+		expect( toMinor( '1.009' ) ).toBe( 100 );
+		expect( toMinor( '-1.009' ) ).toBe( -100 );
+		expect( toMinor( '1.99999999' ) ).toBe( 199 );
+		expect( toMinor( '9999999999999.99999999' ) ).toBe( 999999999999999 );
 		expect( toMinor( '0.004' ) ).toBe( 0 );
 		expect( toMinor( 'abc' ) ).toBeNull();
 		expect( toMinor( '' ) ).toBeNull();
@@ -55,6 +61,10 @@ describe( 'money as shown', () => {
 	test( 'the balance reads as words', () => {
 		expect( balanceText( 3000000 ) ).toBe( `30${ NBSP }000${ NBSP }Ft hátralék` );
 		expect( balanceText( -500000 ) ).toBe( `5${ NBSP }000${ NBSP }Ft túlfizetés` );
+		expect( balanceText( toMinor( '0.005' ) ) ).toBe( `0${ NBSP }Ft` );
+		expect( balanceText( 3000000, 'EUR' ) ).toBe( `30${ NBSP }000${ NBSP }EUR hátralék` );
+		expect( formatMinor( 100050, 'EUR' ) ).toBe( `1${ NBSP }000,50${ NBSP }EUR` );
+		expect( formatMinor( 100050, 'HUF' ) ).toBe( `1${ NBSP }000,50${ NBSP }Ft` );
 		expect( balanceText( 0 ) ).toBe( `0${ NBSP }Ft` );
 	} );
 } );

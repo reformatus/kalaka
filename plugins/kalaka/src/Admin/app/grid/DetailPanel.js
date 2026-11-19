@@ -69,13 +69,17 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	}, [ again ] );
 
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
+	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
+	// its snackbar, so only the load-failure message remains. [UNAPPROVED N24]
 	const showsTabs = !! ( detail && detail.can && detail.can.view_money && detail.money );
+	const stale = !! problem;
 	useEffect( () => {
 		const list = root.current && root.current.querySelector( '[role="tablist"]' );
 		if ( list ) {
 			list.setAttribute( 'aria-label', PANEL.tabsLabel );
+			list.style.display = stale ? 'none' : '';
 		}
-	}, [ showsTabs ] );
+	}, [ showsTabs, stale ] );
 
 	const registration = ( detail && detail.registration ) || {};
 	return (
@@ -129,6 +133,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 							config={ config }
 							code={ code }
 							money={ detail.money }
+							stale={ stale }
 							can={ detail.can }
 							reload={ reload }
 							onSaved={ onSaved }
