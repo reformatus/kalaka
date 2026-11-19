@@ -9,15 +9,12 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\PathFieldType;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
-use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Mail\RecipientUnavailable;
-use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -113,15 +110,7 @@ final class MailValues
      */
     public function paths(int $eventId): array
     {
-        $types = Contributions::current()->fieldTypes();
-        $paths = [];
-        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
-            if (($types[$field->type] ?? null) instanceof PathFieldType) {
-                $paths[] = $field->key;
-            }
-        }
-
-        return $paths;
+        return $this->forms->pathKeys($eventId);
     }
 
     /**

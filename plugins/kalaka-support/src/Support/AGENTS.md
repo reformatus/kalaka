@@ -16,7 +16,7 @@ So far it holds the directory and the congregation picker.
   (the tree's ancestors are computed; a congregation answer keeps its
   snapshot),
   [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
-  (a tree lookup is expanded in SQL).
+  (a congregation level matches the answer's stored path snapshot).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),

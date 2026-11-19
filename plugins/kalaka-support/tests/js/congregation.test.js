@@ -242,6 +242,32 @@ describe('the congregation picker', () => {
 		expect(part(field, 'message').textContent).toBe(TEXT.noMatchIn('Teszt Egyház'));
 	});
 
+	test('typing into a closed field that shows its pick: the old list is gone and not clickable before the search (C2-1)', async () => {
+		jest.useFakeTimers();
+		const field = await opened();
+		option(field, 1).click();
+		await settle();
+		option(field, 3).click();
+		await settle();
+		option(field, 5).click();
+		expect(part(field, 'popup').hidden).toBe(true);
+
+		const hidden = field.querySelector('input[type="hidden"]');
+		const search = part(field, 'search');
+		search.value = `${search.value}xy`;
+		search.dispatchEvent(new Event('input', { bubbles: true }));
+
+		expect(part(field, 'popup').hidden).toBe(false);
+		expect(names(field)).toEqual([]);
+		field.querySelectorAll('[role="option"]').forEach((node) => node.click());
+		expect(hidden.value).toBe('5');
+		expect(requests.at(-1)).not.toEqual(expect.objectContaining({ search: expect.anything() }));
+
+		jest.advanceTimersByTime(SEARCH_DELAY);
+		await settle();
+		expect(requests.at(-1)).toEqual(expect.objectContaining({ search: 'xy' }));
+	});
+
 	test('a leaf is picked: the dropdown closes, the field shows it, its parents are the crumbs', async () => {
 		const field = await opened();
 		const changed = jest.fn();

@@ -502,6 +502,12 @@ function browse(field, path, everywhere = false) {
 	state.path = path.map(plain);
 	clearTimeout(state.timer);
 	state.timer = undefined;
+	if (!wasOpen) {
+		// (C2-1) the list of the last opening is gone: no press acts on it before the new read arrives
+		part(field, 'list').replaceChildren();
+		state.items = [];
+		setActive(field, -1);
+	}
 	part(field, 'popup').hidden = false;
 	part(field, 'search').setAttribute('aria-expanded', 'true');
 	drawCrumbs(field);
