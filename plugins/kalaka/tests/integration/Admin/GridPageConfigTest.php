@@ -20,6 +20,7 @@ final class GridPageConfigTest extends AdminTestCase
     {
         parent::set_up();
 
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- saves the request's own state
         $this->get = $_GET;
         wp_set_current_user($this->admin->userId);
         Access::forget();
