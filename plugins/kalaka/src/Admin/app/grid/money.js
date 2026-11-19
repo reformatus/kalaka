@@ -139,3 +139,15 @@ export function validateEntry( entry, day ) {
 	}
 	return errors;
 }
+
+/**
+ * The methods a dialog offers. A refund or a correction is returned by transfer or cash only (settled): the
+ * read's `refund_methods` when it carries them, else the payment methods without the card terminal. A payment
+ * may be by any of `methods`.
+ */
+export function methodsFor( money, refund ) {
+	if ( ! refund ) {
+		return money.methods;
+	}
+	return Array.isArray( money.refund_methods ) ? money.refund_methods : money.methods.filter( ( m ) => m.value !== 'card_terminal' );
+}
