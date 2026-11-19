@@ -1,7 +1,7 @@
 /**
  * The manual confirmation dialog (S20): the required reason, for setting the flag or revoking it
  * (`kalaka/set-manual-confirmation`, `kalaka/revoke-manual-confirmation`). A failed save keeps the dialog and
- * the reason. The revoke dialog says nothing about what revoking does to the confirmation: that text needs a
+ * the reason, and while it runs the dialog does not close (Esc, ×, Mégse). The revoke dialog says nothing about what revoking does to the confirmation: that text needs a
  * concept the owner has not worded. [UNAPPROVED N33]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
@@ -23,6 +23,7 @@ export default function ConfirmDialog( { config, revoke, code, onClose, onDone }
 	const [ error, setError ] = useState( '' );
 	const [ failed, setFailed ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
+	const sending = useRef( false ); // the guard against a second submit before the state has re-rendered
 	const form = useRef();
 
 	// Focus lands on the field, not on the dialog frame.
@@ -38,7 +39,7 @@ export default function ConfirmDialog( { config, revoke, code, onClose, onDone }
 
 	const submit = async ( event ) => {
 		event.preventDefault();
-		if ( busy ) {
+		if ( busy || sending.current ) {
 			return;
 		}
 		setFailed( false );
@@ -53,12 +54,14 @@ export default function ConfirmDialog( { config, revoke, code, onClose, onDone }
 			}, 50 );
 			return;
 		}
+		sending.current = true;
 		setBusy( true );
 		try {
 			await api.setManualConfirmation( config, code, reason.trim(), revoke );
 			await onDone( revoke ? CONFIRM.revoked : CONFIRM.saved );
 		} catch {
 			// Whatever the server refused or lost, the dialog stays with the reason.
+			sending.current = false;
 			setBusy( false );
 			setFailed( true );
 		}
@@ -67,7 +70,7 @@ export default function ConfirmDialog( { config, revoke, code, onClose, onDone }
 	return (
 		<Modal
 			title={ revoke ? CONFIRM.revoke : CONFIRM.set }
-			onRequestClose={ onClose }
+			onRequestClose={ () => ! sending.current && onClose() }
 			size="medium"
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
@@ -92,7 +95,7 @@ export default function ConfirmDialog( { config, revoke, code, onClose, onDone }
 					<Button variant="primary" type="submit" isBusy={ busy } aria-disabled={ busy }>
 						{ MONEY.save }
 					</Button>
-					<Button variant="tertiary" onClick={ onClose }>
+					<Button variant="tertiary" onClick={ onClose } disabled={ busy }>
 						{ MONEY.cancel }
 					</Button>
 				</div>

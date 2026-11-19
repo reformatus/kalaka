@@ -174,13 +174,13 @@ export const MONEY = {
  * [UNAPPROVED T23] the snackbars.
  */
 export const CONFIRM = {
-	set: 'Kézi visszaigazolás',
-	revoke: 'Kézi visszaigazolás visszavonása',
+	set: 'Visszaigazolás fizetés nélkül',
+	revoke: 'Fizetés nélküli visszaigazolás visszavonása',
 	reasonField: 'Indoklás',
 	reasonEmpty: 'Add meg az indoklást.',
-	setLine: 'Kézzel visszaigazolta: %1$s, %2$s',
-	setLineAnon: 'Kézzel visszaigazolva: %s',
+	setLine: 'Fizetés nélkül visszaigazolta: %1$s, %2$s',
+	setLineAnon: 'Fizetés nélkül visszaigazolva: %s',
 	reasonLine: 'Indoklás: %s',
-	saved: 'Kézi visszaigazolás rögzítve.',
-	revoked: 'Kézi visszaigazolás visszavonva.',
+	saved: 'Fizetés nélküli visszaigazolás rögzítve.',
+	revoked: 'Fizetés nélküli visszaigazolás visszavonva.',
 };
