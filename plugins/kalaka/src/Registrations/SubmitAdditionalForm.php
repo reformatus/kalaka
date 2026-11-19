@@ -60,6 +60,8 @@ final class SubmitAdditionalForm implements PortalUseCase
      * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition: a
      *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
+     * @param array<string, array<string, bool>> $clearable field key → a value it held before the transaction →
+     *     whether the field's type opens it with that value (`clearable()`), so no field type runs inside it
      */
     public function __construct(
         private readonly Form $form,
@@ -70,6 +72,7 @@ final class SubmitAdditionalForm implements PortalUseCase
         private readonly bool $passwordGiven,
         private readonly array $fieldTypes = [],
         private readonly array $participantFields = [],
+        private readonly array $clearable = [],
         private readonly EventCapacity $events = new EventCapacity(),
         private readonly Forms $forms = new Forms(),
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
@@ -207,15 +210,44 @@ final class SubmitAdditionalForm implements PortalUseCase
     }
 
     /**
-     * The current values a shown field left blank clears: those the form showed, as its type prefills them.
+     * What `cleared()` needs from the field types, asked before the transaction (a field type is an outside
+     * point: events-and-forms.md, "Forms implementation"): for each field the form showed and the answers left
+     * blank, whether the type opens its current value (`prefill()` is not null).
+     *
+     * @param array<string, FieldValue> $current the registration's values by field key
+     * @return array<string, array<string, bool>> field key → the value → whether the type opens with it
+     */
+    public static function clearable(FormDefinition $definition, ValidatedAnswers $answers, array $current): array
+    {
+        $stored = $answers->stored();
+        $types = Contributions::current()->fieldTypes();
+        $clearable = [];
+        foreach ($answers->shown() as $fieldKey) {
+            $value = $current[$fieldKey] ?? null;
+            $field = $definition->field($fieldKey);
+            if ($value === null || $field === null || array_key_exists($fieldKey, $stored)) {
+                continue;
+            }
+            $type = $types[$field->blockName] ?? null;
+            $clearable[$fieldKey][$value->value] = $type !== null
+                && $type->prefill(new FieldTypeInput($value->value, $field->attributes)) !== null;
+        }
+
+        return $clearable;
+    }
+
+    /**
+     * The current values a shown field left blank clears: those the form showed, as its type prefills them
+     * (answered before the transaction). A value that is not the one asked about changed meanwhile: the
+     * submit is run again.
      *
      * @param array<string, FieldValue> $current
      * @return list<FieldValue>
+     * @throws VersionConflict
      */
     private function cleared(array $current): array
     {
         $stored = $this->answers->stored();
-        $types = Contributions::current()->fieldTypes();
         $cleared = [];
         foreach ($this->answers->shown() as $fieldKey) {
             $value = $current[$fieldKey] ?? null;
@@ -223,8 +255,12 @@ final class SubmitAdditionalForm implements PortalUseCase
             if ($value === null || $field === null || array_key_exists($fieldKey, $stored)) {
                 continue;
             }
-            $type = $types[$field->blockName] ?? null;
-            if ($type !== null && $type->prefill(new FieldTypeInput($value->value, $field->attributes)) !== null) {
+            $opens = $this->clearable[$fieldKey][$value->value] ?? null;
+            if ($opens === null) {
+                $error = new VersionConflict();
+                throw $error;
+            }
+            if ($opens) {
                 $cleared[] = $value;
             }
         }

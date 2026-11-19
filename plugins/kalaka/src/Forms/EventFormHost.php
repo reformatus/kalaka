@@ -113,9 +113,9 @@ final class EventFormHost implements FormHost
 
     /**
      * What keeps the form from being used, in this order: the event is not open (returned alone), the
-     * registration slot's date window, the password, the required role, and last an account: someone not
-     * logged in on a registration form of a `mandatory` event (S15). Pure: `Forms::refusals()` is this, which
-     * a submit checks under the event's lock.
+     * registration slot's date window or an additional form's open period, the password,
+     * the required role, and last an account: someone not logged in on a registration form of a `mandatory`
+     * event (S15). Pure: `Forms::refusals()` is this, which a submit checks under the event's lock.
      *
      * @param list<string> $roles
      * @return list<AccessRefusal>

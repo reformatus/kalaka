@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -369,6 +370,47 @@ final class AdditionalFormTest extends FormsTestCase
             'Az űrlap kitöltéséhez nyisd meg a jelentkezés után kapott e-mailben lévő linket.',
             $html
         );
+        self::assertStringNotContainsString('<form', $html);
+    }
+
+    public function testAFieldTypeIsNeverAskedInsideTheTransactionAndTheClearStillWorks(): void
+    {
+        $guard = new UseCaseGuardedTextFieldType();
+        $before = Contributions::current();
+        $contributions = new Contributions();
+        foreach ($before->fieldTypes() as $name => $type) {
+            if ($name !== $guard->blockName()) {
+                $contributions->fieldType($type);
+            }
+        }
+        $contributions->fieldType($guard);
+        Contributions::record($contributions);
+        try {
+            $form = $this->additional($this->field('text', 'note'));
+            // Opening the form asks the type once; a blank submit asks it before the transaction only.
+            $asked = $guard->prefills;
+            $this->send($form, []);
+            self::assertGreaterThan($asked, $guard->prefills);
+        } finally {
+            Contributions::record($before);
+        }
+
+        self::assertArrayNotHasKey('note', $this->values());
+        self::assertSame('marad', $this->values()['other']);
+    }
+
+    public function testAfterABadLinkThePageSaysSoInTheStatusBlocksText(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        ActiveRegistrationState::set(null, true);
+
+        $html = $this->render($form);
+
+        self::assertStringContainsString(
+            'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.',
+            $html
+        );
+        self::assertStringNotContainsString('Az űrlap kitöltéséhez nyisd meg', $html);
         self::assertStringNotContainsString('<form', $html);
     }
 }

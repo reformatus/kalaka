@@ -742,6 +742,7 @@ final class SubmitRegistrationTest extends FormsTestCase
         } catch (FormRefused $e) {
             self::assertSame([AccessRefusal::NoActiveRegistration], $e->refusals);
         }
+        $this->assertNothingWritten($event);
     }
 
     public function testAnAnswerInABranchThatDoesNotHoldIsDroppedFromTheSubmissionAndTheValues(): void

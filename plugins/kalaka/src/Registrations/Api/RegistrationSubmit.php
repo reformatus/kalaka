@@ -27,14 +27,18 @@ use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Account\AccountOutcome;
+use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\SubmitAdditionalForm;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
- * The submit of a registration form, as the form page's entry point calls it. Before the transaction
+ * The submit of a form, as the form page's entry point calls it. Before the transaction
  * it reads the form, its definition and the event, and checks the answers with the event's values
  * (`Forms::validate()`, the walk every render uses: answers whose conditions do not hold are dropped);
- * then it runs `kalaka-portal/submit-registration`, which decides the rest under the event's lock.
+ * then it runs `kalaka-portal/submit-registration` for a registration form, which decides the rest under
+ * the event's lock, or `kalaka-portal/submit-additional-form` for an additional form (S60), which writes to
+ * the active registration the request names (`SubmitRequest::$target`) and asks the field types what a blank
+ * answer clears before its transaction opens.
  * When the event changed between the two, the answers are checked again, up to `ATTEMPTS` times.
  *
  * Accounts (S15, by the event's account mode): before any transaction it decides what the submit does about
@@ -51,6 +55,7 @@ final class RegistrationSubmit
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly ParticipantFields $participantFields = new ParticipantFields(),
+        private readonly FieldValueRepository $values = new FieldValueRepository(),
     ) {
     }
 
@@ -111,7 +116,12 @@ final class RegistrationSubmit
             $target = $request->target;
             $fieldTypes = self::fieldTypes($definition);
             if ($form->placement === FormPlacement::Additional && $target !== null) {
-                // An additional form writes a supplementary submission to the registration (S60).
+                // An additional form writes a supplementary submission to the registration (S60). What its
+                // blank fields clear depends on the field types, which run here, outside the transaction.
+                $current = [];
+                foreach ($this->values->forRegistration($target) as $value) {
+                    $current[$value->fieldKey] = $value;
+                }
                 $useCase = new SubmitAdditionalForm(
                     $form,
                     $definition,
@@ -121,6 +131,7 @@ final class RegistrationSubmit
                     $request->passwordGiven,
                     $fieldTypes,
                     $this->participantFields->of($form->eventId),
+                    SubmitAdditionalForm::clearable($definition, $answers, $current),
                 );
                 $input = [
                     'form' => $form->id,
