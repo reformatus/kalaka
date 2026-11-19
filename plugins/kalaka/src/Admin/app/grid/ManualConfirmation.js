@@ -1,9 +1,9 @@
 /**
  * The manual confirmation block of the detail panel (S20), between the header and the tabs, so it is reached
- * without the „Pénzügyek” tab: who set the flag, when and why, and the button that sets or revokes it (only
- * with `can.confirm_manually`). The flag itself is read under the money gate, so a user who may confirm but not
- * see money gets the block without the line and with both buttons: the abilities are idempotent. [UNAPPROVED N32]
- * [UNAPPROVED N34]
+ * without the „Pénzügyek” tab: who set the flag, when and why, the button that sets it (with
+ * `can.confirm_manually`, while it is not set) and the one „Visszaigazolás visszavonása” (with `can.unconfirm`, on
+ * any confirmed registration). The flag itself is read under the money gate, so a user who may confirm but not
+ * see money gets the block without the line: setting is idempotent. [UNAPPROVED N32] [UNAPPROVED N34]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
@@ -71,6 +71,10 @@ export default function ManualConfirmation( {
 		await reload();
 		onSaved();
 		setDialog( null );
+		if ( ! text ) {
+			focusOpener();
+			return;
+		}
 		const id = String( Date.now() );
 		setNotices( ( list ) =>
 			list.concat( {
@@ -129,7 +133,7 @@ export default function ManualConfirmation( {
 									onClick={ ( e ) => open( kind, e ) }
 								>
 									{ kind === 'unconfirm'
-										? CONFIRM.revoke
+										? CONFIRM.unconfirm
 										: CONFIRM.set }
 								</Button>
 							) ) }
@@ -140,7 +144,7 @@ export default function ManualConfirmation( {
 			{ dialog && (
 				<ConfirmDialog
 					config={ config }
-					revoke={ dialog === 'unconfirm' }
+					unconfirm={ dialog === 'unconfirm' }
 					code={ code }
 					onClose={ close }
 					onDone={ done }
