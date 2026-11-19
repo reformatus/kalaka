@@ -199,6 +199,13 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $money['methods']
         );
         self::assertSame(
+            [
+                ['value' => 'bank_transfer', 'label' => 'Átutalás'],
+                ['value' => 'cash', 'label' => 'Készpénz'],
+            ],
+            $money['refund_methods']
+        );
+        self::assertSame(
             ['view_money' => true, 'record_payment' => true, 'record_refund' => true],
             $detail['can']
         );
