@@ -179,6 +179,31 @@ final class RecordRefundTest extends ManualEntryTestCase
         }
     }
 
+    public function testARefundTakesTransferOrCashButNotTheCardTerminal(): void
+    {
+        try {
+            $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'card_terminal']));
+            self::fail('A card terminal refund was accepted.');
+        } catch (InvalidInput) {
+            self::assertSame([], $this->lines());
+        }
+
+        $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'bank_transfer', 'idempotency_key' => 'k2']));
+        $this->exec(new RecordRefund(), $this->paymentInput(['method' => 'cash', 'idempotency_key' => 'k3']));
+
+        self::assertCount(2, $this->lines());
+        self::assertSame(
+            ['bank_transfer', 'cash'],
+            $this->schemaMethods(new RecordRefund())
+        );
+    }
+
+    /** @return list<string> */
+    private function schemaMethods(RecordRefund $refund): array
+    {
+        return $refund->inputSchema()['properties']['method']['enum'];
+    }
+
     /**
      * Records the payment line the use case's input names, for a payer the extension surface will declare:
      * the Ledger takes any payer-kind ID, and only the use case checks the event's declared kinds.

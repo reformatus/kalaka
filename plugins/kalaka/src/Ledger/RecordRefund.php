@@ -6,6 +6,7 @@ namespace Kalaka\Ledger;
 
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
+use Kalaka\Ledger\Api\PaymentMethod;
 
 /**
  * Records one manual refund (money.md, "Recording payments by hand"): a positive `manual_refund` line, money
@@ -28,6 +29,11 @@ final class RecordRefund extends RecordManualEntry
     protected function kind(): LineKind
     {
         return LineKind::ManualRefund;
+    }
+
+    protected function methods(): array
+    {
+        return PaymentMethod::forRefund();
     }
 
     protected function isCorrection(array $input): bool

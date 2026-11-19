@@ -244,6 +244,11 @@ final class RegistrationDetail
                 static fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()],
                 PaymentMethod::cases()
             ),
+            // [UNAPPROVED Shapes] a refund's own list: transfer or cash only (money.md).
+            'refund_methods' => array_map(
+                static fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()],
+                PaymentMethod::forRefund()
+            ),
         ];
     }
 

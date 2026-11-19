@@ -70,6 +70,16 @@ abstract class RecordManualEntry implements AdminUseCase
         return [];
     }
 
+    /**
+     * The methods this entry may use.
+     *
+     * @return list<PaymentMethod>
+     */
+    protected function methods(): array
+    {
+        return PaymentMethod::cases();
+    }
+
     public function inputSchema(): array
     {
         return [
@@ -82,7 +92,7 @@ abstract class RecordManualEntry implements AdminUseCase
                 'currency' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 3],
                 'method' => ['type' => 'string', 'enum' => array_map(
                     static fn (PaymentMethod $method): string => $method->value,
-                    PaymentMethod::cases()
+                    $this->methods()
                 )],
                 'value_date' => ['type' => 'string', 'pattern' => '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'],
                 'note' => ['type' => 'string', 'maxLength' => 500],
@@ -131,7 +141,10 @@ abstract class RecordManualEntry implements AdminUseCase
         if (!in_array($payer, $declared, true)) {
             throw new InvalidInput();
         }
-        $method = PaymentMethod::tryFrom((string) $input['method']) ?? throw new InvalidInput();
+        $method = PaymentMethod::tryFrom((string) $input['method']);
+        if ($method === null || !in_array($method, $this->methods(), true)) {
+            throw new InvalidInput();
+        }
         $valueDate = (string) $input['value_date'];
         $today = $context->now()->setTimezone(wp_timezone())->format('Y-m-d');
         if (Instant::startOfDay($valueDate) === null || $valueDate > $today) {
