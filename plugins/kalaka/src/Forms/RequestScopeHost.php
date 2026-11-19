@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\RequestOptions;
@@ -88,5 +89,10 @@ final class RequestScopeHost implements FormHost
     public function afterSubmitTypes(): array
     {
         return $this->host->afterSubmitTypes();
+    }
+
+    public function accountStep(Form $form): ?AccountStep
+    {
+        return $this->host->accountStep($form);
     }
 }
