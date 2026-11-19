@@ -105,7 +105,7 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 	return (
 		<Modal
 			title={ refund ? MONEY.recordRefund : MONEY.recordPay }
-			onRequestClose={ onClose }
+			onRequestClose={ () => ! busy && onClose() }
 			size="medium"
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
@@ -189,7 +189,7 @@ export default function RecordDialog( { config, refund, code, money, onClose, on
 					<Button variant="primary" type="submit" isBusy={ busy } aria-disabled={ busy }>
 						{ MONEY.save }
 					</Button>
-					<Button variant="tertiary" onClick={ onClose }>
+					<Button variant="tertiary" onClick={ onClose } disabled={ busy }>
 						{ MONEY.cancel }
 					</Button>
 				</div>

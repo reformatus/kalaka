@@ -166,6 +166,12 @@ export default function Page( { config } ) {
 			if ( document.querySelector( '.components-modal__screen-overlay, .components-popover' ) ) {
 				return;
 			}
+			// Esc belongs to the control that has focus (a column menu, the search box); the panel takes it only
+			// from inside itself, from a row button, or when nothing has focus. [UNAPPROVED N3]
+			const active = document.activeElement;
+			if ( active && active !== document.body && ! active.closest( '.kg-panel' ) && ! active.classList.contains( 'kg-open' ) ) {
+				return;
+			}
 			event.preventDefault();
 			event.stopPropagation();
 			closeRef.current();
@@ -192,6 +198,7 @@ export default function Page( { config } ) {
 		const button = tr.querySelector( '.kg-open' );
 		if ( button ) {
 			setOpen( button.dataset.key );
+			setAgain( ( n ) => n + 1 );
 		}
 	};
 	// After an entry is saved the grid quietly re-reads its page and sums (no loading state, scroll kept); an
@@ -199,14 +206,21 @@ export default function Page( { config } ) {
 	const queryKey = JSON.stringify( [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 	const queryRef = useRef( queryKey );
 	queryRef.current = queryKey;
+	const sumsKey = JSON.stringify( [ tab.key, narrowKey ] );
+	const sumsRef = useRef( sumsKey );
+	sumsRef.current = sumsKey;
+	// Activating the open row again re-reads the panel when its read had failed.
+	const [ again, setAgain ] = useState( 0 );
 	const refresh = () => {
 		const asked = queryKey;
 		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page, narrow } ).then(
 			( result ) => queryRef.current === asked && setData( result ),
 			() => {}
 		);
+		// The sums depend only on the tab and the narrowing, not on the page or the sort.
+		const sumsAsked = sumsKey;
 		api.fetchSums( config, tab, narrow ).then(
-			( result ) => queryRef.current === asked && setSums( result ),
+			( result ) => sumsRef.current === sumsAsked && setSums( result ),
 			() => {}
 		);
 	};
@@ -319,7 +333,10 @@ export default function Page( { config } ) {
 						className="kg-open"
 						data-key={ item.key }
 						aria-haspopup="dialog"
-						onClick={ () => setOpen( item.key ) }
+						onClick={ () => {
+							setOpen( item.key );
+							setAgain( ( n ) => n + 1 );
+						} }
 						aria-label={ fmt( PANEL.openRow, cellText( column, item ) || item.key ) }
 					>
 						<Cell column={ column } item={ item } />
@@ -517,7 +534,7 @@ export default function Page( { config } ) {
 				/>
 			</div>
 			{ open !== null && (
-				<DetailPanel config={ config } code={ open } onClose={ closePanel } onSaved={ () => refreshRef.current() } />
+				<DetailPanel config={ config } code={ open } again={ again } onClose={ closePanel } onSaved={ () => refreshRef.current() } />
 			) }
 		</Fragment>
 	);
