@@ -64,7 +64,11 @@ plugin. It holds two fee components at the extras stage and is core money
   step of a money settings apply (`Api\Extras::propose()` with
   `Pricing\Api\MoneySettings`): preview, then apply. A number field with a
   charge's key is checked against the event's participant fields before
-  anything is saved.
+  anything is saved. The extras component is a
+  `Pricing\Api\ConfigurableFeeComponent`: the money settings file of
+  `wp kalaka money-settings` reads and writes its settings through
+  `settingsToArray()` and `settingsFromArray()`, which only call
+  `Api\Extras`. The donation has no setting, so it is not configurable.
 - Only this module writes `kalaka_extras_charges`; `ChargeRepository` is its
   only writer.
 - No Hungarian text besides the number field's editor strings and refusals:

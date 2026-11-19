@@ -7,6 +7,7 @@ namespace Kalaka\Pricing\Cli;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
+use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
@@ -16,7 +17,8 @@ use Kalaka\Pricing\Api\PreviewRow;
  * `wp kalaka money-settings show|preview|apply <event_id>`: an event's money settings as JSON, and a change
  * of them, preview → confirm → apply, through `Api\MoneySettings` (money.md, "Money settings apply"). It runs
  * as the command line without a user (full access), or, with WP-CLI's `--user`, checked as that user, and is
- * audited like the use cases it runs. The screen for the same is S72's.
+ * audited like the use cases it runs. The check is the apply's (its use cases); `show` and `preview` are plain
+ * reads. The screen for the same is S72's. [UNAPPROVED N3]
  */
 final class MoneySettingsCommand
 {
@@ -122,7 +124,8 @@ final class MoneySettingsCommand
 
             \WP_CLI::line('Re-evaluated: ' . count($report->done()) . '. Failed: ' . count($report->failed()) . '.');
             foreach ($report->failed() as $item) {
-                \WP_CLI::line('Failed ' . $item->registration->code . ': ' . ($item->failure?->getMessage() ?? ''));
+                $why = $item->failure === null ? '' : self::describe($item->failure);
+                \WP_CLI::line('Failed ' . $item->registration->code . ': ' . $why);
             }
             if ($report->failed() !== []) {
                 $error = new CommandFailure(
@@ -146,7 +149,7 @@ final class MoneySettingsCommand
                     'payer' => '',
                     'now' => '',
                     'would_owe' => '',
-                    'problem' => $row->problem->getMessage(),
+                    'problem' => self::describe($row->problem),
                 ];
                 continue;
             }
@@ -166,6 +169,12 @@ final class MoneySettingsCommand
             return;
         }
         \WP_CLI\Utils\format_items($format, $items, self::FIELDS);
+    }
+
+    /** The operator's text of an error: a Kaláka error's own, anything else's message. */
+    private static function describe(\Throwable $error): string
+    {
+        return $error instanceof KalakaException ? $error->operatorMessage() : $error->getMessage();
     }
 
     private static function amount(?Money $money): string
