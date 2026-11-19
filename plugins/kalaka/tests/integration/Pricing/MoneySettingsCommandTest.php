@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Cli\MoneySettingsCommand;
 use Kalaka\Pricing\Cli\SettingsDocument;
@@ -42,9 +44,9 @@ final class MoneySettingsCommandTest extends PricingTestCase
         parent::tear_down();
     }
 
-    private function command(): MoneySettingsCommand
+    private function command(FeeComponent ...$more): MoneySettingsCommand
     {
-        $components = new CoreFeeComponents([$this->extra]);
+        $components = new CoreFeeComponents([$this->extra, ...$more]);
         $this->printed = [];
 
         $settings = new MoneySettings($this->runner, $components);
@@ -250,5 +252,63 @@ final class MoneySettingsCommandTest extends PricingTestCase
         );
         \WP_CLI::reset();
         self::assertNotSame('', $this->fails(fn () => $this->command()->show(['999999'], [])));
+    }
+
+    public function testAUserWithoutFullAccessIsRefusedByTheApplyAndNothingIsWritten(): void
+    {
+        $this->setPrice('1000');
+        $key = $this->register('00A0');
+        $lines = $this->lineCount();
+        $file = $this->file(['fixed_price' => '1800', 'components' => ['extra' => ['amount' => '300']]]);
+        wp_set_current_user(self::factory()->user->create());
+
+        $text = $this->fails(
+            fn () => $this->command()->apply([(string) $this->event], ['file' => $file, 'yes' => true])
+        );
+
+        self::assertNotSame('', $text);
+        self::assertSame($lines, $this->lineCount());
+        self::assertSame('1200', $this->balance($key));
+        self::assertSame('200', $this->extra->amount);
+    }
+
+    public function testAUserWithFullAccessAppliesAndShowAndPreviewAreReads(): void
+    {
+        $this->setPrice('1000');
+        $key = $this->register('00A0');
+        $user = self::factory()->user->create();
+        get_userdata($user)->add_cap(AdminAccess::FULL_ACCESS);
+        wp_set_current_user($user);
+        $file = $this->file(['fixed_price' => '1800']);
+
+        $this->command()->preview([(string) $this->event], ['file' => $file]);
+        self::assertSame('1200', $this->balance($key));
+        $this->command()->apply([(string) $this->event], ['file' => $file, 'yes' => true]);
+
+        self::assertSame('2000', $this->balance($key));
+    }
+
+    public function testAFailedRegistrationIsReportedAndTheCommandEndsInAnErrorWithTheSettingsSaved(): void
+    {
+        $this->setPrice('1000');
+        $good = $this->register('00A0');
+        $this->register('00B0');
+        $flaky = new FailingComponent('00B0');
+        $flaky->failing = true;
+        $this->useComponents($this->extra, $flaky);
+        $file = $this->file(['fixed_price' => '1800']);
+
+        $text = $this->fails(
+            fn () => $this->command($flaky)->apply([(string) $this->event], ['file' => $file, 'yes' => true])
+        );
+
+        self::assertStringContainsString('The settings are saved, but some registrations failed', $text);
+        self::assertContains(['line', 'Re-evaluated: 1. Failed: 1.'], \WP_CLI::$calls);
+        $failed = array_filter(\WP_CLI::$calls, static fn (array $call): bool => $call[0] === 'line'
+            && str_starts_with($call[1], 'Failed 00B0: '));
+        self::assertCount(1, $failed);
+        self::assertSame('2000', $this->balance($good));
+        $this->command($flaky)->preview([(string) $this->event], ['file' => $file]);
+        self::assertNotSame('', $this->printed[0][1][1]['problem']);
     }
 }
