@@ -89,7 +89,15 @@ final class LedgerSchemaTest extends WP_UnitTestCase
         $keys = $wpdb->get_results("SHOW INDEX FROM {$wpdb->prefix}kalaka_ledger_lines", ARRAY_A);
         self::assertIsArray($keys);
         self::assertSame(
-            ['PRIMARY:id', 'idempotency_key:event_id', 'idempotency_key:code', 'idempotency_key:idempotency_key'],
+            [
+                'PRIMARY:id',
+                'idempotency_key:event_id',
+                'idempotency_key:code',
+                'idempotency_key:idempotency_key',
+                'registration_line:event_id',
+                'registration_line:code',
+                'registration_line:id',
+            ],
             array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
         );
     }

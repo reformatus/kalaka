@@ -35,7 +35,8 @@ CREATE TABLE {prefix}kalaka_ledger_lines (
   method varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   correction tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY  (id),
-  UNIQUE KEY idempotency_key (event_id,code,idempotency_key)
+  UNIQUE KEY idempotency_key (event_id,code,idempotency_key),
+  KEY registration_line (event_id,code,id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
