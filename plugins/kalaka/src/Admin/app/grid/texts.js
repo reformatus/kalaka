@@ -55,3 +55,67 @@ export const VIEWS = {
 	filter: 'Feltétel',
 	filters: 'Feltételek',
 };
+
+/**
+ * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
+ * owner ticks its box: [UNAPPROVED T6] the panel, [UNAPPROVED T3] the disabled tab.
+ */
+export const PANEL = {
+	panel: 'Jelentkező részletei',
+	close: 'Bezárás',
+	tabsLabel: 'Részletek',
+	tabMoney: 'Pénzügyek',
+	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
+	tabSoon: 'Hamarosan…',
+	loading: 'Betöltés…',
+	loadFail: 'A részletek betöltése nem sikerült.',
+	notFound: 'A jelentkező nem található.',
+	// For screen readers [UNAPPROVED T13]: the row button's name, „<kód> – részletek”.
+	openRow: '%s – részletek',
+};
+
+/**
+ * The „Pénzügyek” tab and its two dialogs. [UNAPPROVED T7] the payer table, [UNAPPROVED T8] the entries,
+ * [UNAPPROVED T9] the actions, [UNAPPROVED T10] the dialog fields, [UNAPPROVED T11] the messages,
+ * [UNAPPROVED T12] the snackbar, [UNAPPROVED T13] the screen-reader text. The refund and correction words are
+ * [UNAPPROVED T1] and [UNAPPROVED T2]; „0 Ft” is [UNAPPROVED T5].
+ */
+export const MONEY = {
+	payer: 'Fizető',
+	owed: 'Fizetendő',
+	paid: 'Befizetve',
+	balance: 'Egyenleg',
+	total: 'Összesen',
+	due: 'hátralék',
+	over: 'túlfizetés',
+	entries: 'Tételek',
+	date: 'Dátum',
+	type: 'Típus',
+	amount: 'Összeg',
+	method: 'Mód',
+	note: 'Megjegyzés',
+	none: 'Még nincs tétel.',
+	correction: 'javítás',
+	recordPay: 'Befizetés rögzítése',
+	recordRefund: 'Visszautalás / javítás rögzítése',
+	amountField: 'Összeg (Ft)',
+	dateField: 'Dátum',
+	methodField: 'Fizetési mód',
+	noteField: 'Közlemény',
+	reasonField: 'Indoklás',
+	balanceNow: 'Jelenlegi egyenleg',
+	balanceAfter: 'Egyenleg mentés után',
+	noAmount: 'még nincs összeg',
+	save: 'Mentés',
+	cancel: 'Mégse',
+	saved: 'Befizetés rögzítve.',
+	savedRefund: 'Visszautalás rögzítve.',
+	amountEmpty: 'Add meg az összeget.',
+	amountBad: 'Nullánál nagyobb összeget adj meg.',
+	dateEmpty: 'Add meg a dátumot.',
+	dateFuture: 'A dátum nem lehet jövőbeli.',
+	methodEmpty: 'Válassz fizetési módot.',
+	payerEmpty: 'Válassz fizetőt.',
+	noteRequired: 'Add meg az indoklást.',
+	saveFail: 'A mentés nem sikerült. Próbáld újra.',
+};

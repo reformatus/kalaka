@@ -175,6 +175,8 @@ final class GridPage
             'perPages' => self::PER_PAGE,
             'maxLimit' => ViewQuery::MAX_LIMIT,
             'sumEditable' => $full,
+            // The panel shows dates and today in the site time zone, as a name or an offset (S38). [UNAPPROVED N23]
+            'timezone' => wp_timezone_string(),
             'rest' => '/' . GridRoutes::NAMESPACE . '/events/' . $eventId,
         ];
         wp_add_inline_script(self::HANDLE, 'window.kalakaGrid = ' . wp_json_encode($config) . ';', 'before');

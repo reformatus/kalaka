@@ -1,6 +1,8 @@
 import apiFetch from '@wordpress/api-fetch';
 import {
+	recordEntry,
 	fetchAll,
+	fetchDetail,
 	fetchPage,
 	fetchSums,
 	runAbility,
@@ -313,5 +315,70 @@ describe( 'serial', () => {
 		} );
 		await queue( () => ran.push( 'next' ) );
 		expect( ran ).toEqual( [ 'next' ] );
+	} );
+} );
+
+describe( 'the detail panel\'s calls', () => {
+	test( 'the detail is read by the code', async () => {
+		apiFetch.mockResolvedValue( { registration: {} } );
+		await fetchDetail( config, '02S2' );
+		expect( apiFetch ).toHaveBeenCalledWith( { path: '/kalaka-admin/v1/events/7/registrations/02S2' } );
+	} );
+
+	test( 'a payment runs kalaka/record-payment with the event, the currency and its key', async () => {
+		apiFetch.mockResolvedValue( { id: 9 } );
+		const result = await recordEntry( config, {
+			refund: false,
+			code: '02S2',
+			currency: 'HUF',
+			payer: 'participant',
+			amount: '1000.50',
+			valueDate: '2026-11-19',
+			method: 'cash',
+			note: '',
+			key: 'ui-abc',
+		} );
+		expect( result ).toEqual( { id: 9 } );
+		expect( apiFetch ).toHaveBeenCalledWith(
+			call( 'kalaka/record-payment', {
+				event_id: 7,
+				code: '02S2',
+				payer: 'participant',
+				amount: '1000.50',
+				currency: 'HUF',
+				method: 'cash',
+				value_date: '2026-11-19',
+				idempotency_key: 'ui-abc',
+			} )
+		);
+	} );
+
+	test( 'a refund runs kalaka/record-refund as a correction, with its reason as the note', async () => {
+		apiFetch.mockResolvedValue( { id: 10 } );
+		await recordEntry( config, {
+			refund: true,
+			code: '02S2',
+			currency: 'HUF',
+			payer: 'participant',
+			amount: '500',
+			valueDate: '2026-11-19',
+			method: 'bank_transfer',
+			note: 'Téves befizetés',
+			key: 'ui-def',
+		} );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual(
+			call( 'kalaka/record-refund', {
+				event_id: 7,
+				code: '02S2',
+				payer: 'participant',
+				amount: '500',
+				currency: 'HUF',
+				method: 'bank_transfer',
+				value_date: '2026-11-19',
+				idempotency_key: 'ui-def',
+				note: 'Téves befizetés',
+				correction: true,
+			} )
+		);
 	} );
 } );
