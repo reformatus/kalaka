@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Condition;
 
+use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -98,7 +99,9 @@ final class ConditionParser
     }
 
     /**
-     * A date reference: `{"key", "years", "days"}`, the key a date the scope allows, the moves whole
+     * A date reference: `{"key", "years", "days"}`, the key a date the scope allows, or `{"ref": "now", "years",
+     * "days"}` (no key: the evaluation's day, `Facts::NOW`; a `key` naming `Facts::NOW` itself is refused), the
+     * moves whole
      * numbers (both optional) of at most `DateReference::MAX_YEARS` years and `MAX_DAYS` days either way.
      * Decision N3 (#156): the stored shape of a date reference in a comparison.
      *
@@ -107,19 +110,23 @@ final class ConditionParser
      */
     private function reference(array $data, ConditionScope $scope, string $key): DateReference
     {
-        if (array_diff(array_keys($data), ['key', 'years', 'days']) !== []) {
+        $now = array_key_exists('ref', $data);
+        if (array_diff(array_keys($data), [$now ? 'ref' : 'key', 'years', 'days']) !== []) {
             self::fail($key);
         }
-        $reference = $data['key'] ?? null;
+        $reference = $now ? $data['ref'] : ($data['key'] ?? null);
         $years = $data['years'] ?? 0;
         $days = $data['days'] ?? 0;
-        if (!is_string($reference) || !is_int($years) || !is_int($days)) {
+        if (!is_string($reference) || !is_int($years) || !is_int($days) || ($now && $reference !== 'now')) {
             self::fail($key);
         }
         if (abs($years) > DateReference::MAX_YEARS || abs($days) > DateReference::MAX_DAYS) {
             self::fail($key);
         }
-        if ($scope->typeOf($reference) !== ValueType::Date) {
+        if ($now) {
+            return DateReference::now($years, $days);
+        }
+        if ($reference === Facts::NOW || $scope->typeOf($reference) !== ValueType::Date) {
             self::fail($key);
         }
 

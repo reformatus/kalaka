@@ -483,6 +483,16 @@ is no other participant-side edit.
   years for "under 16 at the event's start". A day the moved month does not
   have becomes its last day (29 February to 28 February), so the age rule
   holds for an event starting on 29 February.
+- **A date reference can be "now":** the day of the clock's time in the site's
+  time zone, moved by whole years and days like any date reference (e.g. "now
+  + 0 days"). While a form is filled in it is the render time (the page render
+  and every re-fetch), at submit the submit time, and in an evaluation (fee
+  components, mails, views) the evaluation's clock time (the runner's
+  `Clock`); the evaluator reads it from the fact source like any value, never
+  from a clock of its own. It is a reference only, never a key a condition
+  names. A branch that reads it is held server-side like one that reads an
+  event value, and the page re-fetches it with the form's other re-fetches; the
+  submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice
