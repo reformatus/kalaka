@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Catalogue;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -12,6 +13,7 @@ use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
+use Kalaka\Mail\Body\AccountLinkRule;
 
 /**
  * Changes one action mail of an event (mail.md, "Configuration"): switches it on or off, assigns its body
@@ -99,7 +101,7 @@ final class UpdateActionMail implements AdminUseCase
     public function execute(array $input, Context $context): array
     {
         $eventId = (int) $input['event_id'];
-        $this->events->find($eventId) ?? throw new NotFound();
+        $event = $this->events->find($eventId) ?? throw new NotFound();
         $action = ActionMail::from((string) $input['mail']);
 
         $entry = $this->mails->findForUpdate(['eventId' => $eventId, 'action' => $action], $context)
@@ -137,6 +139,18 @@ final class UpdateActionMail implements AdminUseCase
         if ($changed && $entry->bodyId !== null && !$this->body($entry->bodyId)->published) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
             throw new RuleViolation(self::BODY_UNPUBLISHED);
+        }
+        // S15: while the event has accounts, "Jelentkezés rögzítve" carries the set-password link (`AccountLinkRule`).
+        if ($action === ActionMail::Registered && $event->accountMode !== AccountMode::Off) {
+            if ($wasEnabled && !$entry->enabled) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
+                throw new RuleViolation(AccountLinkRule::NO_SWITCH_OFF);
+            }
+            $body = $changed && $entry->enabled ? $this->body($entry->bodyId) : null;
+            if ($body !== null && !$body->readsPasswordLink) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
+                throw new RuleViolation(AccountLinkRule::NEEDS_LINK);
+            }
         }
 
         $this->mails->upsert($entry, $context);

@@ -3,10 +3,11 @@
 /**
  * Server render of the embed block: events-and-forms.md, "Forms implementation". It places the form it
  * names on any page. In place of the form it renders one refusal (a paragraph, or WordPress's own password
- * form); otherwise the JavaScript warning, the form, its buttons (Vissza and Tovább only on a multi-page
- * form, shown by the script) and the loading spinner, which the script shows after 2 seconds. Without
- * JavaScript the form stays as the server rendered it for its prefilled answers (none for a new
- * registration) and the buttons stay disabled; the script enables them when it starts.
+ * form); otherwise the JavaScript warning,
+ * the form, its buttons (Vissza and Tovább only on a multi-page form, shown by the script) and the
+ * loading spinner, which the script shows after 2 seconds. Without JavaScript the form stays as the
+ * server rendered it for its prefilled answers (none for a new registration) and the buttons stay
+ * disabled; the script enables them when it starts.
  * All of it renders inside the form's one error boundary (`FormPage::html()`).
  *
  * @var array<string, mixed> $attributes
@@ -42,6 +43,10 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
             FormPageView::ROLE_REQUIRED => 'Az űrlap kitöltéséhez jelentkezz be egy megfelelő jogosultságú fiókkal.',
         ];
         echo '<p>' . esc_html($kalakaTexts[$kalakaView->refusal] ?? $kalakaTexts[FormPageView::UNAVAILABLE]) . '</p>';
+        if ($kalakaView->loginUrl !== '') {
+            // T8's approved link text: the role refusal of someone not logged in, who may hold the role.
+            echo '<p><a href="' . esc_url($kalakaView->loginUrl) . '">' . esc_html('Bejelentkezés') . '</a></p>';
+        }
     } else {
         // The theme adapter's error colour, for the stylesheet: `--kalaka-error-color` on the form.
         $kalakaColour = ThemeAdapters::current()->errorColour;

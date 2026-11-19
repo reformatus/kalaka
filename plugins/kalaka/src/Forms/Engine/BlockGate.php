@@ -21,12 +21,14 @@ final class BlockGate
 {
     /**
      * Form-only blocks that are not field types: the after-submit section (`Api\AfterSubmit`, registered
-     * here) and the form's pages (`kalaka/form-page`, registered by `Forms\Module`). Another editor gets
+     * here), the form's pages (`kalaka/form-page`, registered by `Forms\Module`) and the account block
+     * (`Api\SignUp::BLOCK`; `Forms\AccountBlock` takes it out of a form without accounts). Another editor gets
      * them only through a `BlockHost`.
      */
     public const FORM_ONLY_BLOCKS = [
         'kalaka/form-page',
         'kalaka/after-submit',
+        'kalaka/account',
     ];
 
     /**

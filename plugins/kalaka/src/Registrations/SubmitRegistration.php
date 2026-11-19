@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
@@ -18,6 +19,7 @@ use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\Registrations\Account\AccountOutcome;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
@@ -42,6 +44,12 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * the form's requirements at this moment; then the capacity check, the reference code and the rows, and
  * last the action mail of the resulting status (`registered` or `waitlisted`), queued in the same run with
  * the registration as its cause (`ActionMails::due()`; a mail switched off queues nothing).
+ *
+ * Accounts (S15): a guest's submit to a `mandatory` event is one of the form's refusals, checked here under
+ * the lock with the others (`account_required`). The owner account was decided before the transaction
+ * (`Account\AccountOutcome`, through the constructor). Only a new registration takes it: its row gets the
+ * owner. A repeat writes nothing. An unverified account's set-password link travels in the status mail itself
+ * (`account.password_link`).
  */
 final class SubmitRegistration implements PublicUseCase
 {
@@ -51,6 +59,7 @@ final class SubmitRegistration implements PublicUseCase
      * @param array<string, string> $fieldTypes field key → the field block's name, of the form's definition: a
      *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
+     * @param AccountOutcome|null $account the owner account; null for none
      */
     public function __construct(
         private readonly Form $form,
@@ -69,6 +78,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationCount $count = new RegistrationCount(),
         private readonly ActionMails $mails = new ActionMails(),
+        private readonly ?AccountOutcome $account = null,
     ) {
     }
 
@@ -134,7 +144,14 @@ final class SubmitRegistration implements PublicUseCase
             throw $error;
         }
 
-        $refusals = $this->forms->refusals($this->form, $event, $context->now(), $this->roles, $this->passwordGiven);
+        $refusals = $this->forms->refusals(
+            $this->form,
+            $event,
+            $context->now(),
+            $this->roles,
+            $this->passwordGiven,
+            $context->actor() instanceof AccountActor
+        );
         if ($refusals !== []) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- enum cases, no input
             throw new FormRefused($refusals);
@@ -163,6 +180,7 @@ final class SubmitRegistration implements PublicUseCase
             SecretLink::generate(),
             $now,
             $status === RegistrationStatus::Registered ? $now : null,
+            ownerUserId: $this->account?->ownerUserId,
         ), $context);
         $this->submissions->insert(new Submission(
             $key,

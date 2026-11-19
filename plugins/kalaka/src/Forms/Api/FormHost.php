@@ -12,10 +12,11 @@ use Kalaka\Foundation\Api\Actor\Actor;
  * never imports Events, Registrations, ParticipantFields or Admin; it asks here (deptrac: the
  * `Forms Engine` layer). Like `BlockHost`, it lets the engine work without knowing the module behind it.
  *
- * The six ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
+ * The seven ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
- * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), and
- * what the after-submit section reads (`afterSubmitTypes()`).
+ * the values the form opens with (`prefill()`), what a submit does (`submitToken()`, `submit()`), what
+ * the after-submit section reads (`afterSubmitTypes()`), and whether the form needs an account
+ * (`accountStep()`).
  */
 interface FormHost
 {
@@ -95,4 +96,11 @@ interface FormHost
      * @return array<string, ValueType>
      */
     public function afterSubmitTypes(): array;
+
+    /**
+     * Whether the form needs an account for someone not logged in (`Required`), or offers one
+     * (`Offered`); null when the form has no accounts (then a logged-in person is not the owner either).
+     * Reads no current user: the form page, its re-fetch and the account block ask it for anyone.
+     */
+    public function accountStep(Form $form): ?AccountStep;
 }

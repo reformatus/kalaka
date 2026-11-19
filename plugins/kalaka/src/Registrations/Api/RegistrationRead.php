@@ -6,7 +6,8 @@ namespace Kalaka\Registrations\Api;
 
 /**
  * A read of one registration for another module: its key, its status and the time it last became
- * `registered` (a UTC instant; null while it never was). Never the secret.
+ * `registered` (a UTC instant; null while it never was) and its owner account (a WordPress user ID; null
+ * while it has none). Never the secret.
  */
 final readonly class RegistrationRead
 {
@@ -14,6 +15,7 @@ final readonly class RegistrationRead
         public RegistrationKey $key,
         public RegistrationStatus $status,
         public ?\DateTimeImmutable $registeredAt,
+        public ?int $ownerUserId = null,
     ) {
     }
 }

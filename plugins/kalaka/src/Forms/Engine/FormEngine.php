@@ -12,6 +12,7 @@ use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
@@ -53,9 +54,15 @@ final class FormEngine
      * key of another type, or a `system` field's key, makes it unusable): a form written around the save
      * check stays closed and is named in the broken-form warning. An earlier version is read as it was.
      *
+     * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
+     * scan) whose host gives an account step (`FormHost::accountStep()`, the event's current mode) must also
+     * hold the account block, so an event switched to accounts closes its published forms that lack it, like
+     * any other broken form. A stored submission's definition (a mail's recipient and context) is read
+     * without it: a mode change never costs an existing registration its mail.
+     *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
-    public function definition(Form $form, ?int $version = null): FormDefinition
+    public function definition(Form $form, ?int $version = null, bool $serving = false): FormDefinition
     {
         $version ??= $form->version;
         $content = $this->posts->content($form, $version);
@@ -65,6 +72,10 @@ final class FormEngine
             if ($problem !== null) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
                 throw new SystemFailure($problem[0] . ' ' . $problem[1]);
+            }
+            if ($serving && $this->host->accountStep($form) !== null && $definition->account === null) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a block name
+                throw new SystemFailure(SignUp::BLOCK_MISSING . ' ' . SignUp::BLOCK);
             }
         }
 
@@ -85,7 +96,7 @@ final class FormEngine
             throw $error;
         }
 
-        return $this->definition($form, $version);
+        return $this->definition($form, $version, true);
     }
 
     /**

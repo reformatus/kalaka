@@ -142,7 +142,10 @@ values and conditions, prefill and form links
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
 - Access checks are pure: they read no current user, cookie or request; the
-  caller passes the roles and whether the password was given.
+  caller passes the roles, whether the password was given and whether someone
+  is logged in. The engine's `FormHost::refusals()` contract leaves the last
+  to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
+  a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
   transaction, never inside it. The one exception is `Forms::refusals()`,
   which reads nothing: a submit checks it under the event's lock.
@@ -211,7 +214,9 @@ values and conditions, prefill and form links
   the host's submit (`FormHost::submit()`; for an event form the submit seam
   `Registrations\Api\RegistrationSubmit`). Every answer of
   both, refusals included, carries `Cache-Control: no-store`. A malformed body
-  is `InvalidInput`, never a WordPress argument error.
+  is `InvalidInput`, never a WordPress argument error. WordPress's refusal of
+  a stale `wp_rest` nonce on them becomes `kalaka_session_ended`, which the
+  page shows with its link to log in again, never as the system failure.
 - Reading a key that a value context does not declare is a failure, never an
   empty value. A document (a mail body) stops at it; on an ordinary page the
   failing chain or value renders nothing and the failure is logged, never a
@@ -247,11 +252,44 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  stored values the form opens with, the submit token and the submit, and the
-  after-submit section's keys. Kaláka's
+  stored values the form opens with, the submit token and the submit, the
+  after-submit section's keys, and whether the form needs an account
+  (`accountStep()`). Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form
   page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
   engine.
+- A form whose host gives an account step (`FormHost::accountStep()`) shows
+  to everyone; it is never redirected. Its account block (`Api\SignUp::BLOCK`,
+  `Engine\AccountMarkup`) is the only way in: a live registration form of an
+  event with accounts must hold it (`AccountBlock`, `account_block_missing`,
+  existence only; `Forms::definition()` runs the same check against the
+  event's current mode when the form is served, so a published form that
+  lacks it, say after the event switched to accounts, stays closed and is
+  named in the site warning like any broken form; a stored submission's
+  definition is read as it was, so its mail keeps its recipient and its
+  context), the editor offers it only where the form can have
+  accounts, and anywhere else it renders nothing. Its button opens
+  WordPress's login page in a window of its own (`SignUp::url()`); a login
+  there lands on the return page (`SignUp::returnUrl()`), which tells the
+  form's page by `postMessage` to its own origin only and closes. The page
+  then reads its REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`)
+  and re-fetches with the block re-rendered, never reloading and never
+  overwriting a typed answer; without a message it checks on focus or
+  visibility while it waits, and a send waits for that check. The page and
+  the re-fetch never refuse for the account; in `mandatory` mode the submit
+  does (`account_required`, the last of the form's refusals, so a form
+  refused for another reason says that first), and the re-fetch gives the
+  block's error for a page check while the block shows on that page. Every
+  way back to the form built from a marker is the form's page found on the
+  server (`SignUp::page()`), never an address from the request. Logged in,
+  the contact email starts with the account's address, and the block names
+  the account with a logout link back to the form.
+- `account.logged_in` (`SignUp::LOGGED_IN`) is a fact of a registration
+  form's conditions (`EventValues::FORM_TYPES`): `yes` or `no` on a form with
+  an account step (yes only while someone is logged in), none on a form
+  without one, at render, re-fetch and submit alike; true, false and none are
+  never conflated. A chain that reads it ships every branch
+  (`FormDefinition::withheldChains()`), since a login changes it in place.
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.

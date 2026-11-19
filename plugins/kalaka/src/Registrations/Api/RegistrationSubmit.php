@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\AfterSubmit;
@@ -11,8 +12,10 @@ use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -22,6 +25,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Account\AccountOutcome;
 use Kalaka\Registrations\SubmitRegistration;
 
 /**
@@ -30,6 +34,11 @@ use Kalaka\Registrations\SubmitRegistration;
  * (`Forms::validate()`, the walk every render uses: answers whose conditions do not hold are dropped);
  * then it runs `kalaka-portal/submit-registration`, which decides the rest under the event's lock.
  * When the event changed between the two, the answers are checked again, up to `ATTEMPTS` times.
+ *
+ * Accounts (S15, by the event's account mode): before any transaction it decides what the submit does about
+ * accounts (`accountOutcome()`): a logged-in person owns the registration, and someone not logged in may
+ * submit only in `optional` mode. The account itself was created earlier, on WordPress's registration page
+ * (`Account\SignUpPage`).
  */
 final class RegistrationSubmit
 {
@@ -63,6 +72,7 @@ final class RegistrationSubmit
      * @throws \Kalaka\Forms\Api\FormRefused the form cannot be used now (event not open, outside the
      *     registration window, password, role), with the codes
      * @throws RuleViolation the form is not in the registration slot
+     * @throws FormRefused also `account_required`: someone not logged in, in `mandatory` mode (from the use case)
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
      */
     public function submit(SubmitRequest $request, Actor $actor): SubmitResult
@@ -82,10 +92,14 @@ final class RegistrationSubmit
 
         for ($attempt = 1;; $attempt++) {
             $event = $this->events->find($form->eventId) ?? throw new NotFound();
+            // Decided on every attempt: a retry reads the event again, and its account mode may have changed.
+            $account = $this->accountOutcome($event, $actor);
+            // `account.logged_in`: yes or no where the event has accounts (an account submits), none where not.
+            $loggedIn = $event->accountMode === AccountMode::Off ? null : $actor instanceof AccountActor;
             $answers = $this->forms->validate(
                 $definition,
                 $request->answers,
-                new ValueContext(EventValues::of($event))
+                new ValueContext(EventValues::form($event, $loggedIn))
             );
             $useCase = new SubmitRegistration(
                 $form,
@@ -96,6 +110,7 @@ final class RegistrationSubmit
                 $request->passwordGiven,
                 self::fieldTypes($definition),
                 $this->participantFields->of($form->eventId),
+                account: $account,
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);
@@ -113,6 +128,26 @@ final class RegistrationSubmit
             // After the transaction: the after-submit content reads the form's post.
             return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result));
         }
+    }
+
+    /**
+     * What the submit does about accounts (registrations-and-identity.md, "Accounts on the registration
+     * form"; owner ruling 2026-11-14, S15-6 approved 2026-11-16):
+     *
+     * - mode `off`: nothing, as before accounts, logged in or not;
+     * - logged in: the person's account owns the registration;
+     * - not logged in: nothing. In `mandatory` mode the submit refuses it as one of the form's refusals
+     *   (`account_required`, `EventFormHost::refusalsOf()`), under the lock with the others.
+     */
+    private function accountOutcome(Event $event, Actor $actor): AccountOutcome
+    {
+        if ($event->accountMode === AccountMode::Off) {
+            return AccountOutcome::none();
+        }
+        if ($actor instanceof AccountActor) {
+            return AccountOutcome::loggedIn($actor->userId);
+        }
+        return AccountOutcome::none();
     }
 
     /**

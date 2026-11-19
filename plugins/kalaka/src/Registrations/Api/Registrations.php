@@ -33,7 +33,12 @@ final class Registrations
 
         return $registration === null
             ? null
-            : new RegistrationRead($registration->key, $registration->status, $registration->registeredAt);
+            : new RegistrationRead(
+                $registration->key,
+                $registration->status,
+                $registration->registeredAt,
+                $registration->ownerUserId,
+            );
     }
 
     /**

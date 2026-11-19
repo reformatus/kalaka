@@ -21,6 +21,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'secret' => 'varchar(22)',
             'created_at' => 'datetime(6)',
             'registered_at' => 'datetime(6) null',
+            'owner_user_id' => 'bigint(20) unsigned null',
         ],
         'kalaka_field_values' => [
             'event_id' => 'bigint(20) unsigned',
@@ -54,7 +55,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(2, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(3, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {

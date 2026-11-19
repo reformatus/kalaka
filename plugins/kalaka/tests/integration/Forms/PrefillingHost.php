@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Forms;
 
+use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\ValueContext;
@@ -67,5 +68,10 @@ final class PrefillingHost implements FormHost
     public function afterSubmitTypes(): array
     {
         return $this->inner->afterSubmitTypes();
+    }
+
+    public function accountStep(Form $form): ?AccountStep
+    {
+        return $this->inner->accountStep($form);
     }
 }

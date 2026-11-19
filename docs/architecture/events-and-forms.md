@@ -193,6 +193,19 @@ flowchart TB
 - Forms are **block documents** (`kalaka_form` posts) built from our own
   field blocks.
 - The public page uses WordPress's **Interactivity API**.
+- **Accounts:** in the event's mandatory and optional account mode, every
+  registration form holds the account block, which the save check requires;
+  where it sits is the author's choice. Logged out, it says what an account
+  gives and has one button that opens WordPress's own login page in a window
+  of its own; that page links to the registration page. After the login the
+  window closes and the form shows the account in place, keeping what was
+  typed. In mandatory mode the block refuses moving past its page, like a
+  required field, and the send is refused without an account. In off mode,
+  and on additional forms, the block is not offered and renders nothing
+  ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
+  **Changing an event's account mode** is refused while a published
+  registration form of the event lacks the block, and the broken-forms list
+  is refreshed after a mode change (S72).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
   (UI text approved when built). A multi-page form shows none of its pages
@@ -380,7 +393,10 @@ is no other participant-side edit.
     writes to for participant fields the form does not hold (e.g. a staff
     form branching on the camp chosen at registration). Fields the form holds
     are always read from its answers. Event values are also rendered at page
-    load.
+    load. A registration form's conditions may also read whether someone is
+    logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
+    form has an account step, and none where it has none (the event's off
+    account mode, an additional form), never no there.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -410,8 +426,10 @@ is no other participant-side edit.
   caller.
 - **Forms are rendered by the server; the page's script holds no
   condition.** A branch whose conditions read only the form's own answers
-  is sent hidden and shown when it holds for the current answers. A branch
-  whose condition reads anything else (an event value, a link-only or other
+  is sent hidden and shown when it holds for the current answers; so is one
+  that reads whether someone is logged in, which a login from the form's
+  account block changes in place. A branch whose condition reads anything
+  else (an event value, a link-only or other
   held fact) is sent only when it holds, so a browser never receives a
   branch it does not qualify for; when its outcome changes, the page
   re-fetches it. At submit the server walks the form the same way and keeps

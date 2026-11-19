@@ -47,4 +47,38 @@ final class FormCaching
             || (str_contains($content, '[' . self::SHORTCODE)
                 && preg_match('/' . get_shortcode_regex([self::SHORTCODE]) . '/', $content) === 1);
     }
+
+    /**
+     * The IDs of the forms the content places, in order: the `kalaka/form` blocks (nested ones too) and the
+     * `[kalaka_form id="…"]` shortcodes.
+     *
+     * @return list<int>
+     */
+    public static function formIds(string $content): array
+    {
+        $ids = [];
+        $walk = static function (array $blocks) use (&$walk, &$ids): void {
+            foreach ($blocks as $block) {
+                if (!is_array($block)) {
+                    continue;
+                }
+                $id = $block['attrs']['formId'] ?? null;
+                if (($block['blockName'] ?? null) === self::BLOCK && is_int($id) && $id > 0) {
+                    $ids[] = $id;
+                }
+                $walk(is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : []);
+            }
+        };
+        $walk(parse_blocks($content));
+        if (preg_match_all('/' . get_shortcode_regex([self::SHORTCODE]) . '/', $content, $matches) > 0) {
+            foreach ($matches[3] as $attributes) {
+                $id = absint(shortcode_parse_atts($attributes)['id'] ?? 0);
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
 }

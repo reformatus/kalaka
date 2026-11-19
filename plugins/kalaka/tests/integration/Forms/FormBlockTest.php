@@ -513,7 +513,10 @@ final class FormBlockTest extends FormsTestCase
         $id = $this->formOf('', null, ['kalaka_required_role' => 'editor']);
         $text = 'Az űrlap kitöltéséhez jelentkezz be egy megfelelő jogosultságú fiókkal.';
 
-        self::assertSame($text, $this->onlyParagraph($this->render($id)));
+        // Someone not logged in may hold the role: the refusal links to WordPress's login (T8's „Bejelentkezés”).
+        $guest = $this->render($id);
+        self::assertStringContainsString('<p>' . $text . '</p>', $guest);
+        self::assertMatchesRegularExpression('#<p><a href="[^"]*wp-login\.php[^"]*">Bejelentkezés</a></p>#', $guest);
 
         wp_set_current_user(self::factory()->user->create(['role' => 'subscriber']));
         self::assertSame($text, $this->onlyParagraph($this->render($id)));

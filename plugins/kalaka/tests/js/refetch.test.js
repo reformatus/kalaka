@@ -377,6 +377,26 @@ describe('a change of a trigger', () => {
 		expect(alert().textContent).toBe('');
 		expect(branchOf('supporter').hidden).toBe(false);
 	});
+
+	test('refused because the session ended shows the link to log in again (S15)', async () => {
+		const loginUrl = 'http://example.test/wp-login.php?redirect_to=x';
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(401, { code: 'kalaka_session_ended', message: 'Lépj be újra.', data: { status: 401 } })
+		);
+		await load(
+			form(radios('fee', ['basic', 'extra_support']) + branch(1, 0, text('help_note')), {
+				triggers: ['fee'],
+				nonce: 'n0nce',
+				loginUrl,
+				logIn: 'Bejelentkezés',
+			})
+		);
+		choose(root(), 'fee', 'extra_support');
+		await settle();
+
+		expect(alert().textContent).toBe('Lépj be újra. Bejelentkezés');
+		expect(alert().querySelector('a').getAttribute('href')).toBe(loginUrl);
+	});
 });
 
 // Owner ruling (2026-11-13): one request in flight per form; changes meanwhile coalesce into one follow-up.

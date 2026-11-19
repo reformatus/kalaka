@@ -23,7 +23,41 @@ final class EventValues
     public const START = 'event.start';
     public const END = 'event.end';
 
-    /** Every event key and its type: what a form's condition may read besides the earlier answers. */
+    /**
+     * What a registration form's condition may read besides the earlier answers: the event's keys and
+     * `account.logged_in` (`SignUp::LOGGED_IN`, owner ruling 2026-11-18). Mails and the after-submit section
+     * read only `TYPES`.
+     */
+    public const FORM_TYPES = self::TYPES + [SignUp::LOGGED_IN => ValueType::Choice];
+
+    /**
+     * `FORM_TYPES`' values: the event's, and `account.logged_in`: `yes` or `no` where the form has an account
+     * step (`$loggedIn` says whether someone is logged in), none where it has none (`$loggedIn` null: account
+     * mode off, or an additional form). True, false and null stay apart, never conflated (owner ruling
+     * 2026-11-18). The text of yes and no is „Igen” and „Nem” (`yesNo()`).
+     *
+     * @return array<string, Value>
+     */
+    public static function form(Event $event, ?bool $loggedIn): array
+    {
+        $fact = $loggedIn === null
+            ? Value::none(ValueType::Choice)
+            : self::yesNo($loggedIn);
+
+        return self::of($event) + [SignUp::LOGGED_IN => $fact];
+    }
+
+    /**
+     * A yes/no fact's value: the choice `yes` or `no`, shown as „Igen” or „Nem” (the texts of the participant-field
+     * prompt's buttons, already approved UI text). Both account facts (`account.logged_in`, `account.unverified`)
+     * use it.
+     */
+    public static function yesNo(bool $yes): Value
+    {
+        return Value::choice([$yes ? 'yes' : 'no'], $yes ? 'Igen' : 'Nem');
+    }
+
+    /** Every event key and its type. */
     public const TYPES = [
         self::NAME => ValueType::Text,
         self::REGISTRATION_OPENS => ValueType::Date,

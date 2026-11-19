@@ -13,7 +13,7 @@ removed here.
 | Item | Settle when |
 |---|---|
 | Participant phase tracker: configurable phases, and phases extensions add. The core default phases participants see (one sequence: waitlisted → awaiting payment → confirmed, or withdrawn / removed) are built with the participant status block | when an extension needs a phase of its own |
-| Unactivated accounts (the set-password link never used, or the registration failed after the account was created): whether and when they are removed | building the registration UI |
+| Unverified accounts (the set-password link never used, or no registration ever submitted): not deleted automatically; whether and how they are removed | the privacy work, together with the privacy tools |
 | Retention of guest data and of the audit, including failed entries (ledger lines are kept at least 8 years, [Registrations and identity](registrations-and-identity.md#attribution-and-erasure)) | before a wide release (privacy policy) |
 | The privacy tools: WordPress's privacy export and eraser for registrations and presets, the audit-diff scrub, IP address and user agent declared to WordPress's privacy tools, self-service erasure and the other GDPR features. Not needed at launch: the 2026 systems had none | before a wide release |
 | Purging stored mail errors (on deliveries, on the mail pause and in audit diffs; stored as reported, which may name an address) and their retention | the compliance work, together with the privacy tools |

@@ -34,7 +34,7 @@ final class FormRefusalsTest extends FormsTestCase
 
         return array_map(
             static fn (AccessRefusal $refusal): string => $refusal->value,
-            $this->forms->refusals($this->readForm($formId), $event, $now, $roles, $password)
+            $this->forms->refusals($this->readForm($formId), $event, $now, $roles, $password, false)
         );
     }
 
@@ -181,7 +181,7 @@ final class FormRefusalsTest extends FormsTestCase
         $statements = $this->statementsDuring(function () use ($form, $eventRead): void {
             $codes = array_map(
                 static fn (AccessRefusal $refusal): string => $refusal->value,
-                $this->forms->refusals($form, $eventRead, $this->local('2026-12-01 12:00:00'), [], false)
+                $this->forms->refusals($form, $eventRead, $this->local('2026-12-01 12:00:00'), [], false, false)
             );
             self::assertSame(['role_required'], $codes);
         });

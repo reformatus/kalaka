@@ -11,7 +11,8 @@ the waitlist and reference codes
   [Submissions and values](../../../../docs/architecture/registrations-and-identity.md#submissions-and-values),
   the status, sorszám and submit-time capacity decision of [Status, capacity and waitlist](../../../../docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist),
   [Reference codes](../../../../docs/architecture/registrations-and-identity.md#reference-codes),
-  the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access).
+  the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
+  the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
 - foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
 
 ## Invariants
@@ -77,4 +78,37 @@ the waitlist and reference codes
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
   read.
+- The owner account (`owner_user_id`, a WordPress user ID) is set once, by
+  the submit of a logged-in person, and nothing changes or clears it. In
+  the event's account mode `off` a submit records no owner; in `mandatory`
+  mode someone not logged in cannot submit (`account_required`). The owner
+  is written only for a new registration, never for a repeat. A submit
+  queues no mail of its own for the account.
+- Accounts are created only on WordPress's own registration page
+  (`Account\SignUpPage`), never by a submit; Kaláka never handles a
+  password. Its native-sign-up flag is set only on a POST to
+  `action=register` without `loginSocial`, never from
+  `did_action('login_form_register')`. The flag alone decides the hidden
+  login name (`Account\LoginName`: `[a-z0-9._-]`, never empty, at most 60,
+  free and not illegal), the opaque nicename, `kalaka_unverified` and the
+  login at once; the marker
+  (`kalaka_form`, a registration form whose published event has accounts)
+  alone decides the suppressed WordPress mails (a sign-up without a valid
+  marker, a direct `wp-login.php?action=register`, gets WordPress's own),
+  the hidden marker field, the event's line on the login and
+  registration pages, and the returns to the form: the login and
+  registration links, `registration_redirect` and `login_redirect`, each
+  through the return page (`Account\SignUpPage::returnPage()`, on
+  `login_form_kalaka_account`) to the form's page found on the server
+  (`Forms\Api\SignUp::page()`), never an address from the request. The
+  return page prints no text; it tells only a window opener of its own
+  origin, and otherwise goes to the form's page. The registration mail's
+  set-password link carries the marker, so logging in after the password is
+  set returns to the form's page directly.
+- `kalaka_unverified` is cleared only on `password_reset` and
+  `after_password_reset`; it limits only what Kaláka does with the account.
+  A reset link lasts 7 days only for such an account.
+- Site-wide, the author archive of any user with no published posts is a
+  404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
+  participant accounts' names (N21). Authors with posts keep theirs.
 - Only Registrations writes its tables.

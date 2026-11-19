@@ -32,6 +32,18 @@ final class Values
     }
 
     /**
+     * The keys a document places as values (a `kalaka/value` binding or an inline value), found
+     * by the same walk the save check and the render use; a key that only a condition names is not among
+     * them. The mail's save check asks it for the set-password link.
+     *
+     * @return list<string>
+     */
+    public function placedKeys(string $content): array
+    {
+        return $this->check->placedKeys($content);
+    }
+
+    /**
      * Renders a document's block markup (a mail body): every chain is resolved first and only the
      * held branch's inner blocks render, with no wrapper; then `kalaka/value` bindings and inline
      * values are filled from the context. Outside this call the branch blocks render nothing and

@@ -46,8 +46,8 @@ final class Module extends AbstractModule
     /** The condition branch blocks, in `Blocks/`. */
     private const BRANCH_BLOCKS = ['if', 'else-if', 'else'];
 
-    /** The page and after-submit blocks, in `Blocks/`. */
-    private const STRUCTURE_BLOCKS = ['form-page', 'after-submit'];
+    /** The page, after-submit and account blocks, in `Blocks/`. */
+    private const STRUCTURE_BLOCKS = ['form-page', 'after-submit', 'account'];
 
     public function id(): string
     {
@@ -89,6 +89,7 @@ final class Module extends AbstractModule
         add_action('template_redirect', [$this, 'preventFormPageCaching']);
         add_action('rest_api_init', [new FormRoutes(new EventFormHost()), 'register']);
         add_filter('rest_request_after_callbacks', [FormRoutes::class, 'noStore'], 10, 3);
+        add_filter('rest_post_dispatch', [FormRoutes::class, 'sessionEnded'], 10, 3);
         // events-and-forms.md, "Forms implementation": the shortcode for page builders that cannot hold blocks.
         add_shortcode(FormCaching::SHORTCODE, [$this, 'shortcode']);
     }
@@ -189,6 +190,8 @@ final class Module extends AbstractModule
         add_action('publish_future_post', [DefinitionCheck::class, 'onPublishFuture'], 5);
         add_filter('block_categories_all', [$this, 'blockCategories']);
         add_filter('allowed_block_types_all', [BlockGate::class, 'filter'], 10, 2);
+        // S15 (owner 2026-11-18): the account block only where the form has accounts.
+        add_filter('allowed_block_types_all', [AccountBlock::class, 'allowed'], 11, 2);
         add_filter('enter_title_here', [$this, 'titlePlaceholder'], 10, 2);
         add_action('enqueue_block_editor_assets', [$this, 'editorScriptData']);
     }
@@ -272,7 +275,7 @@ final class Module extends AbstractModule
                 static fn (FieldType $type): string => $type->valueType()->value,
                 Contributions::current()->fieldTypes()
             ),
-            'eventTypes' => array_map($value, EventValues::TYPES),
+            'eventTypes' => array_map($value, EventValues::FORM_TYPES),
             'afterSubmitTypes' => array_map($value, AfterSubmit::TYPES),
             'dateReference' => ['maxYears' => DateReference::MAX_YEARS, 'maxDays' => DateReference::MAX_DAYS],
         ];

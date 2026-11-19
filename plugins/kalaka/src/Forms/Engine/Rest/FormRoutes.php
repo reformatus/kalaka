@@ -4,9 +4,17 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Rest;
 
+use Kalaka\Forms\Api\AccessRefusal;
+use Kalaka\Forms\Api\AccountStep;
+use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\FormAvailability;
 use Kalaka\Forms\Api\FormCaching;
+use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormRefused;
+use Kalaka\Forms\Api\SignUp;
+use Kalaka\Forms\Engine\AccountMarkup;
 use Kalaka\Forms\Engine\ChoiceParts;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPage as FormsPage;
@@ -26,9 +34,14 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * (foundation.md, "Errors"). Both are open to anyone: the form's own access checks (`FormHost::refusals()`)
  * decide, with the current user's roles and whether the form's password was given.
  *
- * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?}` → `{availability, parts}`:
- *   what the form shows for the answers (`FormAvailability::toArray()`, with `page`'s errors) and the
- *   choice fields with option conditions re-rendered (`ChoiceParts`). It reads only; it never writes.
+ * - `POST kalaka-portal/v1/forms/{id}/availability` `{version, answers, page?, account?}` →
+ *   `{availability, parts, account?}`: what the form shows for the answers (`FormAvailability::toArray()`,
+ *   with `page`'s errors) and the choice fields with option conditions re-rendered (`ChoiceParts`). It reads
+ *   only; it never writes. The account (S15, owner ruling 2026-11-18) never refuses it: in `mandatory` mode
+ *   the account block is `page`'s error instead, while it shows on that page (`AccountMarkup::ERROR_KEY`).
+ *   With `account` (the form's page, as the script knows it), a logged-in request's answer carries the
+ *   account block re-rendered for it and the contact email's value (`{html, filled}`), after a login in the
+ *   block's window; a guest's carries no account part, since only a login makes one.
  * - `POST kalaka-portal/v1/forms/{id}/submit` `{version, answers, token}` → `SubmitResult::toArray()`,
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
  *   `Registrations\Api\RegistrationSubmit`).
@@ -37,11 +50,21 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
  * Every answer of both routes, refusals included, carries `Cache-Control: no-store` (`noStore()`).
  * The current user is the one WordPress authenticated for the request; with cookie authentication that
- * needs the `wp_rest` nonce, else the request is a guest's.
+ * needs the `wp_rest` nonce, else the request is a guest's. A nonce WordPress no longer accepts (the
+ * session ended: say the password was set on another device, which logs out every session) is refused
+ * before any route runs, as `rest_cookie_invalid_nonce`; for these routes that answer becomes
+ * `kalaka_session_ended` (`sessionEnded()`), which the page shows with a link to log in again.
  */
 final class FormRoutes
 {
     public const NAMESPACE = 'kalaka-portal/v1';
+
+    /** The refusal of a request whose session ended: logging in again is the way on. */
+    public const SESSION_ENDED = 'kalaka_session_ended';
+
+    // #191 T8 (the owner's ruling 2026-11-18, shortened).
+    public const SESSION_ENDED_TEXT
+        = 'Ebben a böngészőben már nem vagy bejelentkezve. Jelentkezz be újra.';
 
     /** The routes' path prefix, as `WP_REST_Request::get_route()` gives it. */
     private const PREFIX = '/' . self::NAMESPACE . '/forms/';
@@ -97,6 +120,33 @@ final class FormRoutes
     }
 
     /**
+     * On `rest_post_dispatch`: for these routes, WordPress's refusal of a stale `wp_rest` nonce
+     * (`rest_cookie_invalid_nonce`, made before any route runs, so neither the boundary nor `noStore()` sees
+     * it) becomes `kalaka_session_ended` (401), with `Cache-Control: no-store`. A retry never helps: only
+     * logging in again does. Anything else passes unchanged.
+     *
+     * @internal
+     */
+    public static function sessionEnded(mixed $response, mixed $server, mixed $request): mixed
+    {
+        unset($server);
+        if (
+            !$response instanceof \WP_REST_Response
+            || !$request instanceof \WP_REST_Request
+            || !str_starts_with($request->get_route(), self::PREFIX)
+            || $response->as_error()?->get_error_code() !== 'rest_cookie_invalid_nonce'
+        ) {
+            return $response;
+        }
+        $ended = rest_convert_error_to_response(
+            new \WP_Error(self::SESSION_ENDED, self::SESSION_ENDED_TEXT, ['status' => 401])
+        );
+        $ended->header('Cache-Control', FormCaching::CACHE_CONTROL);
+
+        return $ended;
+    }
+
+    /**
      * The re-fetch: the same checks as the form's page, then what shows for the answers. A form that would
      * not show is `FormRefused` with its refusal codes; a version that is not the latest is
      * `FormOutdated`.
@@ -121,12 +171,13 @@ final class FormRoutes
             $error = new NotFound();
             throw $error;
         }
-        $refusals = $this->host->refusals(
+        $all = $this->host->refusals(
             $form,
             Runner::current()->clock()->now(),
             FormsPage::currentRoles(),
             !post_password_required($post)
         );
+        $refusals = FormsPage::withoutAccount($all);
         if ($refusals !== []) {
             $error = new FormRefused($refusals);
             throw $error;
@@ -134,9 +185,66 @@ final class FormRoutes
 
         $definition = $this->forms->latestDefinition($form, $this->version($body));
         $availability = $this->forms->availability($definition, $this->answers($body), $values, $page);
+        $guest = in_array(AccessRefusal::AccountRequired, $all, true);
+        if ($page !== null && $guest && self::accountShows($definition, $availability, $page)) {
+            // In `mandatory` mode the account block validates like a required field on its page.
+            $availability = $availability->withError(AccountMarkup::ERROR_KEY, AccountMarkup::ERROR);
+        }
         $parts = $this->parts->of($form, $definition->version, $availability, $values);
+        $answer = ['availability' => $availability->toArray(), 'parts' => $parts === [] ? new \stdClass() : $parts];
+        // The account part is only meaningful after a login: it is resolved for a logged-in request only, so a
+        // guest's re-fetch never runs the form's page scan (`SignUp::page()`, a site-wide content read) on this
+        // open route. With no account step it answers nothing either.
+        $step = $this->host->accountStep($form);
+        $here = $body['account'] ?? null;
+        if ($step !== null && is_string($here) && is_user_logged_in()) {
+            $answer['account'] = $this->account($step, $form, $definition, $here);
+        }
 
-        return ['availability' => $availability->toArray(), 'parts' => $parts === [] ? new \stdClass() : $parts];
+        return $answer;
+    }
+
+    /**
+     * Whether the form's account block shows on the page: it sits on that page, the page shows and is not
+     * terminal, and every branch around it is the held one of its chain (validation follows what is shown).
+     */
+    private static function accountShows(FormDefinition $definition, FormAvailability $availability, int $page): bool
+    {
+        $place = $definition->account;
+        if ($place === null || $place->page !== $page || ($availability->pages[$page] ?? false) !== true) {
+            return false;
+        }
+        if ($definition->pages[$page]->terminal) {
+            return false;
+        }
+        foreach ($place->branches as $branch) {
+            if ($availability->heldBranch($branch->chain) !== $branch->index) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * The account block re-rendered for the current visitor, its logout returning to the form's page found
+     * on the server (`SignUp::page()`; `$requested` only picks among the pages that place the form), and,
+     * for someone logged in, the values the host's prefill gives (the contact email's), which the script fills in
+     * only while the field is empty.
+     *
+     * @return array{html: string, filled: array<string, string>|\stdClass}
+     */
+    private function account(AccountStep $step, Form $form, FormDefinition $definition, string $requested): array
+    {
+        $page = SignUp::page($form->id, $requested) ?? home_url('/');
+        // The host's values the form opens with (the account's address in the contact email), as the page's.
+        $stored = $this->host->prefill($form);
+        $filled = array_intersect_key($stored, array_flip(array_map(
+            static fn (FormField $field): string => $field->key,
+            $definition->fields
+        )));
+
+        return ['html' => AccountMarkup::html($step, $page), 'filled' => $filled === [] ? new \stdClass() : $filled];
     }
 
     /**

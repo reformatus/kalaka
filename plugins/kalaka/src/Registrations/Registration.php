@@ -7,7 +7,7 @@ namespace Kalaka\Registrations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
-/** The stored registration. Both times are UTC instants. */
+/** The stored registration. Both times are UTC instants; the owner is a WordPress user ID, null for none. */
 final class Registration
 {
     public function __construct(
@@ -17,6 +17,7 @@ final class Registration
         public readonly \DateTimeImmutable $createdAt,
         public ?\DateTimeImmutable $registeredAt = null,
         public int $version = 0,
+        public ?int $ownerUserId = null,
     ) {
     }
 }

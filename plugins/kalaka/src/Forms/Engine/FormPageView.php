@@ -35,6 +35,8 @@ final readonly class FormPageView
      * @param array<string, mixed> $context the form element's Interactivity context, empty for a refusal
      * @param \WP_Post|null $post the form post of a password refusal
      * @param string $token the page's `SubmitToken`, for its hidden field; empty for a refusal
+     * @param string $loginUrl WordPress's login page returning to the form's page, for a role refusal of someone
+     *     not logged in (they may hold the role); empty otherwise
      */
     public function __construct(
         public ?string $refusal,
@@ -42,11 +44,12 @@ final readonly class FormPageView
         public array $context = [],
         public ?\WP_Post $post = null,
         public string $token = '',
+        public string $loginUrl = '',
     ) {
     }
 
-    public static function refused(string $refusal, ?\WP_Post $post = null): self
+    public static function refused(string $refusal, ?\WP_Post $post = null, string $loginUrl = ''): self
     {
-        return new self($refusal, '', [], $post);
+        return new self($refusal, '', [], $post, '', $loginUrl);
     }
 }

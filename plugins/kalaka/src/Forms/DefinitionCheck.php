@@ -24,7 +24,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
  *   because every form of the event declares its fields;
  * - when the form is saved as published or scheduled, the definition check `DefinitionParser` runs on the
  *   live form (keys, options, unknown blocks, the slot's markings, and whatever the parser checks later
- *   on). A draft is not parsed: it can be half built. A form whose placement is not set yet is not parsed
+ *   on), and the account block of a registration form whose event has accounts (`AccountBlock`). A draft
+ *   is not parsed: it can be half built. A form whose placement is not set yet is not parsed
  *   either: it cannot be used anyway. A scheduled form is checked again when WordPress publishes it
  *   (`onPublishFuture`), so it never publishes itself broken.
  *
@@ -297,12 +298,13 @@ final class DefinitionCheck
         }
         try {
             $form = new Form($formId, 0, $placement, null, false, 0);
-            (new DefinitionParser())->parse($form, 0, $content, $contributions, new EventFormHost());
+            $definition = (new DefinitionParser())->parse($form, 0, $content, $contributions, new EventFormHost());
         } catch (SystemFailure $e) {
             return self::split($e);
         }
 
-        return null;
+        // S15 (owner ruling 2026-11-18): a registration form of an event with accounts holds the account block.
+        return AccountBlock::problem($definition, $placement, $eventId);
     }
 
     /** The placement being saved, else the stored one, else null. */

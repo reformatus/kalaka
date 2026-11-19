@@ -39,6 +39,20 @@ final readonly class FormAvailability
     ) {
     }
 
+    /** The same availability with one more error (`Rest\FormRoutes`: the account block's, S15). */
+    public function withError(string $key, string $message): self
+    {
+        return new self(
+            $this->fields,
+            $this->chains,
+            $this->options,
+            $this->triggers,
+            $this->withheld,
+            $this->pages,
+            [...$this->errors, $key => $message]
+        );
+    }
+
     public function shows(string $fieldKey): bool
     {
         return $this->fields[$fieldKey] ?? false;

@@ -1,7 +1,7 @@
 /**
  * The form editor: the one editor script of every Kaláka block (events-and-forms.md, "Forms
- * implementation"). The field, condition, page and after-submit blocks name this script's handle in their
- * `block.json`, so their editors share one module, and with it one keeper of field keys (`keys.js`).
+ * implementation"). The field, condition, page, after-submit and account blocks name this script's handle in
+ * their `block.json`, so their editors share one module, and with it one keeper of field keys (`keys.js`).
  *
  * Which blocks an editor offers (fields and conditions only in a form) is decided on the server, not here.
  */
@@ -30,6 +30,7 @@ import elseIfEdit from '../else-if/edit';
 import elseEdit from '../else/edit';
 import pageEdit from '../form-page/edit';
 import afterSubmitEdit from '../after-submit/edit';
+import accountEdit from '../account/edit';
 import './style.css';
 import './editor.css';
 import './problems';
@@ -61,6 +62,7 @@ const blocks = {
 	'kalaka/else': { edit: elseEdit, save: branchSave },
 	'kalaka/form-page': { edit: pageEdit, save: branchSave, __experimentalLabel: pageLabel },
 	'kalaka/after-submit': { edit: afterSubmitEdit, save: branchSave },
+	'kalaka/account': { edit: accountEdit },
 };
 
 for (const [name, settings] of Object.entries(blocks)) {

@@ -30,6 +30,21 @@
  * lost: Tovább's page check takes the place of the follow-up, and Küldés waits for the re-fetch and sends.
  * Vissza is ignored while busy. A second Tovább, or Enter, during a page check is ignored too: the running
  * check already moves on.
+ *
+ * A request refused because the person's session ended (S15, `kalaka_session_ended`) shows its own message
+ * with the page's link to log in again, not the system failure text.
+ *
+ * The account block (S15, owner ruling 2026-11-18; `Engine\AccountMarkup`) opens WordPress's login page in a
+ * window of its own (`window.open` in the click; a new tab on phones). A login or sign-up there lands on the
+ * return page, which tells this page (`postMessage`, same origin only) and closes itself. The form then reads
+ * its new REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`, which answers only someone logged in)
+ * and re-fetches with the block re-rendered: the block shows who is logged in, and an empty contact email
+ * gets the account's address. Nothing typed is lost or overwritten. If no message comes (the window's opener
+ * was gone), the form checks again whenever it regains focus or becomes visible while it waits for a login; a
+ * login window seen closed (`window.closed`) ends the wait after one last check.
+ * A send waits for that check, so nobody logged in sends as a guest. When the session ends, the login window
+ * opens (or its link, where the browser blocks it) and the refused request is retried after the login. In
+ * `mandatory` mode the block's error shows under it when „Tovább” or „Küldés” is refused for the account.
  */
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
@@ -45,6 +60,21 @@ const forms = new WeakMap();
 
 /** Kaláka's own error codes: only their messages are shown as they come. */
 const OWN_CODE = /^kalaka_/;
+
+/**
+ * The refusal of a request whose session ended (S15, `FormRoutes::SESSION_ENDED`): the person was logged out
+ * meanwhile, say by setting the password on another device. A retry never helps; logging in again does.
+ */
+const SESSION_ENDED = 'kalaka_session_ended';
+
+/** The account block's error in a re-fetch's `errors` (`AccountMarkup::ERROR_KEY`). */
+const ACCOUNT_KEY = 'kalaka/account';
+
+/** The return page's message (`SignUpPage::RETURN_SCRIPT`). */
+const ACCOUNT_MESSAGE = 'account';
+
+/** WordPress's nonces: 10 hexadecimal characters. */
+const NONCE = /^[0-9a-f]{10}$/;
 
 /** How long a request runs before the spinner shows. */
 export const SPINNER_DELAY = 2000;
@@ -81,6 +111,10 @@ function spinnerOf(form) {
 
 function statusOf(form) {
 	return form.querySelector('[data-kalaka-status]');
+}
+
+function accountOf(form) {
+	return form.querySelector('[data-kalaka-account]');
 }
 
 function slotOf(wrapper) {
@@ -457,6 +491,184 @@ async function post(url, data, nonce = '') {
 	}
 }
 
+/**
+ * Shows that the session ended: the refusal's message (#191 T8), or its code if a message is missing, and the
+ * page's link to log in again and come back (`loginUrl`), named by `logIn`, or by its address if that is missing.
+ */
+function showSessionEnded(form, message) {
+	const started = forms.get(form);
+	const alert = alertOf(form);
+	alert.textContent =
+		typeof message === 'string' && message !== '' ? message : SESSION_ENDED;
+	// A form with an account block logs in again through the block's window.
+	const url = started.account ? started.account.url : started.loginUrl;
+	if (typeof url === 'string' && url !== '') {
+		const link = document.createElement('a');
+		link.href = url;
+		link.textContent =
+			typeof started.logIn === 'string' && started.logIn !== ''
+				? started.logIn
+				: url;
+		if (started.account) {
+			link.addEventListener('click', (event) => {
+				if (openLogin(form)) {
+					event.preventDefault();
+				}
+			});
+		}
+		alert.append(' ', link);
+	}
+}
+
+/**
+ * After a request refused because the session ended: the login window opens at once where the browser lets
+ * it (it may not, this long after the click: then the message's link opens it), and the request is retried
+ * after the login (`retry`).
+ */
+function sessionEnded(form, message, retry) {
+	const started = forms.get(form);
+	showSessionEnded(form, message);
+	if (started.account) {
+		started.retry = retry;
+		openLogin(form);
+	}
+}
+
+/**
+ * Opens WordPress's login page for the form in a window of its own, from the account block or the ended
+ * session's link. Never `noopener`: the return page tells this page through `window.opener`.
+ *
+ * @return {boolean} Whether the window opened.
+ */
+function openLogin(form) {
+	const started = forms.get(form);
+	const url = started?.account?.url;
+	if (typeof url !== 'string' || url === '') {
+		return false;
+	}
+	started.awaiting = true;
+	const opened = window.open(
+		url,
+		'kalaka-account',
+		'popup=yes,width=520,height=720'
+	);
+	// Kept to see the window closed; none when the browser gave no reference (then focus alone wakes the form).
+	started.popup = opened ?? null;
+
+	return opened !== null && opened !== undefined;
+}
+
+/**
+ * Reads the REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`): `{ok, nonce}`, `nonce` null while
+ * nobody is logged in (WordPress answers 400 `0`; any answer without a nonce counts the same, so a site that
+ * answers otherwise never blocks a guest), `ok` false only when the request itself failed.
+ */
+async function readNonce(url) {
+	try {
+		const response = await fetch(url, {
+			credentials: 'same-origin',
+			cache: 'no-store',
+		});
+		if (!response.ok) {
+			return { ok: true, nonce: null };
+		}
+		const text = (await response.text()).trim();
+
+		return { ok: true, nonce: NONCE.test(text) ? text : null };
+	} catch {
+		return { ok: false, nonce: null };
+	}
+}
+
+/**
+ * After a login in the block's window: the new nonce, then a re-fetch that re-renders the block for the
+ * account. One at a time per form.
+ *
+ * @return {Promise<string>} `in` when the form is now logged in, `out` when nobody is, `failed` otherwise.
+ */
+function refresh(form) {
+	const started = forms.get(form);
+	if (started.refreshing === null) {
+		started.refreshing = refreshNow(form).finally(() => {
+			started.refreshing = null;
+		});
+	}
+
+	return started.refreshing;
+}
+
+async function refreshNow(form) {
+	const started = forms.get(form);
+	const { ok, nonce } = await readNonce(started.account.nonceUrl);
+	if (!ok) {
+		return 'failed';
+	}
+	if (nonce === null) {
+		if (started.popup?.closed === true) {
+			// The window was closed without a login: stop waiting, so a focus or a send asks no more.
+			started.awaiting = false;
+			started.popup = null;
+		}
+
+		return 'out';
+	}
+	started.nonce = nonce;
+	started.awaiting = false;
+	started.popup = null;
+	started.wantAccount = true;
+	const applied = await refetch(form);
+
+	return applied === null ? 'failed' : 'in';
+}
+
+/** A login may have happened (the return page's message, or the page regained focus): refresh, then retry. */
+async function afterLogin(form) {
+	const started = forms.get(form);
+	if (started === undefined || started.done || !form.isConnected) {
+		return;
+	}
+	const state = await refresh(form);
+	if (state !== 'in') {
+		return;
+	}
+	const retry = started.retry;
+	started.retry = null;
+	if (retry === 'send') {
+		await send(form);
+	} else if (retry === 'next') {
+		await next(form);
+	}
+}
+
+/**
+ * The re-rendered account block in place of the old one, and the account's values filled into empty
+ * controls only (the contact email): nothing typed is overwritten.
+ */
+function applyAccount(form, account) {
+	const started = forms.get(form);
+	const old = accountOf(form);
+	if (old !== null && typeof account?.html === 'string') {
+		const template = document.createElement('template');
+		template.innerHTML = account.html;
+		old.replaceWith(template.content);
+	}
+	let trigger = false;
+	for (const [key, value] of Object.entries(account?.filled ?? {})) {
+		const wrapper = wrapperOf(form, key);
+		const control =
+			wrapper === null
+				? undefined
+				: controlsOf(wrapper).find((element) => element.name === key);
+		if (control !== undefined && control.value === '' && typeof value === 'string') {
+			control.value = value;
+			trigger = trigger || isTrigger(started, key);
+		}
+	}
+	if (trigger) {
+		refetch(form);
+	}
+}
+
 /** The message of a refusal: Kaláka's own (a `kalaka_` code) as it comes, anything else the failure text. */
 function refusalMessage(body, failure) {
 	return typeof body?.code === 'string' &&
@@ -505,11 +717,16 @@ async function run(form) {
 	reflect(form);
 
 	let response;
+	let checked = null;
 	do {
 		started.dirty = false;
 		const request = { version: started.version, answers: answersOf(form) };
 		if (started.checking !== null) {
 			request.page = started.checking;
+			checked = started.checking;
+		}
+		if (started.wantAccount && started.account) {
+			request.account = started.account.page;
 		}
 		response = await post(started.availabilityUrl, request, started.nonce);
 	} while (started.dirty);
@@ -526,9 +743,14 @@ async function run(form) {
 		body.availability === null ||
 		typeof body.availability !== 'object'
 	) {
-		alertOf(form).textContent = ok
-			? started.failure
-			: refusalMessage(body, started.failure);
+		if (!ok && body?.code === SESSION_ENDED) {
+			// After the login a page check is retried as Tovább; any other re-fetch by the refresh itself.
+			sessionEnded(form, body.message, started.retry ?? (checked === null ? 'refetch' : 'next'));
+		} else {
+			alertOf(form).textContent = ok
+				? started.failure
+				: refusalMessage(body, started.failure);
+		}
 		started.stale = true;
 	} else {
 		if (started.stale) {
@@ -537,6 +759,10 @@ async function run(form) {
 		}
 		apply(form, body);
 		applied = body.availability;
+		if (started.wantAccount && body.account) {
+			started.wantAccount = false;
+			applyAccount(form, body.account);
+		}
 	}
 	reflect(form);
 
@@ -553,6 +779,11 @@ function messageIdOf(key) {
 
 function clearMessages(form) {
 	alertOf(form).textContent = '';
+	const account = form.querySelector('#kalaka-account-error');
+	if (account !== null) {
+		account.textContent = '';
+		account.hidden = true;
+	}
 	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
 		const slot = slotOf(wrapper);
 		if (slot !== null) {
@@ -608,7 +839,34 @@ function showFieldMessages(form, messages) {
 		first ??= controlsOf(wrapper).find((control) => !control.disabled);
 	}
 
-	return first ?? null;
+	return showAccountMessage(form, messages[ACCOUNT_KEY], first ?? null);
+}
+
+/**
+ * The account block's error (`mandatory` mode) under the block. With one, the block's button is the first
+ * thing to focus when it comes before `first` in the page.
+ *
+ * @return {Element|null} What to focus: the block's button or `first`.
+ */
+function showAccountMessage(form, message, first) {
+	const slot = form.querySelector('#kalaka-account-error');
+	const button = form.querySelector('[data-kalaka-account-login]');
+	if (typeof message !== 'string' || slot === null) {
+		return first;
+	}
+	slot.textContent = message;
+	slot.hidden = false;
+	if (button === null) {
+		return first;
+	}
+	button.setAttribute('aria-describedby', slot.id);
+	const before =
+		first === null ||
+		(button.compareDocumentPosition(first) &
+			window.Node.DOCUMENT_POSITION_FOLLOWING) !==
+			0;
+
+	return before ? button : first;
 }
 
 /** The number of the page a field sits on; null outside pages. */
@@ -763,6 +1021,10 @@ function outcome({ ok, body }, failure) {
 			? { html: body.after_submit }
 			: { message: failure };
 	}
+	if (body?.code === SESSION_ENDED) {
+		return { sessionEnded: true, message: body.message };
+	}
+	const refusals = Array.isArray(body?.data?.refusals) ? body.data.refusals : [];
 	const fields = body?.data?.fields;
 	const hasFields = fields !== null && typeof fields === 'object';
 	const own = typeof body?.code === 'string' && OWN_CODE.test(body.code);
@@ -774,6 +1036,7 @@ function outcome({ ok, body }, failure) {
 		message: body.message,
 		fields: hasFields ? fields : {},
 		code: body.code,
+		refusals,
 	};
 }
 
@@ -822,6 +1085,17 @@ async function send(form) {
 			return;
 		}
 	}
+	if (started.awaiting && started.account) {
+		// The login window opened: whoever logged in there sends as that account, never as a guest.
+		started.waiting = true;
+		const state = await refresh(form);
+		started.waiting = false;
+		if (state === 'failed') {
+			alertOf(form).textContent = started.failure;
+			focusOn(alertOf(form));
+			return;
+		}
+	}
 	if (started.stale) {
 		// The form is out of date after a failed re-fetch: try again; it is sent on a later click.
 		await refetch(form);
@@ -867,6 +1141,28 @@ async function send(form) {
 		return;
 	}
 	reflect(form);
+	if (result.sessionEnded) {
+		sessionEnded(form, result.message, 'send');
+		focusOn(alertOf(form));
+		return;
+	}
+	if (started.account && (result.refusals ?? []).includes('account_required')) {
+		// Logged in meanwhile in another tab: send again once as the account; else the block's error.
+		const before = started.nonce;
+		if ((await refresh(form)) === 'in' && started.nonce !== before) {
+			await send(form);
+			return;
+		}
+		// Under the block when it shows; else (no block, or one in a hidden branch) the refusal's own message.
+		const button = form.querySelector('[data-kalaka-account-login]');
+		if (button === null || button.closest('[hidden]') !== null) {
+			alertOf(form).textContent = result.message;
+			focusOn(alertOf(form));
+			return;
+		}
+		focusOn(showAccountMessage(form, started.account.error, null));
+		return;
+	}
 	if (
 		hasPages(started) &&
 		result.code === 'kalaka_form_terminal' &&
@@ -932,6 +1228,22 @@ store('kalaka/form', {
 		back() {
 			return back(getElement().ref.closest('form'));
 		},
+		// Synchronous: the window opens in the click, so the browser does not block it.
+		logIn: withSyncEvent(() => {
+			const form = getElement().ref.closest('form');
+			// A fresh login from the block's button: a pending retry of an earlier, abandoned window is dropped
+			// (the ended session's own link keeps it).
+			const started = forms.get(form);
+			if (started) {
+				started.retry = null;
+			}
+			if (!openLogin(form)) {
+				const url = started?.account?.url;
+				if (typeof url === 'string' && url !== '') {
+					window.location.assign(url);
+				}
+			}
+		}),
 	},
 	callbacks: {
 		start() {
@@ -956,8 +1268,31 @@ store('kalaka/form', {
 				refusedTo: null,
 				ticks: new Map(),
 				timer: null,
+				awaiting: false,
+				popup: null,
+				refreshing: null,
+				wantAccount: false,
+				retry: null,
 			};
 			forms.set(form, started);
+			if (started.account) {
+				// The return page's message, same origin only; or, with no opener, focus and visibility.
+				window.addEventListener('message', (event) => {
+					if (
+						event.origin === window.location.origin &&
+						event.data?.kalaka === ACCOUNT_MESSAGE
+					) {
+						afterLogin(form);
+					}
+				});
+				const wake = () => {
+					if (started.awaiting && document.visibilityState !== 'hidden') {
+						afterLogin(form);
+					}
+				};
+				window.addEventListener('focus', wake);
+				document.addEventListener('visibilitychange', wake);
+			}
 			for (const button of buttonsOf(form)) {
 				button.disabled = false;
 			}

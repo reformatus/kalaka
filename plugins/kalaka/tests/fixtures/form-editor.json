@@ -14,7 +14,8 @@
     "event.registration_opens": "date",
     "event.registration_closes": "date",
     "event.start": "date",
-    "event.end": "date"
+    "event.end": "date",
+    "account.logged_in": "choice"
   },
   "afterSubmitTypes": {
     "event.name": "text",

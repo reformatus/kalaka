@@ -90,7 +90,7 @@ analyses serve only as background.
 
 ```mermaid
 flowchart TB
-  P["Participants and guardians<br/>personal link or optional account"]
+  P["Participants and guardians<br/>personal link or account"]
   O["Organizers<br/>WordPress users with roles"]
   subgraph R["REFISZ website"]
     R2["Core plugin + extensions"]

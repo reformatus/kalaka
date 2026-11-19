@@ -21,6 +21,9 @@ use Kalaka\Mail\BodyUnusable;
  *
  * A body without an event yet is not checked: its keys are not known; it is checked when it gets one and is
  * saved again, and before every claim (`MailRenderer`).
+ *
+ * S15: the template of an event's "Jelentkezés rögzítve" mail must read `account.password_link` while the
+ * event has accounts (`AccountLinkRule`); its refusal is that rule's own text.
  */
 final class BodyCheck
 {
@@ -95,6 +98,10 @@ final class BodyCheck
         if ($problem !== null) {
             return new \WP_Error(self::CODE, self::message($problem), ['status' => 400]);
         }
+        $account = (new AccountLinkRule())->problem($id, $content, $event);
+        if ($account !== null) {
+            return new \WP_Error(self::CODE, $account, ['status' => 400]);
+        }
         self::$restEvents[$id] = $event;
 
         return $prepared;
@@ -126,8 +133,12 @@ final class BodyCheck
             array_key_exists(MailPosts::META_EVENT_ID, $meta) => self::eventId($meta[MailPosts::META_EVENT_ID]),
             default => (new MailPosts())->eventOf($id),
         };
-        $problem = self::problem(wp_unslash($data['post_content']), $event);
-        if ($problem === null) {
+        $content = wp_unslash($data['post_content']);
+        $problem = self::problem($content, $event);
+        $message = $problem === null
+            ? (new AccountLinkRule())->problem($id, $content, $event)
+            : self::message($problem);
+        if ($message === null) {
             return $data;
         }
         $stored = $id > 0 ? get_post($id) : null;
@@ -138,7 +149,7 @@ final class BodyCheck
         }
         $user = get_current_user_id();
         if ($user > 0) {
-            set_transient(self::NOTICE . $user, self::message($problem), HOUR_IN_SECONDS);
+            set_transient(self::NOTICE . $user, $message, HOUR_IN_SECONDS);
         }
 
         return $data;

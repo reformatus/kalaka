@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Engine;
 
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\AccountPlace;
 use Kalaka\Forms\Api\FormDefinition;
+use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\FormBranch;
 use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
@@ -65,6 +67,9 @@ final class DefinitionParser
     /** @var list<PageDefinition> the pages met so far, in order of their numbers */
     private array $pages = [];
 
+    /** Where the form's account block sits, once met. */
+    private ?AccountPlace $account = null;
+
     /** the page block, only at the top level of a form. */
     public const PAGE_BLOCK = ChainMarks::PAGE_BLOCK;
 
@@ -83,6 +88,7 @@ final class DefinitionParser
         $this->afterSubmit = false;
         $this->page = null;
         $this->pages = [];
+        $this->account = null;
         $fields = [];
         try {
             $this->topLevel(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields);
@@ -94,8 +100,17 @@ final class DefinitionParser
                 }
             }
 
-            return new FormDefinition($form->id, $version, $fields, $this->chains, $triggers, $this->pages);
+            return new FormDefinition(
+                $form->id,
+                $version,
+                $fields,
+                $this->chains,
+                $triggers,
+                $this->pages,
+                $this->account
+            );
         } finally {
+            $this->account = null;
             $this->chains = [];
             $this->read = [];
             $this->page = null;
@@ -286,6 +301,10 @@ final class DefinitionParser
         }
         if ($name === ChainMarks::AFTER_SUBMIT_BLOCK) {
             $this->fail('after_submit_not_top_level');
+        }
+        if ($name === SignUp::BLOCK) {
+            // The account block (S15): only where it sits; its block is `multiple: false`, so the first counts.
+            $this->account ??= new AccountPlace($this->page, $branches);
         }
         if (is_string($name)) {
             if (isset($contributions->fieldTypes()[$name])) {

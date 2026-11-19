@@ -9,7 +9,8 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
- * The list of published forms whose current version does not parse, kept in a non-autoloaded option so
+ * The list of published forms whose current version does not parse, or lacks the account block its event's current
+ * mode wants (`Forms::definition()`), kept in a non-autoloaded option so
  * the site warning only reads it. It is recomputed when a form is saved, trashed or deleted or its
  * placement changes, and once when the option does not exist yet (the first request after an upgrade).
  */
@@ -74,7 +75,7 @@ final class BrokenForms
             try {
                 $form = $forms->form($id);
                 if ($form !== null) {
-                    $forms->definition($form);
+                    $forms->definition($form, null, true);
                 }
             } catch (SystemFailure $e) {
                 [$code, $subject] = DefinitionCheck::split($e);
