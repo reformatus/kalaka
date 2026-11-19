@@ -19,6 +19,8 @@ use Kalaka\Forms\Api\SignUp;
  * never handles a password: logging in is `wp_login_url()`, setting the password is WordPress's own
  * `?action=rp` screen, and any WordPress user counts.
  *
+ * Before both, `login_init` refuses a cross-site POST to any of these screens (`refuseCrossSite()`).
+ *
  * Two gates:
  * - **The flag** (`$flag`), set on every POST to `action=register` without `loginSocial` (social sign-ups are
  *   their plugin's): it sets the hidden login name (`LoginName`), an opaque nicename, the
@@ -81,6 +83,7 @@ final class SignUpPage
 
     public function register(): void
     {
+        add_action('login_init', [$this, 'refuseCrossSite'], 1);
         add_action('login_form_register', [$this, 'beforeRegister'], 10);
         add_action('register_form', [$this, 'markerField'], 5);
         add_action('login_enqueue_scripts', [$this, 'styles']);
@@ -122,6 +125,61 @@ final class SignUpPage
     {
         self::$flag = false;
         self::$firstPassword = null;
+    }
+
+    /**
+     * `login_init`: a POST to `wp-login.php` (any action) from another site is refused, so a page elsewhere
+     * cannot sign a visitor in to, or up as, an account of its choosing (login CSRF). `Sec-Fetch-Site`
+     * decides when the browser sends it (`same-origin`, or `none` for a direct navigation); else `Origin`, or
+     * failing that `Referer`, must be this site's address; with none of the three the request is let through
+     * (old clients). A request carrying `loginSocial` is exempt: a social login's callback can be a
+     * legitimate cross-site POST.
+     *
+     * @internal
+     */
+    public function refuseCrossSite(): void
+    {
+        $method = strtoupper(self::input('server', 'REQUEST_METHOD') ?? 'GET');
+        if ($method !== 'POST' || self::input('request', 'loginSocial') !== null || self::sameSite()) {
+            return;
+        }
+        wp_die(
+            esc_html(
+                'A kérés nem erről az oldalról érkezett. Nyisd meg újra a bejelentkezési oldalt, és próbáld újra.'
+            ),
+            '',
+            ['response' => 403, 'back_link' => false],
+        );
+    }
+
+    /** Whether the request's headers allow it: see `refuseCrossSite()`. */
+    private static function sameSite(): bool
+    {
+        $fetch = self::input('server', 'HTTP_SEC_FETCH_SITE');
+        if ($fetch !== null) {
+            return in_array(strtolower($fetch), ['same-origin', 'none'], true);
+        }
+        $from = self::input('server', 'HTTP_ORIGIN') ?? self::input('server', 'HTTP_REFERER');
+        if ($from === null || $from === '') {
+            return true;
+        }
+        $origin = self::origin($from);
+
+        return $origin !== null && in_array($origin, [self::origin(home_url()), self::origin(site_url())], true);
+    }
+
+    /** `scheme://host:port` of an address, lower-case with the default port filled in; null when it has none. */
+    private static function origin(string $url): ?string
+    {
+        $parts = wp_parse_url($url);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+        $scheme = strtolower($parts['scheme']);
+
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        return $scheme . '://' . strtolower($parts['host']) . ':' . $port;
     }
 
     /**
