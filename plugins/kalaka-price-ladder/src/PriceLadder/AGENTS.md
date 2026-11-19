@@ -57,7 +57,10 @@ answers (the share extension, S29), never by a tier.
 - The ladder changes only through `kalaka/set-price-ladder`, the save step of
   a money settings apply (`Api\PriceLadder::propose()` with
   `Pricing\Api\MoneySettings`): preview, then apply. A key given twice is refused
-  before anything is saved.
+  before anything is saved. The component is a `Pricing\Api\ConfigurableFeeComponent`:
+  the money settings file of `wp kalaka money-settings` reads and writes the tiers
+  through `settingsToArray()` and `settingsFromArray()`, which only call
+  `Api\PriceLadder`.
 - Only this module writes `kalaka_price_ladder_tiers`; `TierRepository` is
   its only writer.
 - No UI. Its Hungarian texts are the plugin name, the title of `price_tier`
