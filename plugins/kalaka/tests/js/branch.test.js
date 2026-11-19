@@ -319,10 +319,10 @@ describe("a row of the problems panel", () => {
     expect(
       problemRow(
         "Név",
-        "Ezt a résztvevői mezőt nem űrlap tölti ki, ezért űrlap nem csatlakozhat hozzá: „Név”.",
+        "Ezt a jelentkezői mezőt nem űrlap tölti ki, ezért űrlap nem csatlakozhat hozzá: „Név”.",
       ),
     ).toBe(
-      "Név: ezt a résztvevői mezőt nem űrlap tölti ki, ezért űrlap nem csatlakozhat hozzá: „Név”.",
+      "Név: ezt a jelentkezői mezőt nem űrlap tölti ki, ezért űrlap nem csatlakozhat hozzá: „Név”.",
     );
     expect(problemRow("Ha", "Új szöveg")).toBe("Ha: új szöveg");
   });

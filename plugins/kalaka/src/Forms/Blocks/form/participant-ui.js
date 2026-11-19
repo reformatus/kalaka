@@ -1,6 +1,6 @@
 /**
  * The participant-field UI of a field block (owner rulings 2026-11-11 and 2026-11-13): the inspector's
- * "Résztvevői mező" panel (whether the field is new or joins one of the event's fields, the join picker,
+ * "Jelentkezői mező" panel (whether the field is new or joins one of the event's fields, the join picker,
  * back to new), the key panel's edit, and in the canvas a marker and a red side rule on a field whose
  * participant field the server would refuse; the problem itself is listed beside the form (`problems.js`).
  */
@@ -43,7 +43,7 @@ const ProblemNotice = ({ text, id }) =>
 		: null;
 
 /**
- * The "Résztvevői mező" panel: what the block's key is among the event's participant fields, joining one
+ * The "Jelentkezői mező" panel: what the block's key is among the event's participant fields, joining one
  * of the same type, and going back to a new field. Nothing without an event.
  */
 export function ParticipantPanel({ name, clientId, attributes, setAttributes }) {
@@ -84,7 +84,7 @@ export function ParticipantPanel({ name, clientId, attributes, setAttributes }) 
 
 	return el(
 		PanelBody,
-		{ title: 'Résztvevői mező' },
+		{ title: 'Jelentkezői mező' },
 		fields === null
 			? el('p', null, '…')
 			: el(
@@ -107,14 +107,14 @@ export function ParticipantPanel({ name, clientId, attributes, setAttributes }) 
 							'Csatlakozás meglévő mezőhöz'
 						),
 						['join', 'rejoin', 'clash', 'readOnly'].includes(result.state) &&
-							el(Button, { variant: 'tertiary', onClick: backToNew }, 'Új résztvevői mező létrehozása')
+							el(Button, { variant: 'tertiary', onClick: backToNew }, 'Új jelentkezői mező létrehozása')
 					),
 					picking &&
 						el(
 							'div',
 							{ className: 'kalaka-pf-picker' },
 							candidates.length === 0 && retired.length === 0
-								? el('p', null, 'Az eseménynek nincs más ilyen típusú résztvevői mezője.')
+								? el('p', null, 'Az eseménynek nincs más ilyen típusú jelentkezői mezője.')
 								: el(Picker, { fields: candidates, retired, onPick: join })
 						)
 			  )
