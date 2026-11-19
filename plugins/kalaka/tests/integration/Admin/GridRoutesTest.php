@@ -304,6 +304,8 @@ final class GridRoutesTest extends GrantTestCase
             static fn (array $tab): bool => $tab['key'] === 'g' . $blank
         ), 'name');
         self::assertSame(['Nézet'], $names);
+    }
+
     /** @param list<array<string, mixed>> $filters */
     private function narrow(array $filters, string $search = ''): array
     {
@@ -344,7 +346,8 @@ final class GridRoutesTest extends GrantTestCase
             self::assertSame(400, $this->rest('GET', $route . '/sums', $params)->get_status());
         }
         // Over the search's length the request is refused before the query.
-        self::assertSame(400, $this->rest('GET', $route . '/rows', ['grant' => $this->grant, 'search' => str_repeat('a', 101)])->get_status());
+        $long = ['grant' => $this->grant, 'search' => str_repeat('a', 101)];
+        self::assertSame(400, $this->rest('GET', $route . '/rows', $long)->get_status());
     }
 
     public function testFullAccessNarrowsTheMasterViewByStatusAndSearch(): void
