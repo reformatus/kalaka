@@ -41,7 +41,7 @@ final readonly class RegistrationFacts implements Facts
         Event $event,
         array $fieldValues = [],
     ) {
-        $this->values = new ValueContext($fieldValues + EventValues::of($event) + [
+        $this->values = new ValueContext($fieldValues + EventValues::of($event) + EventValues::now() + [
             self::CODE => Value::text($registration->code, $registration->code),
             self::STATUS => Value::choice([$status->value], ''),
         ]);
@@ -57,9 +57,10 @@ final readonly class RegistrationFacts implements Facts
     public static function declared(Event $event, array $fieldValues): array
     {
         $types = [];
-        foreach ($fieldValues + EventValues::of($event) as $key => $value) {
+        foreach ($fieldValues as $key => $value) {
             $types[$key] = $value->type;
         }
+        $types += EventValues::TYPES;
 
         return $types + [self::CODE => ValueType::Text, self::STATUS => ValueType::Choice];
     }

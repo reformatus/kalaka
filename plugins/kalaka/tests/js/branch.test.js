@@ -372,6 +372,36 @@ describe("what the server tells the editor (server.js)", () => {
     },
   );
 
+  describe("a date reference to now", () => {
+    const now = (value) => ({
+      match: "all",
+      items: [{ key: "szuletes", operator: "lessThan", value }],
+    });
+
+    test.each([
+      [{ ref: "now" }],
+      [{ ref: "now", years: 0, days: 0 }],
+      [{ ref: "now", years: -16, days: 200 }],
+    ])("passes (%j)", (value) => {
+      expect(checkCondition(now(value), scopeOf(form, "elseif"))).toBeNull();
+    });
+
+    test.each([
+      [{ ref: "today" }],
+      [{ ref: 1 }],
+      [{ ref: "now", key: "event.start" }],
+      [{ ref: "now", months: 1 }],
+      [{ ref: "now", years: "1" }],
+      [{ ref: "now", years: 201 }],
+      [{ ref: "now", days: -3661 }],
+    ])("is a value problem (%j)", (value) => {
+      expect(checkCondition(now(value), scopeOf(form, "elseif"))).toEqual({
+        problem: "value",
+        key: "szuletes",
+      });
+    });
+  });
+
   test("an extension field type the server names is a field of the scope, with its value type", () => {
     const before = globalThis.kalakaFormEditor;
     globalThis.kalakaFormEditor = {

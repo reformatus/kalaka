@@ -119,13 +119,14 @@ export const checkCondition = (condition, scope) => {
     return type ?? fail("key", key);
   };
   const reference = (data, key) => {
-    if (!onlyKeys(data, ["key", "years", "days"])) {
+    const now = "ref" in data;
+    if (!onlyKeys(data, [now ? "ref" : "key", "years", "days"])) {
       fail("value", key);
     }
     const years = data.years ?? 0;
     const days = data.days ?? 0;
     if (
-      typeof data.key !== "string" ||
+      typeof (now ? data.ref : data.key) !== "string" ||
       !Number.isInteger(years) ||
       !Number.isInteger(days)
     ) {
@@ -134,6 +135,13 @@ export const checkCondition = (condition, scope) => {
     const { maxYears, maxDays } = dateReferenceBounds();
     if (Math.abs(years) > maxYears || Math.abs(days) > maxDays) {
       fail("value", key);
+    }
+    if (now) {
+      // "now" is no key: the evaluation's day (`Facts::NOW`).
+      if (data.ref !== "now") {
+        fail("value", key);
+      }
+      return;
     }
     if (![ANY, "date"].includes(typeOf(data.key))) {
       fail("value", key);
