@@ -9,6 +9,7 @@
     "kalaka/consent-field": "text",
     "kalaka/scale-field": "number"
   },
+  "pathFieldTypes": [],
   "eventTypes": {
     "event.name": "text",
     "event.registration_opens": "date",

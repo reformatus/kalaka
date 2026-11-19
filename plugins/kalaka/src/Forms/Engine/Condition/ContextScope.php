@@ -23,4 +23,10 @@ final readonly class ContextScope implements ConditionScope
     {
         return null;
     }
+
+    /** A fact source holds values, not field types: it never knows. */
+    public function isPath(string $key): bool
+    {
+        return false;
+    }
 }

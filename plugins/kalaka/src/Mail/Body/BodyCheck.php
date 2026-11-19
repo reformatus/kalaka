@@ -52,7 +52,8 @@ final class BodyCheck
             return null;
         }
         try {
-            (new Values())->check($content, (new MailValues())->types($eventId));
+            $values = new MailValues();
+            (new Values())->check($content, $values->types($eventId), $values->paths($eventId));
         } catch (SystemFailure $e) {
             return BodyUnusable::of($e)->problem;
         }

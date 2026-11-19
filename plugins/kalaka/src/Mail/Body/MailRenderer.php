@@ -58,7 +58,7 @@ final class MailRenderer
 
         $body = $this->posts->published($setting->bodyId, $eventId);
         try {
-            $this->renderer->check($body->content, $this->values->types($eventId));
+            $this->renderer->check($body->content, $this->values->types($eventId), $this->values->paths($eventId));
         } catch (SystemFailure $e) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);

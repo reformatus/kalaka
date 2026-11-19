@@ -63,7 +63,8 @@ final class NodesRouteTest extends SupportTestCase
         $items = $response->get_data();
         self::assertCount(1, $items);
         self::assertSame('Óbudai Teszt Gyülekezet', $items[0]['name']);
-        self::assertSame(['id', 'name', 'type', 'parent', 'ancestors'], array_keys($items[0]));
+        self::assertSame(['id', 'name', 'type', 'parent', 'leaf', 'ancestors'], array_keys($items[0]));
+        self::assertTrue($items[0]['leaf']);
         self::assertSame($this->ids['D1-A-1'], $items[0]['id']);
         self::assertSame('Gyülekezet', $items[0]['type']);
         self::assertSame($this->ids['D1-A'], $items[0]['parent']);
@@ -86,6 +87,28 @@ final class NodesRouteTest extends SupportTestCase
         self::assertSame('Másik Közösség', $items[0]['name']);
         self::assertSame(0, $items[0]['parent']);
         self::assertSame([], $items[0]['ancestors']);
+        // a root with no levels is a terminal leaf
+        self::assertTrue($items[0]['leaf']);
+    }
+
+    public function testANodeWithChildrenIsNoLeafEvenWhenEveryChildIsInactive(): void
+    {
+        $roots = $this->get(['parent' => 0])->get_data();
+        self::assertSame(
+            ['Másik Közösség' => true, 'Teszt Egyház' => false],
+            array_column($roots, 'leaf', 'name')
+        );
+
+        $this->deactivate('D1-A-1', 'D1-A', 'Gyülekezet', 'Óbudai Teszt Gyülekezet');
+        $this->deactivate('D1-A-2', 'D1-A', 'Gyülekezet', 'Ottó Teszt');
+        $this->deactivate('D1-A-3', 'D1-A', 'Gyülekezet', 'Öröm Teszt');
+        $deaneries = $this->get(['parent' => $this->ids['D1']])->get_data();
+
+        self::assertSame(
+            ['Budai Teszt Egyházmegye' => false, 'Pesti Teszt Egyházmegye' => false],
+            array_column($deaneries, 'leaf', 'name')
+        );
+        self::assertSame([], $this->get(['parent' => $this->ids['D1-A']])->get_data());
     }
 
     public function testASearchMatchingOnlyAnAliasFindsTheNodeAndNeitherAliasesNorExternalIdsAreShown(): void
@@ -177,6 +200,35 @@ final class NodesRouteTest extends SupportTestCase
         self::assertSame([], $this->names(['parent' => $this->ids['D1-B']]));
     }
 
+    public function testASearchWithinANodeCoversItsLiveSubtreeOnlyInTheSameThreeStatements(): void
+    {
+        // the district's congregations at any depth, not the other district's, nor the district itself
+        self::assertSame(
+            ['Keleti Teszt Gyülekezet', 'Óbudai Teszt Gyülekezet', 'Teszt Fasor Gyülekezet', 'Teszt Fasori Gyülekezet'],
+            $this->names(['search' => 'teszt gyül', 'within' => $this->ids['D1']])
+        );
+        self::assertSame([], $this->names(['search' => 'északi', 'within' => $this->ids['D1']]));
+
+        // the total counts the subtree's matches, for the cap
+        $response = $this->get(['search' => 'teszt', 'within' => $this->ids['D1'], 'per_page' => 2]);
+        self::assertCount(2, $response->get_data());
+        self::assertSame('8', (string) $response->get_headers()['X-WP-Total']);
+
+        // a deactivated deanery's congregations are not live, below it or below its district
+        $this->deactivate('D1-B', 'D1', 'Egyházmegye', 'Pesti Teszt Egyházmegye');
+        self::assertSame([], $this->names(['search' => 'fasor', 'within' => $this->ids['D1']]));
+        self::assertSame([], $this->names(['search' => 'fasor', 'within' => $this->ids['D1-B']]));
+
+        // a leaf, or an id with no node, has nothing below it
+        self::assertSame([], $this->names(['search' => 'teszt', 'within' => $this->ids['D1-A-1']]));
+        self::assertSame([], $this->names(['search' => 'teszt', 'within' => 999999]));
+
+        global $wpdb;
+        $before = $wpdb->num_queries;
+        $this->get(['search' => 'obuda', 'within' => $this->ids['D1']]);
+        self::assertSame(3, $wpdb->num_queries - $before);
+    }
+
     public function testOneItemAndTwentyItemsRunTheSameThreeStatements(): void
     {
         for ($i = 1; $i <= 5; $i++) {
@@ -241,6 +293,9 @@ final class NodesRouteTest extends SupportTestCase
             ['search' => 'teszt', 'page' => 1000000000000000000, 'per_page' => 10],
         ];
         yield 'neither search nor parent' => [[]];
+        yield 'within alone' => [['within' => 1]];
+        yield 'within 0' => [['search' => 'teszt', 'within' => 0]];
+        yield 'a text within' => [['search' => 'teszt', 'within' => 'x']];
         yield 'only paging' => [['page' => 2]];
     }
 
@@ -288,7 +343,10 @@ final class NodesRouteTest extends SupportTestCase
         $data = $server->get_data_for_route('/kalaka-support/v1/nodes', $endpoints, 'help');
 
         self::assertSame('array', $data['schema']['type']);
-        self::assertSame(['search', 'parent', 'page', 'per_page'], array_keys($data['endpoints'][0]['args']));
+        self::assertSame(
+            ['search', 'parent', 'within', 'page', 'per_page'],
+            array_keys($data['endpoints'][0]['args'])
+        );
     }
 
     private function deactivate(string $externalId, string $parent, string $type, string $name): void

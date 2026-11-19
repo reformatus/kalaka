@@ -157,10 +157,8 @@ final class Forms
      */
     public function participantValues(int $eventId, array $stored): array
     {
-        $types = Contributions::current()->fieldTypes();
         $values = [];
-        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
-            $type = $types[$field->type] ?? null;
+        foreach ($this->typedFields($eventId) as [$field, $type]) {
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -172,6 +170,41 @@ final class Forms
         }
 
         return $values;
+    }
+
+    /**
+     * The keys of the event's participant fields whose value is a path (`PathFieldType`, the congregation
+     * field), retired ones included: a condition reads them with `contains`, never `equals`.
+     *
+     * @return list<string>
+     */
+    public function pathKeys(int $eventId): array
+    {
+        $keys = [];
+        foreach ($this->typedFields($eventId) as [$field, $type]) {
+            if ($type instanceof PathFieldType) {
+                $keys[] = $field->key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The event's participant fields, retired ones included, each with its contributed type (null when no
+     * type is contributed for it any more).
+     *
+     * @return list<array{ParticipantField, FieldType|null}>
+     */
+    private function typedFields(int $eventId): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $typed = [];
+        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
+            $typed[] = [$field, $types[$field->type] ?? null];
+        }
+
+        return $typed;
     }
 
     /**
