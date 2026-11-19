@@ -64,12 +64,15 @@ reached; the grant defines who holds the view.**
     variant is simply another view.
   - Admins define subset views; extensions define special-case views and
     contribute columns and filterable facts.
-  - Filters and sorts use only stored facts and decisions
+  - Stored view filters and sorts use only stored facts and decisions
     ([Facts and decisions](#facts-decisions-and-computed-values)), so they
-    stay per-event indexed queries under the `EXPLAIN` test. A map lookup is
-    expanded in SQL ("lunch option in the mapped options"); a congregation
-    level matches the answer's stored path snapshot. PHP computes only display
-    and export columns.
+    stay per-event indexed queries under the `EXPLAIN` test. A viewer's own
+    filters and search, which are never stored (ad hoc narrowing), may also
+    use the computed sorszám
+    ([Facts, decisions and computed values](#facts-decisions-and-computed-values)).
+    A map lookup is expanded in SQL ("lunch option in the mapped options"); a
+    congregation level matches the answer's stored path snapshot. PHP computes
+    only display and export columns.
   - A filter may take **one parameter bound at grant time** (e.g. "program
     roster, program = ?"), so twelve module leaders need one view.
   - View definitions are copied to the next event, optionally with their
