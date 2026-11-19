@@ -106,3 +106,44 @@ export const runAbility = ( name, input ) =>
 		method: 'POST',
 		data: { input },
 	} );
+
+/**
+ * One registration's detail (S38): `{ registration, fields, money?, can }`, each part only as the user's views
+ * and grants allow. The code is the identity; a row the user's views do not hold is a 404.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {string} code   the registration's code
+ */
+export const fetchDetail = ( config, code ) =>
+	apiFetch( { path: `${ config.rest }/registrations/${ encodeURIComponent( code ) }` } );
+
+/**
+ * Records a manual payment (`kalaka/record-payment`) or a refund (`kalaka/record-refund`, flagged a correction,
+ * which needs its reason as the note) through the abilities, and answers `{ id }`. The idempotency key makes a
+ * retry of the same entry safe.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {Object} entry  { refund, code, currency, payer, amount, valueDate, method, note, key }
+ */
+export const recordEntry = (
+	config,
+	{ refund, code, currency, payer, amount, valueDate, method, note, key }
+) => {
+	const input = {
+		event_id: config.event,
+		code,
+		payer,
+		amount,
+		currency,
+		method,
+		value_date: valueDate,
+		idempotency_key: key,
+	};
+	if ( note ) {
+		input.note = note;
+	}
+	if ( refund ) {
+		input.correction = true;
+	}
+	return runAbility( refund ? 'kalaka/record-refund' : 'kalaka/record-payment', input );
+};
