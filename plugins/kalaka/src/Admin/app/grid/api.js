@@ -177,16 +177,29 @@ export const fetchDetail = ( config, code ) =>
 	apiFetch( { path: `${ config.rest }/registrations/${ encodeURIComponent( code ) }` } );
 
 /**
- * Records a manual payment (`kalaka/record-payment`) or a refund (`kalaka/record-refund`, flagged a correction,
- * which needs its reason as the note) through the abilities, and answers `{ id }`. The idempotency key makes a
- * retry of the same entry safe.
+ * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'. [UNAPPROVED T16]
+ */
+export function detailProblem( error ) {
+	if ( error && error.code === 'kalaka_registration_not_in_view' ) {
+		return 'noAccess';
+	}
+	return error && error.data && error.data.status === 404 ? 'missing' : 'failed';
+}
+
+/**
+ * Records a manual payment (`kalaka/record-payment`), a refund (`kalaka/record-refund`) or a correction
+ * (`kalaka/record-correction`) through the abilities, and answers `{ id }`. A payment and a refund carry a
+ * method and a value date; a correction carries neither, but a direction (`in` or `out`) and its reason. The
+ * idempotency key makes a retry of the same entry safe.
  *
  * @param {Object} config window.kalakaGrid
- * @param {Object} entry  { refund, code, currency, payer, amount, valueDate, method, note, key }
+ * @param {Object} entry  { kind, code, currency, payer, amount, valueDate, method, note, direction, key }, `kind`
+ *                        being `payment`, `refund` or `correction`
  */
 export const recordEntry = (
 	config,
-	{ refund, code, currency, payer, amount, valueDate, method, note, key }
+	{ kind, code, currency, payer, amount, valueDate, method, note, direction, key }
 ) => {
 	const input = {
 		event_id: config.event,
@@ -194,15 +207,17 @@ export const recordEntry = (
 		payer,
 		amount,
 		currency,
-		method,
-		value_date: valueDate,
 		idempotency_key: key,
 	};
+	if ( kind === 'correction' ) {
+		input.direction = direction;
+		input.reason = note;
+		return runAbility( 'kalaka/record-correction', input );
+	}
+	input.method = method;
+	input.value_date = valueDate;
 	if ( note ) {
 		input.note = note;
 	}
-	if ( refund ) {
-		input.correction = true;
-	}
-	return runAbility( refund ? 'kalaka/record-refund' : 'kalaka/record-payment', input );
+	return runAbility( kind === 'refund' ? 'kalaka/record-refund' : 'kalaka/record-payment', input );
 };

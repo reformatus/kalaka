@@ -2,6 +2,7 @@ import apiFetch from '@wordpress/api-fetch';
 import {
 	recordEntry,
 	fetchAll,
+	detailProblem,
 	fetchDetail,
 	fetchPage,
 	fetchSums,
@@ -328,7 +329,7 @@ describe( 'the detail panel\'s calls', () => {
 	test( 'a payment runs kalaka/record-payment with the event, the currency and its key', async () => {
 		apiFetch.mockResolvedValue( { id: 9 } );
 		const result = await recordEntry( config, {
-			refund: false,
+			kind: 'payment',
 			code: '02S2',
 			currency: 'HUF',
 			payer: 'participant',
@@ -353,17 +354,18 @@ describe( 'the detail panel\'s calls', () => {
 		);
 	} );
 
-	test( 'a refund runs kalaka/record-refund as a correction, with its reason as the note', async () => {
+	test( 'a refund runs kalaka/record-refund with a method and a date, and no correction flag', async () => {
 		apiFetch.mockResolvedValue( { id: 10 } );
 		await recordEntry( config, {
-			refund: true,
+			kind: 'refund',
 			code: '02S2',
 			currency: 'HUF',
 			payer: 'participant',
 			amount: '500',
 			valueDate: '2026-11-19',
-			method: 'bank_transfer',
+			method: 'card_terminal',
 			note: 'Téves befizetés',
+			direction: null,
 			key: 'ui-def',
 		} );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual(
@@ -373,12 +375,49 @@ describe( 'the detail panel\'s calls', () => {
 				payer: 'participant',
 				amount: '500',
 				currency: 'HUF',
-				method: 'bank_transfer',
+				method: 'card_terminal',
 				value_date: '2026-11-19',
 				idempotency_key: 'ui-def',
 				note: 'Téves befizetés',
-				correction: true,
 			} )
 		);
+	} );
+
+	test( 'a correction runs kalaka/record-correction with a direction and a reason, no method, no date', async () => {
+		apiFetch.mockResolvedValue( { id: 11 } );
+		await recordEntry( config, {
+			kind: 'correction',
+			code: '02S2',
+			currency: 'HUF',
+			payer: 'participant',
+			amount: '500',
+			valueDate: null,
+			method: null,
+			note: 'Elírás',
+			direction: 'out',
+			key: 'ui-ghi',
+		} );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual(
+			call( 'kalaka/record-correction', {
+				event_id: 7,
+				code: '02S2',
+				payer: 'participant',
+				amount: '500',
+				currency: 'HUF',
+				idempotency_key: 'ui-ghi',
+				direction: 'out',
+				reason: 'Elírás',
+			} )
+		);
+	} );
+} );
+
+describe( 'what a failed detail read means', () => {
+	test( 'a known code outside the views is no access, an unknown one is not found', () => {
+		expect( detailProblem( { code: 'kalaka_registration_not_in_view', data: { status: 403 } } ) ).toBe( 'noAccess' );
+		expect( detailProblem( { code: 'kalaka_not_found', data: { status: 404 } } ) ).toBe( 'missing' );
+		expect( detailProblem( { data: { status: 500 } } ) ).toBe( 'failed' );
+		expect( detailProblem( new Error( 'x' ) ) ).toBe( 'failed' );
+		expect( detailProblem( null ) ).toBe( 'failed' );
 	} );
 } );

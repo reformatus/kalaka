@@ -70,6 +70,8 @@ export const PANEL = {
 	loading: 'Betöltés…',
 	loadFail: 'A részletek betöltése nem sikerült.',
 	notFound: 'A jelentkező nem található.',
+	// A known code outside the holder's views (403). [UNAPPROVED T16]
+	noAccess: 'Ehhez a jelentkezőhöz nincs hozzáférésed.',
 	// For screen readers [UNAPPROVED T13]: the row button's name, „<kód> – részletek”.
 	openRow: '%s – részletek',
 };
@@ -110,6 +112,15 @@ export const MONEY = {
 	cancel: 'Mégse',
 	saved: 'Befizetés rögzítve.',
 	savedRefund: 'Visszautalás rögzítve.',
+	// The refund / correction dialog's switch, direction and messages. [UNAPPROVED T15]
+	kindField: 'Típus',
+	kindRefund: 'Visszautalás',
+	kindCorrection: 'Javítás',
+	directionField: 'Irány',
+	directionIn: 'Befizetésként',
+	directionOut: 'Kifizetésként',
+	directionEmpty: 'Válassz irányt.',
+	savedCorrection: 'Javítás rögzítve.',
 	amountEmpty: 'Add meg az összeget.',
 	amountBad: 'Nullánál nagyobb összeget adj meg.',
 	dateEmpty: 'Add meg a dátumot.',

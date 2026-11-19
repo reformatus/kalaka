@@ -6,7 +6,6 @@ import {
 	formatDay,
 	formatMinor,
 	formatMoney,
-	methodsFor,
 	parseAmount,
 	toMinor,
 	today,
@@ -136,7 +135,7 @@ describe( 'dates in the site time zone', () => {
 } );
 
 describe( 'the recording dialog\'s checks', () => {
-	const ok = { several: false, payer: 'participant', amount: '5 000', date: '2026-11-19', method: 'cash', note: '', refund: false };
+	const ok = { several: false, payer: 'participant', amount: '5 000', date: '2026-11-19', method: 'cash', note: '', kind: 'payment', direction: '' };
 	const day = '2026-11-19';
 
 	test( 'a complete payment has no errors', () => {
@@ -167,36 +166,25 @@ describe( 'the recording dialog\'s checks', () => {
 		expect( validateEntry( { ...ok, several: true, payer: 'participant' }, day ) ).toEqual( {} );
 	} );
 
-	test( 'a correction needs its reason, a payment does not', () => {
-		expect( validateEntry( { ...ok, refund: true }, day ).note ).toBe( MONEY.noteRequired );
-		expect( validateEntry( { ...ok, refund: true, note: '   ' }, day ).note ).toBe( MONEY.noteRequired );
-		expect( validateEntry( { ...ok, refund: true, note: 'Téves befizetés' }, day ) ).toEqual( {} );
-		expect( validateEntry( { ...ok, note: '' }, day ) ).toEqual( {} );
+	test( 'a refund and a payment use the same checks: a method and a date, an optional note', () => {
+		expect( validateEntry( { ...ok, kind: 'refund' }, day ) ).toEqual( {} );
+		expect( validateEntry( { ...ok, kind: 'refund', method: 'card_terminal' }, day ) ).toEqual( {} );
+		expect( validateEntry( { ...ok, kind: 'refund', method: '' }, day ).method ).toBe( MONEY.methodEmpty );
+		expect( validateEntry( { ...ok, kind: 'refund', date: '2026-11-20' }, day ).value_date ).toBe( MONEY.dateFuture );
+	} );
+
+	test( 'a correction needs a direction and its reason, and no method or date', () => {
+		const fix = { ...ok, kind: 'correction', method: '', date: '', direction: 'out', note: 'Téves befizetés' };
+		expect( validateEntry( fix, day ) ).toEqual( {} );
+		expect( validateEntry( { ...fix, direction: 'in' }, day ) ).toEqual( {} );
+		expect( validateEntry( { ...fix, direction: '' }, day ).direction ).toBe( MONEY.directionEmpty );
+		expect( validateEntry( { ...fix, note: '   ' }, day ).note ).toBe( MONEY.noteRequired );
+		expect( validateEntry( { ...fix, note: '' }, day ).note ).toBe( MONEY.noteRequired );
+		expect( validateEntry( { ...fix, amount: '0' }, day ).amount ).toBe( MONEY.amountBad );
 	} );
 
 	test( 'every wrong field is reported at once', () => {
-		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', refund: true }, day );
-		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'note', 'payer', 'value_date' ] );
-	} );
-} );
-
-describe( 'methodsFor', () => {
-	const methods = [
-		{ value: 'bank_transfer', label: 'Átutalás' },
-		{ value: 'cash', label: 'Készpénz' },
-		{ value: 'card_terminal', label: 'Bankkártya' },
-	];
-
-	it( 'offers all methods for a payment', () => {
-		expect( methodsFor( { methods, refund_methods: [ methods[ 0 ] ] }, false ) ).toEqual( methods );
-	} );
-
-	it( 'uses the read refund_methods for a refund when present', () => {
-		const refundMethods = [ { value: 'cash', label: 'Készpénz' } ];
-		expect( methodsFor( { methods, refund_methods: refundMethods }, true ) ).toEqual( refundMethods );
-	} );
-
-	it( 'falls back to the methods without the card terminal when refund_methods is absent', () => {
-		expect( methodsFor( { methods }, true ).map( ( m ) => m.value ) ).toEqual( [ 'bank_transfer', 'cash' ] );
+		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', kind: 'payment', direction: '' }, day );
+		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'payer', 'value_date' ] );
 	} );
 } );

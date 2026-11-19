@@ -34,7 +34,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		setProblem( null );
 		api.fetchDetail( config, code ).then(
 			( result ) => live && setDetail( result ),
-			( error ) => live && setProblem( error && error.data && error.data.status === 404 ? 'missing' : 'failed' )
+			( error ) => live && setProblem( api.detailProblem( error ) )
 		);
 		if ( root.current ) {
 			root.current.focus();
@@ -110,7 +110,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 			</div>
 			{ problem && (
 				<p className="kg-load-fail" role="alert">
-					{ problem === 'missing' ? PANEL.notFound : PANEL.loadFail }
+					{ { missing: PANEL.notFound, noAccess: PANEL.noAccess }[ problem ] || PANEL.loadFail }
 				</p>
 			) }
 			{ ! detail && ! problem && (

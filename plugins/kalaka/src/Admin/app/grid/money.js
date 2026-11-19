@@ -65,14 +65,14 @@ export function amountString( minor ) {
 }
 
 /**
- * The balance a payer has after the entry: a payment lowers it, a refund raises it (above zero is due).
- * Null while there is no valid amount.
+ * The balance a payer has after the entry: a payment (or a correction in) lowers it, a refund (or a correction
+ * out) raises it (above zero is due). Null while there is no valid amount.
  */
-export function balanceAfter( before, minor, refund ) {
+export function balanceAfter( before, minor, raises ) {
 	if ( before === null || minor === null || minor <= 0 ) {
 		return null;
 	}
-	return refund ? before + minor : before - minor;
+	return raises ? before + minor : before - minor;
 }
 
 /** The offset a time zone name like `+01:00` stands for, in minutes; null for a name. */
@@ -112,13 +112,17 @@ export function today( zone, now = new Date() ) {
 
 /**
  * The recording dialog's checks, the server's rules ahead of the request: an object of messages by field
- * (`payer`, `amount`, `value_date`, `method`, `note`), empty when the entry may be sent.
+ * (`payer`, `amount`, `value_date`, `method`, `direction`, `note`), empty when the entry may be sent. A
+ * correction has no method and no date, but a direction and a required reason; a payment and a refund have a
+ * method and a date and an optional note. [UNAPPROVED N15]
  *
- * @param {Object}  entry { several, payer, amount, date, method, note, refund }
+ * @param {Object}  entry { several, payer, amount, date, method, note, kind, direction }, `kind` being
+ *                        `payment`, `refund` or `correction`
  * @param {string}  day   today as `YYYY-MM-DD`
  */
 export function validateEntry( entry, day ) {
 	const errors = {};
+	const correction = entry.kind === 'correction';
 	if ( entry.several && ! entry.payer ) {
 		errors.payer = MONEY.payerEmpty;
 	}
@@ -128,6 +132,15 @@ export function validateEntry( entry, day ) {
 	} else if ( minor === null || minor <= 0 ) {
 		errors.amount = MONEY.amountBad;
 	}
+	if ( correction ) {
+		if ( ! entry.direction ) {
+			errors.direction = MONEY.directionEmpty;
+		}
+		if ( String( entry.note ).trim() === '' ) {
+			errors.note = MONEY.noteRequired;
+		}
+		return errors;
+	}
 	if ( ! entry.date ) {
 		errors.value_date = MONEY.dateEmpty;
 	} else if ( entry.date > day ) {
@@ -136,20 +149,5 @@ export function validateEntry( entry, day ) {
 	if ( ! entry.method ) {
 		errors.method = MONEY.methodEmpty;
 	}
-	if ( entry.refund && String( entry.note ).trim() === '' ) {
-		errors.note = MONEY.noteRequired;
-	}
 	return errors;
-}
-
-/**
- * The methods a dialog offers. A refund or a correction is returned by transfer or cash only (settled): the
- * read's `refund_methods` when it carries them, else the payment methods without the card terminal. A payment
- * may be by any of `methods`.
- */
-export function methodsFor( money, refund ) {
-	if ( ! refund ) {
-		return money.methods;
-	}
-	return Array.isArray( money.refund_methods ) ? money.refund_methods : money.methods.filter( ( m ) => m.value !== 'card_terminal' );
 }
