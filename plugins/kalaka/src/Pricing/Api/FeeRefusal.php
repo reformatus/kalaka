@@ -14,11 +14,12 @@ final class FeeRefusal extends \RuntimeException
 {
     /**
      * @param string $adminText what staff see (an admission, a restore, a staff write)
-     * @param string $portalText what the registrant sees (their own submit)
+     * @param ?string $portalText what the registrant sees (their own submit); null: the generic failure text,
+     *     for a refusal the registrant's form cannot reach
      */
     public function __construct(
         public readonly string $adminText,
-        public readonly string $portalText,
+        public readonly ?string $portalText = null,
         string $reason = '',
     ) {
         parent::__construct($reason);

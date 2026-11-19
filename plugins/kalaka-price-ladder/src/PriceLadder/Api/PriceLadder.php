@@ -37,8 +37,7 @@ final class PriceLadder
 
     /**
      * A proposed ladder, the whole list of tiers in ladder order (an empty list removes the ladder), each
-     * `{key, label, amount, condition?, until?}`: `amount` a decimal string in the event's currency,
-     * `condition` in the one condition format, `until` the tier's last day (`YYYY-MM-DD`, site time zone).
+     * `{key, label, amount}`: `amount` a decimal string in the event's currency.
      *
      * @param list<array<string, mixed>> $tiers
      * @throws NotFound when there is no such event
