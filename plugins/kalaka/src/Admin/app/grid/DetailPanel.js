@@ -3,10 +3,13 @@
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
  * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12]
+ *
+ * S20: next to the status, the confirmation decision's state, only when the read has it. [UNAPPROVED N30]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
+import { confirmationOf, markOf } from './confirmation';
 import MoneyTab from './MoneyTab';
 import StatusMark from './StatusMark';
 import { PANEL } from './texts';
@@ -82,6 +85,8 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	}, [ showsTabs, stale ] );
 
 	const registration = ( detail && detail.registration ) || {};
+	const confirmation = confirmationOf( registration );
+	const [ confirmIcon, confirmTone ] = confirmation ? markOf( confirmation.state ) : [ '', '' ];
 	return (
 		<aside
 			className="kg-panel"
@@ -95,11 +100,17 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				{ detail && (
 					<div className="kg-panel-id">
 						{ registration.name && <h2 className="kg-panel-name">{ registration.name }</h2> }
-						{ ( registration.code || registration.status_label || registration.email ) && (
+						{ ( registration.code || registration.status_label || confirmation || registration.email ) && (
 							<p className="kg-panel-meta">
 								{ registration.code && <span className="kg-code">{ registration.code }</span> }
 								{ registration.status_label && (
 									<StatusMark status={ registration.status } text={ registration.status_label } />
+								) }
+								{ confirmation && (
+									<span className="kg-mark">
+										<span className={ `dashicons ${ confirmIcon } ${ confirmTone }` } aria-hidden="true" />
+										{ confirmation.state_label }
+									</span>
 								) }
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
@@ -135,6 +146,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 							money={ detail.money }
 							stale={ stale }
 							can={ detail.can }
+							manual={ registration.manual_confirmation || null }
 							reload={ reload }
 							onSaved={ onSaved }
 						/>

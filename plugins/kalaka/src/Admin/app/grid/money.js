@@ -280,6 +280,26 @@ export function formatDay( instant, zone ) {
 	return `${ y }. ${ m }. ${ d }.`;
 }
 
+/**
+ * An instant's day and time in the site time zone as `2026. 12. 05. 14:30` (the time of the manual
+ * confirmation, S20); empty for no instant. [UNAPPROVED N31]
+ */
+export function formatMoment( instant, zone ) {
+	if ( ! instant ) {
+		return '';
+	}
+	const date = new Date( instant );
+	const offset = offsetOf( zone || 'UTC' );
+	const parts = new Intl.DateTimeFormat( 'en-GB', {
+		timeZone: offset === null ? zone || 'UTC' : 'UTC',
+		hour: '2-digit',
+		minute: '2-digit',
+		hourCycle: 'h23',
+	} ).formatToParts( offset === null ? date : new Date( date.getTime() + offset * 60000 ) );
+	const get = ( type ) => parts.find( ( p ) => p.type === type ).value;
+	return `${ formatDay( instant, zone ) } ${ get( 'hour' ) }:${ get( 'minute' ) }`;
+}
+
 /** Today in the site time zone as `YYYY-MM-DD`, the form a date input holds. */
 export function today( zone, now = new Date() ) {
 	const { y, m, d } = dayParts( now, zone );

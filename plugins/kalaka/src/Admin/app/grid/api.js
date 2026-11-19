@@ -145,3 +145,19 @@ export const recordEntry = ( config, entry, can ) => {
 	const { ability, input } = buildCall( config.event, entry, can );
 	return runAbility( ability, input );
 };
+
+/**
+ * Sets (`kalaka/set-manual-confirmation`) or revokes (`kalaka/revoke-manual-confirmation`) a registration's
+ * manual confirmation. The reason is required; both are idempotent, so a retry is safe.
+ *
+ * @param {Object}  config window.kalakaGrid
+ * @param {string}  code   the registration's code
+ * @param {string}  reason why
+ * @param {boolean} revoke revoke the flag (else set it)
+ */
+export const setManualConfirmation = ( config, code, reason, revoke ) =>
+	runAbility( revoke ? 'kalaka/revoke-manual-confirmation' : 'kalaka/set-manual-confirmation', {
+		event_id: config.event,
+		code,
+		reason,
+	} );
