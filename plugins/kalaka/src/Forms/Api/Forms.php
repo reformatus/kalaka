@@ -53,6 +53,36 @@ final class Forms
     }
 
     /**
+     * The field keys of the contact email and the display name of a registration-slot form's version (the
+     * version a registration was submitted with), for the admin detail read; null for a key the version does
+     * not mark, or for both when the form or version is not usable now.
+     *
+     * @return array{email: ?string, name: ?string}
+     */
+    public function contactKeys(int $formId, int $version): array
+    {
+        $form = $this->form($formId);
+        if ($form === null) {
+            return ['email' => null, 'name' => null];
+        }
+        try {
+            $definition = $this->definition($form, $version);
+        } catch (SystemFailure) {
+            return ['email' => null, 'name' => null];
+        }
+        $keys = ['email' => null, 'name' => null];
+        foreach ($definition->fields as $field) {
+            if ($field->isContactEmail()) {
+                $keys['email'] = $field->key;
+            } elseif ($field->isDisplayName()) {
+                $keys['name'] = $field->key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
      * The definition of the version a form page was built from, which must be the form's latest version
      * (S76 follow-up, N8): a re-fetch and a submit accept nothing else.
      *
@@ -150,9 +180,39 @@ final class Forms
      */
     public function participantValues(int $eventId, array $stored): array
     {
+        return self::valuesOf((new ParticipantFields())->of($eventId, true), $stored);
+    }
+
+    /**
+     * The event's participant fields, each with the value of a registration's stored answers over it: the
+     * same fields and values `participantValues()` gives, read once (the admin detail read needs the field's
+     * label and type beside its value).
+     *
+     * @param array<string, string> $stored field key → the stored value
+     * @return list<array{field: ParticipantField, value: Value}>
+     */
+    public function participantFieldValues(int $eventId, array $stored): array
+    {
+        $fields = (new ParticipantFields())->of($eventId, true);
+        $values = self::valuesOf($fields, $stored);
+        $pairs = [];
+        foreach ($fields as $field) {
+            $pairs[] = ['field' => $field, 'value' => $values[$field->key]];
+        }
+
+        return $pairs;
+    }
+
+    /**
+     * @param list<ParticipantField> $fields
+     * @param array<string, string> $stored
+     * @return array<string, Value>
+     */
+    private static function valuesOf(array $fields, array $stored): array
+    {
         $types = Contributions::current()->fieldTypes();
         $values = [];
-        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
+        foreach ($fields as $field) {
             $type = $types[$field->type] ?? null;
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
