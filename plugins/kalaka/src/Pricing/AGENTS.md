@@ -46,7 +46,8 @@ retention and the materializer
   payer or another currency than the event's is `FeeComponentFailed`, which
   fails the use case as the rule `money/<component id>`.
 - A component that cannot say what is owed and a person can act on why
-  throws `Api\FeeRefusal` with a text for staff and one for the registrant;
+  throws `Api\FeeRefusal` with a text for staff and, when its form can reach the case, one for the registrant (none:
+  the registrant gets the generic failure);
   the evaluation refuses the use case with the actor side's text
   (`Api\FeeRefused`, a `RuleViolation`), still naming the rule
   `money/<component id>`, so the periodic run flags it.

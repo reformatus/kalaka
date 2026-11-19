@@ -106,7 +106,8 @@ flowchart TB
     set's choice window instead
     ([Modules](modules-and-extensions.md#assignment-sets)).
 - **The slot adds one more rule:** every form in it must contain the
-  required fields and functionality (e.g. exactly one contact email).
+  required fields and functionality (e.g. exactly one contact email, or the
+  field an extension requires, such as the price ladder's `price_tier`).
   Otherwise all forms share the same primitives.
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
@@ -435,8 +436,7 @@ is no other participant-side edit.
 - **One availability base.** Whatever is shown or selectable is decided by
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
-  field's options, the options of an assignment set, price-ladder tiers,
-  offers and the adjudicated aid. In a form it reads the draft answers and
+  field's options, the options of an assignment set, offers and the adjudicated aid. In a form it reads the draft answers and
   the event's values, on every render and again at submit; in the fee
   components and the materializer it reads the registration's facts. It
   never runs the materializer on a draft. Computed facts such as free seats
