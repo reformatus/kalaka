@@ -80,6 +80,8 @@ the waitlist and reference codes
   prefills), and a money-relevant field's value is never changed once
   written. It never writes the registration row, its status or
   `registered_at`, and never reads or changes capacity or the latch.
+- An additional form's submit sends no action mail; the page shows the
+  form's after-submit text.
 - The submit token is a secret: masked in the audit, never in a log. It is
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
