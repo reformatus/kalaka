@@ -133,3 +133,22 @@ export const MONEY = {
 	noteRequired: 'Add meg az indoklást.',
 	saveFail: 'A mentés nem sikerült. Próbáld újra.',
 };
+
+/**
+ * The manual confirmation (S20): the button, its two dialogs, the line that says who set it and the snackbars.
+ * The decision's own labels („Visszaigazolás”, „Visszaigazolva”, „Nincs visszaigazolva”) come from the server and
+ * are approved. Every string here is unapproved until the owner ticks its box: [UNAPPROVED T20] the buttons and
+ * dialog titles, [UNAPPROVED T21] the field and its message, [UNAPPROVED T22] the line under the tab,
+ * [UNAPPROVED T23] the snackbars.
+ */
+export const CONFIRM = {
+	set: 'Kézi visszaigazolás',
+	revoke: 'Kézi visszaigazolás visszavonása',
+	reasonField: 'Indoklás',
+	reasonEmpty: 'Add meg az indoklást.',
+	setLine: 'Kézzel visszaigazolta: %1$s, %2$s',
+	setLineAnon: 'Kézzel visszaigazolva: %s',
+	reasonLine: 'Indoklás: %s',
+	saved: 'Kézi visszaigazolás rögzítve.',
+	revoked: 'Kézi visszaigazolás visszavonva.',
+};
