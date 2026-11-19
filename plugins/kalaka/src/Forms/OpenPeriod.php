@@ -42,20 +42,6 @@ final class OpenPeriod
     }
 
     /**
-     * The two ends as instants, null for an end that is not set or does not resolve: what the page says
-     * about the window.
-     *
-     * @return array{opens: ?\DateTimeImmutable, closes: ?\DateTimeImmutable}
-     */
-    public static function window(Form $form, Event $event): array
-    {
-        $opens = self::resolve($form->opens, $event);
-        $closes = self::resolve($form->closes, $event);
-
-        return ['opens' => $opens === false ? null : $opens, 'closes' => $closes === false ? null : $closes];
-    }
-
-    /**
      * One end: null when it is not set, false when it is set but does not resolve.
      */
     public static function resolve(?string $reference, Event $event): \DateTimeImmutable|false|null

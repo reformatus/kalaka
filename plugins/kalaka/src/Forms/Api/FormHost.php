@@ -35,8 +35,10 @@ interface FormHost
     public function facts(Form $form): ?ValueContext;
 
     /**
-     * What keeps the form from being used now, in the order the page shows them (the first one). Pure:
-     * the caller passes the moment, the person's roles and whether the form's password was given.
+     * What keeps the form from being used now, in the order the page shows them (the first one). It reads the
+     * request's active registration (an additional form acts on it) and nothing else from the request: no
+     * current user, no other cookie or request state; the caller passes the moment, the person's roles and
+     * whether the form's password was given.
      *
      * @param list<string> $roles
      * @return list<AccessRefusal>

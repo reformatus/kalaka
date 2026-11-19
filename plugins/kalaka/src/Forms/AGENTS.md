@@ -155,11 +155,12 @@ values and conditions, prefill and form links
   its field's answer by `FieldType::prefill()` (null opens it empty: a type
   that refuses prefill). The page is walked and rendered for those answers;
   each field block renders its own (`FieldMarkup::prefilled()`).
-- Access checks are pure: they read no current user, cookie or request; the
-  caller passes the roles, whether the password was given and whether someone
-  is logged in. The engine's `FormHost::refusals()` contract leaves the last
-  to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
-  a submit passes whether its actor is an account.
+- Access checks read the request's active registration (an additional form
+  acts on it) and nothing else from the request besides the logged-in user:
+  no other cookie or request state. The caller passes the roles and whether
+  the password was given; the engine's `FormHost::refusals()` contract leaves
+  the logged-in user to the host: `EventFormHost::refusals()` passes
+  `is_user_logged_in()`, and a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
   transaction, never inside it. The one exception is `Forms::refusals()`,
   which reads nothing: a submit checks it under the event's lock.

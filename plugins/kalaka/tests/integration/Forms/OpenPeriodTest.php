@@ -50,10 +50,6 @@ final class OpenPeriodTest extends WP_UnitTestCase
     public function testWithNeitherEndSetTheFormIsAlwaysOpen(): void
     {
         self::assertTrue(OpenPeriod::contains(self::form(null, null), self::event(), self::utc('2000-01-01 00:00:00')));
-        self::assertSame(
-            ['opens' => null, 'closes' => null],
-            OpenPeriod::window(self::form(null, null), self::event())
-        );
     }
 
     public function testAFixedDateOpensItAndAnotherClosesItAtThatInstant(): void
@@ -79,10 +75,6 @@ final class OpenPeriodTest extends WP_UnitTestCase
         self::assertFalse(OpenPeriod::contains($form, self::event(), self::utc('2026-11-30 07:00:00')));
         self::assertTrue(OpenPeriod::contains($form, self::event(), self::utc('2027-02-01 00:00:00')));
         self::assertFalse(OpenPeriod::contains($form, self::event(), self::utc('2027-03-01 12:00:00')));
-        self::assertEquals(
-            ['opens' => self::utc('2026-11-30 08:00:00'), 'closes' => self::utc('2027-03-01 12:00:00')],
-            OpenPeriod::window($form, self::event())
-        );
     }
 
     public function testAnEndThatDoesNotResolveClosesTheForm(): void

@@ -159,9 +159,6 @@ final class EventFormHost implements FormHost
     public function window(Form $form): array
     {
         $event = $this->event($form);
-        if ($event !== null && $form->placement === FormPlacement::Additional) {
-            return OpenPeriod::window($form, $event);
-        }
 
         return ['opens' => $event?->registrationOpens, 'closes' => $event?->registrationCloses];
     }
