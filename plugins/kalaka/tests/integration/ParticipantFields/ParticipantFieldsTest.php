@@ -680,15 +680,15 @@ final class ParticipantFieldsTest extends FormsTestCase
             DefinitionCheck::message(SharedKeyCheck::DUPLICATE_KEY, 'note')
         );
         self::assertSame(
-            $lead . 'az egyik mező azonosítóját az esemény egy más típusú résztvevői mezője használja („note”).',
+            $lead . 'az egyik mező azonosítóját az esemény egy más típusú jelentkezői mezője használja („note”).',
             DefinitionCheck::message(SharedKeyCheck::TYPE_CLASH, 'note')
         );
         self::assertSame(
-            $lead . 'az egyik mező azonosítója egy olyan résztvevői mezőé, amelyet a rendszer tölt ki („note”).',
+            $lead . 'az egyik mező azonosítója egy olyan jelentkezői mezőé, amelyet a rendszer tölt ki („note”).',
             DefinitionCheck::message(SharedKeyCheck::SYSTEM_FIELD, 'note')
         );
         self::assertSame(
-            $lead . 'az egyik mező azonosítója egy olyan résztvevői mezőé, amelyet egy bővítmény tölt ki („note”).',
+            $lead . 'az egyik mező azonosítója egy olyan jelentkezői mezőé, amelyet egy bővítmény tölt ki („note”).',
             DefinitionCheck::message(SharedKeyCheck::EXTENSION_FIELD, 'note')
         );
         self::assertSame(

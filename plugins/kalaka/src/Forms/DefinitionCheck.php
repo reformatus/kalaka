@@ -77,11 +77,11 @@ final class DefinitionCheck
         SharedKeyCheck::DUPLICATE_KEY => 'Az űrlapot így nem lehet menteni: két mezőjének ugyanaz az azonosítója'
             . ' („%s”).',
         SharedKeyCheck::TYPE_CLASH => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítóját az esemény egy más'
-            . ' típusú résztvevői mezője használja („%s”).',
+            . ' típusú jelentkezői mezője használja („%s”).',
         SharedKeyCheck::SYSTEM_FIELD => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítója egy olyan'
-            . ' résztvevői mezőé, amelyet a rendszer tölt ki („%s”).',
+            . ' jelentkezői mezőé, amelyet a rendszer tölt ki („%s”).',
         SharedKeyCheck::EXTENSION_FIELD => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítója egy olyan'
-            . ' résztvevői mezőé, amelyet egy bővítmény tölt ki („%s”).',
+            . ' jelentkezői mezőé, amelyet egy bővítmény tölt ki („%s”).',
     ];
 
     /** The refusal's text for a problem. */

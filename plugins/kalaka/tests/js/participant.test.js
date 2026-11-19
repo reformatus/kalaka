@@ -61,7 +61,7 @@ describe('participant-field verdicts', () => {
 	test('refused: another type (type_clash), a field no form writes (system_field, extension_field)', () => {
 		expect(of('telefon').state).toBe('clash');
 		expect(problemOf(of('telefon'))).toBe(
-			'Ezt az azonosítót már egy más típusú résztvevői mező használja: „Telefonszám” (Telefonszám).'
+			'Ezt az azonosítót már egy más típusú jelentkezői mező használja: „Telefonszám” (Telefonszám).'
 		);
 		expect(of('jelentkezes', 'kalaka/date-field').state).toBe('readOnly');
 		expect(of('tamogatas', 'kalaka-aid/award').state).toBe('readOnly');

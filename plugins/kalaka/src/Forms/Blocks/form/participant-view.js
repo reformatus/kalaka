@@ -13,7 +13,7 @@ import { SOURCES } from './participant';
 import { eventFields, formContext } from './participant-store';
 
 const NAME = 'kalaka-participant-fields';
-const TITLE = 'Résztvevői mezők';
+const TITLE = 'Jelentkezői mezők';
 const NONE = [];
 
 const Option = ({ option }) =>
@@ -71,7 +71,7 @@ function ParticipantFields() {
 			el(
 				PanelBody,
 				null,
-				el('p', { className: 'kalaka-pf-muted' }, 'Az esemény összes résztvevői mezője, a mentett állapot szerint.'),
+				el('p', { className: 'kalaka-pf-muted' }, 'Az esemény összes jelentkezői mezője, a mentett állapot szerint.'),
 				el(FieldList, { fields: fields.filter((field) => !field.retired) })
 			),
 			el(
