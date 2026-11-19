@@ -59,7 +59,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  *
  * The body is read by hand, not by a REST argument schema, so a malformed one is `InvalidInput` (a
  * `kalaka_` code the page shows), not WordPress's `rest_invalid_param`.
- * Every answer of both routes, refusals included, carries `Cache-Control: no-store` (`noStore()`). The
+ * Every answer of all four routes, refusals included, carries `Cache-Control: no-store` (`noStore()`). The
  * submit is rate-limited (`SubmitGuard`, S14): too many attempts are `RateLimited` (429, `Retry-After`).
  * The current user is the one WordPress authenticated for the request; with cookie authentication that
  * needs the `wp_rest` nonce, else the request is a guest's. A nonce WordPress no longer accepts (the

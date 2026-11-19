@@ -3,6 +3,9 @@ import { FAILURE, form, respond, settle, text } from './helpers';
 
 // S74: the claim popup (`Blocks/form/claim.js`) on the form's store, and the notice after the choice.
 
+// The first test loads `@wordpress/components` cold, which takes over Jest's 5 s under a full parallel run.
+jest.setTimeout(20000);
+
 const CLAIM_URL = 'http://example.test/wp-json/kalaka-portal/v1/forms/12/draft/claim';
 
 const REFUSED_TEXT = 'A visszautasítás szövege a szerverről.';

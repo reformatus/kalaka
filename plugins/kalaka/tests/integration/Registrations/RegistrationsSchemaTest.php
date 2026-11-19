@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\SchemaUpgrader;
 use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S74 adds the drafts). */
+/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -75,7 +76,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(3, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(4, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -163,6 +164,56 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
                 $keys
             )
         );
+    }
+
+    /**
+     * A site at schema 3 (S15's `owner_user_id`, no drafts) upgrades to 4: `kalaka_drafts` is created and the
+     * registrations keep their owner. Real tables under a prefix of their own, dropped after; creating them
+     * commits the harness transaction, so the version option is put back by hand.
+     */
+    public function testAnUpgradeFromThreeAddsTheDraftsAndKeepsTheOwnerAccount(): void
+    {
+        global $wpdb;
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        remove_filter('query', [$this, '_create_temporary_tables']);
+        remove_filter('query', [$this, '_drop_temporary_tables']);
+
+        $module = new Module();
+        $upgrader = new SchemaUpgrader();
+        $option = $upgrader->versionOption($module);
+        $prefix = $wpdb->prefix;
+        $wpdb->prefix = $prefix . 'upgrade_';
+        try {
+            foreach (array_slice($module->schema()->tables, 0, 3) as $statement) {
+                dbDelta(str_replace('{prefix}', $wpdb->prefix, $statement));
+            }
+            $wpdb->query($wpdb->prepare(
+                'INSERT INTO %i (event_id, code, version, status, secret, created_at, owner_user_id)'
+                . " VALUES (1, 'TESZT1', 1, 'registered', %s, '2026-11-19 10:00:00', 7)",
+                $wpdb->prefix . 'kalaka_registrations',
+                str_repeat('a', 22)
+            ));
+            self::assertNull($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . 'kalaka_drafts')));
+            update_option($option, 3);
+
+            $upgrader->upgrade($module);
+
+            self::assertSame(4, (int) get_option($option));
+            self::assertSame(
+                $wpdb->prefix . 'kalaka_drafts',
+                $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . 'kalaka_drafts'))
+            );
+            self::assertSame('7', $wpdb->get_var($wpdb->prepare(
+                "SELECT owner_user_id FROM %i WHERE code = 'TESZT1'",
+                $wpdb->prefix . 'kalaka_registrations'
+            )));
+        } finally {
+            foreach (['kalaka_registrations', 'kalaka_field_values', 'kalaka_submissions', 'kalaka_drafts'] as $table) {
+                $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $wpdb->prefix . $table));
+            }
+            $wpdb->prefix = $prefix;
+            update_option($option, 4);
+        }
     }
 
     public function testDbDeltaFindsNothingToChange(): void
