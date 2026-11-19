@@ -445,6 +445,29 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
     }
 
+    /**
+     * C1-1: a form whose revision cannot be read yields the documented degraded null/null, and the
+     * detail read still answers.
+     */
+    public function testAFormWhoseRevisionCannotBeReadLeavesTheContactKeysUnset(): void
+    {
+        $form = $this->detailForm();
+        $this->addRegistration('00A0');
+        $this->addSubmission('00A0', $form->id, $form->version);
+        $this->addValue('00A0', 'name', 'Teszt Elek');
+        $this->addValue('00A0', 'email', 'teszt.elek@example.com');
+        wp_delete_post_revision($form->version);
+
+        $detail = $this->detail($this->admin->userId);
+
+        self::assertArrayNotHasKey('name', $detail['registration']);
+        self::assertArrayNotHasKey('email', $detail['registration']);
+
+        wp_set_current_user($this->admin->userId);
+        $response = $this->rest('GET', '/kalaka-admin/v1/events/' . $this->event . '/registrations/00A0');
+        self::assertSame(200, $response->get_status());
+    }
+
     public function testNoStatementReadsTheSecret(): void
     {
         $this->seedDetail();

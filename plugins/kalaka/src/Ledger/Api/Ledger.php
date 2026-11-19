@@ -40,14 +40,15 @@ final class Ledger
 
     /**
      * Appends the line, or returns the stored one when the registration already holds the same line
-     * under the key. A value date, a day, is stored as 00:00 of it in the site time zone at the moment
+     * under the key. `RecordedLine::$inserted` tells the caller which happened, so a replay writes no
+     * further record. A value date, a day, is stored as 00:00 of it in the site time zone at the moment
      * of recording. The run must hold the registration's row lock (`Context::holdsRegistration()`). The line's
      * free text, when it has one, is written to its own side record (`kalaka_payment_notes`), in the same run.
      *
      * @throws SystemFailure when the run does not hold the registration, the line breaks a rule, the key
      *                       holds a different line, or the insert fails
      */
-    public function record(NewLine $line, Context $context): LedgerLine
+    public function record(NewLine $line, Context $context): RecordedLine
     {
         if (!$context->holdsRegistration($line->registration)) {
             $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
@@ -63,7 +64,7 @@ final class Ledger
                 throw $error;
             }
 
-            return $stored;
+            return new RecordedLine($stored, false);
         }
 
         $inserted = $this->lines->insert(
@@ -88,7 +89,7 @@ final class Ledger
             $this->notes->upsert(new PaymentNote($line->registration, $inserted->id, $note), $context);
         }
 
-        return $inserted;
+        return new RecordedLine($inserted, true);
     }
 
     /**
