@@ -80,9 +80,33 @@ final class DecisionRulesTest extends WP_UnitTestCase
         self::assertSame(['b' => 'Bé', 'a' => 'Á'], $rules->all()[0]->states());
     }
 
-    public function testTheBootPublishesTheRegistryTheEvaluationUses(): void
+    public function testTheBootPublishesTheRegistryTheEvaluationUsesWithCoresConfirmation(): void
     {
         self::assertSame(DecisionRules::current(), DecisionRules::current());
-        self::assertSame([], DecisionRules::current()->all());
+        self::assertSame(
+            ['confirmation'],
+            array_map(static fn ($rule): string => $rule->kind(), DecisionRules::current()->all())
+        );
+        self::assertSame(['confirmation'], array_map(
+            static fn ($rule): string => $rule->kind(),
+            DecisionRules::current()->core()
+        ));
+    }
+
+    public function testTheEvaluationOrderPutsTheTargetReadersLastExtensionsFirstAndKeepsAllInDeclaredOrder(): void
+    {
+        $rules = new DecisionRules();
+        $coreReader = new TestRule('core_reader');
+        $extReader = new TestRule('ext_reader');
+        $coreChanger = new TestRule('core_changer');
+        $extChanger = new TestRule('ext_changer');
+
+        $rules->add($coreReader, true, readsTarget: true);
+        $rules->add($extReader, false, readsTarget: true);
+        $rules->add($coreChanger, true);
+        $rules->add($extChanger, false);
+
+        self::assertSame([$coreChanger, $extChanger, $extReader, $coreReader], $rules->inEvaluationOrder());
+        self::assertSame([$coreReader, $coreChanger, $extReader, $extChanger], $rules->all());
     }
 }

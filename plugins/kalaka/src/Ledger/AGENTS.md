@@ -46,6 +46,8 @@ corrections
   time zone at recording; a correction (a manual row flagged `correction`,
   the owner's ruling 2026-11-19, with no method) has no entered date and
   stores the time it is recorded. A `charge` or `adjustment` carries neither.
+  A payment fact also carries its recorded time, the moment of the run that
+  wrote it, so confirmation can tell a refund of its own run.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - `record()` refuses unless the run holds the registration's lock

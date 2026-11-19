@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Audit\Subject;
-use Kalaka\Foundation\Decision\DecisionInput;
-use Kalaka\Foundation\Decision\DecisionRule;
-use Kalaka\Foundation\Decision\Transition;
+use Kalaka\Foundation\Api\Decision\DecisionInput;
+use Kalaka\Foundation\Api\Decision\DecisionRule;
+use Kalaka\Foundation\Api\Decision\Transition;
 
 /** A rule the test steers: it answers with `answer`, or throws `throws`, and records the inputs it gets. */
 final class TestRule implements DecisionRule

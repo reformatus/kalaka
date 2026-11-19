@@ -2,18 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Foundation\Decision;
+namespace Kalaka\Foundation\Api\Decision;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 
-/** The current decision of one kind, as a rule reads it; times are in UTC. */
-final readonly class Decision
+/** What a rule decides: the new state, when it took effect, and the record that caused it. */
+final readonly class Transition
 {
     public function __construct(
-        public string $kind,
         public string $state,
         public \DateTimeImmutable $effectiveAt,
-        public \DateTimeImmutable $recordedAt,
         public Subject $cause,
     ) {
     }

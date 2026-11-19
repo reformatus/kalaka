@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Foundation\Decision;
+namespace Kalaka\Foundation\Api\Decision;
 
 /** A transition rule of one decision kind: it returns a transition or nothing and never writes. */
 interface DecisionRule

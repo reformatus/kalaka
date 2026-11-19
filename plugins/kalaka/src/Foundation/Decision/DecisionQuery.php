@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Decision;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Decision\Decision;
 use Kalaka\Foundation\Api\Decision\DecisionTables;
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Foundation\Api\Time\Instant;

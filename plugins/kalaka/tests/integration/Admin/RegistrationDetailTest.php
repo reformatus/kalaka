@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Admin;
 
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Admin\Api\RegistrationNotInView;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -105,6 +106,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
+                'manual_confirmation' => null,
             ],
             $detail['registration']
         );
@@ -201,7 +203,13 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $money['methods']
         );
         self::assertSame(
-            ['view_money' => true, 'record_payment' => true, 'record_refund' => true, 'record_correction' => true],
+            [
+                'view_money' => true,
+                'record_payment' => true,
+                'record_refund' => true,
+                'record_correction' => true,
+                'confirm_manually' => true,
+            ],
             $detail['can']
         );
     }
@@ -276,7 +284,13 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
+            [
+                'view_money' => false,
+                'record_payment' => false,
+                'record_refund' => false,
+                'record_correction' => false,
+                'confirm_manually' => false,
+            ],
             $detail['can']
         );
     }
@@ -431,7 +445,13 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
+            [
+                'view_money' => false,
+                'record_payment' => false,
+                'record_refund' => false,
+                'record_correction' => false,
+                'confirm_manually' => false,
+            ],
             $detail['can']
         );
 
@@ -443,7 +463,13 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
-            ['view_money' => true, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
+            [
+                'view_money' => true,
+                'record_payment' => false,
+                'record_refund' => false,
+                'record_correction' => false,
+                'confirm_manually' => false,
+            ],
             $shown['can']
         );
     }
@@ -459,12 +485,14 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'record_payment' => true,
                 'record_refund' => false,
                 'record_correction' => true,
+                'confirm_manually' => false,
             ],
             'kalaka_record_refund' => [
                 'view_money' => true,
                 'record_payment' => false,
                 'record_refund' => true,
                 'record_correction' => false,
+                'confirm_manually' => false,
             ],
         ];
         foreach ($cases as $action => $can) {
@@ -597,5 +625,47 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertInstanceOf(\WP_REST_Response::class, $response);
 
         return $response;
+    }
+
+    /** S20: the manual confirmation flag shows behind the money gate, and the action shows in `can`. */
+    public function testTheManualConfirmationFlagShowsWithTheMoneyAndTheActionInCan(): void
+    {
+        global $wpdb;
+        $this->seedDetail();
+        $setter = $this->namedUser('Teszt Szervező');
+        $wpdb->insert($wpdb->prefix . 'kalaka_manual_confirmations', [
+            'event_id' => $this->event,
+            'code' => '00A0',
+            'version' => 1,
+            'set_at' => '2026-11-30 09:15:00.000000',
+            'set_by' => $setter,
+            'reason' => 'Teszt indok',
+        ]);
+
+        $full = $this->detail($this->admin->userId, decisions: $this->decisions());
+        self::assertSame(
+            ['set_at' => '2026-11-30T09:15:00Z', 'reason' => 'Teszt indok', 'set_by' => 'Teszt Szervező'],
+            $full['registration']['manual_confirmation']
+        );
+
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $withoutMoney = $this->detail($confirmer, decisions: $this->decisions());
+        self::assertArrayNotHasKey('manual_confirmation', $withoutMoney['registration']);
+        self::assertTrue($withoutMoney['can']['confirm_manually']);
+
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+        $withMoney = $this->detail($viewer, decisions: $this->decisions());
+        self::assertSame('Teszt indok', $withMoney['registration']['manual_confirmation']['reason']);
+        self::assertFalse($withMoney['can']['confirm_manually']);
+
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_manual_confirmations',
+            ['revoked_at' => '2026-11-30 10:00:00.000000'],
+            ['event_id' => $this->event, 'code' => '00A0']
+        );
+        ObjectCache::clear();
+        self::assertNull($this->detail($viewer, decisions: $this->decisions())['registration']['manual_confirmation']);
     }
 }
