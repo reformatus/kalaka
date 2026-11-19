@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Foundation\Api\Decision\Decisions;
+use Kalaka\Admin\Api\RegistrationNotInView;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
@@ -58,7 +59,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $refund = $this->addLine('manual_refund', '5000', 'manual:r1', overrides: [
             'source_type' => 'wp_user',
             'source_key' => (string) $recorder,
-            'method' => 'cash',
+            'method' => null,
+            'value_date' => '2026-11-30 08:00:00.000000',
             'correction' => 1,
         ]);
         $this->addNote($refund, 'Elírás: 35 000 helyett 30 000 érkezett');
@@ -157,8 +159,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'manual_refund',
                     'Visszatérítés',
                     '5000.00000000',
-                    'cash',
-                    'Készpénz',
+                    null,
+                    null,
                     'Elírás: 35 000 helyett 30 000 érkezett',
                     true
                 ),
@@ -199,14 +201,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $money['methods']
         );
         self::assertSame(
-            [
-                ['value' => 'bank_transfer', 'label' => 'Átutalás'],
-                ['value' => 'cash', 'label' => 'Készpénz'],
-            ],
-            $money['refund_methods']
-        );
-        self::assertSame(
-            ['view_money' => true, 'record_payment' => true, 'record_refund' => true],
+            ['view_money' => true, 'record_payment' => true, 'record_refund' => true, 'record_correction' => true],
             $detail['can']
         );
     }
@@ -217,8 +212,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         string $kind,
         string $kindLabel,
         string $amount,
-        string $method,
-        string $methodLabel,
+        ?string $method,
+        ?string $methodLabel,
         string $note,
         bool $correction,
     ): array {
@@ -228,7 +223,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'kind_label' => $kindLabel,
             'payer' => 'participant',
             'amount' => $amount,
-            'value_date' => '2026-12-02T23:00:00Z',
+            'value_date' => $correction ? '2026-11-30T08:00:00Z' : '2026-12-02T23:00:00Z',
             'paid_at' => null,
             'recorded_at' => '2026-11-30T08:00:00Z',
             'method' => $method,
@@ -281,7 +276,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false],
+            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
             $detail['can']
         );
     }
@@ -294,13 +289,43 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->detail($this->plainUser());
     }
 
-    public function testAGrantWhoseViewExcludesTheRowIsNotFound(): void
+    /** The owner's ruling 2026-11-19 (topic 3): a grant holder of the event is told "no access", not "not found". */
+    public function testAGrantWhoseViewExcludesTheRowIsNoAccess(): void
     {
         $this->addRegistration('00A0');
         $user = $this->plainUser();
         $this->grant($user, [['column' => 'status', 'in' => ['waitlisted']]], [
             ['column' => 'code', 'write' => false],
         ], []);
+
+        try {
+            $this->detail($user);
+            self::fail('The read was not refused.');
+        } catch (RegistrationNotInView $refused) {
+            self::assertSame(403, $refused->status());
+            self::assertSame('kalaka_registration_not_in_view', $refused->errorCode());
+        }
+    }
+
+    /** A grant holder cannot tell a code outside their views from one that does not exist. */
+    public function testAGrantHolderAskingForAnUnknownCodeIsNoAccessToo(): void
+    {
+        $this->addRegistration('00A0');
+        $user = $this->plainUser();
+        $this->grant($user, [], [['column' => 'code', 'write' => false]], []);
+
+        $this->expectException(RegistrationNotInView::class);
+        $this->detail($user, '00A1');
+    }
+
+    /** A user whose grants are all on other events still gets "not found". */
+    public function testAHolderOfAnotherEventsGrantOnlyIsNotFound(): void
+    {
+        $other = $this->create();
+        $this->addRegistration('00A0');
+        $this->addRegistration('00A0', event: $other);
+        $user = $this->plainUser();
+        $this->grant($user, [], [['column' => 'code', 'write' => false]], [], event: $other);
 
         $this->expectException(NotFound::class);
         $this->detail($user);
@@ -346,6 +371,47 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertSame('00A0', $detail['registration']['code']);
     }
 
+    /** The owner's ruling 2026-11-19 (topic 3): the two times are view columns like any other. */
+    public function testTheTimesAreShownOnlyWhereTheViewListsThem(): void
+    {
+        $this->seedDetail();
+        $none = $this->plainUser();
+        $this->grant($none, [], [['column' => 'code', 'write' => false]], []);
+        $registered = $this->plainUser();
+        $this->grant($registered, [], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'registered_at', 'write' => false],
+        ], []);
+        $submitted = $this->plainUser();
+        $this->grant($submitted, [], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'submitted_at', 'write' => false],
+        ], []);
+
+        $a = $this->detail($none)['registration'];
+        self::assertArrayNotHasKey('registered_at', $a);
+        self::assertArrayNotHasKey('submitted_at', $a);
+        $b = $this->detail($registered)['registration'];
+        self::assertSame('2026-11-30T08:00:00Z', $b['registered_at']);
+        self::assertArrayNotHasKey('submitted_at', $b);
+        $c = $this->detail($submitted)['registration'];
+        self::assertSame('2026-11-30T08:00:00Z', $c['submitted_at']);
+        self::assertArrayNotHasKey('registered_at', $c);
+    }
+
+    /** A waitlisted registration has no registered time to show. */
+    public function testAWaitlistedRegistrationHasNoRegisteredAt(): void
+    {
+        $this->addRegistration('00A0', 'waitlisted');
+        $user = $this->plainUser();
+        $this->grant($user, [], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'registered_at', 'write' => false],
+        ], []);
+
+        self::assertArrayNotHasKey('registered_at', $this->detail($user)['registration']);
+    }
+
     /** The money is only there through the grant whose view holds the row. */
     public function testASecondGrantWithMoneyViewDoesNotShowMoneyOutsideItsView(): void
     {
@@ -363,7 +429,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false],
+            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
             $detail['can']
         );
 
@@ -375,7 +441,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
-            ['view_money' => true, 'record_payment' => false, 'record_refund' => false],
+            ['view_money' => true, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
             $shown['can']
         );
     }
@@ -386,8 +452,18 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->seedDetail();
 
         $cases = [
-            'kalaka_record_payment' => ['view_money' => true, 'record_payment' => true, 'record_refund' => false],
-            'kalaka_record_refund' => ['view_money' => true, 'record_payment' => false, 'record_refund' => true],
+            'kalaka_record_payment' => [
+                'view_money' => true,
+                'record_payment' => true,
+                'record_refund' => false,
+                'record_correction' => true,
+            ],
+            'kalaka_record_refund' => [
+                'view_money' => true,
+                'record_payment' => false,
+                'record_refund' => true,
+                'record_correction' => false,
+            ],
         ];
         foreach ($cases as $action => $can) {
             $user = $this->plainUser();
@@ -444,6 +520,17 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             403,
             $this->rest('GET', '/kalaka-admin/v1/events/' . $this->event . '/registrations/00A0')->get_status()
         );
+
+        $holder = $this->plainUser();
+        $this->grant($holder, [['column' => 'status', 'in' => ['waitlisted']]], [
+            ['column' => 'code', 'write' => false],
+        ], []);
+        wp_set_current_user($holder);
+        $refused = $this->rest('GET', '/kalaka-admin/v1/events/' . $this->event . '/registrations/00A0');
+        self::assertSame(403, $refused->get_status());
+        $body = $refused->get_data();
+        self::assertIsArray($body);
+        self::assertSame('kalaka_registration_not_in_view', $body['code'] ?? null);
 
         wp_set_current_user($this->admin->userId);
         self::assertSame(

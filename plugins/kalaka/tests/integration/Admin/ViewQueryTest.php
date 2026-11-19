@@ -221,6 +221,60 @@ final class ViewQueryTest extends AdminTestCase
         self::assertCount(3, $this->selects(fn () => $this->viewRows($this->held($with))));
     }
 
+    /** The owner's ruling 2026-11-19 (topic 3): the registered and submitted times are display-only view columns. */
+    public function testTheTimeColumnsAreShownAndDisplayOnly(): void
+    {
+        global $wpdb;
+        $this->seedStatuses();
+        $wpdb->insert($wpdb->prefix . 'kalaka_submissions', [
+            'event_id' => self::EVENT,
+            'code' => '00A0',
+            'number' => 1,
+            'form_id' => 1,
+            'form_version' => 1,
+            'answers' => '{}',
+            'submitted_at' => '2026-11-30 07:59:00.000000',
+        ]);
+        $columns = [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'registered_at', 'write' => false],
+            ['column' => 'submitted_at', 'write' => false],
+        ];
+
+        $filter = [['column' => 'status', 'in' => ['registered', 'waitlisted']]];
+        $rows = $this->viewRows($this->held($this->shape($filter, $columns)));
+
+        $values = [];
+        foreach ($rows as $row) {
+            $values[$row['key']->code] = $row['values'];
+        }
+        self::assertSame('2026-11-30T08:00:00Z', $values['00A0']['registered_at']);
+        self::assertSame('2026-11-30T07:59:00Z', $values['00A0']['submitted_at']);
+        self::assertNull($values['00A5']['submitted_at']);
+        self::assertNull($values['00A2']['registered_at']);
+
+        // The submissions are read only when the column is listed: the count and the page, then one more.
+        $without = $this->shape([], [['column' => 'registered_at', 'write' => false]]);
+        $with = $this->shape([], [['column' => 'submitted_at', 'write' => false]]);
+        self::assertCount(2, $this->selects(fn () => $this->viewRows($this->held($without))));
+        self::assertCount(3, $this->selects(fn () => $this->viewRows($this->held($with))));
+
+        foreach (['registered_at', 'submitted_at'] as $column) {
+            try {
+                $this->query->page($this->held($this->shape([], $columns)), $column);
+                self::fail($column . ' was sortable.');
+            } catch (InvalidInput) {
+                self::addToAssertionCount(1);
+            }
+            try {
+                $this->shape([['column' => $column, 'in' => ['x']]], $columns);
+                self::fail($column . ' was filterable.');
+            } catch (InvalidInput) {
+                self::addToAssertionCount(1);
+            }
+        }
+    }
+
     public function testTheParameterIsBoundToTheOneValue(): void
     {
         $this->seedStatuses();

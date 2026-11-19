@@ -29,7 +29,7 @@ final class LineDetailsTest extends LedgerTestCase
             $this->money($amount),
             new Subject('wp_user', null, '7'),
             $key,
-            '2026-11-29',
+            $correction ? null : '2026-11-29',
             null,
             $method,
             $correction,
@@ -40,14 +40,29 @@ final class LineDetailsTest extends LedgerTestCase
     public function testTheMethodAndTheCorrectionFlagAreStoredOnTheLine(): void
     {
         $this->registration();
-        $refund = $this->manual(LineKind::ManualRefund, '500', 'r1', PaymentMethod::CardTerminal, true, 'ok');
+        $refund = $this->manual(LineKind::ManualRefund, '500', 'r1', PaymentMethod::CardTerminal);
         $stored = $this->record($refund)[0];
 
         self::assertSame(PaymentMethod::CardTerminal, $stored->method);
-        self::assertTrue($stored->correction);
+        self::assertFalse($stored->correction);
         $row = $this->rowOf('kalaka_ledger_lines', self::EVENT, '12A3');
         self::assertSame('card_terminal', $row['method'] ?? null);
-        self::assertSame('1', $row['correction'] ?? null);
+        self::assertSame('0', $row['correction'] ?? null);
+    }
+
+    /** The owner's ruling 2026-11-19: a correction of either direction has no method and no date. */
+    public function testACorrectionOfEitherDirectionHasNoMethodAndCountsFromItsRecording(): void
+    {
+        $registration = $this->registration();
+        $in = $this->record($this->manual(LineKind::ManualPayment, '-500', 'c1', null, true, 'ok'))[0];
+        $out = $this->record($this->manual(LineKind::ManualRefund, '500', 'c2', null, true, 'ok'))[0];
+
+        foreach ([$in, $out] as $stored) {
+            self::assertTrue($stored->correction);
+            self::assertNull($stored->method);
+            self::assertEquals($stored->recordedAt, $stored->valueDate);
+        }
+        self::assertCount(2, $this->ledger->paymentFactsOf($registration));
     }
 
     public function testALineWithoutAMethodKeepsItNull(): void
@@ -64,7 +79,7 @@ final class LineDetailsTest extends LedgerTestCase
     {
         return [
             'a method on a charge' => [LineKind::Charge, '500', false, null],
-            'a correction that is no refund' => [LineKind::ManualPayment, '-500', true, 'reason'],
+            'a correction on a charge' => [LineKind::Charge, '500', true, 'reason'],
             'a correction without a reason' => [LineKind::ManualRefund, '500', true, null],
             'a note on a charge' => [LineKind::Charge, '500', false, 'x'],
             'a note over 500 characters' => [LineKind::ManualPayment, '-500', false, 'x'],
@@ -97,6 +112,18 @@ final class LineDetailsTest extends LedgerTestCase
 
         try {
             $this->record($line);
+            self::fail('The line was accepted.');
+        } catch (SystemFailure) {
+            self::assertSame(0, $this->lineCount());
+        }
+    }
+
+    public function testACorrectionWithAMethodIsASystemFailure(): void
+    {
+        $this->registration();
+
+        try {
+            $this->record($this->manual(LineKind::ManualPayment, '-500', 'c1', PaymentMethod::Cash, true, 'ok'));
             self::fail('The line was accepted.');
         } catch (SystemFailure) {
             self::assertSame(0, $this->lineCount());

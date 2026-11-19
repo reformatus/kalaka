@@ -200,7 +200,7 @@ final class RecordLineTest extends LedgerTestCase
 
         $other = match ($difference) {
             'amount' => $this->line($registration, LineKind::ManualPayment, '-1001', 'k1', '2026-12-03'),
-            'kind' => $this->line($registration, LineKind::Transfer, '-1000', 'k1', '2026-12-03'),
+            'kind' => $this->line($registration, LineKind::ManualRefund, '1000', 'k1', '2026-12-03'),
             'payer' => $this->line(
                 $registration,
                 LineKind::ManualPayment,
@@ -320,7 +320,7 @@ final class RecordLineTest extends LedgerTestCase
         yield 'manual payment with only a paid time' => [
             LineKind::ManualPayment, '-1', null, '2026-12-01 10:00:00', 'participant',
         ];
-        yield 'transfer without a value date' => [LineKind::Transfer, '-1', null, null, 'participant'];
+        yield 'manual refund without a value date' => [LineKind::ManualRefund, '1', null, null, 'participant'];
         yield 'charge with a value date' => [LineKind::Charge, '1', '2026-12-03', null, 'participant'];
         yield 'charge with a paid time' => [LineKind::Charge, '1', null, '2026-12-01 10:00:00', 'participant'];
         yield 'adjustment with a value date' => [LineKind::Adjustment, '1', '2026-12-03', null, 'participant'];
@@ -351,8 +351,6 @@ final class RecordLineTest extends LedgerTestCase
         yield 'adjustment of +2000' => [LineKind::Adjustment, '2000', null, null];
         yield 'charge of 0.004' => [LineKind::Charge, '0.004', null, null];
         yield 'manual refund of +1000' => [LineKind::ManualRefund, '1000', '2026-12-03', null];
-        yield 'transfer of -1000' => [LineKind::Transfer, '-1000', '2026-12-03', null];
-        yield 'transfer of +1000' => [LineKind::Transfer, '1000', '2026-12-03', null];
         yield 'refund of +1000' => [LineKind::Refund, '1000', null, '2026-12-01 10:00:00'];
     }
 

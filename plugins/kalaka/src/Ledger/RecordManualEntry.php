@@ -28,8 +28,10 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
- * The shared body of "record payment" and "record refund" (money.md, "Recording payments by hand"): one
- * registration, one payer, one amount, with the method, the value date and an optional free-text note. It
+ * The shared body of "record payment", "record refund" and "record correction" (money.md, "Recording
+ * payments by hand"): one registration, one payer, one amount, with the method, the value date and an optional
+ * free-text note; a correction (the owner's ruling 2026-11-19) has a required reason instead, no method and
+ * no value date, and counts from the time it is recorded. It
  * writes one manual line and its note, under the registration's lock. The registration's status does not
  * matter, and neither does the amount against the balance (owner ruling 2026-11-18). The caller's key is
  * prefixed (`manual:`) so it cannot meet a key of the materializer in the registration's one key space.
@@ -37,7 +39,7 @@ use Kalaka\Registrations\Api\Registrations;
 abstract class RecordManualEntry implements AdminUseCase
 {
     /** The longest caller key: the stored key is `manual:` and the caller's. */
-    private const KEY_PATTERN = '^[a-z0-9_:.-]{1,100}$';
+    private const KEY_PATTERN = '^[a-z0-9_:.-]{1,100}\\z';
 
     public function __construct(
         private readonly Ledger $ledger = new Ledger(),
@@ -47,17 +49,37 @@ abstract class RecordManualEntry implements AdminUseCase
     ) {
     }
 
-    /** The kind of line this use case writes. */
-    abstract protected function kind(): LineKind;
-
     /**
-     * Whether the input marks the line a correction.
+     * The kind of line this use case writes for the input.
      *
      * @param array<string, mixed> $input
      */
-    protected function isCorrection(array $input): bool
+    abstract protected function kind(array $input): LineKind;
+
+    /** Whether this use case writes corrections: of either direction, with a reason, no method and no date. */
+    protected function isCorrection(): bool
     {
         return false;
+    }
+
+    /**
+     * The inputs a correction requires besides the shared ones.
+     *
+     * @return list<string>
+     */
+    protected function extraRequired(): array
+    {
+        return [];
+    }
+
+    /**
+     * Whether the input moves money in (a payment, below zero) rather than out (a refund, above zero).
+     *
+     * @param array<string, mixed> $input
+     */
+    protected function movesMoneyIn(array $input): bool
+    {
+        return $this->kind($input) === LineKind::ManualPayment;
     }
 
     /**
@@ -70,36 +92,37 @@ abstract class RecordManualEntry implements AdminUseCase
         return [];
     }
 
-    /**
-     * The methods this entry may use.
-     *
-     * @return list<PaymentMethod>
-     */
-    protected function methods(): array
-    {
-        return PaymentMethod::cases();
-    }
-
     public function inputSchema(): array
     {
+        $correction = $this->isCorrection();
+        $entry = [
+            'method' => ['type' => 'string', 'enum' => array_map(
+                static fn (PaymentMethod $method): string => $method->value,
+                PaymentMethod::cases()
+            )],
+            'value_date' => ['type' => 'string', 'pattern' => '^[0-9]{4}-[0-9]{2}-[0-9]{2}\\z'],
+            'note' => ['type' => 'string', 'maxLength' => 500],
+        ];
+
         return [
             'type' => 'object',
             'properties' => [
                 'event_id' => ['type' => 'integer', 'minimum' => 1],
-                'code' => ['type' => 'string', 'pattern' => '^[0-9]{2}[AKBEGJTZFLRSXI][0-9]{1,13}$'],
-                'payer' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]{0,49}$', 'default' => Payer::PARTICIPANT],
-                'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?$'],
+                'code' => ['type' => 'string', 'pattern' => '^[0-9]{2}[AKBEGJTZFLRSXI][0-9]{1,13}\\z'],
+                'payer' => [
+                    'type' => 'string',
+                    'pattern' => '^[a-z][a-z0-9_]{0,49}\\z',
+                    'default' => Payer::PARTICIPANT,
+                ],
+                'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?\\z'],
                 'currency' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 3],
-                'method' => ['type' => 'string', 'enum' => array_map(
-                    static fn (PaymentMethod $method): string => $method->value,
-                    $this->methods()
-                )],
-                'value_date' => ['type' => 'string', 'pattern' => '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'],
-                'note' => ['type' => 'string', 'maxLength' => 500],
+                ...($correction ? [] : $entry),
                 'idempotency_key' => ['type' => 'string', 'pattern' => self::KEY_PATTERN],
                 ...$this->extraProperties(),
             ],
-            'required' => ['event_id', 'code', 'amount', 'currency', 'method', 'value_date', 'idempotency_key'],
+            'required' => ['event_id', 'code', 'amount', 'currency', 'idempotency_key', ...($correction
+                ? $this->extraRequired()
+                : ['method', 'value_date'])],
             'additionalProperties' => false,
         ];
     }
@@ -141,17 +164,21 @@ abstract class RecordManualEntry implements AdminUseCase
         if (!in_array($payer, $declared, true)) {
             throw new InvalidInput();
         }
-        $method = PaymentMethod::tryFrom((string) $input['method']);
-        if ($method === null || !in_array($method, $this->methods(), true)) {
-            throw new InvalidInput();
+        $correction = $this->isCorrection();
+        $method = null;
+        $valueDate = null;
+        if (!$correction) {
+            $method = PaymentMethod::tryFrom((string) $input['method']);
+            if ($method === null) {
+                throw new InvalidInput();
+            }
+            $valueDate = (string) $input['value_date'];
+            $today = $context->now()->setTimezone(wp_timezone())->format('Y-m-d');
+            if (Instant::startOfDay($valueDate) === null || $valueDate > $today) {
+                throw new InvalidInput();
+            }
         }
-        $valueDate = (string) $input['value_date'];
-        $today = $context->now()->setTimezone(wp_timezone())->format('Y-m-d');
-        if (Instant::startOfDay($valueDate) === null || $valueDate > $today) {
-            throw new InvalidInput();
-        }
-        $note = isset($input['note']) ? trim((string) $input['note']) : '';
-        $correction = $this->isCorrection($input);
+        $note = trim((string) ($input[$correction ? 'reason' : 'note'] ?? ''));
         if ($correction && $note === '') {
             throw new InvalidInput();
         }
@@ -159,12 +186,12 @@ abstract class RecordManualEntry implements AdminUseCase
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
         }
-        $kind = $this->kind();
+        $kind = $this->kind($input);
         $line = new NewLine(
             $key,
             $kind,
             $payer,
-            $kind === LineKind::ManualPayment ? $amount->negated() : $amount,
+            $this->movesMoneyIn($input) ? $amount->negated() : $amount,
             self::sourceOf($context->actor()),
             'manual:' . $input['idempotency_key'],
             $valueDate,
@@ -190,7 +217,7 @@ abstract class RecordManualEntry implements AdminUseCase
                     'payer' => $payer,
                     'amount' => $amount->amount(),
                     'currency' => $currency->value,
-                    'method' => $method->value,
+                    'method' => $method?->value,
                     'value_date' => $valueDate,
                     'correction' => $correction,
                 ]

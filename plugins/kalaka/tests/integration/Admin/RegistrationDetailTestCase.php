@@ -162,17 +162,18 @@ abstract class RegistrationDetailTestCase extends FormsTestCase
      * @param list<string> $actions
      * @return int the grant's id
      */
-    protected function grant(int $user, array $filter, array $columns, array $actions): int
+    protected function grant(int $user, array $filter, array $columns, array $actions, int $event = 0): int
     {
+        $event = $event === 0 ? $this->event : $event;
         $view = $this->exec(new SaveView(), [
-            'event_id' => $this->event,
+            'event_id' => $event,
             'name' => 'Nézet',
             'filter' => $filter,
             'columns' => $columns,
         ]);
         self::assertIsInt($view);
         $grant = $this->exec(new SaveGrant(), [
-            'event_id' => $this->event,
+            'event_id' => $event,
             'user_id' => $user,
             'view_id' => $view,
             'bound_value' => null,
