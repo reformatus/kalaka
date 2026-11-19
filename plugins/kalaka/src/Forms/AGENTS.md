@@ -48,7 +48,8 @@ values and conditions, prefill and form links
   forms. A block that arrives without its key takes back its stored key
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
-  kept.
+  kept. An `extension` field's options are its declarer's: a form joining it
+  offers any subset of them and never adds one (`extension_option`).
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,

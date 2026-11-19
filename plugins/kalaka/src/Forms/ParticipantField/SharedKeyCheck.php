@@ -16,7 +16,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * may hold its key, so no answer ever shadows the decision it is read from. Nor may a form
  * hold an `extension` field's key unless the extension declared it form-writable (`extension_field`): such
  * a field is written only by its use case, like the aid award; `staff` fields stay writable from forms
- * (owner ruling 2026-11-13). First of all, no
+ * (owner ruling 2026-11-13). A form that joins an `extension` field with options offers only options the
+ * extension declared, any subset of them, retired ones included (`extension_option`): their values are the
+ * declarer's, like the field's texts. [UNAPPROVED, #200 N9] First of all, no
  * two blocks of one form hold the same key (`duplicate_key`), whatever the form's status.
  *
  * A request field (`Api\RequestFieldType`, S44-1; a block that names no set is none) names one request-mode
@@ -34,6 +36,7 @@ final class SharedKeyCheck
     public const EXTENSION_FIELD = 'extension_field';
     public const UNKNOWN_SET = 'unknown_set';
     public const REQUEST_FIELD_TAKEN = 'request_field_taken';
+    public const EXTENSION_OPTION = 'extension_option';
 
     /**
      * The first problem of the content's field blocks in document order, or null.
@@ -76,6 +79,9 @@ final class SharedKeyCheck
             if ($record->type !== $field['type']) {
                 return [self::TYPE_CLASH, $key];
             }
+            if ($record->source === ParticipantField::SOURCE_EXTENSION && !self::declaredOptions($record, $field)) {
+                return [self::EXTENSION_OPTION, $key];
+            }
         }
 
         return null;
@@ -117,6 +123,23 @@ final class SharedKeyCheck
         }
 
         return null;
+    }
+
+    /**
+     * Whether the form field offers only options the extension declared for its field (retired ones included).
+     *
+     * @param array{type: string, title: string, options: ?list<array{value: string, label: string}>} $field
+     */
+    private static function declaredOptions(ParticipantField $record, array $field): bool
+    {
+        $declared = array_column($record->options, 'value');
+        foreach ($field['options'] ?? [] as $option) {
+            if (!in_array($option['value'], $declared, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
