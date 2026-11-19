@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\View;
 
+use Kalaka\Admin\Grant\DuplicateGrant;
 use Kalaka\Admin\Grant\GrantQuery;
 use Kalaka\Admin\Grant\GrantRepository;
 use Kalaka\Events\Api\Events;
@@ -17,7 +18,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * `id` and current `version`). A site-level use case: only full access. Returns the view's id.
  *
  * Removing the parameter term or moving it to another column takes the bound value from every grant of
- * the view, each audited; those holders then see the whole view (S36-4, owner ruling 2026-11-16).
+ * the view, each audited; those holders then see the whole view (S36-4, owner ruling 2026-11-16). A save that
+ * would leave one user two grants of the view without a bound value is refused as `DuplicateGrant`.
  */
 final class SaveView implements AdminUseCase
 {
@@ -86,6 +88,8 @@ final class SaveView implements AdminUseCase
             return $this->repository->upsert(new View($eventId, $name, $shape), $context)->id;
         }
 
+        // The event row is the run's first lock, as in SaveGrant: the duplicate check below and the writes are one step.
+        $this->events->lock($context, $eventId);
         $view = $this->repository->findForUpdate((int) $input['id'], $context);
         if ($view === null || $view->eventId !== $eventId) {
             throw new NotFound();
@@ -96,12 +100,24 @@ final class SaveView implements AdminUseCase
         // holder sees the whole view.
         $parameter = $view->shape->parameterColumn();
         if ($parameter !== null && $parameter !== $shape->parameterColumn()) {
+            $bound = [];
+            $users = [];
             foreach ($this->grants->boundToView($eventId, $view->id) as $grantId) {
                 $grant = $this->grantRepository->findForUpdate($grantId, $context);
-                if ($grant !== null) {
-                    $grant->boundValue = null;
-                    $this->grantRepository->upsert($grant, $context);
+                if ($grant === null) {
+                    continue;
                 }
+                // Clearing must not make two grants of one user equal: the save is refused then.
+                if (isset($users[$grant->userId])
+                    || $this->grants->holdsSame($eventId, $grant->userId, $view->id, null, $grant->id)) {
+                    throw new DuplicateGrant();
+                }
+                $users[$grant->userId] = true;
+                $bound[] = $grant;
+            }
+            foreach ($bound as $grant) {
+                $grant->boundValue = null;
+                $this->grantRepository->upsert($grant, $context);
             }
         }
 

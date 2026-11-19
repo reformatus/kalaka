@@ -47,7 +47,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - A grant is unique per (user, event, view, bound value), a blank bound value
   being none (owner ruling 2026-11-18). `SaveGrant` checks it, for a new grant
   and for an edit alike, under the event row's lock, and refuses a repeat as
-  `DuplicateGrant` (a `RuleViolation` with its own code).
+  `DuplicateGrant` (a `RuleViolation` with its own code). `SaveView` refuses a
+  parameter change that would clear two grants of one user into equals, the
+  same way and under the same lock.
 - The view is the only place permissions on data are defined. A grant never
   lists registrations: it covers what its view's filter matches when access is
   checked.

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Grant\DeleteGrant;
+use Kalaka\Admin\Grant\DuplicateGrant;
 use Kalaka\Admin\View\CopyViews;
 use Kalaka\Admin\View\DeleteView;
 use Kalaka\Admin\View\SaveView;
@@ -49,6 +50,53 @@ final class ViewEditTest extends GrantTestCase
         yield 'the parameter removed' => [[]];
         yield 'the parameter made a fixed term' => [[['column' => 'field:module', 'in' => ['építő', 'konyha']]]];
         yield 'the parameter moved to another column' => [[['column' => 'field:team', 'parameter' => true]]];
+    }
+
+    /**
+     * A parameter change that would clear two grants of one user into equals is refused as `DuplicateGrant`:
+     * the view and both grants stay as they were.
+     *
+     * @dataProvider parameterGone
+     */
+    public function testAParameterChangeThatWouldDuplicateAGrantIsRefusedAndChangesNothing(array $filter): void
+    {
+        $view = $this->parameterView($this->event);
+        $user = $this->plainUser();
+        $first = $this->saveGrant($this->event, $user, ['view_id' => $view, 'bound_value' => 'építő']);
+        $second = $this->saveGrant($this->event, $user, ['view_id' => $view, 'bound_value' => 'konyha']);
+        $filterBefore = $this->viewRow($view)['filter'];
+        $versionBefore = $this->viewRow($view)['version'];
+        $count = count($this->entries());
+
+        try {
+            $this->exec(new SaveView(), $this->edit($view, $filter));
+            self::fail('The run should have thrown.');
+        } catch (DuplicateGrant $error) {
+            self::assertSame('kalaka_duplicate_grant', $error->errorCode());
+        }
+
+        self::assertSame($filterBefore, $this->viewRow($view)['filter']);
+        self::assertSame($versionBefore, $this->viewRow($view)['version']);
+        self::assertSame('építő', $this->grantRow($first)['bound_value']);
+        self::assertSame('konyha', $this->grantRow($second)['bound_value']);
+        self::assertCount($count, $this->entries());
+    }
+
+    public function testAParameterChangeThatDuplicatesNothingIsAccepted(): void
+    {
+        $view = $this->parameterView($this->event);
+        $user = $this->plainUser();
+        $first = $this->saveGrant($this->event, $user, ['view_id' => $view, 'bound_value' => 'építő']);
+        $other = $this->saveGrant($this->event, $this->plainUser(), ['view_id' => $view, 'bound_value' => 'építő']);
+        // The same user's grant of another view stays apart.
+        $plain = $this->saveGrant($this->event, $user, ['view_id' => $this->plainView($this->event)]);
+
+        $this->exec(new SaveView(), $this->edit($view, []));
+
+        self::assertSame('[]', $this->viewRow($view)['filter']);
+        self::assertNull($this->grantRow($first)['bound_value']);
+        self::assertNull($this->grantRow($other)['bound_value']);
+        self::assertNull($this->grantRow($plain)['bound_value']);
     }
 
     /**
