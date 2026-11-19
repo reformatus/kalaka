@@ -109,4 +109,19 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
         self::assertSame($lines, $this->lineCount());
         self::assertNotSame('', $key->code);
     }
+
+    public function testWhatShowPrintsForAnEventWithNoSettingsAppliesAsIs(): void
+    {
+        $command = $this->command();
+        $command->show([(string) $this->event], []);
+        $path = (string) wp_tempnam('kalaka-money-');
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- a temp file
+        file_put_contents($path, \WP_CLI::$calls[0][1]);
+        $this->files[] = $path;
+
+        $command->apply([(string) $this->event], ['file' => $path, 'yes' => true]);
+
+        self::assertContains(['line', 'Re-evaluated: 0. Failed: 0.'], \WP_CLI::$calls);
+        self::assertContains(['success', 'The settings are applied.'], \WP_CLI::$calls);
+    }
 }
