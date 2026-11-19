@@ -14,6 +14,7 @@ use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\MoneyRelevantFieldType;
 use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
@@ -138,7 +139,14 @@ final class SubmitAdditionalForm implements PortalUseCase
             throw $error;
         }
 
-        $refusals = $this->forms->refusals($this->form, $event, $context->now(), $this->roles, $this->passwordGiven);
+        $refusals = $this->forms->refusals(
+            $this->form,
+            $event,
+            $context->now(),
+            $this->roles,
+            $this->passwordGiven,
+            $context->actor() instanceof AccountActor
+        );
         if ($refusals !== []) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- enum cases, no input
             throw new FormRefused($refusals);

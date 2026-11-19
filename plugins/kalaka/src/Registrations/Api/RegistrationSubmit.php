@@ -98,8 +98,11 @@ final class RegistrationSubmit
             $event = $this->events->find($form->eventId) ?? throw new NotFound();
             // Decided on every attempt: a retry reads the event again, and its account mode may have changed.
             $account = $this->accountOutcome($event, $actor);
-            // `account.logged_in`: yes or no where the event has accounts (an account submits), none where not.
-            $loggedIn = $event->accountMode === AccountMode::Off ? null : $actor instanceof AccountActor;
+            // `account.logged_in`: yes or no where the form has an account step (an account submits), none
+            // where it has none: an additional form and mode `off` alike.
+            $loggedIn = $form->placement === FormPlacement::Additional || $event->accountMode === AccountMode::Off
+                ? null
+                : $actor instanceof AccountActor;
             $answers = $this->forms->validate(
                 $definition,
                 $request->answers,
