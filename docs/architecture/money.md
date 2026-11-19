@@ -234,8 +234,12 @@ such as lunch or a donation.
   terminal leaf, a node with no children, is an answer; there is no free text
   and no "not in the list". Admins add an "egyéb" leaf by hand where one is
   needed.
-- **A node's ancestors are looked up in the tree;** a filter on any level
-  expands to its descendants in SQL.
+- **The tree's ancestors are looked up in the tree;** conditions, rules,
+  fees, mail and view filters read a congregation answer's stored path
+  snapshot: a view filter on a level matches the answer's snapshot (the
+  owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
+  over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
+  `EXPLAIN` test.
 - **Support offers per event on any node,** the root included, apply to the
   node and everything below it: amount, quota (people and/or budget),
   conditions on facts, "must be requested", and "must be confirmed by the

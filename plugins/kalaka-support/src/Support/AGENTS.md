@@ -13,7 +13,8 @@ So far it holds the directory and the congregation picker.
 - events-and-forms.md: [Fields](../../../../docs/architecture/events-and-forms.md#fields)
   (an extension's field type).
 - foundation.md: [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values)
-  (a congregation's ancestors are computed),
+  (the tree's ancestors are computed; a congregation answer keeps its
+  snapshot),
   [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
   (a tree lookup is expanded in SQL).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),

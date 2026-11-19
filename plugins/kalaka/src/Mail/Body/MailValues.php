@@ -17,6 +17,7 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Mail\RecipientUnavailable;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -114,7 +115,7 @@ final class MailValues
     {
         $types = Contributions::current()->fieldTypes();
         $paths = [];
-        foreach ($this->forms->participantFields($eventId, true) as $field) {
+        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
             if (($types[$field->type] ?? null) instanceof PathFieldType) {
                 $paths[] = $field->key;
             }

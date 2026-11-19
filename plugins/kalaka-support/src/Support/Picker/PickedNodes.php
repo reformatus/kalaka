@@ -46,29 +46,30 @@ final class PickedNodes extends Query
 
     /**
      * The node's path as an answer stores it: each node's external ID and type, root first, ending with
-     * the node itself; active or not. Empty when there is no such node. One recursive statement, which
-     * stops at depth 32 as the tree's other walks do.
+     * the node itself; active or not. Empty when there is no such node. The chain is the tree's own
+     * (`NodeTreeQuery::ancestors()`, one recursive statement stopping at depth 32); the node rows it
+     * names are read in one more.
      *
      * @return list<array{ext: string, type: string}>
      */
     public function path(int $id): array
     {
-        $table = $this->table('kalaka_support_nodes');
-        $rows = $this->scope(fn (): array => $this->select(
-            'path',
-            'WITH RECURSIVE chain (node_id, depth) AS ('
-            . ' SELECT n.id, 1 FROM %i n WHERE n.id = %d'
-            . ' UNION ALL'
-            . ' SELECT a.parent_id, c.depth + 1 FROM chain c JOIN %i a ON a.id = c.node_id'
-            . ' WHERE a.parent_id IS NOT NULL AND c.depth < 32'
-            . ') SELECT n.external_id, n.type FROM chain c JOIN %i n ON n.id = c.node_id ORDER BY c.depth DESC',
-            [$table, $id, $table, $table]
-        ));
+        $chain = (new NodeTreeQuery())->ancestors([$id])[$id] ?? [];
+        $ids = [...array_column($chain, 'id'), $id];
+        $rows = $this->scope(fn (): array => $this->related('path', 'kalaka_support_nodes', 'id', $ids));
+        $nodes = [];
+        foreach ($rows as $row) {
+            $nodes[(int) $row['id']] = ['ext' => (string) $row['external_id'], 'type' => (string) $row['type']];
+        }
 
-        return array_map(
-            static fn (array $row): array => ['ext' => (string) $row['external_id'], 'type' => (string) $row['type']],
-            $rows
-        );
+        $path = [];
+        foreach ($ids as $nodeId) {
+            if (isset($nodes[$nodeId])) {
+                $path[] = $nodes[$nodeId];
+            }
+        }
+
+        return $path;
     }
 
     /**

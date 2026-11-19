@@ -578,8 +578,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - Extensions contribute transition rules through a decision point, and core
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).
-- **Computed values are never stored:** balance, tallies, a congregation's
-  ancestors, a meal turn from the option map, the sorszám.
+- **Computed values are never stored:** balance, tallies, the tree's
+  ancestors, a meal turn from the option map, the sorszám. The one exception:
+  a congregation answer keeps the path snapshot taken when it was answered.
 - **Reading order:** core decisions are made first, then extension decisions.
   A decision reads facts and earlier decisions only. An extension decision
   reads facts and core decisions, never another extension's decision.
