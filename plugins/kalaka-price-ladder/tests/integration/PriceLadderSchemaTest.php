@@ -23,4 +23,15 @@ final class PriceLadderSchemaTest extends PriceLadderTestCase
             array_map(static fn ($component): string => $component->id(), Contributions::current()->feeComponents())
         );
     }
+
+    public function testNoTierColumnHoldsAShare(): void
+    {
+        global $wpdb;
+
+        $columns = $wpdb->get_col('SHOW COLUMNS FROM ' . $wpdb->prefix . 'kalaka_price_ladder_tiers', 0);
+        self::assertSame(
+            ['event_id', 'tier_key', 'position', 'label', 'amount', 'currency', 'availability', 'until_at', 'version'],
+            $columns
+        );
+    }
 }
