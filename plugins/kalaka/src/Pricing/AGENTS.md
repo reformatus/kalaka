@@ -36,7 +36,9 @@ retention and the materializer
   components in the fixed stage order tier → support → share → aid →
   extras; a component sees only the totals of earlier stages, and the
   computed values earlier stages put into its facts (`FeeTargets::$computed`,
-  dotted keys the facts do not have; never stored).
+  dotted keys the facts do not have; never stored). A throw, a malformed
+  payer or another currency than the event's is `FeeComponentFailed`, which
+  fails the use case as the rule `money/<component id>`.
 - A component that cannot say what is owed and a person can act on why
   throws `Api\FeeRefusal` with a text for staff and one for the registrant;
   the evaluation refuses the use case with the actor side's text
@@ -50,10 +52,7 @@ retention and the materializer
 - A module's settings reach a preview and an apply as
   `Api\ProposedComponentSettings`: the preview composes its `component()` in
   place of the registered one; the apply runs its `save()` use case before
-  re-evaluating anything. A throw, a
-  malformed payer or another currency than the event's is
-  `FeeComponentFailed`, which fails the use case as the rule
-  `money/<component id>`.
+  re-evaluating anything.
 - Only a `registered` registration composes; every other status owes zero
   (retention is an empty step until S23).
 - The money phase runs after the decisions phase, with the registration's
