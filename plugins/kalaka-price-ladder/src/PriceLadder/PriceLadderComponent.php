@@ -6,10 +6,15 @@ namespace Kalaka\PriceLadder;
 
 use Kalaka\Forms\Api\Value;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\PriceLadder\Api\PriceLadder;
 use Kalaka\PriceLadder\Api\Tier;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\PlainAmount;
+use Kalaka\Pricing\Api\ProposedComponentSettings;
 use Kalaka\Pricing\Api\ProvidesBase;
 
 /**
@@ -21,7 +26,7 @@ use Kalaka\Pricing\Api\ProvidesBase;
  * the proposed tiers in a preview. The ladder sets only the base price; who pays how much of it is decided by
  * the registrant's answers (the share extension, S29), never by the tier.
  */
-final class PriceLadderComponent implements ProvidesBase
+final class PriceLadderComponent implements ProvidesBase, ConfigurableFeeComponent
 {
     public const ID = 'price_ladder';
 
@@ -70,6 +75,34 @@ final class PriceLadderComponent implements ProvidesBase
         $computed = [self::APPLIED => Value::choice([$tier->key], $tier->label)];
 
         return new FeeTargets($tier->amount->isPositive() ? [Payer::PARTICIPANT => $tier->amount] : [], $computed);
+    }
+
+    public function settingsToArray(int $eventId): array
+    {
+        $tiers = [];
+        foreach ((new PriceLadder())->tiers($eventId) as $tier) {
+            $row = ['key' => $tier->key, 'label' => $tier->label, 'amount' => PlainAmount::of($tier->amount)];
+            if ($tier->condition !== null) {
+                $row['condition'] = $tier->condition;
+            }
+            if ($tier->until !== null) {
+                // The deadline is the end of its last day in the site time zone, as the input reads it.
+                $row['until'] = $tier->until->setTimezone(wp_timezone())->modify('-1 second')->format('Y-m-d');
+            }
+            $tiers[] = $row;
+        }
+
+        return ['tiers' => $tiers];
+    }
+
+    public function settingsFromArray(int $eventId, array $settings): ProposedComponentSettings
+    {
+        $tiers = $settings['tiers'] ?? null;
+        if (array_keys($settings) !== ['tiers'] || !is_array($tiers) || !array_is_list($tiers)) {
+            throw new InvalidInput();
+        }
+
+        return (new PriceLadder())->propose($eventId, $tiers);
     }
 
     /** The tier the registration chose in `price_tier`, or null: none chosen, or no such field yet. */

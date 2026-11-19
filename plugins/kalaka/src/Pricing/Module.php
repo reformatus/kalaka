@@ -6,6 +6,7 @@ namespace Kalaka\Pricing;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Schema;
+use Kalaka\Pricing\Cli\MoneySettingsCommand;
 
 final class Module extends AbstractModule
 {
@@ -41,5 +42,8 @@ SQL;
 
     public function boot(): void
     {
+        if (defined('WP_CLI') && WP_CLI) {
+            MoneySettingsCommand::register();
+        }
     }
 }
