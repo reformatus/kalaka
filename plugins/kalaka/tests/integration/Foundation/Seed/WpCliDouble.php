@@ -41,6 +41,15 @@ namespace {
                 self::$calls[] = ['warning', $message];
             }
 
+            /** @param array<string, mixed> $assocArgs */
+            public static function confirm(string $question, array $assocArgs = []): void
+            {
+                self::$calls[] = ['confirm', $question];
+                if (empty($assocArgs['yes'])) {
+                    throw new \RuntimeException('WP_CLI::confirm');
+                }
+            }
+
             public static function error(string $message, int $exitCode = 1): void
             {
                 self::$calls[] = ['error', [$message, $exitCode]];
