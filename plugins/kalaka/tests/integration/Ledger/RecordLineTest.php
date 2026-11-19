@@ -30,7 +30,7 @@ final class RecordLineTest extends LedgerTestCase
 
         $stored = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
             $this->lockRegistrations($context, $line->registration);
-            $stored = $this->ledger->record($line, $context);
+            $stored = $this->ledger->record($line, $context)->line;
             $touched = $context->touchedRegistrations();
 
             return $stored;
@@ -72,7 +72,9 @@ final class RecordLineTest extends LedgerTestCase
         $line = $this->line($registration, LineKind::Charge, '1000', 'k1');
 
         try {
-            $this->inRun(fn (array $input, Context $context): LedgerLine => $this->ledger->record($line, $context));
+            $this->inRun(
+                fn (array $input, Context $context): LedgerLine => $this->ledger->record($line, $context)->line
+            );
             self::fail('The run should have failed.');
         } catch (SystemFailure $caught) {
             self::assertSame(SystemFailure::class, $caught::class);
@@ -83,7 +85,7 @@ final class RecordLineTest extends LedgerTestCase
         $stored = $this->inRun(function (array $input, Context $context) use ($line): LedgerLine {
             $this->lockRegistrations($context, $line->registration);
 
-            return $this->ledger->record($line, $context);
+            return $this->ledger->record($line, $context)->line;
         });
 
         self::assertInstanceOf(LedgerLine::class, $stored);
@@ -159,7 +161,7 @@ final class RecordLineTest extends LedgerTestCase
         $touched = null;
         $second = $this->inRun(function (array $input, Context $context) use ($line, &$touched): LedgerLine {
             $this->lockRegistrations($context, $line->registration);
-            $stored = $this->ledger->record($line, $context);
+            $stored = $this->ledger->record($line, $context)->line;
             $touched = $context->touchedRegistrations();
 
             return $stored;

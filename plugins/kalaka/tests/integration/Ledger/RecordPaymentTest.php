@@ -183,6 +183,50 @@ final class RecordPaymentTest extends ManualEntryTestCase
         self::assertCount(1, $this->notes());
     }
 
+    /** C2-1: a replay writes no second audit change: only the line written now is one. */
+    public function testAReplayWritesOneAuditChange(): void
+    {
+        $first = $this->exec(new RecordPayment(), $this->paymentInput(['note' => 'ref 1']));
+        $replay = $this->exec(new RecordPayment(), $this->paymentInput(['note' => 'ref 1']));
+
+        self::assertSame($first, $replay);
+        self::assertCount(1, $this->lines());
+
+        $runs = 0;
+        $changes = 0;
+        foreach ($this->entries() as $entry) {
+            if ($entry['action'] !== 'kalaka/record-payment' || $entry['outcome'] !== 'succeeded') {
+                continue;
+            }
+            $runs++;
+            foreach ($this->decode($entry['changes']) as $item) {
+                // The use case's own change; the note's side record has its own masked ones.
+                if ($item['field'] === 'manual_payment') {
+                    $changes++;
+                }
+            }
+        }
+        self::assertSame(2, $runs);
+        self::assertSame(1, $changes);
+    }
+
+    /** B2: the payer is checked against the event's declared kinds; the participant is accepted. */
+    public function testAPayerNotDeclaredForTheEventIsRefusedAndTheParticipantIsAccepted(): void
+    {
+        $this->exec(new RecordPayment(), $this->paymentInput(['payer' => 'participant']));
+        self::assertCount(1, $this->lines());
+
+        try {
+            $this->exec(
+                new RecordPayment(),
+                $this->paymentInput(['payer' => 'congregation', 'idempotency_key' => 'k2'])
+            );
+            self::fail('An undeclared payer was accepted.');
+        } catch (InvalidInput) {
+            self::assertCount(1, $this->lines());
+        }
+    }
+
     /** @return array<string, array{array<string, mixed>}> */
     public static function differentInputs(): array
     {

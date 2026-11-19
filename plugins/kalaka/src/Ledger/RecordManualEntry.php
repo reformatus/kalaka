@@ -21,6 +21,7 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -123,7 +124,11 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
-        if ($this->payerKinds->label($payer) === null) {
+        $declared = array_map(
+            static fn (PayerKind $kind): string => $kind->id,
+            $this->payerKinds->of($event->id)
+        );
+        if (!in_array($payer, $declared, true)) {
             throw new InvalidInput();
         }
         $method = PaymentMethod::tryFrom((string) $input['method']) ?? throw new InvalidInput();
@@ -158,25 +163,28 @@ abstract class RecordManualEntry implements AdminUseCase
         if ($this->ledger->keyHoldsDifferentLine($line)) {
             throw new IdempotencyConflict();
         }
-        $stored = $this->ledger->record($line, $context);
+        $recorded = $this->ledger->record($line, $context);
 
         // What was recorded, and never the note: free text does not belong in an audit that outlives erasure.
-        $context->change(
-            Subject::registration($key),
-            $kind->value,
-            null,
-            [
-                'line' => $stored->id,
-                'payer' => $payer,
-                'amount' => $amount->amount(),
-                'currency' => $currency->value,
-                'method' => $method->value,
-                'value_date' => $valueDate,
-                'correction' => $correction,
-            ]
-        );
+        // A replay of the same line writes nothing, so only a line written now is a change.
+        if ($recorded->inserted) {
+            $context->change(
+                Subject::registration($key),
+                $kind->value,
+                null,
+                [
+                    'line' => $recorded->line->id,
+                    'payer' => $payer,
+                    'amount' => $amount->amount(),
+                    'currency' => $currency->value,
+                    'method' => $method->value,
+                    'value_date' => $valueDate,
+                    'correction' => $correction,
+                ]
+            );
+        }
 
-        return ['id' => $stored->id];
+        return ['id' => $recorded->line->id];
     }
 
     /** Who recorded it, as the line's source: the WordPress user, or the system for a run without one. */

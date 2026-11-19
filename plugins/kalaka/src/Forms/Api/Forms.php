@@ -70,11 +70,11 @@ final class Forms
      */
     public function contactKeys(int $formId, int $version): array
     {
-        $form = $this->form($formId);
-        if ($form === null) {
-            return ['email' => null, 'name' => null];
-        }
         try {
+            $form = $this->form($formId);
+            if ($form === null) {
+                return ['email' => null, 'name' => null];
+            }
             $definition = $this->definition($form, $version);
         } catch (SystemFailure) {
             return ['email' => null, 'name' => null];
