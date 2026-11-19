@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
+use Kalaka\Pricing\FixedPrice;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -47,11 +48,12 @@ final class MoneySettings
      *
      * @return list<PreviewRow>
      * @throws NotFound when there is no such event
-     * @throws InvalidInput when a proposed setting is one the apply would refuse (a negative price)
+     * @throws InvalidInput when a proposed setting is one the apply would refuse (a negative price, a
+     *                       component ID that repeats another's or that no registered component has)
      */
     public function preview(int $eventId, ProposedMoneySettings $proposed): array
     {
-        self::check($proposed);
+        $this->check($proposed);
         $event = $this->events->find($eventId) ?? throw new NotFound();
         $now = $this->runner()->clock()->now();
         $current = $this->components->list();
@@ -89,7 +91,7 @@ final class MoneySettings
      */
     public function apply(int $eventId, ProposedMoneySettings $proposed, Actor $actor): ApplyReport
     {
-        self::check($proposed);
+        $this->check($proposed);
         if ($proposed->fixedPrice !== null) {
             $this->runner()->run(
                 new SetFixedPrice(),
@@ -130,11 +132,28 @@ final class MoneySettings
         return new ApplyItem($key);
     }
 
-    /** @throws InvalidInput on a negative proposed price, so the preview never shows what the apply refuses */
-    private static function check(ProposedMoneySettings $proposed): void
+    /**
+     * @throws InvalidInput on a negative proposed price, a component ID that repeats another's, or one no
+     *                       registered component has, so the preview never shows what the apply refuses
+     */
+    private function check(ProposedMoneySettings $proposed): void
     {
         if ($proposed->fixedPrice !== null && $proposed->fixedPrice->isNegative()) {
             throw new InvalidInput();
+        }
+
+        $registered = [];
+        foreach ($this->components->list() as $component) {
+            $registered[$component->id()] = true;
+        }
+        unset($registered[FixedPrice::ID]);
+        $seen = [];
+        foreach ($proposed->components as $settings) {
+            $id = $settings->componentId();
+            if (isset($seen[$id]) || !isset($registered[$id])) {
+                throw new InvalidInput();
+            }
+            $seen[$id] = true;
         }
     }
 
