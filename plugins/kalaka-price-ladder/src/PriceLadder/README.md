@@ -7,9 +7,11 @@ fee component `price_ladder` that charges the applying tier at the tier stage.
 Table, created by the schema in `Module.php`: `kalaka_price_ladder_tiers`; only `TierRepository` writes it.
 
 At the module root: `PriceLadderComponent` (the fee component, contributed in `Module::contribute()`),
-`TierSelection` (which tier applies: the first open at `registered_at` whose condition holds), `TierRecord` and
-`TierRepository`, `LadderInput` (reads a ladder as sent, for the preview and the save) and the admin use case
-`SetPriceLadder` (`kalaka/set-price-ladder`; full access only).
+`TierSelection` (which tier applies: the chosen one in `price_tier` when it is open at `registered_at` and its
+condition holds, else the first such tier when none is chosen; otherwise it refuses, with the texts it holds),
+`TierRecord` and `TierRepository`, `LadderInput` (reads a ladder as sent, for the preview and the save) and the
+admin use case `SetPriceLadder` (`kalaka/set-price-ladder`; full access only), which also declares the participant
+field `price_tier` (a choice of the tiers) through the ParticipantFields Api.
 
 `Api/` holds `PriceLadder` (`tiers()`, and `propose()`, which gives a `ProposedLadder` for
 `Pricing\Api\MoneySettings::preview()` and `apply()`) and `Tier`.

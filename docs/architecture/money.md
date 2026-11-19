@@ -46,12 +46,19 @@ title: Money
   share never cover either.
 - **The price ladder** is a fee component at the tier stage. Each tier has
   an amount, an availability condition over the registration's facts and an
-  optional deadline, its last day. The tier that applies is the first, in
-  the ladder's order, whose deadline the registration's `registered_at`
-  falls within and whose condition holds; the registrant reaches it through
-  ordinary answers such as the support level. The ladder sets only the base
-  price. The event's fixed price is the base only without a ladder, whatever
-  the ladder owes a registration.
+  optional deadline, its last day. A tier is available when the
+  registration's `registered_at` falls within its deadline and its
+  condition holds. The ladder declares the participant field `price_tier`,
+  a choice of its tiers that forms join; the tier chosen there applies when
+  it is available and is never swapped for another. Without a chosen tier (a
+  form that does not hold the field), the first available tier in the
+  ladder's order applies. A chosen tier that is not available, or no
+  available tier at all, is never a base of zero: the use case is refused,
+  saying why. Staff set a tier that applies before an admission or a
+  restore, a registrant's own submit is refused, and the periodic run flags
+  the registration "evaluation failed" ([Foundation](foundation.md#failures)).
+  The ladder sets only the base price. The event's fixed price is the base
+  only without a ladder, whatever the ladder owes a registration.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
@@ -330,7 +337,9 @@ flowchart LR
   support → share → aid → extras. A fee component declares which stage it
   belongs to, and core composes the stages in order; there are no order
   numbers. Aid comes out of the participant's part only and never reduces
-  the congregation's share.
+  the congregation's share. A component may put computed values, never
+  stored, into the facts the later stages read, such as the price ladder's
+  applied tier, `price_tier.applied`.
 - **It converges:** it writes only the difference between target and
   recorded, per component, item and payer, so it can run any number of times, with
   line idempotency keys.

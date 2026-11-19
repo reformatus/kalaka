@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Pricing;
 
+use Kalaka\Forms\Api\Value;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Payer;
@@ -63,6 +64,8 @@ final class FeeComposer
         $before = new StageTotals($currency);
         foreach (FeeStage::cases() as $stage) {
             $stageOwed = [];
+            // A stage's computed values reach the later stages only, like its totals. [UNAPPROVED, #200 N12]
+            $stageComputed = [];
             foreach ($components as $component) {
                 if ($component->stage() !== $stage) {
                     continue;
@@ -86,16 +89,48 @@ final class FeeComposer
                 foreach ($owed['owed'] as $payer => $amount) {
                     $stageOwed[$payer] = isset($stageOwed[$payer]) ? $stageOwed[$payer]->plus($amount) : $amount;
                 }
+                $stageComputed = $this->withComputed($component, $stageComputed, $owed['computed'], $facts);
             }
             $before = $before->with($stage, $stageOwed);
+            if ($stageComputed !== []) {
+                $facts = $facts->withComputed($stageComputed);
+            }
         }
 
         return $composed;
     }
 
     /**
-     * @return array{owed: array<string, Money>, items: ?array<string, array<string, Money>>} what each payer
-     *     owes for the component in all, and per item when the component owes per item
+     * The stage's computed values with a component's added: each a dotted key no other value of the facts, nor
+     * of the stage, has yet.
+     *
+     * @param array<string, Value> $stage
+     * @param array<array-key, mixed> $computed
+     * @return array<string, Value>
+     * @throws FeeComponentFailed on a malformed value or a key that is taken
+     */
+    private function withComputed(
+        FeeComponent $component,
+        array $stage,
+        array $computed,
+        RegistrationFacts $facts,
+    ): array {
+        foreach ($computed as $key => $value) {
+            $key = (string) $key;
+            if (!$value instanceof Value || !str_contains($key, '.') || $facts->has($key) || isset($stage[$key])) {
+                $error = new FeeComponentFailed($component->id());
+                throw $error;
+            }
+            $stage[$key] = $value;
+        }
+
+        return $stage;
+    }
+
+    /**
+     * @return array{owed: array<string, Money>, items: ?array<string, array<string, Money>>,
+     *     computed: array<array-key, mixed>} what each payer owes for the component in all, and per item when
+     *     the component owes per item, and the computed values it returned
      */
     private function owedBy(FeeComponent $component, FeeComponentInput $input, Currency $currency): array
     {
@@ -113,7 +148,11 @@ final class FeeComposer
             throw $error;
         }
         if ($targets->items === []) {
-            return ['owed' => $this->checked($component, $targets->owed, $currency), 'items' => null];
+            return [
+                'owed' => $this->checked($component, $targets->owed, $currency),
+                'items' => null,
+                'computed' => $targets->computed,
+            ];
         }
         $items = [];
         $owed = [];
@@ -133,7 +172,7 @@ final class FeeComposer
             }
         }
 
-        return ['owed' => $owed, 'items' => $items];
+        return ['owed' => $owed, 'items' => $items, 'computed' => $targets->computed];
     }
 
     /**
