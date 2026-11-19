@@ -49,8 +49,10 @@ final class Forms
      *
      * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
      * scan) with an account step (the event's current account mode) must also hold the account block
-     * (`account_block_missing`). A stored submission's definition (a mail's recipient and context) is read
-     * without that check, so a mode change never costs an existing registration its mail.
+     * (`account_block_missing`), and every field an extension requires of the event's registration form
+     * (`required_field_missing`: an event with a price ladder needs `price_tier`). A stored submission's
+     * definition (a mail's recipient and context) is read without those checks, so a mode or ladder change never
+     * costs an existing registration its mail.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */

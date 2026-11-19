@@ -12,15 +12,14 @@ answers (the share extension, S29), never by a tier.
 
 - money.md: the price ladder of [Core money scope](../../../../docs/architecture/money.md#core-money-scope),
   [Money settings apply](../../../../docs/architecture/money.md#money-settings-apply)
-  (no tariff snapshot; deadlines count from `registered_at`),
+  (no tariff snapshot),
   the tier stage of [Materializer](../../../../docs/architecture/money.md#materializer).
-- events-and-forms.md: [Conditions](../../../../docs/architecture/events-and-forms.md#conditions)
-  (a tier's availability is one condition over the registration's facts),
-  [Fields](../../../../docs/architecture/events-and-forms.md#fields) (the
+- events-and-forms.md: [Forms and the registration slot](../../../../docs/architecture/events-and-forms.md#forms-and-the-registration-slot)
+  (the required `price_tier`), [Fields](../../../../docs/architecture/events-and-forms.md#fields) (the
   declared `extension` field `price_tier`).
 - modules-and-extensions.md:
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface)
-  (the fee component), [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
+  (the fee component and the slot requirement), [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership).
 
 ## Invariants
@@ -30,15 +29,19 @@ answers (the share extension, S29), never by a tier.
 - Its fee component `price_ladder` composes at the tier stage, returns a
   value and writes nothing. It reads the ladder as it is now: there is no
   tariff snapshot.
-- A tier is available when its deadline lets in the registration's
-  `registered_at` and its condition holds over its facts, through
-  `Forms\Api\Availability`; the module never evaluates a condition itself.
-  No time-dependent rule reads "now" or the submit time.
-- The tier chosen in `price_tier` applies when it is available and is never
-  swapped for another; without a chosen tier, the first available one in
-  ladder order applies. A chosen tier that is not available, or no available
-  tier, refuses (`Pricing\Api\FeeRefusal`, with the texts in
-  `TierSelection`): a base of zero never passes silently.
+- A tier is a key, a label, an amount and an order: no condition and no
+  deadline (the owner's ruling 2026-11-19). It is chosen only through the
+  declared field `price_tier`; date and congregation guards are the form
+  author's own conditions on the field's options.
+- The tier chosen in `price_tier` applies, at its current amount, and is
+  never swapped for another; a later change of any other answer never
+  re-checks it, and a waitlist admission keeps the choice. A chosen tier no
+  longer in the ladder, or no `price_tier` answer, refuses
+  (`Pricing\Api\FeeRefusal`, with the staff texts in `TierSelection`, none
+  for the registrant): a base of zero never passes silently.
+- An event with tiers requires `price_tier` in its registration form
+  (`LadderSlotRequirement`, a `Forms\Api\SlotRequirement`); Forms closes a
+  form without it. No fallback: a registration without an answer refuses.
 - The ladder declares `price_tier` (source `extension`, form-writable, a
   choice of the tiers: key as value, label as label) in every save, through
   `ParticipantFields\Api\ParticipantFields::declareExtensionField()`; a
@@ -51,14 +54,12 @@ answers (the share extension, S29), never by a tier.
   for the base.
 - A tier carries no share mode, and the ladder's charge is the participant's
   whole tier amount: the base price only.
-- A deadline is stored as the instant its last day ends in the site time
-  zone, fixed when it is saved; the component compares instants only.
 - The ladder changes only through `kalaka/set-price-ladder`, the save step of
   a money settings apply (`Api\PriceLadder::propose()` with
-  `Pricing\Api\MoneySettings`): preview, then apply. A condition is checked
-  against the keys a registration's facts declare before it is saved.
+  `Pricing\Api\MoneySettings`): preview, then apply. A key given twice is refused
+  before anything is saved.
 - Only this module writes `kalaka_price_ladder_tiers`; `TierRepository` is
   its only writer.
 - No UI. Its Hungarian texts are the plugin name, the title of `price_tier`
-  (`PriceLadderComponent::FIELD_TITLE`) and the three refusals
+  (`PriceLadderComponent::FIELD_TITLE`) and the two staff refusals
   (`TierSelection`); tier labels are the organizers' own settings.

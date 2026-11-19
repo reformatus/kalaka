@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\PriceLadder;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Evaluation\EvaluationFailureRepository;
 use Kalaka\Ledger\Api\Payer;
@@ -28,59 +29,79 @@ use Kalaka\Tests\Integration\Foundation\PortalProbe;
 use Kalaka\Tests\Integration\Pricing\ClosureComponent;
 
 /**
- * S25: the tier a registration chooses in `price_tier` or its answers reach, its deadline at `registered_at`, the
- * refusals when no chosen or available tier applies, and the ladder's apply.
+ * S25: the tier a registration chooses in `price_tier` (a tier has no condition and no deadline), the refusals
+ * when the chosen tier is gone or there is no answer, a later admission and the ladder's apply.
  */
 final class PriceLadderTest extends PriceLadderTestCase
 {
-    public function testWithoutAChosenTierEachRegistrationPaysTheFirstTierWhoseConditionHolds(): void
+    public function testEachRegistrationPaysTheTierItChose(): void
     {
         $this->applyLadder(self::ivkTiers());
 
-        $expected = [
-            '00A0' => ['nincs', 'alap', '49500'],
-            '00A2' => ['nincs', 'emelt', '69500'],
-            '00A5' => ['megosztott', null, '44500'],
-            '00A8' => ['teljes', 'alap', '34500'],
-            '01A1' => ['teljes', 'emelt', '49500'],
-        ];
-        foreach ($expected as $code => [$level, $price, $amount]) {
-            $key = $this->registerAnswering($code, $level, $price);
+        $expected = ['00A0' => ['alap', '49500'], '00A2' => ['teljes', '69500'], '00A5' => ['gy_megosztott', '44500'],
+            '00A8' => ['gy', '34500'], '01A1' => ['gy_alap', '49500']];
+        foreach ($expected as $code => [$tier, $amount]) {
+            // The answers that once chose a tier by condition decide nothing now.
+            $key = $this->registerAnswering($code, 'nincs', 'emelt', chosen: $tier);
             self::assertSame([self::line($amount)], $this->charges($key));
         }
     }
 
-    public function testARegistrationWrittenWithItsAnswersInOneRunPaysItsTierInThatRun(): void
+    public function testATierHasNoConditionAndNoDeadlineAndNoShare(): void
+    {
+        self::assertSame(
+            ['key', 'label', 'amount'],
+            array_map(
+                static fn (\ReflectionProperty $p): string => $p->getName(),
+                (new \ReflectionClass(Tier::class))->getProperties()
+            )
+        );
+        foreach (['condition', 'until'] as $sent) {
+            $tier = self::tier('alap', 'Alap ár', '49500') + [$sent => null];
+            try {
+                $this->ladder->propose($this->event, [$tier]);
+                self::fail('A tier with a ' . $sent . ' was accepted.');
+            } catch (InvalidInput) {
+                self::assertSame([], $this->ladder->tiers($this->event));
+            }
+        }
+    }
+
+    public function testARegistrationWrittenWithItsAnswerInOneRunPaysItsTierInThatRun(): void
     {
         $this->applyLadder(self::ivkTiers());
         $key = new RegistrationKey($this->event, '00A0');
 
         $this->inRun(function (array $input, Context $context) use ($key): void {
             $this->insertRegistration($this->newRegistration($this->event, '00A0'), $context);
-            $this->values->upsert(new FieldValue($key, 'tamogatas', 'megosztott'), $context);
+            $this->values->upsert(new FieldValue($key, PriceLadderComponent::FIELD, 'gy_megosztott'), $context);
         });
 
         self::assertSame([self::line('44500')], $this->charges($key));
     }
 
-    public function testAChangedAnswerMovesTheRegistrationToAnotherTierAtItsNextEvaluation(): void
+    public function testALaterAnswerChangeNeverReChecksTheTier(): void
     {
         $this->applyLadder(self::ivkTiers());
-        $anna = $this->registerAnswering('00A0', 'nincs', 'alap');
+        $anna = $this->registerAnswering('00A0', 'nincs', 'alap', chosen: 'gy');
 
+        $this->writeValue($anna, 'tamogatas', 'teljes');
         $this->writeValue($anna, 'ar', 'emelt');
 
-        self::assertSame([self::line('49500'), self::line('20000', 2)], $this->charges($anna));
-        self::assertSame('69500', $this->balance($anna));
+        self::assertSame([self::line('34500')], $this->charges($anna));
+        self::assertNull((new EvaluationFailureRepository())->find($anna));
+        // Only a change of the tier answer itself moves the registration to another tier.
+        $this->writeValue($anna, PriceLadderComponent::FIELD, 'teljes');
+        self::assertSame([self::line('34500'), self::line('35000', 2)], $this->charges($anna));
     }
 
-    public function testWithALadderNoApplyingTierIsRefusedNeverAZeroBaseNorTheFixedPrice(): void
+    public function testWithoutATierAnswerTheAdmissionIsRefusedNeverAZeroBaseNorTheFixedPrice(): void
     {
         $this->applyLadder(self::ivkTiers());
         $this->setPrice('40000');
 
         try {
-            $this->registerAnswering('00A0', null, null);
+            $this->registerChoosing('00A0', null);
             self::fail('The admission went through.');
         } catch (FeeRefused $refused) {
             self::assertSame(TierSelection::ADMIN_NONE_TEXT, $refused->publicMessage());
@@ -90,8 +111,60 @@ final class PriceLadderTest extends PriceLadderTestCase
         self::assertSame(RegistrationStatus::Waitlisted, $this->registrations->find($bela)?->status);
         self::assertSame([], $this->charges($bela));
 
-        $anna = $this->registerAnswering('00A2', 'nincs', 'alap');
+        $anna = $this->registerChoosing('00A2', 'alap');
         self::assertSame([self::line('49500')], $this->charges($anna));
+    }
+
+    public function testAnAnswerLostAfterAStaffWriteIsRefusedAndAChosenTierGoneFromTheLadderIsRefused(): void
+    {
+        $this->applyLadder(self::ivkTiers());
+        $anna = $this->registerChoosing('00A0', 'gy');
+
+        try {
+            $this->deleteValue($anna, PriceLadderComponent::FIELD);
+            self::fail('The staff write went through.');
+        } catch (FeeRefused $refused) {
+            self::assertSame(TierSelection::ADMIN_NONE_TEXT, $refused->publicMessage());
+        }
+        self::assertSame([self::line('34500')], $this->charges($anna));
+
+        $csaba = $this->register('00A2', RegistrationStatus::Waitlisted, '2026-12-01 10:00:00');
+        $this->writeValue($csaba, PriceLadderComponent::FIELD, 'korai');
+        try {
+            $this->setStatus($csaba, RegistrationStatus::Registered, '2026-12-02 10:00:00');
+            self::fail('The admission went through.');
+        } catch (FeeRefused $refused) {
+            self::assertSame(TierSelection::ADMIN_CHOSEN_TEXT, $refused->publicMessage());
+        }
+        self::assertSame([], $this->charges($csaba));
+    }
+
+    public function testTheRegistrantsOwnRefusalIsTheGenericFailureNotAText(): void
+    {
+        $this->applyLadder(self::ivkTiers());
+        $anna = $this->registerChoosing('00A0', 'gy');
+
+        try {
+            $this->runner->run(
+                new PortalProbe([$anna], function (array $input, Context $context) use ($anna): void {
+                    $this->lockRegistrations($context, $anna);
+                    $stored = $this->values->findForUpdate(
+                        ['eventId' => $anna->eventId, 'code' => $anna->code, 'fieldKey' => PriceLadderComponent::FIELD],
+                        $context
+                    );
+                    self::assertNotNull($stored);
+                    $stored->value = 'nincs_ilyen';
+                    $this->values->upsert($stored, $context);
+                }),
+                [],
+                new SecretLinkActor($anna)
+            );
+            self::fail('The registrant\'s write went through.');
+        } catch (FeeRefused $refused) {
+            self::fail('A ladder text reached the registrant: ' . $refused->publicMessage());
+        } catch (SystemFailure) {
+            self::assertSame([self::line('34500')], $this->charges($anna));
+        }
     }
 
     public function testWithoutALadderTheFixedPriceIsTheBase(): void
@@ -106,64 +179,34 @@ final class PriceLadderTest extends PriceLadderTestCase
     {
         $this->setPrice('40000');
         $this->applyLadder([self::tier('ingyenes', 'Ingyenes', '0')]);
-        $bela = $this->registerAnswering('00A0', null, null);
+        $bela = $this->registerChoosing('00A0', 'ingyenes');
 
         self::assertSame([], $this->charges($bela));
     }
 
-    public function testNoTierCarriesAShareTheLadderChargesTheBasePriceOnly(): void
+    public function testAWaitlistAdmissionKeepsTheChoiceAndChargesTheTiersCurrentAmount(): void
     {
         $this->applyLadder(self::ivkTiers());
-        $anna = $this->registerAnswering('00A8', 'teljes', 'alap');
-
-        self::assertSame([self::line('34500')], $this->charges($anna));
-        self::assertSame(
-            ['key', 'label', 'amount', 'condition', 'until'],
-            array_map(
-                static fn (\ReflectionProperty $p): string => $p->getName(),
-                (new \ReflectionClass(Tier::class))->getProperties()
-            )
-        );
-    }
-
-    public function testAnEarlyTierCountsFromRegisteredAtNeverFromNow(): void
-    {
-        $this->applyLadder([
-            self::tier('korai', 'Korai alap ár', '44000', ['tamogatas' => 'nincs'], '2026-12-15'),
-            self::tier('alap', 'Alap ár', '49500', ['tamogatas' => 'nincs']),
-        ]);
-        // 23:30 on 15 December in Budapest is still the early tier's last day; 00:30 on the 16th is not.
-        $early = $this->registerAnswering('00A0', 'nincs', null, '2026-12-15 22:30:00');
-        $late = $this->registerAnswering('00A2', 'nincs', null, '2026-12-15 23:30:00');
-        self::assertSame([self::line('44000')], $this->charges($early));
-        self::assertSame([self::line('49500')], $this->charges($late));
-
-        $this->now = '2027-01-10 08:00:00';
-        $this->useComponents();
-        $this->inRun(static fn (array $input, Context $context) => $context->markTouched($early));
-
-        self::assertSame([self::line('44000')], $this->charges($early));
-    }
-
-    public function testWithoutAChosenTierAWaitlistAdmissionAfterTheDeadlinePaysTodaysFirstTier(): void
-    {
-        $this->applyLadder([
-            self::tier('korai', 'Korai alap ár', '44000', [], '2026-12-15'),
-            self::tier('alap', 'Alap ár', '49500'),
-        ]);
         $csaba = $this->register('00A0', RegistrationStatus::Waitlisted, '2026-12-01 10:00:00');
+        $this->writeValue($csaba, PriceLadderComponent::FIELD, 'gy');
         self::assertSame([], $this->charges($csaba));
 
-        $this->setStatus($csaba, RegistrationStatus::Registered, '2026-12-20 10:00:00');
+        $raised = self::ivkTiers();
+        $raised[3]['amount'] = '38000';
+        $this->applyLadder($raised);
+        $this->setStatus($csaba, RegistrationStatus::Registered, '2027-01-20 10:00:00');
 
-        self::assertSame([self::line('49500')], $this->charges($csaba));
+        self::assertSame([self::line('38000')], $this->charges($csaba));
+        self::assertSame('gy', $this->values->find(
+            ['eventId' => $this->event, 'code' => '00A0', 'fieldKey' => PriceLadderComponent::FIELD]
+        )?->value);
     }
 
     public function testThePreviewShowsOldAndNewAmountsAndWritesNothingThenTheApplySavesAndConverges(): void
     {
         $this->applyLadder(self::ivkTiers());
-        $anna = $this->registerAnswering('00A0', 'nincs', 'alap');
-        $dora = $this->registerAnswering('00A2', 'teljes', 'alap');
+        $anna = $this->registerChoosing('00A0', 'alap');
+        $dora = $this->registerChoosing('00A2', 'gy');
         $lines = $this->lineCount();
         $raised = self::ivkTiers();
         $raised[0]['amount'] = '52000';
@@ -208,22 +251,34 @@ final class PriceLadderTest extends PriceLadderTestCase
         self::assertSame([], $this->ladder->tiers($this->event));
     }
 
-    public function testAConditionOnAnUndeclaredKeyOrATierKeyGivenTwiceIsRefusedBeforeAnythingIsSaved(): void
+    public function testATierKeyGivenTwiceIsRefusedBeforeAnythingIsSaved(): void
     {
-        foreach (
-            [
-                [self::tier('alap', 'Alap ár', '49500', ['nincs_ilyen' => 'x'])],
-                [self::tier('alap', 'Alap ár', '49500'), self::tier('alap', 'Másik', '1')],
-                [self::tier('alap', 'Alap ár', '49500', [], '2026-02-30')],
-            ] as $tiers
-        ) {
-            try {
-                $this->ladder->propose($this->event, $tiers);
-                self::fail('The ladder was accepted.');
-            } catch (InvalidInput) {
-                self::assertSame([], $this->ladder->tiers($this->event));
-            }
+        try {
+            $twice = [self::tier('alap', 'Alap ár', '49500'), self::tier('alap', 'Másik', '1')];
+            $this->ladder->propose($this->event, $twice);
+            self::fail('The ladder was accepted.');
+        } catch (InvalidInput) {
+            self::assertSame([], $this->ladder->tiers($this->event));
         }
+    }
+
+    public function testALadderChangeThatDropsAChosenTierFlagsTheRegistrationUntilStaffFixIt(): void
+    {
+        $this->applyLadder(self::ivkTiers());
+        $anna = $this->registerChoosing('00A0', 'gy');
+
+        $only = $this->ladder->propose($this->event, [self::ivkTiers()[0]]);
+        $proposed = new ProposedMoneySettings(components: [$only]);
+        $report = $this->settings->apply($this->event, $proposed, new CliActor(null));
+
+        self::assertCount(1, $report->failed());
+        self::assertSame('money/price_ladder', (new EvaluationFailureRepository())->find($anna)?->rule);
+        self::assertSame([self::line('34500')], $this->charges($anna));
+
+        $this->writeValue($anna, PriceLadderComponent::FIELD, 'alap');
+
+        self::assertNull((new EvaluationFailureRepository())->find($anna));
+        self::assertSame([self::line('34500'), self::line('15000', 2)], $this->charges($anna));
     }
 
     public function testTheLadderDeclaresPriceTierWithItsTiersAsOptionsAndRedeclaresItOnEverySave(): void
@@ -277,99 +332,6 @@ final class PriceLadderTest extends PriceLadderTestCase
         );
     }
 
-    public function testTheChosenTierAppliesWhenItIsAvailableEvenAfterAnEarlierAvailableOne(): void
-    {
-        $this->applyLadder(self::everyoneTiers());
-        $key = $this->registerChoosing('00A0', 'gy');
-
-        self::assertSame([self::line('34500')], $this->charges($key));
-    }
-
-    public function testAnAdmissionAfterTheChosenTiersDeadlineIsRefusedUntilStaffSetATierThatApplies(): void
-    {
-        $this->applyLadder([
-            self::tier('korai', 'Korai ár', '44000', [], '2026-12-15'),
-            self::tier('alap', 'Alap ár', '49500'),
-        ]);
-        $csaba = $this->register('00A0', RegistrationStatus::Waitlisted, '2026-12-01 10:00:00');
-        $this->writeValue($csaba, PriceLadderComponent::FIELD, 'korai');
-
-        try {
-            $this->setStatus($csaba, RegistrationStatus::Registered, '2026-12-20 10:00:00');
-            self::fail('The admission went through.');
-        } catch (FeeRefused $refused) {
-            self::assertSame(TierSelection::ADMIN_CHOSEN_TEXT, $refused->publicMessage());
-        }
-        self::assertSame(RegistrationStatus::Waitlisted, $this->registrations->find($csaba)?->status);
-        self::assertSame([], $this->charges($csaba));
-
-        // No fallback: staff set a tier that applies, then the admission goes through.
-        $this->writeValue($csaba, PriceLadderComponent::FIELD, 'alap');
-        $this->setStatus($csaba, RegistrationStatus::Registered, '2026-12-20 10:00:00');
-
-        self::assertSame([self::line('49500')], $this->charges($csaba));
-    }
-
-    public function testAnAnswerThatBreaksTheChosenTierIsRefusedForStaffAndForTheRegistrant(): void
-    {
-        $this->applyLadder([
-            self::tier('alap', 'Alap ár', '49500'),
-            self::tier('gy', 'Gyülekezeti ár', '34500', ['tamogatas' => 'teljes']),
-        ]);
-        $anna = $this->registerAnswering('00A0', 'teljes', null, chosen: 'gy');
-
-        try {
-            $this->writeValue($anna, 'tamogatas', 'nincs');
-            self::fail('The staff write went through.');
-        } catch (FeeRefused $refused) {
-            self::assertSame(TierSelection::ADMIN_CHOSEN_TEXT, $refused->publicMessage());
-        }
-
-        try {
-            $this->runner->run(
-                new PortalProbe([$anna], function (array $input, Context $context) use ($anna): void {
-                    $this->lockRegistrations($context, $anna);
-                    $stored = $this->values->findForUpdate(
-                        ['eventId' => $anna->eventId, 'code' => $anna->code, 'fieldKey' => 'tamogatas'],
-                        $context
-                    );
-                    self::assertNotNull($stored);
-                    $stored->value = 'nincs';
-                    $this->values->upsert($stored, $context);
-                }),
-                [],
-                new SecretLinkActor($anna)
-            );
-            self::fail('The registrant\'s write went through.');
-        } catch (FeeRefused $refused) {
-            self::assertSame(TierSelection::PORTAL_TEXT, $refused->publicMessage());
-        }
-
-        self::assertSame([self::line('34500')], $this->charges($anna));
-        $level = $this->values->find(['eventId' => $this->event, 'code' => '00A0', 'fieldKey' => 'tamogatas']);
-        self::assertSame('teljes', $level?->value);
-    }
-
-    public function testALadderChangeThatBreaksAChosenTierFlagsTheRegistrationUntilStaffFixIt(): void
-    {
-        $this->applyLadder(self::everyoneTiers());
-        $anna = $this->registerChoosing('00A0', 'gy');
-
-        $proposed = new ProposedMoneySettings(
-            components: [$this->ladder->propose($this->event, [self::everyoneTiers()[0]])]
-        );
-        $report = $this->settings->apply($this->event, $proposed, new CliActor(null));
-
-        self::assertCount(1, $report->failed());
-        self::assertSame('money/price_ladder', (new EvaluationFailureRepository())->find($anna)?->rule);
-        self::assertSame([self::line('34500')], $this->charges($anna));
-
-        $this->writeValue($anna, PriceLadderComponent::FIELD, 'alap');
-
-        self::assertNull((new EvaluationFailureRepository())->find($anna));
-        self::assertSame([self::line('34500'), self::line('15000', 2)], $this->charges($anna));
-    }
-
     public function testTheAppliedTierIsAComputedValueForTheLaterStages(): void
     {
         $seen = [];
@@ -383,18 +345,25 @@ final class PriceLadderTest extends PriceLadderTestCase
                 return FeeTargets::none();
             }
         ));
-        $this->applyLadder(self::everyoneTiers());
+        $this->applyLadder(self::ivkTiers());
 
         $this->registerChoosing('00A0', 'gy');
-        $this->registerAnswering('00A2', null, null);
+        $this->registerChoosing('00A2', 'alap');
 
         self::assertSame([[['gy'], 'Gyülekezeti ár'], [['alap'], 'Alap ár']], $seen);
     }
 
-    /** Two tiers for everyone: without a choice the first applies. @return list<array<string, mixed>> */
-    private static function everyoneTiers(): array
+    private function deleteValue(RegistrationKey $key, string $fieldKey): void
     {
-        return [self::tier('alap', 'Alap ár', '49500'), self::tier('gy', 'Gyülekezeti ár', '34500')];
+        $this->inRun(function (array $input, Context $context) use ($key, $fieldKey): void {
+            $this->lockRegistrations($context, $key);
+            $locked = $this->values->findForUpdate(
+                ['eventId' => $key->eventId, 'code' => $key->code, 'fieldKey' => $fieldKey],
+                $context
+            );
+            self::assertNotNull($locked);
+            $this->values->delete($locked, $context);
+        });
     }
 
     private function priceTier(): ParticipantField
@@ -407,9 +376,12 @@ final class PriceLadderTest extends PriceLadderTestCase
         self::fail('The ladder declared no price_tier.');
     }
 
-    private function registerChoosing(string $code, string $tier): RegistrationKey
-    {
-        return $this->registerAnswering($code, null, null, chosen: $tier);
+    private function registerChoosing(
+        string $code,
+        ?string $tier,
+        string $registeredAt = '2026-11-30 08:00:00',
+    ): RegistrationKey {
+        return $this->registerAnswering($code, null, null, $registeredAt, $tier);
     }
 
     private function registerAnswering(

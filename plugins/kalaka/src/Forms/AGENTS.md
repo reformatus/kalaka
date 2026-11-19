@@ -142,7 +142,12 @@ values and conditions, prefill and form links
   names another module's post type; that module contributes the host. The
   condition blocks are not gated: every block editor offers them.
 - Every form in the registration slot has exactly one contact email and one
-  display name; additional forms have neither.
+  display name; additional forms have neither. A registration form also holds every participant field an
+  extension requires of its event (`Api\SlotRequirement`, asked through `FormHost::slotRequiredKeys()`: the
+  price ladder's `price_tier`), required and outside any branch or conditional page
+  (`SlotRules::requiredFieldProblem()`, `required_field_missing`). Like the account block it is event-dependent, so
+  it is checked when a form is served (`FormEngine::definition()` with `$serving`) and when it is saved live
+  (`DefinitionCheck`), never on an earlier version.
 - Access checks are pure: they read no current user, cookie or request; the
   caller passes the roles, whether the password was given and whether someone
   is logged in. The engine's `FormHost::refusals()` contract leaves the last
@@ -170,7 +175,7 @@ values and conditions, prefill and form links
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
-  branches, pages, choice options, set options, tiers, offers, aid) is
+  branches, pages, choice options, set options, offers, aid) is
   decided by one condition through `Engine\Condition\ConditionEvaluator`, reached
   through `FormWalk` (a form, a request field's set options included) or
   `Api\Availability` (anything another module owns). No second evaluator anywhere, and JavaScript never evaluates a
