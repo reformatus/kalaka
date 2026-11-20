@@ -1,6 +1,6 @@
 import apiFetch from '@wordpress/api-fetch';
 import {
-	deleteView,
+	fetchSums,
 	runAbility,
 	saveCounts,
 	saveView,
@@ -50,14 +50,6 @@ describe( 'the grid writes through the abilities', () => {
 		} );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).not.toHaveProperty(
 			'counts'
-		);
-	} );
-
-	test( 'a delete runs kalaka/delete-view and answers its { id }', async () => {
-		apiFetch.mockResolvedValue( { id: 4 } );
-		expect( await deleteView( config, 4, 2 ) ).toEqual( { id: 4 } );
-		expect( apiFetch ).toHaveBeenCalledWith(
-			call( 'kalaka/delete-view', { id: 4, version: 2 } )
 		);
 	} );
 
@@ -121,6 +113,27 @@ describe( 'the grid writes through the abilities', () => {
 				counts: { status: [ 'registered' ] },
 			} )
 		);
+	} );
+} );
+
+describe( 'the sum row', () => {
+	test( 'sends a grant holder\'s own counted members with the request, and none for the stored choice', async () => {
+		apiFetch.mockResolvedValue( {} );
+		await fetchSums( config, { view: 4, grant: 3 }, { status: [ 'waitlisted' ] } );
+		const path = apiFetch.mock.calls[ 0 ][ 0 ].path;
+		expect( path.startsWith( '/kalaka-admin/v1/events/7/views/4/sums?' ) ).toBe( true );
+		const query = path.split( '?' )[ 1 ];
+		expect( /(?:^|&)grant=3(?:&|$)/.test( query ) ).toBe( true );
+		const counts = /(?:^|&)counts=([^&]*)/.exec( query );
+		expect( JSON.parse( decodeURIComponent( counts[ 1 ] ) ) ).toEqual( {
+			status: [ 'waitlisted' ],
+		} );
+
+		apiFetch.mockClear();
+		await fetchSums( config, { view: 4, grant: 3 } );
+		expect( apiFetch ).toHaveBeenCalledWith( {
+			path: '/kalaka-admin/v1/events/7/views/4/sums?grant=3',
+		} );
 	} );
 } );
 

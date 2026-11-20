@@ -18,7 +18,8 @@ final class Texts
     /** The column labels of Kaláka's own columns. */
     public const CODE = 'Kód';
     public const STATUS = 'Állapot';
-    public const SERIAL = 'Sorszám';
+    // [UNAPPROVED T1] The column label only: „Sorszám” was too long for the column (owner's walk, topic 6a G5).
+    public const SERIAL = 'Szám';
 
     /** A given consent in a cell and as the counted member; a shown but unticked one (stored '0'). */
     public const YES = 'Igen';
@@ -39,11 +40,19 @@ final class Texts
     public const MASTER_COUNTS_DESCRIPTION =
         'Annak beállítása, hogy egy oszlopban mit számoljon a Jelentkezők összesítő sora.';
 
-    /** A status as the grid shows it: `RegistrationStatus::word()` with a capital. */
+    /**
+     * A status as the grid shows it, as a state: „Rögzítve”, not the past tense „Rögzített” the documents
+     * use (owner's walk, topic 6a G6). The documents' word stays `RegistrationStatus::word()`; the grid
+     * owns its own wording, so this map is the one place for it.
+     * [UNAPPROVED T2]
+     */
     public static function status(RegistrationStatus $status): string
     {
-        $word = $status->word();
-
-        return mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($word, 1, null, 'UTF-8');
+        return match ($status) {
+            RegistrationStatus::Registered => 'Rögzítve',
+            RegistrationStatus::Waitlisted => 'Várólistán',
+            RegistrationStatus::Withdrawn => 'Visszavonva',
+            RegistrationStatus::Removed => 'Törölve',
+        };
     }
 }

@@ -199,17 +199,67 @@ final class GridModel
     }
 
     /**
+     * The stored counted members with an ad hoc choice on top (the grant holder's own counting, G1): a
+     * column must be listed and carry members, and each member must belong to it. An empty list drops the
+     * column's entry, so it counts its default again.
+     *
+     * @param array<string, list<string>> $override
+     * @param array<string, list<string>> $counts the stored choice, with the default
+     * @param list<string> $listed
+     * @param array<string, FieldDefinition> $fields
+     * @return array<string, list<string>>
+     * @throws \Kalaka\Foundation\Api\Error\InvalidInput
+     */
+    private function withOverride(array $override, array $counts, array $listed, array $fields, int $eventId): array
+    {
+        foreach ($override as $column => $members) {
+            if (!in_array($column, $listed, true)) {
+                throw new \Kalaka\Foundation\Api\Error\InvalidInput();
+            }
+            $known = array_column($this->members($column, $fields, $eventId) ?? [], 'value');
+            if ($known === []) {
+                throw new \Kalaka\Foundation\Api\Error\InvalidInput();
+            }
+            $seen = [];
+            foreach ($members as $member) {
+                if (!in_array($member, $known, true) || isset($seen[$member])) {
+                    throw new \Kalaka\Foundation\Api\Error\InvalidInput();
+                }
+                $seen[$member] = true;
+            }
+            if ($members === []) {
+                unset($counts[$column]);
+            } else {
+                $counts[$column] = $members;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
      * The sum row over the whole view, by column; a column without a sum is left out. One aggregate statement.
      *
+     * `$override` is an ad hoc choice of counted members on top of the stored ones (the grant holder's own
+     * counting, which is never saved to the shared view; topic 6a G1). A column missing from it keeps the
+     * stored choice; an empty list drops the column's entry. Only a listed column with members can be
+     * overridden.
+     *
      * @param array<string, FieldDefinition> $fields
+     * @param array<string, list<string>>|null $override
      * @return array<string, array{
      *     kind: string, n: int|string|null, members?: list<string>, labels?: list<string>, member?: string
      * }>
      */
-    public function sums(HeldView $view, array $fields): array
+    public function sums(HeldView $view, array $fields, ?array $override = null): array
     {
         $listed = array_column($this->query->columns($view), 'column');
         $counts = $this->counts($view, $fields);
+        if ($override !== null) {
+            $counts = $this->withOverride($override, $counts, $listed, $fields, $view->eventId);
+            // A cleared status choice counts its default again, as a cleared stored one does.
+            $counts['status'] ??= self::DEFAULT_STATUS_COUNTS;
+        }
 
         $specs = [];
         $extra = [];

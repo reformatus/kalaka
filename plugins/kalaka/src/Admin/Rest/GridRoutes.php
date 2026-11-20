@@ -65,7 +65,13 @@ final class GridRoutes
             'methods' => 'GET',
             'callback' => [self::class, 'sums'],
             'permission_callback' => $gate,
-            'args' => ['id' => $id, 'view' => $view, 'grant' => $grant],
+            'args' => [
+                'id' => $id,
+                'view' => $view,
+                'grant' => $grant,
+                // A grant holder's own counting, never stored on the shared view (topic 6a G1).
+                'counts' => ['type' => 'string'],
+            ],
         ]);
         Boundary::route(self::NAMESPACE, self::EVENT . '/views', [
             'methods' => 'GET',
@@ -127,7 +133,44 @@ final class GridRoutes
         $view = self::held($request);
         $fields = (new FieldDefinitions())->of($view->eventId);
 
-        return new \WP_REST_Response((object) (new GridModel())->sums($view, $fields));
+        return new \WP_REST_Response((object) (new GridModel())->sums($view, $fields, self::countsParam($request)));
+    }
+
+    /**
+     * The ad hoc counted members a grant holder sends with the sums request (G1): an object of column →
+     * member list. Never stored; `GridModel` validates it against the view's columns and members.
+     *
+     * @param \WP_REST_Request<array<string, mixed>> $request
+     * @return array<string, list<string>>|null
+     * @throws InvalidInput when the JSON is not an object of lists
+     */
+    private static function countsParam(\WP_REST_Request $request): ?array
+    {
+        $raw = $request->get_param('counts');
+        if (!is_string($raw) || $raw === '') {
+            return null;
+        }
+        if (strlen($raw) > 8192) {
+            throw new InvalidInput();
+        }
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || array_is_list($decoded)) {
+            throw new InvalidInput();
+        }
+        $counts = [];
+        foreach ($decoded as $column => $members) {
+            if (!is_string($column) || !is_array($members) || !array_is_list($members)) {
+                throw new InvalidInput();
+            }
+            foreach ($members as $member) {
+                if (!is_string($member)) {
+                    throw new InvalidInput();
+                }
+            }
+            $counts[$column] = $members;
+        }
+
+        return $counts;
     }
 
     /** @param \WP_REST_Request<array<string, mixed>> $request */
