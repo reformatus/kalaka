@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\PriceLadder;
 
 use Kalaka\Forms\Api\Value;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\PriceLadder\Api\PriceLadder;
 use Kalaka\PriceLadder\Api\Tier;
-use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;

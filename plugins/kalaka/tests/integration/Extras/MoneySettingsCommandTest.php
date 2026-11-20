@@ -80,6 +80,10 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
         self::assertSame('2000', $shown['components']['extras']['charges'][0]['amount']);
         self::assertSame('ebed', $shown['components']['extras']['charges'][0]['field']);
         self::assertSame(['field_key' => 'adomany'], $shown['components']['donation']);
+
+        $lines = $this->lineCount();
+        $this->command()->apply([(string) $this->event], ['file' => $this->file($shown), 'yes' => true]);
+        self::assertSame($lines, $this->lineCount());
     }
 
     public function testPreviewOfChargesWritesNothingAndABadChargeIsRefused(): void
