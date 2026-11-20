@@ -15,6 +15,8 @@ export const GRID = {
 	toolbar: 'Műveletek',
 	resetSort: 'Alapértelmezett sorrend visszaállítása (sorszám, majd kód szerint)',
 	resetSortShort: 'Alapértelmezett sorrend visszaállítása',
+	// A failed table or sum-row load, in the table's place. (Shared with #210's N10.)
+	loadFail: 'A táblázat betöltése nem sikerült.',
 };
 
 /** The sum row. */
@@ -26,7 +28,9 @@ export const SUM = {
 	total: 'Összesen: %s',
 	// The counting choices joined the column's own menu; these are the shorter words. [UNAPPROVED T3, T4]
 	counting: 'Számolás',
-	open: 'Számlálás beállítása: %s',
+	open: 'Számolás beállítása: %s',
+	// While the grid is narrowed, and only to full access (the setting is stored for everyone). [UNAPPROVED N29]
+	pickNote: 'A beállítás a teljes nézetre érvényes.',
 };
 
 /** The average of a scale field: a new text. */
