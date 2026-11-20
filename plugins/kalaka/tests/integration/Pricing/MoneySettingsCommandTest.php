@@ -164,11 +164,12 @@ final class MoneySettingsCommandTest extends PricingTestCase
         try {
             $this->command()->apply([(string) $this->event], ['file' => $file]);
             self::fail('The apply went on without a yes.');
-        } catch (\RuntimeException $e) {
-            self::assertSame('WP_CLI::error', $e->getMessage());
+        } catch (\WP_CLI\ExitException $e) {
+            self::assertSame(0, $e->exit_code);
         }
 
         self::assertContains('confirm', array_column(\WP_CLI::$calls, 0));
+        self::assertNotContains('error', array_column(\WP_CLI::$calls, 0));
 
         self::assertSame('1200', $this->balance($key));
     }
@@ -307,6 +308,9 @@ final class MoneySettingsCommandTest extends PricingTestCase
         $failed = array_filter(\WP_CLI::$calls, static fn (array $call): bool => $call[0] === 'line'
             && str_starts_with($call[1], 'Failed 00B0: '));
         self::assertCount(1, $failed);
+        $line = array_values($failed)[0][1];
+        self::assertStringContainsString('Váratlan hiba', $line);
+        self::assertStringContainsString('Hibaazonosító: ', $line);
         self::assertSame('2000', $this->balance($good));
         $this->command($flaky)->preview([(string) $this->event], ['file' => $file]);
         self::assertNotSame('', $this->printed[0][1][1]['problem']);
