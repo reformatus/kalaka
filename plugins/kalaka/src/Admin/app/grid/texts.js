@@ -77,8 +77,7 @@ export const PANEL = {
 /**
  * The „Pénzügyek” tab and its two dialogs. [UNAPPROVED T7] the payer table, [UNAPPROVED T8] the entries,
  * [UNAPPROVED T9] the actions, [UNAPPROVED T10] the dialog fields, [UNAPPROVED T11] the messages,
- * [UNAPPROVED T12] the snackbar, [UNAPPROVED T13] the screen-reader text. The refund and correction words are
- * [UNAPPROVED T1] and [UNAPPROVED T2]; „0 Ft” is [UNAPPROVED T5].
+ * [UNAPPROVED T13] the screen-reader text; „0 Ft” is [UNAPPROVED T5].
  */
 export const MONEY = {
 	payer: 'Fizető',
@@ -97,6 +96,7 @@ export const MONEY = {
 	none: 'Még nincs tétel.',
 	correction: 'korrekció',
 	recordPay: 'Befizetés rögzítése',
+	// [UNAPPROVED T17]: the refund / correction button's text.
 	recordRefund: 'Visszautalás / javítás rögzítése',
 	amountField: 'Összeg (Ft)',
 	dateField: 'Dátum',
@@ -108,17 +108,19 @@ export const MONEY = {
 	noAmount: 'még nincs összeg',
 	save: 'Mentés',
 	cancel: 'Mégse',
+	// [UNAPPROVED T18]: the payment snackbar's text.
 	saved: 'Befizetés rögzítve.',
+	// The refund and correction words and snackbars, approved by the owner 2026-11-20 (T1, T2, T4, T12, T15).
 	savedRefund: 'Visszafizetés rögzítve.',
-	// The refund / correction dialog's switch, direction and messages. [UNAPPROVED T15]
-	kindField: 'Típus',
+	savedCorrection: 'Korrekció rögzítve.',
 	kindRefund: 'Visszafizetés',
 	kindCorrection: 'Korrekció',
+	// The refund / correction dialog's switch label, direction and its message. [UNAPPROVED T19]
+	kindField: 'Típus',
 	directionField: 'Irány',
 	directionIn: 'Befizetésként',
 	directionOut: 'Kifizetésként',
 	directionEmpty: 'Válassz irányt.',
-	savedCorrection: 'Korrekció rögzítve.',
 	amountEmpty: 'Add meg az összeget.',
 	amountBad: 'Nullánál nagyobb összeget adj meg.',
 	dateEmpty: 'Add meg a dátumot.',
