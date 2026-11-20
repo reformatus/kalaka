@@ -29,11 +29,11 @@ namespace {
             }
 
             /** @param array<string, mixed> $assocArgs */
-        public static function confirm(string $question, array $assocArgs = []): void
-        {
-        }
+            public static function confirm(string $question, array $assocArgs = []): void
+            {
+            }
 
-        public static function error(string $message): never
+            public static function error(string $message): never
             {
                 exit(1);
             }

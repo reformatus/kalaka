@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\KalakaException;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
@@ -171,10 +172,12 @@ final class MoneySettingsCommand
         \WP_CLI\Utils\format_items($format, $items, self::FIELDS);
     }
 
-    /** The operator's text of an error: a Kaláka error's own, anything else's message. */
+    /** The operator's text of an error: a Kaláka error's own, anything else as a system failure with its ID. */
     private static function describe(\Throwable $error): string
     {
-        return $error instanceof KalakaException ? $error->operatorMessage() : $error->getMessage();
+        return $error instanceof KalakaException
+            ? $error->operatorMessage()
+            : (new SystemFailure(null, $error))->operatorMessage();
     }
 
     private static function amount(?Money $money): string
