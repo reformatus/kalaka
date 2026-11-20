@@ -352,7 +352,7 @@ final class GridModel
         }
         if ($column === 'status') {
             return array_map(
-                static fn (RegistrationStatus $s): array => ['value' => $s->value, 'label' => Texts::status($s)],
+                static fn (RegistrationStatus $s): array => ['value' => $s->value, 'label' => $s->word()],
                 RegistrationStatus::cases()
             );
         }
