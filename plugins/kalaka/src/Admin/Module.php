@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Admin;
 
 use Kalaka\Admin\Api\Abilities;
+use Kalaka\Admin\Cli\AdminSeeder;
 use Kalaka\Admin\Cli\FullAccessCommand;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\ProfileField;
@@ -12,9 +13,14 @@ use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\FullAccess\UsersColumn;
 use Kalaka\Admin\Grant\DeleteGrant;
 use Kalaka\Admin\Grant\SaveGrant;
+use Kalaka\Admin\Grid\GridPage;
+use Kalaka\Admin\Grid\Texts as GridTexts;
+use Kalaka\Admin\Rest\GridRoutes;
 use Kalaka\Admin\View\DeleteView;
+use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -23,8 +29,14 @@ final class Module extends AbstractModule
     public const GRANTEE_ROLE = 'kalaka_grantee';
 
     /**
-     * foundation.md, "Views and grants": a view of an event. `filter` and `columns` are JSON, validated
-     * by `ViewShape` before they are written, in `longtext` for the same reason as the audit's JSON columns.
+     * foundation.md, "Views and grants": a view of an event. `filter`, `columns` and `counts` (the members
+     * the grid's sum row counts per column, S37; null on a row written before it) are JSON, validated by
+     * `ViewShape` before they are written, in `longtext` for the same reason as the audit's JSON columns.
+     * A row with `master` 1 is the event's master view (S37): it holds only the master grid's `counts`; its
+     * name, filter and columns are stored empty and never read. `master_event` is the event of a master row
+     * and null on every other row (`ViewRepository` writes it with `master`), so its unique key allows at
+     * most one master row per event. It is a plain column, not a generated one: Playground's SQLite driver
+     * rejects generated columns, and the site must still load there.
      */
     private const VIEWS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_views (
@@ -34,7 +46,11 @@ CREATE TABLE {prefix}kalaka_views (
   name varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   filter longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
   columns longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  counts longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci,
+  master tinyint(1) NOT NULL DEFAULT 0,
+  master_event bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY  (id),
+  UNIQUE KEY master_event (master_event),
   KEY event_id (event_id,id)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
@@ -73,7 +89,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::VIEWS, self::GRANTS], [
+        return new Schema(2, [self::VIEWS, self::GRANTS], [
             1 => self::addGranteeRole(...),
         ]);
     }
@@ -86,12 +102,28 @@ SQL;
         return ['kalaka_notes', 'kalaka_audit_history'];
     }
 
+    public function contribute(Contributions $to): void
+    {
+        $to->seeder(new AdminSeeder());
+    }
+
     public function boot(): void
     {
         Abilities::registerCategory();
         // The labels of the abilities.
-        Abilities::register(new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.');
+        Abilities::register(
+            new SaveView(),
+            'Nézet mentése',
+            'Egy esemény nézetének létrehozása vagy módosítása.',
+            SaveView::prepared(...)
+        );
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
+        Abilities::register(
+            new SaveMasterCounts(),
+            GridTexts::MASTER_COUNTS_LABEL,
+            GridTexts::MASTER_COUNTS_DESCRIPTION,
+            SaveMasterCounts::prepared(...)
+        );
         Abilities::register(
             new SaveGrant(),
             'Hozzáférés mentése',
@@ -116,6 +148,13 @@ SQL;
         add_action('profile_update', [ProfileField::class, 'save']);
         add_filter('manage_users_columns', [UsersColumn::class, 'columns']);
         add_filter('manage_users_custom_column', [UsersColumn::class, 'cell'], 10, 3);
+
+        // The per-event „Jelentkezők” grid (S37): its menu, its app and its REST routes.
+        add_action('admin_menu', [GridPage::class, 'menu']);
+        add_action('admin_enqueue_scripts', [GridPage::class, 'enqueue']);
+        // The page fills the window like a spreadsheet (topic 6a G9).
+        add_filter('admin_body_class', [GridPage::class, 'bodyClass']);
+        add_action('rest_api_init', [GridRoutes::class, 'register']);
 
         if (defined('WP_CLI') && WP_CLI) {
             FullAccessCommand::register();

@@ -34,10 +34,20 @@ final class Abilities
         });
     }
 
-    /** Registers the use case as the ability named by `name()`, once WordPress asks for abilities. */
-    public static function register(AdminUseCase $useCase, string $label, string $description): void
-    {
-        add_action('wp_abilities_api_init', static function () use ($useCase, $label, $description): void {
+    /**
+     * Registers the use case as the ability named by `name()`, once WordPress asks for abilities. `$prepare`
+     * makes the use case per call from the input, before the run, for one that reads WordPress data first
+     * (`SaveView::prepared()`).
+     *
+     * @param ?\Closure(array<string, mixed>): AdminUseCase $prepare
+     */
+    public static function register(
+        AdminUseCase $useCase,
+        string $label,
+        string $description,
+        ?\Closure $prepare = null,
+    ): void {
+        add_action('wp_abilities_api_init', static function () use ($useCase, $label, $description, $prepare): void {
             $name = $useCase::name();
             if (strtolower($name) !== $name || !str_contains($name, '/')) {
                 throw new \LogicException('A use case name is not a lowercase "namespace/name" ability name.');
@@ -48,7 +58,7 @@ final class Abilities
                 'category' => self::CATEGORY,
                 'input_schema' => $useCase->inputSchema(),
                 'permission_callback' => static fn (): bool => self::permitted(),
-                'execute_callback' => static fn (mixed $input = null): mixed => self::run($useCase, $input),
+                'execute_callback' => static fn (mixed $input = null): mixed => self::run($useCase, $input, $prepare),
                 'meta' => ['show_in_rest' => true],
             ]);
         });
@@ -66,13 +76,20 @@ final class Abilities
         }
     }
 
-    /** @return mixed what the use case returned, or the `WP_Error` of what it threw */
-    private static function run(AdminUseCase $useCase, mixed $input): mixed
+    /**
+     * @param ?\Closure(array<string, mixed>): AdminUseCase $prepare
+     * @return mixed what the use case returned, or the `WP_Error` of what it threw
+     */
+    private static function run(AdminUseCase $useCase, mixed $input, ?\Closure $prepare): mixed
     {
         try {
             $actor = new UserActor(get_current_user_id());
+            $input = is_array($input) ? $input : [];
+            if ($prepare !== null) {
+                $useCase = $prepare($input);
+            }
 
-            return Runner::current()->run($useCase, is_array($input) ? $input : [], $actor);
+            return Runner::current()->run($useCase, $input, $actor);
         } catch (\Throwable $e) {
             return Boundary::shown('ability ' . $useCase::name(), $e)->toWpError();
         }
