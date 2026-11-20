@@ -6,6 +6,10 @@ namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\AggregateKind;
 use Kalaka\Admin\Api\AggregateSpec;
+use Kalaka\Admin\Api\ColumnFilter;
+use Kalaka\Admin\Api\FilterKind;
+use Kalaka\Admin\Api\Narrowing;
+use Kalaka\Admin\Api\SearchWord;
 use Kalaka\Admin\Api\HeldView;
 use Kalaka\Admin\Api\ViewPage;
 use Kalaka\Admin\Api\ViewQuery;
@@ -197,6 +201,47 @@ final class ViewQueryCostTest extends PerEventCostTestCase
                 new AggregateSpec('code', AggregateKind::Rows),
                 new AggregateSpec('status', AggregateKind::Members, ['registered', 'waitlisted']),
             ])
+        );
+    }
+
+    /**
+     * Round 5: a narrowing of every kind and a search over every column, on the page, its total and the
+     * aggregates, stays inside its event (the sorszám range numbers the event's own rows only).
+     *
+     * @dataProvider filters
+     */
+    public function testANarrowingStaysInsideItsEvent(string $filter): void
+    {
+        $shape = $this->shape($filter);
+        $shape = ViewShape::of(json_decode($shape->filterJson(), true), [
+            ['column' => 'status', 'write' => false],
+            ...$shape->columns,
+        ]);
+        $narrowing = new Narrowing([
+            ColumnFilter::of('status', FilterKind::Members, 'isAny', ['registered', 'waitlisted']),
+            ColumnFilter::of('code', FilterKind::Text, 'contains', '0a'),
+            ColumnFilter::of('serial', FilterKind::Range, 'between', [1, 5]),
+            ColumnFilter::of('field:module', FilterKind::Members, 'isNone', ['c']),
+            ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['confirmed', 'pending']),
+            ColumnFilter::of(ColumnFilter::UNANSWERED, FilterKind::Unanswered, 'isAny', ['field:module']),
+        ], [
+            new SearchWord('a', [
+                'status' => ['registered'],
+                'field:module' => ['a'],
+                'decision:confirmation' => ['pending'],
+            ]),
+        ]);
+        $specs = [
+            new AggregateSpec('code', AggregateKind::Rows),
+            new AggregateSpec('field:module', AggregateKind::Filled),
+        ];
+
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            static fn (int $event): array => [
+                (new ViewQuery())->page(self::held($event, $shape), null, false, 3, 1, narrowing: $narrowing),
+                (new ViewQuery())->aggregates(self::held($event, $shape), $specs, $narrowing),
+            ]
         );
     }
 }

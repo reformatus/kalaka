@@ -60,7 +60,7 @@ final class GridSeedersTest extends SeedTestCase
             $event
         ));
         self::assertSame(
-            ['ebed', 'ejszakak', 'email', 'fenykep', 'megjegyzes', 'nev', 'programok', 'szallas'],
+            ['ebed', 'ejszakak', 'email', 'erkezes', 'fenykep', 'megjegyzes', 'nev', 'programok', 'szallas'],
             $keys
         );
 

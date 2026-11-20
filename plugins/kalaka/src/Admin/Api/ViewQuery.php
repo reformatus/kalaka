@@ -45,10 +45,18 @@ final class ViewQuery extends Query
         return $this->shapeOf($view)->columns;
     }
 
-    /** How many registrations the view's filter matches now: one statement. */
-    public function count(HeldView $view): int
+    /**
+     * How many registrations the view's filter matches now (narrowed by the grid's ad hoc filters and search
+     * when given): one statement.
+     *
+     * @throws InvalidInput when a narrowing filter names a column the view does not list
+     */
+    public function count(HeldView $view, ?Narrowing $narrowing = null): int
     {
         [$conditions, $args] = $this->conditions($view->shape(), $view->bound());
+        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
+        $conditions .= $narrow;
+        array_push($args, ...$narrowArgs);
 
         return $this->scope(function () use ($view, $conditions, $args): int {
             $rows = $this->select(
@@ -74,8 +82,12 @@ final class ViewQuery extends Query
      * text: the value is cast to a decimal, with an empty value treated as missing. Empty and missing
      * values therefore both sort first ascending and last descending, as they do for text.
      *
+     * The grid's ad hoc filters and search (`$narrowing`) apply on top of the view's own filter and bound
+     * value, so they only narrow; `total` counts the narrowed set.
+     *
      * @param list<string> $numeric the columns to order by number
-     * @throws InvalidInput when `$sort` is not a listed column, or the limit or offset is out of range
+     * @throws InvalidInput when `$sort` is not a listed column, a narrowing filter names a column the view does
+     *     not list, or the limit or offset is out of range
      */
     public function page(
         HeldView $view,
@@ -84,6 +96,7 @@ final class ViewQuery extends Query
         int $limit = 50,
         int $offset = 0,
         array $numeric = [],
+        ?Narrowing $narrowing = null,
     ): ViewPage {
         if ($limit < 1 || $limit > self::MAX_LIMIT || $offset < 0) {
             throw new InvalidInput();
@@ -93,6 +106,9 @@ final class ViewQuery extends Query
             throw new InvalidInput();
         }
         [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
+        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
+        $conditions .= $narrow;
+        array_push($conditionArgs, ...$narrowArgs);
         $eventId = $view->eventId;
         $direction = $descending ? ' DESC' : ' ASC';
         // The sorszám order is Registrations' (RegistrationTables), so this grid and the sorszám cannot drift.
@@ -119,7 +135,7 @@ final class ViewQuery extends Query
             ];
         }
 
-        $total = $this->count($view);
+        $total = $this->count($view, $narrowing);
 
         return $this->scope(function () use (
             $eventId,
@@ -179,11 +195,13 @@ final class ViewQuery extends Query
      * null for `sum` and `average`. Choice values compare with the column's collation, as the filter does;
      * a multiple choice (a JSON list) counts when it holds one of the members.
      *
+     * With a narrowing (the grid's ad hoc filters and search) the aggregates cover the narrowed set.
+     *
      * @param list<AggregateSpec> $specs
      * @return list<int|string|null>
-     * @throws InvalidInput when a spec's column is not listed in the view
+     * @throws InvalidInput when a spec's or a narrowing filter's column is not listed in the view
      */
-    public function aggregates(HeldView $view, array $specs): array
+    public function aggregates(HeldView $view, array $specs, ?Narrowing $narrowing = null): array
     {
         if ($specs === []) {
             return [];
@@ -195,6 +213,9 @@ final class ViewQuery extends Query
             }
         }
         [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
+        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
+        $conditions .= $narrow;
+        array_push($conditionArgs, ...$narrowArgs);
         $values = $this->table(RegistrationTables::FIELD_VALUES);
         $decisions = $this->table(DecisionTables::DECISIONS);
 
@@ -271,6 +292,322 @@ final class ViewQuery extends Query
 
             return (int) ($rows[0]['found'] ?? 0) === count($codes);
         });
+    }
+
+    /**
+     * The view's own condition as the grid shows it above the table, one term per filter term: the column and
+     * the values it holds (S37). A parameter term shows the grant's bound value; for full access, which has no
+     * bound value, it shows `null` ("the value given at each grant"); for a grant with no bound value it is
+     * left out, since the view then holds the whole of it (S36-4).
+     *
+     * @return list<array{column: string, values: ?list<string>}>
+     */
+    public function terms(HeldView $view): array
+    {
+        $shape = $view->shape();
+        $terms = [];
+        foreach ($shape === null ? [] : $shape->filter as $term) {
+            if ($term['in'] !== null) {
+                $terms[] = ['column' => $term['column'], 'values' => $term['in']];
+            } elseif ($view->bound() !== null) {
+                $terms[] = ['column' => $term['column'], 'values' => [$view->bound()]];
+            } elseif ($view->grantId === null) {
+                $terms[] = ['column' => $term['column'], 'values' => null];
+            }
+        }
+
+        return $terms;
+    }
+
+    private const SQL_COLLATION = 'utf8mb4_unicode_520_ci';
+
+    /**
+     * The grid's ad hoc filters and search as `AND …` conditions on the alias `r`, and their arguments in
+     * placeholder order. They are appended to the view's own conditions, so they only narrow. Only the view's
+     * listed columns can be filtered or searched. Text is matched ignoring case and accents (`utf8mb4_unicode_520_ci`,
+     * engineering.md, "Database"); the sorszám is computed in SQL as `RegistrationList` computes it: counted
+     * separately within `registered` and within `waitlisted`, in the sorszám order.
+     *
+     * @return array{0: literal-string, 1: list<string|int>}
+     * @throws InvalidInput when a filter names a column the view does not list, or does not fit it
+     */
+    private function narrowed(HeldView $view, ?Narrowing $narrowing): array
+    {
+        if ($narrowing === null || $narrowing->isEmpty()) {
+            return ['', []];
+        }
+        $shape = $this->shapeOf($view);
+        $listed = array_column($shape->columns, 'column');
+
+        /** @var list<literal-string> $fragments */
+        $fragments = [];
+        $args = [];
+        foreach ($narrowing->filters as $filter) {
+            [$fragment, $filterArgs] = $this->filterCondition($filter, $listed, $view->eventId);
+            $fragments[] = ' AND ' . $fragment;
+            array_push($args, ...$filterArgs);
+        }
+        foreach ($narrowing->words as $word) {
+            $alternatives = [];
+            $wordArgs = [];
+            foreach ($listed as $column) {
+                $condition = $this->wordCondition($word, $column, $view->eventId);
+                if ($condition !== null) {
+                    $alternatives[] = $condition[0];
+                    array_push($wordArgs, ...$condition[1]);
+                }
+            }
+            $fragments[] = $alternatives === [] ? ' AND 0 = 1' : ' AND (' . implode(' OR ', $alternatives) . ')';
+            array_push($args, ...$wordArgs);
+        }
+
+        return [implode('', $fragments), $args];
+    }
+
+    /**
+     * One filter as a condition on `r`.
+     *
+     * @param list<string> $listed
+     * @return array{0: literal-string, 1: list<string|int>}
+     * @throws InvalidInput
+     */
+    private function filterCondition(ColumnFilter $filter, array $listed, int $eventId): array
+    {
+        $column = $filter->column;
+        $kind = $filter->kind;
+        if ($kind === FilterKind::Unanswered) {
+            return $this->unanswered($filter, $listed);
+        }
+        $fits = match (true) {
+            $column === 'code' => $kind === FilterKind::Text,
+            $column === 'serial' => $kind === FilterKind::Range,
+            $column === 'status' => $kind === FilterKind::Members,
+            str_starts_with($column, 'decision:') => $kind === FilterKind::Members || $kind === FilterKind::Text,
+            str_starts_with($column, 'field:') => $kind !== FilterKind::Range,
+            default => false,
+        };
+        if (!$fits || !in_array($column, $listed, true)) {
+            throw new InvalidInput();
+        }
+        $values = $this->table(RegistrationTables::FIELD_VALUES);
+        $value = $filter->value;
+        $text = is_string($value) ? $value : '';
+
+        if ($kind === FilterKind::Range && is_array($value)) {
+            [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId
+            );
+
+            return [
+                'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE n.serial_no BETWEEN %d AND %d)',
+                [...$rankedArgs, (int) $value[0], (int) $value[1]],
+            ];
+        }
+        if ($column === 'code' && is_string($value)) {
+            return ['r.code LIKE %s COLLATE ' . self::SQL_COLLATION, [self::likeAnywhere($value)]];
+        }
+        if ($column === 'status' && is_array($value)) {
+            $in = implode(', ', array_fill(0, count($value), '%s'));
+
+            $not = $filter->operator === 'isAny' ? '' : 'NOT ';
+
+            return ['r.status ' . $not . 'IN (' . $in . ')', $value];
+        }
+        if (str_starts_with($column, 'decision:')) {
+            $state = DecisionTables::currentState('r', 'd', 'm');
+            $decisions = $this->table(DecisionTables::DECISIONS);
+            $kindArgs = [$decisions, $decisions, substr($column, 9)];
+            if (is_array($value)) {
+                $in = implode(', ', array_fill(0, count($value), '%s'));
+
+                return [
+                    $filter->operator === 'isAny'
+                        ? $state . ' IN (' . $in . ')'
+                        : 'NOT (COALESCE(' . $state . ", '') IN (" . $in . '))',
+                    [...$kindArgs, ...$value],
+                ];
+            }
+
+            return [
+                $state . ' LIKE %s COLLATE ' . self::SQL_COLLATION,
+                [...$kindArgs, self::likeAnywhere($text)],
+            ];
+        }
+
+        // A participant field: its stored value, in the one row of the field.
+        $key = substr($column, 6);
+        $field = 'SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code AND f.field_key = %s AND ';
+        $base = [$values, $key];
+
+        switch ($kind) {
+            case FilterKind::Members:
+                $members = is_array($value) ? $value : [];
+                [$match, $matchArgs] = self::memberMatch('f', $members);
+                $exists = 'EXISTS (' . $field . $match . ')';
+
+                return [$filter->operator === 'isAny' ? $exists : 'NOT ' . $exists, [...$base, ...$matchArgs]];
+            case FilterKind::Text:
+                return [
+                    'EXISTS (' . $field . 'f.value LIKE %s COLLATE ' . self::SQL_COLLATION . ')',
+                    [...$base, self::likeAnywhere($text)],
+                ];
+            case FilterKind::Number:
+                $number = "f.value <> '' AND CAST(f.value AS DECIMAL(26,8))";
+                if (is_array($value)) {
+                    return [
+                        'EXISTS (' . $field . $number . ' BETWEEN CAST(%s AS DECIMAL(26,8))'
+                        . ' AND CAST(%s AS DECIMAL(26,8)))',
+                        [...$base, ...$value],
+                    ];
+                }
+                $comparison = match ($filter->operator) {
+                    'lessThan' => ' < ',
+                    'greaterThan' => ' > ',
+                    default => ' = ',
+                };
+
+                return [
+                    'EXISTS (' . $field . $number . $comparison . 'CAST(%s AS DECIMAL(26,8)))',
+                    [...$base, (string) $value],
+                ];
+            case FilterKind::Date:
+                return [
+                    'EXISTS (' . $field . "f.value <> '' AND LEFT(f.value, 10)"
+                    . ($filter->operator === 'before' ? ' < ' : ' > ') . '%s)',
+                    [...$base, $text],
+                ];
+            default:
+                // Yes/no: a stored 1 is yes and a stored 0 is no; no value is neither.
+                $stored = $value === true ? '1' : '0';
+                $exists = 'EXISTS (' . $field . 'f.value = %s)';
+
+                return [$filter->operator === 'is' ? $exists : 'NOT ' . $exists, [...$base, $stored]];
+        }
+    }
+
+    /**
+     * „Nincs válasz”: some named column has no answer: no non-empty value for a field, no decision for a
+     * decision column.
+     *
+     * @param list<string> $listed
+     * @return array{0: literal-string, 1: list<string|int>}
+     * @throws InvalidInput
+     */
+    private function unanswered(ColumnFilter $filter, array $listed): array
+    {
+        $values = $this->table(RegistrationTables::FIELD_VALUES);
+        $decisions = $this->table(DecisionTables::DECISIONS);
+        /** @var list<literal-string> $parts */
+        $parts = [];
+        $args = [];
+        foreach (is_array($filter->value) ? $filter->value : [] as $column) {
+            if (!in_array($column, $listed, true)) {
+                throw new InvalidInput();
+            }
+            if (str_starts_with($column, 'field:')) {
+                $parts[] = 'NOT EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
+                    . " AND f.field_key = %s AND f.value <> '')";
+                array_push($args, $values, substr($column, 6));
+            } elseif (str_starts_with($column, 'decision:')) {
+                $parts[] = DecisionTables::currentState('r', 'd', 'm') . ' IS NULL';
+                array_push($args, $decisions, $decisions, substr($column, 9));
+            } else {
+                throw new InvalidInput();
+            }
+        }
+
+        return ['(' . implode(' OR ', $parts) . ')', $args];
+    }
+
+    /**
+     * One search word on one listed column, as a condition on `r`; null when the column cannot match it.
+     *
+     * @return array{0: literal-string, 1: list<string|int>}|null
+     */
+    private function wordCondition(SearchWord $word, string $column, int $eventId): ?array
+    {
+        $like = self::likeAnywhere($word->likes[$column] ?? $word->text);
+
+        if ($column === 'code') {
+            return ['r.code LIKE %s COLLATE ' . self::SQL_COLLATION, [$like]];
+        }
+        if ($column === 'serial') {
+            [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId
+            );
+
+            return [
+                'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE CAST(n.serial_no AS CHAR) LIKE %s)',
+                [...$rankedArgs, $like],
+            ];
+        }
+        $keys = $word->keys[$column] ?? null;
+        if ($column === 'status') {
+            return $keys === null || $keys === [] ? null : [
+                'r.status IN (' . implode(', ', array_fill(0, count($keys), '%s')) . ')',
+                $keys,
+            ];
+        }
+        if (str_starts_with($column, 'decision:')) {
+            $state = DecisionTables::currentState('r', 'd', 'm');
+            $decisions = $this->table(DecisionTables::DECISIONS);
+            $kindArgs = [$decisions, $decisions, substr($column, 9)];
+            if ($keys === null) {
+                return ['(' . $state . ' LIKE %s COLLATE ' . self::SQL_COLLATION . ')', [...$kindArgs, $like]];
+            }
+
+            return $keys === [] ? null : [
+                '(' . $state . ' IN (' . implode(', ', array_fill(0, count($keys), '%s')) . '))',
+                [...$kindArgs, ...$keys],
+            ];
+        }
+        if (!str_starts_with($column, 'field:')) {
+            return null;
+        }
+        $field = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
+            . ' AND f.field_key = %s AND ';
+        $base = [$this->table(RegistrationTables::FIELD_VALUES), substr($column, 6)];
+        if ($keys === null) {
+            return [$field . 'f.value LIKE %s COLLATE ' . self::SQL_COLLATION . ')', [...$base, $like]];
+        }
+        if ($keys === []) {
+            return null;
+        }
+        [$match, $matchArgs] = self::memberMatch('f', $keys);
+
+        return [$field . $match . ')', [...$base, ...$matchArgs]];
+    }
+
+    /**
+     * A stored choice value matches one of the members: a single choice stores the value, a multiple choice
+     * a JSON list of values.
+     *
+     * @param literal-string $alias the field values' alias
+     * @param list<string> $members at least one
+     * @return array{0: literal-string, 1: list<string>}
+     */
+    private static function memberMatch(string $alias, array $members): array
+    {
+        $in = implode(', ', array_fill(0, count($members), '%s'));
+        /** @var literal-string $contains */
+        $contains = implode(
+            ' OR ',
+            array_fill(0, count($members), 'JSON_CONTAINS(' . $alias . '.value, JSON_QUOTE(%s))')
+        );
+
+        return [
+            '(' . $alias . '.value IN (' . $in . ') OR (LEFT(' . $alias . ".value, 1) = '[' AND JSON_VALID(" . $alias
+            . '.value) AND (' . $contains . ')))',
+            [...$members, ...$members],
+        ];
+    }
+
+    /** A LIKE pattern that finds the text anywhere: its own `%`, `_` and `\` are plain characters. */
+    private static function likeAnywhere(string $text): string
+    {
+        return '%' . addcslashes($text, '\\%_') . '%';
     }
 
     private function shapeOf(HeldView $view): ViewShape

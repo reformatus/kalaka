@@ -1,31 +1,37 @@
 /**
- * The „Jelentkezők” page (S37): the view tabs, the „Műveletek” toolbar with „Táblázat másolása”, and
- * DataViews (compact) with the sum row in its header. Sorszám and Kód are not sort toggles: their header
- * returns to the default order (the sorszám order, then the code). The title and the controls stay at the
- * top and the table fills the window (owner's walk, topic 6a G9). The counting choices live in each
- * countable column's own header menu, reached from its sum cell (G10); a grant holder's choice is their own
- * and never changes the shared view (G1).
+ * The „Jelentkezők” page (S37): the view tabs, the „Műveletek” toolbar with the search, the filters (the
+ * view's own condition as a locked chip), the reload button and „Táblázat másolása”, and DataViews (compact)
+ * with the sum row in its header. Every column has a filter in its header menu; the sums and the copy follow
+ * the filters and the search. The default order is the sorszám order, then the code: the reload button and a
+ * second click on the active sort option return to it. The title and the controls stay at the top and the
+ * table fills the window (owner's walk, topic 6a G9). The counting choices live in each countable column's
+ * own header menu, reached from its sum cell (G10); a grant holder's choice is their own and never changes
+ * the shared view (G1).
  */
 import {
 	createPortal,
 	Fragment,
+	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
 } from '@wordpress/element';
-import { Button, CheckboxControl, SelectControl } from '@wordpress/components';
+import { Button, CheckboxControl, Dropdown, SelectControl, Tooltip } from '@wordpress/components';
+import { update } from '@wordpress/icons';
 import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
+import { filteredIds, filterSpec, isNarrowed, narrowOf, unansweredField } from './narrow';
+import { useChipLabels, usePopupPatches, useSortToggle } from './patches';
 import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { serial } from './serial';
 import { runPick } from './pick';
-import { countsToSend, createPicks } from './counting';
+import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
-import { GRID, SUM } from './texts';
+import { GRID, SUM, VIEWS } from './texts';
 
 const STATUS_ICON = {
 	registered: [ 'dashicons-yes-alt', 'kg-ok' ],
@@ -76,41 +82,13 @@ function Cell( { column, item } ) {
 	return text;
 }
 
-function ResetHeader( { column, hasSerial, isDefault, onReset } ) {
-	const id = 'kg-reset-desc-' + column.column;
-	// A view without Sorszám still runs in sorszám order, but the text does not name a column the viewer cannot see.
-	const description = hasSerial ? GRID.resetSort : GRID.resetSortShort;
-	return (
-		<Fragment>
-			<button
-				type="button"
-				className={ 'kg-reset-sort' + ( isDefault ? ' is-default' : '' ) }
-				data-col={ column.column }
-				title={ description }
-				aria-disabled={ isDefault ? 'true' : undefined }
-				aria-describedby={ id }
-				onClick={ () => ! isDefault && onReset() }
-			>
-				{ column.label }
-				{ isDefault && column.column === 'serial' && (
-					<span aria-hidden="true" className="kg-reset-arrow">
-						{ ' ↑' }
-					</span>
-				) }
-			</button>
-			<span id={ id } className="screen-reader-text">
-				{ description }
-			</span>
-		</Fragment>
-	);
-}
-
 /**
  * The counting choices as they appear in a column's own header menu: one checkbox per member of the column.
  * Clicks stay in the fieldset, so the menu's own handlers do not take them. Each tick is kept locally at
  * once, so quick successive ticks all apply and the checkbox reflects the click before the save returns.
+ * While the grid is narrowed, full access sees the note that the setting covers the whole view.
  */
-function CountingMenu( { column, chosen, onToggle, note } ) {
+function CountingMenu( { column, chosen, onToggle, narrowed } ) {
 	return (
 		<div
 			className="kg-countbox"
@@ -118,7 +96,7 @@ function CountingMenu( { column, chosen, onToggle, note } ) {
 			onClick={ ( event ) => event.stopPropagation() }
 		>
 			<p className="kg-countbox-title">{ SUM.counting }</p>
-			{ note && <p className="kg-countbox-note">{ SUM.pickNote }</p> }
+			{ narrowed && <p className="kg-countbox-note">{ SUM.pickNote }</p> }
 			{ column.members.map( ( member ) => (
 				<CheckboxControl
 					key={ member.value }
@@ -129,6 +107,58 @@ function CountingMenu( { column, chosen, onToggle, note } ) {
 				/>
 			) ) }
 		</div>
+	);
+}
+
+/**
+ * „Szűrő hozzáadása” on a clean grid: DataViews' own filters render nothing until a filter exists, so this
+ * one offers the same columns and adds the filter to DataViews' own view state. With a filter present,
+ * DataViews' own add-filter menu shows instead (owner's walk, topic 6a G4).
+ */
+function AddFilterFallback( { columns, onAdd } ) {
+	const choices = columns
+		.map( ( column ) => ( { id: column.column, label: column.label, spec: filterSpec( column ) } ) )
+		.filter( ( c ) => c.spec && c.spec.filterBy && c.spec.filterBy.operators && c.spec.filterBy.operators.length );
+	const none = unansweredField( columns );
+	if ( none ) {
+		choices.push( { id: none.id, label: none.label, spec: none } );
+	}
+	return (
+		<Dropdown
+			className="kg-addfilter"
+			popoverProps={ { placement: 'bottom-start' } }
+			renderToggle={ ( { isOpen, onToggle } ) => (
+				<Button
+					variant="tertiary"
+					size="compact"
+					aria-expanded={ isOpen }
+					onClick={ onToggle }
+				>
+					{ 'Szűrő hozzáadása' }
+				</Button>
+			) }
+			renderContent={ ( { onClose } ) => (
+				<div className="kg-addfilter-list">
+					{ choices.map( ( c ) => (
+						<button
+							key={ c.id }
+							type="button"
+							className="components-menu-item__button"
+							onClick={ () => {
+								onClose();
+								onAdd( {
+									field: c.id,
+									value: undefined,
+									operator: c.spec.filterBy.operators[ 0 ],
+								} );
+							} }
+						>
+							{ c.label }
+						</button>
+					) ) }
+				</div>
+			) }
+		/>
 	);
 }
 
@@ -176,8 +206,13 @@ export default function Page( { config } ) {
 	const [ sums, setSums ] = useState( null );
 	const [ loading, setLoading ] = useState( true );
 	const [ message, setMessage ] = useState( '' );
+	const [ messageKey, setMessageKey ] = useState( '' );
 	const [ host, setHost ] = useState( null );
 	const [ menu, setMenu ] = useState( null );
+	const [ searchSlot, setSearchSlot ] = useState( null );
+	const [ chipSlot, setChipSlot ] = useState( null );
+	const [ loadError, setLoadError ] = useState( false );
+	const [ said, setSaid ] = useState( '' );
 	// The counting picks since the tab was opened: a grant holder's own, and full access's optimistic state
 	// until the save reloads the server's. Reset on a tab switch, like the sort and the filters.
 	const picks = useRef( null );
@@ -196,37 +231,99 @@ export default function Page( { config } ) {
 		: countsToSend( tab.columns, tab.counts, picks.current.all() );
 	const countsKey = JSON.stringify( counts || {} );
 
+	// The filters that narrow and the search, as the server takes them. A filter with no value yet, just added
+	// from a header menu, narrows nothing and is not sent.
+	const narrow = narrowOf( v, tab.columns );
+	const narrowKey = JSON.stringify( narrow );
+	const narrowed = isNarrowed( narrow );
+	const narrowRef = useRef( narrow );
+	narrowRef.current = narrow;
+	const keyRef = useRef( narrowKey );
+	keyRef.current = narrowKey;
+	const loadedKey = useRef( null );
+
+	// A tab switch starts the new tab clean: no filters, search or sort carried over or brought back later.
 	const select = ( id ) => {
+		if ( id === tab.key ) {
+			return; // the tab on screen: nothing to switch, keep its filters and rows
+		}
+		const next = tabs.find( ( t ) => t.key === id ) || tabs[ 0 ];
 		setCurrent( id );
+		setView( freshView( next, v.perPage ) );
 		setMessage( '' );
-		setData( { rows: [], total: 0 } ); // no old rows under the new columns
-		setSums( null );
+		setLoadError( false );
 		setSumsFail( false );
 		picks.current.reset();
 		setMenu( null );
+		loadedKey.current = null;
+		setData( { rows: [], total: 0 } ); // no old rows under the new columns
+		setSums( null );
 		window.history.replaceState( null, '', tabUrl( id ) );
 	};
+	// Focus that was in the chips row when its chip or a filter vanished goes to the search box.
+	const chipFocus = useRef( false );
+	useEffect( () => {
+		if ( ! chipFocus.current ) {
+			return;
+		}
+		chipFocus.current = false;
+		window.requestAnimationFrame( () => {
+			const active = document.activeElement;
+			if ( ! active || active === document.body || ! active.isConnected ) {
+				const box = searchSlot && searchSlot.querySelector( 'input' );
+				if ( box ) {
+					box.focus();
+				}
+			}
+		} );
+	} );
+	const reload = () => {
+		setView( freshView( tab, v.perPage ) );
+		// A grant holder's counting is theirs, like the sort and the filters: the reset clears it too.
+		picks.current.reset();
+		setPickTick( ( n ) => n + 1 );
+	};
+	const sortOff = useCallback( () => setView( ( old ) => ( { ...old, sort: undefined, page: 1 } ) ), [] );
+	useSortToggle( sortOff );
+	const serialColumn = tab.columns.find( ( c ) => c.column === 'serial' );
+	usePopupPatches( serialColumn ? serialColumn.label : null );
+	useChipLabels( chipSlot, tab.columns );
 
 	useEffect( () => {
 		let live = true;
 		setLoading( true );
-		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page } ).then(
+		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page, narrow } ).then(
 			( result ) => {
+				if ( ! live ) {
+					return;
+				}
+				setData( result );
+				setLoadError( false );
+				setLoading( false );
+				// Say the new count when the filters or the search changed (not on paging or the first load).
+				if ( loadedKey.current !== null && loadedKey.current !== narrowKey ) {
+					const text = result.total ? fmt( GRID.found, result.total ) : GRID.none;
+					setSaid( ( old ) => ( old === text ? text + '\u00a0' : text ) );
+				}
+				loadedKey.current = narrowKey;
+			},
+			() => {
+				// A failed load (a 500, or a 400 for a refused filter) shows no old rows as if they matched.
 				if ( live ) {
-					setData( result );
+					setData( { rows: [], total: 0 } );
+					setLoadError( true );
 					setLoading( false );
 				}
-			},
-			() => live && setLoading( false )
+			}
 		);
 		return () => {
 			live = false;
 		};
-	}, [ tab.key, sort, desc, v.page, v.perPage ] );
+	}, [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 
 	useEffect( () => {
 		let live = true;
-		api.fetchSums( config, tab, config.sumEditable ? null : counts ).then(
+		api.fetchSums( config, tab, narrow, config.sumEditable ? null : counts ).then(
 			( result ) => {
 				if ( live ) {
 					setSums( result );
@@ -244,14 +341,14 @@ export default function Page( { config } ) {
 		return () => {
 			live = false;
 		};
-	}, [ tab.key, countsKey ] );
+	}, [ tab.key, narrowKey, countsKey ] );
 
 	// The default order is the sorszám order: the Sorszám header cell says so (`aria-sort`).
 	useLayoutEffect( () => {
 		if ( ! host ) {
 			return;
 		}
-		const marker = host.querySelector( '.kg-reset-sort[data-col="serial"]' );
+		const marker = host.querySelector( '.kg-hd[data-col="serial"]' );
 		const target = marker ? marker.closest( 'th' ) : null;
 		host.querySelectorAll( 'thead th[data-kg-default]' ).forEach( ( th ) => {
 			th.removeAttribute( 'aria-sort' );
@@ -325,36 +422,28 @@ export default function Page( { config } ) {
 		return () => observer.disconnect();
 	}, [ tab, host ] );
 
-	const hasSerial = tab.columns.some( ( c ) => c.column === 'serial' );
-	const fields = useMemo(
-		() =>
-			tab.columns.map( ( column ) => {
-				const reset = column.column === 'serial' || column.column === 'code';
-				return {
-					id: column.column,
-					label: column.label,
-					header: reset ? (
-						<ResetHeader
-							column={ column }
-							hasSerial={ hasSerial }
-							isDefault={ ! v.sort }
-							onReset={ () => setView( { ...v, sort: undefined, page: 1 } ) }
-						/>
-					) : (
-						<span className="kg-hd" data-col={ column.column }>
-							{ column.label }
-						</span>
-					),
-					type: column.numeric ? 'number' : 'text',
-					getValue: ( { item } ) => cellText( column, item ),
-					render: ( { item } ) => <Cell column={ column } item={ item } />,
-					enableSorting: column.sortable,
-					enableHiding: false,
-					filterBy: false,
-				};
-			} ),
-		[ tab, v, hasSerial ]
-	);
+	// A filtered column's header is lightly shaded (CSS, `:has()` on this marker).
+	const filtered = filteredIds( narrow );
+	const fields = useMemo( () => {
+		const own = tab.columns.map( ( column ) => ( {
+			id: column.column,
+			label: column.label,
+			header: (
+				<span className={ 'kg-hd' + ( filtered.has( column.column ) ? ' is-filtered' : '' ) } data-col={ column.column }>
+					{ column.label }
+				</span>
+			),
+			getValue: ( { item } ) => cellText( column, item ),
+			render: ( { item } ) => <Cell column={ column } item={ item } />,
+			enableSorting: column.sortable,
+			enableHiding: false,
+			...filterSpec( column ),
+		} ) );
+		const none = unansweredField( tab.columns );
+		return none
+			? [ ...own, { ...none, header: <span className={ 'kg-hd' + ( filtered.has( none.id ) ? ' is-filtered' : '' ) } data-col={ none.id }>{ none.label }</span> } ]
+			: own;
+	}, [ tab, narrowKey ] );
 
 	// The sum row's arrow opens the column's own header menu, where the counting choices are (G10).
 	const openMenu = ( column ) => {
@@ -377,10 +466,16 @@ export default function Page( { config } ) {
 		setMessage( '' );
 		setBusy( true );
 		try {
-			const rows = await api.fetchAll( config, tab, sort, desc );
+			// The text now typed counts even while DataViews' debounce has not passed it on: the copy is the set
+			// the grid is about to show.
+			const box = searchSlot && searchSlot.querySelector( 'input' );
+			const now = narrowOf( v, tab.columns, box ? box.value : null );
+			const rows = await api.fetchAll( config, tab, sort, desc, now );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
+			setMessageKey( tab.key + JSON.stringify( now ) );
 			setMessage( fmt( GRID.copied, rows.length ) );
 		} catch {
+			setMessageKey( tab.key + narrowKey );
 			setMessage( GRID.copyFail );
 		}
 		setBusy( false );
@@ -416,9 +511,10 @@ export default function Page( { config } ) {
 		}
 		queue.current( () => {
 			const mine = ++seq.current;
+			const asked = keyRef.current;
 			return runPick( {
-				save: () => api.saveCounts( config, picked, column.column, members ),
-				reload: () => api.fetchSums( config, picked ),
+				save: () => api.saveCounts( config, picked, column.column, members, narrowRef.current ),
+				reload: () => api.fetchSums( config, picked, narrowRef.current ),
 				apply: setSums,
 				// A failed save reloads the stored sums; the menu then shows those, not the unsaved pick.
 				revert: () => {
@@ -427,6 +523,7 @@ export default function Page( { config } ) {
 				},
 				isShown: () => shown.current === picked.key,
 				isLatest: () => mine === seq.current,
+				isFresh: () => keyRef.current === asked,
 			} );
 		} );
 	};
@@ -444,30 +541,93 @@ export default function Page( { config } ) {
 		/>
 	);
 
+	// A grant holder's counting is their own too: the reset is enabled while only it differs from the view.
+	const countingDiffers =
+		! config.sumEditable && countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
+	const isDefault = ! v.sort && ! ( v.filters || [] ).length && ! v.search && ! countingDiffers;
+	let empty;
+	if ( loadError ) {
+		empty = (
+			<p className="kg-load-fail" role="alert">
+				{ GRID.loadFail }
+			</p>
+		);
+	} else if ( narrowed ) {
+		// Filters or a search that match nothing say so.
+		empty = <p className="kg-no-match">{ GRID.noMatch }</p>;
+	} else {
+		// A view with no registrations at all. [UNAPPROVED N10]
+		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
+	}
+	const copyButton = (
+		<Button
+			variant="secondary"
+			size="compact"
+			onClick={ copy }
+			isBusy={ busy }
+			disabled={ ! loading && ! data.total }
+			accessibleWhenDisabled
+		>
+			{ GRID.copy }
+		</Button>
+	);
+	// The view's own condition is a locked, unremovable chip in the filter area (owner's walk, topic 6a G3).
+	const conditionText = tab.condition
+		? ( tab.condition.terms > 1 ? VIEWS.filters : VIEWS.filter ) + ': ' + tab.condition.text
+		: null;
+
 	return (
 		<Fragment>
 			<div className="kg-above">
 				<div className="kg-tabrow">
 					<Tabs tabs={ tabs } current={ tab.key } onSelect={ select } />
 				</div>
-				<div className="kg-bulkbar">
-					<div className="kg-bulkbar-actions" role="toolbar" aria-label={ GRID.toolbar }>
-						<Button
-							variant="secondary"
-							size="compact"
-							onClick={ copy }
-							isBusy={ busy }
-							disabled={ ! loading && ! data.total }
-							accessibleWhenDisabled
-						>
-							{ GRID.copy }
-						</Button>
+				<div className="kg-bulkbar" role="toolbar" aria-label={ GRID.toolbar }>
+					<div className="kg-searchslot" ref={ setSearchSlot } />
+					<span className="kg-sep" aria-hidden="true" />
+					<div className="kg-filterslot">
+						{ conditionText && (
+							<span className="kg-lockchip" title={ GRID.lockedFilter }>
+								<span className="dashicons dashicons-lock" aria-hidden="true" />
+								<span className="screen-reader-text">{ GRID.lockedFilter } </span>
+								{ conditionText }
+							</span>
+						) }
+						<div className="kg-chips" ref={ setChipSlot } />
+						{ ! ( v.filters || [] ).length && (
+							<AddFilterFallback
+								columns={ tab.columns }
+								onAdd={ ( filter ) =>
+									setView( {
+										...v,
+										page: 1,
+										filters: [ ...( v.filters || [] ), filter ],
+									} )
+								}
+							/>
+						) }
+					</div>
+					<Button
+						variant="secondary"
+						size="compact"
+						icon={ update }
+						label={ GRID.reload }
+						onClick={ reload }
+						disabled={ isDefault }
+						accessibleWhenDisabled
+					/>
+					<span className="kg-spacer" />
+					<div className="kg-bulkbar-actions">
+						{ narrowed ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
 					</div>
 					<span className="kg-copy-msg" role="status">
-						{ message }
+						{ messageKey === tab.key + narrowKey ? message : '' }
 					</span>
 				</div>
 			</div>
+			<span className="screen-reader-text" role="status" aria-live="polite">
+				{ said }
+			</span>
 			{ sumsFail && (
 				<p className="kg-load-fail" role="alert">
 					{ SUM.loadFail }
@@ -479,13 +639,22 @@ export default function Page( { config } ) {
 				order={ v.fields }
 				sums={ sums }
 				onOpenMenu={ openMenu }
+				narrowed={ narrowed }
 			/>
 			<div ref={ setHost } className="kg-dv">
 				<DataViews
+					key={ tab.key }
 					data={ data.rows }
 					fields={ fields }
 					view={ v }
-					onChangeView={ ( next ) => setView( { ...next, _tab: tab.key } ) }
+					onChangeView={ ( next ) => {
+						// A late call from the previous tab's DataViews (a pending search) is dropped.
+						if ( next._tab !== undefined && next._tab !== shown.current ) {
+							return;
+						}
+						chipFocus.current = !! ( chipSlot && chipSlot.contains( document.activeElement ) );
+						setView( { ...next, _tab: shown.current } );
+					} }
 					isLoading={ loading }
 					paginationInfo={ {
 						totalItems: data.total,
@@ -496,7 +665,10 @@ export default function Page( { config } ) {
 					actions={ [] }
 					search={ false }
 					config={ { perPageSizes: config.perPages } }
+					empty={ empty }
 				>
+					{ searchSlot && createPortal( <div className="kg-search"><DataViews.Search /></div>, searchSlot ) }
+					{ chipSlot && createPortal( <DataViews.Filters />, chipSlot ) }
 					<DataViews.Layout />
 					<div className="kg-dv-foot">
 						{ perPage }
@@ -510,7 +682,7 @@ export default function Page( { config } ) {
 						column={ menu.column }
 						chosen={ picks.current.chosen( menu.column.column, chosenFor( menu.column ) ) }
 						onToggle={ pick }
-						note={ false /* #210 shows it while narrowed, to full access only */ }
+						narrowed={ config.sumEditable && narrowed }
 					/>,
 					menu.popup
 				) }

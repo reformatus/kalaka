@@ -6,9 +6,11 @@ namespace Kalaka\Admin\Rest;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Api\HeldView;
+use Kalaka\Admin\Api\Narrowing;
 use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Admin\Grid\FieldDefinitions;
 use Kalaka\Admin\Grid\GridModel;
+use Kalaka\Admin\Grid\GridNarrowing;
 use Kalaka\Admin\Grid\ViewsData;
 use Kalaka\Admin\View\ViewList;
 use Kalaka\Events\Api\Events;
@@ -24,12 +26,15 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  * (`{view}` 0 is the master view, which is full access only). The app's writes are the abilities
  * (`kalaka/save-view`, `kalaka/delete-view`, `kalaka/save-master-counts`), through core's run endpoint.
  *
- * - `GET /events/{id}/views/{view}/rows?grant&page&per_page&orderby&order`: one page, following core's paging
- *   (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than `code` and `serial`.
- * - `GET /events/{id}/views/{view}/sums?grant&counts`: the sum row over the whole view; the aggregates are
- *   built here from the view's columns, the field definitions and the stored counts. A grant holder may send
- *   an optional `counts` override (never stored, validated against the held view's listed columns and their
- *   members), so their own counting changes only this request's sum row.
+ * - `GET /events/{id}/views/{view}/rows?grant&page&per_page&orderby&order&filters&search`: one page,
+ *   following core's paging (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than
+ *   `code` and `serial`. `filters` (a JSON list of `{field, operator, value}`) and `search` narrow the
+ *   view's own rows, on listed columns only (`GridNarrowing`); anything else is a 400.
+ * - `GET /events/{id}/views/{view}/sums?grant&counts&filters&search`: the sum row over the whole view, or
+ *   over the rows the filters and the search leave; the aggregates are built here from the view's columns,
+ *   the field definitions and the stored counts. A grant holder may send an optional `counts` override
+ *   (never stored, validated against the held view's listed columns and their members), so their own
+ *   counting changes only this request's sum row.
  * - `GET /events/{id}/views`: the views list a counting save reads (`ViewsData`); for full access each view
  *   also carries its `version`, which a save sends back.
  */
@@ -48,6 +53,9 @@ final class GridRoutes
         // A grant holder names the grant whose view they open: one tab per grant, even on the same view.
         $grant = ['type' => 'integer', 'minimum' => 0, 'default' => 0];
         $gate = [self::class, 'permission'];
+        // The filters are a JSON list, checked by `GridNarrowing`; the caps are `Narrowing`'s.
+        $filters = ['type' => 'string', 'maxLength' => 8192];
+        $search = ['type' => 'string', 'maxLength' => Narrowing::MAX_SEARCH];
 
         Boundary::route(self::NAMESPACE, self::VIEW . '/rows', [
             'methods' => 'GET',
@@ -61,6 +69,8 @@ final class GridRoutes
                 'per_page' => ['type' => 'integer', 'minimum' => 1, 'maximum' => ViewQuery::MAX_LIMIT, 'default' => 50],
                 'orderby' => ['type' => 'string'],
                 'order' => ['type' => 'string', 'enum' => ['asc', 'desc'], 'default' => 'asc'],
+                'filters' => $filters,
+                'search' => $search,
             ],
         ]);
         Boundary::route(self::NAMESPACE, self::VIEW . '/sums', [
@@ -73,6 +83,8 @@ final class GridRoutes
                 'grant' => $grant,
                 // A grant holder's own counting, never stored on the shared view (topic 6a G1).
                 'counts' => ['type' => 'string'],
+                'filters' => $filters,
+                'search' => $search,
             ],
         ]);
         Boundary::route(self::NAMESPACE, self::EVENT . '/views', [
@@ -108,14 +120,16 @@ final class GridRoutes
             throw new InvalidInput();
         }
         $model = new GridModel();
-        $numeric = $model->numericColumns($view, (new FieldDefinitions())->of($view->eventId));
+        $fields = (new FieldDefinitions())->of($view->eventId);
+        $numeric = $model->numericColumns($view, $fields);
         $page = (new ViewQuery())->page(
             $view,
             $sort,
             $request->get_param('order') === 'desc',
             $perPage,
             ((int) $request->get_param('page') - 1) * $perPage,
-            $numeric
+            $numeric,
+            self::narrowing($request, $view, $fields)
         );
 
         $rows = [];
@@ -135,7 +149,14 @@ final class GridRoutes
         $view = self::held($request);
         $fields = (new FieldDefinitions())->of($view->eventId);
 
-        return new \WP_REST_Response((object) (new GridModel())->sums($view, $fields, self::countsParam($request)));
+        $narrowing = self::narrowing($request, $view, $fields);
+
+        return new \WP_REST_Response((object) (new GridModel())->sums(
+            $view,
+            $fields,
+            $narrowing,
+            self::countsParam($request)
+        ));
     }
 
     /**
@@ -178,6 +199,18 @@ final class GridRoutes
         }
 
         return $counts;
+    }
+
+    /**
+     * The request's filters and search for the view.
+     *
+     * @param \WP_REST_Request<array<string, mixed>> $request
+     * @param array<string, \Kalaka\Admin\Grid\FieldDefinition> $fields
+     * @throws InvalidInput
+     */
+    private static function narrowing(\WP_REST_Request $request, HeldView $view, array $fields): Narrowing
+    {
+        return (new GridNarrowing())->of($view, $fields, $request->get_param('filters'), $request->get_param('search'));
     }
 
     /** @param \WP_REST_Request<array<string, mixed>> $request */

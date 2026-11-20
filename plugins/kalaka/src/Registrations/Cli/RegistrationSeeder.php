@@ -61,6 +61,9 @@ final class RegistrationSeeder implements Seeder
             throw new \LogicException('The registration seeder needs the sample form of the form seeder.');
         }
 
+        // The sample event starts sixty days after the seed day; the invented arrival days fall there.
+        $arrival = $seeding->today()->modify('+60 days');
+
         for ($i = 0; $i < self::COUNT; $i++) {
             $family = self::FAMILY[($i * 7) % count(self::FAMILY)];
             $given = self::GIVEN[($i * 5 + intdiv($i, 3)) % count(self::GIVEN)];
@@ -77,6 +80,10 @@ final class RegistrationSeeder implements Seeder
             }
             if ($i % 6 === 1) {
                 $answers['megjegyzes'] = self::NOTES[$i % count(self::NOTES)];
+            }
+            // An optional date, left blank on every third registration.
+            if ($i % 3 !== 2) {
+                $answers['erkezes'] = $arrival->modify('+' . ($i % 3) . ' days')->format('Y-m-d');
             }
             $this->submit->submit(
                 new SubmitRequest($form->id, $form->version, $answers, SubmitToken::generate()),
