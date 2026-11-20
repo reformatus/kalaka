@@ -420,6 +420,11 @@ export default function Page( { config } ) {
 				save: () => api.saveCounts( config, picked, column.column, members ),
 				reload: () => api.fetchSums( config, picked ),
 				apply: setSums,
+				// A failed save reloads the stored sums; the menu then shows those, not the unsaved pick.
+				revert: () => {
+					picks.current.revert( column.column );
+					setPickTick( ( n ) => n + 1 );
+				},
 				isShown: () => shown.current === picked.key,
 				isLatest: () => mine === seq.current,
 			} );
@@ -465,7 +470,7 @@ export default function Page( { config } ) {
 			</div>
 			{ sumsFail && (
 				<p className="kg-load-fail" role="alert">
-					{ GRID.loadFail }
+					{ SUM.loadFail }
 				</p>
 			) }
 			<SumRow

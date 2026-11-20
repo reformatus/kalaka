@@ -187,6 +187,32 @@ describe( 'a pick', () => {
 		await runPick( args );
 		expect( apply ).toHaveBeenCalledWith( 'reloaded' );
 	} );
+
+	test( 'a failed save forgets the pick, so the menu shows the stored choice again', async () => {
+		const [ apply, args ] = pick( {
+			save: async () => {
+				throw new Error( 'save' );
+			},
+			revert: jest.fn(),
+		} );
+		const revert = args.revert;
+		await runPick( args );
+		expect( revert ).toHaveBeenCalledTimes( 1 );
+		expect( apply ).toHaveBeenCalledWith( 'reloaded' );
+	} );
+
+	test( 'a failed save on a tab no longer shown forgets nothing', async () => {
+		const [ , args ] = pick( {
+			save: async () => {
+				throw new Error( 'save' );
+			},
+			revert: jest.fn(),
+			isShown: () => false,
+		} );
+		const revert = args.revert;
+		await runPick( args );
+		expect( revert ).not.toHaveBeenCalled();
+	} );
 } );
 
 describe( 'serial', () => {

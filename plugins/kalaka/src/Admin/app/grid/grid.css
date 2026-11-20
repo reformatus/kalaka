@@ -41,11 +41,9 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-warn { color: #996800; }
 .kg-off { color: #787c82; }
 
-/* Rows look clickable (owner's walk, topic 6a G2): a slight hover highlight in admin colours, no underline
-   on the code, and the open row's own highlight stays distinct from the hover. [UNAPPROVED N24] */
+/* Rows look clickable (owner's walk, topic 6a G2): only the hover highlight is on this PR; the code cell's
+   underline and the open row's own highlight are #217's. [UNAPPROVED N24] */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
-#kalaka-grid tbody tr.dataviews-view-table__row.is-expanded > td,
-#kalaka-grid tbody tr.dataviews-view-table__row.is-open > td { background-color: #f0f6fc; }
 
 /* An inactive registration (waitlisted, withdrawn, removed) looks disabled; it still opens (S38).
    Muted text, not opacity, so the row keeps at least 4.5:1 contrast. [UNAPPROVED N25] */
