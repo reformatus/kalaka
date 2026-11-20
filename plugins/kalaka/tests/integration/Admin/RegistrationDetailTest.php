@@ -157,7 +157,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 $this->lineRow(
                     $this->seeded['refund'],
                     'manual_refund',
-                    'Visszatérítés',
+                    'Kézi visszafizetés',
                     '5000.00000000',
                     null,
                     null,
@@ -167,7 +167,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 $this->lineRow(
                     $this->seeded['payment'],
                     'manual_payment',
-                    'Befizetés',
+                    'Kézi befizetés',
                     '-35000.00000000',
                     'bank_transfer',
                     'Átutalás',
