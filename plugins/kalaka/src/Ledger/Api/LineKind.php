@@ -24,9 +24,9 @@ enum LineKind: string
         return match ($this) {
             self::Charge => 'Díj',
             self::Payment => 'Online befizetés',
-            self::Refund => 'Online visszatérítés',
-            self::ManualPayment => 'Befizetés',
-            self::ManualRefund => 'Visszatérítés',
+            self::Refund => 'Online visszafizetés',
+            self::ManualPayment => 'Kézi befizetés',
+            self::ManualRefund => 'Kézi visszafizetés',
             self::Adjustment => 'Korrekció',
         };
     }

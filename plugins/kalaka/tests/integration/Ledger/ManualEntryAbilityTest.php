@@ -48,7 +48,7 @@ final class ManualEntryAbilityTest extends ManualEntryTestCase
         foreach (
             [
                 'kalaka/record-payment' => [new RecordPayment(), 'Befizetés rögzítése'],
-                'kalaka/record-refund' => [new RecordRefund(), 'Visszatérítés rögzítése'],
+                'kalaka/record-refund' => [new RecordRefund(), 'Visszafizetés rögzítése'],
             ] as $name => [$useCase, $label]
         ) {
             $ability = $this->ability($name);

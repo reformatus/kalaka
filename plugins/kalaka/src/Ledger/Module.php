@@ -90,18 +90,18 @@ SQL;
         Abilities::register(
             new RecordPayment(),
             'Befizetés rögzítése',
-            'Egy jelentkező kézi befizetésének rögzítése.'
+            'Egy jelentkező befizetésének kézi rögzítése.'
         );
         Abilities::register(
             new RecordRefund(),
-            'Visszatérítés rögzítése',
-            'Egy jelentkezőnek kézzel visszautalt összeg rögzítése.'
+            'Visszafizetés rögzítése',
+            'Egy jelentkezőnek visszafizetett összeg kézi rögzítése.'
         );
         // [UNAPPROVED T16, T17] drafts for the lektor.
         Abilities::register(
             new RecordCorrection(),
             'Korrekció rögzítése',
-            'Egy jelentkező korábbi bejegyzését javító összeg rögzítése, indoklással.'
+            'Egy jelentkező befizetett összegének kézi növelése vagy csökkentése, indoklással.'
         );
     }
 }
