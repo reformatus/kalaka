@@ -7,16 +7,20 @@
  * @param {Function} pick.save     saves the pick; resolves the view's new sum row
  * @param {Function} pick.reload   resolves the view's stored sum row
  * @param {Function} pick.apply    shows a sum row
+ * @param {Function} pick.revert   forgets the local pick, so the menu shows the stored choice again
  * @param {Function} pick.isShown  whether the picked view's tab is still shown
  * @param {Function} pick.isLatest whether no later pick has started
  */
-export async function runPick( { save, reload, apply, isShown, isLatest } ) {
+export async function runPick( { save, reload, apply, revert, isShown, isLatest } ) {
 	try {
 		const result = await save();
 		if ( isShown() && isLatest() ) {
 			apply( result );
 		}
 	} catch {
+		if ( revert && isShown() ) {
+			revert();
+		}
 		const result = await reload();
 		if ( isShown() ) {
 			apply( result );

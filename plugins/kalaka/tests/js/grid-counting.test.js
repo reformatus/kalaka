@@ -1,4 +1,9 @@
-import { countsToSend, createPicks, toggleMember } from '../../src/Admin/app/grid/counting';
+import {
+	countsDiffer,
+	countsToSend,
+	createPicks,
+	toggleMember,
+} from '../../src/Admin/app/grid/counting';
 
 describe( 'a counting pick', () => {
 	test( 'ticks and unticks one member and keeps the others’ order', () => {
@@ -42,6 +47,57 @@ describe( 'a counting pick', () => {
 		picks.reset();
 		expect( picks.chosen( 'status', [ 'registered' ] ) ).toEqual( [ 'registered' ] );
 		expect( picks.all() ).toEqual( {} );
+	} );
+
+	test( 'unticking the last member falls back to the stored choice, so the menu and the sum row agree', () => {
+		const picks = createPicks();
+		expect( picks.toggle( 'status', 'waitlisted', true, [ 'registered' ] ) ).toEqual( [
+			'registered',
+			'waitlisted',
+		] );
+		expect( picks.toggle( 'status', 'waitlisted', false, [ 'registered' ] ) ).toEqual( [
+			'registered',
+		] );
+		expect( picks.toggle( 'status', 'registered', false, [ 'registered' ] ) ).toEqual( [
+			'registered',
+		] );
+		expect( picks.chosen( 'status', [ 'registered' ] ) ).toEqual( [ 'registered' ] );
+		expect( picks.all() ).toEqual( {} );
+	} );
+
+	test( 'unticking the last member of a column with no stored choice counts nothing', () => {
+		const picks = createPicks();
+		expect( picks.toggle( 'field:lunch', 'veg', true, [] ) ).toEqual( [ 'veg' ] );
+		expect( picks.toggle( 'field:lunch', 'veg', false, [] ) ).toEqual( [] );
+		expect( picks.chosen( 'field:lunch', [] ) ).toEqual( [] );
+		expect( picks.all() ).toEqual( {} );
+	} );
+
+	test( 'a revert forgets one column, so it shows the stored choice again', () => {
+		const picks = createPicks();
+		picks.toggle( 'status', 'waitlisted', true, [ 'registered' ] );
+		picks.toggle( 'field:lunch', 'veg', true, [ 'normal' ] );
+		picks.revert( 'status' );
+		expect( picks.chosen( 'status', [ 'registered' ] ) ).toEqual( [ 'registered' ] );
+		expect( picks.chosen( 'field:lunch', [ 'normal' ] ) ).toEqual( [ 'normal', 'veg' ] );
+	} );
+} );
+
+describe( 'whether the counting differs from the default', () => {
+	const columns = [ { column: 'status' }, { column: 'field:lunch' } ];
+	const stored = { status: [ 'registered' ], 'field:lunch': [ 'veg' ] };
+
+	test( 'is false with no pick, or a pick equal to the stored choice', () => {
+		expect( countsDiffer( columns, stored, {} ) ).toBe( false );
+		expect( countsDiffer( columns, stored, { 'field:lunch': [ 'veg' ] } ) ).toBe( false );
+	} );
+
+	test( 'is true when a pick changes the counted members', () => {
+		expect( countsDiffer( columns, stored, { status: [ 'waitlisted' ] } ) ).toBe( true );
+		expect( countsDiffer( columns, stored, { 'field:lunch': [] } ) ).toBe( true );
+		expect( countsDiffer( columns, stored, { status: [ 'registered' ], 'field:lunch': [ 'normal' ] } ) ).toBe(
+			true
+		);
 	} );
 } );
 

@@ -15,7 +15,7 @@ export const GRID = {
 	toolbar: 'Műveletek',
 	resetSort: 'Alapértelmezett sorrend visszaállítása (sorszám, majd kód szerint)',
 	resetSortShort: 'Alapértelmezett sorrend visszaállítása',
-	// A failed table or sum-row load, in the table's place. (Shared with #210's N10.)
+	// A failed table load, in the table's place. (Shared with #210's N10.)
 	loadFail: 'A táblázat betöltése nem sikerült.',
 };
 
@@ -31,6 +31,8 @@ export const SUM = {
 	open: 'Számolás beállítása: %s',
 	// While the grid is narrowed, and only to full access (the setting is stored for everyone). [UNAPPROVED N29]
 	pickNote: 'A beállítás a teljes nézetre érvényes.',
+	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
+	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
 /** The average of a scale field: a new text. */
