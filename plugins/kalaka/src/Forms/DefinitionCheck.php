@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Entry\SaveVeto;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 
@@ -227,6 +228,11 @@ final class DefinitionCheck
 
         if ($problem !== null) {
             self::notify(...$problem);
+            SaveVeto::report(
+                'saving form ' . $id,
+                self::message(...$problem),
+                $problem[0] . ' ' . $problem[1],
+            );
         }
 
         return $data;
