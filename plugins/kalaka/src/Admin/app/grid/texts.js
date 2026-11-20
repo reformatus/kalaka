@@ -27,7 +27,7 @@ export const GRID = {
 	none: 'Nincs jelentkező',
 	// Under the Sorszám range, approved by the owner 2026-11-18. [UNAPPROVED N11]
 	serialHint: 'Például 1–50: az első 50 jelentkező',
-	// The view's own condition is a locked chip in the filter area (owner's walk, topic 6a G3). [UNAPPROVED T1]
+	// The view's own condition is a locked chip in the filter area (owner's walk, topic 6a G3). [UNAPPROVED T2]
 	lockedFilter: 'A nézet feltétele, nem szerkeszthető.',
 };
 
