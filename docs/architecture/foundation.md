@@ -93,10 +93,11 @@ reached; the grant defines who holds the view.**
     (`wp kalaka full-access grant|revoke`), both through audited use cases.
     The last holder cannot lose it. On multisite, super admins pass every
     check.
-- **Actions that are not a column** (withdraw, remove, admit, record payment,
-  view money, refund, regenerate link, notes, audit history) are carried by
-  the grant, not by WordPress roles. An action is usable only on registrations
-  inside the filter of the same grant's view. Modules declare the actions they
+- **Actions that are not a column** (withdraw, remove, admit, confirm without
+  payment, record payment, view money, refund, regenerate link, notes, audit
+  history) are carried by the grant, not by WordPress roles. An action is
+  usable only on registrations inside the filter of the same grant's view.
+  Modules declare the actions they
   offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant
   lists its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action
@@ -557,8 +558,8 @@ registration's decisions, money and mail up to date with its facts.
 sort on the first two ([Views and grants](#views-and-grants)).
 
 - **Facts** come from people's acts: field values, payments (with their
-  value date), the manual confirmation flag (with its set time),
-  assignments, status, the "full" latch and "not counted". They are ordinary
+  value date), the manual confirmation flag (with its set time), staff's
+  unconfirm, assignments, status, the "full" latch and "not counted". They are ordinary
   audited writes.
   - **A field value is a fact,** whatever writes it. By the participant
     field's source ([Fields](events-and-forms.md#fields)): answers copied
@@ -574,6 +575,10 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **Each decision is an append-only transition record** with kind, state,
     effective time, recorded time, cause (record type, event and key) and
     actor. The current state is the latest record.
+  - **A kind may declare a base state** for the statuses it is defined for:
+    there, no record reads as the base state, derived and never written; in
+    any other status the kind has no state. Every read applies it, the view
+    filters too (confirmation: `unconfirmed`, for `registered` only).
   - The records live in their own table, indexed by event first.
   - **A decision is never recomputed;** only a named transition changes it.
   - **A kind is declared with a Hungarian label and its states, each with a
@@ -584,9 +589,14 @@ sort on the first two ([Views and grants](#views-and-grants)).
 - **Computed values are never stored:** balance, tallies, the tree's
   ancestors, a meal turn from the option map, the sorszám. The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
-- **Reading order:** core decisions are made first, then extension decisions.
-  A decision reads facts and earlier decisions only. An extension decision
-  reads facts and core decisions, never another extension's decision.
+- **Reading order:** inside the decisions phase, decisions that change a
+  target (tier places, support places) come first, then decisions that read
+  a target (the late fee, then confirmation). A decision that reads a target
+  reads it through the read-only fee composition of the pass so far, never
+  another extension's decision records directly, and never counts its own
+  charge. A decision reads facts and earlier decisions only. An extension
+  decision reads facts and core decisions, never another extension's
+  decision.
 - **No decision, condition or view depends on deliveries.** Only the sender
   and the staff screens that list deliveries read them ([Mail](mail.md)).
 

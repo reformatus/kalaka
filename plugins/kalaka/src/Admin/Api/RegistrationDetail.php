@@ -13,11 +13,14 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -25,7 +28,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Everything in it goes through views and grants: the registration data is read through `ViewQuery` for the
  * views that hold the registration (`Access::holding()`), or full access, so it shows only what their columns
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
- * [UNAPPROVED Access]
+ * The manual confirmation flag shows behind the same gate as the money. [UNAPPROVED Access] [UNAPPROVED N11]
  */
 final class RegistrationDetail
 {
@@ -37,6 +40,7 @@ final class RegistrationDetail
         private readonly Decisions $decisions = new Decisions(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
+        private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
     ) {
     }
 
@@ -91,16 +95,23 @@ final class RegistrationDetail
         $refund = $carried(Ledger::RECORD_REFUND);
         $viewMoney = $carried(Ledger::VIEW_MONEY) || $record || $refund;
         // [UNAPPROVED Shapes] a correction is money-write: the same action as recording a payment.
+        $confirmManually = $carried(ManualConfirmations::CONFIRM_MANUALLY);
 
         $read = [
             'registration' => $this->registrationPart($registration),
             'fields' => $this->fieldsPart($registration),
         ];
         if ($viewMoney) {
+            $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
-        $read['can'] = ['view_money' => $viewMoney, 'record_payment' => $record, 'record_refund' => $refund,
+        $read['can'] = [
+            'view_money' => $viewMoney,
+            'record_payment' => $record,
+            'record_refund' => $refund,
             'record_correction' => $record,
+            'confirm_manually' => $confirmManually,
+            'unconfirm' => $confirmManually && $this->canUnconfirm($key),
         ];
 
         return $read;
@@ -177,6 +188,40 @@ final class RegistrationDetail
         }
 
         return $part;
+    }
+
+    /**
+     * `can.unconfirm`: the same check `kalaka/unconfirm` makes, at the clock's moment; false when a fee
+     * component fails, as the unconfirm would then fail too. [UNAPPROVED N11, N12]
+     */
+    private function canUnconfirm(RegistrationKey $key): bool
+    {
+        try {
+            return $this->manualConfirmations->canUnconfirm($key, Runner::current()->clock()->now());
+        } catch (FeeComponentFailed) {
+            return false;
+        }
+    }
+
+    /**
+     * The manual confirmation flag while it is set: its set time, its reason and the display name of who set
+     * it (null for a run without a user); null when it is not set.
+     *
+     * @return ?array{set_at: string, reason: string, set_by: ?string}
+     */
+    private function manualConfirmationPart(RegistrationKey $key): ?array
+    {
+        $flag = $this->manualConfirmations->of($key);
+        if ($flag === null) {
+            return null;
+        }
+        $by = null;
+        if ($flag->setBy !== null) {
+            $user = get_userdata($flag->setBy);
+            $by = $user === false ? null : (string) $user->display_name;
+        }
+
+        return ['set_at' => self::instant($flag->setAt), 'reason' => $flag->reason, 'set_by' => $by];
     }
 
     /** @return list<array<string, mixed>> */

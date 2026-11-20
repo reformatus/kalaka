@@ -9,14 +9,17 @@ use Kalaka\Pricing\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** Pricing's one table: the current fixed price per event. No tariff snapshot table. */
+/**
+ * Pricing's tables: the current fixed price per event, the manual confirmation flag and staff's unconfirm. No
+ * tariff snapshot table.
+ */
 final class PricingSchemaTest extends WP_UnitTestCase
 {
-    public function testTheFixedPriceTableIsAsDeclaredAndThereIsNoSnapshotTable(): void
+    public function testTheTablesAreAsDeclaredAndThereIsNoSnapshotTable(): void
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_pricing'));
+        self::assertSame(3, (int) get_option('kalaka_schema_pricing'));
         self::assertSame([], LoadState::current()->failures);
 
         $columns = $wpdb->get_results($wpdb->prepare(
@@ -38,6 +41,49 @@ final class PricingSchemaTest extends WP_UnitTestCase
                 $columns
             )
         );
+        $flags = $wpdb->get_results($wpdb->prepare(
+            'SELECT COLUMN_NAME, COLUMN_TYPE, COLLATION_NAME FROM information_schema.COLUMNS'
+            . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
+            $wpdb->prefix . 'kalaka_manual_confirmations'
+        ), ARRAY_A);
+        self::assertIsArray($flags);
+        self::assertSame(
+            [
+                'event_id bigint(20) unsigned ',
+                'code varchar(16) utf8mb4_hungarian_ci',
+                'version int(10) unsigned ',
+                'set_at datetime(6) ',
+                'set_by bigint(20) unsigned ',
+                'reason varchar(500) utf8mb4_hungarian_ci',
+                'revoked_at datetime(6) ',
+            ],
+            array_map(
+                static fn (array $c): string
+                    => $c['COLUMN_NAME'] . ' ' . $c['COLUMN_TYPE'] . ' ' . $c['COLLATION_NAME'],
+                $flags
+            )
+        );
+        $unconfirmations = $wpdb->get_results($wpdb->prepare(
+            'SELECT COLUMN_NAME, COLUMN_TYPE, COLLATION_NAME FROM information_schema.COLUMNS'
+            . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
+            $wpdb->prefix . 'kalaka_unconfirmations'
+        ), ARRAY_A);
+        self::assertIsArray($unconfirmations);
+        self::assertSame(
+            [
+                'event_id bigint(20) unsigned ',
+                'code varchar(16) utf8mb4_hungarian_ci',
+                'version int(10) unsigned ',
+                'unconfirmed_at datetime(6) ',
+                'unconfirmed_by bigint(20) unsigned ',
+                'reason varchar(500) utf8mb4_hungarian_ci',
+            ],
+            array_map(
+                static fn (array $c): string
+                    => $c['COLUMN_NAME'] . ' ' . $c['COLUMN_TYPE'] . ' ' . $c['COLLATION_NAME'],
+                $unconfirmations
+            )
+        );
         $snapshots = $wpdb->prefix . 'kalaka_tariff_snapshots';
         self::assertNull($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $snapshots)));
     }
@@ -48,10 +94,12 @@ final class PricingSchemaTest extends WP_UnitTestCase
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(1, $tables);
-        $statement = str_replace('{prefix}', $wpdb->prefix, $tables[0]);
-        self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));
-        self::assertSame([], IndexCheck::mismatches($match[1], $statement));
-        self::assertSame([], dbDelta([$statement], false));
+        self::assertCount(3, $tables);
+        foreach ($tables as $table) {
+            $statement = str_replace('{prefix}', $wpdb->prefix, $table);
+            self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));
+            self::assertSame([], IndexCheck::mismatches($match[1], $statement));
+            self::assertSame([], dbDelta([$statement], false));
+        }
     }
 }

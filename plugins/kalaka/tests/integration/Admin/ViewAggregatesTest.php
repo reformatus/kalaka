@@ -85,7 +85,8 @@ final class ViewAggregatesTest extends AdminTestCase
     {
         self::assertSame(
             // „VEG” matches „veg” by the column's collation; the multiple choice counts a list holding any member.
-            [5, 4, 3, 3, 3, 3, '19.5', 3, '3.25'],
+            // The withdrawn 00B0 has no confirmation state, whatever its records (the owner's ruling 2026-11-19).
+            [5, 4, 3, 3, 2, 3, '19.5', 3, '3.25'],
             (new ViewQuery())->aggregates($this->view(), self::specs())
         );
     }

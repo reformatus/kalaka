@@ -126,24 +126,32 @@ title: Money
   amount, it follows the event's current settings
   ([Money settings apply](#money-settings-apply)). Confirmation reads payment
   facts, never charge lines.
-- **"The congregation part is required for confirmation"** is a per-event
-  switch, on by default. Off, only the participant's target counts.
 - **The manual flag** ("may come without paying") is a fact: set with a
-  reason, audited, carrying its own set time, and kept until staff revoke it.
+  reason, audited, carrying its own set time, and kept until staff unconfirm
+  the registration.
+- **Staff's unconfirm** is a fact: recorded with a reason, who and when,
+  audited. It is allowed only on a confirmed registration whose payments are
+  below the threshold, never on one confirmed because nothing was due, and it
+  revokes the manual flag.
 
 | Transition | When |
 |---|---|
 | → confirmed | payments reach the threshold, the manual flag is set, or nothing is due at the moment of the check |
-| → unconfirmed | a refund takes payments below the threshold, unless the manual flag is set |
-| → unconfirmed | the manual flag is revoked while payments are below the threshold |
+| → unconfirmed | staff unconfirm it |
 
 - **Effective time:** each record carries one. It is the value date of the
   payment that reached the last required target (the paid time for online
   payments), or the set time of the manual flag.
-- **A later charge or a higher threshold changes nothing:** the registration
-  stays confirmed, also when a money settings apply raises its amounts. A lower threshold can confirm more registrations at the
-  next evaluation.
-- **Withdrawal or removal closes the sequence.** Restore or admission writes a
+- **A later charge, a refund or a higher threshold changes nothing:** the
+  registration stays confirmed, also when a money settings apply raises its
+  amounts. While it stays `registered`, only staff's unconfirm unconfirms it;
+  a later payment that reaches the threshold then confirms it again. A lower
+  threshold can confirm more registrations at the next evaluation.
+- **No record is the base state:** a `registered` registration with no
+  confirmation record is unconfirmed, derived and never written; views filter
+  on it like any state. Other statuses have no confirmation state.
+- **Withdrawal or removal closes the sequence:** a confirmed registration gets
+  an `unconfirmed` record. Restore or admission writes a
   new record if the registration qualifies; the old one is never revived.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
@@ -214,8 +222,8 @@ such as lunch or a donation.
   [fee sequence](#materializer), the base price after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
-- Whether the congregation's part is needed for confirmation is a per-event
-  switch ([Confirmation](#confirmation)); a manual confirmation covers a late
+- The congregation's part is always needed for confirmation
+  ([Confirmation](#confirmation)); a manual confirmation covers a late
   payer.
 
 ## Sponsor and church support

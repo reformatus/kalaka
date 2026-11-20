@@ -6,12 +6,12 @@ namespace Kalaka\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Foundation\Decision\Decision;
-use Kalaka\Foundation\Decision\DecisionInput;
+use Kalaka\Foundation\Api\Decision\Decision;
+use Kalaka\Foundation\Api\Decision\DecisionInput;
 use Kalaka\Foundation\Decision\DecisionQuery;
 use Kalaka\Foundation\Decision\DecisionRecord;
 use Kalaka\Foundation\Decision\DecisionRepository;
-use Kalaka\Foundation\Decision\DecisionRule;
+use Kalaka\Foundation\Api\Decision\DecisionRule;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\Materializer;
@@ -104,24 +104,29 @@ final class Evaluation
     }
 
     /**
-     * Core rules first, then extension rules, in registration order. A core rule reads its own
-     * kind and the core kinds before it; an extension rule its own kind and every core kind.
+     * The rules in the decisions phase's order (`DecisionRules::inEvaluationOrder()`): the rules that change a
+     * target or read none, core first, then the rules that read a target, extensions first, so confirmation
+     * comes last. A core rule reads its own kind and the core kinds decided before it in this order; an
+     * extension rule its own kind and every core kind, a core kind not yet decided in this pass as it stood
+     * before the pass. [UNAPPROVED N2]
      */
     private function decide(RegistrationKey $key, Context $context): void
     {
-        $core = $this->rules->core();
-        $extension = $this->rules->extension();
-        if ($core === [] && $extension === []) {
+        $ordered = $this->rules->inEvaluationOrder();
+        if ($ordered === []) {
             return;
         }
 
         $decisions = $this->query->currentOf($key);
-        $coreKinds = array_map(static fn (DecisionRule $rule): string => $rule->kind(), $core);
-        foreach ($core as $position => $rule) {
-            $this->apply($rule, array_slice($coreKinds, 0, $position + 1), $key, $decisions, $context);
-        }
-        foreach ($extension as $rule) {
-            $this->apply($rule, [...$coreKinds, $rule->kind()], $key, $decisions, $context);
+        $coreKinds = array_map(static fn (DecisionRule $rule): string => $rule->kind(), $this->rules->core());
+        $coreBefore = [];
+        foreach ($ordered as $rule) {
+            if ($this->rules->isCore($rule->kind())) {
+                $coreBefore[] = $rule->kind();
+                $this->apply($rule, $coreBefore, $key, $decisions, $context);
+            } else {
+                $this->apply($rule, [...$coreKinds, $rule->kind()], $key, $decisions, $context);
+            }
         }
     }
 

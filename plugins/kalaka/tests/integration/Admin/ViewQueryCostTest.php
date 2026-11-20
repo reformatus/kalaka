@@ -73,7 +73,8 @@ final class ViewQueryCostTest extends PerEventCostTestCase
     /** @return iterable<string, array{string}> */
     public static function filters(): iterable
     {
-        foreach (['no filter', 'status', 'field', 'decision', 'parameter', 'all kinds together'] as $filter) {
+        $filters = ['no filter', 'status', 'field', 'decision', 'base state', 'parameter', 'all kinds together'];
+        foreach ($filters as $filter) {
             yield $filter => [$filter];
         }
     }
@@ -92,6 +93,8 @@ final class ViewQueryCostTest extends PerEventCostTestCase
             'status' => [['column' => 'status', 'in' => ['registered']]],
             'field' => [['column' => 'field:module', 'in' => ['a']]],
             'decision' => [['column' => 'decision:confirmation', 'in' => ['pending']]],
+            // The owner's ruling 2026-11-19: no record reads `unconfirmed` (COALESCE with the base state).
+            'base state' => [['column' => 'decision:confirmation', 'in' => ['unconfirmed']]],
             'parameter' => [['column' => 'field:team', 'parameter' => true]],
             default => [
                 ['column' => 'status', 'in' => ['registered', 'waitlisted']],

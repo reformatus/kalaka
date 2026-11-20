@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Admin;
 
+use Kalaka\Admin\Api\AggregateKind;
+use Kalaka\Admin\Api\AggregateSpec;
+use Kalaka\Admin\Api\ColumnFilter;
+use Kalaka\Admin\Api\FilterKind;
 use Kalaka\Admin\Api\HeldView;
+use Kalaka\Admin\Api\Narrowing;
+use Kalaka\Admin\Api\SearchWord;
 use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Admin\Api\ViewRow;
 use Kalaka\Admin\View\ViewShape;
@@ -113,7 +119,7 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame(
             [
                 'code' => '00A5', 'status' => 'registered', 'serial' => 2,
-                'field:a_key' => 'z', 'field:b_key' => null, 'decision:confirmation' => null,
+                'field:a_key' => 'z', 'field:b_key' => null, 'decision:confirmation' => 'unconfirmed',
             ],
             $rows[2]['values']
         );
@@ -124,9 +130,13 @@ final class ViewQueryTest extends AdminTestCase
         }
     }
 
-    public function testTheMasterViewOfAnEventWithNoDataHasTheThreeBuiltInColumns(): void
+    /** The confirmation kind has a base state, so it holds with no record: the master view always lists it. */
+    public function testTheMasterViewOfAnEventWithNoDataHasTheBuiltInColumnsAndConfirmation(): void
     {
-        self::assertSame(['code', 'status', 'serial'], $this->columnIds($this->query->columns($this->held(null))));
+        self::assertSame(
+            ['code', 'status', 'serial', 'decision:confirmation'],
+            $this->columnIds($this->query->columns($this->held(null)))
+        );
         self::assertSame([], $this->viewRows($this->held(null)));
         self::assertSame(0, $this->query->count($this->held(null)));
     }
@@ -165,19 +175,95 @@ final class ViewQueryTest extends AdminTestCase
     public function testADecisionTermMatchesTheLatestStateOnly(): void
     {
         $this->seedStatuses();
-        $this->addDecision(self::EVENT, '00A0', 'confirmation', 'confirmed');
-        $this->addDecision(self::EVENT, '00A0', 'confirmation', 'pending');
-        $this->addDecision(self::EVENT, '00A2', 'confirmation', 'pending');
-        $this->addDecision(self::EVENT, '00A2', 'confirmation', 'confirmed');
+        $this->addDecision(self::EVENT, '00A0', 'room_hold', 'confirmed');
+        $this->addDecision(self::EVENT, '00A0', 'room_hold', 'pending');
+        $this->addDecision(self::EVENT, '00A2', 'room_hold', 'pending');
+        $this->addDecision(self::EVENT, '00A2', 'room_hold', 'confirmed');
         $this->addDecision(self::EVENT, '00A5', 'payment_hold', 'confirmed');
-        $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:confirmation', 'write' => false]];
+        $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:room_hold', 'write' => false]];
 
         $rows = $this->viewRows($this->held(
-            $this->shape([['column' => 'decision:confirmation', 'in' => ['confirmed']]], $columns)
+            $this->shape([['column' => 'decision:room_hold', 'in' => ['confirmed']]], $columns)
         ));
 
         self::assertSame(['00A2'], $this->codes($rows));
-        self::assertSame(['code' => '00A2', 'decision:confirmation' => 'confirmed'], $rows[0]['values']);
+        self::assertSame(['code' => '00A2', 'decision:room_hold' => 'confirmed'], $rows[0]['values']);
+    }
+
+    /**
+     * The owner's ruling 2026-11-19: no confirmation record is the base state, `unconfirmed`, derived, for a
+     * `registered` registration only; another status shows no state, whatever its records say. The stored
+     * filter, the page and the aggregates read it the same way.
+     */
+    public function testNoConfirmationRecordReadsUnconfirmedForARegisteredRegistrationOnly(): void
+    {
+        $this->seedStatuses();
+        $this->addDecision(self::EVENT, '00A0', 'confirmation', 'confirmed');
+        // A closed sequence of a withdrawn registration, and a record left on a waitlisted one.
+        $this->addDecision(self::EVENT, '00A8', 'confirmation', 'unconfirmed');
+        $this->addDecision(self::EVENT, '00A2', 'confirmation', 'unconfirmed');
+        $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:confirmation', 'write' => false]];
+
+        $all = $this->viewRows($this->held($this->shape([], $columns)));
+        $states = [];
+        foreach ($all as $row) {
+            $states[$row['values']['code']] = $row['values']['decision:confirmation'];
+        }
+        ksort($states);
+        self::assertSame(
+            ['00A0' => 'confirmed', '00A2' => null, '00A5' => 'unconfirmed', '00A8' => null, '00B0' => null],
+            $states
+        );
+
+        $unconfirmed = $this->held(
+            $this->shape([['column' => 'decision:confirmation', 'in' => ['unconfirmed']]], $columns)
+        );
+        self::assertSame(['00A5'], $this->codes($this->viewRows($unconfirmed)));
+        self::assertSame(1, $this->query->count($unconfirmed));
+        self::assertSame(
+            [1, 1],
+            $this->query->aggregates($this->held($this->shape([], $columns)), [
+                new AggregateSpec('decision:confirmation', AggregateKind::Members, ['unconfirmed']),
+                new AggregateSpec('decision:confirmation', AggregateKind::Members, ['confirmed']),
+            ])
+        );
+
+        // The grid's ad hoc filters, „Nincs válasz”, search and sort read it the same way.
+        $view = $this->held($this->shape([], $columns));
+        $narrowed = fn (array $filters, array $words = [], ?string $sort = null): array => array_map(
+            static fn (ViewRow $row): string => $row->key->code,
+            $this->query->page($view, $sort, narrowing: new Narrowing($filters, $words))->rows
+        );
+        $unconfirmedOnly = ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['unconfirmed']);
+        self::assertSame(['00A5'], $narrowed([$unconfirmedOnly]));
+        self::assertSame(
+            ['00A2', '00A5', '00A8', '00B0'],
+            $this->sorted($narrowed([
+                ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isNone', ['confirmed']),
+            ]))
+        );
+        self::assertSame(
+            ['00A2', '00A8', '00B0'],
+            $this->sorted($narrowed([
+                ColumnFilter::of(ColumnFilter::UNANSWERED, FilterKind::Unanswered, 'isAny', ['decision:confirmation']),
+            ]))
+        );
+        self::assertSame(
+            ['00A5'],
+            $narrowed([], [new SearchWord('nincs', ['decision:confirmation' => ['unconfirmed']])])
+        );
+        self::assertSame(['00A0', '00A5'], array_slice($narrowed([], [], 'decision:confirmation'), -2));
+    }
+
+    /**
+     * @param list<string> $codes
+     * @return list<string>
+     */
+    private function sorted(array $codes): array
+    {
+        sort($codes);
+
+        return $codes;
     }
 
     public function testTwoTermsTogetherMatchOnlyRegistrationsMeetingBoth(): void

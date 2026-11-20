@@ -125,13 +125,15 @@ final class ViewNarrowingTest extends AdminTestCase
         );
         $model = new GridModel(decisions: new Decisions(rules: $rules));
         $narrowing = (new GridNarrowing($model))->of($view, self::fields(), $filters, $search);
-        $page = (new ViewQuery())->page($view, limit: ViewQuery::MAX_LIMIT, narrowing: $narrowing);
+        // The same declarations for the query: this test kind has no base state.
+        $query = new ViewQuery(decisions: new Decisions(rules: $rules));
+        $page = $query->page($view, limit: ViewQuery::MAX_LIMIT, narrowing: $narrowing);
         self::assertSame(
             count($page->rows),
             $page->total,
             'the total counts the narrowed set'
         );
-        self::assertSame($page->total, (new ViewQuery())->count($view, $narrowing));
+        self::assertSame($page->total, $query->count($view, $narrowing));
 
         return array_map(static fn ($row): string => $row->key->code, $page->rows);
     }

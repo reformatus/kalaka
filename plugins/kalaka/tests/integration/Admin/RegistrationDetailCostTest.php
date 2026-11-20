@@ -133,6 +133,8 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
 
     public function testTheDetailStaysInsideItsEvent(): void
     {
+        // `can.unconfirm` reads the clock's site time zone; the options it reads load once, in either round.
+        wp_load_alloptions();
         $this->assertPerEventCost(
             fn (int $event) => $this->seedEvent($event),
             static function (int $event): array {
