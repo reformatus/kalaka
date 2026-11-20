@@ -735,6 +735,8 @@ describe('the ranking field on a form page', () => {
 		await load(form(rankingMarkup()));
 		const field = document.querySelector('[data-kalaka-ranking]');
 		start(field);
+		tick(field, 'modul_c');
+		tick(field, 'modul_a');
 		submit(document.querySelector('form'));
 		await settle();
 		const slot = document.querySelector(
@@ -742,8 +744,6 @@ describe('the ranking field on a form page', () => {
 		);
 		expect(slot.textContent).toBe('Hiba');
 
-		tick(field, 'modul_c');
-		tick(field, 'modul_a');
 		press(field, 'modul_a', 'up');
 
 		expect(ranked(field)).toEqual(['modul_a', 'modul_c']);

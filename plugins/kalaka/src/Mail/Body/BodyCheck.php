@@ -153,7 +153,7 @@ final class BodyCheck
         if ($user > 0) {
             set_transient(self::NOTICE . $user, $message, HOUR_IN_SECONDS);
         }
-        SaveVeto::report('saving mail body ' . $id, $message, $problem ?? '');
+        SaveVeto::report('saving mail body ' . $id, $message, $problem ?? 'account_link ' . $id);
 
         return $data;
     }
