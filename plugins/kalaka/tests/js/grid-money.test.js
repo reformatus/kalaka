@@ -1,9 +1,8 @@
 import {
 	amountString,
 	balanceAfter,
-	balanceText,
-	formatAbsolute,
 	formatDay,
+	formatEntry,
 	formatMinor,
 	formatMoney,
 	parseAmount,
@@ -52,19 +51,23 @@ describe( 'money as shown', () => {
 		expect( formatMinor( -500000 ) ).toBe( `−5${ NBSP }000${ NBSP }Ft` );
 	} );
 
-	test( 'an entry\'s amount is absolute: the type word gives the direction', () => {
-		expect( formatAbsolute( '-35000.00000000' ) ).toBe( `35${ NBSP }000${ NBSP }Ft` );
-		expect( formatAbsolute( '1000.00000000' ) ).toBe( `1${ NBSP }000${ NBSP }Ft` );
+	test( 'an entry\'s amount is signed: a minus is money out (topic 6a G11)', () => {
+		// The ledger stores a payment as negative and a refund as positive; the panel shows the same sign as `paid`.
+		expect( formatEntry( '-35000.00000000', 'manual_payment' ) ).toBe( `35${ NBSP }000${ NBSP }Ft` );
+		expect( formatEntry( '1000.00000000', 'manual_refund' ) ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
+		expect( formatEntry( '1000.00000000', 'refund' ) ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
+		// A charge is shown as stored, positive like „Fizetendő”.
+		expect( formatEntry( '30000.00000000', 'charge' ) ).toBe( `30${ NBSP }000${ NBSP }Ft` );
+		expect( formatEntry( '0.00000000', 'charge' ) ).toBe( `0${ NBSP }Ft` );
 	} );
 
-	test( 'the balance reads as words', () => {
-		expect( balanceText( 3000000 ) ).toBe( `30${ NBSP }000${ NBSP }Ft hátralék` );
-		expect( balanceText( -500000 ) ).toBe( `5${ NBSP }000${ NBSP }Ft túlfizetés` );
-		expect( balanceText( toMinor( '0.005' ) ) ).toBe( `0${ NBSP }Ft` );
-		expect( balanceText( 3000000, 'EUR' ) ).toBe( `30${ NBSP }000${ NBSP }EUR hátralék` );
+	test( 'the balance is signed: positive is still owed, a minus is in the payer\'s favour', () => {
+		expect( formatMoney( '30000.00000000' ) ).toBe( `30${ NBSP }000${ NBSP }Ft` );
+		expect( formatMoney( '-5000.00000000' ) ).toBe( `−5${ NBSP }000${ NBSP }Ft` );
+		expect( formatMoney( '0.005' ) ).toBe( `0${ NBSP }Ft` );
+		expect( formatMoney( '30000.00000000', 'EUR' ) ).toBe( `30${ NBSP }000${ NBSP }EUR` );
 		expect( formatMinor( 100050, 'EUR' ) ).toBe( `1${ NBSP }000,50${ NBSP }EUR` );
 		expect( formatMinor( 100050, 'HUF' ) ).toBe( `1${ NBSP }000,50${ NBSP }Ft` );
-		expect( balanceText( 0 ) ).toBe( `0${ NBSP }Ft` );
 	} );
 } );
 
@@ -135,11 +138,16 @@ describe( 'dates in the site time zone', () => {
 } );
 
 describe( 'the recording dialog\'s checks', () => {
-	const ok = { several: false, payer: 'participant', amount: '5 000', date: '2026-11-19', method: 'cash', note: '', kind: 'payment', direction: '' };
+	const ok = { several: false, payer: 'participant', amount: '5 000', date: '2026-11-19', method: 'cash', note: '', kind: 'payment', direction: 'payment' };
 	const day = '2026-11-19';
 
 	test( 'a complete payment has no errors', () => {
 		expect( validateEntry( ok, day ) ).toEqual( {} );
+	} );
+
+	test( 'the direction has no default and is required, for an entry and a correction', () => {
+		expect( validateEntry( { ...ok, direction: '' }, day ).direction ).toBe( MONEY.directionEmpty );
+		expect( validateEntry( { ...ok, kind: 'refund', direction: '' }, day ).direction ).toBe( MONEY.directionEmpty );
 	} );
 
 	test( 'the amount is required, and above zero', () => {
@@ -167,10 +175,11 @@ describe( 'the recording dialog\'s checks', () => {
 	} );
 
 	test( 'a refund and a payment use the same checks: a method and a date, an optional note', () => {
-		expect( validateEntry( { ...ok, kind: 'refund' }, day ) ).toEqual( {} );
-		expect( validateEntry( { ...ok, kind: 'refund', method: 'card_terminal' }, day ) ).toEqual( {} );
-		expect( validateEntry( { ...ok, kind: 'refund', method: '' }, day ).method ).toBe( MONEY.methodEmpty );
-		expect( validateEntry( { ...ok, kind: 'refund', date: '2026-11-20' }, day ).value_date ).toBe( MONEY.dateFuture );
+		const refund = { ...ok, kind: 'refund', direction: 'refund' };
+		expect( validateEntry( refund, day ) ).toEqual( {} );
+		expect( validateEntry( { ...refund, method: 'card_terminal' }, day ) ).toEqual( {} );
+		expect( validateEntry( { ...refund, method: '' }, day ).method ).toBe( MONEY.methodEmpty );
+		expect( validateEntry( { ...refund, date: '2026-11-20' }, day ).value_date ).toBe( MONEY.dateFuture );
 	} );
 
 	test( 'a correction needs a direction and its reason, and no method or date', () => {
@@ -184,7 +193,7 @@ describe( 'the recording dialog\'s checks', () => {
 	} );
 
 	test( 'every wrong field is reported at once', () => {
-		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', kind: 'payment', direction: '' }, day );
-		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'payer', 'value_date' ] );
+		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', kind: '', direction: '' }, day );
+		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'direction', 'method', 'payer', 'value_date' ] );
 	} );
 } );

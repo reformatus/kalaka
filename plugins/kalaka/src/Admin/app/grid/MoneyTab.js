@@ -1,13 +1,14 @@
 /**
  * The „Pénzügyek” tab (S38): per payer what is owed, paid and the balance (and a total row with several
- * payers), the entries newest first, and the two actions the user's grants allow. Amounts are shown absolute,
- * the type word giving the direction; the balance in words. [UNAPPROVED N5] [UNAPPROVED N6] [UNAPPROVED N7]
- * [UNAPPROVED N17] [UNAPPROVED N18]
+ * payers), the entries newest first, and the two actions the user's grants allow. Every amount that has a
+ * direction is signed, and the balance with it: positive is still owed, a real minus is in the payer's favour
+ * (owner's walk, topic 6a G11). One „Tétel rögzítése” action records a payment or a refund, the correction
+ * keeps its own (G12). [UNAPPROVED N26] [UNAPPROVED N29] [UNAPPROVED N17] [UNAPPROVED N18]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import RecordDialog from './RecordDialog';
-import { balanceText, formatAbsolute, formatDay, formatMoney, toMinor } from './money';
+import { formatDay, formatEntry, formatMoney } from './money';
 import { MONEY } from './texts';
 
 /** How long the success snackbar stays. [UNAPPROVED N19] */
@@ -48,6 +49,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				opener.current.focus();
 			}
 		} );
+	// G12: the „Tétel rögzítése” dialog (a payment or a refund) and the correction's own. [UNAPPROVED N26]
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;
 		setDialog( kind );
@@ -109,22 +111,22 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 								<th scope="row">{ p.payer === '_total' ? p.label : payerName( p.payer ) }</th>
 								<td className="is-num">{ formatMoney( p.charged, money.currency ) }</td>
 								<td className="is-num">{ formatMoney( p.paid, money.currency ) }</td>
-								<td className="is-num">{ balanceText( toMinor( p.balance ) ?? 0, money.currency ) }</td>
+								<td className="is-num">{ formatMoney( p.balance, money.currency ) }</td>
 							</tr>
 						) ) }
 					</tbody>
 				</table>
 			</div>
-			{ ( can.record_payment || can.record_refund ) && (
+			{ ( can.record_payment || can.record_refund || can.record_correction ) && (
 				<div className="kg-actions">
-					{ can.record_payment && (
-						<Button variant="primary" onClick={ ( e ) => open( 'payment', e ) }>
-							{ MONEY.recordPay }
+					{ ( can.record_payment || can.record_refund ) && (
+						<Button variant="primary" onClick={ ( e ) => open( 'entry', e ) }>
+							{ MONEY.recordEntry }
 						</Button>
 					) }
-					{ ( can.record_refund || can.record_correction ) && (
-						<Button variant="secondary" onClick={ ( e ) => open( 'refund', e ) }>
-							{ MONEY.recordRefund }
+					{ can.record_correction && (
+						<Button variant="secondary" onClick={ ( e ) => open( 'correction', e ) }>
+							{ MONEY.recordCorrect }
 						</Button>
 					) }
 				</div>
@@ -163,7 +165,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 										) }
 									</td>
 									{ several && <td>{ payerName( line.payer ) }</td> }
-									<td className="is-num kg-nowrap">{ formatAbsolute( line.amount, money.currency ) }</td>
+									<td className="is-num kg-nowrap">{ formatEntry( line.amount, line.kind, money.currency ) }</td>
 									<td>{ line.method_label || '' }</td>
 									<td>{ line.note || '' }</td>
 								</tr>
@@ -175,7 +177,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 			{ dialog && (
 				<RecordDialog
 					config={ config }
-					refund={ dialog === 'refund' }
+					mode={ dialog }
 					can={ can }
 					code={ code }
 					money={ money }

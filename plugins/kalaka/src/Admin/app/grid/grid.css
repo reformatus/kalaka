@@ -47,9 +47,10 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-warn { color: #996800; }
 .kg-off { color: #787c82; }
 
-/* Rows look clickable (owner's walk, topic 6a G2): only the hover highlight is on this PR; the code cell's
-   underline and the open row's own highlight are #217's. [UNAPPROVED N24] */
+/* Rows look clickable (owner's walk, topic 6a G2): the hover highlight, and the open row's own colour that the
+   hover does not paint over. The cell's button keeps its keyboard focus ring and nothing else. [UNAPPROVED N30] */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
+#kalaka-grid tbody tr.dataviews-view-table__row.kg-row-open > td { background-color: #f0f6fc; }
 
 /* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
    An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design
@@ -87,11 +88,10 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 /* The detail panel (S38): a fixed side panel over the grid, 540 px, the full width on a phone. The look is
    structural and in WordPress admin's own colours; the open row's highlight and the panel's shadow are mine. */
-#kalaka-grid .kg-open { all: unset; cursor: pointer; font: inherit; color: inherit; border-bottom: 1px dotted currentColor; box-sizing: border-box; }
-#kalaka-grid .kg-open:hover { color: var(--wp-admin-theme-color, #3858e9); border-bottom-style: solid; }
+#kalaka-grid .kg-open { all: unset; cursor: pointer; font: inherit; color: inherit; box-sizing: border-box; }
 #kalaka-grid .kg-open:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
 #kalaka-grid tbody tr.kg-row-click { cursor: pointer; }
-#kalaka-grid tbody tr.kg-row-open { background: #f0f6fc; box-shadow: inset 3px 0 0 var(--wp-admin-theme-color, #3858e9); }
+#kalaka-grid tbody tr.kg-row-open { box-shadow: inset 3px 0 0 var(--wp-admin-theme-color, #3858e9); }
 .kg-panel { position: fixed; top: var(--wp-admin--admin-bar--height, 32px); right: 0; bottom: 0; width: min(540px, 100vw); z-index: 9995; background: #fff; border-left: 1px solid #c3c4c7; box-shadow: -6px 0 18px rgba(0, 0, 0, .12); overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 72px; box-sizing: border-box; }
 .kg-panel:focus { outline: none; }
 .kg-panel:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: -2px; }
