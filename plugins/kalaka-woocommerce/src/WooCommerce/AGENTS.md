@@ -1,0 +1,29 @@
+# WooCommerce
+
+WooCommerce is the WooCommerce integration: one extension plugin,
+`kalaka-woocommerce` (module `woocommerce`), that uses only core's public API
+([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
+
+## Sections it implements
+
+- modules-and-extensions.md: [Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)
+  (the WooCommerce integration is our own extension plugin on core's payments
+  port), [Extensions in view](../../../../docs/architecture/modules-and-extensions.md#extensions-in-view),
+  [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
+  [Failure isolation](../../../../docs/architecture/modules-and-extensions.md#failure-isolation).
+- foundation.md: [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
+  (a grant holder reaches the admin side).
+
+## Invariants
+
+- The plugin uses core only through `Kalaka\<Module>\Api\…` (deptrac); core
+  never uses the plugin.
+- WooCommerce's `woocommerce_prevent_admin_access` filter returns false when
+  `Kalaka\Admin\Api\Access::mayReachAdmin()` says the current user reaches the
+  admin side (full access or any grant); otherwise the incoming value is
+  returned unchanged. Nobody else gains anything.
+- The filter is guarded for failure isolation: core's `Access` missing, or a
+  throw inside, returns the incoming value, so WooCommerce's own decision
+  stands and the admin stays up. A throw is reported once through
+  `Foundation\Api\Entry\Boundary`.
+- The plugin stores nothing of its own. Payments are not part of this slice.
