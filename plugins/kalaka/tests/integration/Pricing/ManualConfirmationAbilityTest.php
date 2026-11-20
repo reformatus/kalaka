@@ -62,7 +62,7 @@ final class ManualConfirmationAbilityTest extends ManualEntryTestCase
     {
         foreach (
             [
-                'kalaka/set-manual-confirmation' => [new SetManualConfirmation(), 'Visszaigazolás fizetés nélkül'],
+                'kalaka/set-manual-confirmation' => [new SetManualConfirmation(), 'Visszaigazolás befizetés nélkül'],
                 'kalaka/unconfirm' => [new Unconfirm(), 'Visszaigazolás visszavonása'],
             ] as $name => [$useCase, $label]
         ) {

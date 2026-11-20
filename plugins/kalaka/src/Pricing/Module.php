@@ -88,8 +88,8 @@ SQL;
         // (topic 4). [UNAPPROVED T1, T2, T3, T4]
         Abilities::register(
             new SetManualConfirmation(),
-            'Visszaigazolás fizetés nélkül',
-            'Egy jelentkező visszaigazolása fizetés nélkül, indoklással.'
+            'Visszaigazolás befizetés nélkül',
+            'Egy jelentkező visszaigazolása befizetés nélkül, indoklással.'
         );
         Abilities::register(
             new Unconfirm(),
