@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\Grid;
 
-use Kalaka\Registrations\Api\RegistrationStatus;
-
 /**
  * The Hungarian text of the grid page that PHP renders or hands to the app (S37). The app's own strings are
  * in `app/grid/texts.js`.
@@ -39,20 +37,4 @@ final class Texts
     public const MASTER_COUNTS_LABEL = 'Összesítés mentése';
     public const MASTER_COUNTS_DESCRIPTION =
         'Annak beállítása, hogy egy oszlopban mit számoljon a Jelentkezők összesítő sora.';
-
-    /**
-     * A status as the grid shows it, as a state: „Rögzítve”, not the past tense „Rögzített” the documents
-     * use (owner's walk, topic 6a G6). The documents' word stays `RegistrationStatus::word()`; the grid
-     * owns its own wording, so this map is the one place for it.
-     * [UNAPPROVED T2]
-     */
-    public static function status(RegistrationStatus $status): string
-    {
-        return match ($status) {
-            RegistrationStatus::Registered => 'Rögzítve',
-            RegistrationStatus::Waitlisted => 'Várólistán',
-            RegistrationStatus::Withdrawn => 'Visszavonva',
-            RegistrationStatus::Removed => 'Törölve',
-        };
-    }
 }
