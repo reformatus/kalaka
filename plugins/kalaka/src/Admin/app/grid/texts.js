@@ -84,11 +84,11 @@ export const PANEL = {
 export const MONEY = {
 	payer: 'Fizető',
 	owed: 'Fizetendő',
-	paid: 'Befizetve',
+	// The signed amounts (topic 6a G11): „Befizetett” is the payer's action, a minus is money we paid them.
+	// [UNAPPROVED T20]
+	paid: 'Befizetett',
 	balance: 'Egyenleg',
 	total: 'Összesen',
-	due: 'hátralék',
-	over: 'túlfizetés',
 	entries: 'Tételek',
 	date: 'Dátum',
 	type: 'Típus',
@@ -97,9 +97,10 @@ export const MONEY = {
 	note: 'Megjegyzés',
 	none: 'Még nincs tétel.',
 	correction: 'korrekció',
-	recordPay: 'Befizetés rögzítése',
-	// [UNAPPROVED T17]: the refund / correction button's text.
-	recordRefund: 'Visszautalás / javítás rögzítése',
+	// The owner's G12 words (topic 6a): one „Tétel rögzítése” dialog for a payment or a refund, and the
+	// correction on its own. [UNAPPROVED T21] the correction's button.
+	recordEntry: 'Tétel rögzítése',
+	recordCorrect: 'Korrekció rögzítése',
 	amountField: 'Összeg (Ft)',
 	dateField: 'Dátum',
 	methodField: 'Fizetési mód',
@@ -115,11 +116,11 @@ export const MONEY = {
 	// The refund and correction words and snackbars, approved by the owner 2026-11-20 (T1, T2, T4, T12, T15).
 	savedRefund: 'Visszafizetés rögzítve.',
 	savedCorrection: 'Korrekció rögzítve.',
-	kindRefund: 'Visszafizetés',
-	kindCorrection: 'Korrekció',
-	// The refund / correction dialog's switch label, direction and its message. [UNAPPROVED T19]
-	kindField: 'Típus',
+	// The „Tétel rögzítése” dialog's direction: no default, like the correction's. [UNAPPROVED T22]
 	directionField: 'Irány',
+	entryIn: 'Befizetés',
+	entryOut: 'Visszafizetés',
+	// The correction's direction and its message, approved by the owner 2026-11-20 (T19).
 	directionIn: 'Befizetésként',
 	directionOut: 'Kifizetésként',
 	directionEmpty: 'Válassz irányt.',
