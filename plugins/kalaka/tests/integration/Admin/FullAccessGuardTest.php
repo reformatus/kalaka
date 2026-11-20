@@ -104,6 +104,39 @@ final class FullAccessGuardTest extends AdminTestCase
         self::assertFalse(get_userdata($this->admin->userId));
     }
 
+    public function testWithNoHolderTheDeletionIsAllowedAndWritesNoLogLine(): void
+    {
+        require_once ABSPATH . 'wp-admin/includes/user.php';
+        $administrator = self::factory()->user->create(['role' => 'administrator']);
+        $target = self::factory()->user->create();
+        wp_set_current_user($administrator);
+        (new \WP_User($this->admin->userId))->remove_cap(AdminAccess::FULL_ACCESS);
+        Access::forget();
+
+        self::assertSame([], (new FullAccessQuery())->holders());
+        self::assertTrue(current_user_can('delete_user', $target));
+
+        $log = $this->capturedErrorLog(static function () use ($target): void {
+            self::assertTrue(wp_delete_user($target));
+        });
+
+        self::assertFalse(get_userdata($target));
+        self::assertSame('', trim($log));
+    }
+
+    public function testTheOnlyHolderCheckOnlyUsesAUserIdArgument(): void
+    {
+        $id = $this->admin->userId;
+
+        self::assertSame([], LastHolderGuard::metaCaps([], 'delete_user', 0, []));
+        self::assertSame([], LastHolderGuard::metaCaps([], 'delete_user', 0, [0]));
+        self::assertSame([], LastHolderGuard::metaCaps([], 'delete_user', 0, ['nem-szam']));
+        self::assertSame(['do_not_allow'], LastHolderGuard::metaCaps([], 'delete_user', 0, [(string) $id]));
+        self::assertSame(['do_not_allow'], LastHolderGuard::metaCaps([], 'delete_user', 0, [$id]));
+        self::assertSame([], LastHolderGuard::metaCaps([], 'edit_user', 0, [$id]));
+        self::assertSame([], LastHolderGuard::metaCaps([], 'delete_users', 0, []));
+    }
+
     public function testPlainCodeDeletingTheLastHolderIsLoggedAndProceeds(): void
     {
         require_once ABSPATH . 'wp-admin/includes/user.php';
@@ -116,12 +149,18 @@ final class FullAccessGuardTest extends AdminTestCase
         self::assertFalse(get_userdata($id));
         $lines = array_values(array_filter(
             explode("\n", $log),
-            static fn (string $line): bool => str_contains($line, 'deleting the last user with full access')
+            static fn (string $line): bool => str_contains(
+                $line,
+                'guarding the last user with full access from deletion'
+            )
         ));
         self::assertCount(1, $lines);
-        self::assertStringContainsString('Kaláka: deleting the last user with full access failed', $lines[0]);
         self::assertStringContainsString(
-            'The last user with full access was deleted past the capability check.',
+            'Kaláka: guarding the last user with full access from deletion failed',
+            $lines[0]
+        );
+        self::assertStringContainsString(
+            'The last user with full access was deleted past the capability check; nobody holds full access now.',
             $lines[0]
         );
     }

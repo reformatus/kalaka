@@ -88,8 +88,10 @@ reached; the grant defines who holds the view.**
     by their role. The user who activates the plugin gets it while nobody
     holds it; after that a holder gives or takes it on the user's profile screen, or WP-CLI does
     (`wp kalaka full-access grant|revoke`), both through audited use cases.
-    The last holder cannot lose it. On multisite, super admins pass every
-    check.
+    The last holder cannot lose it through Kaláka's use cases, the WordPress
+    users screen, REST or WP-CLI; plain code can still delete the user, which
+    is logged, and re-activation restores a holder. On multisite, super admins
+    pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, record payment,
   refund, regenerate link, notes, audit history) are carried by the grant,
   not by WordPress roles. An action is usable only on registrations inside

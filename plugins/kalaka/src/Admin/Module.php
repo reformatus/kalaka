@@ -90,6 +90,13 @@ SQL;
 
     public function boot(): void
     {
+        // Full access counts as the user's own capability, never a role's; WordPress cannot delete its
+        // last holder (foundation.md, "Views and grants"). Registered first, so an ability that throws
+        // later cannot leave a role-carried capability unguarded.
+        add_filter('user_has_cap', [OwnCapability::class, 'filter'], PHP_INT_MAX, 4);
+        add_filter('map_meta_cap', [LastHolderGuard::class, 'metaCaps'], 10, 4);
+        add_action('delete_user', [LastHolderGuard::class, 'deleting']);
+
         Abilities::registerCategory();
         // The labels of the abilities.
         Abilities::register(new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.');
@@ -110,12 +117,6 @@ SQL;
             'Teljes hozzáférés visszavonása',
             'Egy felhasználó teljes hozzáférésének visszavonása.'
         );
-
-        // Full access counts as the user's own capability, never a role's; WordPress cannot delete its
-        // last holder (foundation.md, "Views and grants").
-        add_filter('user_has_cap', [OwnCapability::class, 'filter'], 10, 4);
-        add_filter('map_meta_cap', [LastHolderGuard::class, 'metaCaps'], 10, 4);
-        add_action('delete_user', [LastHolderGuard::class, 'deleting']);
 
         add_action('show_user_profile', [ProfileField::class, 'render']);
         add_action('edit_user_profile', [ProfileField::class, 'render']);
