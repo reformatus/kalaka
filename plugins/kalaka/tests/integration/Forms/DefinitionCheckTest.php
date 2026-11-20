@@ -11,10 +11,13 @@ use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Tests\Integration\LogCapture;
 
 /** A published form never goes from working to broken through an edit; one that is broken stays closed. */
 final class DefinitionCheckTest extends FormsTestCase
 {
+    use LogCapture;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
     public function set_up(): void
     {
@@ -303,29 +306,6 @@ final class DefinitionCheckTest extends FormsTestCase
 
         self::assertSame(400, $response->get_status());
         self::assertStringNotContainsString('saving form', $log);
-    }
-
-    /**
-     * The log lines written while the body runs.
-     *
-     * @param \Closure(): mixed $body
-     * @return array{string, mixed}
-     */
-    private function captureLog(\Closure $body): array
-    {
-        $file = (string) tempnam(sys_get_temp_dir(), 'kalaka-log-');
-        $previous = ini_set('error_log', $file);
-        try {
-            $result = $body();
-        } finally {
-            ini_set('error_log', (string) $previous);
-        }
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the captured error log, a temporary file
-        $log = (string) file_get_contents($file);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removes the captured error log, a temporary file
-        unlink($file);
-
-        return [$log, $result];
     }
 
     /**

@@ -7,10 +7,13 @@ namespace Kalaka\Tests\Integration\Mail;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Module;
+use Kalaka\Tests\Integration\LogCapture;
 
 /** A mail body is checked when it is saved as published: its keys and conditions against the mail's keys. */
 final class BodyCheckTest extends MailBodyTestCase
 {
+    use LogCapture;
+
     private int $user = 0;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
@@ -211,6 +214,33 @@ final class BodyCheckTest extends MailBodyTestCase
         self::assertStringContainsString('unknown_value_key nincs', $warnings[0][1]);
     }
 
+    public function testALoggedInAdminsVetoedSaveIsANoticeAndALogLineButNoPhpWarning(): void
+    {
+        $event = $this->create();
+        $id = $this->document($event, $this->paragraph('Szia'));
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => $this->paragraph('<span data-kalaka-value="nincs">x</span>'),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+        }
+
+        self::assertSame($this->paragraph('Szia'), get_post_field('post_content', $id));
+        self::assertSame(
+            'A sablon szövegét így nem lehet menteni: unknown_value_key („nincs”).',
+            get_transient(BodyCheck::NOTICE . get_current_user_id())
+        );
+        self::assertStringContainsString('saving mail body ' . $id, $log);
+        self::assertSame([], $warnings);
+    }
+
     public function testARestRefusalWritesNoLogLine(): void
     {
         $event = $this->create();
@@ -223,28 +253,5 @@ final class BodyCheckTest extends MailBodyTestCase
 
         self::assertSame(400, $response->get_status());
         self::assertStringNotContainsString('saving mail body', $log);
-    }
-
-    /**
-     * The log lines written while the body runs.
-     *
-     * @param \Closure(): mixed $body
-     * @return array{string, mixed}
-     */
-    private function captureLog(\Closure $body): array
-    {
-        $file = (string) tempnam(sys_get_temp_dir(), 'kalaka-log-');
-        $previous = ini_set('error_log', $file);
-        try {
-            $result = $body();
-        } finally {
-            ini_set('error_log', (string) $previous);
-        }
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the captured error log, a temporary file
-        $log = (string) file_get_contents($file);
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removes the captured error log, a temporary file
-        unlink($file);
-
-        return [$log, $result];
     }
 }

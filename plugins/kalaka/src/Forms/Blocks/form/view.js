@@ -375,7 +375,7 @@ function apply(form, { availability, parts }) {
 		started.pages = availability.pages;
 		showButtons(form);
 	}
-	// A field that no longer shows loses its message, so a stale one never comes back with it (N2).
+	// [UNAPPROVED N2] A field that no longer shows loses its message, so a stale one never comes back with it.
 	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
 		if (!shows(wrapper)) {
 			clearFieldMessage(wrapper);

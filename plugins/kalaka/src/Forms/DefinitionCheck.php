@@ -35,7 +35,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * The REST save (the block editor) is refused with a 400 before anything is written, checked with the
  * placement and the event the request sets, if any; any other save path (code, WP-CLI, a revision restore)
  * is vetoed gracefully in `wp_insert_post_data`, checked with what it sets in `meta_input`, else the stored
- * settings: nothing ever throws out of a core filter. An
+ * settings: nothing ever throws out of a core filter. A veto writes a log line, and on WP-CLI a warning
+ * and a failing exit (`SaveVeto`). An
  * autosave is stored as a revision and is never a version (`FormPosts`), so it is not checked.
  */
 final class DefinitionCheck
@@ -157,7 +158,7 @@ final class DefinitionCheck
     /**
      * `wp_insert_post_data`, after the keys are derived: the backstop for every other save path (code,
      * WP-CLI, WordPress's own revision restore). It never throws out of the core filter: a refused save
-     * is vetoed gracefully.
+     * is vetoed gracefully (a log line, and on WP-CLI a warning and a failing exit, `SaveVeto`).
      *
      * - A change of a form's event is refused: the setting and the content keep their stored values (the
      *   new content's keys were derived for the stored event).
@@ -166,7 +167,8 @@ final class DefinitionCheck
      * - Content that would publish a broken definition: a published form keeps its stored content; any
      *   other form keeps the new content but not the published status.
      *
-     * Why is kept for the saving user and shown as an admin notice on their next admin page (`notice()`).
+     * Why is kept for the saving user and shown as an admin notice on their next admin page (`notice()`);
+     * the veto is loud too (`SaveVeto`).
      *
      * @param array<string, mixed> $data the post's fields, slashed
      * @param array<string, mixed> $postarr

@@ -77,6 +77,19 @@ describe('a field message on an edit', () => {
 		expect(slot('size').textContent).toBe(MESSAGE);
 	});
 
+	test('an input event alone clears a text field’s message', async () => {
+		await load(page);
+		await refuse({ name: MESSAGE });
+
+		const input = control('name');
+		expect(slot('name').textContent).toBe(MESSAGE);
+
+		input.dispatchEvent(new Event('input', { bubbles: true }));
+
+		expect(slot('name').textContent).toBe('');
+		expect(slot('name').hidden).toBe(true);
+	});
+
 	test.each([
 		['a radio', 'size', () => choose(root(), 'size', 'm')],
 		['a checkbox', 'extras', () => control('extras[]', 'a').click()],

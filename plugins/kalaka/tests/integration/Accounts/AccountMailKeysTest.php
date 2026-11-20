@@ -20,6 +20,7 @@ use Kalaka\Mail\Body\MailRenderer;
 use Kalaka\Mail\Body\MailValues;
 use Kalaka\Registrations\Account\SignUpPage;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\LogCapture;
 use Kalaka\Tests\Integration\Mail\MailBodyTestCase;
 
 /**
@@ -29,6 +30,8 @@ use Kalaka\Tests\Integration\Mail\MailBodyTestCase;
  */
 final class AccountMailKeysTest extends MailBodyTestCase
 {
+    use LogCapture;
+
     private const OWNER_EMAIL = 'teszt@example.test';
 
     private function event(string $mode): int
@@ -353,8 +356,12 @@ final class AccountMailKeysTest extends MailBodyTestCase
 
         // Any other save path: the graceful veto keeps the published content.
         wp_set_current_user(self::factory()->user->create(['role' => 'administrator']));
-        wp_update_post(['ID' => $body, 'post_content' => $this->paragraph('Köszönjük!')]);
+        $refused = $this->paragraph('Köszönjük!');
+        [$log] = $this->captureLog(static function () use ($body, $refused): void {
+            wp_update_post(['ID' => $body, 'post_content' => $refused]);
+        });
         self::assertTrue(MailValues::readsPasswordLink((string) get_post($body)?->post_content));
         self::assertSame(AccountLinkRule::NEEDS_LINK, get_transient(BodyCheck::NOTICE . get_current_user_id()));
+        self::assertStringContainsString('account_link ' . $body, $log);
     }
 }

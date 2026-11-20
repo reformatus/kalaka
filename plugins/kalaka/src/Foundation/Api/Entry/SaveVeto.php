@@ -14,7 +14,16 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  * `WP_DEBUG`).
  *
  * `after_invoke` is not enough for WP-CLI: a command like `wp post update` ends with `exit()` before the
- * hook runs, so the exit is a shutdown function registered on the first veto.
+ * hook runs, so the exit is a shutdown function registered on the first veto. That exit calls
+ * `WP_CLI::error()`, which exits PHP, so every shutdown function registered after the first veto is
+ * skipped; core's `shutdown_action_hook` is registered earlier, so the `shutdown` action still runs.
+ * Plain `wp` commands and PHPUnit raise no veto and are unaffected.
+ *
+ * Any veto fails the whole command: the count is not reset when later saves succeed, so a command that
+ * vetoed any save exits 1, even if later saves succeeded.
+ *
+ * The `wp_trigger_error` warning fires only with `WP_DEBUG` on. The tests run with it off and assert the
+ * hook `wp_trigger_error_always_run` instead, so the real `trigger_error` is not exercised there.
  */
 final class SaveVeto
 {
@@ -26,6 +35,9 @@ final class SaveVeto
 
     /**
      * Reports one vetoed save.
+     *
+     * [UNAPPROVED N4] One log line, a WP-CLI warning and exit 1, or a PHP warning with no logged-in
+     * user outside REST.
      *
      * @param string $what what was refused, e.g. "saving form 12"
      * @param string $message the refusal's text, as the person would see it
