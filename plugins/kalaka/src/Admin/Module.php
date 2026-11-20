@@ -7,6 +7,8 @@ namespace Kalaka\Admin;
 use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Cli\FullAccessCommand;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
+use Kalaka\Admin\FullAccess\LastHolderGuard;
+use Kalaka\Admin\FullAccess\OwnCapability;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\FullAccess\UsersColumn;
@@ -108,6 +110,12 @@ SQL;
             'Teljes hozzáférés visszavonása',
             'Egy felhasználó teljes hozzáférésének visszavonása.'
         );
+
+        // Full access counts as the user's own capability, never a role's; WordPress cannot delete its
+        // last holder (foundation.md, "Views and grants").
+        add_filter('user_has_cap', [OwnCapability::class, 'filter'], 10, 4);
+        add_filter('map_meta_cap', [LastHolderGuard::class, 'metaCaps'], 10, 4);
+        add_action('delete_user', [LastHolderGuard::class, 'deleting']);
 
         add_action('show_user_profile', [ProfileField::class, 'render']);
         add_action('edit_user_profile', [ProfileField::class, 'render']);

@@ -136,17 +136,18 @@ final class FullAccessTest extends AdminTestCase
         }
     }
 
-    public function testAUserHoldingItThroughARoleCountsAsAHolderForTheLastHolderCheck(): void
+    public function testARoleCarryingItDoesNotCountAsAHolder(): void
     {
         add_role('kalaka_teszt_role', 'Teszt szerep', [AdminAccess::FULL_ACCESS => true]);
         try {
             $other = self::factory()->user->create(['role' => 'kalaka_teszt_role']);
-            self::assertSame([$this->admin->userId, $other], (new FullAccessQuery())->holders());
+            self::assertSame([$this->admin->userId], (new FullAccessQuery())->holders());
+            self::assertFalse(user_can($other, AdminAccess::FULL_ACCESS));
 
-            $this->exec(new RevokeFullAccess(), ['user_id' => $this->admin->userId], new UserActor($other));
-
-            self::assertFalse(self::holds($this->admin->userId));
+            $this->expectException(RuleViolation::class);
+            $this->exec(new RevokeFullAccess(), ['user_id' => $this->admin->userId], new SystemActor());
         } finally {
+            self::assertTrue(self::holds($this->admin->userId));
             remove_role('kalaka_teszt_role');
         }
     }

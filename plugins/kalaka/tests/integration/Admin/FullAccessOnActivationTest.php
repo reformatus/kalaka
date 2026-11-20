@@ -67,17 +67,22 @@ final class FullAccessOnActivationTest extends AuditTestCase
         self::assertSame([], $this->entries());
     }
 
-    public function testNobodyGetsItWhileARoleCarriesItForSomeone(): void
+    public function testARoleCarryingItGivesNobodyFullAccessAndDoesNotStopTheActivationGrant(): void
     {
         add_role('kalaka_teszt_role', 'Teszt szerep', [AdminAccess::FULL_ACCESS => true]);
         try {
-            self::factory()->user->create(['role' => 'kalaka_teszt_role']);
+            $member = self::factory()->user->create(['role' => 'kalaka_teszt_role']);
             $user = self::factory()->user->create();
 
             FullAccessOnActivation::grant($user);
 
-            self::assertFalse(user_can($user, AdminAccess::FULL_ACCESS));
-            self::assertSame([], $this->entries());
+            // The role grants nothing, so nobody held it: the activating user gets it as their own.
+            self::assertFalse(user_can($member, AdminAccess::FULL_ACCESS));
+            $wpUser = get_userdata($user);
+            self::assertInstanceOf(\WP_User::class, $wpUser);
+            self::assertTrue(user_can($user, AdminAccess::FULL_ACCESS));
+            self::assertTrue((bool) $wpUser->caps[AdminAccess::FULL_ACCESS]);
+            self::assertSame('kalaka/grant-full-access', $this->onlyEntry()['action']);
         } finally {
             remove_role('kalaka_teszt_role');
         }
