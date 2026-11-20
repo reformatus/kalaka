@@ -9,6 +9,7 @@ import {
 	runAbility,
 	saveCounts,
 	saveView,
+	setManualConfirmation,
 } from '../../src/Admin/app/grid/api';
 import { runPick } from '../../src/Admin/app/grid/pick';
 import { serial } from '../../src/Admin/app/grid/serial';
@@ -419,5 +420,24 @@ describe( 'what a failed detail read means', () => {
 		expect( detailProblem( { data: { status: 500 } } ) ).toBe( 'failed' );
 		expect( detailProblem( new Error( 'x' ) ) ).toBe( 'failed' );
 		expect( detailProblem( null ) ).toBe( 'failed' );
+	} );
+} );
+
+describe( 'the manual confirmation', () => {
+	test( 'setting runs kalaka/set-manual-confirmation with the event, the code and the reason', async () => {
+		apiFetch.mockResolvedValue( { changed: true } );
+		await setManualConfirmation( config, '02S2', 'Telefonon egyeztettünk', false );
+		expect( apiFetch ).toHaveBeenCalledWith(
+			call( 'kalaka/set-manual-confirmation', { event_id: 7, code: '02S2', reason: 'Telefonon egyeztettünk' } )
+		);
+	} );
+
+	test( 'unconfirming runs kalaka/unconfirm with the reason, not the old revoke', async () => {
+		apiFetch.mockResolvedValue( { changed: true } );
+		await setManualConfirmation( config, '02S2', 'Tévedés', true );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		expect( apiFetch ).toHaveBeenCalledWith(
+			call( 'kalaka/unconfirm', { event_id: 7, code: '02S2', reason: 'Tévedés' } )
+		);
 	} );
 } );

@@ -1,0 +1,107 @@
+/**
+ * The manual confirmation dialog (S20): the required reason, for setting the flag or revoking it
+ * (`kalaka/set-manual-confirmation`, `kalaka/unconfirm`). A failed save keeps the dialog and the reason, and
+ * while it runs the dialog does not close (Esc, ×, Mégse). A refused unconfirm (a 422) shows the server's text.
+ * The unconfirm dialog says nothing about what unconfirming does: that text needs a concept the owner has not
+ * worded. [UNAPPROVED N33]
+ */
+import { useEffect, useRef, useState } from '@wordpress/element';
+import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
+import * as api from './api';
+import { refusalOf, validateReason } from './confirmation';
+import { CONFIRM, MONEY } from './texts';
+
+/**
+ * @param {Object}   props
+ * @param {Object}   props.config  window.kalakaGrid
+ * @param {boolean}  props.unconfirm the unconfirm dialog (else the set dialog)
+ * @param {string}   props.code    the registration's code
+ * @param {Function} props.onClose closes the dialog
+ * @param {Function} props.onDone  called with the snackbar text once it is saved
+ */
+export default function ConfirmDialog( { config, unconfirm, code, onClose, onDone } ) {
+	const [ reason, setReason ] = useState( '' );
+	const [ error, setError ] = useState( '' );
+	const [ failed, setFailed ] = useState( null ); // the failure text, or null
+	const [ busy, setBusy ] = useState( false );
+	const sending = useRef( false ); // the guard against a second submit before the state has re-rendered
+	const form = useRef();
+
+	// Focus lands on the field, not on the dialog frame.
+	useEffect( () => {
+		const timer = setTimeout( () => {
+			const input = form.current && form.current.querySelector( 'textarea' );
+			if ( input ) {
+				input.focus();
+			}
+		}, 60 );
+		return () => clearTimeout( timer );
+	}, [] );
+
+	const submit = async ( event ) => {
+		event.preventDefault();
+		if ( busy || sending.current ) {
+			return;
+		}
+		setFailed( null );
+		const found = validateReason( reason );
+		setError( found );
+		if ( found ) {
+			setTimeout( () => {
+				const input = form.current && form.current.querySelector( 'textarea' );
+				if ( input ) {
+					input.focus();
+				}
+			}, 50 );
+			return;
+		}
+		sending.current = true;
+		setBusy( true );
+		try {
+			const result = await api.setManualConfirmation( config, code, reason.trim(), unconfirm );
+			// An unconfirm that found nothing to unconfirm changed nothing: the panel only shows what is now.
+			await onDone( result && result.changed === false ? null : unconfirm ? CONFIRM.unconfirmed : CONFIRM.saved );
+		} catch ( error ) {
+			// Whatever the server refused or lost, the dialog stays with the reason.
+			sending.current = false;
+			setBusy( false );
+			setFailed( refusalOf( error ) || MONEY.saveFail );
+		}
+	};
+
+	return (
+		<Modal
+			title={ unconfirm ? CONFIRM.unconfirm : CONFIRM.set }
+			onRequestClose={ () => ! sending.current && onClose() }
+			size="medium"
+			className="kg-dialog"
+			shouldCloseOnClickOutside={ false }
+		>
+			<form onSubmit={ submit } noValidate ref={ form }>
+				<TextareaControl
+					label={ CONFIRM.reasonField }
+					value={ reason }
+					onChange={ setReason }
+					rows={ 3 }
+					maxLength={ 500 }
+					aria-invalid={ error ? 'true' : undefined }
+					help={ error && <span className="kg-err">{ error }</span> }
+					__nextHasNoMarginBottom
+				/>
+				{ failed && (
+					<Notice status="error" isDismissible={ false }>
+						{ failed }
+					</Notice>
+				) }
+				<div className="kg-dialog-actions">
+					<Button variant="primary" type="submit" isBusy={ busy } aria-disabled={ busy }>
+						{ MONEY.save }
+					</Button>
+					<Button variant="tertiary" onClick={ onClose } disabled={ busy }>
+						{ MONEY.cancel }
+					</Button>
+				</div>
+			</form>
+		</Modal>
+	);
+}

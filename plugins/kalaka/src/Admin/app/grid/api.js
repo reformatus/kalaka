@@ -221,3 +221,22 @@ export const recordEntry = (
 	}
 	return runAbility( kind === 'refund' ? 'kalaka/record-refund' : 'kalaka/record-payment', input );
 };
+
+/**
+ * Confirms a registration without payment (`kalaka/set-manual-confirmation`) or unconfirms it
+ * (`kalaka/unconfirm`, which also clears the manual flag). The reason is required (at most 500 characters);
+ * both are idempotent, so a retry is safe: unconfirming a registration that is not confirmed answers
+ * `{ changed: false }`. The unconfirm is refused with a 422 when its payments reach the threshold or it was
+ * confirmed because nothing was due.
+ *
+ * @param {Object}  config    window.kalakaGrid
+ * @param {string}  code      the registration's code
+ * @param {string}  reason    why
+ * @param {boolean} unconfirm unconfirm (else set the manual flag)
+ */
+export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
+	runAbility( unconfirm ? 'kalaka/unconfirm' : 'kalaka/set-manual-confirmation', {
+		event_id: config.event,
+		code,
+		reason,
+	} );

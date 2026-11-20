@@ -3,10 +3,16 @@
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
  * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12]
+ *
+ * S20: next to the status, the confirmation decision's state, only when the read has it, and under the header
+ * the manual confirmation block. When the re-read after a save fails twice, the state and the block are not
+ * shown (the old ones would look current); the load-error message says so. [UNAPPROVED N30] [UNAPPROVED N37]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
+import { confirmationOf, markOf } from './confirmation';
+import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import StatusMark from './StatusMark';
 import { PANEL } from './texts';
@@ -48,16 +54,21 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	// the entry is saved, and a failed re-read only says so.
 	const reload = useCallback( async () => {
 		const asked = code;
-		try {
-			const result = await api.fetchDetail( config, asked );
-			if ( shown.current === asked ) {
-				setDetail( result );
-				setProblem( null );
+		// One more try before it says so.
+		for ( let attempt = 0; attempt < 2; attempt++ ) {
+			try {
+				const result = await api.fetchDetail( config, asked );
+				if ( shown.current === asked ) {
+					setDetail( result );
+					setProblem( null );
+				}
+				return;
+			} catch {
+				// Tried again below.
 			}
-		} catch {
-			if ( shown.current === asked ) {
-				setProblem( 'failed' );
-			}
+		}
+		if ( shown.current === asked ) {
+			setProblem( 'failed' );
 		}
 	}, [ config, code ] );
 
@@ -82,6 +93,9 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	}, [ showsTabs, stale ] );
 
 	const registration = ( detail && detail.registration ) || {};
+	// While the last read failed the state on screen may be old: it is left out.
+	const confirmation = problem ? null : confirmationOf( registration );
+	const [ confirmIcon, confirmTone ] = confirmation ? markOf( confirmation.state ) : [ '', '' ];
 	return (
 		<aside
 			className="kg-panel"
@@ -95,11 +109,18 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				{ detail && (
 					<div className="kg-panel-id">
 						{ registration.name && <h2 className="kg-panel-name">{ registration.name }</h2> }
-						{ ( registration.code || registration.status_label || registration.email ) && (
+						{ ( registration.code || registration.status_label || confirmation || registration.email ) && (
 							<p className="kg-panel-meta">
 								{ registration.code && <span className="kg-code">{ registration.code }</span> }
 								{ registration.status_label && (
 									<StatusMark status={ registration.status } text={ registration.status_label } />
+								) }
+								{ confirmation && (
+									<span className="kg-mark">
+										<span className={ `dashicons ${ confirmIcon } ${ confirmTone }` } aria-hidden="true" />
+										<span className="screen-reader-text">{ confirmation.label }: </span>
+										{ confirmation.state_label }
+									</span>
 								) }
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
@@ -117,6 +138,17 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				<p className="kg-none" role="status">
 					{ PANEL.loading }
 				</p>
+			) }
+			{ detail && (
+				<ManualConfirmation
+					stale={ !! problem }
+					config={ config }
+					code={ code }
+					can={ detail.can || {} }
+					manual={ registration.manual_confirmation }
+					reload={ reload }
+					onSaved={ onSaved }
+				/>
 			) }
 			{ showsTabs && (
 				<TabPanel
