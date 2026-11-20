@@ -4,8 +4,8 @@
  * same fields for both with the direction as a radio that has no default; the correction keeps its own dialog
  * (`kalaka/record-correction`: a direction and a required reason, no method, no date). The amount is never
  * prefilled, the payer is asked only with several payers, and the balance before and after follows the amount
- * as it is typed, signed. A failed save keeps the dialog and its values. [UNAPPROVED N26] [UNAPPROVED N27]
- * [UNAPPROVED N28] [UNAPPROVED N16]
+ * as it is typed, signed. A failed save keeps the dialog and its values. [UNAPPROVED N39] [UNAPPROVED N40]
+ * [UNAPPROVED N41] [UNAPPROVED N16]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl } from '@wordpress/components';
@@ -36,7 +36,7 @@ export default function RecordDialog( { config, mode, can, code, money, onClose,
 	const methods = money.methods;
 	const correction = mode === 'correction';
 	// The direction the dialog offers: a payment and/or a refund by the holder's grants, or a correction's in /
-	// out. Only the allowed directions are offered (below), and none is the default. [UNAPPROVED N27]
+	// out. Only the allowed directions are offered (below), and none is the default. [UNAPPROVED N40]
 	const [ direction, setDirection ] = useState( '' );
 	// A correction is its own kind; an entry's kind is the direction the user picked.
 	const kind = correction ? 'correction' : direction;
