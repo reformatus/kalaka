@@ -55,10 +55,27 @@ export async function fetchAll( config, tab, sort = null, desc = false ) {
 	}
 }
 
-export const fetchSums = ( config, tab ) =>
-	apiFetch( {
-		path: `${ config.rest }/views/${ tab.view }/sums${ tab.grant ? `?grant=${ tab.grant }` : '' }`,
+/**
+ * The sum row over the whole view, with an optional ad hoc choice of counted members (a grant holder's own
+ * counting, never saved to the shared view; topic 6a G1).
+ *
+ * @param {Object}      config  window.kalakaGrid
+ * @param {Object}      tab     the tab
+ * @param {Object|null} counts  column → member list; null: the stored choice
+ */
+export const fetchSums = ( config, tab, counts = null ) => {
+	const params = new URLSearchParams();
+	if ( tab.grant ) {
+		params.set( 'grant', String( tab.grant ) );
+	}
+	if ( counts ) {
+		params.set( 'counts', JSON.stringify( counts ) );
+	}
+	const query = params.toString();
+	return apiFetch( {
+		path: `${ config.rest }/views/${ tab.view }/sums${ query ? '?' + query : '' }`,
 	} );
+};
 
 export const fetchViews = ( config ) =>
 	apiFetch( { path: `${ config.rest }/views` } );
@@ -97,9 +114,6 @@ export const saveView = (
 	}
 	return runAbility( 'kalaka/save-view', input );
 };
-
-export const deleteView = ( config, view, version ) =>
-	runAbility( 'kalaka/delete-view', { id: view, version } );
 
 /**
  * Saves the members one column's sum counts and answers the new sum row: for the master view (0) through

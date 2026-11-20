@@ -105,6 +105,15 @@ final class GridPage
         Translations::load(self::HANDLE);
     }
 
+    /**
+     * `admin_body_class`: marks the grid page so its stylesheet can let the table fill the window. The title
+     * and the controls stay at the top and the table's own bottom stays in view (topic 6a G9).
+     */
+    public static function bodyClass(string $classes): string
+    {
+        return self::eventId() === null ? $classes : $classes . ' kalaka-grid-page';
+    }
+
     /** The page: through the error boundary, the access checked again. */
     public static function render(): void
     {
@@ -150,6 +159,8 @@ final class GridPage
             'grant' => $view->grantId ?? 0,
             'name' => $model->tabName($view, $fields),
             'columns' => $model->columns($view, $fields),
+            // The stored counted members, so a grant holder's own counting starts from them.
+            'counts' => (object) $model->counts($view, $fields),
         ], $held);
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
         $asked = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : null;

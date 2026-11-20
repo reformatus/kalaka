@@ -3,9 +3,9 @@ import { cellText, fmt, plainText, sumParts, tableHtml } from '../../src/Admin/a
 const TEXT = ' style="mso-number-format:\'\\@\'" sdnum="1038;0;@"';
 
 const columns = [
-	{ column: 'serial', label: 'Sorszám', type: 'serial', numeric: true },
+	{ column: 'serial', label: 'Szám', type: 'serial', numeric: true },
 	{ column: 'code', label: 'Kód', type: 'code', numeric: false },
-	{ column: 'status', label: 'Állapot', type: 'status', options: { registered: 'Rögzített' } },
+	{ column: 'status', label: 'Állapot', type: 'status', options: { registered: 'Rögzítve' } },
 	{ column: 'field:lunch', label: 'Ebéd', type: 'choice', options: { veg: 'Vegetáriánus', normal: 'Normál' } },
 	{ column: 'field:photo', label: 'Fénykép', type: 'consent', options: { 1: 'Igen', 0: 'Nem' } },
 	{ column: 'field:nights', label: 'Éjszakák', type: 'number', numeric: true },
@@ -57,7 +57,7 @@ describe( 'cellText', () => {
 		expect( columns.map( ( c ) => cellText( c, row ) ) ).toEqual( [
 			'1',
 			'00A0',
-			'Rögzített',
+			'Rögzítve',
 			'Vegetáriánus, Normál',
 			'Igen',
 			'2,5',
@@ -79,7 +79,7 @@ describe( 'cellText', () => {
 describe( 'sumParts', () => {
 	const sums = {
 		code: { kind: 'rows', n: 46 },
-		status: { kind: 'members', n: 40, members: [ 'registered' ], labels: [ 'Rögzített' ] },
+		status: { kind: 'members', n: 40, members: [ 'registered' ], labels: [ 'Rögzítve' ] },
 		'field:photo': { kind: 'count', n: 36, member: 'Igen' },
 		'field:nights': { kind: 'sum', n: '19.5' },
 		'field:rating': { kind: 'average', n: '3.25' },
@@ -92,7 +92,7 @@ describe( 'sumParts', () => {
 		expect( part( 'code' ) ).toEqual( { shown: '46', full: '46 sor' } );
 		expect( part( 'status', 'Állapot' ) ).toEqual( {
 			shown: '40',
-			full: 'Állapot (Rögzített): 40 jelentkező',
+			full: 'Állapot (Rögzítve): 40 jelentkező',
 			named: true,
 		} );
 		expect( part( 'field:photo' ) ).toEqual( { shown: '36', full: 'Igen: 36' } );
@@ -111,8 +111,8 @@ describe( 'sumParts', () => {
 describe( 'the copy', () => {
 	it( 'is tab-separated text with tabs and line breaks in a cell made spaces', () => {
 		expect( plainText( columns, [ row ] ).split( '\n' ) ).toEqual( [
-			'Sorszám\tKód\tÁllapot\tEbéd\tFénykép\tÉjszakák\tSzületési idő\tVisszaigazolás\tMegjegyzés',
-			'1\t00A0\tRögzített\tVegetáriánus, Normál\tIgen\t2,5\t2010. 05. 04.\tVisszaigazolva\tKét sor hosszú <b>',
+			'Szám\tKód\tÁllapot\tEbéd\tFénykép\tÉjszakák\tSzületési idő\tVisszaigazolás\tMegjegyzés',
+			'1\t00A0\tRögzítve\tVegetáriánus, Normál\tIgen\t2,5\t2010. 05. 04.\tVisszaigazolva\tKét sor hosszú <b>',
 		] );
 	} );
 
@@ -121,7 +121,7 @@ describe( 'the copy', () => {
 		expect( cells ).toEqual( [
 			'<td sdval="1" sdnum="1038;0;0">1</td>',
 			'<td' + TEXT + '>00A0</td>',
-			'<td' + TEXT + '>Rögzített</td>',
+			'<td' + TEXT + '>Rögzítve</td>',
 			'<td' + TEXT + '>Vegetáriánus, Normál</td>',
 			'<td' + TEXT + '>Igen</td>',
 			'<td sdval="2.5" sdnum="1033;0;General">2,5</td>',

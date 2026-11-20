@@ -161,6 +161,8 @@ SQL;
         // The per-event „Jelentkezők” grid (S37): its menu, its app and its REST routes.
         add_action('admin_menu', [GridPage::class, 'menu']);
         add_action('admin_enqueue_scripts', [GridPage::class, 'enqueue']);
+        // The page fills the window like a spreadsheet (topic 6a G9).
+        add_filter('admin_body_class', [GridPage::class, 'bodyClass']);
         add_action('rest_api_init', [GridRoutes::class, 'register']);
 
         if (defined('WP_CLI') && WP_CLI) {
