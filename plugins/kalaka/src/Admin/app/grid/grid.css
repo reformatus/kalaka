@@ -48,9 +48,10 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-off { color: #787c82; }
 
 /* Rows look clickable (owner's walk, topic 6a G2): the hover highlight, and the open row's own colour that the
-   hover does not paint over. The cell's button keeps its keyboard focus ring and nothing else. [UNAPPROVED N30] */
+   hover does not paint over; the repeated class keeps the open colour above the hover by specificity, not by
+   source order. The cell's button keeps its keyboard focus ring and nothing else. [UNAPPROVED N43] */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
-#kalaka-grid tbody tr.dataviews-view-table__row.kg-row-open > td { background-color: #f0f6fc; }
+#kalaka-grid tbody tr.dataviews-view-table__row.kg-row-open.kg-row-open > td { background-color: #f0f6fc; }
 
 /* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
    An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design

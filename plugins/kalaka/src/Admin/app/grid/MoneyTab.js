@@ -3,7 +3,7 @@
  * payers), the entries newest first, and the two actions the user's grants allow. Every amount that has a
  * direction is signed, and the balance with it: positive is still owed, a real minus is in the payer's favour
  * (owner's walk, topic 6a G11). One „Tétel rögzítése” action records a payment or a refund, the correction
- * keeps its own (G12). [UNAPPROVED N26] [UNAPPROVED N29] [UNAPPROVED N17] [UNAPPROVED N18]
+ * keeps its own (G12). [UNAPPROVED N39] [UNAPPROVED N42] [UNAPPROVED N17] [UNAPPROVED N18]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
@@ -49,7 +49,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				opener.current.focus();
 			}
 		} );
-	// G12: the „Tétel rögzítése” dialog (a payment or a refund) and the correction's own. [UNAPPROVED N26]
+	// G12: the „Tétel rögzítése” dialog (a payment or a refund) and the correction's own. [UNAPPROVED N39]
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;
 		setDialog( kind );
@@ -90,6 +90,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				role="region"
 				aria-label={ `${ MONEY.owed } / ${ MONEY.paid } / ${ MONEY.balance }` }
 			>
+				{ /* „Befizetett” and the total row are net and signed. [UNAPPROVED N7] */ }
 				<table className="kg-money">
 					<thead>
 						<tr>
@@ -117,6 +118,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 					</tbody>
 				</table>
 			</div>
+			{ /* Two buttons, „Tétel rögzítése” and the correction's own, for the owner's G12. [UNAPPROVED N14] [UNAPPROVED T17] */ }
 			{ ( can.record_payment || can.record_refund || can.record_correction ) && (
 				<div className="kg-actions">
 					{ ( can.record_payment || can.record_refund ) && (

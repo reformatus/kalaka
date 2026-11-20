@@ -2,7 +2,7 @@
  * The detail panel's pure money and date logic (S38): amounts in fillér as whole numbers, „30 000 Ft” and
  * „−5 000 Ft”, the site time zone's day, and the recording dialogs' checks. Every amount that has a direction is
  * signed: positive is money in, a real minus money out (topic 6a G11). No WordPress imports, so Jest runs it as
- * it is. [UNAPPROVED N29] [UNAPPROVED N8]
+ * it is. [UNAPPROVED N42] [UNAPPROVED N8]
  */
 import { MONEY } from './texts';
 
@@ -38,14 +38,14 @@ export function formatMinor( minor, currency ) {
 
 /**
  * An amount of the read as „30 000 Ft”, signed: a minus is money out. The balance follows the same sign:
- * positive is still owed, negative is in the payer's favour. [UNAPPROVED N29]
+ * positive is still owed, negative is in the payer's favour. [UNAPPROVED N6] [UNAPPROVED N42]
  */
 export const formatMoney = ( value, currency ) => formatMinor( toMinor( value ) ?? 0, currency );
 
 /**
  * A line's stored amount as the panel shows it, signed the same way as the payers' `paid`: a payment fact is
  * positive when money came in and negative when it went out (the ledger stores it the other way round), and a
- * charge or an adjustment is shown as stored, a charge positive like „Fizetendő”. [UNAPPROVED N29]
+ * charge or an adjustment is shown as stored, a charge positive like „Fizetendő”. [UNAPPROVED N5] [UNAPPROVED N42]
  */
 const PAYMENT_FACTS = new Set( [ 'payment', 'manual_payment', 'refund', 'manual_refund' ] );
 export const formatEntry = ( value, kind, currency ) =>
