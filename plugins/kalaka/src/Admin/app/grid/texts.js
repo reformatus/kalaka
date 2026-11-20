@@ -175,7 +175,7 @@ export const MONEY = {
  */
 export const CONFIRM = {
 	set: 'Visszaigazolás befizetés nélkül',
-	// [UNAPPROVED T24]: the unconfirm button and its dialog title, approved by the owner 2026-11-20 and awaiting the tick.
+	// The unconfirm button and its dialog title, approved by the owner 2026-11-20 (T24).
 	unconfirm: 'Visszaigazolás visszavonása',
 	reasonField: 'Indoklás',
 	reasonEmpty: 'Add meg az indoklást.',
