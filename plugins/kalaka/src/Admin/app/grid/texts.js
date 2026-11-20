@@ -55,3 +55,81 @@ export const VIEWS = {
 	filter: 'Feltétel',
 	filters: 'Feltételek',
 };
+
+/**
+ * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
+ * owner ticks its box: [UNAPPROVED T6] the panel, [UNAPPROVED T3] the disabled tab.
+ */
+export const PANEL = {
+	panel: 'Jelentkező részletei',
+	close: 'Bezárás',
+	tabsLabel: 'Részletek',
+	tabMoney: 'Pénzügyek',
+	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
+	tabSoon: 'Hamarosan…',
+	loading: 'Betöltés…',
+	loadFail: 'A részletek betöltése nem sikerült.',
+	notFound: 'A jelentkező nem található.',
+	// A known code outside the holder's views (403). [UNAPPROVED T16]
+	noAccess: 'Ehhez a jelentkezőhöz nincs hozzáférésed.',
+	// For screen readers [UNAPPROVED T13]: the row button's name, „<kód> – részletek”.
+	openRow: '%s – részletek',
+};
+
+/**
+ * The „Pénzügyek” tab and its two dialogs. [UNAPPROVED T7] the payer table, [UNAPPROVED T8] the entries,
+ * [UNAPPROVED T9] the actions, [UNAPPROVED T10] the dialog fields, [UNAPPROVED T11] the messages,
+ * [UNAPPROVED T13] the screen-reader text; „0 Ft” is [UNAPPROVED T5].
+ */
+export const MONEY = {
+	payer: 'Fizető',
+	owed: 'Fizetendő',
+	// The signed amounts (topic 6a G11): „Befizetett” is the payer's action, a minus is money we paid them.
+	// [UNAPPROVED T25]
+	paid: 'Befizetett',
+	balance: 'Egyenleg',
+	total: 'Összesen',
+	entries: 'Tételek',
+	date: 'Dátum',
+	type: 'Típus',
+	amount: 'Összeg',
+	method: 'Mód',
+	note: 'Megjegyzés',
+	none: 'Még nincs tétel.',
+	correction: 'korrekció',
+	// The owner's G12 words (topic 6a): one „Tétel rögzítése” dialog for a payment or a refund, and the
+	// correction on its own. [UNAPPROVED T17] the two buttons, [UNAPPROVED T26] the correction's button.
+	recordEntry: 'Tétel rögzítése',
+	recordCorrect: 'Korrekció rögzítése',
+	amountField: 'Összeg (Ft)',
+	dateField: 'Dátum',
+	methodField: 'Fizetési mód',
+	noteField: 'Közlemény',
+	reasonField: 'Indoklás',
+	balanceNow: 'Jelenlegi egyenleg',
+	balanceAfter: 'Egyenleg mentés után',
+	noAmount: 'még nincs összeg',
+	save: 'Mentés',
+	cancel: 'Mégse',
+	// [UNAPPROVED T18]: the payment snackbar's text.
+	saved: 'Befizetés rögzítve.',
+	// The refund and correction words and snackbars, approved by the owner 2026-11-20 (T1, T2, T4, T12, T15).
+	savedRefund: 'Visszafizetés rögzítve.',
+	savedCorrection: 'Korrekció rögzítve.',
+	// The „Tétel rögzítése” dialog's direction: no default, like the correction's. [UNAPPROVED T27]
+	directionField: 'Irány',
+	entryIn: 'Befizetés',
+	entryOut: 'Visszafizetés',
+	// The correction dialog's direction and its message: T19 is still open. [UNAPPROVED T19]
+	directionIn: 'Befizetésként',
+	directionOut: 'Visszafizetésként',
+	directionEmpty: 'Válassz irányt.',
+	amountEmpty: 'Add meg az összeget.',
+	amountBad: 'Nullánál nagyobb összeget adj meg.',
+	dateEmpty: 'Add meg a dátumot.',
+	dateFuture: 'A dátum nem lehet jövőbeli.',
+	methodEmpty: 'Válassz fizetési módot.',
+	payerEmpty: 'Válassz fizetőt.',
+	noteRequired: 'Add meg az indoklást.',
+	saveFail: 'A mentés nem sikerült. Próbáld újra.',
+};

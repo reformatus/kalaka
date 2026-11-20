@@ -165,3 +165,59 @@ export async function saveCounts( config, tab, column, members, narrow = null ) 
 	}
 	return fetchSums( config, tab, narrow );
 }
+
+/**
+ * One registration's detail (S38): `{ registration, fields, money?, can }`, each part only as the user's views
+ * and grants allow. The code is the identity; a row the user's views do not hold is a 404.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {string} code   the registration's code
+ */
+export const fetchDetail = ( config, code ) =>
+	apiFetch( { path: `${ config.rest }/registrations/${ encodeURIComponent( code ) }` } );
+
+/**
+ * What a failed read means: an unknown code is a 404 ('missing'), a known code outside the holder's views a 403
+ * `kalaka_registration_not_in_view` ('noAccess'), anything else 'failed'. [UNAPPROVED T16]
+ */
+export function detailProblem( error ) {
+	if ( error && error.code === 'kalaka_registration_not_in_view' ) {
+		return 'noAccess';
+	}
+	return error && error.data && error.data.status === 404 ? 'missing' : 'failed';
+}
+
+/**
+ * Records a manual payment (`kalaka/record-payment`), a refund (`kalaka/record-refund`) or a correction
+ * (`kalaka/record-correction`) through the abilities, and answers `{ id }`. A payment and a refund carry a
+ * method and a value date; a correction carries neither, but a direction (`in` or `out`) and its reason. The
+ * idempotency key makes a retry of the same entry safe.
+ *
+ * @param {Object} config window.kalakaGrid
+ * @param {Object} entry  { kind, code, currency, payer, amount, valueDate, method, note, direction, key }, `kind`
+ *                        being `payment`, `refund` or `correction`
+ */
+export const recordEntry = (
+	config,
+	{ kind, code, currency, payer, amount, valueDate, method, note, direction, key }
+) => {
+	const input = {
+		event_id: config.event,
+		code,
+		payer,
+		amount,
+		currency,
+		idempotency_key: key,
+	};
+	if ( kind === 'correction' ) {
+		input.direction = direction;
+		input.reason = note;
+		return runAbility( 'kalaka/record-correction', input );
+	}
+	input.method = method;
+	input.value_date = valueDate;
+	if ( note ) {
+		input.note = note;
+	}
+	return runAbility( kind === 'refund' ? 'kalaka/record-refund' : 'kalaka/record-payment', input );
+};
