@@ -14,7 +14,8 @@ throws, the incoming value is returned and a throw is reported through
 `Foundation\Api\Entry\Boundary`.
 
 Tests: `tests/integration/` (the filter on a real WooCommerce install, a grant
-holder against WooCommerce's own `admin_init` path, a plain customer, full
-access, an administrator and the missing-API guard).
+holder through WooCommerce's own `prevent_admin_access()`, a plain customer
+that WooCommerce really redirects, full access, an administrator and the
+missing-API guard).
 
 Entry points: `woocommerce_prevent_admin_access`.

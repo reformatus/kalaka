@@ -65,18 +65,26 @@ final class AdminAccessTest extends GrantTestCase
         self::assertFalse(apply_filters(self::FILTER, $this->woocommercePrevents()));
 
         // The same path an admin page request takes: WooCommerce's own method, which would
-        // wp_safe_redirect() and exit for a user it keeps out.
+        // wp_safe_redirect() and exit for a user it keeps out. The capture throws so a
+        // redirect cannot reach exit() and kill PHPUnit without a failure.
         $redirectedTo = null;
-        $capture = static function (string $location) use (&$redirectedTo): bool {
+        $marker = new \RuntimeException('WooCommerce redirected a grant holder.');
+        $capture = static function (string $location) use (&$redirectedTo, $marker): void {
             $redirectedTo = $location;
-
-            return false;
+            throw $marker;
         };
         add_filter('wp_redirect', $capture);
-        self::woocommerceAdmin()->prevent_admin_access();
-        remove_filter('wp_redirect', $capture);
+        try {
+            self::woocommerceAdmin()->prevent_admin_access();
+        } catch (\RuntimeException $e) {
+            if ($e !== $marker) {
+                throw $e;
+            }
+        } finally {
+            remove_filter('wp_redirect', $capture);
+        }
 
-        self::assertNull($redirectedTo);
+        self::assertNull($redirectedTo, 'WooCommerce must not redirect a grant holder.');
     }
 
     /** A plain customer without a grant is still sent to My Account. */
@@ -89,6 +97,26 @@ final class AdminAccessTest extends GrantTestCase
         self::assertFalse(Access::mayReachAdmin($customer));
         self::assertTrue($this->woocommercePrevents());
         self::assertTrue(apply_filters(self::FILTER, $this->woocommercePrevents()));
+
+        // WooCommerce's own method really redirects the plain customer, through wp_safe_redirect().
+        $redirectedTo = null;
+        $marker = new \RuntimeException('WooCommerce redirects a plain customer.');
+        $capture = static function (string $location) use (&$redirectedTo, $marker): void {
+            $redirectedTo = $location;
+            throw $marker;
+        };
+        add_filter('wp_redirect', $capture);
+        try {
+            self::woocommerceAdmin()->prevent_admin_access();
+        } catch (\RuntimeException $e) {
+            if ($e !== $marker) {
+                throw $e;
+            }
+        } finally {
+            remove_filter('wp_redirect', $capture);
+        }
+
+        self::assertNotNull($redirectedTo, 'WooCommerce must redirect a plain customer.');
     }
 
     /** A full-access holder has neither WooCommerce capability but still passes. */

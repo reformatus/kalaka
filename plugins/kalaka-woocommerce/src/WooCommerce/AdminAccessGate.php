@@ -30,6 +30,11 @@ final class AdminAccessGate
      */
     public function prevent($prevent)
     {
+        // Only ever loosens WooCommerce's own answer: anything but true passes straight through.
+        if ($prevent !== true) {
+            return $prevent;
+        }
+
         if (!class_exists($this->access) || !is_callable([$this->access, 'mayReachAdmin'])) {
             return $prevent;
         }

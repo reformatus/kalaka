@@ -7,8 +7,8 @@ WooCommerce is the WooCommerce integration: one extension plugin,
 ## Sections it implements
 
 - modules-and-extensions.md: [Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)
-  (the WooCommerce integration is our own extension plugin on core's payments
-  port), [Extensions in view](../../../../docs/architecture/modules-and-extensions.md#extensions-in-view),
+  (the WooCommerce integration is our own extension plugin),
+  [Extensions in view](../../../../docs/architecture/modules-and-extensions.md#extensions-in-view),
   [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Failure isolation](../../../../docs/architecture/modules-and-extensions.md#failure-isolation).
 - foundation.md: [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
@@ -24,6 +24,6 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   returned unchanged. Nobody else gains anything.
 - The filter is guarded for failure isolation: core's `Access` missing, or a
   throw inside, returns the incoming value, so WooCommerce's own decision
-  stands and the admin stays up. A throw is reported once through
-  `Foundation\Api\Entry\Boundary`.
+  stands and the admin stays up. A throw is logged through
+  `Boundary::report()` on each failing request.
 - The plugin stores nothing of its own. Payments are not part of this slice.
