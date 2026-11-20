@@ -279,6 +279,9 @@ final class ViewNarrowingTest extends AdminTestCase
         // The shown words of the status, a choice, a yes/no and a decision, not their keys.
         self::assertSame(['00A8', '00B0'], $this->codes($view, [], 'várólistás'));
         self::assertSame(['00A8', '00B0'], $this->codes($view, [], 'varolistas'));
+        // The status is shown with N14's capital; the search folds case and matches it either way.
+        self::assertSame(['00A8', '00B0'], $this->codes($view, [], 'Várólistás'));
+        self::assertSame(['00A8', '00B0'], $this->codes($view, [], 'VÁRÓLISTÁS'));
         self::assertSame(['00A0', '00A2', '00B0', '00B3'], $this->codes($view, [], 'VEGETARIANUS'));
         self::assertSame(['00A0', '00A8'], $this->codes($view, [], 'igen'));
         self::assertSame(['00A2', '00B3'], $this->codes($view, [], 'nem'));
