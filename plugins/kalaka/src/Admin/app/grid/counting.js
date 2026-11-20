@@ -29,13 +29,36 @@ export function createPicks() {
 		},
 		toggle( column, member, on, fallback ) {
 			const next = toggleMember( this.chosen( column, fallback ), member, on );
+			// Unticking the last member drops the pick, so the column counts its stored choice again (the
+			// server's default for Állapot) and the menu shows the same thing as the sum row.
+			if ( next.length === 0 ) {
+				delete local[ column ];
+				return this.chosen( column, fallback );
+			}
 			local[ column ] = next;
 			return next;
+		},
+		/** Forget one column's pick, so it shows its stored choice again (a failed full-access save). */
+		revert( column ) {
+			delete local[ column ];
 		},
 		all() {
 			return { ...local };
 		},
 	};
+}
+
+/** Whether the picks count anything different from the stored choice (the view's default). */
+export function countsDiffer( columns, stored, local ) {
+	const base = countsToSend( columns, stored, {} ) || {};
+	const now = countsToSend( columns, stored, local ) || {};
+	const keys = Object.keys( base ).sort();
+	if ( keys.length !== Object.keys( now ).length || keys.some( ( key ) => ! ( key in now ) ) ) {
+		return true;
+	}
+	return keys.some(
+		( key ) => [ ...base[ key ] ].sort().join( '\u0000' ) !== [ ...now[ key ] ].sort().join( '\u0000' )
+	);
 }
 
 /**

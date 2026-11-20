@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\Grid;
 
+use Kalaka\Registrations\Api\RegistrationStatus;
+
 /**
  * The Hungarian text of the grid page that PHP renders or hands to the app (S37). The app's own strings are
  * in `app/grid/texts.js`.
@@ -37,4 +39,15 @@ final class Texts
     public const MASTER_COUNTS_LABEL = 'Összesítés mentése';
     public const MASTER_COUNTS_DESCRIPTION =
         'Annak beállítása, hogy egy oszlopban mit számoljon a Jelentkezők összesítő sora.';
+
+    /**
+     * A status word as the grid shows it: `RegistrationStatus::word()` with a capital letter, as N14 approved.
+     * The word set stays the server's; this is only its display casing.
+     */
+    public static function status(RegistrationStatus $status): string
+    {
+        $word = $status->word();
+
+        return mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8') . mb_substr($word, 1, null, 'UTF-8');
+    }
 }
