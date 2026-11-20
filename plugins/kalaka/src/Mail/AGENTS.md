@@ -82,8 +82,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   count toward pausing. Any other throw is an error, recorded after the claim.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):
   REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
-  gracefully (a published body keeps its content, another stays unpublished)
-  and tells the saving user in an admin notice.
+  gracefully (a published body keeps its content, another stays unpublished),
+  tells the saving user in an admin notice, writes a log line and, on
+  WP-CLI, warns and fails the command.
 - The catalogue has five action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is

@@ -237,6 +237,97 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertNull((new BrokenFormsWarning())->check());
     }
 
+    public function testACodeSaveWithNoUserWritesALogLineAndAWarning(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        $user = get_current_user_id();
+        wp_set_current_user(0);
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => wp_slash($this->slotFields() . $this->unknownBlock()),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+            wp_set_current_user($user);
+        }
+
+        self::assertSame('publish', get_post_status($id));
+        self::assertStringNotContainsString('nope-field', (string) get_post_field('post_content', $id));
+        self::assertStringContainsString('saving form ' . $id, $log);
+        self::assertStringContainsString('unknown_field_block kalaka/nope-field', $log);
+        self::assertCount(1, $warnings);
+        self::assertSame(E_USER_WARNING, $warnings[0][2]);
+        self::assertStringContainsString('unknown_field_block kalaka/nope-field', $warnings[0][1]);
+    }
+
+    public function testALoggedInAdminsVetoedSaveIsANoticeAndALogLineButNoPhpWarning(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => wp_slash($this->slotFields() . $this->unknownBlock()),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+        }
+
+        self::assertSame('publish', get_post_status($id));
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: unknown_field_block („kalaka/nope-field”).',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
+        self::assertStringContainsString('saving form ' . $id, $log);
+        self::assertSame([], $warnings);
+    }
+
+    public function testARestRefusalWritesNoLogLine(): void
+    {
+        [$log, $response] = $this->captureLog(fn (): \WP_REST_Response => $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $this->unknownBlock(),
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]));
+
+        self::assertSame(400, $response->get_status());
+        self::assertStringNotContainsString('saving form', $log);
+    }
+
+    /**
+     * The log lines written while the body runs.
+     *
+     * @param \Closure(): mixed $body
+     * @return array{string, mixed}
+     */
+    private function captureLog(\Closure $body): array
+    {
+        $file = (string) tempnam(sys_get_temp_dir(), 'kalaka-log-');
+        $previous = ini_set('error_log', $file);
+        try {
+            $result = $body();
+        } finally {
+            ini_set('error_log', (string) $previous);
+        }
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the captured error log, a temporary file
+        $log = (string) file_get_contents($file);
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- removes the captured error log, a temporary file
+        unlink($file);
+
+        return [$log, $result];
+    }
+
     /**
      * A date for a scheduled form, from the runner's clock (the tests run at a fixed instant, TestClock).
      * WordPress compares a scheduled date with the real time, so it lies years after the clock.
