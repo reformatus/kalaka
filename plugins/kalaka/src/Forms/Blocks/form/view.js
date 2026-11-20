@@ -364,6 +364,12 @@ function apply(form, { availability, parts }) {
 		started.pages = availability.pages;
 		showButtons(form);
 	}
+	// [UNAPPROVED N2] A field that no longer shows loses its message, so a stale one never comes back with it.
+	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
+		if (!shows(wrapper)) {
+			clearFieldMessage(wrapper);
+		}
+	}
 }
 
 function hasPages(started) {
@@ -785,6 +791,26 @@ function messageIdOf(key) {
 	return `kalaka-field-${key}-error`;
 }
 
+/** Empties one field's error element and stops its controls being invalid or described by it. */
+function clearFieldMessage(wrapper) {
+	const slot = slotOf(wrapper);
+	if (slot !== null) {
+		slot.textContent = '';
+		slot.hidden = true;
+	}
+	for (const control of controlsOf(wrapper)) {
+		control.removeAttribute('aria-invalid');
+		const ids = (control.getAttribute('aria-describedby') ?? '')
+			.split(/\s+/)
+			.filter((id) => id !== '' && id !== slot?.id);
+		if (ids.length > 0) {
+			control.setAttribute('aria-describedby', ids.join(' '));
+		} else {
+			control.removeAttribute('aria-describedby');
+		}
+	}
+}
+
 function clearMessages(form) {
 	alertOf(form).textContent = '';
 	const account = form.querySelector('#kalaka-account-error');
@@ -793,22 +819,7 @@ function clearMessages(form) {
 		account.hidden = true;
 	}
 	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
-		const slot = slotOf(wrapper);
-		if (slot !== null) {
-			slot.textContent = '';
-			slot.hidden = true;
-		}
-		for (const control of controlsOf(wrapper)) {
-			control.removeAttribute('aria-invalid');
-			const ids = (control.getAttribute('aria-describedby') ?? '')
-				.split(/\s+/)
-				.filter((id) => id !== '' && id !== slot?.id);
-			if (ids.length > 0) {
-				control.setAttribute('aria-describedby', ids.join(' '));
-			} else {
-				control.removeAttribute('aria-describedby');
-			}
-		}
+		clearFieldMessage(wrapper);
 	}
 }
 
@@ -1219,9 +1230,21 @@ async function send(form) {
 
 store('kalaka/form', {
 	actions: {
+		// [UNAPPROVED N1] A field's message clears on the first edit of that field.
+		edited(event) {
+			const form = getElement().ref;
+			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
+			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
+				clearFieldMessage(wrapper);
+			}
+		},
 		update(event) {
 			const form = getElement().ref;
 			const started = forms.get(form);
+			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
+			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
+				clearFieldMessage(wrapper);
+			}
 			const name = event?.target?.name;
 			if (started === undefined || typeof name !== 'string') {
 				return undefined;

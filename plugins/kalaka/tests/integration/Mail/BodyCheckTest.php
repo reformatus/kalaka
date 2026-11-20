@@ -7,10 +7,13 @@ namespace Kalaka\Tests\Integration\Mail;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Module;
+use Kalaka\Tests\Integration\LogCapture;
 
 /** A mail body is checked when it is saved as published: its keys and conditions against the mail's keys. */
 final class BodyCheckTest extends MailBodyTestCase
 {
+    use LogCapture;
+
     private int $user = 0;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
@@ -180,5 +183,75 @@ final class BodyCheckTest extends MailBodyTestCase
         BodyCheck::notice();
         self::assertStringContainsString('unknown_value_key („nincs”)', (string) ob_get_clean());
         self::assertFalse(get_transient(BodyCheck::NOTICE . $this->user));
+    }
+
+    public function testACodeSaveWithNoUserWritesALogLineAndAWarning(): void
+    {
+        $event = $this->create();
+        $id = $this->document($event, $this->paragraph('Szia'));
+        $user = get_current_user_id();
+        wp_set_current_user(0);
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => $this->paragraph('<span data-kalaka-value="nincs">x</span>'),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+            wp_set_current_user($user);
+        }
+
+        self::assertSame($this->paragraph('Szia'), get_post_field('post_content', $id));
+        self::assertStringContainsString('saving mail body ' . $id, $log);
+        self::assertStringContainsString('unknown_value_key nincs', $log);
+        self::assertCount(1, $warnings);
+        self::assertSame(E_USER_WARNING, $warnings[0][2]);
+        self::assertStringContainsString('unknown_value_key nincs', $warnings[0][1]);
+    }
+
+    public function testALoggedInAdminsVetoedSaveIsANoticeAndALogLineButNoPhpWarning(): void
+    {
+        $event = $this->create();
+        $id = $this->document($event, $this->paragraph('Szia'));
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => $this->paragraph('<span data-kalaka-value="nincs">x</span>'),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+        }
+
+        self::assertSame($this->paragraph('Szia'), get_post_field('post_content', $id));
+        self::assertSame(
+            'A sablon szövegét így nem lehet menteni: unknown_value_key („nincs”).',
+            get_transient(BodyCheck::NOTICE . get_current_user_id())
+        );
+        self::assertStringContainsString('saving mail body ' . $id, $log);
+        self::assertSame([], $warnings);
+    }
+
+    public function testARestRefusalWritesNoLogLine(): void
+    {
+        $event = $this->create();
+        $id = $this->document($event, $this->paragraph('Szia'));
+
+        [$log, $response] = $this->captureLog(fn (): \WP_REST_Response => $this->restSave(
+            $id,
+            ['content' => $this->paragraph('<span data-kalaka-value="nincs">x</span>')]
+        ));
+
+        self::assertSame(400, $response->get_status());
+        self::assertStringNotContainsString('saving mail body', $log);
     }
 }
