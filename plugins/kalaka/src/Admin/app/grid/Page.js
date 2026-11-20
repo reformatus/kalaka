@@ -28,7 +28,7 @@ import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { serial } from './serial';
 import { runPick } from './pick';
-import { countsToSend, createPicks } from './counting';
+import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
 import { GRID, SUM, VIEWS } from './texts';
@@ -541,7 +541,10 @@ export default function Page( { config } ) {
 		/>
 	);
 
-	const isDefault = ! v.sort && ! ( v.filters || [] ).length && ! v.search;
+	// A grant holder's counting is their own too: the reset is enabled while only it differs from the view.
+	const countingDiffers =
+		! config.sumEditable && countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
+	const isDefault = ! v.sort && ! ( v.filters || [] ).length && ! v.search && ! countingDiffers;
 	let empty;
 	if ( loadError ) {
 		empty = (
