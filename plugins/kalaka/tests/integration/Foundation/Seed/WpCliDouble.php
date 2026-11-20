@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-// WP-CLI is not loaded in PHPUnit. This records the calls SeedCommand makes and, like the real
-// WP_CLI::error(), does not return. It is defined only when the real class is absent.
+// WP-CLI is not loaded in PHPUnit. This records the calls the commands make and, like the real
+// WP_CLI::error() and WP_CLI::confirm(), does not return. It is defined only when the real class is absent.
 namespace {
+    require_once __DIR__ . '/WpCliExitException.php';
+
     if (!class_exists('WP_CLI', false)) {
         // phpcs:ignore Squiz.Classes.ValidClassName.NotCamelCaps -- the recording double keeps the real class name WP_CLI
         final class WP_CLI
@@ -46,7 +48,7 @@ namespace {
             {
                 self::$calls[] = ['confirm', $question];
                 if (empty($assocArgs['yes'])) {
-                    throw new \RuntimeException('WP_CLI::confirm');
+                    throw new \WP_CLI\ExitException(0, 'WP_CLI::confirm');
                 }
             }
 
