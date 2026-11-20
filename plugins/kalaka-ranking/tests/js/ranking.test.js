@@ -4,6 +4,13 @@
  */
 import { readAnswer } from '../../../kalaka/src/Forms/Blocks/form/answers';
 import {
+	form,
+	load,
+	respond,
+	settle,
+	submit,
+} from '../../../kalaka/tests/js/helpers';
+import {
 	LONG_PRESS,
 	SAY_AGAIN_DELAY,
 	addName,
@@ -24,9 +31,9 @@ const OPTIONS = ['modul_a', 'modul_b', 'modul_c'];
 
 /**
  * The field as `render.php` renders it: by default required, at least 1, at most 3, no option ranked;
- * `ticked` options come ticked (still unranked), and `wire` false leaves it unwired.
+ * `ticked` options come ticked (still unranked).
  */
-function render({ min = 1, max = 3, required = true, options = OPTIONS, ticked = [], wire = true } = {}) {
+function rankingMarkup({ min = 1, max = 3, required = true, options = OPTIONS, ticked = [] } = {}) {
 	const items = options.map(
 		(value, index) =>
 			`<li data-kalaka-option="${index}"><div data-kalaka-row>` +
@@ -42,14 +49,21 @@ function render({ min = 1, max = 3, required = true, options = OPTIONS, ticked =
 			`${ticked.includes(value) ? ' checked' : ''}>` +
 			`</span></div></li>`
 	).join('');
-	document.body.innerHTML =
-		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking data-kalaka-min="${min}"` +
+	return (
+		`<div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking data-kalaka-min="${min}"` +
 		` data-kalaka-max="${max}"${required ? ' data-kalaka-required' : ''}><fieldset><legend>Modulok</legend>` +
 		`<ol data-kalaka-ranked role="list" aria-label="Választott sorrend"></ol>` +
 		`<ol data-kalaka-empty role="list" aria-label="Üres helyek a sorrendben" start="1"></ol>` +
 		`<p data-kalaka-counter id="kalaka-field-modulok-counter"></p>` +
 		`<ul data-kalaka-unranked role="list" aria-label="Többi lehetőség">${items}</ul></fieldset>` +
-		`<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span></div></form>`;
+		`<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span>` +
+		`<span id="kalaka-field-modulok-error" class="kalaka-field__error" hidden></span></div>`
+	);
+}
+
+/** Renders the field on its own and, unless `wire` is false, wires it. */
+function render({ wire = true, ...options } = {}) {
+	document.body.innerHTML = `<form>${rankingMarkup(options)}</form>`;
 	const field = document.querySelector('[data-kalaka-ranking]');
 	if (wire) {
 		start(field);
@@ -760,3 +774,31 @@ describe('the counter, the empty rows and the maximum (owner, Q1, Q2)', () => {
 	});
 });
 
+describe('the ranking field on a form page', () => {
+	test('a reorder clears the field’s message', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValueOnce(
+			respond(400, {
+				code: 'kalaka_invalid_answers',
+				message: 'Hiba',
+				data: { status: 400, fields: { modulok: 'Hiba' } },
+			})
+		);
+		await load(form(rankingMarkup()));
+		const field = document.querySelector('[data-kalaka-ranking]');
+		start(field);
+		submit(document.querySelector('form'));
+		await settle();
+		const slot = document.querySelector(
+			'[data-kalaka-field="modulok"] .kalaka-field__error'
+		);
+		expect(slot.textContent).toBe('Hiba');
+
+		tick(field, 'modul_c');
+		tick(field, 'modul_a');
+		press(field, 'modul_a', 'up');
+
+		expect(ranked(field)).toEqual(['modul_a', 'modul_c']);
+		expect(slot.textContent).toBe('');
+		expect(slot.hidden).toBe(true);
+	});
+});
