@@ -143,6 +143,48 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame([$this->view], array_column($views['views'], 'view'));
     }
 
+    public function testAGrantHoldersOwnCountingChangesOnlyTheirSums(): void
+    {
+        // A view that lists the status, so its sum row can count status members.
+        $view = $this->exec(new SaveView(), [
+            'event_id' => $this->event,
+            'name' => 'Státuszos',
+            'filter' => [['column' => 'field:module', 'parameter' => true]],
+            'columns' => [['column' => 'status', 'write' => false]],
+        ]);
+        self::assertIsInt($view);
+        $grant = $this->exec(new SaveGrant(), [
+            'event_id' => $this->event,
+            'user_id' => $this->holder,
+            'view_id' => $view,
+            'bound_value' => 'a',
+            'actions' => [],
+        ]);
+        self::assertIsInt($grant);
+        $path = '/views/' . $view . '/sums';
+
+        $this->as($this->holder);
+        $stored = (array) $this->rest('GET', $path, ['grant' => $grant])->get_data();
+        self::assertSame(2, $stored['status']['n']);
+
+        // The holder counts the waitlisted rows instead; the shared view keeps its stored choice.
+        $own = (array) $this->rest('GET', $path, [
+            'grant' => $grant,
+            'counts' => (string) wp_json_encode(['status' => ['waitlisted']]),
+        ])->get_data();
+        self::assertSame(0, $own['status']['n']);
+        $again = (array) $this->rest('GET', $path, ['grant' => $grant])->get_data();
+        self::assertSame(2, $again['status']['n']);
+
+        // A column the view does not list, or a member that is not the column's, is refused.
+        foreach ([['code' => ['x']], ['status' => ['gone']]] as $counts) {
+            self::assertSame(400, $this->rest('GET', $path, [
+                'grant' => $grant,
+                'counts' => (string) wp_json_encode($counts),
+            ])->get_status());
+        }
+    }
+
     public function testAGrantHolderWithTwoGrantsOnOneViewGetsOneTabPerGrantWithItsOwnRowsAndSums(): void
     {
         $second = $this->exec(new SaveGrant(), [

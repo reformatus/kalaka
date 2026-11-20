@@ -1,9 +1,13 @@
 /**
- * The „Jelentkezők” page (S37): the view tabs with „Nézetek kezelése”, the „Műveletek” toolbar with
- * „Táblázat másolása”, and DataViews (compact) with the sum row in its header. Sorszám and Kód are not
- * sort toggles: their header returns to the default order (the sorszám order, then the code).
+ * The „Jelentkezők” page (S37): the view tabs, the „Műveletek” toolbar with „Táblázat másolása”, and
+ * DataViews (compact) with the sum row in its header. Sorszám and Kód are not sort toggles: their header
+ * returns to the default order (the sorszám order, then the code). The title and the controls stay at the
+ * top and the table fills the window (owner's walk, topic 6a G9). The counting choices live in each
+ * countable column's own header menu, reached from its sum cell (G10); a grant holder's choice is their own
+ * and never changes the shared view (G1).
  */
 import {
+	createPortal,
 	Fragment,
 	useEffect,
 	useLayoutEffect,
@@ -11,7 +15,7 @@ import {
 	useRef,
 	useState,
 } from '@wordpress/element';
-import { Button, Modal, SelectControl } from '@wordpress/components';
+import { Button, CheckboxControl, SelectControl } from '@wordpress/components';
 import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
 import { writeClipboard } from './clipboard';
@@ -20,8 +24,7 @@ import { serial } from './serial';
 import { runPick } from './pick';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
-import ViewsDialog from './ViewsDialog';
-import { GRID, VIEWS } from './texts';
+import { GRID, SUM } from './texts';
 
 const STATUS_ICON = {
 	registered: [ 'dashicons-yes-alt', 'kg-ok' ],
@@ -38,8 +41,10 @@ function Cell( { column, item } ) {
 	}
 	if ( column.type === 'status' ) {
 		const [ icon, tone ] = STATUS_ICON[ item.values.status ] || [ '', '' ];
+		// An inactive registration (anything but registered) dims its whole row. [UNAPPROVED N22]
+		const inactive = item.values.status !== 'registered';
 		return (
-			<span className="kg-mark">
+			<span className={ 'kg-mark' + ( inactive ? ' kg-inactive' : '' ) }>
 				<span className={ `dashicons ${ icon } ${ tone }` } aria-hidden="true" />
 				{ text }
 			</span>
@@ -99,6 +104,38 @@ function ResetHeader( { column, hasSerial, isDefault, onReset } ) {
 	);
 }
 
+/**
+ * The counting choices as they appear in a column's own header menu: one checkbox per member of the column.
+ * Clicks stay in the fieldset, so the menu's own handlers do not take them.
+ */
+function CountingMenu( { column, chosen, onPick } ) {
+	return (
+		<div
+			className="kg-countbox"
+			onPointerDown={ ( event ) => event.stopPropagation() }
+			onClick={ ( event ) => event.stopPropagation() }
+		>
+			<p className="kg-countbox-title">{ SUM.counting }</p>
+			{ column.members.map( ( member ) => (
+				<CheckboxControl
+					key={ member.value }
+					label={ member.label }
+					checked={ chosen.includes( member.value ) }
+					__nextHasNoMarginBottom
+					onChange={ ( on ) =>
+						onPick(
+							column,
+							on
+								? chosen.concat( member.value )
+								: chosen.filter( ( x ) => x !== member.value )
+						)
+					}
+				/>
+			) ) }
+		</div>
+	);
+}
+
 const freshView = ( tab, perPage ) => ( {
 	type: 'table',
 	page: 1,
@@ -121,28 +158,46 @@ const freshView = ( tab, perPage ) => ( {
 	_tab: tab.key,
 } );
 
+/** The column id of the header menu button now open, from the table's own `colgroup`. */
+function openColumnId( button ) {
+	const th = button.closest( 'th' );
+	const table = button.closest( 'table' );
+	if ( ! th || ! table || ! th.parentElement ) {
+		return null;
+	}
+	const index = Array.prototype.indexOf.call( th.parentElement.children, th );
+	const col = table.querySelector( 'colgroup' )?.children[ index ];
+	const match = col && /dataviews-view-table__col-(.+?)(?:\s|$)/.exec( col.className );
+	return match ? match[ 1 ] : null;
+}
+
 export default function Page( { config } ) {
-	const [ tabs, setTabs ] = useState( config.tabs );
+	const tabs = config.tabs;
 	const [ current, setCurrent ] = useState( config.current );
 	const tab = tabs.find( ( t ) => t.key === current ) || tabs[ 0 ];
 	const [ view, setView ] = useState( () => freshView( tab, 50 ) );
 	const [ data, setData ] = useState( { rows: [], total: 0 } );
 	const [ sums, setSums ] = useState( null );
 	const [ loading, setLoading ] = useState( true );
-	const [ dialog, setDialog ] = useState( false );
-	const [ views, setViews ] = useState( null );
-	const [ viewsError, setViewsError ] = useState( '' );
 	const [ message, setMessage ] = useState( '' );
 	const [ host, setHost ] = useState( null );
+	const [ menu, setMenu ] = useState( null );
+	// A grant holder's own counted members per column; null: the stored choice. Reset on a tab switch,
+	// like the sort and the filters.
+	const [ localCounts, setLocalCounts ] = useState( null );
 	const v = view._tab === tab.key ? view : freshView( tab, view.perPage );
 	const sort = v.sort ? v.sort.field : null;
 	const desc = v.sort ? v.sort.direction === 'desc' : false;
+	const counts = localCounts || tab.counts || null;
+	const countsKey = JSON.stringify( counts || {} );
 
 	const select = ( id ) => {
 		setCurrent( id );
 		setMessage( '' );
 		setData( { rows: [], total: 0 } ); // no old rows under the new columns
 		setSums( null );
+		setLocalCounts( null );
+		setMenu( null );
 		window.history.replaceState( null, '', tabUrl( id ) );
 	};
 
@@ -165,14 +220,14 @@ export default function Page( { config } ) {
 
 	useEffect( () => {
 		let live = true;
-		api.fetchSums( config, tab ).then(
+		api.fetchSums( config, tab, config.sumEditable ? null : counts ).then(
 			( result ) => live && setSums( result ),
 			() => {}
 		);
 		return () => {
 			live = false;
 		};
-	}, [ tab.key ] );
+	}, [ tab.key, countsKey ] );
 
 	// The default order is the sorszám order: the Sorszám header cell says so (`aria-sort`).
 	useLayoutEffect( () => {
@@ -191,6 +246,56 @@ export default function Page( { config } ) {
 		}
 	} );
 
+	// The table fills the window (G9): the title and the controls stay put, the rows scroll inside, and the
+	// header row, the horizontal scrollbar and the paging stay in view. The footer keeps its place.
+	useLayoutEffect( () => {
+		const wrap = document.querySelector( '.kalaka-grid-wrap' );
+		if ( ! wrap ) {
+			return undefined;
+		}
+		const fit = () => {
+			const top = wrap.getBoundingClientRect().top;
+			const footer = document.getElementById( 'wpfooter' );
+			const footerHeight = footer ? footer.offsetHeight : 0;
+			wrap.style.height = Math.max( 320, window.innerHeight - top - footerHeight - 4 ) + 'px';
+		};
+		fit();
+		window.addEventListener( 'resize', fit );
+		const timer = window.setTimeout( fit, 200 );
+		return () => {
+			window.removeEventListener( 'resize', fit );
+			window.clearTimeout( timer );
+			wrap.style.height = '';
+		};
+	}, [] );
+
+	// One header menu is open at a time; its counting choices are portalled into it.
+	useEffect( () => {
+		const find = () => {
+			const button = document.querySelector(
+				'.kg-dv thead button.dataviews-view-table-header-button[aria-expanded="true"]'
+			);
+			if ( ! button ) {
+				setMenu( null );
+				return;
+			}
+			const id = openColumnId( button );
+			const column = id && tab.columns.find( ( c ) => c.column === id );
+			const popup = button.getAttribute( 'aria-controls' )
+				? document.getElementById( button.getAttribute( 'aria-controls' ) )
+				: null;
+			if ( ! column || ! popup || ! ( column.members && column.members.length ) ) {
+				setMenu( null );
+				return;
+			}
+			setMenu( { column, popup } );
+		};
+		find();
+		const observer = new window.MutationObserver( find );
+		observer.observe( document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'aria-expanded' ] } );
+		return () => observer.disconnect();
+	}, [ tab, host ] );
+
 	const hasSerial = tab.columns.some( ( c ) => c.column === 'serial' );
 	const fields = useMemo(
 		() =>
@@ -206,7 +311,11 @@ export default function Page( { config } ) {
 							isDefault={ ! v.sort }
 							onReset={ () => setView( { ...v, sort: undefined, page: 1 } ) }
 						/>
-					) : undefined,
+					) : (
+						<span className="kg-hd" data-col={ column.column }>
+							{ column.label }
+						</span>
+					),
 					type: column.numeric ? 'number' : 'text',
 					getValue: ( { item } ) => cellText( column, item ),
 					render: ( { item } ) => <Cell column={ column } item={ item } />,
@@ -217,6 +326,18 @@ export default function Page( { config } ) {
 			} ),
 		[ tab, v, hasSerial ]
 	);
+
+	// The sum row's arrow opens the column's own header menu, where the counting choices are (G10).
+	const openMenu = ( column ) => {
+		if ( ! host ) {
+			return;
+		}
+		const marker = host.querySelector( '.kg-hd[data-col="' + column.column + '"]' );
+		const button = marker && marker.closest( 'th' )?.querySelector( 'button.dataviews-view-table-header-button' );
+		if ( button ) {
+			button.click();
+		}
+	};
 
 	const [ busy, setBusy ] = useState( false );
 	const timer = useRef();
@@ -240,7 +361,8 @@ export default function Page( { config } ) {
 
 	// The counted members are saved at once, one save at a time in click order; a failure reloads the stored
 	// state. A failed reload leaves the row as it is, and the next pick still runs. A save or reload that ends
-	// after a tab switch leaves the new tab's row alone.
+	// after a tab switch leaves the new tab's row alone. A grant holder's pick is their own: it is kept in the
+	// browser and sent with the sums request, never saved to the shared view (topic 6a G1).
 	const queue = useRef( null );
 	if ( ! queue.current ) {
 		queue.current = serial();
@@ -250,6 +372,16 @@ export default function Page( { config } ) {
 	shown.current = tab.key;
 	const pick = ( column, members ) => {
 		const picked = tab;
+		if ( ! config.sumEditable ) {
+			const base = { ...( localCounts || tab.counts || {} ) };
+			if ( members.length ) {
+				base[ column.column ] = members;
+			} else {
+				delete base[ column.column ];
+			}
+			setLocalCounts( base );
+			return;
+		}
 		queue.current( () => {
 			const mine = ++seq.current;
 			return runPick( {
@@ -260,49 +392,6 @@ export default function Page( { config } ) {
 				isLatest: () => mine === seq.current,
 			} );
 		} );
-	};
-
-	const loadViews = () =>
-		api.fetchViews( config ).then( ( result ) => {
-			setViews( result );
-			if ( result.full ) {
-				setTabs( [ tabs[ 0 ] ].concat( result.views.map( ( x ) => ( { key: x.key, view: x.view, grant: 0, name: x.name, columns: x.tab } ) ) ) );
-			}
-			return result;
-		} );
-	const openDialog = () => {
-		setViewsError( '' );
-		setDialog( true );
-		loadViews();
-	};
-	const change = async ( what, target, name, keepParam ) => {
-		setViewsError( '' );
-		try {
-			if ( what === 'delete' ) {
-				await api.deleteView( config, target.view, target.version );
-				if ( target.key === current ) {
-					select( 'v0' );
-				}
-			} else {
-				await api.saveView( config, target.view, {
-					version: target.version,
-					name,
-					filter: keepParam ? target.shape.filter : target.shape.filter.filter( ( t ) => ! t.parameter ),
-					columns: target.shape.columns,
-					counts: target.shape.counts,
-				} );
-			}
-			await loadViews();
-			if ( what === 'save' && target.key === current ) {
-				setSums( await api.fetchSums( config, tab ) );
-				setView( { ...v, page: 1 } );
-			}
-			return true;
-		} catch ( e ) {
-			setViewsError( e && e.message ? e.message : '' );
-			await loadViews();
-			return false;
-		}
 	};
 
 	const perPage = (
@@ -323,9 +412,6 @@ export default function Page( { config } ) {
 			<div className="kg-above">
 				<div className="kg-tabrow">
 					<Tabs tabs={ tabs } current={ tab.key } onSelect={ select } />
-					<Button variant="secondary" size="compact" className="kg-manage" onClick={ openDialog }>
-						{ GRID.manage }
-					</Button>
 				</div>
 				<div className="kg-bulkbar">
 					<div className="kg-bulkbar-actions" role="toolbar" aria-label={ GRID.toolbar }>
@@ -350,8 +436,7 @@ export default function Page( { config } ) {
 				columns={ tab.columns }
 				order={ v.fields }
 				sums={ sums }
-				editable={ config.sumEditable }
-				onPick={ pick }
+				onOpenMenu={ openMenu }
 			/>
 			<div ref={ setHost } className="kg-dv">
 				<DataViews
@@ -377,28 +462,19 @@ export default function Page( { config } ) {
 					</div>
 				</DataViews>
 			</div>
-			{ dialog && (
-				<Modal
-					title={ VIEWS.dialog }
-					onRequestClose={ () => setDialog( false ) }
-					size="medium"
-					className="kg-views-modal"
-				>
-					{ views && (
-						<ViewsDialog
-							data={ views }
-							error={ viewsError }
-							onChange={ change }
-							onOpen={ ( id ) => {
-								if ( tabs.some( ( t ) => t.key === id ) ) {
-									setDialog( false );
-									select( id );
-								}
-							} }
-						/>
-					) }
-				</Modal>
-			) }
+			{ menu &&
+				createPortal(
+					<CountingMenu
+						column={ menu.column }
+						chosen={
+							config.sumEditable
+								? ( sums && sums[ menu.column.column ] && sums[ menu.column.column ].members ) || []
+								: ( localCounts || tab.counts || {} )[ menu.column.column ] || []
+						}
+						onPick={ pick }
+					/>,
+					menu.popup
+				) }
 		</Fragment>
 	);
 }

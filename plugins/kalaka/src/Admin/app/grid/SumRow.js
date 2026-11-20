@@ -2,74 +2,17 @@
  * The sum row: a second `<tr>` in DataViews' own `<thead>`, filled through a portal. DataViews has no
  * summary row and no hook into its header, so the row is appended to the table's head and put back by a
  * MutationObserver when DataViews re-renders it. One cell per shown field, in DataViews' order.
+ *
+ * A cell whose column can count members carries one down arrow; it opens that column's own header menu,
+ * where the counting choices live (owner's walk, topic 6a G10). A column that cannot count members shows
+ * no arrow.
  */
-import { createPortal, useEffect, useLayoutEffect, useState } from '@wordpress/element';
-import { Button, CheckboxControl, Dropdown } from '@wordpress/components';
+import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
+import { Button } from '@wordpress/components';
 import { fmt, sumParts } from './format';
 import { SUM } from './texts';
 
-function SumPicker( { column, chosen, onPick } ) {
-	const [ selected, setSelected ] = useState( chosen );
-	const key = chosen.join( '|' );
-	useEffect( () => setSelected( chosen ), [ key ] );
-	const label = fmt( SUM.pickLabel, column.label );
-	return (
-		<Dropdown
-			className="kg-sumpick"
-			popoverProps={ { placement: 'bottom-start' } }
-			renderToggle={ ( { isOpen, onToggle } ) =>
-				chosen.length ? (
-					<Button
-						variant="tertiary"
-						size="compact"
-						className="kg-sumpick-toggle"
-						icon="arrow-down-alt2"
-						aria-expanded={ isOpen }
-						onClick={ onToggle }
-						label={ label }
-						showTooltip
-					/>
-				) : (
-					<Button
-						variant="tertiary"
-						size="compact"
-						className="kg-sumpick-toggle"
-						aria-expanded={ isOpen }
-						onClick={ onToggle }
-						aria-label={ label + ' – ' + SUM.pick }
-					>
-						{ SUM.pick }
-					</Button>
-				)
-			}
-			renderContent={ () => (
-				<fieldset className="kg-sumpick-box">
-					<legend>{ label }</legend>
-					{ column.members.map( ( member ) => (
-						<CheckboxControl
-							key={ member.value }
-							label={ member.label }
-							checked={ selected.includes( member.value ) }
-							__nextHasNoMarginBottom
-							onChange={ ( on ) => {
-								const next = on
-									? selected.concat( member.value )
-									: selected.filter( ( x ) => x !== member.value );
-								setSelected( next );
-								onPick(
-									column,
-									column.members.map( ( m ) => m.value ).filter( ( v ) => next.includes( v ) )
-								);
-							} }
-						/>
-					) ) }
-				</fieldset>
-			) }
-		/>
-	);
-}
-
-export default function SumRow( { root, columns, order, sums, editable, onPick } ) {
+export default function SumRow( { root, columns, order, sums, onOpenMenu } ) {
 	const [ row ] = useState( () => {
 		const tr = document.createElement( 'tr' );
 		tr.className = 'kg-sumtr';
@@ -101,7 +44,9 @@ export default function SumRow( { root, columns, order, sums, editable, onPick }
 		.map( ( column ) => {
 			const parts = sumParts( column, sums );
 			const full = parts ? ( parts.named ? parts.full : column.label + ': ' + parts.full ) : '';
-			const counted = sums && sums[ column.column ] && sums[ column.column ].members;
+			// Only a column that can count members has the counting choices, and only one with a header menu
+			// can open them; anything else (a total, an average, a yes count, the row count) shows no arrow.
+			const countable = !! ( column.members && column.members.length ) && column.sortable !== false;
 			return (
 				<td key={ column.column } className={ 'kg-sumtd' + ( column.numeric ? ' is-num' : '' ) }>
 					{ parts && (
@@ -110,8 +55,16 @@ export default function SumRow( { root, columns, order, sums, editable, onPick }
 							<span className="screen-reader-text">{ full }</span>
 						</span>
 					) }
-					{ column.members && editable && (
-						<SumPicker column={ column } chosen={ counted || [] } onPick={ onPick } />
+					{ countable && (
+						<Button
+							variant="tertiary"
+							size="compact"
+							className="kg-sumopen"
+							icon="arrow-down-alt2"
+							label={ fmt( SUM.open, column.label ) }
+							showTooltip
+							onClick={ () => onOpenMenu( column ) }
+						/>
 					) }
 				</td>
 			);
