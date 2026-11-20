@@ -26,10 +26,12 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  *
  * - `GET /events/{id}/views/{view}/rows?grant&page&per_page&orderby&order`: one page, following core's paging
  *   (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than `code` and `serial`.
- * - `GET /events/{id}/views/{view}/sums?grant`: the sum row over the whole view; the aggregates are built here
- *   from the view's columns, the field definitions and the stored counts, never taken from the client.
- * - `GET /events/{id}/views`: the „Nézetek” dialog's list (`ViewsData`); for full access each view also
- *   carries its `version`, which a save sends back.
+ * - `GET /events/{id}/views/{view}/sums?grant&counts`: the sum row over the whole view; the aggregates are
+ *   built here from the view's columns, the field definitions and the stored counts. A grant holder may send
+ *   an optional `counts` override (never stored, validated against the held view's listed columns and their
+ *   members), so their own counting changes only this request's sum row.
+ * - `GET /events/{id}/views`: the views list a counting save reads (`ViewsData`); for full access each view
+ *   also carries its `version`, which a save sends back.
  */
 final class GridRoutes
 {
@@ -154,6 +156,11 @@ final class GridRoutes
             throw new InvalidInput();
         }
         $decoded = json_decode($raw, true);
+        // An empty object is no override: the server's stored choice (with its default) applies. `{}` decodes
+        // to `[]`, which `array_is_list()` would otherwise call a list.
+        if ($decoded === []) {
+            return null;
+        }
         if (!is_array($decoded) || array_is_list($decoded)) {
             throw new InvalidInput();
         }

@@ -60,7 +60,10 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `ViewRepository`. Its name, filter and columns are stored empty and never
   read. It is never listed, edited or deleted as a view. A grant on the master
   view keeps `view_id` null and never points at the master row.
-- The counted members of a view (`counts`) are set only by full access, and
-  each is one of its column's members. Grant holders read them.
+- The counted members of a view (`counts`) are stored only by full access, and
+  each is one of its column's members. A grant holder may send an ad hoc
+  `counts` override with the sums read: it is validated against the held view's
+  listed columns and their members, applies to that request only, and is never
+  stored and never widens the view.
 - The fine check of a field change (`Access::mayWrite()`) runs inside
   `execute`, on a registration the run holds locked.
