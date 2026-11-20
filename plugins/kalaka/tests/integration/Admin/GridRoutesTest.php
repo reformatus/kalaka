@@ -185,6 +185,29 @@ final class GridRoutesTest extends GrantTestCase
         }
     }
 
+    public function testAGrantHoldersSumsAcceptAnEmptyOverrideAndRefuseAnUnlistedColumn(): void
+    {
+        $this->as($this->holder);
+        // This view lists only the code, so its sum row has no Állapot entry to override.
+        $path = '/views/' . $this->view . '/sums';
+
+        $plain = $this->rest('GET', $path, ['grant' => $this->grant]);
+        self::assertSame(200, $plain->get_status());
+        self::assertArrayNotHasKey('status', (array) $plain->get_data());
+
+        // An empty object is no override (a cleared pick): the stored choice, never a 400.
+        $empty = $this->rest('GET', $path, ['grant' => $this->grant, 'counts' => '{}']);
+        self::assertSame(200, $empty->get_status());
+        self::assertEquals($plain->get_data(), $empty->get_data());
+
+        // A view without Állapot refuses a status override; the client never sends one now.
+        $refused = $this->rest('GET', $path, [
+            'grant' => $this->grant,
+            'counts' => (string) wp_json_encode(['status' => ['registered']]),
+        ]);
+        self::assertSame(400, $refused->get_status());
+    }
+
     public function testAGrantHolderWithTwoGrantsOnOneViewGetsOneTabPerGrantWithItsOwnRowsAndSums(): void
     {
         $second = $this->exec(new SaveGrant(), [

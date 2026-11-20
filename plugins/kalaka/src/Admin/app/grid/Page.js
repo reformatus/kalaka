@@ -22,6 +22,7 @@ import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { serial } from './serial';
 import { runPick } from './pick';
+import { countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
 import { GRID, SUM } from './texts';
@@ -41,7 +42,7 @@ function Cell( { column, item } ) {
 	}
 	if ( column.type === 'status' ) {
 		const [ icon, tone ] = STATUS_ICON[ item.values.status ] || [ '', '' ];
-		// An inactive registration (anything but registered) dims its whole row. [UNAPPROVED N22]
+		// An inactive registration (anything but registered) dims its whole row. [UNAPPROVED N25]
 		const inactive = item.values.status !== 'registered';
 		return (
 			<span className={ 'kg-mark' + ( inactive ? ' kg-inactive' : '' ) }>
@@ -106,9 +107,10 @@ function ResetHeader( { column, hasSerial, isDefault, onReset } ) {
 
 /**
  * The counting choices as they appear in a column's own header menu: one checkbox per member of the column.
- * Clicks stay in the fieldset, so the menu's own handlers do not take them.
+ * Clicks stay in the fieldset, so the menu's own handlers do not take them. Each tick is kept locally at
+ * once, so quick successive ticks all apply and the checkbox reflects the click before the save returns.
  */
-function CountingMenu( { column, chosen, onPick } ) {
+function CountingMenu( { column, chosen, onToggle, note } ) {
 	return (
 		<div
 			className="kg-countbox"
@@ -116,20 +118,14 @@ function CountingMenu( { column, chosen, onPick } ) {
 			onClick={ ( event ) => event.stopPropagation() }
 		>
 			<p className="kg-countbox-title">{ SUM.counting }</p>
+			{ note && <p className="kg-countbox-note">{ SUM.pickNote }</p> }
 			{ column.members.map( ( member ) => (
 				<CheckboxControl
 					key={ member.value }
 					label={ member.label }
 					checked={ chosen.includes( member.value ) }
 					__nextHasNoMarginBottom
-					onChange={ ( on ) =>
-						onPick(
-							column,
-							on
-								? chosen.concat( member.value )
-								: chosen.filter( ( x ) => x !== member.value )
-						)
-					}
+					onChange={ ( on ) => onToggle( column, member.value, on ) }
 				/>
 			) ) }
 		</div>
@@ -182,13 +178,22 @@ export default function Page( { config } ) {
 	const [ message, setMessage ] = useState( '' );
 	const [ host, setHost ] = useState( null );
 	const [ menu, setMenu ] = useState( null );
-	// A grant holder's own counted members per column; null: the stored choice. Reset on a tab switch,
-	// like the sort and the filters.
-	const [ localCounts, setLocalCounts ] = useState( null );
+	// The counting picks since the tab was opened: a grant holder's own, and full access's optimistic state
+	// until the save reloads the server's. Reset on a tab switch, like the sort and the filters.
+	const picks = useRef( null );
+	if ( ! picks.current ) {
+		picks.current = createPicks();
+	}
+	const [ , setPickTick ] = useState( 0 );
+	const [ sumsFail, setSumsFail ] = useState( false );
 	const v = view._tab === tab.key ? view : freshView( tab, view.perPage );
 	const sort = v.sort ? v.sort.field : null;
 	const desc = v.sort ? v.sort.direction === 'desc' : false;
-	const counts = localCounts || tab.counts || null;
+	// A grant holder's own counted members: the stored choice with their picks on top, for the view's listed
+	// columns only (a view need not list Állapot). Nothing is sent for full access, whose pick is saved.
+	const counts = config.sumEditable
+		? null
+		: countsToSend( tab.columns, tab.counts, picks.current.all() );
 	const countsKey = JSON.stringify( counts || {} );
 
 	const select = ( id ) => {
@@ -196,7 +201,8 @@ export default function Page( { config } ) {
 		setMessage( '' );
 		setData( { rows: [], total: 0 } ); // no old rows under the new columns
 		setSums( null );
-		setLocalCounts( null );
+		setSumsFail( false );
+		picks.current.reset();
 		setMenu( null );
 		window.history.replaceState( null, '', tabUrl( id ) );
 	};
@@ -221,8 +227,19 @@ export default function Page( { config } ) {
 	useEffect( () => {
 		let live = true;
 		api.fetchSums( config, tab, config.sumEditable ? null : counts ).then(
-			( result ) => live && setSums( result ),
-			() => {}
+			( result ) => {
+				if ( live ) {
+					setSums( result );
+					setSumsFail( false );
+				}
+			},
+			() => {
+				// A failed sums request is never a silently empty row.
+				if ( live ) {
+					setSums( null );
+					setSumsFail( true );
+				}
+			}
 		);
 		return () => {
 			live = false;
@@ -260,9 +277,21 @@ export default function Page( { config } ) {
 			wrap.style.height = Math.max( 320, window.innerHeight - top - footerHeight - 4 ) + 'px';
 		};
 		fit();
+		// The controls above the table change height on their own (chips wrapping, the copy message), so a
+		// window resize alone is not enough (G9).
+		const observer = new window.ResizeObserver( fit );
+		const above = document.querySelector( '.kg-above' );
+		if ( above ) {
+			observer.observe( above );
+		}
+		const footer = document.getElementById( 'wpfooter' );
+		if ( footer ) {
+			observer.observe( footer );
+		}
 		window.addEventListener( 'resize', fit );
 		const timer = window.setTimeout( fit, 200 );
 		return () => {
+			observer.disconnect();
 			window.removeEventListener( 'resize', fit );
 			window.clearTimeout( timer );
 			wrap.style.height = '';
@@ -370,16 +399,19 @@ export default function Page( { config } ) {
 	const seq = useRef( 0 );
 	const shown = useRef( tab.key );
 	shown.current = tab.key;
-	const pick = ( column, members ) => {
+	// The members the menu starts from: the server's sum row for full access, the stored choice otherwise.
+	const chosenFor = ( column ) =>
+		config.sumEditable
+			? ( sums && sums[ column.column ] && sums[ column.column ].members ) || []
+			: ( tab.counts || {} )[ column.column ] || [];
+
+	// One tick. The pick is kept locally first, so a second tick before the first save returns builds on it
+	// and the checkbox reflects the click at once; the last state wins and includes every tick.
+	const pick = ( column, member, on ) => {
 		const picked = tab;
+		const members = picks.current.toggle( column.column, member, on, chosenFor( column ) );
+		setPickTick( ( n ) => n + 1 );
 		if ( ! config.sumEditable ) {
-			const base = { ...( localCounts || tab.counts || {} ) };
-			if ( members.length ) {
-				base[ column.column ] = members;
-			} else {
-				delete base[ column.column ];
-			}
-			setLocalCounts( base );
 			return;
 		}
 		queue.current( () => {
@@ -431,6 +463,11 @@ export default function Page( { config } ) {
 					</span>
 				</div>
 			</div>
+			{ sumsFail && (
+				<p className="kg-load-fail" role="alert">
+					{ GRID.loadFail }
+				</p>
+			) }
 			<SumRow
 				root={ host }
 				columns={ tab.columns }
@@ -466,12 +503,9 @@ export default function Page( { config } ) {
 				createPortal(
 					<CountingMenu
 						column={ menu.column }
-						chosen={
-							config.sumEditable
-								? ( sums && sums[ menu.column.column ] && sums[ menu.column.column ].members ) || []
-								: ( localCounts || tab.counts || {} )[ menu.column.column ] || []
-						}
-						onPick={ pick }
+						chosen={ picks.current.chosen( menu.column.column, chosenFor( menu.column ) ) }
+						onToggle={ pick }
+						note={ false /* #210 shows it while narrowed, to full access only */ }
 					/>,
 					menu.popup
 				) }
