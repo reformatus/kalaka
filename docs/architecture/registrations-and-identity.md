@@ -240,7 +240,8 @@ reference and check-in barcode.
     token does not stay in the address bar or the history.
   - **An account** picks the active registration among the registrations it
     owns. When the account owns the registration a cookie names, the account
-    wins: access follows the account.
+    wins: access follows the account. Until the account picker is built, being
+    logged in sets nothing: only a secret link makes a registration active.
   - The active registration **expires** 24 hours after its link was
     followed (following it again starts anew), and **"kilépés"** clears it.
 - **The participant side is built from blocks** that admins place on any
