@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\PriceLadder;
 
+use Kalaka\PriceLadder\PriceLadderComponent;
 use Kalaka\Pricing\Cli\MoneySettingsCommand;
 use Kalaka\Pricing\Cli\SettingsDocument;
 
-/** `wp kalaka money-settings` with the price ladder: its tiers, conditions and deadlines (G3). */
+/** `wp kalaka money-settings` with the price ladder: its tiers as key, label and amount (G3). */
 final class MoneySettingsCommandTest extends PriceLadderTestCase
 {
     /** @var list<string> */
@@ -39,17 +40,20 @@ final class MoneySettingsCommandTest extends PriceLadderTestCase
         });
     }
 
-    public function testApplyEntersALadderAndShowPrintsItBackWithItsDeadlineDay(): void
+    public function testApplyEntersALadderAndShowPrintsItBack(): void
     {
         $tiers = [
-            self::tier('korai', 'Korai ár', '40000', [], '2026-12-31'),
+            self::tier('korai', 'Korai ár', '40000'),
             ...self::ivkTiers(),
         ];
         $path = (string) wp_tempnam('kalaka-money-');
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- a temp file
         file_put_contents($path, (string) wp_json_encode(['components' => ['price_ladder' => ['tiers' => $tiers]]]));
         $this->files[] = $path;
+
+        // The registration chose a tier before the ladder was entered; the apply declares `price_tier` and reads it.
         $key = $this->register('00A0');
+        $this->writeValue($key, PriceLadderComponent::FIELD, 'korai');
 
         $this->command()->apply([(string) $this->event], ['file' => $path, 'yes' => true]);
 
@@ -61,6 +65,37 @@ final class MoneySettingsCommandTest extends PriceLadderTestCase
         $shown = json_decode(\WP_CLI::$calls[0][1], true);
         self::assertSame($tiers, $shown['components']['price_ladder']['tiers']);
         self::assertNull($shown['fixed_price']);
+    }
+
+    public function testATierWithAConditionOrADeadlineIsRefusedAndNothingIsSaved(): void
+    {
+        $key = $this->register('00A0');
+        foreach (['condition' => 'nincs', 'until' => '2026-12-31'] as $leftover => $value) {
+            $path = (string) wp_tempnam('kalaka-money-');
+            $tier = ['key' => 'alap', 'label' => 'Alap ár', 'amount' => '49500', $leftover => $value];
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- a temp file
+            file_put_contents($path, (string) wp_json_encode(
+                ['components' => ['price_ladder' => ['tiers' => [$tier]]]]
+            ));
+            $this->files[] = $path;
+
+            try {
+                $this->command()->apply([(string) $this->event], ['file' => $path, 'yes' => true]);
+                self::fail('A tier with a ' . $leftover . ' was accepted.');
+            } catch (\RuntimeException $e) {
+                self::assertSame('WP_CLI::error', $e->getMessage());
+            }
+            $errors = array_values(array_filter(
+                \WP_CLI::$calls,
+                static fn (array $call): bool => $call[0] === 'error'
+            ));
+            self::assertCount(1, $errors);
+            self::assertStringContainsString('"price_ladder" are not valid.', $errors[0][1][0]);
+
+            self::assertSame([], $this->ladder->tiers($this->event));
+            self::assertSame([], $this->charges($key));
+            \WP_CLI::reset();
+        }
     }
 
     public function testWhatShowPrintsForAnEventWithNoSettingsAppliesAsIs(): void
