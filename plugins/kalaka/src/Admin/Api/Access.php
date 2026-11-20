@@ -110,6 +110,46 @@ final class Access
     }
 
     /**
+     * The views the actor holds through grants that contain the registration now, each with the actions its
+     * grant carries: for the detail read, where a grant's view decides what is shown and its actions what
+     * the holder may do. One statement for the grants, and one for each grant's filter. Full access holds
+     * the master view (`master()`) and needs no grant; its own grants are listed too.
+     *
+     * @return list<array{view: HeldView, actions: list<string>}>
+     */
+    public function holding(Actor $actor, RegistrationKey $key): array
+    {
+        $userId = self::userIdOf($actor);
+        if ($userId === null) {
+            return [];
+        }
+
+        $holding = [];
+        foreach ($this->grants->forUser($key->eventId, $userId) as $grant) {
+            $shape = Grant::viewShape($grant);
+            if ($shape === false) {
+                continue;
+            }
+            if (!$this->views->filterHolds($key->eventId, $shape, $grant['bound_value'], [$key])) {
+                continue;
+            }
+            $holding[] = [
+                'view' => new HeldView(
+                    $key->eventId,
+                    $grant['id'],
+                    $grant['view_id'],
+                    $grant['name'],
+                    $shape,
+                    $grant['bound_value']
+                ),
+                'actions' => $grant['actions'],
+            ];
+        }
+
+        return $holding;
+    }
+
+    /**
      * The event's master view, through full access only. It does not check that the event exists.
      *
      * @throws PermissionDenied without full access

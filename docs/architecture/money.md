@@ -82,8 +82,7 @@ title: Money
 | `payment` (online or another automatic method) | − | Payments, from payment-method events |
 | `refund` | + | Payments, from payment-method events |
 | `manual_payment` (bank transfer, cash, card terminal) | − | the "record payment" use case |
-| `manual_refund` (money returned by transfer or cash) | + | the "record refund" use case |
-| `transfer` (a payment moved to another registration of the same event) | ± | the "move payment" use case |
+| `manual_refund` (money returned by any recorded payment method) | + | the "record refund" use case |
 | `adjustment` (correction with a reason) | ± | an admin use case |
 | feature lines (the wallet, deferred) | ± | feature plugins, through an extension point |
 
@@ -98,8 +97,14 @@ title: Money
   recorded. A payment with that value date therefore counts as before a
   deadline that ends at midnight at the end of the same day.
 - **"Record refund"** writes a `manual_refund` line for money returned by
-  transfer or cash. WooCommerce refunds keep their own path
+  any recorded payment method. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
+- **A correction** is a "record payment" or "record refund" row of either
+  direction, flagged as a correction, with a required reason, **no method and
+  no value date**: it counts from the time it is recorded. It is a payment
+  fact like any recorded payment, so confirmation and balances count it with no
+  special case. One use case records it, under the same action as "record
+  payment".
 - **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
   arrived; the rest stays due until waived with an `adjustment` and a reason.
 - **An unnamed transfer** is found through a view (name, code, amount) and
@@ -186,12 +191,9 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
   paid"; the deposit extension adds "retain up to the deposit", which counts
   against the participant first. A surplus shows as an overpayment; refunds
   are never automatic.
-- **Move payment** (a substitute takes someone's place): one organizer use
-  case, **within one event only**, writes a pair of `transfer` lines with a
-  shared reference (+amount on A, −amount on B), at most A's payer's net
-  payments: payments, minus refunds, minus earlier moves out.
-  Only payments move; B's charges and support come from B's own facts. Staff
-  choose the target payer, and a remaining difference is an ordinary balance.
+- **Moving a payment is not handled in code** (a substitute takes someone's
+  place): staff record a refund, remove the registration, and
+  record the payment on the other. A transfer helper is deferred.
 - Money moves between events only through the wallet's carry-over
   ([Deferred](deferred.md)).
 

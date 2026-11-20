@@ -1,7 +1,7 @@
 # Ledger
 
-Ledger is lines, payers, balances, organizer-recorded payments and refunds,
-and moving payments
+Ledger is lines, payers, balances, organizer-recorded payments, refunds and
+corrections
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
 
 ## Sections it implements
@@ -33,17 +33,19 @@ and moving payments
   line it is an error. A duplicate key on a line is never retried (only the
   registration insert's is).
 - Balances and totals are computed from the lines and never stored.
-- Payment facts are the lines of kinds `payment`, `refund`, `manual_payment`,
-  `manual_refund` and `transfer`; `charge` and `adjustment` lines are not
+- Payment facts are the lines of kinds `payment`, `refund`, `manual_payment`
+  and `manual_refund`; `charge` and `adjustment` lines are not
   payment facts. Rules never read charge lines: the Ledger `Api` gives them
   payment facts, read from payment lines only. `Ledger::summaryOf()` reads
   every line for display (the participant blocks); no rule calls it.
   `chargeTotalsOf()` is the materializer's read of its own lines, and only
   `Pricing\Api\Materializer` calls it (a test checks this).
 - A payment-fact line carries exactly one time, a UTC instant: `paid_at` on
-  `payment` and `refund`; `value_date` on `manual_payment`, `manual_refund`
-  and `transfer`, entered as a day and stored as 00:00 of it in the site
-  time zone at recording. A `charge` or `adjustment` carries neither.
+  `payment` and `refund`; `value_date` on `manual_payment` and
+  `manual_refund`, entered as a day and stored as 00:00 of it in the site
+  time zone at recording; a correction (a manual row flagged `correction`,
+  the owner's ruling 2026-11-19, with no method) has no entered date and
+  stores the time it is recorded. A `charge` or `adjustment` carries neither.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - `record()` refuses unless the run holds the registration's lock

@@ -10,6 +10,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\BalanceQuery;
 use Kalaka\Ledger\ChargeTotalQuery;
 use Kalaka\Ledger\LedgerLineRepository;
+use Kalaka\Ledger\LineListQuery;
+use Kalaka\Ledger\PaymentNote;
+use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Ledger\PaymentFactQuery;
 use Kalaka\Ledger\SummaryQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -17,43 +20,56 @@ use Kalaka\Registrations\Api\RegistrationKey;
 /** The ledger's contract: the only way to write a line, and the plain reads. */
 final class Ledger
 {
+    /** The per-event action that lets a grant holder see the money of the registrations of its view. */
+    public const VIEW_MONEY = 'kalaka_view_money';
+
+    public const RECORD_PAYMENT = 'kalaka_record_payment';
+
+    public const RECORD_REFUND = 'kalaka_record_refund';
+
     public function __construct(
         private readonly LedgerLineRepository $lines = new LedgerLineRepository(),
         private readonly BalanceQuery $balances = new BalanceQuery(),
         private readonly PaymentFactQuery $facts = new PaymentFactQuery(),
         private readonly SummaryQuery $summaries = new SummaryQuery(),
         private readonly ChargeTotalQuery $charges = new ChargeTotalQuery(),
+        private readonly PaymentNoteRepository $notes = new PaymentNoteRepository(),
+        private readonly LineListQuery $listing = new LineListQuery(),
     ) {
     }
 
     /**
      * Appends the line, or returns the stored one when the registration already holds the same line
-     * under the key. A value date, a day, is stored as 00:00 of it in the site time zone at the moment
-     * of recording. The run must hold the registration's row lock (`Context::holdsRegistration()`).
+     * under the key. `RecordedLine::$inserted` tells the caller which happened, so a replay writes no
+     * further record. A value date, a day, is stored as 00:00 of it in the site time zone at the moment
+     * of recording. The run must hold the registration's row lock (`Context::holdsRegistration()`). The line's
+     * free text, when it has one, is written to its own side record (`kalaka_payment_notes`), in the same run.
      *
      * @throws SystemFailure when the run does not hold the registration, the line breaks a rule, the key
      *                       holds a different line, or the insert fails
      */
-    public function record(NewLine $line, Context $context): LedgerLine
+    public function record(NewLine $line, Context $context): RecordedLine
     {
         if (!$context->holdsRegistration($line->registration)) {
             $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
             throw $error;
         }
         $this->check($line);
-        $valueDate = $line->valueDate === null ? null : Instant::startOfDay($line->valueDate);
+        // A correction has no date of its own: it counts from the moment it is recorded.
+        $valueDate = $line->correction ? $context->now() : self::dayOf($line);
 
         $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
         if ($stored !== null) {
-            if (!self::isSame($stored, $line, $valueDate)) {
+            $day = $line->correction ? $stored->valueDate : $valueDate;
+            if (!self::isSame($stored, $line, $day) || !$this->sameNote($stored, self::noteText($line))) {
                 $error = new SystemFailure(null, new \LogicException('The idempotency key holds a different line.'));
                 throw $error;
             }
 
-            return $stored;
+            return new RecordedLine($stored, false);
         }
 
-        return $this->lines->insert(
+        $inserted = $this->lines->insert(
             new LedgerLine(
                 0,
                 $line->registration,
@@ -65,9 +81,102 @@ final class Ledger
                 $valueDate,
                 $line->paidAt,
                 $context->now(),
+                $line->method,
+                $line->correction,
             ),
             $context
         );
+        $note = self::noteText($line);
+        if ($note !== null) {
+            $this->notes->upsert(new PaymentNote($line->registration, $inserted->id, $note), $context);
+        }
+
+        return new RecordedLine($inserted, true);
+    }
+
+    /**
+     * The registration's lines for display, newest first, each with its note. A plain read, without a lock,
+     * of one statement; rules never read it.
+     *
+     * @return list<LedgerEntry>
+     */
+    public function entriesOf(RegistrationKey $registration): array
+    {
+        return $this->listing->of($registration);
+    }
+
+    /**
+     * Erases the registration's notes: the free text of its manual lines, which a privacy erase must reach
+     * (the lines themselves are kept). The run must hold the registration's row lock. Returns how many it
+     * erased. No erase use case exists yet; it calls this when it is built.
+     *
+     * @throws SystemFailure when the run does not hold the registration
+     */
+    public function eraseNotesOf(RegistrationKey $registration, Context $context): int
+    {
+        if (!$context->holdsRegistration($registration)) {
+            $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
+            throw $error;
+        }
+        $notes = $this->notes->forRegistration($registration, $context);
+        foreach ($notes as $note) {
+            $this->notes->delete($note, $context);
+        }
+
+        return count($notes);
+    }
+
+    private function noteOf(LedgerLine $stored): ?string
+    {
+        foreach ($this->notes->forRegistration($stored->registration) as $note) {
+            if ($note->lineId === $stored->id) {
+                return $note->note;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether the stored line's note matches the incoming one. A line with no stored note compares no note:
+     * it never had one, or `eraseNotesOf()` erased it, and the table keeps no trace of which. A replay of the
+     * original entry after an erase therefore still finds its line; the same key with another amount is still
+     * a different line.
+     */
+    private function sameNote(LedgerLine $stored, ?string $note): bool
+    {
+        $storedNote = $this->noteOf($stored);
+
+        return $storedNote === null || $storedNote === $note;
+    }
+
+    private static function dayOf(NewLine $line): ?\DateTimeImmutable
+    {
+        return $line->valueDate === null ? null : Instant::startOfDay($line->valueDate);
+    }
+
+    private static function noteFits(?string $note): bool
+    {
+        return $note === null || mb_check_encoding($note, 'UTF-8') && mb_strlen($note, 'UTF-8') <= 500;
+    }
+
+    private static function noteText(NewLine $line): ?string
+    {
+        return $line->note === null || trim($line->note) === '' ? null : trim($line->note);
+    }
+
+    /**
+     * Whether the registration already holds a different line under the line's idempotency key, which
+     * `record()` would refuse as a failure: for a caller that refuses a person's reused key with an
+     * `IdempotencyConflict` first. A plain read; false for a new key and for the same line again.
+     */
+    public function keyHoldsDifferentLine(NewLine $line): bool
+    {
+        $stored = $this->lines->findByKey($line->registration, $line->idempotencyKey);
+
+        return $stored !== null
+            && (!self::isSame($stored, $line, $line->correction ? $stored->valueDate : self::dayOf($line))
+                || !$this->sameNote($stored, self::noteText($line)));
     }
 
     /** A plain read, without a lock. */
@@ -113,10 +222,16 @@ final class Ledger
             !$line->kind->allows($line->amount) => 'The amount does not fit the kind.',
             !Payer::isValid($line->payer) => 'The payer is not a payer-kind ID.',
             preg_match('/\A[a-z0-9_:.-]{1,128}\z/', $line->idempotencyKey) !== 1 => 'The key is malformed.',
-            ($line->valueDate !== null) !== $line->kind->carriesValueDate()
+            ($line->valueDate !== null) !== ($line->kind->carriesValueDate() && !$line->correction)
                 || ($line->paidAt !== null) !== $line->kind->carriesPaidTime() => 'The time does not fit the kind.',
             $line->valueDate !== null && Instant::startOfDay($line->valueDate) === null
                 => 'The value date is not a day.',
+            $line->method !== null && !$line->kind->carriesMethod() => 'The kind has no method.',
+            $line->correction && !$line->kind->carriesMethod() => 'Only a manual payment or refund is a correction.',
+            $line->correction && $line->method !== null => 'A correction has no method.',
+            $line->correction && self::noteText($line) === null => 'A correction needs its reason.',
+            $line->note !== null && !$line->kind->mayHaveNote() => 'The kind has no note.',
+            !self::noteFits(self::noteText($line)) => 'The note is not 1 to 500 characters.',
             default => null,
         };
         if ($problem !== null) {
@@ -134,7 +249,9 @@ final class Ledger
             && $stored->source->eventId === $line->source->eventId
             && $stored->source->key === $line->source->key
             && self::instant($stored->valueDate) === self::instant($valueDate)
-            && self::instant($stored->paidAt) === self::instant($line->paidAt);
+            && self::instant($stored->paidAt) === self::instant($line->paidAt)
+            && $stored->method === $line->method
+            && $stored->correction === $line->correction;
     }
 
     private static function instant(?\DateTimeImmutable $time): ?string

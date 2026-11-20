@@ -9,6 +9,8 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Decision\DecisionTables;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Query\Query;
+use Kalaka\Foundation\Api\Time\Instant;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationTables;
 use Kalaka\Registrations\Api\Serials;
@@ -26,6 +28,12 @@ final class ViewQuery extends Query
 {
     /** The most rows one page may ask for. */
     public const MAX_LIMIT = 500;
+
+    /** The columns a view lists for display only: neither sortable nor filterable. */
+    private const DISPLAY_ONLY = ['code', 'registered_at', 'submitted_at'];
+
+    /** How the time columns show an instant: UTC, as the detail read does. */
+    private const TIME_FORMAT = 'Y-m-d\TH:i:s\Z';
 
     public function __construct(
         private readonly Serials $serials = new Serials(),
@@ -102,7 +110,7 @@ final class ViewQuery extends Query
             throw new InvalidInput();
         }
         $shape = $this->shapeOf($view);
-        if ($sort !== null && ($sort === 'code' || !$shape->lists($sort))) {
+        if ($sort !== null && (in_array($sort, self::DISPLAY_ONLY, true) || !$shape->lists($sort))) {
             throw new InvalidInput();
         }
         [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
@@ -150,7 +158,7 @@ final class ViewQuery extends Query
         ): ViewPage {
             $registrations = $this->select(
                 'registration',
-                'SELECT r.code, r.status FROM %i r WHERE r.event_id = %d' . $conditions
+                'SELECT r.code, r.status, r.registered_at FROM %i r WHERE r.event_id = %d' . $conditions
                 . ' ORDER BY ' . $order . ' LIMIT %d OFFSET %d',
                 [
                     $this->table(RegistrationTables::REGISTRATIONS),
@@ -166,6 +174,7 @@ final class ViewQuery extends Query
             $fields = $this->fieldValues($eventId, $codes, $shape->fieldKeys());
             $decisions = $this->decisions->currentStates($eventId, $codes, $shape->decisionKinds());
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
+            $submitted = $shape->lists('submitted_at') ? $this->firstSubmissionTimes($eventId, $codes) : [];
 
             $rows = [];
             foreach ($registrations as $registration) {
@@ -177,6 +186,11 @@ final class ViewQuery extends Query
                         $column === 'code' => $code,
                         $column === 'status' => (string) $registration['status'],
                         $column === 'serial' => $serials[$code] ?? null,
+                        $column === 'registered_at' => $registration['registered_at'] === null
+                            ? null
+                            : Instant::fromStorage((string) $registration['registered_at'])
+                                ->format(self::TIME_FORMAT),
+                        $column === 'submitted_at' => $submitted[$code] ?? null,
                         str_starts_with($column, 'field:') => $fields[$code][substr($column, 6)] ?? null,
                         default => $decisions[$code][substr($column, 9)] ?? null,
                     };
@@ -186,6 +200,34 @@ final class ViewQuery extends Query
 
             return new ViewPage($shape->columns, $rows, $total);
         });
+    }
+
+    /**
+     * The time of the first submission of each code, as `TIME_FORMAT` (one statement, inside the caller's query
+     * scope); a code without one is left out.
+     *
+     * @param list<string> $codes
+     * @return array<string, string>
+     */
+    private function firstSubmissionTimes(int $eventId, array $codes): array
+    {
+        if ($codes === []) {
+            return [];
+        }
+
+        $rows = $this->select(
+            'submission',
+            'SELECT code, submitted_at FROM %i WHERE event_id = %d AND number = 1 AND code IN ('
+            . implode(', ', array_fill(0, count($codes), '%s')) . ')',
+            [$this->table(RegistrationTables::SUBMISSIONS), $eventId, ...$codes]
+        );
+        $times = [];
+        foreach ($rows as $row) {
+            $times[(string) $row['code']] = Instant::fromStorage((string) $row['submitted_at'])
+                ->format(self::TIME_FORMAT);
+        }
+
+        return $times;
     }
 
     /**
@@ -247,6 +289,99 @@ final class ViewQuery extends Query
         }
 
         return $results;
+    }
+
+    /**
+     * One registration as the views that hold it show it, the union of their columns. The views must be the
+     * ones `Access::holding()` found to hold it (or the master view of full access): this read does not
+     * check the filter again. Null when the event has no such registration. The times of `registered_at` and
+     * the first submission are shown to the master view only, as no column lists them.
+     *
+     * @param non-empty-list<HeldView> $views
+     */
+    public function registration(array $views, string $code): ?ViewRegistration
+    {
+        $eventId = $views[0]->eventId;
+        $full = false;
+        $columns = [];
+        foreach ($views as $view) {
+            $shape = $view->shape();
+            if ($view->eventId !== $eventId) {
+                throw new InvalidInput();
+            }
+            if ($shape === null) {
+                $full = true;
+                continue;
+            }
+            foreach ($shape->columns as $listed) {
+                $columns[$listed['column']] = true;
+            }
+        }
+        $columns = $full ? [] : array_map('strval', array_keys($columns));
+
+        $key = new RegistrationKey($eventId, $code);
+        $row = $this->scope(function () use ($key): ?array {
+            $rows = $this->select(
+                'registration',
+                'SELECT status, registered_at FROM %i WHERE event_id = %d AND code = %s',
+                [$this->table(RegistrationTables::REGISTRATIONS), $key->eventId, $key->code]
+            );
+
+            return $rows[0] ?? null;
+        });
+        if ($row === null) {
+            return null;
+        }
+        $lists = static fn (string $column): bool => $full || in_array($column, $columns, true);
+
+        $fieldKeys = [];
+        $decisionKinds = [];
+        foreach ($columns as $column) {
+            if (str_starts_with($column, 'field:')) {
+                $fieldKeys[] = substr($column, 6);
+            } elseif (str_starts_with($column, 'decision:')) {
+                $decisionKinds[] = substr($column, 9);
+            }
+        }
+
+        $fields = $this->scope(
+            fn (): array => $this->detailValues($key, $full ? null : $fieldKeys)
+        );
+        $decisions = [];
+        if ($full || $decisionKinds !== []) {
+            foreach ($this->decisions->currentOf($key) as $kind => $decision) {
+                if ($full || in_array($kind, $decisionKinds, true)) {
+                    $decisions[$kind] = $decision;
+                }
+            }
+        }
+        $first = $this->scope(function () use ($key): ?array {
+            $rows = $this->select(
+                'submission',
+                'SELECT form_id, form_version, submitted_at FROM %i WHERE event_id = %d AND code = %s AND number = 1',
+                [$this->table(RegistrationTables::SUBMISSIONS), $key->eventId, $key->code]
+            );
+
+            return $rows[0] ?? null;
+        });
+        $serial = $lists('serial') ? ($this->serials->forEvent($eventId)[$code] ?? null) : null;
+
+        return new ViewRegistration(
+            $key,
+            $full,
+            $columns,
+            $lists('status') ? RegistrationStatus::from((string) $row['status']) : null,
+            $serial,
+            $lists('registered_at') && $row['registered_at'] !== null
+                ? Instant::fromStorage((string) $row['registered_at'])
+                : null,
+            $lists('submitted_at') && $first !== null ? Instant::fromStorage((string) $first['submitted_at']) : null,
+            $fields,
+            $decisions,
+            $first === null
+                ? null
+                : ['form_id' => (int) $first['form_id'], 'form_version' => (int) $first['form_version']],
+        );
     }
 
     /**
@@ -630,6 +765,34 @@ final class ViewQuery extends Query
 
             return ViewShape::master($keys, $this->decisions->kindsIn($eventId));
         });
+    }
+
+    /**
+     * The stored values of one registration: the listed keys, or every key when `$fieldKeys` is null.
+     *
+     * @param ?list<string> $fieldKeys
+     * @return array<string, ?string> by field key
+     */
+    private function detailValues(RegistrationKey $key, ?array $fieldKeys): array
+    {
+        if ($fieldKeys === []) {
+            return [];
+        }
+        $in = $fieldKeys === null
+            ? ''
+            : ' AND field_key IN (' . implode(', ', array_fill(0, count($fieldKeys), '%s')) . ')';
+        $rows = $this->select(
+            'field_value',
+            'SELECT field_key, value FROM %i WHERE event_id = %d AND code = %s' . $in,
+            [$this->table(RegistrationTables::FIELD_VALUES), $key->eventId, $key->code, ...($fieldKeys ?? [])]
+        );
+
+        $values = [];
+        foreach ($rows as $row) {
+            $values[(string) $row['field_key']] = $row['value'];
+        }
+
+        return $values;
     }
 
     /**
