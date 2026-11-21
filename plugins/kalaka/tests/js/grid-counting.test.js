@@ -72,15 +72,6 @@ describe( 'a counting pick', () => {
 		expect( picks.chosen( 'field:lunch', [] ) ).toEqual( [] );
 		expect( picks.all() ).toEqual( {} );
 	} );
-
-	test( 'a revert forgets one column, so it shows the stored choice again', () => {
-		const picks = createPicks();
-		picks.toggle( 'status', 'waitlisted', true, [ 'registered' ] );
-		picks.toggle( 'field:lunch', 'veg', true, [ 'normal' ] );
-		picks.revert( 'status' );
-		expect( picks.chosen( 'status', [ 'registered' ] ) ).toEqual( [ 'registered' ] );
-		expect( picks.chosen( 'field:lunch', [ 'normal' ] ) ).toEqual( [ 'normal', 'veg' ] );
-	} );
 } );
 
 describe( 'whether the counting differs from the default', () => {

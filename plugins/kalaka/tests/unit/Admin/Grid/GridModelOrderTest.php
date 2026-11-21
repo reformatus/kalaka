@@ -50,4 +50,15 @@ final class GridModelOrderTest extends TestCase
             self::assertSame($expected, self::ordered($listed), implode(',', $listed));
         }
     }
+
+    /** Topic 6a: Kód, Név, Állapot, Szám, then the rest. */
+    public function testTheFirstColumnsAreTheCodeTheNameTheStatusAndTheSerial(): void
+    {
+        $fields = ['a' => new FieldDefinition('a', 'kalaka/name-field', 'a', [], false, 'string')];
+        $model = (new \ReflectionClass(GridModel::class))->newInstanceWithoutConstructor();
+        $ordered = (new \ReflectionMethod(GridModel::class, 'ordered'))
+            ->invoke($model, ['serial', 'status', 'field:a', 'decision:x', 'code'], $fields);
+
+        self::assertSame(['code', 'field:a', 'status', 'serial', 'decision:x'], $ordered);
+    }
 }

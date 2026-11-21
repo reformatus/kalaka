@@ -35,11 +35,6 @@ final class Texts
     /** A grant holder with no view on the event. */
     public const NO_VIEW = 'Ehhez az eseményhez nincs nézeted.';
 
-    /** The ability of `kalaka/save-master-counts`. */
-    public const MASTER_COUNTS_LABEL = 'Összesítés mentése';
-    public const MASTER_COUNTS_DESCRIPTION =
-        'Annak beállítása, hogy egy oszlopban mit számoljon a Jelentkezők összesítő sora.';
-
     /**
      * A status word as the grid shows it: `RegistrationStatus::word()` with a capital letter, as N14 approved.
      * The word set stays the server's; this is only its display casing.

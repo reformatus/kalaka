@@ -325,24 +325,45 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame(['00A5', '00A0', '00A2', '00A8', '00B0'], $codes(true));
     }
 
-    /** @return iterable<string, array{?string, int, int}> */
+    /** @return iterable<string, array{?string, int, int, string}> */
     public static function refusedPages(): iterable
     {
-        yield 'an unlisted column' => ['field:other', 50, 0];
-        yield 'the code' => ['code', 50, 0];
-        yield 'an unknown column' => ['secret', 50, 0];
-        yield 'no rows' => [null, 0, 0];
-        yield 'too many rows' => [null, ViewQuery::MAX_LIMIT + 1, 0];
-        yield 'a negative offset' => [null, 50, -1];
+        yield 'an unlisted column' => ['field:other', 50, 0, 'code'];
+        yield 'the code of a view that does not list it' => ['code', 50, 0, 'status'];
+        yield 'an unknown column' => ['secret', 50, 0, 'code'];
+        yield 'no rows' => [null, 0, 0, 'code'];
+        yield 'too many rows' => [null, ViewQuery::MAX_LIMIT + 1, 0, 'code'];
+        yield 'a negative offset' => [null, 50, -1, 'code'];
     }
 
     /** @dataProvider refusedPages */
-    public function testASortOutsideTheViewOrAPageOutOfRangeIsInvalidInput(?string $sort, int $limit, int $offset): void
-    {
-        $view = $this->held($this->shape([], [['column' => 'code', 'write' => false]]));
+    public function testASortOutsideTheViewOrAPageOutOfRangeIsInvalidInput(
+        ?string $sort,
+        int $limit,
+        int $offset,
+        string $listed
+    ): void {
+        $view = $this->held($this->shape([], [['column' => $listed, 'write' => false]]));
 
         $this->expectException(InvalidInput::class);
         $this->query->page($view, $sort, false, $limit, $offset);
+    }
+
+    /** Topic 6a: Kód carries the default order, and descending is its exact reverse. */
+    public function testTheCodeColumnSortsByTheDefaultOrderBothWays(): void
+    {
+        $this->seedStatuses();
+        $view = $this->held($this->shape([], [['column' => 'code', 'write' => false]]));
+        $codes = fn (?string $sort, bool $descending): array => $this->codes(array_map(
+            static fn (ViewRow $row): array => ['key' => $row->key, 'values' => $row->values],
+            $this->query->page($view, $sort, $descending, ViewQuery::MAX_LIMIT)->rows
+        ));
+
+        // The ordering time (registered_at for registered rows, created_at for the rest), then the code.
+        $default = ['00A0', '00A2', '00A5', '00A8', '00B0'];
+        self::assertSame($default, $codes(null, false));
+        self::assertSame($default, $codes('code', false));
+        self::assertSame(array_reverse($default), $codes('code', true));
     }
 
     public function testNoStatementSelectsTheSecretOrLeavesTheEvent(): void

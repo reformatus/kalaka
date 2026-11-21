@@ -66,9 +66,10 @@ final class ViewQuery extends Query
      * status, the sorszám, the stored field values and the latest state of each listed decision kind
      * (null where there is none).
      *
-     * The order is by `$sort`, a listed column other than `code` (null: the sorszám order, which is
-     * `registered_at` for `registered` and `created_at` for every other status), then by the sorszám
-     * order and the code. Rows without a value sort first ascending.
+     * The order is by `$sort`, a listed column (`code`, or null: the sorszám order, which is the ordering
+     * time, `registered_at` for `registered` and `created_at` for every other status, then the code), then
+     * by the sorszám order and the code. `code` is the default order itself (S37, topic 6a: Kód carries it),
+     * so descending is its exact reverse. Rows without a value sort first ascending.
      *
      * A column in `$numeric` (the grid's number-valued fields) sorts by its number, not by the stored
      * text: the value is cast to a decimal, with an empty value treated as missing. Empty and missing
@@ -89,8 +90,11 @@ final class ViewQuery extends Query
             throw new InvalidInput();
         }
         $shape = $this->shapeOf($view);
-        if ($sort !== null && ($sort === 'code' || !$shape->lists($sort))) {
+        if ($sort !== null && !$shape->lists($sort)) {
             throw new InvalidInput();
+        }
+        if ($sort === 'code') {
+            $sort = null; // the code column is the default order, in either direction
         }
         [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
         $eventId = $view->eventId;
