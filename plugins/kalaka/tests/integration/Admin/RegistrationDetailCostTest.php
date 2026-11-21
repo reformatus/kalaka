@@ -191,6 +191,7 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
         $this->seedEvent(2);
         $this->seedManualFees(2, 5);
 
+        $this->selectCount(1); // warms the request-wide caches (options), which belong to no fee
         self::assertSame($this->selectCount(1), $this->selectCount(2));
     }
 
