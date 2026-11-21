@@ -37,16 +37,18 @@ what is dropped. The architecture pages say how things are built; this page says
    organization directory, the congregation picker and the share pair.
 4. **Support and decisions:** support offers with quota places (Baptist,
    Dunamellék); pending decisions with the payment hold (support offers that IVK
-   staff evaluate, and aid requests); partner confirmation, a view of its own
-   with an editable grant, the same mechanism staff use, filtered to the
-   partner's registrations.
+   staff evaluate, aid requests, partner confirmation). A partner confirms in a
+   view of its own with an editable grant, the same mechanism staff use,
+   filtered to the partner's registrations. Until partners have their own
+   views, IVK staff record a partner's confirmation on its behalf, audited
+   with a reason.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
    sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
    sent during an interactive request.
 6. **Organizer side:** full access; the master view with the grid, the detail
    page, field editing, and exports that write an audit entry.
-7. **Form links:** locked and editable values, single use and expiry; partner
+7. **Form links:** locked and editable values, single use and expiry. Partner
    links depend on them.
 8. **Module ranking** ([Extensions in view](modules-and-extensions.md#extensions-in-view)):
    the ranking field type, in `kalaka-ranking`. The module recommender is
@@ -66,7 +68,9 @@ Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **Card payment through WooCommerce:** bank transfer only on opening day,
    card payment in early December.
-2. **The Evangélikus and Akadémia support offers,** which also wait on
+2. **Partner self-service views:** staff record confirmations meanwhile
+   (item 4).
+3. **The Evangélikus and Akadémia support offers,** which also wait on
    stakeholder question SQ-5.
 
 ### Not in this release
