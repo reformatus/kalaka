@@ -104,6 +104,7 @@
 }
 
 .kalaka-number input {
+	box-sizing: border-box;
 	width: 100%;
 }
 
@@ -115,6 +116,7 @@
 	opacity: 0.6;
 	pointer-events: none;
 	user-select: none;
+	z-index: 1;
 }
 
 .kalaka-number__prefix {

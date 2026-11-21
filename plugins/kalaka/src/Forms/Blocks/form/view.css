@@ -205,6 +205,7 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 		opacity: 0.6;
 		pointer-events: none;
 		user-select: none;
+		z-index: 1;
 	}
 
 	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__prefix) {

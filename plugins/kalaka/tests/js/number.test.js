@@ -1,9 +1,12 @@
+/* global InputEvent */
 // The number field's wheel guard (topic 7): the wheel never changes a focused number field.
 
 import {
 	BAD_NUMBER,
 	firstBadNumber,
+	guardNumberSeparators,
 	guardNumberWheel,
+	WHOLE_NUMBER,
 	measureNumberAffixes,
 } from '../../src/Forms/Blocks/form/number';
 
@@ -90,5 +93,86 @@ describe("the affixes' room", () => {
 
 		expect(wrapper.style.getPropertyValue('--kalaka-number-prefix-room')).toBe('36px');
 		expect(wrapper.style.getPropertyValue('--kalaka-number-suffix-room')).toBe('72px');
+	});
+});
+
+describe('the comma guard (B4)', () => {
+	const refusals = [];
+	let inserted;
+	guardNumberSeparators(document, (control, message) => refusals.push([control.id, message]));
+
+	beforeEach(() => {
+		refusals.length = 0;
+		inserted = [];
+		document.execCommand = jest.fn((command, ui, text) => {
+			inserted.push(text);
+			return true;
+		});
+		document.body.innerHTML =
+			'<input type="number" id="whole" inputmode="numeric">' +
+			'<input type="number" id="decimal" inputmode="decimal" step="any">';
+	});
+
+	function type(id, inputType, data) {
+		const event = new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType, data });
+		document.getElementById(id).dispatchEvent(event);
+		return event;
+	}
+
+	it('refuses a comma or a dot, typed or pasted, in a whole-number field', () => {
+		for (const [inputType, data] of [
+			['insertText', ','],
+			['insertText', '.'],
+			['insertFromPaste', '1,5'],
+			['insertFromPaste', '1.5'],
+			['insertReplacementText', '2,0'],
+		]) {
+			refusals.length = 0;
+			expect(type('whole', inputType, data).defaultPrevented).toBe(true);
+			expect(refusals).toEqual([['whole', WHOLE_NUMBER]]);
+		}
+		expect(WHOLE_NUMBER).toBe('Csak egész számot írhatsz ide.');
+	});
+
+	it('leaves digits, a minus sign and deletion alone in a whole-number field', () => {
+		for (const [inputType, data] of [['insertText', '5'], ['insertText', '-'], ['deleteContentBackward', null]]) {
+			expect(type('whole', inputType, data).defaultPrevented).toBe(false);
+		}
+		expect(refusals).toEqual([]);
+	});
+
+	it('types a dot for a typed comma in a decimal field', () => {
+		expect(type('decimal', 'insertText', ',').defaultPrevented).toBe(true);
+		expect(inserted).toEqual(['.']);
+		expect(refusals).toEqual([]);
+	});
+
+	it('leaves a typed dot and digits alone in a decimal field', () => {
+		expect(type('decimal', 'insertText', '.').defaultPrevented).toBe(false);
+		expect(type('decimal', 'insertText', '5').defaultPrevented).toBe(false);
+		expect(inserted).toEqual([]);
+	});
+
+	it('pastes 1,5 as 1.5 in a decimal field, and refuses other pasted text with a comma', () => {
+		expect(type('decimal', 'insertFromPaste', '1,5').defaultPrevented).toBe(true);
+		expect(type('decimal', 'insertFromPaste', '-12,25').defaultPrevented).toBe(true);
+		expect(inserted).toEqual(['1.5', '-12.25']);
+		expect(refusals).toEqual([]);
+
+		expect(type('decimal', 'insertFromPaste', '1,000,5').defaultPrevented).toBe(true);
+		expect(type('decimal', 'insertFromPaste', '5 000,5').defaultPrevented).toBe(true);
+		expect(inserted).toEqual(['1.5', '-12.25']);
+		expect(refusals).toEqual([['decimal', BAD_NUMBER], ['decimal', BAD_NUMBER]]);
+	});
+
+	it('refuses a typed comma when the browser cannot insert text', () => {
+		document.execCommand = undefined;
+		expect(type('decimal', 'insertText', ',').defaultPrevented).toBe(true);
+		expect(refusals).toEqual([['decimal', BAD_NUMBER]]);
+	});
+
+	it('ignores other inputs', () => {
+		document.body.insertAdjacentHTML('beforeend', '<input type="text" id="text">');
+		expect(type('text', 'insertText', ',').defaultPrevented).toBe(false);
 	});
 });

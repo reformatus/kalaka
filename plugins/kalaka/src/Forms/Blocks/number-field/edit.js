@@ -10,12 +10,12 @@ import { createElement as el } from '@wordpress/element';
 import { useFieldCanvas } from '../form/participant-ui';
 import { FieldInspector, FieldTitle, preview, REQUIRED, useStableKey } from '../form/field';
 
-/** One numeric setting of the block's attributes (a core number control, so `1 000` cannot be typed). */
-function Text({ label, attribute, attributes, setAttributes, ...props }) {
+/** One setting of the block's attributes: a number control (so `1 000` cannot be typed) unless `type` says text. */
+function Text({ label, attribute, attributes, setAttributes, type = 'number', ...props }) {
 	return el(TextControl, {
 		label,
-		type: 'number',
-		step: 'any',
+		type,
+		...(type === 'number' ? { step: 'any' } : {}),
 		value: attributes[attribute] ?? '',
 		onChange: (value) => setAttributes({ [attribute]: value }),
 		__next40pxDefaultSize: true,
@@ -48,8 +48,8 @@ function Settings({ attributes, setAttributes }) {
 			__nextHasNoMarginBottom: true,
 		}),
 		// [UNAPPROVED T3]
-		el(Text, { key: 'prefix', label: 'Előtag', attribute: 'prefix', attributes, setAttributes }),
-		el(Text, { key: 'suffix', label: 'Utótag', attribute: 'suffix', attributes, setAttributes }),
+		el(Text, { key: 'prefix', label: 'Előtag', attribute: 'prefix', type: 'text', attributes, setAttributes }),
+		el(Text, { key: 'suffix', label: 'Utótag', attribute: 'suffix', type: 'text', attributes, setAttributes }),
 	];
 }
 

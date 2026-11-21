@@ -53,6 +53,7 @@ import { readAnswer } from './answers';
 import {
 	BAD_NUMBER,
 	firstBadNumber,
+	guardNumberSeparators,
 	guardNumberWheel,
 	measureNumberAffixes,
 } from './number';
@@ -60,6 +61,13 @@ import {
 // A focused number field never changes on the mouse wheel (topic 7), and its affixes get the room they
 // need (A3).
 guardNumberWheel();
+guardNumberSeparators(document, (control, message) => {
+	const key = control.closest('[data-kalaka-field]')?.getAttribute('data-kalaka-field');
+	const form = control.closest('form');
+	if (key !== undefined && key !== null && form !== null) {
+		showFieldMessages(form, { [key]: message });
+	}
+});
 measureNumberAffixes();
 window.addEventListener('resize', () => measureNumberAffixes());
 document.fonts?.ready?.then(() => measureNumberAffixes());

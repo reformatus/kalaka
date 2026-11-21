@@ -75,3 +75,53 @@ export function guardNumberWheel(doc = document) {
 		{ passive: true }
 	);
 }
+
+/** The refusal for a separator typed into a whole-number field (the server's own text, as the client's). */
+export const WHOLE_NUMBER = 'Csak egész számot írhatsz ide.';
+
+const TYPED = ['insertText', 'insertFromPaste', 'insertReplacementText'];
+
+/**
+ * The comma guard (B4): Chromium stores a typed "1,5" in a number control as 15 (the comma dropped, no
+ * `badInput`), a silent times ten. Before the input changes: a whole-number field (`inputmode="numeric"`)
+ * refuses any comma or dot; a decimal field turns a typed comma into a dot, and a pasted "1,5" into "1.5",
+ * and refuses other pasted text with a comma. The native control and its arrows stay. Client-side only: the
+ * server still refuses what it cannot parse.
+ *
+ * @param {Document}                                       doc
+ * @param {function(HTMLInputElement, string): void}       refuse Shows the refusal in the field's error element.
+ */
+export function guardNumberSeparators(doc, refuse) {
+	doc.addEventListener('beforeinput', (event) => {
+		const control = event.target;
+		if (
+			!(control instanceof Element) ||
+			control.tagName !== 'INPUT' ||
+			control.type !== 'number' ||
+			!TYPED.includes(event.inputType)
+		) {
+			return;
+		}
+		const data = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
+		if (control.getAttribute('inputmode') !== 'decimal') {
+			if (/[,.]/.test(data)) {
+				event.preventDefault();
+				refuse(control, WHOLE_NUMBER);
+			}
+			return;
+		}
+		if (!data.includes(',')) {
+			return;
+		}
+		const typed = event.inputType === 'insertText' && data === ',';
+		const pasted = event.inputType !== 'insertText' && /^-?\d+,\d+$/.test(data);
+		event.preventDefault();
+		if (typed || pasted) {
+			const text = typed ? '.' : data.replace(',', '.');
+			if (typeof doc.execCommand === 'function' && doc.execCommand('insertText', false, text)) {
+				return;
+			}
+		}
+		refuse(control, BAD_NUMBER);
+	});
+}
