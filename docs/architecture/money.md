@@ -82,7 +82,7 @@ title: Money
 | `payment` (online or another automatic method) | − | Payments, from payment-method events |
 | `refund` | + | Payments, from payment-method events |
 | `manual_payment` (bank transfer, cash, card terminal) | − | the "record payment" use case |
-| `manual_refund` (money returned by transfer or cash, or a correction) | + | the "record refund" use case |
+| `manual_refund` (money returned by transfer or cash) | + | the "record refund" use case |
 | `transfer` (a payment moved to another registration of the same event) | ± | the "move payment" use case |
 | `adjustment` (correction with a reason) | ± | an admin use case |
 | feature lines (the wallet, deferred) | ± | feature plugins, through an extension point |
@@ -98,9 +98,7 @@ title: Money
   recorded. A payment with that value date therefore counts as before a
   deadline that ends at midnight at the end of the same day.
 - **"Record refund"** writes a `manual_refund` line for money returned by
-  transfer or cash, or, marked as a correction with a required reason, for a
-  payment recorded by mistake. A correction is not linked to the line it
-  corrects. WooCommerce refunds keep their own path
+  transfer or cash. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
 - **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
   arrived; the rest stays due until waived with an `adjustment` and a reason.
