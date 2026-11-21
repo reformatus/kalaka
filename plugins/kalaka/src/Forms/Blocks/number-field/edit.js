@@ -10,10 +10,12 @@ import { createElement as el } from '@wordpress/element';
 import { useFieldCanvas } from '../form/participant-ui';
 import { FieldInspector, FieldTitle, preview, REQUIRED, useStableKey } from '../form/field';
 
-/** One text setting of the block's attributes. */
+/** One numeric setting of the block's attributes (a core number control, so `1 000` cannot be typed). */
 function Text({ label, attribute, attributes, setAttributes, ...props }) {
 	return el(TextControl, {
 		label,
+		type: 'number',
+		step: 'any',
 		value: attributes[attribute] ?? '',
 		onChange: (value) => setAttributes({ [attribute]: value }),
 		__next40pxDefaultSize: true,
@@ -26,6 +28,7 @@ function Text({ label, attribute, attributes, setAttributes, ...props }) {
 function Settings({ attributes, setAttributes }) {
 	const decimals = Number.isInteger(attributes.decimals) ? attributes.decimals : 0;
 	return [
+		// [UNAPPROVED T3]
 		el(Text, { key: 'min', label: 'Legkisebb érték', attribute: 'min', attributes, setAttributes }),
 		el(Text, { key: 'step', label: 'Lépésköz', attribute: 'step', attributes, setAttributes }),
 		el(Text, { key: 'max', label: 'Legnagyobb érték', attribute: 'max', attributes, setAttributes }),
@@ -44,6 +47,7 @@ function Settings({ attributes, setAttributes }) {
 			__next40pxDefaultSize: true,
 			__nextHasNoMarginBottom: true,
 		}),
+		// [UNAPPROVED T3]
 		el(Text, { key: 'prefix', label: 'Előtag', attribute: 'prefix', attributes, setAttributes }),
 		el(Text, { key: 'suffix', label: 'Utótag', attribute: 'suffix', attributes, setAttributes }),
 	];
