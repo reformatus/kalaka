@@ -32,6 +32,8 @@ final class NumberFieldTest extends TestCase
         self::assertSame('5.5', self::answer('05.50', ['decimals' => 2]));
         self::assertSame('0', self::answer('-0', ['decimals' => 1]));
         self::assertSame('0', self::answer('0'));
+        self::assertSame('0.5', self::answer('.5', ['decimals' => 1]));
+        self::assertSame('-0.5', self::answer('-.5', ['decimals' => 1]));
         self::assertSame('123456789012', self::answer('123456789012'));
         self::assertTrue((new NumberFieldType())->answer(new FieldTypeInput('', []))->value === null);
     }
@@ -63,6 +65,9 @@ final class NumberFieldTest extends TestCase
     {
         self::assertSame('Csak egész számot írhatsz ide.', self::error('12,5'));
         self::assertSame('Csak számot írhatsz ide.', self::error('abc', ['decimals' => 1]));
+        self::assertSame('Csak számot írhatsz ide.', self::error('1e3'));
+        self::assertSame('Csak számot írhatsz ide.', self::error('1e3', ['decimals' => 1]));
+        self::assertSame('Csak egész számot írhatsz ide.', self::error('.5'));
         self::assertSame(
             'Legfeljebb 1 tizedesjegyet írhatsz ide.',
             self::error('1.25', ['decimals' => 1])

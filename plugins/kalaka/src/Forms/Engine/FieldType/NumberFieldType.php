@@ -17,7 +17,7 @@ use Kalaka\Vendor\Brick\Math\BigDecimal;
  * `MAX_DECIMALS` decimals, with the block's optional `min`, `step` and `max`. The step counts from `min`
  * when one is set, else from 0, as the native arrows do. Its value is a `Number`; its text groups the
  * digits with no-break spaces, writes the fraction after a comma, and carries the block's optional
- * prefix and suffix (`5 000 Ft`). A negative number uses U+2212. [UNAPPROVED T2–T4]
+ * prefix and suffix (`5 000 Ft`). A negative number uses U+2212. [UNAPPROVED T4]
  */
 final class NumberFieldType extends AbstractFieldType
 {
@@ -112,9 +112,11 @@ final class NumberFieldType extends AbstractFieldType
         }
         [$canonical, $problem] = self::parse($text, $settings['decimals']);
         if ($canonical === null) {
-            if ($settings['decimals'] === 0) {
+            if ($settings['decimals'] === 0 && $problem !== 'exponent') {
+                // [UNAPPROVED T4]
                 return FieldAnswer::error('Csak egész számot írhatsz ide.');
             }
+            // [UNAPPROVED T4]
             $message = $problem === 'decimals'
                 ? sprintf('Legfeljebb %d tizedesjegyet írhatsz ide.', $settings['decimals'])
                 : 'Csak számot írhatsz ide.';
@@ -124,12 +126,14 @@ final class NumberFieldType extends AbstractFieldType
 
         $value = BigDecimal::of($canonical);
         if ($settings['min'] !== null && $value->isLessThan(BigDecimal::of($settings['min']))) {
+            // [UNAPPROVED T4]
             return FieldAnswer::error('Legalább ' . self::text($settings['min'], $settings) . ' legyen.');
         }
         if ($settings['step'] !== null && !self::onStep($value, $settings['min'], $settings['step'])) {
             return FieldAnswer::error(self::stepMessage($settings));
         }
         if ($settings['max'] !== null && $value->isGreaterThan(BigDecimal::of($settings['max']))) {
+            // [UNAPPROVED T4]
             return FieldAnswer::error('Legfeljebb ' . self::text($settings['max'], $settings) . ' legyen.');
         }
 
@@ -224,6 +228,13 @@ final class NumberFieldType extends AbstractFieldType
      */
     private static function parse(string $text, int $decimals): array
     {
+        if (preg_match('/[eE]/', $text) === 1) {
+            // HTML's exponent notation is refused; only a plain decimal is a number here.
+            return [null, 'exponent'];
+        }
+        if (preg_match('/\A(-?)\.([0-9]+)\z/', $text, $leading) === 1) {
+            $text = $leading[1] . '0.' . $leading[2];
+        }
         if (preg_match(self::DECIMAL, $text, $parts) !== 1) {
             return [null, 'number'];
         }
@@ -266,6 +277,7 @@ final class NumberFieldType extends AbstractFieldType
     {
         \assert($settings['step'] !== null);
         if ($settings['min'] === null) {
+            // [UNAPPROVED T4]
             return 'Az érték ' . self::text($settings['step'], $settings) . ' többszöröse legyen.';
         }
         $min = BigDecimal::of($settings['min']);
@@ -277,6 +289,7 @@ final class NumberFieldType extends AbstractFieldType
             $examples[] = self::plain($canonical ?? '0');
         }
 
+        // [UNAPPROVED T4]
         return sprintf(
             'Csak ilyen értéket írhatsz ide: %s, %s, %s és így tovább.',
             $examples[0],
@@ -287,7 +300,7 @@ final class NumberFieldType extends AbstractFieldType
 
     /**
      * A number's text: grouped digits, a comma before the fraction, the prefix before and the suffix after,
-     * separated by a no-break space. [UNAPPROVED T4]
+     * separated by a no-break space (T5-approved).
      *
      * @param array{min: ?string, step: ?string, max: ?string, decimals: int, prefix: string, suffix: string} $settings
      */

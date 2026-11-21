@@ -50,7 +50,7 @@
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
-import { guardNumberWheel } from './number';
+import { BAD_NUMBER, firstBadNumber, guardNumberWheel } from './number';
 
 // A focused number field never changes on the mouse wheel (topic 7).
 guardNumberWheel();
@@ -1133,6 +1133,14 @@ async function send(form) {
 	}
 
 	clearMessages(form);
+	const bad = firstBadNumber(form);
+	if (bad !== null) {
+		showFieldMessages(form, {
+			[bad.wrapper.getAttribute('data-kalaka-field')]: BAD_NUMBER,
+		});
+		bad.control.focus();
+		return;
+	}
 	const answers = answersOf(form);
 	started.sending = true;
 	reflect(form);

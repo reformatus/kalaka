@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Forms;
 
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
  * The number field in a form: core's wrapper, a native number control with its bounds and affixes, the
@@ -81,5 +82,41 @@ final class NumberFieldFormTest extends FormsTestCase
             ['name' => 'Teszt Elek', 'email' => 'teszt@example.org', 'adomany' => '5000']
         );
         self::assertSame('5000', $answers->stored()['adomany']);
+    }
+
+    public function testADecimalFieldWithNoStepRendersStepAny(): void
+    {
+        $form = $this->readForm($this->slotForm($this->block('kalaka/number-field', [
+            'key' => 'adat',
+            'label' => 'Adat',
+            'decimals' => 1,
+        ])));
+
+        $html = implode('', array_map('render_block', $this->forms->blocks($form)));
+
+        self::assertStringContainsString('step="any"', $html);
+        self::assertStringContainsString('inputmode="decimal"', $html);
+    }
+
+    public function testAFormWithInvalidNumberSettingsIsAProblemNamingTheKey(): void
+    {
+        foreach (
+            [
+                ['min' => '1 000'],
+                ['min' => '1.5', 'decimals' => 0],
+                ['step' => '0'],
+                ['min' => '2', 'max' => '1'],
+            ] as $attributes
+        ) {
+            $id = $this->insertForm($this->slotFields() . $this->field('number', 'number', $attributes));
+            try {
+                $this->forms->definition($this->readForm($id));
+                self::fail('An invalid number field was read.');
+            } catch (SystemFailure $e) {
+                self::assertStringEndsWith('invalid_number number', $e->getMessage());
+            }
+        }
+        $fine = $this->insertForm($this->slotFields() . $this->field('number', 'number'));
+        self::assertNotNull($this->forms->definition($this->readForm($fine))->field('number'));
     }
 }

@@ -65,18 +65,9 @@ final class DeclareParticipantFields implements AdminUseCase
                                 ],
                             ],
                             'latest' => ['type' => 'boolean'],
-                            'settings' => [
-                                'type' => ['object', 'null'],
-                                'properties' => [
-                                    'min' => ['type' => ['string', 'null']],
-                                    'step' => ['type' => ['string', 'null']],
-                                    'max' => ['type' => ['string', 'null']],
-                                    'decimals' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 8],
-                                    'prefix' => ['type' => 'string'],
-                                    'suffix' => ['type' => 'string'],
-                                ],
-                                'additionalProperties' => false,
-                            ],
+                            // A type's own settings: open, because each type validates them at the form
+                            // definition; ParticipantFields only keeps them.
+                            'settings' => ['type' => ['object', 'null']],
                         ],
                         'required' => ['key', 'type', 'title', 'options', 'latest'],
                         'additionalProperties' => false,
