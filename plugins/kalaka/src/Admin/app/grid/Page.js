@@ -22,7 +22,7 @@ import {
 	lockedFilters,
 	narrowOf,
 } from './narrow';
-import { useSerialHint } from './patches';
+import { editFor } from './NumberFilter';
 import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { countsDiffer, countsToSend, createPicks } from './counting';
@@ -99,7 +99,6 @@ export default function Page( { config } ) {
 	const [ loadError, setLoadError ] = useState( false );
 	const loadedKey = useRef( null );
 
-	const serialColumn = tab.columns.find( ( c ) => c.column === 'serial' );
 	const select = ( id ) => {
 		if ( id === tab.key ) {
 			return; // the tab on screen: nothing to switch, keep its filters and rows
@@ -125,7 +124,6 @@ export default function Page( { config } ) {
 		picks.current.reset();
 		setPickTick( ( n ) => n + 1 );
 	};
-	useSerialHint( serialColumn ? serialColumn.label : null );
 
 	useEffect( () => {
 		let live = true;
@@ -230,6 +228,7 @@ export default function Page( { config } ) {
 			enableSorting: column.sortable,
 			enableHiding: false,
 			...filterSpec( column ),
+			...editFor( column ),
 		} ) );
 		const condition = conditionField( tab.condition );
 		return condition ? [ ...own, condition ] : own;
@@ -385,7 +384,7 @@ export default function Page( { config } ) {
 				>
 					<div className="kg-bulkbar" role="toolbar" aria-label={ GRID.toolbar }>
 						<DataViews.Search />
-						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N52] */ }
+						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N63] */ }
 						<DataViews.FiltersToggle />
 						<DataViews.FiltersToggled className="kg-filters" />
 						<Button

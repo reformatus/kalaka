@@ -506,8 +506,10 @@ final class GridModel
         if ($type === 'consent') {
             $meta['options'] = ['1' => Texts::YES, '0' => Texts::NO];
         }
-        // „Nincs válasz” in the filter of a list column that can be empty: optional in at least one form.
-        if (($type === 'choice' || $type === 'consent') && !$field->required) {
+        // „Nincs válasz” in the filter of every list-type field column, required or not: a required field can still
+        // be empty (behind a condition, in an additional form not yet sent, on a registration made before the field
+        // existed). [UNAPPROVED N66]
+        if ($type === 'choice' || $type === 'consent') {
             $meta['empty'] = true;
         }
 

@@ -65,11 +65,12 @@ export function filterSpec( column ) {
 		}
 		case 'serial':
 		case 'number':
-			// Szám and the number columns take the same operators and decimals: DataViews' own number control,
-			// with the chip in Hungarian form. [UNAPPROVED N54]
+			// Szám and the number columns take the same operators and decimals; the control is `NumberFilter.js` (a
+			// text input that keeps a typed decimal comma), and the chip shows the number in Hungarian form.
+			// [UNAPPROVED N65, N67]
 			return {
 				type: 'number',
-				format: { separatorThousand: '', separatorDecimal: ',', decimals: 2 },
+				format: { separatorThousand: '', separatorDecimal: ',', decimals: 8 },
 				getValueFormatted: numberText,
 				filterBy: { operators: NUMBER_OPERATORS },
 			};

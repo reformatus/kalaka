@@ -14,7 +14,7 @@ export const GRID = {
 	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
 	// The reset of the sort and the counting only; the search, the filters and DataViews' own Reset are theirs.
-	// [UNAPPROVED T30]
+	// [UNAPPROVED T38]
 	reload: 'Rendezés és számolás visszaállítása',
 	// Filters and search. [UNAPPROVED N10]
 	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',

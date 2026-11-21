@@ -48,7 +48,7 @@ describe( 'the DataViews filter of each column type', () => {
 			{ value: NO_ANSWER, label: 'Nincs válasz' },
 		] );
 		expect( spec.filterBy.operators ).toEqual( [ 'is', 'isNot' ] );
-		// A yes/no that is required in every form has no „Nincs válasz”.
+		// A column the server does not mark as able to be empty (`empty`) has no „Nincs válasz”.
 		expect( filterSpec( { ...by( 'field:photo' ), empty: undefined } ).elements ).toHaveLength( 2 );
 	} );
 

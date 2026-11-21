@@ -16,7 +16,7 @@ final readonly class ColumnFilter
 {
     /**
      * „Nincs válasz” as a value of a list column's own filter (a choice, a yes/no, a decision): the rows with no
-     * value (a field) or no record (a decision). Never a stored value. [UNAPPROVED N55]
+     * value (a field) or no record (a decision). Never a stored value. [UNAPPROVED N66]
      */
     public const NO_ANSWER = 'kalaka:no-answer';
 
@@ -138,5 +138,4 @@ final readonly class ColumnFilter
 
         return $value;
     }
-
 }

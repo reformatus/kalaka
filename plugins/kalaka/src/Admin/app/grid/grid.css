@@ -40,9 +40,6 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-load-fail { margin: 0; color: #d63638; }
 .kg-no-match { margin: 0; }
 
-/* The hint under the Szám range, inside DataViews' filter popover. */
-.dataviews-filters__summary-popover .kg-hint { margin: 0; color: #50575e; font-size: 12px; }
-
 /* Status and decisions. */
 .kg-mark { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .kg-mark .dashicons { font-size: 16px; width: 16px; height: 16px; }
@@ -56,7 +53,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 /* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
    An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design
-   system's own disabled foreground token (lighter than the table text, about 3.4:1 on white; the choice and its
+   system's own disabled foreground token (lighter than the table text, about 3.3:1 on white; the choice and its
    alternative, a reduced opacity, are N25's). [UNAPPROVED N25] */
 #kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d); }
 
