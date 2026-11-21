@@ -8,7 +8,7 @@ use Kalaka\Registrations\Account\SignUpPage;
 
 /**
  * Login CSRF: `wp-login.php` refuses a POST from another site (any action), with the auto-login of a sign-up
- * the reason. Same-origin, no-header and `loginSocial` requests go through.
+ * the reason. Same-origin and no-header requests go through, and so does a provider's own form_post callback.
  */
 final class LoginCsrfTest extends AccountsTestCase
 {
@@ -29,15 +29,16 @@ final class LoginCsrfTest extends AccountsTestCase
     /**
      * @param array<string, string> $headers `$_SERVER` keys
      * @param array<string, string> $request
+     * @param array<string, string> $post
      */
-    private function post(string $action, array $headers, array $request = []): void
+    private function post(string $action, array $headers, array $request = [], array $post = []): void
     {
         // phpcs:disable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- a test
         $_SERVER['REQUEST_METHOD'] = 'POST';
         foreach ($headers as $key => $value) {
             $_SERVER[$key] = $value;
         }
-        $_POST = ['user_email' => self::EMAIL, 'log' => 'teszt', 'redirect_to' => home_url('/')];
+        $_POST = ['user_email' => self::EMAIL, 'log' => 'teszt', 'redirect_to' => home_url('/')] + $post;
         $_REQUEST = $_POST + $request;
         // phpcs:enable WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput
         (new SignUpPage())->refuseCrossSite();
@@ -108,9 +109,95 @@ final class LoginCsrfTest extends AccountsTestCase
         self::assertSame($id, get_current_user_id());
     }
 
-    public function testASocialLoginCallbackIsNotRefused(): void
+    private const APPLE = 'https://appleid.apple.com';
+
+    /** @return iterable<string, array{array<string, string>, array<string, string>}> */
+    public static function refusedSocial(): iterable
     {
-        $this->post('login', ['HTTP_SEC_FETCH_SITE' => 'cross-site'], ['loginSocial' => 'apple']);
+        $callback = ['code' => 'teszt-kod', 'state' => 'teszt-allapot'];
+        $apple = ['loginSocial' => 'apple'] + $callback;
+        yield 'forged, loginSocial=google, foreign Origin' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => 'https://evil.example.invalid'],
+            ['loginSocial' => 'google'] + $callback,
+        ];
+        yield 'forged, loginSocial=google, Apple origin' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => self::APPLE],
+            ['loginSocial' => 'google'] + $callback,
+        ];
+        yield 'forged, any value' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => 'https://evil.example.invalid'],
+            ['loginSocial' => 'x'],
+        ];
+        yield 'apple, foreign Origin' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => 'https://evil.example.invalid'],
+            $apple,
+        ];
+        yield 'apple, foreign Referer, no Origin' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_REFERER' => 'https://evil.example.invalid/'],
+            $apple,
+        ];
+        yield 'apple, no Origin and no Referer' => [['HTTP_SEC_FETCH_SITE' => 'cross-site'], $apple];
+        yield 'apple, Apple lookalike origin' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => 'https://appleid.apple.com.evil.example.invalid'],
+            $apple,
+        ];
+        yield 'apple, without code' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => self::APPLE],
+            ['loginSocial' => 'apple', 'state' => 'teszt-allapot'],
+        ];
+        yield 'apple, without state' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => self::APPLE],
+            ['loginSocial' => 'apple', 'code' => 'teszt-kod'],
+        ];
+    }
+
+    /**
+     * @dataProvider refusedSocial
+     * @param array<string, string> $headers
+     * @param array<string, string> $request
+     */
+    public function testAForgedOrIncompleteSocialLoginPostIsRefusedWithTheText(array $headers, array $request): void
+    {
+        $status = null;
+        add_filter('wp_die_handler', static function () use (&$status): callable {
+            return static function (string|\WP_Error $message, string|int $title, array $args) use (&$status): void {
+                $status = $args['response'] ?? null;
+                $text = is_string($message) ? $message : $message->get_error_message();
+                // phpcs:ignore WordPress.Security.EscapeOutput -- a test
+                throw new \WPDieException($text);
+            };
+        }, 99);
+        try {
+            $this->post('login', $headers, $request, $request);
+            self::fail('The request was not refused.');
+        } catch (\WPDieException $e) {
+            self::assertSame(403, $status);
+            self::assertStringContainsString(
+                'Az űrlapot nem erről a weboldalról küldték el. Nyisd meg újra itt, ezen a weboldalon, '
+                . 'és próbáld meg még egyszer.',
+                $e->getMessage(),
+            );
+        }
+    }
+
+    /** @return iterable<string, array{array<string, string>}> */
+    public static function appleCallbacks(): iterable
+    {
+        yield 'Origin' => [['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_ORIGIN' => self::APPLE]];
+        yield 'Referer, no Origin' => [
+            ['HTTP_SEC_FETCH_SITE' => 'cross-site', 'HTTP_REFERER' => self::APPLE . '/auth/x'],
+        ];
+    }
+
+    /**
+     * @dataProvider appleCallbacks
+     * @param array<string, string> $headers
+     */
+    public function testAnAppleCallbackPostWithCodeAndStateIsLetThrough(array $headers): void
+    {
+        $request = ['loginSocial' => 'apple', 'code' => 'teszt-kod', 'state' => 'teszt-allapot'];
+
+        $this->post('login', $headers, $request, $request);
 
         self::assertFalse(SignUpPage::flagged());
     }

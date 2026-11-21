@@ -87,8 +87,11 @@ the waitlist and reference codes
 - `wp-login.php` refuses a cross-site POST of any action on `login_init`
   (`Account\SignUpPage::refuseCrossSite()`: `Sec-Fetch-Site` must be
   `same-origin` or `none`, else `Origin` or `Referer` must be the site's own
-  address, none of them lets it through, and `loginSocial` is exempt), so a
-  page elsewhere cannot sign a visitor in as an account of its choosing.
+  address, none of them lets it through; the one exemption is a form_post
+  social-login callback from the provider itself: `loginSocial` names a provider of
+  `SignUpPage::FORM_POST_PROVIDERS`, `Origin` (else the `Referer`'s origin) is that provider's
+  origin, and the POST carries `code` and `state`), so a page elsewhere cannot sign a visitor in as
+  an account of its choosing.
 - Accounts are created only on WordPress's own registration page
   (`Account\SignUpPage`), never by a submit; Kaláka never handles a
   password. Its native-sign-up flag is set only on a POST to

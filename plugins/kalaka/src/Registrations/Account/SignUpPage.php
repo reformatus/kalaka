@@ -47,6 +47,12 @@ use Kalaka\Forms\Api\SignUp;
 final class SignUpPage
 {
     /** The user meta of an account Kaláka created whose password was never set: `1`. */
+    /**
+     * Social-login providers that post their callback back to the site (OAuth `response_mode=form_post`),
+     * by `loginSocial` value, with their origin (`scheme://host:port`, see `origin()`).
+     */
+    private const FORM_POST_PROVIDERS = ['apple' => 'https://appleid.apple.com:443'];
+
     public const UNVERIFIED = 'kalaka_unverified';
 
     /** How long a reset link lasts for an unverified account: 7 days. */
@@ -132,24 +138,46 @@ final class SignUpPage
      * cannot sign a visitor in to, or up as, an account of its choosing (login CSRF). `Sec-Fetch-Site`
      * decides when the browser sends it (`same-origin`, or `none` for a direct navigation); else `Origin`, or
      * failing that `Referer`, must be this site's address; with none of the three the request is let through
-     * (old clients). A request carrying `loginSocial` is exempt: a social login's callback can be a
-     * legitimate cross-site POST.
+     * (old clients). One cross-site POST is let through: a social-login callback posted back by a provider
+     * that uses OAuth `response_mode=form_post` (`FORM_POST_PROVIDERS`), when `loginSocial` names that
+     * provider, `Origin` (failing that the `Referer`'s origin) is the provider's own origin, and the POST
+     * carries the callback's `code` and `state`. A bare `loginSocial` exempts nothing.
      *
      * @internal
      */
     public function refuseCrossSite(): void
     {
         $method = strtoupper(self::input('server', 'REQUEST_METHOD') ?? 'GET');
-        if ($method !== 'POST' || self::input('request', 'loginSocial') !== null || self::sameSite()) {
+        if ($method !== 'POST' || self::sameSite() || self::providerCallback()) {
             return;
         }
+        // [UNAPPROVED T1]
         wp_die(
             esc_html(
-                'A kérés nem erről az oldalról érkezett. Nyisd meg újra a bejelentkezési oldalt, és próbáld újra.'
+                'Az űrlapot nem erről a weboldalról küldték el. Nyisd meg újra itt, ezen a weboldalon, '
+                . 'és próbáld meg még egyszer.'
             ),
             '',
             ['response' => 403, 'back_link' => false],
         );
+    }
+
+    /**
+     * Whether this is a form_post social-login callback from the provider itself: see `refuseCrossSite()`.
+     * [UNAPPROVED N3]
+     */
+    private static function providerCallback(): bool
+    {
+        $provider = self::input('request', 'loginSocial');
+        if ($provider === null || !isset(self::FORM_POST_PROVIDERS[$provider])) {
+            return false;
+        }
+        $from = self::input('server', 'HTTP_ORIGIN') ?? self::input('server', 'HTTP_REFERER');
+
+        return $from !== null
+            && self::origin($from) === self::FORM_POST_PROVIDERS[$provider]
+            && (self::input('post', 'code') ?? '') !== ''
+            && (self::input('post', 'state') ?? '') !== '';
     }
 
     /** Whether the request's headers allow it: see `refuseCrossSite()`. */
