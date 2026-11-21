@@ -31,8 +31,9 @@ page, and the account area
 - Showing a registration writes nothing and evaluates nothing: `StatusRead`
   reads the module Apis and the clock only.
 - The participant blocks show only the participant payer's side: totals,
-  lines and the transfer amount. A balance below zero shows as an overpayment,
-  never as a negative amount to pay. Only the amount still due is bold, and
+  owed lines, money movements with their notes, and the transfer amount; the
+  money table is read for every status. A balance below zero shows as an
+  overpayment, never as a negative amount to pay. Only the amount still due is bold, and
   only while it is payable now (above zero, not held).
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, payment is not held, the participant's balance is
