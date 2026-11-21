@@ -30,6 +30,9 @@ keeps of what it knows about its participants
   evaluation, which types a registration's field values through
   `Forms::participantValues()` (S25), and a money setting's save, which
   checks the conditions and the fields it names (S25, S26).
+- A field's type settings (the number field's bounds, decimals and affixes)
+  are its JSON `settings` column, stored from the form on declare; the
+  module keeps them and does not interpret them.
 - A field is never deleted and its key never given to another field: a
   `form` field no form holds any more is retired, and so is a `form` field's
   choice option no form holds, with its label kept.

@@ -157,7 +157,9 @@ values and conditions, prefill and form links
   type writes to a table. Core ships no money-relevant field type. A field
   type's `valueType()` and `value()` fire no hook and write nothing (they may
   read), so the evaluation may call them inside the transaction; the rest of
-  the point runs outside it.
+  the point runs outside it. A type's `settings()` names the block settings
+  the event's participant field keeps (the number field's bounds, decimals and
+  affixes); `Forms::participantValues()` passes them to `value()`.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,

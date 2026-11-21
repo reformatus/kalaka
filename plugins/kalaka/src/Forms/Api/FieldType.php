@@ -30,6 +30,15 @@ interface FieldType
     public function value(FieldTypeInput $input): Value;
 
     /**
+     * The block's settings that outlive the form, kept on the event's participant field so the evaluation
+     * can render the value and check the field without reading a post. Empty unless the type has settings.
+     *
+     * @param array<string, mixed> $attributes
+     * @return array<string, mixed>
+     */
+    public function settings(array $attributes): array;
+
+    /**
      * The answer a form opens with for a stored value (events-and-forms.md, "Prefill from a link"; an
      * additional form opens with the registration's current values): `$input->value` is the stored
      * string, and the answer is what the field's controls hold, of the JSON type `answer()` takes. Null
