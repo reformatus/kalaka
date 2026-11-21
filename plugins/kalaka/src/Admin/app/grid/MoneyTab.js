@@ -1,14 +1,15 @@
 /**
- * The „Pénzügyek” tab (S38): per payer what is owed, paid and the balance (and a total row with several
- * payers), the entries newest first, and the two actions the user's grants allow. Every amount that has a
- * direction is signed, and the balance with it: positive is still owed, a real minus is in the payer's favour
- * (owner's walk, topic 6a G11). One „Tétel rögzítése” action records a payment or a refund, the correction
- * keeps its own (G12). [UNAPPROVED N39] [UNAPPROVED N42] [UNAPPROVED N17] [UNAPPROVED N18]
+ * The „Pénzügyek” tab (S38): per payer what is owed („Fizetendő”), what was paid („Befizetett”) and „Tartozás”
+ * (and a total row with several payers), the entries newest first in two side columns, and the two actions the
+ * user's grants allow. Positive means what the column's name says and a real minus the opposite; „Tartozás” is
+ * Fizetendő − Befizetett, positive still owed, and a negative value reads „−5 000 Ft (túlfizetés)” (topic 10).
+ * One „Tétel rögzítése” action records a payment, a refund, a charge or a discount, the correction keeps its
+ * own (G12). [UNAPPROVED N39] [UNAPPROVED N42] [UNAPPROVED N17] [UNAPPROVED N18]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import RecordDialog from './RecordDialog';
-import { formatDay, formatEntry, formatMoney } from './money';
+import { allowedTypes, canCorrect, entryColumns, formatBalance, formatDay, formatMoney, lineNote, typeWord } from './money';
 import { MONEY } from './texts';
 
 /** How long the success snackbar stays. [UNAPPROVED N19] */
@@ -20,11 +21,12 @@ const SNACKBAR_MS = 5000;
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.money   the read's money part
  * @param {Object}   props.can     the read's `can`
+ * @param {string}   props.status  the registration's status (Díj and Kedvezmény only while `registered`)
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {boolean}  props.stale   the last re-read failed: the figures are hidden, the snackbar stays
  * @param {Function} props.onSaved tells the grid an entry was saved
  */
-export default function MoneyTab( { config, code, money, can, reload, stale, onSaved } ) {
+export default function MoneyTab( { config, code, money, can, status, reload, stale, onSaved } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -88,9 +90,10 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				className="kg-table-wrap"
 				tabIndex={ 0 }
 				role="region"
+				// The region's screen-reader name, from the column names. [UNAPPROVED T31]
 				aria-label={ `${ MONEY.owed } / ${ MONEY.paid } / ${ MONEY.balance }` }
 			>
-				{ /* „Befizetett” and the total row are net and signed. [UNAPPROVED N7] */ }
+				{ /* „Befizetett” and the total row are net: a refund lowers „Befizetett”. [UNAPPROVED N7] */ }
 				<table className="kg-money">
 					<thead>
 						<tr>
@@ -112,21 +115,22 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 								<th scope="row">{ p.payer === '_total' ? p.label : payerName( p.payer ) }</th>
 								<td className="is-num">{ formatMoney( p.charged, money.currency ) }</td>
 								<td className="is-num">{ formatMoney( p.paid, money.currency ) }</td>
-								<td className="is-num">{ formatMoney( p.balance, money.currency ) }</td>
+								{ /* The total row's „Tartozás” nets one payer against another: a hole. [UNAPPROVED N50] */ }
+								<td className="is-num">{ formatBalance( p.balance, money.currency ) }</td>
 							</tr>
 						) ) }
 					</tbody>
 				</table>
 			</div>
 			{ /* Two buttons, „Tétel rögzítése” and the correction's own, for the owner's G12. [UNAPPROVED N14] [UNAPPROVED T17] */ }
-			{ ( can.record_payment || can.record_refund || can.record_correction ) && (
+			{ ( allowedTypes( can, status ).length > 0 || canCorrect( can ) ) && (
 				<div className="kg-actions">
-					{ ( can.record_payment || can.record_refund ) && (
+					{ allowedTypes( can, status ).length > 0 && (
 						<Button variant="primary" onClick={ ( e ) => open( 'entry', e ) }>
 							{ MONEY.recordEntry }
 						</Button>
 					) }
-					{ can.record_correction && (
+					{ canCorrect( can ) && (
 						<Button variant="secondary" onClick={ ( e ) => open( 'correction', e ) }>
 							{ MONEY.recordCorrect }
 						</Button>
@@ -143,22 +147,29 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 							<tr>
 								<th scope="col">{ MONEY.date }</th>
 								<th scope="col">{ MONEY.type }</th>
+								{ /* Kept with several payers, though the owner's column list does not name it. [UNAPPROVED N55] */ }
 								{ several && <th scope="col">{ MONEY.payer }</th> }
 								<th scope="col" className="is-num">
-									{ MONEY.amount }
+									{ MONEY.owed }
+								</th>
+								<th scope="col" className="is-num">
+									{ MONEY.paid }
 								</th>
 								<th scope="col">{ MONEY.method }</th>
 								<th scope="col">{ MONEY.note }</th>
 							</tr>
 						</thead>
 						<tbody>
-							{ money.lines.map( ( line ) => (
+							{ money.lines.map( ( line ) => {
+								// Each line has its amount in exactly one of the two side columns. [UNAPPROVED N5]
+								const side = entryColumns( line, money.currency );
+								return (
 								<tr key={ line.id }>
 									<td className="kg-nowrap">
 										{ formatDay( line.value_date || line.recorded_at, config.timezone ) }
 									</td>
 									<td>
-										{ line.kind_label }
+										{ typeWord( line ) }
 										{ line.correction && (
 											<Fragment>
 												{ ' ' }
@@ -167,11 +178,13 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 										) }
 									</td>
 									{ several && <td>{ payerName( line.payer ) }</td> }
-									<td className="is-num kg-nowrap">{ formatEntry( line.amount, line.kind, money.currency ) }</td>
+									<td className="is-num kg-nowrap">{ side.owed }</td>
+									<td className="is-num kg-nowrap">{ side.paid }</td>
 									<td>{ line.method_label || '' }</td>
-									<td>{ line.note || '' }</td>
+									<td>{ lineNote( line ) }</td>
 								</tr>
-							) ) }
+								);
+							} ) }
 						</tbody>
 					</table>
 				</div>
@@ -181,6 +194,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 					config={ config }
 					mode={ dialog }
 					can={ can }
+					status={ status }
 					code={ code }
 					money={ money }
 					onClose={ close }

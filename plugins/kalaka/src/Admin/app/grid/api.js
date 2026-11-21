@@ -3,6 +3,7 @@
  * ability through core's run endpoint (`POST /wp-abilities/v1/abilities/{name}/run`, `{ input }`).
  */
 import apiFetch from '@wordpress/api-fetch';
+import { buildCall } from './money';
 
 /** The query parameters of the grid's filters and search; none when nothing narrows. */
 function narrowing( params, narrow ) {
@@ -129,36 +130,19 @@ export function detailProblem( error ) {
 }
 
 /**
- * Records a manual payment (`kalaka/record-payment`), a refund (`kalaka/record-refund`) or a correction
- * (`kalaka/record-correction`) through the abilities, and answers `{ id }`. A payment and a refund carry a
- * method and a value date; a correction carries neither, but a direction (`in` or `out`) and its reason. The
- * idempotency key makes a retry of the same entry safe.
+ * Records one entry through the abilities, and answers `{ id }`: a payment (`kalaka/record-payment`), a refund
+ * (`kalaka/record-refund`), a correction (`kalaka/record-correction`), or a charge or discount
+ * (`kalaka/record-charge`, `kalaka/record-discount`; SEAM, Backend #209's design note §9). Which ability
+ * and which input is `buildCall`'s (money.js), which also refuses a type the read's `can` and the registration's
+ * status do not allow, so a charge or discount is never called unless it is offered. The idempotency key makes a retry of the same entry
+ * safe.
  *
  * @param {Object} config window.kalakaGrid
- * @param {Object} entry  { kind, code, currency, payer, amount, valueDate, method, note, direction, key }, `kind`
- *                        being `payment`, `refund` or `correction`
+ * @param {Object} entry  see `buildCall`
+ * @param {Object} can    the read's `can`
+ * @param {string} status the registration's status
  */
-export const recordEntry = (
-	config,
-	{ kind, code, currency, payer, amount, valueDate, method, note, direction, key }
-) => {
-	const input = {
-		event_id: config.event,
-		code,
-		payer,
-		amount,
-		currency,
-		idempotency_key: key,
-	};
-	if ( kind === 'correction' ) {
-		input.direction = direction;
-		input.reason = note;
-		return runAbility( 'kalaka/record-correction', input );
-	}
-	input.method = method;
-	input.value_date = valueDate;
-	if ( note ) {
-		input.note = note;
-	}
-	return runAbility( kind === 'refund' ? 'kalaka/record-refund' : 'kalaka/record-payment', input );
+export const recordEntry = ( config, entry, can, status ) => {
+	const { ability, input } = buildCall( config.event, entry, can, status );
+	return runAbility( ability, input );
 };

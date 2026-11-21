@@ -1,6 +1,8 @@
 /**
- * The merged „Tétel rögzítése” dialog (topic 6a G12): which directions it offers for each grant, that none is
- * preselected, and which ability and snackbar each direction triggers.
+ * The „Tétel rögzítése” dialog (topic 6a G12, topic 10): which types it offers for each grant (Befizetés,
+ * Visszafizetés, Díj, Kedvezmény), that none is preselected unless only one is allowed, which ability and
+ * snackbar each type triggers, the Díj/Kedvezmény title and the „completed immediately” checkbox, and the
+ * preview.
  *
  * Jest has no React DOM helper here, so the test renders the real RecordDialog with small stand-ins for
  * wp-components; `api.js` and its `@wordpress/api-fetch` stay real, which is what picks the ability.
@@ -47,6 +49,19 @@ jest.mock( '@wordpress/components', () => {
 			} ),
 			help
 		);
+	const CheckboxControl = ( { label, checked, onChange, help } ) =>
+		h(
+			'label',
+			null,
+			h( 'input', {
+				type: 'checkbox',
+				'aria-label': label,
+				checked,
+				onChange: ( e ) => onChange( e.target.checked ),
+			} ),
+			label,
+			help
+		);
 	const Button = ( { children, ...rest } ) => {
 		delete rest.isBusy;
 		return h( 'button', rest, children );
@@ -54,7 +69,7 @@ jest.mock( '@wordpress/components', () => {
 	const Modal = ( { title, children } ) =>
 		h( 'div', { role: 'dialog', 'aria-label': title }, h( 'h1', null, title ), children );
 	const Notice = ( { children } ) => h( 'div', null, children );
-	return { Button, Modal, Notice, RadioControl, TextControl };
+	return { Button, CheckboxControl, Modal, Notice, RadioControl, TextControl };
 } );
 
 jest.mock(
@@ -68,6 +83,7 @@ jest.mock(
 
 window.IS_REACT_ACT_ENVIRONMENT = true;
 
+const NBSP = '\u00a0';
 const money = {
 	payers: [ { payer: 'participant', label: 'Jelentkező', charged: '30000', paid: '0', balance: '30000' } ],
 	methods: [
@@ -81,7 +97,7 @@ let host;
 let root;
 let done;
 
-async function render( can ) {
+async function render( can, mode = 'entry', moneyRead = money, status = 'registered' ) {
 	host = document.createElement( 'div' );
 	document.body.appendChild( host );
 	root = createRoot( host );
@@ -90,10 +106,11 @@ async function render( can ) {
 		root.render(
 			createElement( RecordDialog, {
 				config: { timezone: 'Europe/Budapest', rest: '', event: 1 },
-				mode: 'entry',
+				mode,
 				can,
+				status,
 				code: 'X1',
-				money,
+				money: moneyRead,
 				onClose: () => {},
 				onDone: done,
 			} )
@@ -102,8 +119,9 @@ async function render( can ) {
 }
 
 const radios = ( name ) => Array.from( host.querySelectorAll( `input[type="radio"][name="${ name }"]` ) );
-const directionRadios = () => radios( MONEY.directionField );
-const directionLabels = () => directionRadios().map( ( r ) => r.parentElement.textContent.trim() );
+const typeRadios = () => radios( MONEY.typeField );
+const typeLabels = () => typeRadios().map( ( r ) => r.parentElement.textContent.trim() );
+const field = ( label ) => host.querySelector( 'input[aria-label="' + label + '"]' );
 
 async function setValue( input, value ) {
 	const setter = Object.getOwnPropertyDescriptor( window.HTMLInputElement.prototype, 'value' ).set;
@@ -143,45 +161,72 @@ afterEach( async () => {
 	}
 } );
 
-describe( 'the merged dialog\'s directions', () => {
-	test( 'a holder of only record_payment sees only „Befizetés”', async () => {
-		await render( { record_payment: true, record_refund: false } );
-		expect( directionRadios().map( ( r ) => r.value ) ).toEqual( [ 'payment' ] );
-		expect( directionLabels() ).toEqual( [ MONEY.entryIn ] );
-		expect( directionRadios().some( ( r ) => r.checked ) ).toBe( false );
+const ALL = { record_money: true };
+
+describe( 'the types the dialog offers', () => {
+	test( 'on today\'s server there are only „Befizetés” and „Visszafizetés”, none preselected', async () => {
+		await render( { record_payment: true, record_refund: true, record_correction: true } );
+		expect( typeRadios().map( ( r ) => r.value ) ).toEqual( [ 'payment', 'refund' ] );
+		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés' ] );
+		expect( typeRadios().some( ( r ) => r.checked ) ).toBe( false );
 	} );
 
-	test( 'a holder of only record_refund sees only „Visszafizetés”', async () => {
-		await render( { record_payment: false, record_refund: true } );
-		expect( directionRadios().map( ( r ) => r.value ) ).toEqual( [ 'refund' ] );
-		expect( directionLabels() ).toEqual( [ MONEY.entryOut ] );
-		expect( directionRadios().some( ( r ) => r.checked ) ).toBe( false );
+	test( 'the money-recording permission offers all four, none preselected', async () => {
+		await render( ALL );
+		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés', 'Díj', 'Kedvezmény' ] );
+		expect( typeRadios().some( ( r ) => r.checked ) ).toBe( false );
 	} );
 
-	test( 'a holder of both sees both, and no direction is preselected', async () => {
-		await render( { record_payment: true, record_refund: true } );
-		expect( directionRadios().map( ( r ) => r.value ) ).toEqual( [ 'payment', 'refund' ] );
-		expect( directionLabels() ).toEqual( [ MONEY.entryIn, MONEY.entryOut ] );
-		expect( directionRadios().some( ( r ) => r.checked ) ).toBe( false );
+	test( 'Díj and Kedvezmény are not offered on a registration that is not registered', async () => {
+		await render( ALL, 'entry', money, 'waitlisted' );
+		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés' ] );
 	} );
 
-	test( 'a holder of neither is offered no direction', async () => {
+	test( 'exactly one offered type is preselected', async () => {
+		await render( { record_payment: true } );
+		expect( typeRadios().map( ( r ) => [ r.value, r.checked ] ) ).toEqual( [ [ 'payment', true ] ] );
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { record_refund: true } );
+		expect( typeRadios().map( ( r ) => [ r.value, r.checked ] ) ).toEqual( [ [ 'refund', true ] ] );
+	} );
+
+	test( 'a holder of none is offered no type', async () => {
 		await render( { record_payment: false, record_refund: false } );
-		expect( directionRadios() ).toEqual( [] );
+		expect( typeRadios() ).toEqual( [] );
+	} );
+
+	test( '„Típus” is the first field', async () => {
+		await render( ALL );
+		expect( host.querySelector( 'form' ).firstElementChild.textContent ).toContain( MONEY.typeField );
+	} );
+
+	test( 'with no type picked the message is „Válassz típust.”', async () => {
+		await render( ALL );
+		await setValue( field( MONEY.amountField ), '5 000' );
+		await submit();
+		expect( host.textContent ).toContain( 'Válassz típust.' );
+		expect( apiFetch ).not.toHaveBeenCalled();
 	} );
 } );
 
-describe( 'what each direction records', () => {
-	async function fillAndSend( direction ) {
-		await render( { record_payment: true, record_refund: true } );
-		await pick( directionRadios().find( ( r ) => r.value === direction ) );
-		await setValue( host.querySelector( 'input[aria-label="' + MONEY.amountField + '"]' ), '5 000' );
-		await pick( radios( MONEY.methodField ).find( ( r ) => r.value === 'cash' ) );
+describe( 'what each type records', () => {
+	async function fillAndSend( type, extra = async () => {} ) {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === type ) );
+		await setValue( field( MONEY.amountField ), '5 000' );
+		await extra();
 		await submit();
 	}
+	const paidSide = async () => {
+		await pick( radios( MONEY.methodField ).find( ( r ) => r.value === 'cash' ) );
+	};
+	const owedSide = async () => {
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+	};
 
 	test( '„Befizetés” runs kalaka/record-payment and shows „Befizetés rögzítve.”', async () => {
-		await fillAndSend( 'payment' );
+		await fillAndSend( 'payment', paidSide );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 		const request = apiFetch.mock.calls[ 0 ][ 0 ];
 		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-payment/run' );
@@ -190,17 +235,219 @@ describe( 'what each direction records', () => {
 		expect( request.data.input.method ).toBe( 'cash' );
 		expect( request.data.input ).not.toHaveProperty( 'direction' );
 		expect( request.data.input ).not.toHaveProperty( 'reason' );
-		expect( done ).toHaveBeenCalledWith( MONEY.saved );
-		expect( MONEY.saved ).toBe( 'Befizetés rögzítve.' );
+		expect( request.data.input ).not.toHaveProperty( 'title' );
+		expect( done ).toHaveBeenCalledWith( 'Befizetés rögzítve.' );
 	} );
 
 	test( '„Visszafizetés” runs kalaka/record-refund and shows „Visszafizetés rögzítve.”', async () => {
-		await fillAndSend( 'refund' );
+		await fillAndSend( 'refund', paidSide );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 		const request = apiFetch.mock.calls[ 0 ][ 0 ];
 		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-refund/run' );
 		expect( request.data.input.method ).toBe( 'cash' );
-		expect( done ).toHaveBeenCalledWith( MONEY.savedRefund );
-		expect( MONEY.savedRefund ).toBe( 'Visszafizetés rögzítve.' );
+		expect( done ).toHaveBeenCalledWith( 'Visszafizetés rögzítve.' );
+	} );
+
+	test( '„Díj” and „Kedvezmény” run their own abilities with a title and no method or date', async () => {
+		await fillAndSend( 'charge', owedSide );
+		let request = apiFetch.mock.calls[ 0 ][ 0 ];
+		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-charge/run' );
+		expect( request.data.input ).toMatchObject( { title: 'Pótdíj', amount: '5000' } );
+		expect( request.data.input ).not.toHaveProperty( 'method' );
+		expect( request.data.input ).not.toHaveProperty( 'value_date' );
+		expect( request.data.input ).not.toHaveProperty( 'completed' );
+		expect( done ).toHaveBeenCalledWith( 'Díj rögzítve.' );
+
+		await act( async () => root.unmount() );
+		host.remove();
+		apiFetch.mockClear();
+		await fillAndSend( 'discount', owedSide );
+		request = apiFetch.mock.calls[ 0 ][ 0 ];
+		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-discount/run' );
+		expect( done ).toHaveBeenLastCalledWith( 'Kedvezmény rögzítve.' );
+	} );
+
+	test( 'a Díj or Kedvezmény has a participant-visible title: required, with its hint, and no method or date fields', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'discount' ) );
+		expect( host.textContent ).toContain( 'Megnevezés' );
+		expect( host.textContent ).toContain( 'Ezt a jelentkező is látja.' );
+		expect( radios( MONEY.methodField ) ).toEqual( [] );
+		expect( field( MONEY.dateField ) ).toBeNull();
+		await setValue( field( MONEY.amountField ), '500' );
+		await submit();
+		expect( host.textContent ).toContain( 'Add meg a megnevezést.' );
+		expect( apiFetch ).not.toHaveBeenCalled();
+	} );
+
+	test( 'a Befizetés shows the date, the method and the Közlemény, and no title', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		expect( field( MONEY.dateField ) ).not.toBeNull();
+		expect( radios( MONEY.methodField ).length ).toBe( 2 );
+		expect( field( MONEY.noteField ) ).not.toBeNull();
+		expect( field( MONEY.titleField ) ).toBeNull();
+	} );
+} );
+
+describe( '„Rögtön teljesítve”', () => {
+	const checkbox = () => host.querySelector( 'input[type="checkbox"]' );
+
+	test( 'the checkbox shows only for Díj and Kedvezmény, unticked, with its help', async () => {
+		await render( ALL );
+		expect( checkbox() ).toBeNull();
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		expect( checkbox() ).toBeNull();
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		expect( checkbox() ).not.toBeNull();
+		expect( checkbox().checked ).toBe( false );
+		expect( host.textContent ).toContain( 'Azonnal befizetve' );
+		expect( host.textContent ).toContain( MONEY.completedChargeHelp );
+		await pick( typeRadios().find( ( r ) => r.value === 'discount' ) );
+		expect( host.textContent ).toContain( 'Azonnal visszafizetve' );
+		expect( host.textContent ).toContain( MONEY.completedDiscountHelp );
+		expect( MONEY.completedChargeHelp ).toBe( 'A díjjal együtt ugyanekkora befizetést is rögzít, így a tartozás nem változik.' );
+		expect( MONEY.completedDiscountHelp ).toBe(
+			'A kedvezménnyel együtt ugyanekkora visszafizetést is rögzít, így a tartozás nem változik.'
+		);
+	} );
+
+	test( 'a holder who is not offered Díj or Kedvezmény never sees it', async () => {
+		await render( { record_payment: true, record_refund: true } ); // today's server
+		await pick( typeRadios()[ 0 ] );
+		expect( checkbox() ).toBeNull();
+	} );
+
+	test( 'ticking adds the method, the date and the Közlemény, prefilled with the title until it is edited', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'discount' ) );
+		await setValue( field( MONEY.titleField ), 'Elengedés' );
+		await pick( checkbox() );
+		expect( radios( MONEY.methodField ).length ).toBe( 2 );
+		expect( field( MONEY.dateField ) ).not.toBeNull();
+		expect( field( MONEY.noteField ).value ).toBe( 'Elengedés' );
+		await setValue( field( MONEY.titleField ), 'Elengedés, kerekítés' );
+		expect( field( MONEY.noteField ).value ).toBe( 'Elengedés, kerekítés' );
+		await setValue( field( MONEY.noteField ), 'Átutalva' );
+		await setValue( field( MONEY.titleField ), 'Más cím' );
+		expect( field( MONEY.noteField ).value ).toBe( 'Átutalva' );
+	} );
+
+	test( 'the save button reads „2 tétel rögzítése” and the preview shows both lines, then the net', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'discount' ) );
+		await setValue( field( MONEY.amountField ), '5 000' );
+		await setValue( field( MONEY.titleField ), 'Elengedés' );
+		expect( host.querySelector( 'button[type="submit"]' ).textContent ).toBe( MONEY.save );
+		await pick( checkbox() );
+		expect( host.querySelector( 'button[type="submit"]' ).textContent ).toBe( '2 tétel rögzítése' );
+		const preview = host.querySelector( 'dl.kg-bal' ).textContent;
+		expect( preview ).toContain( 'Kedvezmény' + `−5${ NBSP }000${ NBSP }Ft` );
+		expect( preview ).toContain( 'Visszafizetés' + `5${ NBSP }000${ NBSP }Ft` );
+		expect( preview ).toContain( 'Tartozás mentés után' + `30${ NBSP }000${ NBSP }Ft` );
+	} );
+
+	test( 'a ticked Díj is one call with completed, the paid-side line\'s method, date and Közlemény', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.amountField ), '2 000' );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+		await pick( checkbox() );
+		await pick( radios( MONEY.methodField ).find( ( r ) => r.value === 'transfer' ) );
+		await submit();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		const request = apiFetch.mock.calls[ 0 ][ 0 ];
+		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-charge/run' );
+		expect( request.data.input ).toMatchObject( {
+			title: 'Pótdíj',
+			completed: true,
+			method: 'transfer',
+			note: 'Pótdíj',
+			amount: '2000',
+		} );
+		expect( request.data.input.value_date ).toMatch( /^\d{4}-\d{2}-\d{2}$/ );
+		expect( done ).toHaveBeenCalledWith( 'Díj és befizetés rögzítve.' );
+	} );
+
+	test( 'a ticked box asks for the method', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.amountField ), '2 000' );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+		await pick( checkbox() );
+		await submit();
+		expect( host.textContent ).toContain( MONEY.methodEmpty );
+		expect( apiFetch ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'the preview: „Tartozás”', () => {
+	const preview = () => host.querySelector( 'dl.kg-bal' ).textContent;
+
+	test( 'it follows the type', async () => {
+		await render( ALL );
+		await setValue( field( MONEY.amountField ), '10 000' );
+		expect( preview() ).toContain( 'Jelenlegi tartozás' + `30${ NBSP }000${ NBSP }Ft` );
+		const after = async ( type ) => {
+			await pick( typeRadios().find( ( r ) => r.value === type ) );
+			return preview();
+		};
+		expect( await after( 'payment' ) ).toContain( 'Tartozás mentés után' + `20${ NBSP }000${ NBSP }Ft` );
+		expect( await after( 'refund' ) ).toContain( 'Tartozás mentés után' + `40${ NBSP }000${ NBSP }Ft` );
+		expect( await after( 'charge' ) ).toContain( 'Tartozás mentés után' + `40${ NBSP }000${ NBSP }Ft` );
+		expect( await after( 'discount' ) ).toContain( 'Tartozás mentés után' + `20${ NBSP }000${ NBSP }Ft` );
+	} );
+
+	test( 'a negative value reads „(túlfizetés)”', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		await setValue( field( MONEY.amountField ), '35 000' );
+		expect( preview() ).toContain( `−5${ NBSP }000${ NBSP }Ft (túlfizetés)` );
+	} );
+
+	test( 'with an overpaid payer the current value reads „(túlfizetés)” too', async () => {
+		await render( ALL, 'entry', {
+			...money,
+			payers: [ { payer: 'participant', label: 'Jelentkező', charged: '30000', paid: '35000', balance: '-5000' } ],
+		} );
+		expect( preview() ).toContain( 'Jelenlegi tartozás' + `−5${ NBSP }000${ NBSP }Ft (túlfizetés)` );
+	} );
+} );
+
+describe( 'the Korrekció dialog', () => {
+	test( 'its direction is „Befizetett összeg növelése” / „Befizetett összeg csökkentése”, with no default', async () => {
+		await render( { record_correction: true }, 'correction' );
+		const dir = radios( MONEY.directionField );
+		expect( dir.map( ( r ) => r.parentElement.textContent.trim() ) ).toEqual( [
+			'Befizetett összeg növelése',
+			'Befizetett összeg csökkentése',
+		] );
+		expect( dir.some( ( r ) => r.checked ) ).toBe( false );
+		expect( radios( MONEY.typeField ) ).toEqual( [] );
+		expect( radios( MONEY.methodField ) ).toEqual( [] );
+		expect( field( MONEY.dateField ) ).toBeNull();
+	} );
+
+	test( 'a correction out raises „Tartozás” in the preview, one in lowers it; „Válassz irányt.” without one', async () => {
+		await render( { record_correction: true }, 'correction' );
+		await setValue( field( MONEY.amountField ), '10 000' );
+		await submit();
+		expect( host.textContent ).toContain( 'Válassz irányt.' );
+		await pick( radios( MONEY.directionField )[ 1 ] );
+		expect( host.querySelector( 'dl.kg-bal' ).textContent ).toContain( 'Tartozás mentés után' + `40${ NBSP }000${ NBSP }Ft` );
+		await pick( radios( MONEY.directionField )[ 0 ] );
+		expect( host.querySelector( 'dl.kg-bal' ).textContent ).toContain( 'Tartozás mentés után' + `20${ NBSP }000${ NBSP }Ft` );
+	} );
+
+	test( 'it records through kalaka/record-correction with its reason', async () => {
+		await render( { record_correction: true }, 'correction' );
+		await pick( radios( MONEY.directionField )[ 0 ] );
+		await setValue( field( MONEY.amountField ), '500' );
+		await setValue( field( MONEY.reasonField ), 'Téves összeg' );
+		await submit();
+		const request = apiFetch.mock.calls[ 0 ][ 0 ];
+		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-correction/run' );
+		expect( request.data.input ).toMatchObject( { direction: 'in', reason: 'Téves összeg' } );
+		expect( done ).toHaveBeenCalledWith( 'Korrekció rögzítve.' );
 	} );
 } );

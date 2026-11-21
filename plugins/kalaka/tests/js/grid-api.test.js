@@ -13,6 +13,12 @@ import * as api from '../../src/Admin/app/grid/api';
 jest.mock( '@wordpress/api-fetch', () => jest.fn(), { virtual: true } );
 
 const config = { event: 7, rest: '/kalaka-admin/v1/events/7' };
+const can = { record_payment: true, record_refund: true, record_correction: true };
+const call = ( name, input ) => ( {
+	path: `/wp-abilities/v1/abilities/${ name }/run`,
+	method: 'POST',
+	data: { input },
+} );
 
 beforeEach( () => {
 	apiFetch.mockReset();
@@ -98,7 +104,7 @@ describe( 'the detail panel\'s calls', () => {
 			method: 'cash',
 			note: '',
 			key: 'ui-abc',
-		} );
+		}, can, 'registered' );
 		expect( result ).toEqual( { id: 9 } );
 		expect( apiFetch ).toHaveBeenCalledWith(
 			call( 'kalaka/record-payment', {
@@ -127,7 +133,7 @@ describe( 'the detail panel\'s calls', () => {
 			note: 'Téves befizetés',
 			direction: null,
 			key: 'ui-def',
-		} );
+		}, can, 'registered' );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual(
 			call( 'kalaka/record-refund', {
 				event_id: 7,
@@ -156,7 +162,7 @@ describe( 'the detail panel\'s calls', () => {
 			note: 'Elírás',
 			direction: 'out',
 			key: 'ui-ghi',
-		} );
+		}, can, 'registered' );
 		expect( apiFetch.mock.calls[ 0 ][ 0 ] ).toEqual(
 			call( 'kalaka/record-correction', {
 				event_id: 7,
