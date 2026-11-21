@@ -37,14 +37,17 @@ what is dropped. The architecture pages say how things are built; this page says
    organization directory, the congregation picker and the share pair.
 4. **Support and decisions:** support offers with quota places (Baptist,
    Dunamellék); pending decisions with the payment hold (support offers that IVK
-   staff evaluate, and aid requests).
+   staff evaluate, and aid requests); partner confirmation, a view of its own
+   with an editable grant, the same mechanism staff use, filtered to the
+   partner's registrations.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
    sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
    sent during an interactive request.
 6. **Organizer side:** full access; the master view with the grid, the detail
    page, field editing, and exports that write an audit entry.
-7. **Form links:** locked and editable values, single use and expiry.
+7. **Form links:** locked and editable values, single use and expiry; partner
+   links depend on them.
 8. **Module ranking** ([Extensions in view](modules-and-extensions.md#extensions-in-view)):
    the ranking field type, in `kalaka-ranking`. The module recommender is
    IVK's own quiz, outside Kaláka.
@@ -144,6 +147,8 @@ after 11 days, so these must exist before the first registrants reach them:
 - **Support requests decided by staff,** reusing IVK's pending decisions.
 
 ### Order of sacrifice for opening day
+
+Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **The invoice request:** requests go to the bookkeeper by e-mail.
 2. **The donation field.**

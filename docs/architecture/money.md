@@ -245,15 +245,11 @@ such as lunch or a donation.
   `EXPLAIN` test.
 - **Support offers per event on any node,** the root included, several per
   node, are offered to the node and everything below it, and the registrant
-  selects them: amount, availability conditions, stackable or not, evaluated
-  or not (approved by the body, in its view or through a form link, or by
-  staff; payment is held until then), and an optional limit of places (people
-  only).
-- **Stacking:** one flag per offer. A stackable offer can be selected beside
-  others; once an offer that is not stackable is selected, no other offer can
-  be. The flag works only among offers, never on the price-ladder tier or
-  aid. A selected offer with a limit takes a place
-  ([Quota places](#quota-places)).
+  selects them: amount, evaluated or not (approved by the body, in its view
+  or through a form link, or by staff; payment is held until then), and an
+  optional limit of places (people only). Availability is set up on the form,
+  as for price tiers and extra charges. A selected offer with a limit takes a
+  place ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.
