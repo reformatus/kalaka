@@ -17,13 +17,13 @@ use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Forms\Api\Facts;
 
 /**
- * The extra charges' fee component, at the extras stage: each charge is its amount times the linked
- * answer's whole value (a consent's `1` charges it once; a positive whole `n` charges it `n` times), and
- * every charge a registration owes is one `extras` line (the materializer keeps one line source per
- * component and payer). A charge has no condition of its own; anything else (empty, 0, negative,
- * fractional, an unknown field) charges nothing. It reads only the registration's facts and its own
- * current settings, or the proposed ones in a preview. Support and the congregation share compose earlier
- * and never cover it. [UNAPPROVED N4, N13]
+ * The extra charges' fee component, at the extras stage. A charge is linked by key: the participant field whose
+ * key equals the charge's key calls it, and the charge is its amount times that answer's whole value (a
+ * consent's `1` charges it once; a positive whole `n` charges it `n` times). Each charge is its own ledger
+ * line, `extras.<charge key>`. A charge has no condition of its own; anything else (no field with the key,
+ * empty, 0, negative, fractional) charges nothing, with no warning. It reads only the registration's facts and
+ * its own current settings, or the proposed ones in a preview. Support and the congregation share compose
+ * earlier and never cover it. [UNAPPROVED N4, N13, N15]
  */
 final class ExtrasComponent implements FeeComponent
 {
@@ -52,29 +52,25 @@ final class ExtrasComponent implements FeeComponent
             static fn (ChargeRecord $record): Charge => $record->charge(),
             $this->charges->forEvent($input->registration->eventId)
         );
-        if ($charges === []) {
-            return FeeTargets::none();
-        }
-        $total = Money::zero($input->currency);
+        $lines = [];
         foreach ($charges as $charge) {
-            $quantity = self::quantity($input->facts, $charge->field);
+            $quantity = self::quantity($input->facts, $charge->key);
             if ($quantity > 0) {
-                $total = $total->plus($charge->amount->times($quantity));
+                $lines[$charge->key] = [Payer::PARTICIPANT => $charge->amount->times($quantity)];
             }
         }
 
-        return $total->isPositive() ? new FeeTargets([Payer::PARTICIPANT => $total]) : FeeTargets::none();
+        return $lines === [] ? FeeTargets::none() : FeeTargets::ofLines($lines);
     }
 
     /**
      * The answer's whole value: `1` for a ticked consent, a positive whole number for a number field, and
-     * nothing for anything else. A charge names a field the save accepted; an undeclared key still charges
-     * nothing rather than failing the evaluation.
+     * nothing for anything else. A key no field declares charges nothing rather than failing the evaluation.
      */
-    private static function quantity(Facts $facts, string $field): int
+    private static function quantity(Facts $facts, string $key): int
     {
         try {
-            $value = $facts->get($field);
+            $value = $facts->get($key);
         } catch (SystemFailure) {
             return 0;
         }

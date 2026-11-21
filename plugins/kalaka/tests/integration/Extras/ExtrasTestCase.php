@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Extras;
 
-use Kalaka\Extras\Api\Donation;
 use Kalaka\Extras\Api\Extras;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Money\Money;
@@ -17,24 +16,21 @@ use Kalaka\Tests\Integration\Pricing\PricingTestCase;
 
 /**
  * The base of the extras tests: core's Pricing test case (an event in HUF, the money phase, the contributed
- * extras and donation components) with a consent question (`ebed`), a whole-number donation field
- * (`adomany`) and a whole-number quantity field (`ejjel`), and helpers to save settings through a money
- * settings apply.
+ * extras and donation components) with a consent question (`ebed`), the donation's number field
+ * (`adomany`, decimals as its form field sets them) and a whole-number quantity field (`ejjel`), and helpers
+ * to save settings through a money settings apply.
  */
 abstract class ExtrasTestCase extends PricingTestCase
 {
     protected Extras $extras;
-
-    protected Donation $donation;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook
     public function set_up(): void
     {
         parent::set_up();
         $this->extras = new Extras();
-        $this->donation = new Donation();
         $this->declareField('ebed', 'kalaka/consent-field', null, 0);
-        $this->declareField('adomany', 'kalaka/number-field', ['decimals' => 0, 'suffix' => 'Ft'], 1);
+        $this->declareField('adomany', 'kalaka/number-field', ['decimals' => 2, 'suffix' => 'Ft'], 1);
         $this->declareField('ejjel', 'kalaka/number-field', ['decimals' => 0], 2);
     }
 
@@ -59,13 +55,13 @@ abstract class ExtrasTestCase extends PricingTestCase
     }
 
     /**
-     * An extra charge, as an organizer would set it.
+     * An extra charge, as an organizer would set it: the participant field with the same key calls it.
      *
      * @return array<string, mixed>
      */
-    protected static function item(string $key, string $label, string $amount, string $field): array
+    protected static function item(string $key, string $label, string $amount): array
     {
-        return ['key' => $key, 'label' => $label, 'amount' => $amount, 'field' => $field];
+        return ['key' => $key, 'label' => $label, 'amount' => $amount];
     }
 
     protected function applySettings(ProposedComponentSettings ...$components): ApplyReport

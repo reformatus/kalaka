@@ -40,8 +40,8 @@ final class Extras
 
     /**
      * Proposed charges, the whole list in order (an empty list removes them), each
-     * `{key, label, amount, field}`: `amount` a decimal string in the event's currency, `field` the
-     * participant key whose answer calls it.
+     * `{key, label, amount}`: `amount` a decimal string in the event's currency; the participant field with
+     * the same key calls it.
      *
      * @param list<array<string, mixed>> $charges
      * @throws NotFound when there is no such event

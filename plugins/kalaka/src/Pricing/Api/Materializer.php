@@ -21,7 +21,8 @@ use Kalaka\Registrations\Api\Registrations;
  * The money phase of the evaluation (money.md, "Materializer"; foundation.md, "Evaluation"): composes the
  * fee from the current settings and the registration's facts, and writes, per component and payer, what it
  * owes minus what is recorded as one `charge` line. It converges: a second run writes nothing. Lines of
- * components not registered now are left alone. The run holds the registration's row lock.
+ * components not registered now are left alone. A component's lines kept apart (`FeeTargets::ofLines()`) are
+ * recorded under `<component ID>.<line key>`. The run holds the registration's row lock.
  */
 final class Materializer
 {
@@ -51,13 +52,27 @@ final class Materializer
             return;
         }
 
-        $owed = $this->composer->compose($facts, $event->currency, $context->now(), $this->components->list());
+        $components = $this->components->list();
+        $owed = $this->composer->compose($facts, $event->currency, $context->now(), $components);
 
         /** @var array<string, array<string, ChargeTotal>> $recorded */
         $recorded = [];
         foreach ($this->ledger->chargeTotalsOf($key) as $total) {
             if ($total->source->type === self::SOURCE && $total->source->eventId === null) {
                 $recorded[$total->source->key][$total->payer] = $total;
+            }
+        }
+
+        // A component that keeps lines apart owns every recorded `<component ID>.<line key>`; one it no longer
+        // returns (a removed charge) is owed nothing now, so its line is reversed.
+        $registered = [];
+        foreach ($components as $component) {
+            $registered[$component->id()] = true;
+        }
+        foreach (array_keys($recorded) as $source) {
+            $owner = strstr((string) $source, '.', true);
+            if ($owner !== false && isset($registered[$owner])) {
+                $owed[(string) $source] ??= [];
             }
         }
 

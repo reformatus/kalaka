@@ -9,15 +9,13 @@ use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
- * Checks the field an extra charge names, for the preview and the save alike: an active participant field
- * of the event that is a consent or a number field, and a number field with decimals 0 (the quantity is
- * whole). It reads the event's participant fields (no post).
+ * Checks the participant field an extra charge's key meets, for the preview and the save alike: the charge is
+ * linked by key, so a field need not exist, but a number field with the charge's key multiplies the amount
+ * and so must take whole numbers (decimals 0; the multiplier is a whole quantity). It reads the event's
+ * participant fields (no post). [UNAPPROVED N13]
  */
 final class ChargeField
 {
-    /** A consent's block name; it stores `1` or `0`. */
-    private const CONSENT = 'kalaka/consent-field';
-
     /** A number field's block name (Forms). */
     private const NUMBER = 'kalaka/number-field';
 
@@ -25,23 +23,18 @@ final class ChargeField
     {
     }
 
-    /** @throws InvalidInput when the event has no active consent or whole-number field with that key */
-    public function check(int $eventId, string $fieldKey): void
+    /** @throws InvalidInput when the event's number field with that key allows decimals */
+    public function check(int $eventId, string $key): void
     {
         foreach ($this->fields->of($eventId) as $field) {
             /** @var ParticipantField $field */
-            if ($field->key !== $fieldKey) {
-                continue;
+            if (
+                $field->key === $key
+                && $field->type === self::NUMBER
+                && (int) ($field->settings['decimals'] ?? 0) !== 0
+            ) {
+                throw new InvalidInput();
             }
-            if ($field->type === self::CONSENT) {
-                return;
-            }
-            if ($field->type === self::NUMBER && (int) ($field->settings['decimals'] ?? 0) === 0) {
-                return;
-            }
-            break;
         }
-
-        throw new InvalidInput();
     }
 }

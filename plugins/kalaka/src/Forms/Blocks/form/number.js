@@ -1,5 +1,4 @@
 /** The refusal for a number control that holds text the browser cannot parse (HTML's `badInput`). */
-// [UNAPPROVED T4]
 export const BAD_NUMBER = 'Csak számot írhatsz ide.';
 
 /**

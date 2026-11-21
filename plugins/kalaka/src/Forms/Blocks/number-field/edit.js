@@ -1,8 +1,6 @@
 /**
  * The number field in the editor: its title, a static preview of its control, and its settings: required,
  * the smallest value, the step, the largest value, the number of decimals, and the prefix and suffix.
- * Labels shown here are proposed text, not yet approved by the owner: the block's title [UNAPPROVED T2] and
- * the settings [UNAPPROVED T3]. [UNAPPROVED T2–T3]
  */
 import { useBlockProps } from '@wordpress/block-editor';
 import { TextControl } from '@wordpress/components';
@@ -28,7 +26,6 @@ function Text({ label, attribute, attributes, setAttributes, type = 'number', ..
 function Settings({ attributes, setAttributes }) {
 	const decimals = Number.isInteger(attributes.decimals) ? attributes.decimals : 0;
 	return [
-		// [UNAPPROVED T3]
 		el(Text, { key: 'min', label: 'Legkisebb érték', attribute: 'min', attributes, setAttributes }),
 		el(Text, { key: 'step', label: 'Lépésköz', attribute: 'step', attributes, setAttributes }),
 		el(Text, { key: 'max', label: 'Legnagyobb érték', attribute: 'max', attributes, setAttributes }),
@@ -47,7 +44,6 @@ function Settings({ attributes, setAttributes }) {
 			__next40pxDefaultSize: true,
 			__nextHasNoMarginBottom: true,
 		}),
-		// [UNAPPROVED T3]
 		el(Text, { key: 'prefix', label: 'Előtag', attribute: 'prefix', type: 'text', attributes, setAttributes }),
 		el(Text, { key: 'suffix', label: 'Utótag', attribute: 'suffix', type: 'text', attributes, setAttributes }),
 	];

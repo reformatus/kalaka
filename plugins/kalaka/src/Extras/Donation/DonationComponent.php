@@ -13,26 +13,18 @@ use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
 
 /**
- * The donation's fee component, at the extras stage: the whole-number value of the event's number field
- * (its donation setting), owed by the participant as one `donation` line. Empty, 0, a negative or a
- * fractional value owes nothing and writes no line. The congregation share never covers it: the share
- * reads only the earlier stages. It reads the setting as it is now, or the proposed one in a preview.
- * [UNAPPROVED N5, N14]
+ * The donation's fee component, at the extras stage: the value of the event's number field with the fixed key
+ * `adomany`, owed by the participant as one `donation` line, exactly as stored (no whole-number rule; the form
+ * field's own settings decide whether decimals are allowed). Empty, 0, a negative value or an event without
+ * that field owes nothing and writes no line. There is no setting: the key alone decides. The congregation
+ * share never covers it: the share reads only the earlier stages. [UNAPPROVED N5]
  */
 final class DonationComponent implements FeeComponent
 {
     public const ID = 'donation';
 
-    /**
-     * @param bool $proposing whether `$proposedField` stands in for the stored setting (a preview)
-     * @param string|null $proposedField the proposed number field; null: no donation
-     */
-    public function __construct(
-        private readonly DonationRepository $donations = new DonationRepository(),
-        private readonly bool $proposing = false,
-        private readonly ?string $proposedField = null,
-    ) {
-    }
+    /** The key of the participant field that is the event's donation, fixed by Kaláka. */
+    public const KEY = 'adomany';
 
     public function id(): string
     {
@@ -46,18 +38,12 @@ final class DonationComponent implements FeeComponent
 
     public function targets(FeeComponentInput $input): FeeTargets
     {
-        $fieldKey = $this->proposing
-            ? $this->proposedField
-            : $this->donations->find($input->registration->eventId)?->fieldKey;
-        if ($fieldKey === null) {
-            return FeeTargets::none();
-        }
         try {
-            $value = $input->facts->get($fieldKey);
+            $value = $input->facts->get(self::KEY);
         } catch (SystemFailure) {
             return FeeTargets::none();
         }
-        if (!is_string($value->data) || preg_match('/\A[0-9]+\z/', $value->data) !== 1) {
+        if (!is_string($value->data) || preg_match('/\A-?[0-9]+(\.[0-9]+)?\z/', $value->data) !== 1) {
             return FeeTargets::none();
         }
         $amount = Money::of($value->data, $input->currency);

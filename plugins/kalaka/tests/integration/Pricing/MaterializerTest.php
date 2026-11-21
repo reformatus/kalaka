@@ -98,6 +98,40 @@ final class MaterializerTest extends PricingTestCase
         self::assertSame('32000', $this->balance($emese));
     }
 
+    public function testLinesKeptApartAreOwnLinesUnderTheComponentIdAndAnOutdatedOneIsReversed(): void
+    {
+        $lined = new LinesComponent(['a', 'b']);
+        $this->useComponents($lined);
+        $anna = $this->register('00A0');
+
+        self::assertSame([
+            'lined.a participant 100 charge:lined.a:participant:1',
+            'lined.b participant 100 charge:lined.b:participant:1',
+        ], $this->charges($anna));
+
+        $lined->keys = ['a'];
+        $this->inRun(static fn (array $input, Context $context) => $context->markTouched($anna));
+
+        self::assertSame([
+            'lined.a participant 100 charge:lined.a:participant:1',
+            'lined.b participant 100 charge:lined.b:participant:1',
+            'lined.b participant -100 charge:lined.b:participant:2',
+        ], $this->charges($anna));
+    }
+
+    public function testALineKeyThatCannotBeASourceKeyFailsTheComponent(): void
+    {
+        $this->useComponents(new LinesComponent(['Bad key']));
+
+        try {
+            $this->register('00A0');
+            self::fail('The registration was written.');
+        } catch (SystemFailure $failure) {
+            self::assertInstanceOf(RuleFailed::class, $failure->getPrevious());
+            self::assertSame('money/lined', $failure->getPrevious()->getMessage());
+        }
+    }
+
     public function testAFailingComponentFailsTheUseCaseAsTheRuleMoneyAndItsId(): void
     {
         $flaky = new FailingComponent('00A0');

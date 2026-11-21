@@ -64,12 +64,17 @@ final class FeeComposer
                 if ($component instanceof FixedPrice && self::owesAny($stageOwed)) {
                     continue;
                 }
-                $owed = $this->owedBy(
+                [$owed, $lines] = $this->owedBy(
                     $component,
                     new FeeComponentInput($facts->registration, $facts->status, $facts, $before, $currency, $now),
                     $currency
                 );
-                $composed[$component->id()] = $owed;
+                if ($lines === []) {
+                    $composed[$component->id()] = $owed;
+                }
+                foreach ($lines as $key => $payers) {
+                    $composed[$component->id() . '.' . $key] = $payers;
+                }
                 foreach ($owed as $payer => $amount) {
                     $stageOwed[$payer] = isset($stageOwed[$payer]) ? $stageOwed[$payer]->plus($amount) : $amount;
                 }
@@ -92,7 +97,10 @@ final class FeeComposer
         return false;
     }
 
-    /** @return array<string, Money> */
+    /**
+     * @return array{array<string, Money>, array<string, array<string, Money>>} what each payer owes in all, and
+     *     the lines kept apart, if the component returned any
+     */
     private function owedBy(FeeComponent $component, FeeComponentInput $input, Currency $currency): array
     {
         try {
@@ -108,11 +116,31 @@ final class FeeComposer
             $error = new FeeComponentFailed($component->id());
             throw $error;
         }
+        $lines = [];
+        foreach ($targets->lines as $key => $payers) {
+            $key = (string) $key;
+            // A line's source key is the component's ID, a dot and the line key, at most 64 characters.
+            if (preg_match('/\A[a-z][a-z0-9_]*\z/', $key) !== 1 || strlen($component->id() . '.' . $key) > 64) {
+                $error = new FeeComponentFailed($component->id());
+                throw $error;
+            }
+            $lines[$key] = $this->checked($component, $payers, $currency);
+        }
+
+        return [$this->checked($component, $targets->owed, $currency), $lines];
+    }
+
+    /**
+     * @param array<array-key, mixed> $payers
+     * @return array<string, Money>
+     */
+    private function checked(FeeComponent $component, array $payers, Currency $currency): array
+    {
         $owed = [];
-        foreach ($targets->owed as $payer => $amount) {
+        foreach ($payers as $payer => $amount) {
             $payer = (string) $payer;
             // Currency has one case today, so the last check cannot fail yet; it guards a second currency.
-            // @phpstan-ignore instanceof.alwaysTrue, notIdentical.alwaysFalse
+            // @phpstan-ignore notIdentical.alwaysFalse
             if (!Payer::isValid($payer) || !$amount instanceof Money || $amount->currency() !== $currency) {
                 $error = new FeeComponentFailed($component->id());
                 throw $error;

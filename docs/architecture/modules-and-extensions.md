@@ -74,7 +74,7 @@ flowchart LR
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
-| Extras | extra charges and the donation: generic per-event charges linked to participant field answers, and the event's donation field |
+| Extras | extra charges and the donation: generic per-event charges linked by key to the participant field with the same key, and the donation, the number field with the key `adomany` |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |

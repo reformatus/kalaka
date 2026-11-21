@@ -15,8 +15,7 @@ final class ExtrasShareTest extends ExtrasTestCase
         $this->useComponents(new ShareComponent('99000'), new SupportComponent('8000'));
         $this->setPrice('40000');
         $this->applySettings(
-            $this->extras->propose($this->event, [self::item('lunch', 'Ebéd', '3500', 'ebed')]),
-            $this->donation->propose($this->event, 'adomany'),
+            $this->extras->propose($this->event, [self::item('ebed', 'Ebéd', '3500')]),
         );
 
         $anna = $this->registerWith('00A0', ['ebed' => '1', 'adomany' => '5000']);
@@ -26,7 +25,7 @@ final class ExtrasShareTest extends ExtrasTestCase
             'share congregation 32000 charge:share:congregation:1',
             'share participant -32000 charge:share:participant:1',
             'support participant -8000 charge:support:participant:1',
-            'extras participant 3500 charge:extras:participant:1',
+            'extras.ebed participant 3500 charge:extras.ebed:participant:1',
             'donation participant 5000 charge:donation:participant:1',
         ], $this->charges($anna));
         self::assertSame('8500', $this->balance($anna));

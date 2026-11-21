@@ -351,6 +351,11 @@ flowchart TB
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
   keeping its label, so stored values still read.
+- **Every form-to-backend link is by key.** An admin adds a backend thing
+  (a charge, the donation), authors a form, adds a field, and sets the
+  field's key to the backend thing's key; the backend names no field. The
+  field with that key is what the thing reads. A backend key no field uses
+  does nothing.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins; core ships no

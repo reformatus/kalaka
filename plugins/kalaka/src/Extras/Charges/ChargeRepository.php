@@ -64,7 +64,6 @@ final class ChargeRepository extends EntityRepository
             'label' => $entity->label,
             'amount' => $entity->amount->amount(),
             'currency' => $entity->amount->currency()->value,
-            'field_key' => $entity->field,
         ];
     }
 
@@ -76,7 +75,6 @@ final class ChargeRepository extends EntityRepository
             (int) $row['position'],
             (string) $row['label'],
             Money::of((string) $row['amount'], Currency::from((string) $row['currency'])),
-            (string) $row['field_key'],
             (int) $row['version'],
         );
     }

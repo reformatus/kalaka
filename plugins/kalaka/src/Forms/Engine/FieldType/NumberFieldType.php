@@ -17,7 +17,7 @@ use Kalaka\Vendor\Brick\Math\BigDecimal;
  * `MAX_DECIMALS` decimals, with the block's optional `min`, `step` and `max`. The step counts from `min`
  * when one is set, else from 0, as the native arrows do. Its value is a `Number`; its text groups the
  * digits with no-break spaces, writes the fraction after a comma, and carries the block's optional
- * prefix and suffix (`5 000 Ft`). A negative number uses U+2212. [UNAPPROVED T4]
+ * prefix and suffix (`5 000 Ft`). A negative number uses U+2212.
  */
 final class NumberFieldType extends AbstractFieldType
 {
@@ -113,10 +113,8 @@ final class NumberFieldType extends AbstractFieldType
         [$canonical, $problem] = self::parse($text, $settings['decimals']);
         if ($canonical === null) {
             if ($settings['decimals'] === 0 && $problem !== 'exponent') {
-                // [UNAPPROVED T4]
                 return FieldAnswer::error('Csak egész számot írhatsz ide.');
             }
-            // [UNAPPROVED T4]
             $message = $problem === 'decimals'
                 ? sprintf('Legfeljebb %d tizedesjegyet írhatsz ide.', $settings['decimals'])
                 : 'Csak számot írhatsz ide.';
@@ -126,14 +124,12 @@ final class NumberFieldType extends AbstractFieldType
 
         $value = BigDecimal::of($canonical);
         if ($settings['min'] !== null && $value->isLessThan(BigDecimal::of($settings['min']))) {
-            // [UNAPPROVED T4]
             return FieldAnswer::error('Legalább ' . self::text($settings['min'], $settings) . ' legyen.');
         }
         if ($settings['step'] !== null && !self::onStep($value, $settings['min'], $settings['step'])) {
             return FieldAnswer::error(self::stepMessage($settings));
         }
         if ($settings['max'] !== null && $value->isGreaterThan(BigDecimal::of($settings['max']))) {
-            // [UNAPPROVED T4]
             return FieldAnswer::error('Legfeljebb ' . self::text($settings['max'], $settings) . ' legyen.');
         }
 
@@ -270,7 +266,7 @@ final class NumberFieldType extends AbstractFieldType
     /**
      * The step refusal: the first values of the grid, but only those up to `max`. With more than three (or
      * no max) it is the approved three-and-so-on text; with two or three it lists them, and with exactly one
-     * it names that one. The values are bare numbers, not the field's affixes. [UNAPPROVED T4]
+     * it names that one. The values are bare numbers, not the field's affixes.
      *
      * @param array{min: ?string, step: ?string, max: ?string, decimals: int, prefix: string, suffix: string} $settings
      */
@@ -278,7 +274,6 @@ final class NumberFieldType extends AbstractFieldType
     {
         \assert($settings['step'] !== null);
         if ($settings['min'] === null) {
-            // [UNAPPROVED T4]
             return 'Az érték ' . self::text($settings['step'], $settings) . ' többszöröse legyen.';
         }
         $step = BigDecimal::of($settings['step']);
@@ -286,7 +281,6 @@ final class NumberFieldType extends AbstractFieldType
         $max = $settings['max'] === null ? null : BigDecimal::of($settings['max']);
         if ($max !== null && $max->isLessThan($base)) {
             // The grid below a max under the base: the multiple's own text is the safe refusal.
-            // [UNAPPROVED T4]
             return 'Az érték ' . self::text($settings['step'], $settings) . ' többszöröse legyen.';
         }
         $values = [];
@@ -298,18 +292,15 @@ final class NumberFieldType extends AbstractFieldType
         }
         if ($max !== null && count($values) <= 3) {
             if (count($values) === 1) {
-                // [UNAPPROVED T4]
                 return sprintf('Csak ezt az értéket írhatod ide: %s.', $values[0]);
             }
             $last = array_pop($values);
-            // [UNAPPROVED T4]
             return sprintf(
                 'Csak ilyen értéket írhatsz ide: %s vagy' . self::NBSP . '%s.',
                 implode(', ', $values),
                 $last,
             );
         }
-        // [UNAPPROVED T4]
         return sprintf(
             'Csak ilyen értéket írhatsz ide: %s, %s, %s és így tovább.',
             $values[0] ?? '0',

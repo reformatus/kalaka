@@ -4,78 +4,54 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Extras;
 
-use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\Pricing\Api\ProposedMoneySettings;
-
-/** The donation (topic 7): one `donation` line from the event's whole-number field. */
+/** The donation (topic 14): the event's number field with the fixed key `adomany`, no setting at all. */
 final class DonationTest extends ExtrasTestCase
 {
-    public function testTheEventsNumberIsChargedAsTheDonationLine(): void
+    public function testTheFieldWithTheFixedKeyIsChargedAsTheDonationLine(): void
     {
-        $this->applySettings($this->donation->propose($this->event, 'adomany'));
-
         $anna = $this->registerWith('00A0', ['adomany' => '5000']);
 
         self::assertSame(['donation participant 5000 charge:donation:participant:1'], $this->charges($anna));
-        self::assertSame('adomany', $this->donation->field($this->event));
     }
 
-    public function testAnEmptyZeroNegativeOrFractionalAmountGivesNoLine(): void
+    public function testADecimalValueIsChargedAsItIsAndAChangedValueFollows(): void
     {
-        $this->applySettings($this->donation->propose($this->event, 'adomany'));
+        $anna = $this->registerWith('00A0', ['adomany' => '5000.5']);
+        self::assertSame(['donation participant 5000.5 charge:donation:participant:1'], $this->charges($anna));
 
+        $this->writeValue($anna, 'adomany', '1200.25');
+        $this->evaluate($anna);
+        self::assertSame('1200.25', $this->balance($anna));
+    }
+
+    public function testAnEmptyZeroOrNegativeAmountGivesNoLine(): void
+    {
         $anna = $this->registerWith('00A0', ['adomany' => '0']);
         $bence = $this->registerWith('00A2', []);
         $csilla = $this->registerWith('00A5', ['adomany' => '-5000']);
-        $dora = $this->registerWith('00A8', ['adomany' => '5000.5']);
 
-        foreach ([$anna, $bence, $csilla, $dora] as $key) {
+        foreach ([$anna, $bence, $csilla] as $key) {
             self::assertSame([], $this->charges($key));
         }
     }
 
-    public function testWithoutTheSettingTheValueIsNotChargedAndRemovingItReversesTheLine(): void
+    public function testAnotherKeyIsNotTheDonation(): void
     {
-        $anna = $this->registerWith('00A0', ['adomany' => '5000']);
+        $anna = $this->registerWith('00A0', ['ejjel' => '5000']);
+
         self::assertSame([], $this->charges($anna));
-
-        $this->applySettings($this->donation->propose($this->event, 'adomany'));
-        self::assertSame('5000', $this->balance($anna));
-
-        $this->applySettings($this->donation->propose($this->event, null));
-        self::assertNull($this->donation->field($this->event));
-        self::assertSame('0', $this->balance($anna));
     }
 
-    public function testThePreviewComposesTheProposedDonationAndWritesNothing(): void
+    public function testAnEventWithoutTheFieldOwesNoDonation(): void
     {
-        $anna = $this->registerWith('00A0', ['adomany' => '5000']);
-        $lines = $this->lineCount();
-
-        $rows = $this->settings->preview(
-            $this->event,
-            new ProposedMoneySettings(components: [$this->donation->propose($this->event, 'adomany')])
+        global $wpdb;
+        $wpdb->delete(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['event_id' => $this->event, 'field_key' => 'adomany']
         );
 
-        self::assertSame([], $rows[0]->before);
-        self::assertSame('5000', self::whole($rows[0]->after['participant']));
-        self::assertSame($lines, $this->lineCount());
-        self::assertNull($this->donation->field($this->event));
+        $anna = $this->registerWith('00A0', []);
+
         self::assertSame([], $this->charges($anna));
-    }
-
-    public function testOnlyAnActiveWholeNumberFieldOfTheEventCanBeTheDonation(): void
-    {
-        $this->declareField('tizedes', 'kalaka/number-field', ['decimals' => 2], 3);
-        $this->declareField('szoveg', 'kalaka/text-field', null, 4);
-
-        foreach (['ebed', 'tizedes', 'szoveg', 'nincs_ilyen'] as $key) {
-            try {
-                $this->donation->propose($this->event, $key);
-                self::fail('Refused.');
-            } catch (InvalidInput) {
-                self::assertNull($this->donation->field($this->event));
-            }
-        }
     }
 }

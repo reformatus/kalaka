@@ -16,10 +16,12 @@ final class ExtrasSchemaTest extends ExtrasTestCase
     {
         global $wpdb;
 
-        foreach (['kalaka_extras_charges', 'kalaka_extras_donations'] as $name) {
-            $table = $wpdb->prefix . $name;
-            self::assertSame($table, $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)));
-        }
+        $table = $wpdb->prefix . 'kalaka_extras_charges';
+        self::assertSame($table, $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table)));
+        $columns = $wpdb->get_col($wpdb->prepare('SHOW COLUMNS FROM %i LIKE %s', $table, 'field_key'));
+        self::assertSame([], $columns, 'A charge names no field.');
+        $donations = $wpdb->prefix . 'kalaka_extras_donations';
+        self::assertNull($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $donations)));
         self::assertSame('2', (string) get_option('kalaka_schema_' . (new Module())->id()));
         $ids = array_map(static fn ($component): string => $component->id(), Contributions::current()->feeComponents());
         self::assertContains(ExtrasComponent::ID, $ids);

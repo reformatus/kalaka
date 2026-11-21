@@ -15,8 +15,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Saves an event's extra charges, the whole list in order: a step of a money settings apply
  * (`Pricing\Api\MoneySettings::apply()` with `Api\Extras::propose()`), which then re-evaluates every open
  * registration. Charges left out are deleted; an empty list removes them. Charging alone touches no
- * registration. Site-level, like core's fixed price: full access only. The currency must be the event's,
- * and each named field must be an active consent or whole-number field.
+ * registration. Site-level, like core's fixed price: full access only. The currency must be the event's, and
+ * a number field with a charge's key must take whole numbers.
  */
 final class SetExtraCharges implements AdminUseCase
 {
@@ -84,7 +84,6 @@ final class SetExtraCharges implements AdminUseCase
                     $position,
                     $charge->label,
                     $charge->amount,
-                    $charge->field,
                 );
                 $this->charges->upsert($record, $context);
                 continue;
@@ -92,7 +91,6 @@ final class SetExtraCharges implements AdminUseCase
             $record->position = $position;
             $record->label = $charge->label;
             $record->amount = $charge->amount;
-            $record->field = $charge->field;
             $this->charges->upsert($record, $context);
         }
         foreach ($stored as $record) {
