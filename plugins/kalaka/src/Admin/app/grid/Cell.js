@@ -16,19 +16,19 @@ export const isInactive = ( item ) =>
 
 /**
  * A cell as shown: the status with its icon, a decision as an icon with screen-reader text, the code in
- * monospace. Every cell of an inactive row is dimmed (the text colour of DataViews' own muted token against the
- * stronger one of an active row), so a view that does not list Állapot shows no row dimmed. [UNAPPROVED N25]
+ * monospace. Every cell of an inactive row carries `kg-inactive` (dimmed against DataViews' own text colour, which
+ * an active row keeps), so a view that does not list Állapot shows no row dimmed. [UNAPPROVED N25]
  */
 export default function Cell( { column, item } ) {
 	const text = cellText( column, item );
 	if ( text === '' ) {
 		return '';
 	}
-	const tone = isInactive( item ) ? 'kg-inactive' : 'kg-active';
+	const tone = isInactive( item ) ? ' kg-inactive' : '';
 	if ( column.type === 'status' ) {
 		const [ icon, color ] = STATUS_ICON[ item.values.status ] || [ '', '' ];
 		return (
-			<span className={ `kg-mark ${ tone }` }>
+			<span className={ `kg-mark${ tone }` }>
 				<span className={ `dashicons ${ icon } ${ color }` } aria-hidden="true" />
 				{ text }
 			</span>
@@ -36,24 +36,24 @@ export default function Cell( { column, item } ) {
 	}
 	if ( column.type === 'decision' ) {
 		return (
-			<span className={ `kg-mark ${ tone }` } title={ text }>
+			<span className={ `kg-mark${ tone }` } title={ text }>
 				<span className="dashicons dashicons-marker" aria-hidden="true" />
 				<span className="screen-reader-text">{ text }</span>
 			</span>
 		);
 	}
 	if ( column.type === 'code' ) {
-		return <span className={ `kg-code ${ tone }` }>{ text }</span>;
+		return <span className={ `kg-code${ tone }` }>{ text }</span>;
 	}
 	if ( column.type === 'serial' ) {
-		return <span className={ `kg-serial ${ tone }` }>{ text }</span>;
+		return <span className={ `kg-serial${ tone }` }>{ text }</span>;
 	}
 	if ( column.type === 'text' || column.type === 'choice' ) {
 		return (
-			<span className={ `kg-long ${ tone }` } title={ text }>
+			<span className={ `kg-long${ tone }` } title={ text }>
 				{ text }
 			</span>
 		);
 	}
-	return <span className={ tone }>{ text }</span>;
+	return <span className={ tone.trim() || undefined }>{ text }</span>;
 }
