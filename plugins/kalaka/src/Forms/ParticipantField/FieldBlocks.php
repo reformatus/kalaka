@@ -6,7 +6,8 @@ namespace Kalaka\Forms\ParticipantField;
 
 use Kalaka\Forms\Engine\FieldMarkup;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
-use Kalaka\Forms\KeyDerivation;
+use Kalaka\Forms\Api\KeyDerivation;
+use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
@@ -31,6 +32,51 @@ final class FieldBlocks
         self::collect(parse_blocks($content), $fieldTypes, $fields);
 
         return $fields;
+    }
+
+    /**
+     * The request fields of the content (`Api\RequestFieldType`) with a valid key, in document order: each
+     * key with the set its block names; a block that names none (its own options) is no request field.
+     *
+     * @return list<array{key: string, set: int}>
+     */
+    public static function requests(string $content, Contributions $contributions): array
+    {
+        $fieldTypes = $contributions->fieldTypes();
+        if ($fieldTypes === [] || !has_blocks($content)) {
+            return [];
+        }
+        $requests = [];
+        self::collectRequests(parse_blocks($content), $fieldTypes, $requests);
+
+        return $requests;
+    }
+
+    /**
+     * @param array<array<string, mixed>> $blocks
+     * @param array<string, \Kalaka\Forms\Api\FieldType> $fieldTypes
+     * @param list<array{key: string, set: int}> $requests
+     */
+    private static function collectRequests(array $blocks, array $fieldTypes, array &$requests): void
+    {
+        foreach ($blocks as $block) {
+            $name = $block['blockName'] ?? null;
+            $type = is_string($name) ? ($fieldTypes[$name] ?? null) : null;
+            if ($type instanceof RequestFieldType) {
+                /** @var array<string, mixed> $attributes */
+                $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+                $key = $attributes['key'] ?? null;
+                $set = $type->requestSet($attributes);
+                if ($set !== null && is_string($key) && preg_match(KeyDerivation::KEY_PATTERN, $key) === 1) {
+                    $requests[] = ['key' => $key, 'set' => $set];
+                }
+            }
+            if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {
+                /** @var array<array<string, mixed>> $inner */
+                $inner = $block['innerBlocks'];
+                self::collectRequests($inner, $fieldTypes, $requests);
+            }
+        }
     }
 
     /** Whether the content holds any field block, with a key or without. */

@@ -94,7 +94,7 @@ values and conditions, prefill and form links
 - The form editor is one script (`Blocks/form/index.js`) for every Kaláka
   block, so all field blocks share one keeper of keys. An extension's field
   block reaches the same pieces (the keeper's hook, the inspector, the title and
-  its list-view label, the participant-field and key panels) only through
+  its list-view label, the choice's options editor, the participant-field and key panels) only through
   `window.kalakaFieldEditor`, which that script sets, and names its handle
   first in its `editorScript`; it has no copy of them. JavaScript never evaluates a condition. The
   editor checks a condition against the server's rules (`ConditionParser`,
@@ -161,8 +161,8 @@ values and conditions, prefill and form links
 - One availability base (S76): everything shown or selectable (fields,
   branches, pages, choice options, set options, tiers, offers, aid) is
   decided by one condition through `Engine\Condition\ConditionEvaluator`, reached
-  through `FormWalk` (a form) or `Api\Availability` (anything another module
-  owns). No second evaluator anywhere, and JavaScript never evaluates a
+  through `FormWalk` (a form, a request field's set options included) or
+  `Api\Availability` (anything another module owns). No second evaluator anywhere, and JavaScript never evaluates a
   condition (the editor only checks one against the server's rules to show
   problems).
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
@@ -262,12 +262,40 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  stored values the form opens with, the submit token and the submit, the
-  after-submit section's keys, and whether the form needs an account
-  (`accountStep()`). Kaláka's
-  event form, `EventFormHost`, is the first host; `Api\Forms` and the form
-  page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to the
-  engine.
+  stored values the form opens with, the options and window of the set a
+  request field names, the submit token and the submit, the after-submit
+  section's keys, and whether the form needs an account (`accountStep()`).
+  Kaláka's event form, `EventFormHost`, is the first host; `Api\Forms` and
+  the form page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to
+  the engine.
+- A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
+  that names an assignment set holds no options of its own: the definition
+  parse fills its `options` from the host (`FormHost::requestOptions()`),
+  each with its eligibility condition, which is read like a choice option's
+  condition (fields before it and the event's keys); a stored earlier version
+  of the form takes them without their conditions. `FormEngine::blocks()`
+  renders it with those attributes. Outside the set's choice window, decided
+  when the definition is built from the runner's clock, it is closed: it does
+  not show, renders nothing and whatever is sent for it is dropped; the walk
+  and the evaluator stay pure. A block of such a type that names no set
+  (`requestSet()` null) keeps its own options and is no request field: the
+  block's set attribute decides, and the type is then also an
+  `OptionsFieldType`, whose checks apply only to a block that names no set.
+- A set has one request field (S44-1): the save check (`SharedKeyCheck`, on
+  every save and on every read of a live form's definition) refuses a request
+  field naming a set the form's event does not have (`unknown_set`), a second,
+  different field for a set, or a field that is already another set's
+  (`request_field_taken`); the same key in another form joins it.
+  `ParticipantFieldSync` ties each set to its field after the fields are
+  declared (`Assignments\Api\AssignmentSets::tieRequestField()`); a tie is
+  never released.
+- `Forms::requestScopes()` reads, before a use case, where each published
+  form of an event holds a set's request field (`Api\RequestScope`: the
+  fields before it and the host's keys); `Availability::checkInForm()` judges
+  a set option's condition against it, purely, inside the use case.
+- A re-rendered choice or request field's new wrapper gets the event
+  `kalaka:field-swapped` (`SWAPPED` in `Blocks/form/view.js`) with the
+  values it was ticked with, for a field type's own script.
 - A form whose host gives an account step (`FormHost::accountStep()`) shows
   to everyone; it is never redirected. Its account block (`Api\SignUp::BLOCK`,
   `Engine\AccountMarkup`) is the only way in: a live registration form of an

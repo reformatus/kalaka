@@ -22,6 +22,9 @@
       "type": "array",
       "default": []
     },
+    "set": {
+      "type": "integer"
+    },
     "min": {
       "type": "integer",
       "default": 1

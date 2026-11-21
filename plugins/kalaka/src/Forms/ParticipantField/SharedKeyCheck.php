@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\ParticipantField;
 
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
@@ -17,6 +18,12 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * a field is written only by its use case, like the aid award; `staff` fields stay writable from forms
  * (owner ruling 2026-11-13). First of all, no
  * two blocks of one form hold the same key (`duplicate_key`), whatever the form's status.
+ *
+ * A request field (`Api\RequestFieldType`, S44-1; a block that names no set is none) names one request-mode
+ * set of the form's event (`unknown_set`), and a set has one request field: a field naming a set whose
+ * request field is another key, two fields of the form naming one set, or a field that is already another
+ * set's request field (`request_field_taken`). Run on every save and on every read of a live form's definition,
+ * so a form written around it stays closed.
  */
 final class SharedKeyCheck
 {
@@ -25,6 +32,8 @@ final class SharedKeyCheck
     public const TYPE_CLASH = 'type_clash';
     public const SYSTEM_FIELD = 'system_field';
     public const EXTENSION_FIELD = 'extension_field';
+    public const UNKNOWN_SET = 'unknown_set';
+    public const REQUEST_FIELD_TAKEN = 'request_field_taken';
 
     /**
      * The first problem of the content's field blocks in document order, or null.
@@ -43,6 +52,10 @@ final class SharedKeyCheck
         $fields = FieldBlocks::of($content, $contributions);
         if ($fields === []) {
             return null;
+        }
+        $requests = self::requestProblem($content, $eventId, $contributions);
+        if ($requests !== null) {
+            return $requests;
         }
         $declared = [];
         // Retired fields included: a retired field's values keep their meaning, so its type holds too.
@@ -63,6 +76,44 @@ final class SharedKeyCheck
             if ($record->type !== $field['type']) {
                 return [self::TYPE_CLASH, $key];
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * The first problem of the content's request fields against the event's sets, or null.
+     *
+     * @return array{string, string}|null
+     */
+    private static function requestProblem(string $content, int $eventId, Contributions $contributions): ?array
+    {
+        $requests = FieldBlocks::requests($content, $contributions);
+        if ($requests === []) {
+            return null;
+        }
+        $sets = [];
+        foreach ((new AssignmentSets())->ofEvent($eventId) as $set) {
+            $sets[$set->id] = $set;
+        }
+        $named = [];
+        foreach ($requests as ['key' => $key, 'set' => $setId]) {
+            $set = $sets[$setId] ?? null;
+            if ($set === null) {
+                return [self::UNKNOWN_SET, $key];
+            }
+            if (
+                ($set->requestFieldKey !== null && $set->requestFieldKey !== $key)
+                || (isset($named[$set->id]) && $named[$set->id] !== $key)
+            ) {
+                return [self::REQUEST_FIELD_TAKEN, $key];
+            }
+            foreach ($sets as $other) {
+                if ($other->id !== $set->id && $other->requestFieldKey === $key) {
+                    return [self::REQUEST_FIELD_TAKEN, $key];
+                }
+            }
+            $named[$set->id] = $key;
         }
 
         return null;

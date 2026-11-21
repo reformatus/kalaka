@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Forms;
 use Kalaka\Forms\Api\AccountStep;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormHost;
+use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Actor\Actor;
 
@@ -46,6 +47,11 @@ final class PrefillingHost implements FormHost
     public function prefill(Form $form): array
     {
         return $this->stored;
+    }
+
+    public function requestOptions(Form $form, int $setId): ?RequestOptions
+    {
+        return $this->inner->requestOptions($form, $setId);
     }
 
     public function submitToken(): string

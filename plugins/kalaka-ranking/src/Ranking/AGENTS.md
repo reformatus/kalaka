@@ -29,17 +29,28 @@ It holds the ranking field type now and the ranking proposer later (S77).
 - Its block is `kalaka/ranking-field`, so a published form that holds it while
   the plugin is inactive closes the site like any unregistered `kalaka/` block.
 - An answer is the ordered list of option keys, rank 1 first: each one of the
-  block's options, none twice, at least `min` (1 or more) and at most `max`
+  set's offered options, none twice, at least `min` (1 or more) and at most `max`
   (never below `min`). It is stored as that list in JSON; for a condition it
   is a choice value, and its text numbers the option labels.
 - A stored ranking opens in its order (`RankingFieldType::prefill()`, the
   field-type contract, rendered from `FieldMarkup::prefilled()`): unknown
   keys and repeats are dropped silently, the rest kept in order, then the
   first `max`; too few stay, and the submit asks for more.
-- The options are the block's own list of `{value, label}` until S44's
-  assignment sets exist; every option is offered until then (TODO(S76)).
-  The type is an `OptionsFieldType`, so core derives a missing option key on
-  save and the definition check refuses a block without a valid option.
+- The `set` attribute decides where the options come from, block by block
+  (S44-1, the owner's ruling 2026-11-18). A block with a `set` holds no
+  options of its own: core fills `options` from the set
+  (`Forms\Api\RequestFieldType`), and offers only the options whose
+  eligibility condition holds; the field it declares is the set's one request
+  field, and outside the set's choice window it does not show and writes
+  nothing. A block with no `set` (also every block saved before sets
+  existed) holds its own `options`, every one offered; the type is an
+  `OptionsFieldType` there, so core derives a missing option key on save and
+  the definition check refuses a block without a valid option, and the field
+  is no set's request field. `set` 0 is "a set, none chosen yet" and is
+  refused on save (`unknown_set`). Switching the mode in the editor changes
+  only `set`; the other source's options are kept, and ignored.
+- A ranking the form re-renders (its offered options changed) is ranked
+  again in the order it held (`restart()`, on core's `kalaka:field-swapped`).
 - The editor is built from core's field-editor pieces
   (`window.kalakaFieldEditor`; `block.json` names `kalaka-form-editor-script`
   first): the one keeper of keys, so a copy gets a fresh key, the settings,
@@ -87,4 +98,5 @@ It holds the ranking field type now and the ranking proposer later (S77).
   icon) in core's `--kalaka-button-…` properties, and a theme's own checkbox
   drawing (background, border, mark) is removed. A theme that fills every
   `button` (Twenty Twenty-One) fills the ↑/↓ too: the theme wins.
-- The plugin stores nothing of its own.
+- The plugin stores nothing of its own. Its seeder writes IVK's tracks and
+  module set as sample data (`Cli\RankingSeeder`).

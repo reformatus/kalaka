@@ -22,7 +22,7 @@ import emailEdit from '../email-field/edit';
 import phoneEdit from '../phone-field/edit';
 import dateEdit from '../date-field/edit';
 import textEdit from '../text-field/edit';
-import choiceEdit from '../choice-field/edit';
+import choiceEdit, { Options } from '../choice-field/edit';
 import consentEdit from '../consent-field/edit';
 import scaleEdit from '../scale-field/edit';
 import ifEdit from '../if/edit';
@@ -79,6 +79,7 @@ window.kalakaFieldEditor = Object.freeze({
 	fieldLabel,
 	FieldInspector,
 	FieldTitle,
+	Options,
 	preview,
 	REQUIRED,
 	useFieldCanvas,

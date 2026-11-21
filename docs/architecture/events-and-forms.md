@@ -168,7 +168,7 @@ flowchart TB
 - **Creation, revocation and use are audited.** The link a registration came
   through is stored on it as a fact.
 - **Link-only fields** can be set only by a link, never by the registrant. **Link-only options** are choice options shown only when a
-  link sets them (e.g. an invitation-only track or partner).
+  link sets them (e.g. an invitation-only partner).
 - **Secret sections** are ordinary conditional sections whose condition reads
   a link-only field. The server re-checks conditions at submit
   ([Conditions](#conditions)).

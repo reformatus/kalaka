@@ -82,6 +82,11 @@ final class DefinitionCheck
             . ' jelentkezői mezőé, amelyet a rendszer tölt ki („%s”).',
         SharedKeyCheck::EXTENSION_FIELD => 'Az űrlapot így nem lehet menteni: az egyik mező azonosítója egy olyan'
             . ' jelentkezői mezőé, amelyet egy bővítmény tölt ki („%s”).',
+        // The two refusals of a request field (S44-1).
+        SharedKeyCheck::UNKNOWN_SET => 'Az űrlapot így nem lehet menteni: az egyik rangsormezőhöz nincs kiválasztva'
+            . ' beosztás, vagy a kiválasztott beosztás nem ehhez az eseményhez tartozik („%s”).',
+        SharedKeyCheck::REQUEST_FIELD_TAKEN => 'Az űrlapot így nem lehet menteni: az egyik rangsormező beosztását már'
+            . ' egy másik mező rangsorolja, vagy ez a mező már egy másik beosztáshoz tartozik („%s”).',
     ];
 
     /** The refusal's text for a problem. */
@@ -297,7 +302,7 @@ final class DefinitionCheck
             return $problem;
         }
         try {
-            $form = new Form($formId, 0, $placement, null, false, 0);
+            $form = new Form($formId, $eventId ?? 0, $placement, null, false, 0);
             $definition = (new DefinitionParser())->parse($form, 0, $content, $contributions, new EventFormHost());
         } catch (SystemFailure $e) {
             return self::split($e);

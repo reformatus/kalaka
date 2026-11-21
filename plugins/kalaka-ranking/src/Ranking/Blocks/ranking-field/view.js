@@ -557,6 +557,31 @@ export function start(field) {
 	}
 }
 
+/**
+ * A ranking the form re-rendered for other answers (its set's offered options changed, S44): the form ticked
+ * the options it still offers that were ticked before (`detail.chosen`, in rank order); they are ranked in
+ * that order, then the new markup is wired.
+ */
+export function restart(field, chosen) {
+	for (const value of chosen) {
+		const item = [...field.querySelector(UNRANKED).children].find(
+			(candidate) => checkboxOf(candidate)?.value === value && checkboxOf(candidate).checked
+		);
+		if (item !== undefined) {
+			rank(field, item);
+		}
+	}
+	start(field);
+}
+
 for (const field of document.querySelectorAll('[data-kalaka-ranking]')) {
 	start(field);
 }
+
+// The form's `SWAPPED` (core's form script): a re-rendered field's new wrapper.
+document.addEventListener('kalaka:field-swapped', (event) => {
+	const field = event.target;
+	if (field instanceof HTMLElement && field.hasAttribute('data-kalaka-ranking')) {
+		restart(field, Array.isArray(event.detail?.chosen) ? event.detail.chosen : []);
+	}
+});

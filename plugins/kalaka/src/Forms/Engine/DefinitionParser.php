@@ -13,6 +13,7 @@ use Kalaka\Forms\Api\FormChain;
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\OptionsFieldType;
+use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Engine\Condition\Chain;
@@ -27,14 +28,17 @@ use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
- * Reads the field blocks of a form's block markup, in document order, whatever core blocks and
- * condition branches they sit in; each field carries the branches it sits in, and a choice field
- * the availability conditions of its options. The chains are numbered in document order, and every
- * key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`, the marks
- * the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming
- * the problem and the field key, never a label or an option).
+ * Reads the field blocks of a form's block markup, in document order, whatever core blocks and condition branches
+ * they sit in; each field carries the branches it sits in, and a choice field the availability conditions of its
+ * options. A request field (`Api\RequestFieldType`) gets its options from the set it names, through the host
+ * (`FormHost::requestOptions()`), with their conditions, which are then read like a choice field's (a stored earlier
+ * version takes them without, S44); outside the set's choice window it is closed (S44). The chains are numbered in
+ * document order, and every key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`,
+ * the marks the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming the problem
+ * and the field key, never a label or an option).
  */
 final class DefinitionParser
 {
@@ -61,6 +65,18 @@ final class DefinitionParser
     /** @var array<string, ValueType> the keys the after-submit section reads (`FormHost::afterSubmitTypes()`) */
     private array $afterSubmitTypes = [];
 
+    /** The host of the form being parsed, for the options of its request fields. */
+    private ?FormHost $host = null;
+
+    /** The form being parsed. */
+    private ?Form $form = null;
+
+    /**
+     * Whether the version being parsed is the form's current one: a stored earlier version takes a set's options
+     * without their conditions (S44).
+     */
+    private bool $current = true;
+
     /** the page whose blocks are being collected; null outside pages */
     private ?int $page = null;
 
@@ -82,6 +98,9 @@ final class DefinitionParser
         FormHost $host
     ): FormDefinition {
         $this->factTypes = $host->factTypes();
+        $this->host = $host;
+        $this->form = $form;
+        $this->current = $version === $form->version;
         $this->afterSubmitTypes = $host->afterSubmitTypes();
         $this->chains = [];
         $this->read = [];
@@ -115,6 +134,9 @@ final class DefinitionParser
             $this->read = [];
             $this->page = null;
             $this->pages = [];
+            $this->host = null;
+            $this->form = null;
+            $this->current = true;
         }
     }
 
@@ -351,9 +373,11 @@ final class DefinitionParser
                 throw new SystemFailure('duplicate_key ' . $key);
             }
         }
-        // A block that holds options (a choice's, or any `OptionsFieldType`'s) needs valid ones, none repeated.
-        $holdsOptions = ($contributions->fieldTypes()[$name] ?? null) instanceof OptionsFieldType;
-        if ($holdsOptions && ChoiceFieldType::optionValues($attributes) === null) {
+        $type = $contributions->fieldTypes()[$name] ?? null;
+        // A block that holds options (a choice's, or any `OptionsFieldType`'s) needs valid ones, none repeated; a
+        // request field that names a set holds the set's instead.
+        $namesSet = $type instanceof RequestFieldType && $type->requestSet($attributes) !== null;
+        if ($type instanceof OptionsFieldType && !$namesSet && ChoiceFieldType::optionValues($attributes) === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('invalid_options ' . $key);
         }
@@ -362,11 +386,50 @@ final class DefinitionParser
             throw new SystemFailure('invalid_scale ' . $key);
         }
 
-        $optionConditions = $name === ChoiceFieldType::BLOCK_NAME
+        $closed = false;
+        if ($type instanceof RequestFieldType) {
+            [$attributes, $closed] = $this->requestAttributes($type, $key, $attributes);
+        }
+
+        $optionConditions = $name === ChoiceFieldType::BLOCK_NAME || $type instanceof RequestFieldType
             ? $this->optionConditions($attributes, new FormScope($fields, $contributions, $this->factTypes))
             : [];
 
-        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page);
+        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page, $closed);
+    }
+
+    /**
+     * A request field's attributes with its set's options in `options`, and whether the set's choice window is
+     * closed now (S44). A field naming a set the host does not have is a problem; one naming none keeps its own
+     * options. A stored earlier version takes the options without their conditions: the answers of a submission
+     * were given against that version, whose fields need not hold a key a condition reads now (S44).
+     *
+     * @param array<string, mixed> $attributes
+     * @return array{array<string, mixed>, bool}
+     * @throws SystemFailure
+     */
+    private function requestAttributes(RequestFieldType $type, string $key, array $attributes): array
+    {
+        $setId = $type->requestSet($attributes);
+        if ($setId === null) {
+            // It names no set: its options are its own, as authored.
+            return [$attributes, false];
+        }
+        $options = $this->host === null || $this->form === null
+            ? null
+            : $this->host->requestOptions($this->form, $setId);
+        if ($options === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
+            throw new SystemFailure('unknown_set ' . $key);
+        }
+        $attributes['options'] = $this->current
+            ? $options->options
+            : array_map(
+                static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
+                $options->options
+            );
+
+        return [$attributes, !$options->openAt(Runner::current()->clock()->now())];
     }
 
     /**
