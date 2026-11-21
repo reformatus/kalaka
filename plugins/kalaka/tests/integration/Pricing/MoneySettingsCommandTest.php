@@ -94,12 +94,19 @@ final class MoneySettingsCommandTest extends PricingTestCase
         $line = \WP_CLI::$calls[0];
         self::assertSame('line', $line[0]);
         self::assertSame(
-            ['fixed_price' => '1500', 'components' => ['extra' => ['amount' => '200']]],
+            [
+                'fixed_price' => '1500',
+                'components' => [
+                    'extras' => ['charges' => []],
+                    'donation' => ['field_key' => null],
+                    'extra' => ['amount' => '200'],
+                ],
+            ],
             json_decode($line[1], true)
         );
     }
 
-    public function testShowWithoutAPriceHasNullAndNoComponentsAnObject(): void
+    public function testShowWithoutAPriceHasNullAndTheComponentsAnObject(): void
     {
         $this->useComponents();
 
@@ -109,7 +116,11 @@ final class MoneySettingsCommandTest extends PricingTestCase
             ->show([(string) $this->event], []);
 
         self::assertStringContainsString('"fixed_price": null', \WP_CLI::$calls[0][1]);
-        self::assertStringContainsString('"components": {}', \WP_CLI::$calls[0][1]);
+        self::assertStringContainsString('"components": {', \WP_CLI::$calls[0][1]);
+        self::assertStringContainsString('"extras": {', \WP_CLI::$calls[0][1]);
+        self::assertStringContainsString('"charges": []', \WP_CLI::$calls[0][1]);
+        self::assertStringContainsString('"donation": {', \WP_CLI::$calls[0][1]);
+        self::assertStringContainsString('"field_key": null', \WP_CLI::$calls[0][1]);
     }
 
     public function testPreviewShowsWhatEachPayerOwesNowAndWouldOweAndWritesNothing(): void
