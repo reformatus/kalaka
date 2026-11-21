@@ -15,15 +15,11 @@
     <file>plugins/kalaka-woocommerce/src</file>
     <file>plugins/kalaka-woocommerce/kalaka-woocommerce.php</file>
     <file>plugins/kalaka-woocommerce/uninstall.php</file>
-    <file>plugins/kalaka-extras/src</file>
-    <file>plugins/kalaka-extras/kalaka-extras.php</file>
-    <file>plugins/kalaka-extras/uninstall.php</file>
     <file>plugins/kalaka/tests</file>
     <file>plugins/kalaka-support/tests</file>
     <file>plugins/kalaka-divi4/tests</file>
     <file>plugins/kalaka-ranking/tests</file>
     <file>plugins/kalaka-woocommerce/tests</file>
-    <file>plugins/kalaka-extras/tests</file>
     <file>bin</file>
     <arg name="extensions" value="php"/>
     <exclude-pattern>*/vendor/*</exclude-pattern>

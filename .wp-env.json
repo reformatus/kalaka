@@ -8,7 +8,6 @@
 		"./plugins/kalaka-divi4",
 		"./plugins/kalaka-ranking",
 		"./plugins/kalaka-woocommerce"
-		"./plugins/kalaka-extras"
 	],
 	"mappings": {
 		"wp-content/kalaka-dev-vendor": "./vendor"
