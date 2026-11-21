@@ -99,7 +99,10 @@ final class RegistrationDetail
         $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
         // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
         // and a manual discount.
+        // The owner's topic 1 ruling, H3: confirmation applies only to a registered registration.
         $confirmManually = $carried(ManualConfirmations::CONFIRM_MANUALLY);
+        // The status is read from the registration itself: the view may not list the status column.
+        $confirmable = $confirmManually && $this->manualConfirmations->canSet($key);
 
         $read = [
             'registration' => $this->registrationPart($registration),
@@ -112,7 +115,7 @@ final class RegistrationDetail
         $read['can'] = [
             'view_money' => $viewMoney,
             'record_money' => $record,
-            'confirm_manually' => $confirmManually,
+            'confirm_manually' => $confirmable,
             'unconfirm' => $confirmManually && $this->canUnconfirm($key),
         ];
 

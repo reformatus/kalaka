@@ -716,6 +716,25 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     }
 
     /**
+     * The owner's topic 1 ruling, H3: the manual confirmation is offered only on a registered registration,
+     * and only to a holder of the action.
+     *
+     * @dataProvider statuses
+     */
+    public function testConfirmManuallyIsOfferedOnlyOnARegisteredRegistration(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        self::assertSame($status === 'registered', $this->detail($confirmer)['can']['confirm_manually']);
+        self::assertSame($status === 'registered', $this->detail($this->admin->userId)['can']['confirm_manually']);
+        self::assertFalse($this->detail($viewer)['can']['confirm_manually'], 'No action.');
+    }
+
+    /**
      * The owner's ruling 2026-11-19: `can.unconfirm` is the unconfirm's own check. It holds for a holder of
      * `kalaka_confirm_manually` on a confirmed registration whose payments are below the threshold; never at
      * or above it, never for a confirmation because nothing was due, never without the action.

@@ -208,6 +208,45 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         }
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function notRegistered(): iterable
+    {
+        yield 'waitlisted' => ['waitlisted'];
+        yield 'withdrawn' => ['withdrawn'];
+        yield 'removed' => ['removed'];
+    }
+
+    /**
+     * The owner's topic 1 ruling, H3: confirmation applies only to a registered registration, so the flag
+     * is set on that one only; any other status is refused and writes nothing.
+     *
+     * @dataProvider notRegistered
+     */
+    public function testTheFlagIsRefusedOnAnyStatusButRegistered(string $status): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => $status],
+            ['event_id' => $this->event, 'code' => '00A0']
+        );
+        \Kalaka\Foundation\ObjectCache::clear();
+
+        try {
+            $this->exec(new SetManualConfirmation(), $this->input());
+            self::fail('It ran.');
+        } catch (InvalidInput) {
+            self::assertSame([], $this->flagRows());
+            self::assertNull($this->confirmationState());
+        }
+    }
+
+    public function testTheFlagIsAcceptedOnARegisteredRegistration(): void
+    {
+        self::assertSame(['changed' => true], $this->exec(new SetManualConfirmation(), $this->input()));
+        self::assertCount(1, $this->flagRows());
+    }
+
     public function testAMissingReasonIsRefused(): void
     {
         $this->expectException(InvalidInput::class);

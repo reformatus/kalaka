@@ -81,7 +81,9 @@ retention and the materializer
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
   per-event action `kalaka_confirm_manually` and a required reason, and are
-  idempotent; a revoke keeps the flag's row with its revoke time.
+  idempotent; a revoke keeps the flag's row with its revoke time. The flag
+  is set on a `registered` registration only (confirmation applies only to
+  `registered`); any other status is `InvalidInput`.
 - No mail comes from Pricing; its UI texts are the decision's labels and the
   abilities' labels.
 - Only Pricing writes its tables.

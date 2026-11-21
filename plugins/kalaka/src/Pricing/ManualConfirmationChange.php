@@ -19,8 +19,9 @@ use Kalaka\Registrations\Api\Registrations;
  * The shared body of setting the manual confirmation flag and of unconfirming (money.md, "Confirmation"): one
  * registration and a required reason, which the audit entry carries. Both are idempotent: setting a set flag
  * or unconfirming a registration that is not confirmed writes nothing and succeeds. Carried by
- * `kalaka_confirm_manually` inside its grant's view, or full access. Setting the flag works in any status: the
- * flag is a fact, and confirmation reads it only while the registration is `registered`. [UNAPPROVED N6, N12]
+ * `kalaka_confirm_manually` inside its grant's view, or full access. Setting the flag is for a `registered`
+ * registration only (the owner's topic 1 ruling, H3: confirmation applies only to registered); the unconfirm
+ * is not bound to a status here. [UNAPPROVED N6, N12]
  */
 abstract class ManualConfirmationChange implements AdminUseCase
 {

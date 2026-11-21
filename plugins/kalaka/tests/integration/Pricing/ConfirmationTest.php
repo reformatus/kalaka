@@ -154,23 +154,29 @@ final class ConfirmationTest extends ConfirmationTestCase
         self::assertSame($before, $this->confirmations($anna));
     }
 
+    /**
+     * The flag is set only on a registered registration (the owner's topic 1 ruling, H3), so both qualify
+     * together only when a withdrawn registration with a set flag and payments is restored: the earlier counts.
+     */
     public function testWithPaymentsAndTheFlagBothTheEarlierCounts(): void
     {
         $this->setPrice('10000');
-        $anna = $this->register('00A0', RegistrationStatus::Waitlisted);
+        $anna = $this->register('00A0');
         $this->payOn($anna, '10000', '2026-11-20');
         $this->setFlag($anna);
-        $bela = $this->register('00A2', RegistrationStatus::Waitlisted);
+        $bela = $this->register('00A2');
         $this->setFlag($bela);
         $this->payOn($bela, '10000', '2026-12-05');
 
-        $this->setStatus($anna, RegistrationStatus::Registered);
-        $this->setStatus($bela, RegistrationStatus::Registered);
+        foreach ([$anna, $bela] as $key) {
+            $this->setStatus($key, RegistrationStatus::Withdrawn);
+            $this->setStatus($key, RegistrationStatus::Registered);
+        }
 
-        self::assertSame(['confirmed 2026-11-19 23:00:00 ledger_line'], $this->confirmations($anna));
+        self::assertSame('confirmed 2026-11-19 23:00:00 ledger_line', $this->confirmations($anna)[2]);
         self::assertMatchesRegularExpression(
             '/^confirmed 2026-11-30 08:00:\d\d manual_confirmation$/',
-            $this->confirmations($bela)[0]
+            $this->confirmations($bela)[2]
         );
     }
 

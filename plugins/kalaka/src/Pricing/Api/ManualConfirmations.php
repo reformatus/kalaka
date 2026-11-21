@@ -7,6 +7,8 @@ namespace Kalaka\Pricing\Api;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Pricing\ManualConfirmationRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Registrations;
 
 /**
  * The manual confirmation flag and staff's unconfirm (money.md, "Confirmation"): the per-event action that
@@ -24,6 +26,7 @@ final class ManualConfirmations
         private readonly ManualConfirmationRepository $flags = new ManualConfirmationRepository(),
         private readonly Decisions $decisions = new Decisions(),
         private readonly ConfirmationRule $rule = new ConfirmationRule(),
+        private readonly Registrations $registrations = new Registrations(),
     ) {
     }
 
@@ -36,6 +39,15 @@ final class ManualConfirmations
         }
 
         return new ManualConfirmation($flag->setAt, $flag->setBy, $flag->reason);
+    }
+
+    /**
+     * Whether the flag may be set on the registration: only a `registered` one (the owner's topic 1 ruling,
+     * H3: confirmation applies only to registered). A plain read of one statement, without a lock.
+     */
+    public function canSet(RegistrationKey $registration): bool
+    {
+        return $this->registrations->find($registration)?->status === RegistrationStatus::Registered;
     }
 
     /** Whether the registration's current confirmation state is `confirmed` (only a `registered` one has one). */
