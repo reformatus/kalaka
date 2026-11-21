@@ -74,8 +74,9 @@ retention and the materializer
 - A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings
   as plain data and reads them back (`settingsToArray()`, `settingsFromArray()`
   into `ProposedComponentSettings`), so `wp kalaka money-settings show|preview|apply`
-  (`Cli/`) carries every component's settings as JSON by component ID without core
-  knowing any of them; core itself reads and writes only the fixed price. The
+  (`Cli/`) carries every component's settings as JSON by component ID without Pricing
+  knowing any of them; Pricing itself reads and writes only the fixed price (core's Extras
+  carries its own). The
   command is a thin entry point over `Api\MoneySettings`: it runs as the command
   line, or as WP-CLI's `--user`, and the apply asks first.
 - Once confirmed, a registration never becomes unconfirmed because amounts
