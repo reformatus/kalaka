@@ -735,11 +735,32 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     }
 
     /**
-     * The owner's ruling 2026-11-19: `can.unconfirm` is the unconfirm's own check. It holds for a holder of
-     * `kalaka_confirm_manually` on a confirmed registration whose payments are below the threshold; never at
-     * or above it, never for a confirmation because nothing was due, never without the action.
+     * The owner's ruling 2026-11-21: `can.unconfirm` holds for a holder of `kalaka_confirm_manually` on a
+     * confirmed registration, whatever its payments; never on one that is not confirmed, never without the action.
      */
-    public function testCanUnconfirmFollowsTheUnconfirmsOwnCheck(): void
+    public function testCanUnconfirmHoldsOnAConfirmedRegistrationForAHolderOfTheAction(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addRegistration('00A2');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $confirmer = $this->plainUser();
+        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        self::assertTrue($this->detail($confirmer)['can']['unconfirm']);
+        self::assertTrue($this->detail($this->admin->userId)['can']['unconfirm']);
+        self::assertFalse($this->detail($viewer)['can']['unconfirm'], 'No action.');
+        self::assertFalse($this->detail($confirmer, '00A2')['can']['unconfirm'], 'Not confirmed.');
+        self::assertArrayNotHasKey('unconfirm_warning', $this->detail($confirmer, '00A2')['registration']);
+        self::assertArrayNotHasKey('unconfirm_warning', $this->detail($viewer)['registration']);
+    }
+
+    /**
+     * Q4: a holder with money-view gets the reason-specific warning (T5a payments, T5b nothing due); a holder
+     * without it gets the generic one (T5c), which names neither. Null when it would not confirm again.
+     */
+    public function testTheUnconfirmWarningDependsOnTheHolder(): void
     {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'kalaka_fixed_prices', [
@@ -750,26 +771,39 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         ]);
         $this->addRegistration('00A0');
         $this->addDecision('00A0', 'confirmation', 'confirmed');
-        $confirmer = $this->plainUser();
-        $this->grant($confirmer, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
-        $viewer = $this->plainUser();
-        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+        $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
 
-        self::assertTrue($this->detail($confirmer)['can']['unconfirm'], 'Confirmed, nothing paid.');
-        self::assertTrue($this->detail($this->admin->userId)['can']['unconfirm']);
-        self::assertFalse($this->detail($viewer)['can']['unconfirm'], 'No action.');
+        self::assertNull($warning($blind), 'Confirmed, nothing paid: it would stay unconfirmed.');
+        self::assertNull($warning($seeing));
 
         $this->addLine('manual_payment', '-10000', 'manual:p1');
         ObjectCache::clear();
-        self::assertFalse($this->detail($confirmer)['can']['unconfirm'], 'The payments reach the threshold.');
-
-        $wpdb->update(
-            $wpdb->prefix . 'kalaka_decisions',
-            ['cause_type' => 'registration', 'cause_key' => '00A0'],
-            ['event_id' => $this->event, 'code' => '00A0']
+        $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+        self::assertSame($generic, $warning($blind), 'T5c: no reason, no money.');
+        self::assertSame(
+            'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra '
+            . 'visszaigazolt lesz.',
+            $warning($seeing),
+            'T5a.'
         );
+
         $wpdb->delete($wpdb->prefix . 'kalaka_ledger_lines', ['event_id' => $this->event, 'code' => '00A0']);
+        $wpdb->delete($wpdb->prefix . 'kalaka_fixed_prices', ['event_id' => $this->event]);
         ObjectCache::clear();
-        self::assertFalse($this->detail($confirmer)['can']['unconfirm'], 'Confirmed because nothing was due.');
+        self::assertSame($generic, $warning($blind));
+        self::assertSame(
+            'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.',
+            $warning($seeing),
+            'T5b.'
+        );
     }
 }

@@ -20,6 +20,12 @@ final class TestRule implements DecisionRule
 
     public ?\Throwable $throws = null;
 
+    /** Whether every transition asks to decide again. */
+    public bool $decideAgain = false;
+
+    /** @var list<?string> when not empty, the answers in the order asked, instead of `answer` */
+    public array $answers = [];
+
     /** @var ?\Closure(DecisionInput): void */
     public ?\Closure $onDecide = null;
 
@@ -67,10 +73,13 @@ final class TestRule implements DecisionRule
             throw $this->throws;
         }
 
-        return $this->answer === null ? null : new Transition(
-            $this->answer,
+        $answer = $this->answers === [] ? $this->answer : array_shift($this->answers);
+
+        return $answer === null ? null : new Transition(
+            $answer,
             new \DateTimeImmutable('2026-11-29 23:59:59', new \DateTimeZone('Europe/Budapest')),
             new Subject('test_record', 12, '7'),
+            $this->decideAgain,
         );
     }
 }

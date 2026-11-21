@@ -12,7 +12,6 @@ use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\RecordCharge;
 use Kalaka\Ledger\RecordDiscount;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Pricing\Api\ConfirmationThreshold;
 use Kalaka\Pricing\Api\ConfirmationThresholdInput;
 use Kalaka\Pricing\Api\ManualConfirmations;
@@ -467,18 +466,21 @@ final class ConfirmationTest extends ConfirmationTestCase
         self::assertCount(1, $this->confirmations($anna));
     }
 
-    /** The owner's ruling 2026-11-19: staff may unconfirm only while the payments are below the threshold. */
-    public function testTheUnconfirmIsAllowedBelowTheThresholdAndAPaymentConfirmsAgain(): void
+    /** The owner's ruling 2026-11-21: below the threshold the unconfirm stays, and a payment confirms again. */
+    public function testTheUnconfirmBelowTheThresholdStaysAndAPaymentConfirmsAgain(): void
     {
         $this->setPrice('10000');
         $anna = $this->register('00A0');
         $this->payOn($anna, '10000', '2026-11-20');
         $this->refundOn($anna, '3000', '2026-11-25');
         self::assertSame('confirmed', $this->confirmationState($anna));
-        self::assertTrue((new ManualConfirmations())->canUnconfirm($anna, $this->utc('2026-12-01 08:00:00')));
+        $now = $this->utc('2026-12-01 08:00:00');
+        self::assertTrue((new ManualConfirmations())->isConfirmed($anna));
+        self::assertNull((new ManualConfirmations())->reconfirmsOnUnconfirm($anna, $now), 'Below: no warning.');
 
         self::assertSame(['changed' => true], $this->unconfirm($anna, 'Teszt indok'));
         self::assertSame('unconfirmed', $this->confirmationState($anna));
+        self::assertCount(2, $this->confirmations($anna), 'Below: one unconfirmed record, no second answer.');
         self::assertMatchesRegularExpression(
             '/^unconfirmed 2026-11-30 08:00:\d\d unconfirmation$/',
             $this->confirmations($anna)[1]
@@ -490,51 +492,135 @@ final class ConfirmationTest extends ConfirmationTestCase
         self::assertSame('confirmed 2026-12-01 23:00:00 ledger_line', $this->confirmations($anna)[2]);
     }
 
-    public function testTheUnconfirmIsRefusedAtTheThreshold(): void
+    /** The owner's ruling 2026-11-21: at the threshold the unconfirm is allowed and confirms at once. */
+    public function testTheUnconfirmAtTheThresholdRecordsUnconfirmedThenConfirmedInTheSamePass(): void
     {
         $this->setPrice('10000');
         $anna = $this->register('00A0');
         $this->payOn($anna, '10000', '2026-11-20');
-        self::assertFalse((new ManualConfirmations())->canUnconfirm($anna, $this->utc('2026-12-01 08:00:00')));
+        $confirmations = new ManualConfirmations();
+        self::assertSame('payments', $confirmations->reconfirmsOnUnconfirm($anna, $this->utc('2026-12-01 08:00:00')));
+        self::assertCount(1, $this->confirmations($anna), 'The warning read writes nothing.');
+        self::assertSame([], $this->unconfirmationRows());
 
-        try {
-            $this->unconfirm($anna);
-            self::fail('The unconfirm was not refused.');
-        } catch (RuleViolation $refused) {
-            self::assertSame(422, $refused->status());
-        }
-        self::assertSame('confirmed', $this->confirmationState($anna));
-        self::assertCount(1, $this->confirmations($anna));
+        self::assertSame(['changed' => true], $this->unconfirm($anna));
+
+        self::assertSame('confirmed', $this->confirmationState($anna), 'The state the warning named.');
+        $records = $this->confirmations($anna);
+        self::assertCount(3, $records);
+        self::assertMatchesRegularExpression('/^unconfirmed 2026-11-30 08:00:\d\d unconfirmation$/', $records[1]);
+        // D2: the re-confirm is effective no earlier than the unconfirm, not at the payment's value date.
+        self::assertMatchesRegularExpression('/^confirmed 2026-11-30 08:00:\d\d ledger_line$/', $records[2]);
+        self::assertSame(explode(' ', $records[1])[2], explode(' ', $records[2])[2]);
+        self::assertCount(1, $this->unconfirmationRows(), 'The unconfirm fact is kept.');
+
+        $this->evaluate($anna);
+        self::assertCount(3, $this->confirmations($anna), 'It converges.');
     }
 
-    /** H2: with the flag set and the payments at the threshold, the unconfirm is refused and the flag stays. */
-    public function testTheUnconfirmIsRefusedAtTheThresholdWithTheFlagSet(): void
+    public function testTheUnconfirmWithTheFlagSetAtTheThresholdRevokesItAndConfirmsByThePayments(): void
     {
         $this->setPrice('10000');
         $anna = $this->register('00A0');
         $this->setFlag($anna);
         $this->payOn($anna, '10000', '2026-11-20');
+        $now = $this->utc('2026-12-01 08:00:00');
+        self::assertSame('payments', (new ManualConfirmations())->reconfirmsOnUnconfirm($anna, $now));
 
-        $this->expectException(RuleViolation::class);
-        try {
-            $this->unconfirm($anna);
-        } finally {
-            self::assertNotNull((new ManualConfirmations())->of($anna));
-            self::assertSame('confirmed', $this->confirmationState($anna));
-        }
+        self::assertSame(['changed' => true], $this->unconfirm($anna));
+
+        self::assertNull((new ManualConfirmations())->of($anna), 'The flag is revoked.');
+        $records = $this->confirmations($anna);
+        self::assertCount(3, $records);
+        self::assertStringStartsWith('unconfirmed ', $records[1]);
+        self::assertMatchesRegularExpression('/^confirmed 2026-11-30 08:00:\d\d ledger_line$/', $records[2]);
     }
 
-    public function testANothingDueConfirmationCannotBeUnconfirmed(): void
+    public function testTheUnconfirmOfANothingDueConfirmationConfirmsAgainAsNothingDue(): void
     {
         $anna = $this->register('00A0');
         self::assertSame('confirmed', $this->confirmationState($anna));
+        $now = $this->utc('2026-12-01 08:00:00');
+        self::assertSame('nothing_due', (new ManualConfirmations())->reconfirmsOnUnconfirm($anna, $now));
 
-        // A later charge takes the payments below; the confirmation was still because nothing was due.
-        $this->setPrice('10000');
+        self::assertSame(['changed' => true], $this->unconfirm($anna));
+
+        $records = $this->confirmations($anna);
+        self::assertCount(3, $records);
+        self::assertStringStartsWith('unconfirmed ', $records[1]);
+        self::assertMatchesRegularExpression('/^confirmed 2026-11-30 08:00:\d\d registration$/', $records[2]);
         self::assertSame('confirmed', $this->confirmationState($anna));
-        self::assertFalse((new ManualConfirmations())->canUnconfirm($anna, $this->utc('2026-12-01 08:00:00')));
+    }
 
-        $this->expectException(RuleViolation::class);
+    /** The flag revoked and the payments below: the dry run names nothing, and the act leaves it unconfirmed. */
+    public function testTheWarningReadIsNullWhenNothingWouldConfirmAgainOrItIsNotConfirmed(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '2000', '2026-11-20');
+        $confirmations = new ManualConfirmations();
+        $now = $this->utc('2026-12-01 08:00:00');
+        self::assertNull($confirmations->reconfirmsOnUnconfirm($anna, $now), 'Not confirmed.');
+
+        $this->setFlag($anna);
+        self::assertTrue($confirmations->isConfirmed($anna));
+        self::assertNull($confirmations->reconfirmsOnUnconfirm($anna, $now), 'The flag does not count.');
+
         $this->unconfirm($anna);
+        self::assertSame('unconfirmed', $this->confirmationState($anna));
+        self::assertFalse($confirmations->isConfirmed($anna));
+    }
+
+    /** A retry after an at-once re-confirm is a new act: a second pair of records. */
+    public function testARetryAfterAnAtOnceReconfirmWritesAgain(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '10000', '2026-11-20');
+
+        $this->unconfirm($anna, 'Első');
+        self::assertSame(['changed' => true], $this->unconfirm($anna, 'Második'));
+
+        $records = $this->confirmations($anna);
+        self::assertCount(5, $records);
+        self::assertSame(
+            ['confirmed', 'unconfirmed', 'confirmed', 'unconfirmed', 'confirmed'],
+            array_map(static fn (string $record): string => explode(' ', $record)[0], $records)
+        );
+        self::assertSame('Második', $this->unconfirmationRows()[0]['reason']);
+    }
+
+    /** The `<=` equality: a refund after an at-once re-confirm does not unconfirm. */
+    public function testARefundAfterAnAtOnceReconfirmStaysConfirmed(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '10000', '2026-11-20');
+        $this->unconfirm($anna);
+        self::assertCount(3, $this->confirmations($anna));
+
+        $this->refundOn($anna, '3000', '2026-11-30');
+        $this->evaluate($anna);
+
+        self::assertSame('confirmed', $this->confirmationState($anna));
+        self::assertCount(3, $this->confirmations($anna));
+    }
+
+    /** D2: a late-entered payment whose value date is before the unconfirm confirms no earlier than it. */
+    public function testAConfirmationAfterTheUnconfirmIsNeverEffectiveBeforeIt(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '10000', '2026-11-20');
+        $this->refundOn($anna, '3000', '2026-11-25');
+        $this->unconfirm($anna);
+        $unconfirmed = $this->confirmations($anna)[1];
+
+        $this->payOn($anna, '3000', '2026-11-22');
+
+        $records = $this->confirmations($anna);
+        self::assertCount(3, $records);
+        self::assertMatchesRegularExpression('/^confirmed 2026-11-30 08:00:\d\d ledger_line$/', $records[2]);
+        self::assertSame(explode(' ', $unconfirmed)[2], explode(' ', $records[2])[2]);
     }
 }

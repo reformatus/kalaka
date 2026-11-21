@@ -142,6 +142,20 @@ abstract class ConfirmationTestCase extends PricingTestCase
         );
     }
 
+    /** @return list<array<string, mixed>> the rows of `kalaka_unconfirmations` */
+    protected function unconfirmationRows(): array
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare('SELECT * FROM %i', $wpdb->prefix . 'kalaka_unconfirmations'),
+            ARRAY_A
+        );
+        self::assertIsArray($rows);
+
+        return $rows;
+    }
+
     protected function evaluate(RegistrationKey $key): void
     {
         $this->runner->run(

@@ -581,6 +581,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
     filters too (confirmation: `unconfirmed`, for `registered` only).
   - The records live in their own table, indexed by event first.
   - **A decision is never recomputed;** only a named transition changes it.
+    A transition may ask that its rule decide once more in the same pass,
+    right after it (confirmation after staff's unconfirm); the second answer
+    is final.
   - **A kind is declared with a Hungarian label and its states, each with a
     Hungarian label;** the grid shows them for every kind.
   - Extensions contribute transition rules through a decision point, and core

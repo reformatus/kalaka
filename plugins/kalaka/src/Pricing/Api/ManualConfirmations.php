@@ -12,8 +12,9 @@ use Kalaka\Registrations\Api\Registrations;
 
 /**
  * The manual confirmation flag and staff's unconfirm (money.md, "Confirmation"): the per-event action that
- * sets the flag and unconfirms, the plain read of a registration's flag for display, and the one check of
- * whether an unconfirm is allowed now, which both `kalaka/unconfirm` and the detail read's `can.unconfirm` use.
+ * sets the flag and unconfirms, the plain read of a registration's flag for display, the check of whether an
+ * unconfirm is offered (the registration is confirmed), and the dry run that warns whether it would confirm
+ * again at once.
  * The flag is set only through `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
  * [UNAPPROVED N6, N12]
  */
@@ -59,23 +60,21 @@ final class ManualConfirmations
     }
 
     /**
-     * Whether staff may unconfirm the registration now (the owner's ruling 2026-11-19): it is `confirmed`, not
-     * because nothing was due, and its payments are below a threshold now, so they would not confirm it again.
-     * Whether it was confirmed by payments or by the flag does not matter.
+     * The warning read before staff's unconfirm (money.md, "Confirmation"): whether confirmation would decide
+     * `confirmed` again at once, the flag aside, and why. `'payments'` when the payments reach every required
+     * threshold, `'nothing_due'` when nothing is due, null when it would stay unconfirmed or the registration
+     * is not confirmed. A dry run of the second decision `kalaka/unconfirm` makes in the same pass; it writes
+     * nothing and takes no lock.
      *
+     * @return 'payments'|'nothing_due'|null
      * @throws FeeComponentFailed when a component throws or returns something invalid
      */
-    public function canUnconfirm(RegistrationKey $registration, \DateTimeImmutable $now): bool
+    public function reconfirmsOnUnconfirm(RegistrationKey $registration, \DateTimeImmutable $now): ?string
     {
-        $current = $this->decisions->currentOf($registration)[ConfirmationRule::KIND] ?? null;
-        if ($current === null || $current->state !== ConfirmationRule::CONFIRMED) {
-            return false;
-        }
-        // Nothing due confirms with the registration as its cause; payments and the flag name their own.
-        if ($current->cause === null || $current->cause->type === 'registration') {
-            return false;
+        if (!$this->isConfirmed($registration)) {
+            return null;
         }
 
-        return !$this->rule->paymentsQualify($registration, $now);
+        return $this->rule->reconfirmsWith($registration, $now);
     }
 }

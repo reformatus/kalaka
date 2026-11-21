@@ -84,8 +84,7 @@ SQL;
 
     public function boot(): void
     {
-        // The labels and descriptions of the abilities; the unconfirm's are placeholders until the owner's words
-        // (topic 4). [UNAPPROVED T1, T2, T3, T4]
+        // The labels and descriptions of the abilities. [UNAPPROVED T4]
         Abilities::register(
             new SetManualConfirmation(),
             'Visszaigazolás befizetés nélkül',
@@ -94,7 +93,8 @@ SQL;
         Abilities::register(
             new Unconfirm(),
             'Visszaigazolás visszavonása',
-            'Egy jelentkező visszaigazolásának visszavonása, indoklással.'
+            'Egy jelentkező visszaigazolásának visszavonása indoklással, '
+                . 'a befizetés nélküli visszaigazolást is beleértve.'
         );
     }
 }

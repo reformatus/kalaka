@@ -104,10 +104,15 @@ final class RegistrationDetail
         // The status is read from the registration itself: the view may not list the status column.
         $confirmable = $confirmManually && $this->manualConfirmations->canSet($key);
 
+        $canUnconfirm = $confirmManually && $this->manualConfirmations->isConfirmed($key);
+
         $read = [
             'registration' => $this->registrationPart($registration),
             'fields' => $this->fieldsPart($registration),
         ];
+        if ($canUnconfirm) {
+            $read['registration']['unconfirm_warning'] = $this->unconfirmWarning($key, $viewMoney);
+        }
         if ($viewMoney) {
             $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
@@ -116,7 +121,7 @@ final class RegistrationDetail
             'view_money' => $viewMoney,
             'record_money' => $record,
             'confirm_manually' => $confirmable,
-            'unconfirm' => $confirmManually && $this->canUnconfirm($key),
+            'unconfirm' => $canUnconfirm,
         ];
 
         return $read;
@@ -196,16 +201,32 @@ final class RegistrationDetail
     }
 
     /**
-     * `can.unconfirm`: the same check `kalaka/unconfirm` makes, at the clock's moment; false when a fee
-     * component fails, as the unconfirm would then fail too. [UNAPPROVED N11, N12]
+     * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
+     * at once, null otherwise (and when a fee component fails: the act itself would fail then, too). A holder
+     * with money-view gets the reason, payments or nothing due; a holder without it gets one text that names
+     * neither a reason nor money, so the read never tells them what the payments are. It reads and writes
+     * nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
      */
-    private function canUnconfirm(RegistrationKey $key): bool
+    private function unconfirmWarning(RegistrationKey $key, bool $viewMoney): ?string
     {
         try {
-            return $this->manualConfirmations->canUnconfirm($key, Runner::current()->clock()->now());
+            $reconfirms = $this->manualConfirmations->reconfirmsOnUnconfirm($key, Runner::current()->clock()->now());
         } catch (FeeComponentFailed) {
-            return false;
+            return null;
         }
+        if ($reconfirms === null) {
+            return null;
+        }
+        if (!$viewMoney) {
+            return 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.'; // [UNAPPROVED T5c]
+        }
+
+        return $reconfirms === 'payments'
+            // [UNAPPROVED T5a]
+            ? 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra '
+                . 'visszaigazolt lesz.'
+            // [UNAPPROVED T5b]
+            : 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
     }
 
     /**

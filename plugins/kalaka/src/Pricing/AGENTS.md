@@ -59,9 +59,11 @@ retention and the materializer
   amounts change later, an apply included (owner rule, 2026-11-14), nor by a
   refund (the owner's ruling 2026-11-19): only staff's unconfirm
   (`kalaka/unconfirm`, newer than the current `confirmed` record) unconfirms
-  it. `Api\ManualConfirmations::canUnconfirm()` is the one check of whether
-  it is allowed (confirmed, not because nothing was due, payments below a
-  threshold), for the use case and the detail read alike.
+  it; it is allowed on any confirmed registration, and confirmation is then
+  decided again in the same pass (`Transition::$decideAgain`), effective no
+  earlier than the unconfirm.
+  `Api\ManualConfirmations::reconfirmsOnUnconfirm()` is the one dry run of
+  that decision, for the warning.
 - There is one fee composition, `Api\FeeComposition`: the materializer records
   its difference, and confirmation reads each payer's target from it
   read-only, inside the decision; it reads no ledger line and writes nothing.
@@ -80,10 +82,12 @@ retention and the materializer
   `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
-  per-event action `kalaka_confirm_manually` and a required reason, and are
-  idempotent; a revoke keeps the flag's row with its revoke time. The flag
-  is set on a `registered` registration only (confirmation applies only to
-  `registered`); any other status is `InvalidInput`.
+  per-event action `kalaka_confirm_manually` and a required reason. Setting a
+  set flag writes nothing; unconfirming a registration that is not confirmed
+  writes nothing; unconfirming a confirmed one is a new act every time. A
+  revoke keeps the flag's row with its revoke time. The flag is set on a
+  `registered` registration only (confirmation applies only to `registered`);
+  any other status is `InvalidInput`.
 - No mail comes from Pricing; its UI texts are the decision's labels and the
   abilities' labels.
 - Only Pricing writes its tables.

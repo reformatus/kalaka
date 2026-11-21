@@ -155,7 +155,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   `DecisionTables::stateOf()` in SQL, the one read every view column, filter,
   sort and aggregate uses. The evaluation's rules read the records.
 - A decision rule returns a transition or nothing and never writes; core
-  writes the record, and only when the state changes. The decisions phase
+  writes the record, and only when the state changes; a transition with
+  `decideAgain` has its rule asked once more in the same pass, and that answer
+  is final. The decisions phase
   runs the rules that change a target or read none first (core, then
   extensions), then the rules that read a target (extensions, then core), so
   confirmation comes last. A core rule reads its own kind and the core kinds

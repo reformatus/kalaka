@@ -147,12 +147,15 @@ title: Money
   included; **nothing is due** when every payer's target is zero or below.
   Confirmation reads payment facts, never charge lines.
 - **The manual flag** ("may come without paying") is a fact: set with a
-  reason, audited, carrying its own set time, and kept until staff unconfirm
-  the registration.
-- **Staff's unconfirm** is a fact: recorded with a reason, who and when,
-  audited. It is allowed only on a confirmed registration whose payments are
-  below the threshold, never on one confirmed because nothing was due, and it
-  revokes the manual flag.
+  reason, audited, carrying its own set time. Staff can always take it back,
+  through staff's unconfirm; that is allowed also when payments or nothing
+  due then confirm the registration again at once.
+- **Staff's unconfirm** („Visszaigazolás visszavonása”) is the one way to take
+  a confirmation back. It is a fact: recorded with a reason, who and when,
+  audited, and allowed on any confirmed registration. It revokes the manual
+  flag if set and records `unconfirmed`; then confirmation is decided again at
+  once, so payments that reach the threshold or nothing due confirm it again.
+  Staff are warned before that happens.
 
 | Transition | When |
 |---|---|
@@ -161,7 +164,8 @@ title: Money
 
 - **Effective time:** each record carries one. It is the value date of the
   payment that reached the last required target (the paid time for online
-  payments), or the set time of the manual flag.
+  payments), or the set time of the manual flag. A confirmation after staff's
+  unconfirm is never effective before it.
 - **A later charge, a refund or a higher threshold changes nothing:** the
   registration stays confirmed, also when a money settings apply raises its
   amounts. While it stays `registered`, only staff's unconfirm unconfirms it;

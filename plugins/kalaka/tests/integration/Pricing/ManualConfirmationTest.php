@@ -12,6 +12,7 @@ use Kalaka\Foundation\Api\Module\ActionCatalogue;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Ledger\RecordPayment;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\Api\Materializer;
@@ -164,6 +165,26 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         $entry = $this->entryOf('kalaka/set-manual-confirmation');
         self::assertSame('succeeded', $entry['outcome']);
         self::assertSame('[]', (string) $entry['changes']);
+    }
+
+    /** The owner's ruling 2026-11-21: with the payments at the threshold, each unconfirm is a new, audited act. */
+    public function testAnUnconfirmThatConfirmsAgainAtOnceIsAuditedAndARetryWritesAgain(): void
+    {
+        $this->exec(new RecordPayment(), $this->paymentInput(['amount' => '8000']));
+        self::assertSame('confirmed', $this->confirmationState());
+
+        self::assertSame(['changed' => true], $this->exec(new Unconfirm(), $this->input(['reason' => 'Első'])));
+        self::assertSame('confirmed', $this->confirmationState(), 'The payments confirm it again at once.');
+        self::assertSame(['changed' => true], $this->exec(new Unconfirm(), $this->input(['reason' => 'Második'])));
+
+        $entries = array_values(array_filter(
+            $this->entries(),
+            static fn (array $entry): bool => $entry['action'] === 'kalaka/unconfirm'
+        ));
+        self::assertCount(2, $entries);
+        self::assertSame(['Első', 'Második'], array_column($entries, 'reason'));
+        self::assertSame(['succeeded', 'succeeded'], array_column($entries, 'outcome'));
+        self::assertSame('Második', $this->flagRows('kalaka_unconfirmations')[0]['reason']);
     }
 
     public function testASetAfterAnUnconfirmReplacesTheFlagAndConfirmsAgain(): void

@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace Kalaka\Pricing;
 
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * Staff's explicit unconfirm (the owner's ruling 2026-11-19), the only way a `confirmed` registration becomes
- * `unconfirmed` while it stays `registered`. It records the unconfirm with its reason, who and when, and
- * revokes the manual flag if it is set; the evaluation then unconfirms the registration in the same run.
+ * Staff's explicit unconfirm, "Visszaigazolás visszavonása" (the owner's ruling 2026-11-21): the one way to take
+ * a confirmation back. It records the unconfirm with its reason, who and when, and revokes the manual flag if it
+ * is set; the evaluation then writes `unconfirmed` in the same run and decides confirmation again at once
+ * (`Transition::$decideAgain`), so payments that reach every threshold, or nothing due, confirm it again.
  *
- * - Allowed only while `ManualConfirmations::canUnconfirm()` holds: confirmed by payments or the flag, and the
- *   payments below a threshold now. Otherwise a `RuleViolation` (422): payments that reach the threshold, or
- *   a confirmation because nothing was due.
+ * - Allowed on any confirmed registration: no threshold condition and no refusal.
  * - A registration that is not `confirmed` stays as it is: `{changed: false}`, nothing written.
- * - Afterwards a payment or correction that reaches the threshold confirms it again, as always.
+ * - Not idempotent on a confirmed registration: a repeat after an at-once re-confirm is a new act, with a
+ *   second pair of records and a second audit entry.
  *
  * [UNAPPROVED N12]
  */
@@ -45,9 +44,6 @@ final class Unconfirm extends ManualConfirmationChange
     ): bool {
         if (!$this->confirmations->isConfirmed($key)) {
             return false;
-        }
-        if (!$this->confirmations->canUnconfirm($key, $context->now())) {
-            throw new RuleViolation();
         }
         if ($flag !== null && $flag->isSet()) {
             $flag->revokedAt = $context->now();

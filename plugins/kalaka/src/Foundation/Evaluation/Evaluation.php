@@ -131,6 +131,9 @@ final class Evaluation
     }
 
     /**
+     * Asks the rule, and once more when the transition it wrote asks to decide again; the second answer is
+     * final, its own request ignored. [UNAPPROVED N14]
+     *
      * @param list<string> $visible the kinds the rule reads
      * @param array<string, Decision> $decisions the current decisions; gets what the rule writes
      */
@@ -141,6 +144,23 @@ final class Evaluation
         array &$decisions,
         Context $context,
     ): void {
+        if ($this->askAndWrite($rule, $visible, $key, $decisions, $context)) {
+            $this->askAndWrite($rule, $visible, $key, $decisions, $context);
+        }
+    }
+
+    /**
+     * @param list<string> $visible the kinds the rule reads
+     * @param array<string, Decision> $decisions the current decisions; gets what the rule writes
+     * @return bool whether a transition was written that asks the rule to decide again
+     */
+    private function askAndWrite(
+        DecisionRule $rule,
+        array $visible,
+        RegistrationKey $key,
+        array &$decisions,
+        Context $context,
+    ): bool {
         $kind = $rule->kind();
         try {
             $transition = $rule->decide(new DecisionInput(
@@ -155,14 +175,14 @@ final class Evaluation
         }
 
         if ($transition === null) {
-            return;
+            return false;
         }
         if (!array_key_exists($transition->state, $states)) {
             $error = self::failed($kind, null);
             throw $error;
         }
         if ($transition->state === ($decisions[$kind]->state ?? null)) {
-            return;
+            return false;
         }
 
         $stored = $this->decisions->insert(
@@ -176,6 +196,8 @@ final class Evaluation
             $stored->recordedAt,
             $stored->cause,
         );
+
+        return $transition->decideAgain;
     }
 
     private static function failed(string $kind, ?\Throwable $previous): SystemFailure
