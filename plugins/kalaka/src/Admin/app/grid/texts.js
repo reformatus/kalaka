@@ -79,7 +79,7 @@ export const PANEL = {
  * verbatim, their boxes waiting for Master's tick: [UNAPPROVED T7] the payer table, [UNAPPROVED T8] the
  * entries, [UNAPPROVED T9] the actions, [UNAPPROVED T10] the dialog fields. The title field's label and hint
  * and the „completed immediately” checkboxes with their help are #209's lektor-approved texts, built verbatim by
- * #217: [UNAPPROVED #209] (#209's box; #217's T32 follows it). Drafts: [UNAPPROVED T28] the title's empty-field
+ * #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Drafts: [UNAPPROVED T28] the title's empty-field
  * message, [UNAPPROVED T29] the snackbars of a saved pair, [UNAPPROVED T30] the pair's save button;
  * [UNAPPROVED T11] the messages, [UNAPPROVED T13] the screen-reader text; „0 Ft” is [UNAPPROVED T5];
  * [UNAPPROVED T33] the empty list, [UNAPPROVED T34] „Mentés” and „Mégse”, [UNAPPROVED T35] the preview's empty „–”.
@@ -147,13 +147,13 @@ export const MONEY = {
 	directionOut: 'Befizetett összeg csökkentése',
 	directionEmpty: 'Válassz irányt.',
 	// A charge's or a discount's title, which the participant sees: the label and hint are #209's lektor-approved
-	// text, built verbatim by #217. [UNAPPROVED #209]
+	// text, built verbatim by #217. [UNAPPROVED #209 T28]
 	titleField: 'Megnevezés',
 	titleHint: 'Ezt a jelentkező is látja.',
 	// The empty-field message is a draft for the lektor. [UNAPPROVED T28]
 	titleEmpty: 'Add meg a megnevezést.',
 	// „Completed immediately” (the owner's addendum, topic 10): the checkboxes and their help are #209's
-	// lektor-approved text, built verbatim by #217. [UNAPPROVED #209]
+	// lektor-approved text, built verbatim by #217. [UNAPPROVED #209 T28]
 	completedCharge: 'Azonnal befizetve',
 	completedDiscount: 'Azonnal visszafizetve',
 	completedChargeHelp: 'A díjjal együtt ugyanekkora befizetést is rögzít, így a tartozás nem változik.',
