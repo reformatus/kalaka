@@ -37,8 +37,8 @@ plugin. It holds two fee components at the extras stage and is core money
   `ParticipantFields::of()`.
 - The donation is the value of the event's whole-number field, as its own
   `donation` line; empty, 0, a negative or a fractional value writes no line.
-  Money-relevance follows the link, not the type: a field the donation or an
-  extra charge names is money-relevant; the lock is S60's.
+  Whether a field the donation or an extra charge names is money-relevant is
+  N5's open question; the lock is S60's.
 - The settings change only through `kalaka/set-extra-charges` and
   `kalaka/set-donation`, the save steps of a money settings apply
   (`Api\Extras::propose()`, `Api\Donation::propose()` with

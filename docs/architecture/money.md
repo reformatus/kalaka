@@ -6,8 +6,9 @@ title: Money
 
 ## Core money scope
 
-- **Core:** a fixed price per registration and full payment, with its
-  **payment due** date type. Core ships no money field types.
+- **Core:** a fixed price per registration, full payment, an event's extra
+  charges and its donation, with its **payment due** date type. Core ships no
+  money field types.
 - **Payment due** is N days after the registration last became `registered`
   (at submit, admission or restore); N is configured per event (IVK: 7
   days). A registration admitted from the waitlist counts from its
