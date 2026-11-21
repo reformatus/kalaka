@@ -4,8 +4,8 @@ export const BAD_NUMBER = 'Csak számot írhatsz ide.';
 
 /**
  * The first shown number field whose native control holds invalid text (`validity.badInput`: the browser
- * reports an empty value) or that the comma guard refused (`validity.customError`: the digits around the
- * refused separator went in, so the value is not what was typed): the send is stopped and the field says why.
+ * reports an empty value) or that the number guard refused (`validity.customError`: the field was emptied):
+ * the send is stopped and the field says why.
  *
  * @param {HTMLFormElement} form
  * @return {{wrapper: Element, control: HTMLInputElement}|null}
@@ -80,75 +80,92 @@ export function guardNumberWheel(doc = document) {
 /** The refusal for a separator typed into a whole-number field (the server's own text, as the client's). */
 export const WHOLE_NUMBER = 'Csak egész számot írhatsz ide.';
 
-const TYPED = ['insertText', 'insertFromPaste', 'insertReplacementText'];
+/** The input types that carry text into the control. */
+const INSERTS = [
+	'insertText',
+	'insertFromPaste',
+	'insertFromDrop',
+	'insertReplacementText',
+	'insertCompositionText',
+];
+
+/** A paste in Hungarian grouping ("5 000", "1 234 567,5"): spaces, no-break spaces, narrow no-break spaces. */
+const GROUPED = /^-?\d{1,3}([ \u00a0\u202f]\d{3})+(,\d+)?$/;
 
 /**
  * The comma guard (B4): Chromium stores a typed "1,5" in a number control as 15 (the comma dropped, no
- * `badInput`), a silent times ten. Before the input changes: a whole-number field (`inputmode="numeric"`)
- * refuses any comma or dot; a decimal field turns a typed comma into a dot, and a pasted "1,5" into "1.5",
- * and refuses other pasted text with a comma. The native control and its arrows stay. Client-side only: the
- * server still refuses what it cannot parse.
- *
- * A refusal also sets the control's custom validity to the text shown, because the digits around the refused
- * separator still go in ("1,5" leaves 15): the field stays invalid, so it cannot be sent. It clears on the
- * next input that is not a typed or pasted insert (a deletion, a cut, the arrows), or that leaves the field
- * empty; a typed digit after the refusal is the "1,5" case itself and keeps the field invalid.
+ * `badInput`) and sends "1 5" as 15, a silent times ten. Before the input changes, for every insert that
+ * carries text: valid text goes in (digits, a leading minus, on a decimal field one dot; a typed comma becomes
+ * a dot, a pasted "1,5" is pasted with a dot, a pasted Hungarian grouping is pasted without its spaces; a
+ * replacement text that is a plain number, Firefox's spinner step, is accepted) and clears any refusal.
+ * Anything else is refused: the insert is cancelled, the field is EMPTIED (it cannot carry a sanitised wrong
+ * number), the refusal is shown, and the control's custom validity holds the same text, so the send stops
+ * with the field's own message. There is no dead end: the next accepted insert, a deletion or the spinner
+ * clears the refusal. The native control and its arrows stay. Client-side only: the server still refuses what
+ * it cannot parse.
  *
  * @param {Document}                                       doc
  * @param {function(HTMLInputElement, string): void}       refuse Shows the refusal in the field's error element.
  * @param {function(HTMLInputElement): void}               clear Removes that message when the field is edited again.
  */
 export function guardNumberSeparators(doc, refuse, clear = () => {}) {
+	const isNumber = (control) =>
+		control instanceof Element && control.tagName === 'INPUT' && control.type === 'number';
 	const refusing = (control, message) => {
+		control.value = '';
 		control.setCustomValidity(message);
 		refuse(control, message);
 	};
+	const clearing = (control) => {
+		if (control.validity?.customError) {
+			control.setCustomValidity('');
+			clear(control);
+		}
+	};
+	// Whatever changes the field after a refusal (the spinner, a deletion) leaves no refusal behind.
 	doc.addEventListener('input', (event) => {
-		const control = event.target;
-		if (
-			!(control instanceof Element) ||
-			control.tagName !== 'INPUT' ||
-			control.type !== 'number' ||
-			!control.validity?.customError
-		) {
-			return;
+		if (isNumber(event.target)) {
+			clearing(event.target);
 		}
-		if (TYPED.includes(event.inputType) && control.value !== '') {
-			return;
-		}
-		control.setCustomValidity('');
-		clear(control);
 	});
 	doc.addEventListener('beforeinput', (event) => {
 		const control = event.target;
-		if (
-			!(control instanceof Element) ||
-			control.tagName !== 'INPUT' ||
-			control.type !== 'number' ||
-			!TYPED.includes(event.inputType)
-		) {
+		if (!isNumber(control)) {
+			return;
+		}
+		if (event.inputType?.startsWith('delete')) {
+			clearing(control);
+			return;
+		}
+		if (!INSERTS.includes(event.inputType)) {
 			return;
 		}
 		const data = event.data ?? event.dataTransfer?.getData('text/plain') ?? '';
-		if (control.getAttribute('inputmode') !== 'decimal') {
-			if (/[,.]/.test(data)) {
-				event.preventDefault();
-				refusing(control, WHOLE_NUMBER);
-			}
+		const decimal = control.getAttribute('inputmode') === 'decimal';
+		const typedComma = decimal && event.inputType === 'insertText' && data === ',';
+		let text = data;
+		if (typedComma) {
+			text = '.';
+		} else if (event.inputType !== 'insertText' && GROUPED.test(data)) {
+			text = data.replace(/[ \u00a0\u202f]/g, '');
+			text = decimal ? text.replace(',', '.') : text;
+		} else if (decimal && event.inputType !== 'insertText' && /^-?\d+,\d+$/.test(data)) {
+			text = data.replace(',', '.');
+		}
+		const valid = decimal ? /^-?\d*\.?\d*$/ : /^-?\d*$/;
+		const secondDot = decimal && text === '.' && control.value.includes('.');
+		if (!valid.test(text) || secondDot) {
+			event.preventDefault();
+			refusing(control, !decimal && /[,.]/.test(data) ? WHOLE_NUMBER : BAD_NUMBER);
 			return;
 		}
-		if (!data.includes(',')) {
-			return;
-		}
-		const typed = event.inputType === 'insertText' && data === ',';
-		const pasted = event.inputType !== 'insertText' && /^-?\d+,\d+$/.test(data);
-		event.preventDefault();
-		if (typed || pasted) {
-			const text = typed ? '.' : data.replace(',', '.');
+		clearing(control);
+		if (text !== data) {
+			event.preventDefault();
 			if (typeof doc.execCommand === 'function' && doc.execCommand('insertText', false, text)) {
 				return;
 			}
+			refusing(control, BAD_NUMBER);
 		}
-		refusing(control, BAD_NUMBER);
 	});
 }
