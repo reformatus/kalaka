@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
+use Kalaka\Ledger\RecordCharge;
+use Kalaka\Ledger\RecordDiscount;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Pricing\Api\ConfirmationThreshold;
 use Kalaka\Pricing\Api\ConfirmationThresholdInput;
@@ -370,6 +373,92 @@ final class ConfirmationTest extends ConfirmationTestCase
         $records = $this->confirmations($anna);
         self::assertCount(1, $records);
         self::assertMatchesRegularExpression('/^confirmed 2026-11-30 08:00:\d\d ledger_line$/', $records[0]);
+    }
+
+    /**
+     * @param array<string, mixed> $more
+     */
+    private function recordFee(
+        \Kalaka\Registrations\Api\RegistrationKey $key,
+        bool $discount,
+        string $amount,
+        string $id,
+        array $more = [],
+    ): void {
+        $this->runner->run(
+            $discount ? new RecordDiscount() : new RecordCharge(),
+            [
+                'event_id' => $key->eventId,
+                'code' => $key->code,
+                'amount' => $amount,
+                'currency' => 'HUF',
+                'title' => 'Teszt tétel',
+                'idempotency_key' => $id,
+            ] + $more,
+            new CliActor(null)
+        );
+    }
+
+    /**
+     * money.md, "Confirmation": a payer's target is what the composition says it owes now, manual charges and
+     * discounts included. 30 000 owed, 29 500 paid, then a 500 discount: the payment reaches the lowered target
+     * and the effective time is that payment's value date (the owner's topic 10 ruling, Q7).
+     */
+    public function testADiscountThatLowersTheTargetConfirmsAtThePaymentsValueDate(): void
+    {
+        $this->setPrice('30000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '29500', '2026-11-20');
+        self::assertSame('unconfirmed', $this->confirmationState($anna));
+
+        $this->recordFee($anna, true, '500', 'd1');
+
+        self::assertSame(['confirmed 2026-11-19 23:00:00 ledger_line'], $this->confirmations($anna));
+    }
+
+    /** A charge after confirmation changes nothing (the existing rule). */
+    public function testAManualChargeAfterConfirmationChangesNothing(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '10000', '2026-11-20');
+        $records = $this->confirmations($anna);
+        self::assertCount(1, $records);
+
+        $this->recordFee($anna, false, '3000', 'c1');
+
+        self::assertSame($records, $this->confirmations($anna));
+        self::assertSame('confirmed', $this->confirmationState($anna));
+        self::assertSame('3000', $this->balance($anna));
+    }
+
+    /** A charge marked as completed raises the target and the payments by the same amount: the shortfall stays. */
+    public function testACompletedChargeLeavesTheShortfallWhereItWas(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->payOn($anna, '4000', '2026-11-20');
+
+        $paid = ['completed' => true, 'method' => 'cash', 'value_date' => '2026-11-22'];
+        $this->recordFee($anna, false, '3000', 'c1', $paid);
+
+        self::assertSame([], $this->confirmations($anna));
+        self::assertSame('unconfirmed', $this->confirmationState($anna));
+        self::assertSame('6000', $this->balance($anna));
+    }
+
+    /** A discount that takes the target to zero confirms as "nothing due", completed or not. */
+    public function testADiscountThatTakesTheTargetToZeroConfirmsAsNothingDue(): void
+    {
+        $this->setPrice('1000');
+        $anna = $this->register('00A0');
+        self::assertSame('unconfirmed', $this->confirmationState($anna));
+
+        $paid = ['completed' => true, 'method' => 'cash', 'value_date' => '2026-11-22'];
+        $this->recordFee($anna, true, '1000', 'd1', $paid);
+
+        self::assertSame('confirmed', $this->confirmationState($anna));
+        self::assertCount(1, $this->confirmations($anna));
     }
 
     /** The owner's ruling 2026-11-19: staff may unconfirm only while the payments are below the threshold. */

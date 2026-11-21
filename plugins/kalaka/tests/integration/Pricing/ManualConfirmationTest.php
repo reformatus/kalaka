@@ -35,8 +35,7 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         parent::set_up();
 
         ActionCatalogue::record(new ActionCatalogue([
-            'kalaka_record_payment',
-            'kalaka_record_refund',
+            'kalaka_record_money',
             'kalaka_view_money',
             ManualConfirmations::CONFIRM_MANUALLY,
         ]));
@@ -231,7 +230,7 @@ final class ManualConfirmationTest extends ManualEntryTestCase
             self::assertSame([], $this->flagRows());
         }
 
-        $this->grantOn($user, ['kalaka_record_payment']);
+        $this->grantOn($user, ['kalaka_record_money']);
         $this->expectException(PermissionDenied::class);
         $this->exec(new SetManualConfirmation(), $this->input(), new UserActor($user));
     }
