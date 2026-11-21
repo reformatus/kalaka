@@ -27,8 +27,9 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  * (the counting is the viewer's own, for the session); the abilities `kalaka/save-view` and `kalaka/delete-view` stay.
  *
  * - `GET /events/{id}/views/{view}/rows?grant&page&per_page&orderby&order&filters&search`: one page,
- *   following core's paging (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than
- *   `serial`; `code` is the default order (the ordering time, then the code), ascending or descending.
+ *   following core's paging (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column; `code`
+ *   is the default order (the ordering time, then the code), ascending or descending, and `serial` is a number
+ *   sort that falls back to it.
  *   `filters` (a JSON list of `{field, operator, value}`) and `search` narrow the view's own rows, on listed
  *   columns only (`GridNarrowing`); anything else is a 400.
  * - `GET /events/{id}/views/{view}/sums?grant&counts&filters&search`: the sum row over the whole view, or
@@ -117,9 +118,6 @@ final class GridRoutes
         $perPage = (int) $request->get_param('per_page');
         $orderby = $request->get_param('orderby');
         $sort = is_string($orderby) && $orderby !== '' ? $orderby : null;
-        if ($sort === 'serial') {
-            throw new InvalidInput();
-        }
         $model = new GridModel();
         $fields = (new FieldDefinitions())->of($view->eventId);
         $numeric = $model->numericColumns($view, $fields);

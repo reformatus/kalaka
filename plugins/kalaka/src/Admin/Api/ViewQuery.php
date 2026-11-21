@@ -74,6 +74,9 @@ final class ViewQuery extends Query
      * status, the sorszám, the stored field values and the latest state of each listed decision kind
      * (null where there is none).
      *
+     * `serial` (Szám) sorts by the computed sorszám as a number: it interleaves the statuses, a row with no
+     * sorszám sorts first ascending and last descending, and ties fall back to the default order.
+     *
      * The order is by `$sort`, a listed column (`code`, or null: the sorszám order, which is the ordering
      * time, `registered_at` for `registered` and `created_at` for every other status, then the code), then
      * by the sorszám order and the code. `code` is the default order itself (S37, topic 6a: Kód carries it),
@@ -121,8 +124,19 @@ final class ViewQuery extends Query
         /** @var literal-string $order */
         $order = RegistrationTables::serialOrder('r', $descending);
         $sortArgs = [];
+        $join = '';
+        $joinArgs = [];
         if ($sort === 'status') {
             $order = 'r.status' . $direction . ', ' . $serialOrder;
+        } elseif ($sort === 'serial') {
+            // The computed sorszám as a number; the rows with none (withdrawn, removed) sort first ascending,
+            // and a tie (the same number in `registered` and `waitlisted`) falls back to the default order.
+            [$ranked, $joinArgs] = RegistrationTables::serialNumbers(
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId
+            );
+            $join = ' LEFT JOIN (' . $ranked . ') n ON n.code = r.code';
+            $order = 'n.serial_no' . $direction . ', ' . $serialOrder;
         } elseif ($sort !== null && str_starts_with($sort, 'field:')) {
             $value = '(SELECT s.value FROM %i s WHERE s.event_id = r.event_id AND s.code = r.code'
                 . ' AND s.field_key = %s)';
@@ -148,16 +162,19 @@ final class ViewQuery extends Query
             $conditionArgs,
             $order,
             $sortArgs,
+            $join,
+            $joinArgs,
             $limit,
             $offset,
             $total,
         ): ViewPage {
             $registrations = $this->select(
                 'registration',
-                'SELECT r.code, r.status FROM %i r WHERE r.event_id = %d' . $conditions
+                'SELECT r.code, r.status FROM %i r' . $join . ' WHERE r.event_id = %d' . $conditions
                 . ' ORDER BY ' . $order . ' LIMIT %d OFFSET %d',
                 [
                     $this->table(RegistrationTables::REGISTRATIONS),
+                    ...$joinArgs,
                     $eventId,
                     ...$conditionArgs,
                     ...$sortArgs,

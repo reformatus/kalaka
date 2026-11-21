@@ -90,6 +90,35 @@ export function unansweredField( columns ) {
 	};
 }
 
+/** The pseudo column of the view's own condition: a locked filter, shown as DataViews' own chip. */
+export const CONDITION = 'kg-condition';
+
+/**
+ * The view's own condition as a DataViews field with a locked filter on it (`isLocked` is DataViews' own: a chip
+ * with no remove button that DataViews' reset keeps). The field's name is the condition's text, which is what the
+ * chip shows while the filter has no value. Null for a view with no condition.
+ */
+export function conditionField( condition ) {
+	if ( ! condition ) {
+		return null;
+	}
+	return {
+		id: CONDITION,
+		label: condition.text,
+		type: 'text',
+		elements: [ { value: CONDITION, label: condition.text } ],
+		filterBy: { operators: [ 'isAny' ] },
+		getValue: () => '',
+		render: () => null,
+		enableSorting: false,
+		enableHiding: false,
+	};
+}
+
+/** The locked filter entry a view with a condition carries in its `filters`. */
+export const lockedFilters = ( condition ) =>
+	condition ? [ { field: CONDITION, operator: 'isAny', value: undefined, isLocked: true } ] : [];
+
 const whole = ( x ) => ( Number.isFinite( parseFloat( x ) ) ? Math.trunc( parseFloat( x ) ) : '' );
 
 /**
@@ -121,16 +150,15 @@ function filterOf( filter, column ) {
 /**
  * The filters that narrow and the trimmed search, as the REST takes them.
  *
- * @param {Object}      view    DataViews' view state
- * @param {Array}       columns the tab's columns
- * @param {string|null} search  the search text now typed, when DataViews' debounce has not yet passed it on
+ * @param {Object} view    DataViews' view state
+ * @param {Array}  columns the tab's columns
  */
-export function narrowOf( view, columns, search = null ) {
+export function narrowOf( view, columns ) {
 	const byId = Object.fromEntries( columns.map( ( c ) => [ c.column, c ] ) );
 	const filters = ( view.filters || [] )
 		.map( ( f ) => filterOf( f, byId[ f.field ] ) )
 		.filter( Boolean );
-	return { filters, search: ( search === null ? view.search || '' : search ).trim() };
+	return { filters, search: ( view.search || '' ).trim() };
 }
 
 /** Whether a filter or a search narrows the view. */

@@ -124,8 +124,8 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame(200, $this->rest('GET', '/views')->get_status());
     }
 
-    /** Topic 6a: Kód carries the default order both ways; Szám is not sortable yet. */
-    public function testTheRowsRouteSortsByCodeBothWaysAndRefusesTheSerial(): void
+    /** Topic 6a: Kód carries the default order both ways; Szám is a number sort. */
+    public function testTheRowsRouteSortsByCodeAndBySerialBothWays(): void
     {
         $this->as($this->admin->userId);
 
@@ -139,7 +139,10 @@ final class GridRoutesTest extends GrantTestCase
 
         self::assertSame($default, $up);
         self::assertSame(array_reverse($up), $down);
-        self::assertSame(400, $this->rest('GET', '/views/0/rows', ['orderby' => 'serial'])->get_status());
+        // Szám: the registered rows' numbers 1, 2, 3 and the waitlisted one's 1 interleave, and the tie falls
+        // back to the default order.
+        self::assertSame(['00A0', '00A8', '00A2', '00A5'], $keys(['orderby' => 'serial', 'order' => 'asc']));
+        self::assertSame(['00A5', '00A2', '00A0', '00A8'], $keys(['orderby' => 'serial', 'order' => 'desc']));
     }
 
     /** Topic 6a B1: nobody's counting is stored; full access sends it with the sums read like a grant holder. */

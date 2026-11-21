@@ -1,5 +1,8 @@
 import {
 	answerable,
+	CONDITION,
+	conditionField,
+	lockedFilters,
 	filteredIds,
 	filterSpec,
 	isNarrowed,
@@ -128,12 +131,26 @@ describe( 'what is sent to the server', () => {
 		expect( narrowOf( { filters: [ { field: 'serial', operator: 'between', value: [ '1', '50' ] } ] }, columns ).filters[ 0 ].value ).toEqual( [ 1, 50 ] );
 	} );
 
-	it( 'sends „Nincs válasz” with its columns, and the text typed ahead of the debounce', () => {
-		const view = { filters: [ { field: UNANSWERED, operator: 'isAny', value: [ 'field:note' ] } ], search: '' };
-		expect( narrowOf( view, columns, ' ors ' ) ).toEqual( {
+	it( 'sends „Nincs válasz” with its columns, and the trimmed search', () => {
+		const view = { filters: [ { field: UNANSWERED, operator: 'isAny', value: [ 'field:note' ] } ], search: ' ors ' };
+		expect( narrowOf( view, columns ) ).toEqual( {
 			filters: [ { field: UNANSWERED, operator: 'isAny', value: [ 'field:note' ] } ],
 			search: 'ors',
 		} );
+	} );
+
+	it( 'gives the view\'s own condition as a locked DataViews filter that is never sent', () => {
+		const condition = { text: 'Állapot: Rögzített', terms: 1 };
+		const field = conditionField( condition );
+		// DataViews shows a locked filter with no value as its name: the condition's own text, no „Feltétel” word.
+		expect( field.label ).toBe( 'Állapot: Rögzített' );
+		expect( field.elements.length ).toBeGreaterThan( 0 );
+		expect( conditionField( null ) ).toBeNull();
+		expect( lockedFilters( null ) ).toEqual( [] );
+		const locked = lockedFilters( condition );
+		expect( locked ).toEqual( [ { field: CONDITION, operator: 'isAny', value: undefined, isLocked: true } ] );
+		expect( narrowOf( { filters: locked, search: '' }, columns ) ).toEqual( { filters: [], search: '' } );
+		expect( isNarrowed( narrowOf( { filters: locked, search: '' }, columns ) ) ).toBe( false );
 	} );
 
 	it( 'says whether anything narrows, and which columns are filtered', () => {

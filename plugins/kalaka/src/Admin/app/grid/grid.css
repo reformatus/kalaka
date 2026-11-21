@@ -2,7 +2,7 @@
 .kalaka-grid-wrap { max-width: none; }
 .kg-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-variant-ligatures: none; letter-spacing: 0.02em; text-decoration: none; border-bottom: 0; }
 
-/* Above the table: the tab row, then the one toolbar row. */
+/* Above the table: the tab row. */
 .kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .kg-tabrow { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid #c3c4c7; min-width: 0; }
 .kg-tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; }
@@ -11,27 +11,14 @@
 .kg-tabs .nav-tab, .kg-tabs-measure .nav-tab { float: none; margin-left: 0; margin-right: 6px; flex: none; }
 .kg-tabs .nav-tab { margin-bottom: -1px; }
 .kg-tabs .kg-more-toggle { cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.71428571; }
-
-/* One toolbar row (owner's walk, topic 6a G4): search, a separator, the filters with the add-filter always
-   present, the reset, then a big space and the actions on the right. */
-.kg-bulkbar { display: flex; align-items: center; gap: 8px; min-height: 32px; flex-wrap: wrap; }
+.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px 0; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.kg-sep { width: 1px; align-self: stretch; min-height: 24px; background: #dcdcde; }
 .kg-spacer { flex: 1 1 auto; }
-.kg-filterslot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
-.kg-copy-msg { color: #50575e; }
-.kg-searchslot { display: flex; align-items: center; }
-.kg-search { display: flex; align-items: center; gap: 4px; }
-.kg-search .dataviews-search { width: 240px; max-width: 100%; }
-.kg-chips:empty { display: none; }
-.kg-chips .dataviews-filters__summary { padding: 0; }
-.kg-addfilter-list { display: grid; gap: 2px; padding: 4px; min-width: 200px; }
-.kg-addfilter-list .components-menu-item__button { width: 100%; text-align: left; }
-/* The view's own condition: a locked, unremovable chip in the filter area (topic 6a G3). */
-.kg-lockchip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px dashed #8c8f94; border-radius: 2px; color: #50575e; background: #f6f7f7; font-size: 12px; white-space: nowrap; }
-.kg-lockchip .dashicons { font-size: 14px; width: 14px; height: 14px; }
-@media (max-width: 600px) { .kg-searchslot { flex: 1 1 100%; } .kg-search .dataviews-search { width: 100%; flex: 1; } .kg-sep { display: none; } }
-
+.kg-bulkbar .dataviews-search { width: 240px; max-width: 100%; }
+.kg-filters { flex: 0 1 auto; min-width: 0; }
+/* The view's own condition is DataViews' locked chip; the padlock is the one addition. */
+.kg-bulkbar .dataviews-filters__summary-chip.is-not-clickable::before { font-family: dashicons; content: "\f160"; font-size: 14px; width: 14px; height: 14px; margin-right: 4px; line-height: 1; }
+@media (max-width: 600px) { .kg-bulkbar .dataviews-search { width: 100%; flex: 1 1 100%; } }
 .kg-dv-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
 .kg-dv-foot .kg-perpage { margin-right: auto; }
 .kg-perpage select { min-width: 72px; }
@@ -49,19 +36,12 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .kg-dv-foot { flex: none; padding: 8px 0; }
 @media (max-width: 600px) { .kg-above { margin-top: 4px; } }
 
-/* DataViews' own popups: the calendar's month and weekdays are not capitalized as DataViews does; the operator picker keeps its width. */
-.dataviews-filters__summary-popover [class*="__caption-label"] { text-transform: none; }
-.dataviews-filters__summary-popover th[class*="__weekday"] { text-transform: none; }
-.dataviews-filters__summary-operators-container .dataviews-filters__summary-operators-filter-select { flex: none; }
-.dataviews-filters__summary-operators-container .dataviews-filters__summary-operators-filter-select [role="combobox"] { min-width: max-content !important; }
-.dataviews-filters__summary-operators-container .dataviews-filters__summary-operators-filter-name { flex: 1 1 auto; min-width: 0; white-space: normal; }
-
-/* The hint under the Sorszám range, inside DataViews' filter popover. */
-.dataviews-filters__summary-popover .kg-hint { margin: 0; color: #50575e; font-size: 12px; }
-
-/* The table's own empty texts. */
+/* The table's own empty texts and a failed load. */
 .kg-load-fail { margin: 0; color: #d63638; }
 .kg-no-match { margin: 0; }
+
+/* The hint under the Szám range, inside DataViews' filter popover. */
+.dataviews-filters__summary-popover .kg-hint { margin: 0; color: #50575e; font-size: 12px; }
 
 /* Status and decisions. */
 .kg-mark { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
@@ -74,9 +54,11 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
    underline and the open row's own highlight are #217's. [UNAPPROVED N24] */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
 
-/* An inactive registration (waitlisted, withdrawn, removed) looks disabled; it still opens (S38).
-   Muted text, not opacity, so the row keeps at least 4.5:1 contrast. [UNAPPROVED N25] */
-#kalaka-grid tbody tr.dataviews-view-table__row:has(.kg-inactive) > td { color: #646970; }
+/* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
+   DataViews' own table text is already its muted token, so the dimming is the contrast: an active row's text
+   takes the stronger token, an inactive row keeps the muted one (at least 4.5:1, no opacity). [UNAPPROVED N25] */
+#kalaka-grid .kg-active { color: var(--wpds-color-foreground-content-neutral, #1e1e1e); }
+#kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-content-neutral-weak, #707070); }
 
 /* A long field is one line, cut with „…”. */
 .kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -90,7 +72,6 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-serial),
 #kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-code) { min-width: 0; }
 #kalaka-grid .kg-serial { font-variant-numeric: tabular-nums; }
-#kalaka-grid th:has(.kg-hd[data-col="serial"]), #kalaka-grid th:has(.kg-hd[data-col="code"]), #kalaka-grid td:has(.kg-serial), #kalaka-grid td:has(.kg-code) { width: 1px; white-space: nowrap; }
 
 /* The sum row inside DataViews' <thead>. */
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
@@ -98,12 +79,11 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
 .kg-sumtd .kg-sumopen { vertical-align: middle; }
 
+/* The snackbar of the copy result, at the bottom of the window. */
+.kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
+.kg-grid-snacks .components-snackbar-list { position: static; }
+
 /* While filtered or searched: the sums follow the filter (italics), and a filtered column's header is shaded
-   with the neutral surface token, which is the same in every admin colour scheme. */
+   with the neutral surface token. */
 #kalaka-grid thead tr.kg-sumtr.is-narrowed td { font-style: italic; }
 #kalaka-grid thead th:has(.kg-hd.is-filtered) { background-color: var(--wpds-color-background-surface-neutral-weak, #f0f0f1); }
-
-/* The counting choices, inside a column's own header menu (owner's walk, topic 6a G10). */
-.kg-countbox { padding: 8px 12px 10px; border-top: 1px solid #dcdcde; display: grid; gap: 6px; }
-.kg-countbox-title { margin: 0; font-weight: 600; }
-.kg-countbox-note { margin: 0; color: #50575e; max-width: 220px; }
