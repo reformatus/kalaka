@@ -11,6 +11,7 @@ use Kalaka\Ledger\BalanceQuery;
 use Kalaka\Ledger\ChargeTotalQuery;
 use Kalaka\Ledger\LedgerLineRepository;
 use Kalaka\Ledger\LineListQuery;
+use Kalaka\Ledger\ManualFeeRepository;
 use Kalaka\Ledger\PaymentNote;
 use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Ledger\PaymentFactQuery;
@@ -23,9 +24,14 @@ final class Ledger
     /** The per-event action that lets a grant holder see the money of the registrations of its view. */
     public const VIEW_MONEY = 'kalaka_view_money';
 
-    public const RECORD_PAYMENT = 'kalaka_record_payment';
-
-    public const RECORD_REFUND = 'kalaka_record_refund';
+    /**
+     * The per-event action of every manual money entry: a payment, a refund, a correction, a manual charge or
+     * a manual discount (money.md, "Recording payments by hand"). It includes `VIEW_MONEY`. Its label, for
+     * the grant editor, is „Pénzügyi tételek rögzítése” and its description „Befizetés, visszafizetés,
+     * korrekció, díj vagy kedvezmény kézi rögzítése egy jelentkezőnél.” [UNAPPROVED T22]; no action-label
+     * registry exists yet, so no code renders them.
+     */
+    public const RECORD_MONEY = 'kalaka_record_money';
 
     public function __construct(
         private readonly LedgerLineRepository $lines = new LedgerLineRepository(),
@@ -35,6 +41,7 @@ final class Ledger
         private readonly ChargeTotalQuery $charges = new ChargeTotalQuery(),
         private readonly PaymentNoteRepository $notes = new PaymentNoteRepository(),
         private readonly LineListQuery $listing = new LineListQuery(),
+        private readonly ManualFeeRepository $fees = new ManualFeeRepository(),
     ) {
     }
 
@@ -95,6 +102,101 @@ final class Ledger
     }
 
     /**
+     * Appends a manual charge or discount (the fact the `manual` fee component composes), or returns the stored
+     * entry when the registration already holds the same one under the key; `RecordedManualFee::$inserted` tells
+     * which. The same key with another entry is an error. A stored entry whose title was erased compares as
+     * no title. The run must hold the registration's row lock. Writing it marks the registration touched, so
+     * the evaluation of the same run composes it into a `charge` line.
+     *
+     * @throws SystemFailure when the run does not hold the registration, the entry breaks a rule, the key
+     *                       holds a different entry, or the insert fails
+     */
+    public function recordManualFee(ManualFee $fee, Context $context): RecordedManualFee
+    {
+        if (!$context->holdsRegistration($fee->registration)) {
+            $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
+            throw $error;
+        }
+        $title = $fee->title === null ? null : trim($fee->title);
+        $problem = match (true) {
+            !$fee->amount->isPositive() => 'The amount is not positive.',
+            !Payer::isValid($fee->payer) => 'The payer is not a payer-kind ID.',
+            preg_match('/\A[a-z0-9_:.-]{1,128}\z/', $fee->idempotencyKey) !== 1 => 'The key is malformed.',
+            $title === null || $title === '' => 'A manual fee needs its title.',
+            !mb_check_encoding($title, 'UTF-8') || mb_strlen($title, 'UTF-8') > 191
+                => 'The title is not 1 to 191 characters.',
+            default => null,
+        };
+        if ($problem !== null) {
+            $error = new SystemFailure(null, new \LogicException($problem));
+            throw $error;
+        }
+
+        $stored = $this->fees->findByKey($fee->registration, $fee->idempotencyKey);
+        if ($stored !== null) {
+            if (!self::isSameFee($stored, $fee, $title)) {
+                $error = new SystemFailure(null, new \LogicException('The idempotency key holds a different entry.'));
+                throw $error;
+            }
+
+            return new RecordedManualFee($stored, false);
+        }
+
+        return new RecordedManualFee(
+            $this->fees->upsert(
+                new ManualFee(
+                    0,
+                    $fee->registration,
+                    $fee->type,
+                    $fee->payer,
+                    $fee->amount,
+                    $title,
+                    $fee->idempotencyKey,
+                    $fee->recordedBy,
+                    $context->now(),
+                ),
+                $context
+            ),
+            true
+        );
+    }
+
+    /**
+     * Whether the registration already holds a different manual fee under the key, which `recordManualFee()`
+     * would refuse as a failure: for a caller that refuses a person's reused key with an `IdempotencyConflict`
+     * first. A plain read; false for a new key and for the same entry again.
+     */
+    public function keyHoldsDifferentFee(ManualFee $fee): bool
+    {
+        $stored = $this->fees->findByKey($fee->registration, $fee->idempotencyKey);
+
+        return $stored !== null && !self::isSameFee($stored, $fee, $fee->title === null ? null : trim($fee->title));
+    }
+
+    /** The manual fee the registration holds under the key, if any. A plain read. */
+    public function manualFeeUnderKey(RegistrationKey $registration, string $idempotencyKey): ?ManualFee
+    {
+        return $this->fees->findByKey($registration, $idempotencyKey);
+    }
+
+    /** Whether the registration holds a ledger line under the key. A plain read. */
+    public function holdsLineKey(RegistrationKey $registration, string $idempotencyKey): bool
+    {
+        return $this->lines->findByKey($registration, $idempotencyKey) !== null;
+    }
+
+    /**
+     * The registration's manual fees, oldest first: a fact read, never a line read, for the `manual` fee
+     * component. A plain read, without a lock.
+     *
+     * @return list<ManualFee>
+     */
+    public function manualFeesOf(RegistrationKey $registration): array
+    {
+        return $this->fees->forRegistration($registration);
+    }
+
+    /**
      * The registration's lines for display, newest first, each with its note. A plain read, without a lock,
      * of one statement; rules never read it.
      *
@@ -106,9 +208,9 @@ final class Ledger
     }
 
     /**
-     * Erases the registration's notes: the free text of its manual lines, which a privacy erase must reach
-     * (the lines themselves are kept). The run must hold the registration's row lock. Returns how many it
-     * erased. No erase use case exists yet; it calls this when it is built.
+     * Erases the registration's notes and manual fee titles: the free text of its manual entries, which a
+     * privacy erase must reach (the lines themselves are kept). The run must hold the registration's row lock.
+     * Returns how many it erased. No erase use case exists yet; it calls this when it is built.
      *
      * @throws SystemFailure when the run does not hold the registration
      */
@@ -122,8 +224,17 @@ final class Ledger
         foreach ($notes as $note) {
             $this->notes->delete($note, $context);
         }
+        // The title of a manual fee is free text too: the fact and its line stay, only the words go.
+        $erased = count($notes);
+        foreach ($this->fees->forRegistration($registration, $context) as $fee) {
+            if ($fee->title !== null) {
+                $fee->title = null;
+                $this->fees->upsert($fee, $context);
+                ++$erased;
+            }
+        }
 
-        return count($notes);
+        return $erased;
     }
 
     private function noteOf(LedgerLine $stored): ?string
@@ -252,6 +363,14 @@ final class Ledger
             && self::instant($stored->paidAt) === self::instant($line->paidAt)
             && $stored->method === $line->method
             && $stored->correction === $line->correction;
+    }
+
+    private static function isSameFee(ManualFee $stored, ManualFee $fee, ?string $title): bool
+    {
+        return $stored->type === $fee->type
+            && $stored->payer === $fee->payer
+            && $stored->amount->isEqualTo($fee->amount)
+            && ($stored->title === null || $stored->title === $title);
     }
 
     private static function instant(?\DateTimeImmutable $time): ?string

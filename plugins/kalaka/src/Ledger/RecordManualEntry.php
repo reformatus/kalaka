@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Ledger;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Foundation\Api\Actor\Actor;
-use Kalaka\Foundation\Api\Actor\CliActor;
-use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
-use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\IdempotencyConflict;
@@ -38,9 +34,6 @@ use Kalaka\Registrations\Api\Registrations;
  */
 abstract class RecordManualEntry implements AdminUseCase
 {
-    /** The longest caller key: the stored key is `manual:` and the caller's. */
-    private const KEY_PATTERN = '^[a-z0-9_:.-]{1,100}\\z';
-
     public function __construct(
         private readonly Ledger $ledger = new Ledger(),
         private readonly Events $events = new Events(),
@@ -95,14 +88,7 @@ abstract class RecordManualEntry implements AdminUseCase
     public function inputSchema(): array
     {
         $correction = $this->isCorrection();
-        $entry = [
-            'method' => ['type' => 'string', 'enum' => array_map(
-                static fn (PaymentMethod $method): string => $method->value,
-                PaymentMethod::cases()
-            )],
-            'value_date' => ['type' => 'string', 'pattern' => '^[0-9]{4}-[0-9]{2}-[0-9]{2}\\z'],
-            'note' => ['type' => 'string', 'maxLength' => 500],
-        ];
+        $entry = ManualEntryParts::entrySchema();
 
         return [
             'type' => 'object',
@@ -117,7 +103,7 @@ abstract class RecordManualEntry implements AdminUseCase
                 'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?\\z'],
                 'currency' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 3],
                 ...($correction ? [] : $entry),
-                'idempotency_key' => ['type' => 'string', 'pattern' => self::KEY_PATTERN],
+                'idempotency_key' => ['type' => 'string', 'pattern' => ManualEntryParts::KEY_PATTERN],
                 ...$this->extraProperties(),
             ],
             'required' => ['event_id', 'code', 'amount', 'currency', 'idempotency_key', ...($correction
@@ -153,7 +139,8 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new InvalidInput();
         }
         $amount = Money::of((string) $input['amount'], $currency);
-        if (!$amount->isPositive() || self::decimals((string) $input['amount']) > $currency->minorUnitDecimals()) {
+        $decimals = ManualEntryParts::decimals((string) $input['amount']);
+        if (!$amount->isPositive() || $decimals > $currency->minorUnitDecimals()) {
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
@@ -173,8 +160,7 @@ abstract class RecordManualEntry implements AdminUseCase
                 throw new InvalidInput();
             }
             $valueDate = (string) $input['value_date'];
-            $today = $context->now()->setTimezone(wp_timezone())->format('Y-m-d');
-            if (Instant::startOfDay($valueDate) === null || $valueDate > $today) {
+            if (!ManualEntryParts::isPastDay($valueDate, $context->now())) {
                 throw new InvalidInput();
             }
         }
@@ -192,7 +178,7 @@ abstract class RecordManualEntry implements AdminUseCase
             $kind,
             $payer,
             $this->movesMoneyIn($input) ? $amount->negated() : $amount,
-            self::sourceOf($context->actor()),
+            ManualEntryParts::sourceOf($context->actor()),
             'manual:' . $input['idempotency_key'],
             $valueDate,
             null,
@@ -225,24 +211,5 @@ abstract class RecordManualEntry implements AdminUseCase
         }
 
         return ['id' => $recorded->line->id];
-    }
-
-    /** Who recorded it, as the line's source: the WordPress user, or the system for a run without one. */
-    private static function sourceOf(Actor $actor): Subject
-    {
-        $userId = $actor instanceof UserActor || $actor instanceof CliActor ? $actor->userId : null;
-
-        if ($userId === null) {
-            return new Subject('system', null, 'system');
-        }
-
-        return new Subject('wp_user', null, (string) $userId);
-    }
-
-    private static function decimals(string $amount): int
-    {
-        $point = strpos($amount, '.');
-
-        return $point === false ? 0 : strlen(rtrim(substr($amount, $point + 1), '0'));
     }
 }

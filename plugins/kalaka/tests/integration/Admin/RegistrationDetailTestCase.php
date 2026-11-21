@@ -130,6 +130,28 @@ abstract class RegistrationDetailTestCase extends FormsTestCase
         return (int) $wpdb->insert_id;
     }
 
+    /** Appends one manual fee fact (a manual charge or discount) and returns its ID. */
+    protected function addManualFee(string $type, string $title, string $key, ?int $recordedBy): int
+    {
+        $this->insert('kalaka_manual_fees', [
+            'event_id' => $this->event,
+            'code' => '00A0',
+            'type' => $type,
+            'payer' => 'participant',
+            'amount' => '3000',
+            'currency' => 'HUF',
+            'title' => $title,
+            'idempotency_key' => $key,
+            'recorded_by' => $recordedBy,
+            'recorded_at' => '2026-11-30 08:00:00.000000',
+            'version' => 1,
+        ]);
+
+        global $wpdb;
+
+        return (int) $wpdb->insert_id;
+    }
+
     protected function addNote(int $lineId, string $note): void
     {
         $this->insert('kalaka_payment_notes', [

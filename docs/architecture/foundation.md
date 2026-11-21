@@ -93,8 +93,8 @@ reached; the grant defines who holds the view.**
     (`wp kalaka full-access grant|revoke`), both through audited use cases.
     The last holder cannot lose it. On multisite, super admins pass every
     check.
-- **Actions that are not a column** (withdraw, remove, admit, record payment,
-  view money, refund, regenerate link, notes, audit history) are carried by
+- **Actions that are not a column** (withdraw, remove, admit, record money,
+  view money, regenerate link, notes, audit history) are carried by
   the grant, not by WordPress roles. An action is usable only on registrations
   inside the filter of the same grant's view. Modules declare the actions they
   offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant

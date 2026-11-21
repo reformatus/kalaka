@@ -57,6 +57,32 @@ CREATE TABLE {prefix}kalaka_payment_notes (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * money.md, "Recording payments by hand": a manual charge or discount („Díj”, „Kedvezmény”) is a fact, one
+     * row per entry, composed by the core `manual` fee component. The amount is typed positive and `type` gives
+     * the sign. `title` is free text the registrant sees: erasure sets it to NULL, the only update a row takes.
+     * No method, no date, no internal note.
+     */
+    private const MANUAL_FEES = <<<'SQL'
+CREATE TABLE {prefix}kalaka_manual_fees (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  type varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  payer varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  amount decimal(26,8) NOT NULL,
+  currency char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  title varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
+  idempotency_key varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  recorded_by bigint(20) unsigned DEFAULT NULL,
+  recorded_at datetime(6) NOT NULL,
+  version int(10) unsigned NOT NULL,
+  PRIMARY KEY  (id),
+  UNIQUE KEY idempotency_key (event_id,code,idempotency_key),
+  KEY registration (event_id,code,id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'ledger';
@@ -69,17 +95,17 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::LEDGER_LINES, self::PAYMENT_NOTES]);
+        return new Schema(4, [self::LEDGER_LINES, self::PAYMENT_NOTES, self::MANUAL_FEES]);
     }
 
     /**
-     * The per-event actions grants may carry (foundation.md, "Views and grants").
+     * The per-event actions grants may carry (foundation.md, "Views and grants"): recording money of any kind is
+     * one action, `kalaka_record_money`.
      */
     public function capabilities(): array
     {
         return [
-            Ledger::RECORD_PAYMENT,
-            Ledger::RECORD_REFUND,
+            Ledger::RECORD_MONEY,
             Ledger::VIEW_MONEY,
         ];
     }
@@ -102,6 +128,17 @@ SQL;
             new RecordCorrection(),
             'Korrekció rögzítése',
             'Egy jelentkező befizetett összegének kézi növelése vagy csökkentése, indoklással.'
+        );
+        // [UNAPPROVED T20, T21] the lektor's wording of 2026-11-21.
+        Abilities::register(
+            new RecordCharge(),
+            'Díj rögzítése',
+            'Egy jelentkező fizetendő összegének kézi növelése, megnevezéssel.'
+        );
+        Abilities::register(
+            new RecordDiscount(),
+            'Kedvezmény rögzítése',
+            'Egy jelentkező fizetendő összegének kézi csökkentése, megnevezéssel.'
         );
     }
 }

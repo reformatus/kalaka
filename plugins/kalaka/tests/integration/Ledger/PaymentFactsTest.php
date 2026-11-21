@@ -17,7 +17,6 @@ final class PaymentFactsTest extends LedgerTestCase
         $registration = $this->registration();
         $stored = $this->record(
             $this->line($registration, LineKind::Charge, '48000', 'k1'),
-            $this->line($registration, LineKind::Adjustment, '-100', 'k2'),
             $this->line($registration, LineKind::ManualPayment, '-20000', 'k3', '2026-12-03'),
             $this->line($registration, LineKind::Payment, '-10000', 'k4', null, '2026-12-01 10:00:00'),
             $this->line($registration, LineKind::Refund, '500', 'k5', null, '2026-12-03 09:00:00'),
@@ -27,7 +26,7 @@ final class PaymentFactsTest extends LedgerTestCase
         $facts = $this->ledger->paymentFactsOf($registration);
 
         self::assertSame(
-            [$stored[3]->id, $stored[5]->id, $stored[2]->id, $stored[4]->id],
+            [$stored[2]->id, $stored[4]->id, $stored[1]->id, $stored[3]->id],
             array_map(static fn (PaymentFact $fact): int => $fact->id, $facts)
         );
         self::assertSame(
@@ -85,7 +84,6 @@ final class PaymentFactsTest extends LedgerTestCase
         self::assertSame(['manual_payment', 'manual_refund', 'payment', 'refund'], $expected);
         self::assertSame($expected, $kinds);
         self::assertNotContains(LineKind::Charge->value, $kinds);
-        self::assertNotContains(LineKind::Adjustment->value, $kinds);
     }
 
     public function testFactsOfTheSameInstantComeInTheOrderOfTheirIds(): void

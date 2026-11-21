@@ -144,7 +144,7 @@ final class RecordCorrectionTest extends ManualEntryTestCase
     public function testItIsMoneyWriteAndTheRefundActionDoesNotCarryIt(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_refund']);
+        $this->grantOn($user, ['kalaka_view_money']);
 
         try {
             $this->exec(new RecordCorrection(), $this->correction(), new UserActor($user));
@@ -154,7 +154,7 @@ final class RecordCorrectionTest extends ManualEntryTestCase
         }
 
         $writer = $this->plainUser();
-        $this->grantOn($writer, ['kalaka_record_payment']);
+        $this->grantOn($writer, ['kalaka_record_money']);
         $this->exec(new RecordCorrection(), $this->correction(), new UserActor($writer));
         self::assertCount(1, $this->lines());
     }

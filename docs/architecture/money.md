@@ -6,8 +6,8 @@ title: Money
 
 ## Core money scope
 
-- **Core:** a fixed price per registration and full payment, with its
-  **payment due** date type. Core ships no money field types.
+- **Core:** a fixed price per registration, full payment and manual charges
+  and discounts, with its **payment due** date type. Core ships no money field types.
 - **Payment due** is N days after the registration last became `registered`
   (at submit, admission or restore); N is configured per event (IVK: 7
   days). A registration admitted from the waitlist counts from its
@@ -67,6 +67,11 @@ title: Money
 - **Sign convention:** a positive amount increases what the payer owes; a
   negative amount decreases it. A balance is the sum of lines; above zero is
   due, below zero is overpaid.
+- **Two sides:** every line kind, extension kinds included, declares one
+  side: owed (what the payer has to pay: charges, manual charges and
+  discounts, later support and the share pair) or paid (money that moved:
+  payments, refunds, corrections). Each payer's owed total, paid total and
+  balance (owed minus paid) come from the lines.
 - **Lines are append-only.** Every change is a new, explained line with a
   source reference and an idempotency key.
 - **An invoice shows every line that makes up its total, and the lines add
@@ -76,15 +81,14 @@ title: Money
 - **Ledger lines and decision records survive erasure**
   ([Registrations](registrations-and-identity.md#attribution-and-erasure)).
 
-| Kind | Sign | Written by |
-|---|---|---|
-| `charge`, per fee component (the fixed price; plugin components such as a late fee or a staff discount) | ± | the materializer |
-| `payment` (online or another automatic method) | − | Payments, from payment-method events |
-| `refund` | + | Payments, from payment-method events |
-| `manual_payment` (bank transfer, cash, card terminal) | − | the "record payment" use case |
-| `manual_refund` (money returned by any recorded payment method) | + | the "record refund" use case |
-| `adjustment` (correction with a reason) | ± | an admin use case |
-| feature lines (the wallet, deferred) | ± | feature plugins, through an extension point |
+| Kind | Side | Sign | Written by |
+|---|---|---|---|
+| `charge`, per fee component and item (the fixed price; each manual charge or discount; plugin components such as a late fee or a staff discount) | owed | ± | the materializer |
+| `payment` (online or another automatic method) | paid | − | Payments, from payment-method events |
+| `refund` | paid | + | Payments, from payment-method events |
+| `manual_payment` (bank transfer, cash, card terminal) | paid | − | the "record payment" use case, or "record charge" marked as completed |
+| `manual_refund` (money returned by any recorded payment method) | paid | + | the "record refund" use case, or "record discount" marked as completed |
+| feature lines (the wallet, deferred) | declared by the kind | ± | feature plugins, through an extension point |
 
 ## Recording payments by hand
 
@@ -92,6 +96,18 @@ title: Money
   registration desk. One action records **one registration, one payer and one
   amount**, with the method, the value date and an optional bank reference or
   payer note (free text). It writes one `manual_payment` line.
+- **One permission, "record money",** covers recording payments, refunds,
+  corrections, manual charges and manual discounts.
+- **A manual charge or discount** („Díj”, „Kedvezmény”) is a fact: one
+  `registered` registration, one payer, a positive amount and a required
+  title the registrant sees; the type gives the sign. A core fee component of
+  the extras stage turns each into its own `charge` line, so it counts like
+  any fee: in confirmation, retention and the money settings preview. It has
+  no method and no date. **Marked as completed,** the same act also records
+  the payment (for a charge) or the refund (for a discount) of the same
+  amount, with its method, value date and an optional comment, as a second
+  entry. The two are plain entries with no link between them, and the
+  payment is never a correction.
 - **The value date is entered as a day.** It is stored as the instant
   00:00 of that day in the site time zone, fixed when the line is
   recorded. A payment with that value date therefore counts as before a
@@ -104,9 +120,10 @@ title: Money
   no value date**: it counts from the time it is recorded. It is a payment
   fact like any recorded payment, so confirmation and balances count it with no
   special case. One use case records it, under the same action as "record
-  payment".
+  payment". Its reason stays internal; the registrant sees only the sum of
+  corrections.
 - **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
-  arrived; the rest stays due until waived with an `adjustment` and a reason.
+  arrived; the rest stays due until waived with a manual discount.
 - **An unnamed transfer** is found through a view (name, code, amount) and
   recorded there. Core has no holding area for unassigned money.
 - **Invoicing is by hand.** Kaláka offers views that show the bookkeeper what
@@ -124,8 +141,10 @@ title: Money
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every
   amount, it follows the event's current settings
-  ([Money settings apply](#money-settings-apply)). Confirmation reads payment
-  facts, never charge lines.
+  ([Money settings apply](#money-settings-apply)). A payer's target is what
+  the fee composition says it owes now, manual charges and discounts
+  included; **nothing is due** when every payer's target is zero or below.
+  Confirmation reads payment facts, never charge lines.
 - **"The congregation part is required for confirmation"** is a per-event
   switch, on by default. Off, only the participant's target counts.
 - **The manual flag** ("may come without paying") is a fact: set with a
@@ -163,7 +182,7 @@ only at the participant's side.
   entered days later. The
   materializer reverses the charge. There is no grace-period setting.
 - **A manual flag set after the deadline** does not remove the fee; admins who
-  want to drop it revert the charge with a line.
+  want to drop it record a manual discount.
 - **Charged only on tiers that have it enabled** (a per-tier setting). At
   REFISZ the normal and discounted tiers pay it; higher tiers have paid it in
   advance. It is never charged on staff registrations.
@@ -291,7 +310,6 @@ such as lunch or a donation.
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
   one converges on its next evaluation, since the settings are saved.
-  `adjustment` lines stay for manual corrections with a reason.
 
 ## Materializer
 
@@ -314,7 +332,7 @@ flowchart LR
   numbers. Aid comes out of the participant's part only and never reduces
   the congregation's share.
 - **It converges:** it writes only the difference between target and
-  recorded, per component and payer, so it can run any number of times, with
+  recorded, per component, item and payer, so it can run any number of times, with
   line idempotency keys.
 - **Changes caused by an action** are materialized by the evaluation inside
   that action ([Foundation](foundation.md#evaluation)). **Changes caused by

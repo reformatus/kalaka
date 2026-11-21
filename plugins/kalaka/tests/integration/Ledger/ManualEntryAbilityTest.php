@@ -96,7 +96,7 @@ final class ManualEntryAbilityTest extends ManualEntryTestCase
     public function testAGrantHolderPassesTheGateAndTheRunnersCheckDecides(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_payment']);
+        $this->grantOn($user, ['kalaka_record_money']);
         wp_set_current_user($user);
         Access::forget();
 
@@ -104,11 +104,19 @@ final class ManualEntryAbilityTest extends ManualEntryTestCase
         self::assertIsArray($this->ability('kalaka/record-payment')->execute($this->paymentInput()));
         self::assertCount(1, $this->lines());
 
-        // The payment action does not carry the refund: the runner refuses it.
-        $refused = $this->ability('kalaka/record-refund')->execute($this->paymentInput(['idempotency_key' => 'r1']));
+        // One money action carries the refund too; a grant of the view action alone does not.
+        $refund = $this->ability('kalaka/record-refund')->execute($this->paymentInput(['idempotency_key' => 'r1']));
+        self::assertIsArray($refund);
+        self::assertCount(2, $this->lines());
+
+        $viewer = $this->plainUser();
+        $this->grantOn($viewer, ['kalaka_view_money']);
+        wp_set_current_user($viewer);
+        Access::forget();
+        $refused = $this->ability('kalaka/record-refund')->execute($this->paymentInput(['idempotency_key' => 'r2']));
         self::assertInstanceOf(\WP_Error::class, $refused);
         self::assertSame(403, $refused->get_error_data()['status'] ?? null);
-        self::assertCount(1, $this->lines());
+        self::assertCount(2, $this->lines());
     }
 
     public function testAUserWithoutAGrantNeverReachesTheRunner(): void

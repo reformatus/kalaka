@@ -12,7 +12,7 @@ use Kalaka\Ledger\Api\LineKind;
  * correction, with a required reason, no method and no value date; it counts from the time it is recorded.
  * `direction` `in` is a `manual_payment` (money in, below zero), `out` a `manual_refund` (money out, above
  * zero); `amount` is positive. As a payment fact it counts toward confirmation and the balances like any
- * recorded payment. Carried by the per-event action `kalaka_record_payment` (money-write). Returns the
+ * recorded payment. Carried by the per-event action `kalaka_record_money`. Returns the
  * line's `id`.
  */
 final class RecordCorrection extends RecordManualEntry
@@ -24,7 +24,7 @@ final class RecordCorrection extends RecordManualEntry
 
     public function action(): string
     {
-        return Ledger::RECORD_PAYMENT;
+        return Ledger::RECORD_MONEY;
     }
 
     protected function isCorrection(): bool

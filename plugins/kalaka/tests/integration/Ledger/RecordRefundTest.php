@@ -131,19 +131,19 @@ final class RecordRefundTest extends ManualEntryTestCase
         }
     }
 
-    public function testThePaymentActionDoesNotCarryTheRefund(): void
+    public function testTheViewActionDoesNotCarryTheRefund(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_payment']);
+        $this->grantOn($user, ['kalaka_view_money']);
 
         $this->expectException(PermissionDenied::class);
         $this->exec(new RecordRefund(), $this->paymentInput(), new UserActor($user));
     }
 
-    public function testTheRefundActionRecordsInsideItsView(): void
+    public function testTheMoneyActionRecordsARefundInsideItsView(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_refund']);
+        $this->grantOn($user, ['kalaka_record_money']);
 
         $this->exec(new RecordRefund(), $this->paymentInput(), new UserActor($user));
 

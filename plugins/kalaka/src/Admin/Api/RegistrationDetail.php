@@ -17,7 +17,10 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
+use Kalaka\Ledger\Api\Side;
 use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\Pricing\Api\LineName;
+use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -37,6 +40,7 @@ final class RegistrationDetail
         private readonly Decisions $decisions = new Decisions(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly PayerKinds $payerKinds = new PayerKinds(),
+        private readonly LineNames $lineNames = new LineNames(),
     ) {
     }
 
@@ -87,10 +91,10 @@ final class RegistrationDetail
             return false;
         };
         // The owner's ruling 2026-11-18: money-write includes money-view.
-        $record = $carried(Ledger::RECORD_PAYMENT);
-        $refund = $carried(Ledger::RECORD_REFUND);
-        $viewMoney = $carried(Ledger::VIEW_MONEY) || $record || $refund;
-        // [UNAPPROVED Shapes] a correction is money-write: the same action as recording a payment.
+        $record = $carried(Ledger::RECORD_MONEY);
+        $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
+        // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
+        // and a manual discount.
 
         $read = [
             'registration' => $this->registrationPart($registration),
@@ -99,9 +103,7 @@ final class RegistrationDetail
         if ($viewMoney) {
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
-        $read['can'] = ['view_money' => $viewMoney, 'record_payment' => $record, 'record_refund' => $refund,
-            'record_correction' => $record,
-        ];
+        $read['can'] = ['view_money' => $viewMoney, 'record_money' => $record];
 
         return $read;
     }
@@ -253,7 +255,15 @@ final class RegistrationDetail
             ];
         }
 
-        $names = $this->userNames($entries);
+        // The owed lines are named from their source: the fixed price, a manual charge or discount.
+        $owedSources = [];
+        foreach ($entries as $entry) {
+            if ($entry->kind->side() === Side::Owed) {
+                $owedSources[] = $entry->source;
+            }
+        }
+        $lineNames = $owedSources === [] ? [] : $this->lineNames->of($key, $owedSources);
+        $names = $this->userNames($entries, $lineNames);
 
         return [
             'currency' => $currency,
@@ -263,7 +273,7 @@ final class RegistrationDetail
                 'paid' => $paid->amount(),
                 'balance' => $charged->minus($paid)->amount(),
             ],
-            'lines' => array_map(fn (LedgerEntry $entry): array => $this->line($entry, $names), $entries),
+            'lines' => array_map(fn (LedgerEntry $entry): array => $this->line($entry, $names, $lineNames), $entries),
             'methods' => array_map(
                 static fn (PaymentMethod $method): array => ['value' => $method->value, 'label' => $method->label()],
                 PaymentMethod::cases()
@@ -273,16 +283,27 @@ final class RegistrationDetail
 
     /**
      * @param array<int, string> $names display names by user ID
+     * @param array<string, LineName> $lineNames the names of the owed lines, by source key
      * @return array<string, mixed>
      */
-    private function line(LedgerEntry $entry, array $names): array
+    private function line(LedgerEntry $entry, array $names, array $lineNames): array
     {
         $by = $entry->source->type === 'wp_user' ? ($names[(int) $entry->source->key] ?? null) : null;
+        $side = $entry->kind->side();
+        // `type` is the discriminator of the „Típus” column: the paid kinds as they are, an owed line by what
+        // names it. A manual line carries its title, and who recorded it comes from its fact.
+        $name = $side === Side::Owed ? ($lineNames[$entry->source->key] ?? null) : null;
+        if ($name !== null) {
+            $by = $name->recordedBy === null ? $by : ($names[$name->recordedBy] ?? null);
+        }
 
         return [
             'id' => $entry->id,
             'kind' => $entry->kind->value,
-            'kind_label' => $entry->kind->label(),
+            'type' => $name->type ?? $entry->kind->value,
+            'side' => $side->value,
+            'kind_label' => $name->label ?? $entry->kind->label(),
+            'title' => $name?->title,
             'payer' => $entry->payer,
             'amount' => $entry->amount->amount(),
             'value_date' => $entry->valueDate === null ? null : self::instant($entry->valueDate),
@@ -300,11 +321,17 @@ final class RegistrationDetail
      * The display names of the users that recorded the lines: one query for all of them.
      *
      * @param list<LedgerEntry> $entries
+     * @param array<string, LineName> $lineNames
      * @return array<int, string>
      */
-    private function userNames(array $entries): array
+    private function userNames(array $entries, array $lineNames): array
     {
         $ids = [];
+        foreach ($lineNames as $name) {
+            if ($name->recordedBy !== null) {
+                $ids[$name->recordedBy] = true;
+            }
+        }
         foreach ($entries as $entry) {
             if ($entry->source->type === 'wp_user' && ctype_digit($entry->source->key)) {
                 $ids[(int) $entry->source->key] = true;

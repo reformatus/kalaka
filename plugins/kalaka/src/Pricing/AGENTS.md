@@ -30,8 +30,13 @@ retention and the materializer
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
   `FeeComponentInput` (facts, earlier-stage totals, the event's currency) and
   reads its own current settings, never lines.
-- Lines of components not registered now are never touched, and
-  `adjustment` lines never count as recorded.
+- Lines of components not registered now are never touched. A line of a
+  registered component that the composition no longer names (a withdrawal)
+  owes zero, so the materializer reverses it. A component that owes per item
+  writes one line per item (source key `<component>:<item>`, at most 64
+  characters).
+- The `manual` component composes only the Ledger's manual fee facts, one
+  item per entry; nobody writes its `charge` lines but the materializer.
 - A fee component returns a value and writes nothing. Core composes the
   components in the fixed stage order tier → support → share → aid →
   extras; a component sees only the totals of earlier stages. A throw, a

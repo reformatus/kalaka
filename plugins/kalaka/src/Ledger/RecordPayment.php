@@ -10,7 +10,7 @@ use Kalaka\Ledger\Api\LineKind;
 /**
  * Records one manual payment (money.md, "Recording payments by hand"): a negative `manual_payment` line with
  * the method and the value date, and the optional bank reference or payer note as its note. Carried by the
- * per-event action `kalaka_record_payment` inside its grant's view, or full access. Returns the line's `id`.
+ * per-event action `kalaka_record_money` inside its grant's view, or full access. Returns the line's `id`.
  */
 final class RecordPayment extends RecordManualEntry
 {
@@ -21,7 +21,7 @@ final class RecordPayment extends RecordManualEntry
 
     public function action(): string
     {
-        return Ledger::RECORD_PAYMENT;
+        return Ledger::RECORD_MONEY;
     }
 
     protected function kind(array $input): LineKind

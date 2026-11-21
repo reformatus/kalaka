@@ -43,7 +43,7 @@ final class LedgerSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(3, (int) get_option('kalaka_schema_ledger'));
+        self::assertSame(4, (int) get_option('kalaka_schema_ledger'));
         self::assertSame([], LoadState::current()->failures);
 
         $name = $wpdb->prefix . 'kalaka_ledger_lines';
@@ -81,7 +81,7 @@ final class LedgerSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(2, $tables);
+        self::assertCount(3, $tables);
         $statement = str_replace('{prefix}', $wpdb->prefix, $tables[0]);
         self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));
         self::assertSame([], IndexCheck::mismatches($match[1], $statement));
@@ -131,6 +131,58 @@ final class LedgerSchemaTest extends WP_UnitTestCase
                 'registration:event_id',
                 'registration:code',
                 'registration:line_id',
+            ],
+            array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
+        );
+    }
+
+    public function testTheManualFeesTableIsTheFactOfAManualChargeOrDiscount(): void
+    {
+        global $wpdb;
+
+        $name = $wpdb->prefix . 'kalaka_manual_fees';
+        $columns = $wpdb->get_results($wpdb->prepare(
+            'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE FROM information_schema.COLUMNS'
+            . ' WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
+            $name
+        ), ARRAY_A);
+        self::assertIsArray($columns);
+        $declared = [];
+        foreach ($columns as $column) {
+            $nullable = $column['IS_NULLABLE'] === 'YES' ? ' null' : '';
+            $declared[$column['COLUMN_NAME']] = $column['COLUMN_TYPE'] . $nullable;
+        }
+        self::assertSame(
+            [
+                'id' => 'bigint(20) unsigned',
+                'event_id' => 'bigint(20) unsigned',
+                'code' => 'varchar(16)',
+                'type' => 'varchar(10)',
+                'payer' => 'varchar(50)',
+                'amount' => 'decimal(26,8)',
+                'currency' => 'char(3)',
+                'title' => 'varchar(191) null',
+                'idempotency_key' => 'varchar(128)',
+                'recorded_by' => 'bigint(20) unsigned null',
+                'recorded_at' => 'datetime(6)',
+                'version' => 'int(10) unsigned',
+            ],
+            $declared
+        );
+
+        $statement = str_replace('{prefix}', $wpdb->prefix, (new Module())->schema()->tables[2]);
+        self::assertSame([], IndexCheck::mismatches($name, $statement));
+        $keys = $wpdb->get_results($wpdb->prepare('SHOW INDEX FROM %i', $name), ARRAY_A);
+        self::assertIsArray($keys);
+        self::assertSame(
+            [
+                'PRIMARY:id',
+                'idempotency_key:event_id',
+                'idempotency_key:code',
+                'idempotency_key:idempotency_key',
+                'registration:event_id',
+                'registration:code',
+                'registration:id',
             ],
             array_map(static fn (array $row): string => $row['Key_name'] . ':' . $row['Column_name'], $keys)
         );

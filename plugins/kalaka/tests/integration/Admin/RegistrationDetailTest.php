@@ -177,7 +177,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 [
                     'id' => $this->seeded['charge'],
                     'kind' => 'charge',
+                    'type' => 'fee',
+                    'side' => 'owed',
                     'kind_label' => 'Díj',
+                    'title' => null,
                     'payer' => 'participant',
                     'amount' => '60000.00000000',
                     'value_date' => null,
@@ -201,9 +204,61 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $money['methods']
         );
         self::assertSame(
-            ['view_money' => true, 'record_payment' => true, 'record_refund' => true, 'record_correction' => true],
+            ['view_money' => true, 'record_money' => true],
             $detail['can']
         );
+    }
+
+    /**
+     * Topic 10: an owed line is named by the fact behind it, never by its sign: a manual charge whose reversal
+     * is negative is still „Kézi díj”, a discount „Kézi kedvezmény”; the title and the recorder come from the
+     * fact; a line of the fixed price stays „Díj”, type `fee`; and the paid kinds keep their kind as type.
+     */
+    public function testAnOwedLineIsNamedByItsFactAndCarriesItsTitleAndRecorder(): void
+    {
+        $this->seedDetail();
+        $recorder = $this->seeded['recorder'];
+        $ids = [];
+        foreach ([['charge', 'Teszt kirándulás'], ['discount', 'Teszt kedvezmény']] as $index => [$type, $title]) {
+            $ids[$type] = $this->addManualFee($type, $title, 'manual_fee:f' . $index, $recorder);
+        }
+        // A withdrawal's reversal of the charge is negative, the discount's own line is negative too.
+        $reversed = $this->addLine('charge', '-3000', 'charge:manual:r', overrides: [
+            'source_type' => 'fee_component',
+            'source_key' => 'manual:' . $ids['charge'],
+            'value_date' => null,
+            'method' => null,
+        ]);
+        $discount = $this->addLine('charge', '-3000', 'charge:manual:d', overrides: [
+            'source_type' => 'fee_component',
+            'source_key' => 'manual:' . $ids['discount'],
+            'value_date' => null,
+            'method' => null,
+        ]);
+
+        $lines = array_column($this->detail($this->admin->userId)['money']['lines'], null, 'id');
+
+        self::assertSame(
+            ['manual_charge', 'owed', 'Kézi díj', 'Teszt kirándulás', 'Teszt Könyvelő'],
+            [$lines[$reversed]['type'], $lines[$reversed]['side'], $lines[$reversed]['kind_label'],
+                $lines[$reversed]['title'], $lines[$reversed]['recorded_by']]
+        );
+        self::assertSame('charge', $lines[$reversed]['kind']);
+        self::assertSame(
+            ['manual_discount', 'owed', 'Kézi kedvezmény', 'Teszt kedvezmény', 'Teszt Könyvelő'],
+            [$lines[$discount]['type'], $lines[$discount]['side'], $lines[$discount]['kind_label'],
+                $lines[$discount]['title'], $lines[$discount]['recorded_by']]
+        );
+        self::assertSame(['fee', 'owed', 'Díj', null], [
+            $lines[$this->seeded['charge']]['type'],
+            $lines[$this->seeded['charge']]['side'],
+            $lines[$this->seeded['charge']]['kind_label'],
+            $lines[$this->seeded['charge']]['title'],
+        ]);
+        self::assertSame(['manual_payment', 'paid'], [
+            $lines[$this->seeded['payment']]['type'],
+            $lines[$this->seeded['payment']]['side'],
+        ]);
     }
 
     /** @return array<string, mixed> */
@@ -220,7 +275,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         return [
             'id' => $id,
             'kind' => $kind,
+            'type' => $kind,
+            'side' => 'paid',
             'kind_label' => $kindLabel,
+            'title' => null,
             'payer' => 'participant',
             'amount' => $amount,
             'value_date' => $correction ? '2026-11-30T08:00:00Z' : '2026-12-02T23:00:00Z',
@@ -276,7 +334,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
+            ['view_money' => false, 'record_money' => false],
             $detail['can']
         );
     }
@@ -431,7 +489,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
-            ['view_money' => false, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
+            ['view_money' => false, 'record_money' => false],
             $detail['can']
         );
 
@@ -443,7 +501,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
-            ['view_money' => true, 'record_payment' => false, 'record_refund' => false, 'record_correction' => false],
+            ['view_money' => true, 'record_money' => false],
             $shown['can']
         );
     }
@@ -454,18 +512,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->seedDetail();
 
         $cases = [
-            'kalaka_record_payment' => [
-                'view_money' => true,
-                'record_payment' => true,
-                'record_refund' => false,
-                'record_correction' => true,
-            ],
-            'kalaka_record_refund' => [
-                'view_money' => true,
-                'record_payment' => false,
-                'record_refund' => true,
-                'record_correction' => false,
-            ],
+            'kalaka_record_money' => ['view_money' => true, 'record_money' => true],
         ];
         foreach ($cases as $action => $can) {
             $user = $this->plainUser();

@@ -131,10 +131,51 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
         }
     }
 
+    /** Several manual fees, each with its own owed line, cost no statement more: the names come in one read. */
+    private function seedManualFees(int $event): void
+    {
+        global $wpdb;
+        for ($number = 1; $number <= 5; $number++) {
+            $this->insert('kalaka_manual_fees', [
+                'event_id' => $event,
+                'code' => '00A0',
+                'type' => $number % 2 === 0 ? 'discount' : 'charge',
+                'payer' => 'participant',
+                'amount' => '100',
+                'currency' => 'HUF',
+                'title' => 'Teszt ' . $number,
+                'idempotency_key' => 'manual_fee:f' . $number,
+                'recorded_by' => null,
+                'recorded_at' => '2026-11-30 08:00:00.000000',
+                'version' => 1,
+            ]);
+            $this->insert('kalaka_ledger_lines', [
+                'event_id' => $event,
+                'code' => '00A0',
+                'kind' => 'charge',
+                'payer' => 'participant',
+                'amount' => '100',
+                'currency' => 'HUF',
+                'source_type' => 'fee_component',
+                'source_event_id' => null,
+                'source_key' => 'manual:' . $wpdb->insert_id,
+                'idempotency_key' => 'charge:manual:' . $number . ':participant:1',
+                'value_date' => null,
+                'paid_at' => null,
+                'recorded_at' => '2026-11-30 08:00:00.000000',
+                'method' => null,
+                'correction' => 0,
+            ]);
+        }
+    }
+
     public function testTheDetailStaysInsideItsEvent(): void
     {
         $this->assertPerEventCost(
-            fn (int $event) => $this->seedEvent($event),
+            function (int $event): void {
+                $this->seedEvent($event);
+                $this->seedManualFees($event);
+            },
             static function (int $event): array {
                 ObjectCache::clear();
 

@@ -34,8 +34,7 @@ abstract class ManualEntryTestCase extends AdminTestCase
         update_option('timezone_string', 'Europe/Budapest');
         $this->catalogue = ActionCatalogue::current();
         ActionCatalogue::record(new ActionCatalogue([
-            'kalaka_record_payment',
-            'kalaka_record_refund',
+            'kalaka_record_money',
             'kalaka_view_money',
         ]));
         $this->runner = $this->runnerAt('2026-11-30 10:00');

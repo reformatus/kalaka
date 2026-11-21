@@ -379,7 +379,7 @@ final class RecordPaymentTest extends ManualEntryTestCase
             self::assertSame([], $this->lines());
         }
 
-        $this->grantOn($user, ['kalaka_record_refund']);
+        $this->grantOn($user, ['kalaka_view_money']);
         $this->expectException(PermissionDenied::class);
         $this->exec(new RecordPayment(), $this->paymentInput(), new UserActor($user));
     }
@@ -387,7 +387,7 @@ final class RecordPaymentTest extends ManualEntryTestCase
     public function testAGrantWhoseViewExcludesTheRegistrationIsRefused(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_payment'], 'waitlisted');
+        $this->grantOn($user, ['kalaka_record_money'], 'waitlisted');
 
         $this->expectException(PermissionDenied::class);
         $this->exec(new RecordPayment(), $this->paymentInput(), new UserActor($user));
@@ -396,7 +396,7 @@ final class RecordPaymentTest extends ManualEntryTestCase
     public function testAGrantWithTheActionInsideItsViewRecords(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_payment']);
+        $this->grantOn($user, ['kalaka_record_money']);
 
         $this->exec(new RecordPayment(), $this->paymentInput(), new UserActor($user));
 
@@ -408,7 +408,7 @@ final class RecordPaymentTest extends ManualEntryTestCase
     public function testAGrantHolderCannotLearnWhetherAnUnknownCodeExists(): void
     {
         $user = $this->plainUser();
-        $this->grantOn($user, ['kalaka_record_payment']);
+        $this->grantOn($user, ['kalaka_record_money']);
 
         $this->expectException(PermissionDenied::class);
         $this->exec(new RecordPayment(), $this->paymentInput(['code' => '00A2']), new UserActor($user));

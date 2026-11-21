@@ -323,8 +323,6 @@ final class RecordLineTest extends LedgerTestCase
         yield 'manual refund without a value date' => [LineKind::ManualRefund, '1', null, null, 'participant'];
         yield 'charge with a value date' => [LineKind::Charge, '1', '2026-12-03', null, 'participant'];
         yield 'charge with a paid time' => [LineKind::Charge, '1', null, '2026-12-01 10:00:00', 'participant'];
-        yield 'adjustment with a value date' => [LineKind::Adjustment, '1', '2026-12-03', null, 'participant'];
-        yield 'adjustment with a paid time' => [LineKind::Adjustment, '1', null, '2026-12-01 10:00:00', 'participant'];
         yield 'value date that is no day' => [LineKind::ManualPayment, '-1', '2026-02-30', null, 'participant'];
         yield 'value date in another form' => [LineKind::ManualPayment, '-1', '2026-12-3', null, 'participant'];
         yield 'payer Congregation' => [LineKind::Charge, '1', null, null, 'Congregation'];
@@ -347,8 +345,7 @@ final class RecordLineTest extends LedgerTestCase
     public static function storedLines(): iterable
     {
         yield 'charge of -5000' => [LineKind::Charge, '-5000', null, null];
-        yield 'adjustment of -2000' => [LineKind::Adjustment, '-2000', null, null];
-        yield 'adjustment of +2000' => [LineKind::Adjustment, '2000', null, null];
+        yield 'charge of +2000' => [LineKind::Charge, '2000', null, null];
         yield 'charge of 0.004' => [LineKind::Charge, '0.004', null, null];
         yield 'manual refund of +1000' => [LineKind::ManualRefund, '1000', '2026-12-03', null];
         yield 'refund of +1000' => [LineKind::Refund, '1000', null, '2026-12-01 10:00:00'];

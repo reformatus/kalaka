@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Money\Money;
 
 /**
  * One payer's side of a registration's ledger (money.md, "Ledger"): what it was charged (the sum of its
- * lines that are not payment facts: charges, adjustments, feature lines), what it paid (minus the sum of
+ * lines that are not payment facts: charges, feature lines), what it paid (minus the sum of
  * its payment-fact lines: payments less refunds, transfers either way) and the balance, charged − paid:
  * above zero is due, below zero is overpaid.
  */
