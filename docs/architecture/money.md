@@ -82,7 +82,7 @@ title: Money
 | `payment` (online or another automatic method) | − | Payments, from payment-method events |
 | `refund` | + | Payments, from payment-method events |
 | `manual_payment` (bank transfer, cash, card terminal) | − | the "record payment" use case |
-| `manual_refund` (money returned by transfer or cash) | + | the "record refund" use case |
+| `manual_refund` (money returned by transfer or cash, or a correction) | + | the "record refund" use case |
 | `transfer` (a payment moved to another registration of the same event) | ± | the "move payment" use case |
 | `adjustment` (correction with a reason) | ± | an admin use case |
 | feature lines (the wallet, deferred) | ± | feature plugins, through an extension point |
@@ -98,7 +98,9 @@ title: Money
   recorded. A payment with that value date therefore counts as before a
   deadline that ends at midnight at the end of the same day.
 - **"Record refund"** writes a `manual_refund` line for money returned by
-  transfer or cash. WooCommerce refunds keep their own path
+  transfer or cash, or, marked as a correction with a required reason, for a
+  payment recorded by mistake. A correction is not linked to the line it
+  corrects. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
 - **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
   arrived; the rest stays due until waived with an `adjustment` and a reason.
@@ -172,9 +174,10 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
   restore), decided under a `FOR UPDATE` lock on the tier or offer row.
   Waitlisted registrations hold no place.
 - **Released** on withdrawal or removal.
-- **Reassigned only by a staff act:** staff give a freed place to a requester
-  from a list in registration order, so nobody's money changes
-  automatically.
+- **Reassigned by a staff act** for price-tier places: staff give a freed
+  place to a requester from a list in registration order, so nobody's money
+  changes automatically. **A support-offer place** that staff's evaluation
+  refuses goes to the next requester in registration order at once.
 - **A restored registration** gets a place only if one is free.
 
 ## Withdrawal, removal and substitution
@@ -240,15 +243,13 @@ such as lunch or a donation.
   owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
   over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
   `EXPLAIN` test.
-- **Support offers per event on any node,** the root included, apply to the
-  node and everything below it: amount, quota (people and/or budget),
-  conditions on facts, "must be requested", and "must be confirmed by the
-  body" (in its view or through a form link).
-- **Stacking:** one flag per offer, "withdrawn if a lower-level support
-  applies", on by default (the most specific wins); off, it adds to the lower
-  one. Offers are evaluated from the congregation upwards, and a higher offer
-  takes a quota place ([Quota places](#quota-places)) only if it ends up
-  applying.
+- **Support offers per event on any node,** the root included, several per
+  node, are offered to the node and everything below it, and the registrant
+  selects them: amount, evaluated or not (approved by the body, in its view
+  or through a form link, or by staff; payment is held until then), and an
+  optional limit of places (people only). Availability is set up on the form,
+  as for price tiers and extra charges. A selected offer with a limit takes a
+  place ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.

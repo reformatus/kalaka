@@ -4,8 +4,8 @@ title: Release plan
 
 # Release plan
 
-What each release must contain, and what gives way first when time runs
-short. The architecture pages say how things are built; this page says when.
+What each release must contain. When time runs short, the owner decides
+what is dropped. The architecture pages say how things are built; this page says when.
 
 ## IVK: registration opens 2026-11-30
 
@@ -25,20 +25,23 @@ short. The architecture pages say how things are built; this page says when.
    IVK) and activated through a set-password link in the registration's
    mail (the account area itself may only say "Coming soon").
 2. **Money core:** the ledger with payers, the materializer and the money
-   settings apply; IVK's price tiers (examples only: 48 000 Ft with no share,
-   42 000 Ft with a declared share, 32 000 Ft with the whole tier as the
-   share; the 68 000 Ft "Teljes ár" is the 48 000 Ft tier plus a 20 000 Ft
-   donation); donation, lunch, the invoice request and billing fields, with
+   settings apply; IVK's price tiers, which set only the base price (examples
+   only: 32 000 Ft, 42 000 Ft, 48 000 Ft, and the 68 000 Ft "Teljes ár", a
+   tier of its own); the share between payers is set by the form's own
+   questions, which may offer different share choices on different tiers;
+   donation, lunch, the invoice request and billing fields, with
    every line shown on the invoice and the part another payer pays marked;
    the payment-due date with its one anchor; confirmation per payer;
    recording a payment by hand.
 3. **Congregation share** ([NR-1](money.md#congregation-share)): the
    organization directory, the congregation picker and the share pair.
 4. **Support and decisions:** support offers with quota places (Baptist,
-   Dunamellék); pending decisions with the payment hold (discount or aid
-   requests, partner confirmation). Until partners have their own views, IVK
-   staff record a partner's confirmation on its behalf, audited with a
-   reason.
+   Dunamellék); pending decisions with the payment hold (support offers that IVK
+   staff evaluate, aid requests, partner confirmation). A partner confirms in a
+   view of its own with an editable grant, the same mechanism staff use,
+   filtered to the partner's registrations. Until partners have their own
+   views, IVK staff record a partner's confirmation on its behalf, audited
+   with a reason.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
    sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
@@ -61,7 +64,7 @@ short. The architecture pages say how things are built; this page says when.
 
 ### Order of sacrifice
 
-If the date is at risk, these give way, in this order:
+Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **Card payment through WooCommerce:** bank transfer only on opening day,
    card payment in early December.
@@ -148,6 +151,8 @@ after 11 days, so these must exist before the first registrants reach them:
 - **Support requests decided by staff,** reusing IVK's pending decisions.
 
 ### Order of sacrifice for opening day
+
+Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **The invoice request:** requests go to the bookkeeper by e-mail.
 2. **The donation field.**
