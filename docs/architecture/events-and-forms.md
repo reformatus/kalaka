@@ -277,8 +277,8 @@ flowchart TB
 
 | Concept | What it is |
 |---|---|
-| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
-| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, choice, scale, …) |
+| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, its type's settings, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
+| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, number, choice, scale, …) |
 | **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Created by a single switch on a form field |
 | **Form field** | A block in a form that asks for one participant field, standalone or copied from a definition (keeping the definition's ID and version) |
 

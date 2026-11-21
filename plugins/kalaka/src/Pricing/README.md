@@ -10,8 +10,8 @@ Tables, created by the schema in `Module.php`: `kalaka_fixed_prices`. There is n
 
 Entry points: none yet (the settings screen is S72's).
 
-Extensions contribute fee components with `Contributions::feeComponent()`; `CoreFeeComponents` lists core's fixed
-price, then the contributed ones. An extension's proposed settings reach `MoneySettings` as
+Modules contribute fee components with `Contributions::feeComponent()`; `CoreFeeComponents` lists core's fixed
+price, then the contributed ones, core's Extras among them. A module's proposed settings reach `MoneySettings` as
 `Api\ProposedComponentSettings` (its component for the preview, and the `Api\SettingsSave` use case the apply runs
 first). The fixed price is the base only without a ladder: `FeeComposer` composes it last in the tier stage and
 skips it once another tier-stage component owes something.

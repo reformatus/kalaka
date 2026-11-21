@@ -38,11 +38,11 @@ retention and the materializer
   malformed payer or another currency than the event's is
   `FeeComponentFailed`, which fails the use case as the rule
   `money/<component id>`.
-- The components are core's fixed price, then those extensions contribute
-  (`Contributions::feeComponent()`, IDs unique, core's included). The fixed
+- The components are core's fixed price, then those the modules contribute
+  (`Contributions::feeComponent()`, IDs unique), core's Extras among them. The fixed
   price is the base only without a ladder: it composes last in the tier
   stage and owes nothing once another tier-stage component owes something.
-- An extension's settings reach a preview and an apply as
+- A module's settings reach a preview and an apply as
   `Api\ProposedComponentSettings`: the preview composes its `component()` in
   place of the registered one; the apply runs its `save()` use case before
   re-evaluating anything.

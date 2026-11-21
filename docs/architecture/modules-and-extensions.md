@@ -10,18 +10,16 @@ title: Modules and extensions
   with one version number and one CI pipeline that builds a zip per plugin.
   Extensions use only core's public API.
 - **Core itself is internally modular** with strict boundaries.
-- **Core money is minimal:** a fixed price per registration and full payment.
-  Deposits, the price ladder, financial aid, sponsor and church support, the
-  congregation share, late fees and the wallet are plugins; core keeps full
-  support for extending it in these ways ([Money](money.md#core-money-scope)).
+- **Core money is minimal:** a fixed price per registration, full payment,
+  an event's extra charges and its donation. Deposits, the price ladder,
+  financial aid, sponsor and church support, the congregation share, late
+  fees and the wallet are plugins; core keeps full support for extending it
+  in these ways ([Money](money.md#core-money-scope)).
 - **Core keeps the base concepts that organizations extend,** such as
   assignment sets ([Assignment sets](#assignment-sets)), not a general system
   that could build either organization's logic.
 - **The WooCommerce integration is our own extension plugin** on core's
   payments port. Core has no WooCommerce dependency at all.
-- **Lunch and the donation are one extension plugin, `kalaka-extras`:** the
-  two extras fee components and the amount field type
-  ([Money](money.md#core-money-scope)).
 - **Sponsor and church support is one extension plugin, `kalaka-support`:**
   the organization directory, the congregation picker and the support offers
   ([Money](money.md#sponsor-and-church-support)). Core holds no organization
@@ -39,7 +37,7 @@ flowchart LR
     SP["Sponsor / church support"]
     CS["Congregation share"]
     REC["Module ranking"]
-    MORE["Wallet · attendance sheets · check-in ·<br/>donations · settlement"]
+    MORE["Wallet · attendance sheets · check-in · settlement"]
   end
   subgraph CORE["Core plugin"]
     direction TB
@@ -50,6 +48,7 @@ flowchart LR
     AS["Assignments"]
     RE["Registrations"]
     RU["Pricing"]
+    EX["Extras"]
     LE["Ledger"]
     PA["Payments"]
     MA["Mail"]
@@ -73,6 +72,7 @@ flowchart LR
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
+| Extras | extra charges and the donation: generic per-event charges linked to participant field answers, and the event's donation field |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
