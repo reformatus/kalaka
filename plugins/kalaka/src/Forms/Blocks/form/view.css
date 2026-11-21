@@ -181,42 +181,42 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 		opacity: var(--kalaka-disabled-opacity, 0.4);
 		cursor: default;
 	}
+	/* The number field's optional prefix and suffix (owner, 2026-11-21): muted, stuck to the input's ends,
+	   non-interactive. Minimal on the theme's own colour; UX fixes the placement next to the spinner later. */
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number) {
+		position: relative;
+		display: block;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number input) {
+		width: 100%;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__affix) {
+		position: absolute;
+		top: 50%;
+		transform: translateY(-50%);
+		color: inherit;
+		opacity: 0.6;
+		pointer-events: none;
+		user-select: none;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__prefix) {
+		left: 0.75rem;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number__suffix) {
+		right: 2rem;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number--prefix input) {
+		padding-left: 2.5rem;
+	}
+
+	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number--suffix input) {
+		padding-right: 4rem;
+	}
 }
 
 
-/* The number field's optional prefix and suffix (owner, 2026-11-21): muted, stuck to the input's ends,
-   non-interactive. Minimal on the theme's own colour; UX fixes the placement next to the spinner later. */
-form[data-wp-interactive="kalaka/form"] .kalaka-number {
-	position: relative;
-	display: block;
-}
-
-form[data-wp-interactive="kalaka/form"] .kalaka-number input {
-	width: 100%;
-}
-
-form[data-wp-interactive="kalaka/form"] .kalaka-number__affix {
-	position: absolute;
-	top: 50%;
-	transform: translateY(-50%);
-	color: inherit;
-	opacity: 0.6;
-	pointer-events: none;
-	user-select: none;
-}
-
-form[data-wp-interactive="kalaka/form"] .kalaka-number__prefix {
-	left: 0.75rem;
-}
-
-form[data-wp-interactive="kalaka/form"] .kalaka-number__suffix {
-	right: 2rem;
-}
-
-form[data-wp-interactive="kalaka/form"] .kalaka-number--prefix input {
-	padding-left: 2.5rem;
-}
-
-form[data-wp-interactive="kalaka/form"] .kalaka-number--suffix input {
-	padding-right: 4rem;
-}
