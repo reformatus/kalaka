@@ -3,8 +3,9 @@
 export const BAD_NUMBER = 'Csak számot írhatsz ide.';
 
 /**
- * The first shown number field whose native control holds invalid text (`validity.badInput`): the browser
- * reports an empty value, so the send is stopped and the field says why.
+ * The first shown number field whose native control holds invalid text (`validity.badInput`: the browser
+ * reports an empty value) or that the comma guard refused (`validity.customError`: the digits around the
+ * refused separator went in, so the value is not what was typed): the send is stopped and the field says why.
  *
  * @param {HTMLFormElement} form
  * @return {{wrapper: Element, control: HTMLInputElement}|null}
@@ -15,7 +16,7 @@ export function firstBadNumber(form) {
 			(candidate) =>
 				candidate.name !== '' &&
 				!candidate.disabled &&
-				candidate.validity?.badInput === true
+				(candidate.validity?.badInput === true || candidate.validity?.customError === true)
 		);
 		if (control !== undefined) {
 			return { wrapper, control };
@@ -88,10 +89,36 @@ const TYPED = ['insertText', 'insertFromPaste', 'insertReplacementText'];
  * and refuses other pasted text with a comma. The native control and its arrows stay. Client-side only: the
  * server still refuses what it cannot parse.
  *
+ * A refusal also sets the control's custom validity to the text shown, because the digits around the refused
+ * separator still go in ("1,5" leaves 15): the field stays invalid, so it cannot be sent. It clears on the
+ * next input that is not a typed or pasted insert (a deletion, a cut, the arrows), or that leaves the field
+ * empty; a typed digit after the refusal is the "1,5" case itself and keeps the field invalid.
+ *
  * @param {Document}                                       doc
  * @param {function(HTMLInputElement, string): void}       refuse Shows the refusal in the field's error element.
+ * @param {function(HTMLInputElement): void}               clear Removes that message when the field is edited again.
  */
-export function guardNumberSeparators(doc, refuse) {
+export function guardNumberSeparators(doc, refuse, clear = () => {}) {
+	const refusing = (control, message) => {
+		control.setCustomValidity(message);
+		refuse(control, message);
+	};
+	doc.addEventListener('input', (event) => {
+		const control = event.target;
+		if (
+			!(control instanceof Element) ||
+			control.tagName !== 'INPUT' ||
+			control.type !== 'number' ||
+			!control.validity?.customError
+		) {
+			return;
+		}
+		if (TYPED.includes(event.inputType) && control.value !== '') {
+			return;
+		}
+		control.setCustomValidity('');
+		clear(control);
+	});
 	doc.addEventListener('beforeinput', (event) => {
 		const control = event.target;
 		if (
@@ -106,7 +133,7 @@ export function guardNumberSeparators(doc, refuse) {
 		if (control.getAttribute('inputmode') !== 'decimal') {
 			if (/[,.]/.test(data)) {
 				event.preventDefault();
-				refuse(control, WHOLE_NUMBER);
+				refusing(control, WHOLE_NUMBER);
 			}
 			return;
 		}
@@ -122,6 +149,6 @@ export function guardNumberSeparators(doc, refuse) {
 				return;
 			}
 		}
-		refuse(control, BAD_NUMBER);
+		refusing(control, BAD_NUMBER);
 	});
 }

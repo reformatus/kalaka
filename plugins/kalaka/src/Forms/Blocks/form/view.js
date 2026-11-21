@@ -67,6 +67,11 @@ guardNumberSeparators(document, (control, message) => {
 	if (key !== undefined && key !== null && form !== null) {
 		showFieldMessages(form, { [key]: message });
 	}
+}, (control) => {
+	const wrapper = control.closest('[data-kalaka-field]');
+	if (wrapper !== null) {
+		clearFieldMessage(wrapper);
+	}
 });
 measureNumberAffixes();
 window.addEventListener('resize', () => measureNumberAffixes());
@@ -963,6 +968,14 @@ async function checkPage(form) {
 	}
 	clearMessages(form);
 	const current = started.page;
+	const refused = firstBadNumber(form);
+	if (refused !== null && refused.control.validity.customError && pageOf(refused.wrapper) === current) {
+		showFieldMessages(form, {
+			[refused.wrapper.getAttribute('data-kalaka-field')]: refused.control.validationMessage,
+		});
+		refused.control.focus();
+		return null;
+	}
 	const availability = await refetch(form, current);
 	if (availability === null || started.page !== current) {
 		return null;
@@ -1175,7 +1188,9 @@ async function send(form) {
 	const bad = firstBadNumber(form);
 	if (bad !== null) {
 		showFieldMessages(form, {
-			[bad.wrapper.getAttribute('data-kalaka-field')]: BAD_NUMBER,
+			[bad.wrapper.getAttribute('data-kalaka-field')]: bad.control.validity.customError
+				? bad.control.validationMessage
+				: BAD_NUMBER,
 		});
 		bad.control.focus();
 		return;

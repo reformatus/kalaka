@@ -99,19 +99,32 @@ describe("the affixes' room", () => {
 describe('the comma guard (B4)', () => {
 	const refusals = [];
 	let inserted;
-	guardNumberSeparators(document, (control, message) => refusals.push([control.id, message]));
+	const cleared = [];
+	guardNumberSeparators(
+		document,
+		(control, message) => refusals.push([control.id, message]),
+		(control) => cleared.push(control.id)
+	);
 
 	beforeEach(() => {
 		refusals.length = 0;
+		cleared.length = 0;
 		inserted = [];
 		document.execCommand = jest.fn((command, ui, text) => {
 			inserted.push(text);
 			return true;
 		});
 		document.body.innerHTML =
-			'<input type="number" id="whole" inputmode="numeric">' +
-			'<input type="number" id="decimal" inputmode="decimal" step="any">';
+			'<form><div data-kalaka-field="whole"><input type="number" id="whole" inputmode="numeric" name="whole"></div>' +
+			'<div data-kalaka-field="decimal"><input type="number" id="decimal" inputmode="decimal" step="any" name="decimal"></div></form>';
 	});
+
+	/** What the browser does after "1" and a refused ",": the next digit still goes in. */
+	function typeDigit(id, digit) {
+		const input = document.getElementById(id);
+		input.value += digit;
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: digit }));
+	}
 
 	function type(id, inputType, data) {
 		const event = new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType, data });
@@ -174,5 +187,61 @@ describe('the comma guard (B4)', () => {
 	it('ignores other inputs', () => {
 		document.body.insertAdjacentHTML('beforeend', '<input type="text" id="text">');
 		expect(type('text', 'insertText', ',').defaultPrevented).toBe(false);
+	});
+
+	it('keeps a refused comma invalid, so 1,5 never submits as 15', () => {
+		const input = document.getElementById('whole');
+		const form = document.querySelector('form');
+		input.value = '1';
+		type('whole', 'insertText', ',');
+		typeDigit('whole', '5');
+
+		expect(input.value).toBe('15');
+		expect(input.validity.customError).toBe(true);
+		expect(input.validationMessage).toBe(WHOLE_NUMBER);
+		expect(form.checkValidity()).toBe(false);
+		// What the send reads (the form is novalidate): the field is found, so the send stops there.
+		expect(firstBadNumber(form).control).toBe(input);
+		expect(cleared).toEqual([]);
+	});
+
+	it('sets the custom validity on a refused paste and on the execCommand fallback', () => {
+		const whole = document.getElementById('whole');
+		type('whole', 'insertFromPaste', '1,5');
+		expect(whole.validity.customError).toBe(true);
+		expect(whole.validationMessage).toBe(WHOLE_NUMBER);
+
+		document.execCommand = undefined;
+		const decimal = document.getElementById('decimal');
+		type('decimal', 'insertText', ',');
+		expect(decimal.validity.customError).toBe(true);
+		expect(decimal.validationMessage).toBe(BAD_NUMBER);
+	});
+
+	it('clears when the field is edited again: a deletion, or an emptied field', () => {
+		const input = document.getElementById('whole');
+		input.value = '1';
+		type('whole', 'insertText', ',');
+		typeDigit('whole', '5');
+		input.value = '1';
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
+		expect(input.validity.customError).toBe(false);
+		expect(cleared).toEqual(['whole']);
+
+		type('whole', 'insertText', '.');
+		expect(input.validity.customError).toBe(true);
+		input.value = '';
+		input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '7' }));
+		expect(input.validity.customError).toBe(false);
+		expect(cleared).toEqual(['whole', 'whole']);
+	});
+
+	it('never sets custom validity when a decimal field turns 1,5 into 1.5', () => {
+		const input = document.getElementById('decimal');
+		type('decimal', 'insertText', ',');
+		type('decimal', 'insertFromPaste', '1,5');
+		expect(inserted).toEqual(['.', '1.5']);
+		expect(input.validity.customError).toBe(false);
+		expect(input.validationMessage).toBe('');
 	});
 });
