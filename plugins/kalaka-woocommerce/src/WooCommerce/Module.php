@@ -32,10 +32,13 @@ final class Module extends AbstractModule
     /**
      * WooCommerce sends every user without `edit_posts` or `manage_woocommerce` from wp-admin to My
      * Account (`WC_Admin::prevent_admin_access`). A grant holder has neither capability, so without
-     * this filter the „Jelentkezők” grid is unreachable on a WooCommerce site.
+     * this filter the „Jelentkezők” grid is unreachable on a WooCommerce site. WooCommerce also hides
+     * the front-end admin bar from them (`wc_disable_admin_bar`, switched by
+     * `woocommerce_disable_admin_bar`), so the same user keeps it.
      */
     public function boot(): void
     {
         add_filter('woocommerce_prevent_admin_access', [$this->gate, 'prevent']);
+        add_filter('woocommerce_disable_admin_bar', [$this->gate, 'keepAdminBar']);
     }
 }

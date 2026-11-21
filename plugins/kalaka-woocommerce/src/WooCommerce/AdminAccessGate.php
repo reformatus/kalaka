@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Entry\Boundary;
 /**
  * The `woocommerce_prevent_admin_access` filter: WooCommerce redirects a user it would keep out of
  * wp-admin; a user who may reach Kaláka's admin side (full access or any grant) is not redirected.
+ * The `woocommerce_disable_admin_bar` filter: the same user keeps the admin bar on the front end.
  * Everyone else keeps WooCommerce's own answer.
  *
  * Failure isolation: the filter runs on `admin_init`, outside any transaction. If core's API is
@@ -30,13 +31,35 @@ final class AdminAccessGate
      */
     public function prevent($prevent)
     {
-        // Only ever loosens WooCommerce's own answer: anything but true passes straight through.
-        if ($prevent !== true) {
-            return $prevent;
+        return $this->loosen($prevent);
+    }
+
+    /**
+     * @internal the `woocommerce_disable_admin_bar` filter: `wc_disable_admin_bar()` hides the front-end
+     * admin bar from a user without `edit_posts` or `manage_woocommerce` while it answers true.
+     * @param mixed $disable
+     * @return mixed
+     */
+    public function keepAdminBar($disable)
+    {
+        return $this->loosen($disable);
+    }
+
+    /**
+     * Only ever loosens WooCommerce's own answer: anything but true passes straight through, and true
+     * becomes false for a user who may reach Kaláka's admin side.
+     *
+     * @param mixed $incoming
+     * @return mixed
+     */
+    private function loosen($incoming)
+    {
+        if ($incoming !== true) {
+            return $incoming;
         }
 
         if (!class_exists($this->access) || !is_callable([$this->access, 'mayReachAdmin'])) {
-            return $prevent;
+            return $incoming;
         }
 
         try {
@@ -55,6 +78,6 @@ final class AdminAccessGate
             }
         }
 
-        return $prevent;
+        return $incoming;
     }
 }

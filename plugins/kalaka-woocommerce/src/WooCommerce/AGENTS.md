@@ -22,7 +22,11 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   `Kalaka\Admin\Api\Access::mayReachAdmin()` says the current user reaches the
   admin side (full access or any grant); otherwise the incoming value is
   returned unchanged. Nobody else gains anything.
-- The filter is guarded for failure isolation: core's `Access` missing, or a
+- WooCommerce's `woocommerce_disable_admin_bar` filter (which switches
+  `wc_disable_admin_bar()`, hiding the front-end admin bar) is answered the
+  same way, so that user keeps the admin bar on the front end. The login
+  redirect to My Account is left alone.
+- The filters are guarded for failure isolation: core's `Access` missing, or a
   throw inside, returns the incoming value, so WooCommerce's own decision
   stands and the admin stays up. A throw is logged through
   `Boundary::report()` on each failing request.

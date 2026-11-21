@@ -130,6 +130,26 @@ final class AdminAccessTest extends GrantTestCase
         self::assertFalse(apply_filters(self::FILTER, $this->woocommercePrevents()));
     }
 
+    /** A grant holder or full-access holder keeps the front-end admin bar; a plain customer does not get it. */
+    public function testAGrantHolderKeepsTheAdminBarOnTheFrontEnd(): void
+    {
+        $customer = self::factory()->user->create(['role' => 'customer']);
+
+        wp_set_current_user($customer);
+        Access::forget();
+        self::assertFalse(apply_filters('show_admin_bar', true), 'A user with no Kaláka access gets no admin bar.');
+
+        wp_set_current_user($this->grantee);
+        Access::forget();
+        self::assertFalse(current_user_can('edit_posts'));
+        self::assertFalse(current_user_can('manage_woocommerce'));
+        self::assertTrue(apply_filters('show_admin_bar', true), 'A grant holder keeps the admin bar.');
+
+        wp_set_current_user($this->admin->userId);
+        Access::forget();
+        self::assertTrue(apply_filters('show_admin_bar', true), 'A full-access holder keeps the admin bar.');
+    }
+
     /** An administrator is unaffected: WooCommerce never prevented them. */
     public function testAnAdministratorIsUnaffected(): void
     {
@@ -150,6 +170,8 @@ final class AdminAccessTest extends GrantTestCase
         self::assertTrue($gate->prevent(true));
         self::assertFalse($gate->prevent(false));
         self::assertSame('valami', $gate->prevent('valami'));
+        self::assertTrue($gate->keepAdminBar(true));
+        self::assertFalse($gate->keepAdminBar(false));
     }
 
     /** A throw inside the check keeps WooCommerce's own answer instead of taking the admin down. */
@@ -160,14 +182,12 @@ final class AdminAccessTest extends GrantTestCase
 
         self::assertTrue($gate->prevent(true));
         self::assertFalse($gate->prevent(false));
+        self::assertTrue($gate->keepAdminBar(true));
     }
 
     /** WooCommerce's own decision before the filter, as `WC_Admin::prevent_admin_access()` computes it. */
     private function woocommercePrevents(): bool
     {
-        if (!apply_filters('woocommerce_disable_admin_bar', true)) {
-            return false;
-        }
         if (!isset($_SERVER['SCRIPT_FILENAME'])) {
             return false;
         }
