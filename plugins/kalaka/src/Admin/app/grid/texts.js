@@ -33,7 +33,7 @@ export const SUM = {
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
-/** The hint under Kód's sort options in the column's menu. [UNAPPROVED T29] */
+/** The hint under Kód's sort options in the column's menu. [UNAPPROVED T37] */
 export const COLUMN = {
 	codeAsc: 'Jelentkezés sorrendjében',
 	codeDesc: 'Jelentkezés fordított sorrendjében',

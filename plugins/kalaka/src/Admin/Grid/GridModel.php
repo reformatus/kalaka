@@ -418,7 +418,7 @@ final class GridModel
      */
     private function meta(string $column, array $fields, int $eventId): array
     {
-        // Kód carries the default order and sorts both ways; Szám is computed and not sortable yet. [UNAPPROVED N49]
+        // Kód carries the default order and sorts both ways; Szám is computed and not sortable yet. [UNAPPROVED N60]
         $meta = ['column' => $column, 'sortable' => $column !== 'serial', 'numeric' => false];
         if ($column === 'code') {
             return $meta + ['label' => Texts::CODE, 'type' => 'code'];

@@ -38,7 +38,7 @@ export function createPicks() {
 			local[ column ] = next;
 			return next;
 		},
-			all() {
+		all() {
 			return { ...local };
 		},
 	};

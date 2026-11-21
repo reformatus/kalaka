@@ -22,31 +22,30 @@ describe( 'a dimmed row', () => {
 		for ( const column of Object.values( columns ) ) {
 			const out = html( column, row( status ) );
 			expect( out ).toContain( 'kg-inactive' );
-			expect( out ).not.toContain( 'kg-active' );
 		}
 	} );
 
-	test( 'a registered row is active in every cell, so the dimming is the contrast between the two', () => {
+	test( 'a registered row carries no dimming class, so it keeps DataViews’ own text colour', () => {
 		expect( isInactive( row( 'registered' ) ) ).toBe( false );
 		for ( const column of Object.values( columns ) ) {
 			const out = html( column, row( 'registered' ) );
-			expect( out ).toContain( 'kg-active' );
 			expect( out ).not.toContain( 'kg-inactive' );
+			expect( out ).not.toContain( 'kg-active' );
 		}
 	} );
 
 	test( 'a row that carries no status (a view without Állapot) is never dimmed', () => {
 		const item = { values: { code: '00A0', 'field:name': 'Kiss Eszter' } };
 		expect( isInactive( item ) ).toBe( false );
-		expect( html( columns.name, item ) ).toContain( 'kg-active' );
+		expect( html( columns.name, item ) ).not.toContain( 'kg-inactive' );
 	} );
 
-	test( 'the stylesheet makes an inactive row visibly lighter than an active one, in DataViews’ own tokens', () => {
+	test( 'the stylesheet dims only the inactive rows, in the design system’s disabled token, and leaves active text alone', () => {
 		// The bug of the owner's walk: the "dimmed" colour was darker than DataViews' own body text, so nothing looked dimmed.
 		// eslint-disable-next-line no-undef
 		const css = fs.readFileSync( path.join( process.cwd(), 'plugins/kalaka/src/Admin/app/grid/grid.css' ), 'utf8' );
-		expect( css ).toMatch( /\.kg-active \{ color: var\(--wpds-color-foreground-content-neutral, #1e1e1e\); \}/ );
-		expect( css ).toMatch( /\.kg-inactive \{ color: var\(--wpds-color-foreground-content-neutral-weak, #707070\); \}/ );
+		expect( css ).toMatch( /\.kg-inactive \{ color: var\(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d\); \}/ );
+		expect( css ).not.toContain( 'kg-active' );
 		expect( css ).not.toContain( '#646970' );
 	} );
 } );

@@ -173,7 +173,6 @@ final class GridPage
             'current' => $current,
             'perPages' => self::PER_PAGE,
             'maxLimit' => ViewQuery::MAX_LIMIT,
-            'sumEditable' => $full,
             'rest' => '/' . GridRoutes::NAMESPACE . '/events/' . $eventId,
         ];
         wp_add_inline_script(self::HANDLE, 'window.kalakaGrid = ' . wp_json_encode($config) . ';', 'before');
