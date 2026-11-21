@@ -100,7 +100,9 @@ const GROUPED = /^-?\d{1,3}([ \u00a0\u202f]\d{3})+(,\d+)?$/;
  * replacement text that is a plain number, Firefox's spinner step, is accepted) and clears any refusal.
  * Anything else is refused: the insert is cancelled, the field is EMPTIED (it cannot carry a sanitised wrong
  * number), the refusal is shown, and the control's custom validity holds the same text, so the send stops
- * with the field's own message. There is no dead end: the next accepted insert, a deletion or the spinner
+ * with the field's own message. A second dot is refused as any other, and a paste whose result is not what was
+ * pasted (Chromium drops a pasted dot put into the middle of a number) is refused after the browser applied
+ * it. There is no dead end: the next accepted insert, a deletion or the spinner
  * clears the refusal. The native control and its arrows stay. Client-side only: the server still refuses what
  * it cannot parse.
  *
@@ -109,10 +111,28 @@ const GROUPED = /^-?\d{1,3}([ \u00a0\u202f]\d{3})+(,\d+)?$/;
  * @param {function(HTMLInputElement): void}               clear Removes that message when the field is edited again.
  */
 export function guardNumberSeparators(doc, refuse, clear = () => {}) {
+	// Chromium reports a number control's SANITISED value, so after "1." it reads "1": the trailing dot is
+	// invisible to the script, and a number control exposes no caret (selectionStart is null). So "the field
+	// already holds a dot" cannot be read from `value` alone. The guard tracks it: `dotted` maps a control to
+	// the value it read right after an insert or deletion that left a dot in it, the dot being visible in the
+	// value or not. A control is dotted while its value still equals that snapshot (a value set by script
+	// since then makes the flag stale, so it is ignored) or its value contains a dot. A typed dot is refused
+	// in a dotted control. After a deletion the dot is kept when the value has one, or when it was cut back
+	// to the integer part of the old one ("1.5" -> "1": the dot is the trailing one); any other result drops
+	// it. A spinner step recomputes it from the value, a refusal clears it.
+	const dotted = new WeakMap();
+	const isDotted = (control) =>
+		control.value.includes('.') || (dotted.has(control) && dotted.get(control) === control.value);
+	// What each control held, and whether it was dotted, before the insert or deletion now under way.
+	const before = new WeakMap();
+	// The text a multi-character insert (a paste, a drop) is expected to leave in a control.
+	const pending = new WeakMap();
 	const isNumber = (control) =>
 		control instanceof Element && control.tagName === 'INPUT' && control.type === 'number';
 	const refusing = (control, message) => {
 		control.value = '';
+		dotted.delete(control);
+		pending.delete(control);
 		control.setCustomValidity(message);
 		refuse(control, message);
 	};
@@ -124,15 +144,50 @@ export function guardNumberSeparators(doc, refuse, clear = () => {}) {
 	};
 	// Whatever changes the field after a refusal (the spinner, a deletion) leaves no refusal behind.
 	doc.addEventListener('input', (event) => {
-		if (isNumber(event.target)) {
-			clearing(event.target);
+		const control = event.target;
+		if (!isNumber(control)) {
+			return;
 		}
+		const value = control.value;
+		const type = event.inputType ?? '';
+		const was = before.get(control);
+		const expected = pending.get(control);
+		before.delete(control);
+		pending.delete(control);
+		let dot = value.includes('.');
+		if (was !== undefined && type.startsWith('delete')) {
+			dot = dot || (was.value.includes('.') && value !== '' && value === was.value.split('.')[0]);
+		} else if (was !== undefined && INSERTS.includes(type) && type !== 'insertReplacementText') {
+			dot = dot || was.dotted || was.adds;
+		}
+		if (dot) {
+			dotted.set(control, value);
+		} else {
+			dotted.delete(control);
+		}
+		// A multi-character insert is checked after the browser applied it. Chromium drops the dot of a pasted
+		// "1.5" put into the middle of "2.5" and stores 215.5, and with no caret to read the guard cannot tell
+		// beforehand. The result must contain the inserted text verbatim: a full replacement leaves exactly it,
+		// an insertion keeps it as a substring ("25" + "5000" -> "250005"). Text with a dot put into a control
+		// that held one can only be a full replacement, so the value must be exactly it. A trailing dot is
+		// invisible in the value, so it is not compared. Text the browser rejects (`badInput`) is left for the
+		// send to catch.
+		if (expected !== undefined && control.validity?.badInput !== true) {
+			const kept = expected.exact ? value === expected.text : value.includes(expected.text);
+			if (!kept) {
+				refusing(control, BAD_NUMBER);
+				return;
+			}
+		}
+		clearing(control);
 	});
 	doc.addEventListener('beforeinput', (event) => {
 		const control = event.target;
 		if (!isNumber(control)) {
 			return;
 		}
+		const entry = { value: control.value, dotted: isDotted(control), adds: false };
+		before.set(control, entry);
 		if (event.inputType?.startsWith('delete')) {
 			clearing(control);
 			return;
@@ -153,13 +208,17 @@ export function guardNumberSeparators(doc, refuse, clear = () => {}) {
 			text = data.replace(',', '.');
 		}
 		const valid = decimal ? /^-?\d*\.?\d*$/ : /^-?\d*$/;
-		const secondDot = decimal && text === '.' && control.value.includes('.');
+		const secondDot = decimal && text === '.' && entry.dotted;
 		if (!valid.test(text) || secondDot) {
 			event.preventDefault();
 			refusing(control, !decimal && /[,.]/.test(data) ? WHOLE_NUMBER : BAD_NUMBER);
 			return;
 		}
 		clearing(control);
+		entry.adds = text.includes('.');
+		if (text.length > 1) {
+			pending.set(control, { text: text.replace(/\.$/, ''), exact: entry.adds && entry.dotted });
+		}
 		if (text !== data) {
 			event.preventDefault();
 			if (typeof doc.execCommand === 'function' && doc.execCommand('insertText', false, text)) {

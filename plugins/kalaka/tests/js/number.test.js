@@ -278,6 +278,94 @@ describe('the number guard (B4, N17)', () => {
 		expect(document.getElementById('decimal').validity.customError).toBe(true);
 	});
 
+	/**
+	 * Chromium's number control: the insert is applied, and `value` reads what the browser made of it (a trailing
+	 * dot is invisible, a pasted dot put into the middle of a number is dropped).
+	 */
+	function chromium(id, inputType, data, resulting) {
+		const event = type(id, inputType, data);
+		if (!event.defaultPrevented) {
+			const input = document.getElementById(id);
+			input.value = resulting;
+			input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType, data }));
+		}
+		return event;
+	}
+
+	it('refuses a second typed dot although Chromium reads "1." as 1 (the invisible dot)', () => {
+		const input = document.getElementById('decimal');
+		input.value = '1';
+		expect(chromium('decimal', 'insertText', '.', '1').defaultPrevented).toBe(false);
+		expect(chromium('decimal', 'insertText', '.', '1').defaultPrevented).toBe(true);
+		expect(input.value).toBe('');
+		expect(input.validity.customError).toBe(true);
+		expect(refusals).toEqual([['decimal', BAD_NUMBER]]);
+		// the refusal cleared the flag: the next number takes a dot again
+		expect(chromium('decimal', 'insertText', '2', '2').defaultPrevented).toBe(false);
+		expect(chromium('decimal', 'insertText', '.', '2').defaultPrevented).toBe(false);
+	});
+
+	it('keeps the dot after a deletion that leaves the integer part, and drops it with the dot deleted', () => {
+		const input = document.getElementById('decimal');
+		input.value = '1';
+		chromium('decimal', 'insertText', '.', '1');
+		chromium('decimal', 'insertText', '5', '1.5');
+		chromium('decimal', 'deleteContentBackward', null, '1');
+		expect(chromium('decimal', 'insertText', '.', '1').defaultPrevented).toBe(true);
+
+		input.value = '1';
+		chromium('decimal', 'insertText', '.', '1');
+		chromium('decimal', 'deleteContentBackward', null, '1');
+		expect(chromium('decimal', 'insertText', '.', '1').defaultPrevented).toBe(false);
+	});
+
+	it('ignores a dot flag a script made stale, and recomputes it on a spinner step', () => {
+		const input = document.getElementById('decimal');
+		input.value = '1';
+		chromium('decimal', 'insertText', '.', '1');
+		input.value = '7';
+		expect(chromium('decimal', 'insertText', '.', '7').defaultPrevented).toBe(false);
+		chromium('decimal', 'insertReplacementText', '8', '8');
+		expect(chromium('decimal', 'insertText', '.', '8').defaultPrevented).toBe(false);
+	});
+
+	it('accepts a paste that Chromium applied whole, and refuses one it changed', () => {
+		const input = document.getElementById('decimal');
+		// an insertion keeps the pasted text as a substring: "25" + "5000" -> "250005"
+		input.value = '25';
+		expect(chromium('decimal', 'insertFromPaste', '5000', '250005').defaultPrevented).toBe(false);
+		expect(input.validity.customError).toBe(false);
+		// a select-all paste of 1.5 over 2.5 leaves exactly 1.5
+		input.value = '2.5';
+		expect(chromium('decimal', 'insertFromPaste', '1.5', '1.5').defaultPrevented).toBe(false);
+		expect(input.value).toBe('1.5');
+		expect(refusals).toEqual([]);
+		// a trailing dot is invisible
+		input.value = '';
+		expect(chromium('decimal', 'insertFromPaste', '1.', '1').defaultPrevented).toBe(false);
+		expect(refusals).toEqual([]);
+		// 1.5 into the middle of 2.5: Chromium stores 215.5
+		input.value = '2.5';
+		chromium('decimal', 'insertFromPaste', '1.5', '215.5');
+		expect(input.value).toBe('');
+		expect(input.validity.customError).toBe(true);
+		expect(refusals).toEqual([['decimal', BAD_NUMBER]]);
+		// a dotted number takes a pasted dot only as a full replacement, whatever else contains it
+		input.value = '2.5';
+		input.setCustomValidity('');
+		chromium('decimal', 'insertFromPaste', '1.5', '1.55');
+		expect(input.value).toBe('');
+		expect(refusals).toHaveLength(2);
+	});
+
+	it('leaves a paste the browser rejects for the send', () => {
+		const input = document.getElementById('whole');
+		Object.defineProperty(input, 'validity', { value: { badInput: true, customError: false } });
+		chromium('whole', 'insertFromPaste', '-5', '');
+		expect(refusals).toEqual([]);
+		expect(input.validity.customError).toBe(false);
+	});
+
 	it('ignores other inputs and other input types', () => {
 		document.body.insertAdjacentHTML('beforeend', '<input type="text" id="text">');
 		expect(type('text', 'insertText', ',').defaultPrevented).toBe(false);
