@@ -28,7 +28,7 @@ final class Ledger
      * The per-event action of every manual money entry: a payment, a refund, a correction, a manual charge or
      * a manual discount (money.md, "Recording payments by hand"). It includes `VIEW_MONEY`. Its label, for
      * the grant editor, is „Pénzügyi tételek rögzítése” and its description „Befizetés, visszafizetés,
-     * korrekció, díj vagy kedvezmény kézi rögzítése egy jelentkezőnél.” [UNAPPROVED T22]; no action-label
+     * korrekció, díj vagy kedvezmény kézi rögzítése egy jelentkezőnél.” [UNAPPROVED T24, T25]; no action-label
      * registry exists yet, so no code renders them.
      */
     public const RECORD_MONEY = 'kalaka_record_money';

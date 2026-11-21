@@ -135,6 +135,7 @@ SQL;
             'Díj rögzítése',
             'Egy jelentkező fizetendő összegének kézi növelése, megnevezéssel.'
         );
+        // [UNAPPROVED T22, T23] the lektor's wording of 2026-11-21.
         Abilities::register(
             new RecordDiscount(),
             'Kedvezmény rögzítése',

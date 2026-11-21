@@ -17,7 +17,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Core's fee component of the manual charges and discounts (money.md, "Recording payments by hand"): it
  * composes the Ledger's manual fee facts, one item (so one `charge` line) per entry, plus the amount for a
  * charge and minus it for a discount. It is the last stage, so it never touches support, share or aid caps.
- * It reads facts, never lines. The fee's type gives its name, „Kézi díj” or „Kézi kedvezmény” [UNAPPROVED T24],
+ * It reads facts, never lines. The fee's type gives its name, „Kézi díj” or „Kézi kedvezmény”,
  * never the line's sign (a withdrawal's reversal flips it).
  */
 final class ManualFees implements NamedFeeComponent

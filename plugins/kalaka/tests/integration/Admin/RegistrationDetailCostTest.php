@@ -132,10 +132,10 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
     }
 
     /** Several manual fees, each with its own owed line, cost no statement more: the names come in one read. */
-    private function seedManualFees(int $event): void
+    private function seedManualFees(int $event, int $count = 5): void
     {
         global $wpdb;
-        for ($number = 1; $number <= 5; $number++) {
+        for ($number = 1; $number <= $count; $number++) {
             $this->insert('kalaka_manual_fees', [
                 'event_id' => $event,
                 'code' => '00A0',
@@ -182,6 +182,35 @@ final class RegistrationDetailCostTest extends PerEventCostTestCase
                 return (new RegistrationDetail())->of(new SystemActor(), $event, '00A0');
             }
         );
+    }
+
+    public function testSeveralManualFeesCostNoStatementMore(): void
+    {
+        $this->seedEvent(1);
+        $this->seedManualFees(1, 1);
+        $this->seedEvent(2);
+        $this->seedManualFees(2, 5);
+
+        self::assertSame($this->selectCount(1), $this->selectCount(2));
+    }
+
+    /** The number of SELECTs the detail read sends for one event. */
+    private function selectCount(int $event): int
+    {
+        $count = 0;
+        $capture = static function (string $sql) use (&$count): string {
+            if (preg_match('/^\s*SELECT\b/i', $sql) === 1) {
+                $count++;
+            }
+
+            return $sql;
+        };
+        ObjectCache::clear();
+        add_filter('query', $capture);
+        (new RegistrationDetail())->of(new SystemActor(), $event, '00A0');
+        remove_filter('query', $capture);
+
+        return $count;
     }
 
     /** @param array<string, int|string|null> $row */

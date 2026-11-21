@@ -319,7 +319,7 @@ flowchart LR
   F["Registration facts<br/>status, field values from every form"] --> R
   X["Extension-written field values<br/>aid award, …"] --> R
   PF["Payment facts<br/>read from payment lines only"] --> R
-  R["Fee components<br/>target amount per component and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
+  R["Fee components<br/>target amount per component, item and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]
   PM["Payment-method plugin<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
   ST["Organizers<br/>cash, bank transfer"] --> L

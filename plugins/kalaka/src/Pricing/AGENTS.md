@@ -24,7 +24,7 @@ retention and the materializer
   current settings and the registration's facts.
 - Only the materializer writes `charge` lines, only through
   `Ledger\Api\Ledger`, and only the difference between what is owed and what
-  is recorded per component and payer; it converges, so running it again
+  is recorded per component, item and payer; it converges, so running it again
   writes nothing.
 - Rules never read charge lines. Only `Api\Materializer` calls
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its

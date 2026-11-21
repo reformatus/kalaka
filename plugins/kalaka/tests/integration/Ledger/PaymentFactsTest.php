@@ -59,7 +59,7 @@ final class PaymentFactsTest extends LedgerTestCase
         self::assertEquals($online->paidAt, $online->valueAt());
     }
 
-    /** #42 AC14: one line of every kind; the facts are every payment-fact kind and no charge or adjustment. */
+    /** #42 AC14: one line of every kind; the facts are every payment-fact kind and no charge. */
     public function testALineOfEveryPaymentFactKindAndNoOtherIsReturned(): void
     {
         $registration = $this->registration();
