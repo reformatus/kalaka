@@ -4,7 +4,6 @@ deptrac:
     - plugins/kalaka-support/src
     - plugins/kalaka-divi4/src
     - plugins/kalaka-ranking/src
-    - plugins/kalaka-extras/src
   layers:
     - name: Foundation
       collectors:
