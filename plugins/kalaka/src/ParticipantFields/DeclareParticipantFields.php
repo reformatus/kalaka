@@ -65,6 +65,18 @@ final class DeclareParticipantFields implements AdminUseCase
                                 ],
                             ],
                             'latest' => ['type' => 'boolean'],
+                            'settings' => [
+                                'type' => ['object', 'null'],
+                                'properties' => [
+                                    'min' => ['type' => ['string', 'null']],
+                                    'step' => ['type' => ['string', 'null']],
+                                    'max' => ['type' => ['string', 'null']],
+                                    'decimals' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 8],
+                                    'prefix' => ['type' => 'string'],
+                                    'suffix' => ['type' => 'string'],
+                                ],
+                                'additionalProperties' => false,
+                            ],
                         ],
                         'required' => ['key', 'type', 'title', 'options', 'latest'],
                         'additionalProperties' => false,
@@ -108,7 +120,7 @@ final class DeclareParticipantFields implements AdminUseCase
 
         $held = [];
         $skipped = [];
-        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool}> $fields */
+        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool, settings?: ?array<string, mixed>}> $fields */
         $fields = $input['fields'];
         foreach ($fields as $field) {
             $key = $field['key'];
@@ -126,6 +138,9 @@ final class DeclareParticipantFields implements AdminUseCase
                     $now,
                     $now,
                     ++$position,
+                    false,
+                    0,
+                    self::settings($field['settings'] ?? null),
                 ), $context);
                 continue;
             }
@@ -139,6 +154,7 @@ final class DeclareParticipantFields implements AdminUseCase
             $record->retiredAt = null;
             // The title is the participant field's own: set when it is declared, changed only by
             // `RenameParticipantField` (owner ruling 2026-11-13).
+            $record->settings = self::settings($field['settings'] ?? null);
             $record->options = self::merged(
                 $record->options,
                 $field['options'],
@@ -177,6 +193,17 @@ final class DeclareParticipantFields implements AdminUseCase
         }
         $record->updatedAt = $now;
         $this->repository->upsert($record, $context);
+    }
+
+    /**
+     * The type's settings as stored: an empty or null object is none.
+     *
+     * @param mixed $settings
+     * @return ?array<string, mixed>
+     */
+    private static function settings(mixed $settings): ?array
+    {
+        return is_array($settings) && $settings !== [] ? $settings : null;
     }
 
     /**

@@ -581,6 +581,7 @@ final class ParticipantFieldsTest extends FormsTestCase
                 'form_writable' => true,
                 'retired' => false,
                 'forms' => [['form_id' => $id, 'title' => 'Regisztráció']],
+                'settings' => [],
             ]],
             $response->get_data()
         );

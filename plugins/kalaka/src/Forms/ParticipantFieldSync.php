@@ -139,6 +139,7 @@ final class ParticipantFieldSync
      *         title: string,
      *         options: ?list<array{value: string, label: string}>,
      *         latest: bool,
+     *         settings: array<string, mixed>,
      *     }>,
      *     list<string>,
      * }

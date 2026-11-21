@@ -158,7 +158,9 @@ values and conditions, prefill and form links
   type writes to a table. Core ships no money-relevant field type. A field
   type's `valueType()` and `value()` fire no hook and write nothing (they may
   read), so the evaluation may call them inside the transaction; the rest of
-  the point runs outside it.
+  the point runs outside it. A type's `settings()` names the block settings
+  the event's participant field keeps (the number field's bounds, decimals and
+  affixes); `Forms::participantValues()` passes them to `value()`.
 - A field type whose value is a path (`Api\PathFieldType`) is never compared
   with `equals`: the parser refuses it where the scope knows the key's field
   type (`FormScope`, a mail body's check and `Availability::check()` through

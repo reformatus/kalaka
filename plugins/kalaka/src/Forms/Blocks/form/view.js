@@ -50,6 +50,10 @@
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
+import { guardNumberWheel } from './number';
+
+// A focused number field never changes on the mouse wheel (topic 7).
+guardNumberWheel();
 
 /**
  * What each form on the page started from (its context and its submit token), with its state: the
