@@ -95,4 +95,9 @@ final class RequestScopeHost implements FormHost
     {
         return $this->host->accountStep($form);
     }
+
+    public function slotRequiredKeys(Form $form): array
+    {
+        return $this->host->slotRequiredKeys($form);
+    }
 }
