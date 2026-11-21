@@ -120,8 +120,9 @@ title: Money
   no value date**: it counts from the time it is recorded. It is a payment
   fact like any recorded payment, so confirmation and balances count it with no
   special case. One use case records it, under the same action as "record
-  payment". Its reason stays internal; the registrant sees only the sum of
-  corrections.
+  payment". Every recorded movement's note, a correction's reason included,
+  is shown to the participant on their page, and each correction is its own
+  row with its direction.
 - **A short transfer** (e.g. a foreign bank's deduction) is recorded as it
   arrived; the rest stays due until waived with a manual discount.
 - **An unnamed transfer** is found through a view (name, code, amount) and
