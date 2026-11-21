@@ -1,25 +1,24 @@
 import {
-	answerable,
 	CONDITION,
 	conditionField,
 	lockedFilters,
 	filteredIds,
 	filterSpec,
 	isNarrowed,
+	decimal,
 	narrowOf,
-	UNANSWERED,
-	unansweredField,
+	NO_ANSWER,
 } from '../../src/Admin/app/grid/narrow';
 
 const columns = [
 	{ column: 'serial', label: 'Szám', type: 'serial', numeric: true },
 	{ column: 'code', label: 'Kód', type: 'code' },
 	{ column: 'status', label: 'Állapot', type: 'status', members: [ { value: 'registered', label: 'Rögzítve' } ] },
-	{ column: 'field:lunch', label: 'Ebéd', type: 'choice', members: [ { value: 'veg', label: 'Vegetáriánus' } ] },
-	{ column: 'field:photo', label: 'Fénykép', type: 'consent', options: { 1: 'Igen', 0: 'Nem' } },
+	{ column: 'field:lunch', label: 'Ebéd', type: 'choice', empty: true, members: [ { value: 'veg', label: 'Vegetáriánus' } ] },
+	{ column: 'field:photo', label: 'Fénykép', type: 'consent', empty: true, options: { 1: 'Igen', 0: 'Nem' } },
 	{ column: 'field:nights', label: 'Éjszakák', type: 'number', numeric: true },
 	{ column: 'field:born', label: 'Születési idő', type: 'date' },
-	{ column: 'decision:confirmation', label: 'Visszaigazolás', type: 'decision', states: { confirmed: 'Visszaigazolva' } },
+	{ column: 'decision:confirmation', label: 'Visszaigazolás', type: 'decision', empty: true, states: { confirmed: 'Visszaigazolva' } },
 	{ column: 'decision:late_fee', label: 'Késedelmi díj', type: 'decision', states: {} },
 	{ column: 'field:note', label: 'Megjegyzés', type: 'text' },
 ];
@@ -36,17 +35,21 @@ describe( 'the DataViews filter of each column type', () => {
 		// A decision whose states are known is a list of them; one without is text.
 		expect( filterSpec( by( 'decision:confirmation' ) ).elements ).toEqual( [
 			{ value: 'confirmed', label: 'Visszaigazolva' },
+			{ value: NO_ANSWER, label: 'Nincs válasz' },
 		] );
 		expect( filterSpec( by( 'decision:late_fee' ) ).filterBy.operators ).toEqual( [ 'contains' ] );
 	} );
 
-	it( 'keeps yes, no and no answer apart: true and false are the two elements, is / isNot', () => {
+	it( 'keeps yes, no and no answer apart: three elements of the yes/no’s own filter, is / isNot', () => {
 		const spec = filterSpec( by( 'field:photo' ) );
 		expect( spec.elements ).toEqual( [
 			{ value: true, label: 'Igen' },
 			{ value: false, label: 'Nem' },
+			{ value: NO_ANSWER, label: 'Nincs válasz' },
 		] );
 		expect( spec.filterBy.operators ).toEqual( [ 'is', 'isNot' ] );
+		// A yes/no that is required in every form has no „Nincs válasz”.
+		expect( filterSpec( { ...by( 'field:photo' ), empty: undefined } ).elements ).toHaveLength( 2 );
 	} );
 
 	it( 'gives a display-only time column no filter and no sort, and any other unknown type text', () => {
@@ -58,14 +61,20 @@ describe( 'the DataViews filter of each column type', () => {
 		expect( filterSpec( { column: 'x', label: 'X', type: 'other' } ).filterBy.operators ).toEqual( [ 'contains' ] );
 	} );
 
-	it( 'gives every number column from–to beside =, < and >, and Szám only from–to', () => {
-		expect( filterSpec( by( 'field:nights' ) ).filterBy.operators ).toEqual( [
-			'is',
-			'lessThan',
-			'greaterThan',
-			'between',
-		] );
-		expect( filterSpec( by( 'serial' ) ).filterBy.operators ).toEqual( [ 'between' ] );
+	it( 'gives every number column, Szám included, =, <, > and from–to, in decimal comma form', () => {
+		for ( const id of [ 'field:nights', 'serial' ] ) {
+			const spec = filterSpec( by( id ) );
+			expect( spec.filterBy.operators ).toEqual( [ 'is', 'lessThan', 'greaterThan', 'between' ] );
+			expect( spec.type ).toBe( 'number' );
+			expect( spec.getValueFormatted( { item: { x: 2.5 }, field: { getValue: ( { item } ) => item.x } } ) ).toBe( '2,5' );
+			expect( spec.getValueFormatted( { item: { x: 3 }, field: { getValue: ( { item } ) => item.x } } ) ).toBe( '3' );
+		}
+	} );
+
+	it( 'gives no „Nincs válasz” to a text, a number or a date column (deferred)', () => {
+		for ( const id of [ 'code', 'field:note', 'field:nights', 'field:born', 'serial' ] ) {
+			expect( JSON.stringify( filterSpec( { ...by( id ), empty: true } ) ) ).not.toContain( NO_ANSWER );
+		}
 	} );
 
 	it( 'gives text and Kód “contains” and a date before / after', () => {
@@ -75,28 +84,18 @@ describe( 'the DataViews filter of each column type', () => {
 	} );
 } );
 
-describe( '„Nincs válasz”', () => {
-	it( 'is one filter over the field and decision columns, with the one operator isAny', () => {
-		expect( answerable( columns ).map( ( c ) => c.column ) ).toEqual( [
-			'field:lunch',
-			'field:photo',
-			'field:nights',
-			'field:born',
-			'decision:confirmation',
-			'decision:late_fee',
-			'field:note',
-		] );
-		const field = unansweredField( columns );
-		expect( field.id ).toBe( UNANSWERED );
-		expect( field.filterBy.operators ).toEqual( [ 'isAny' ] );
-		// A plain option under „Szűrő hozzáadása”, not pinned: no chip until it is chosen.
-		expect( field.filterBy.isPrimary ).toBeUndefined();
-		expect( field.elements ).toContainEqual( { value: 'field:lunch', label: 'Ebéd' } );
-		expect( field.elements.some( ( e ) => e.value === 'code' || e.value === 'status' ) ).toBe( false );
-	} );
-
-	it( 'is none for a view with no field or decision column', () => {
-		expect( unansweredField( columns.slice( 0, 3 ) ) ).toBeNull();
+describe( 'a typed number', () => {
+	it( 'reads a decimal comma and a dot alike, keeps up to eight decimals, and refuses anything else', () => {
+		expect( decimal( '2,5' ) ).toBe( '2.5' );
+		expect( decimal( '2.5' ) ).toBe( '2.5' );
+		expect( decimal( 3.7 ) ).toBe( '3.7' );
+		expect( decimal( ' -0,25 ' ) ).toBe( '-0.25' );
+		expect( decimal( '0,123456789' ) ).toBe( '0.12345678' );
+		expect( decimal( '10' ) ).toBe( '10' );
+		expect( decimal( '-0' ) ).toBe( '0' );
+		for ( const bad of [ '', 'abc', '1,2,3', undefined, null, NaN ] ) {
+			expect( decimal( bad ) ).toBe( '' );
+		}
 	} );
 } );
 
@@ -123,20 +122,26 @@ describe( 'what is sent to the server', () => {
 		expect( narrowOf( { filters: [ { field: 'field:photo', operator: 'is', value: undefined } ] }, columns ).filters ).toEqual( [] );
 	} );
 
-	it( 'cuts a number to the whole number its chip shows, and sends a range only with both ends', () => {
+	it( 'sends a number as a decimal, and a range only with both ends', () => {
 		const view = ( operator, value ) => ( { filters: [ { field: 'field:nights', operator, value } ] } );
-		expect( narrowOf( view( 'is', 3.7 ), columns ).filters[ 0 ].value ).toBe( 3 );
+		expect( narrowOf( view( 'is', 3.7 ), columns ).filters[ 0 ].value ).toBe( '3.7' );
+		expect( narrowOf( view( 'greaterThan', '2,5' ), columns ).filters[ 0 ].value ).toBe( '2.5' );
 		expect( narrowOf( view( 'between', [ 2, '' ] ), columns ).filters ).toEqual( [] );
-		expect( narrowOf( view( 'between', [ 2, 5 ] ), columns ).filters[ 0 ].value ).toEqual( [ 2, 5 ] );
-		expect( narrowOf( { filters: [ { field: 'serial', operator: 'between', value: [ '1', '50' ] } ] }, columns ).filters[ 0 ].value ).toEqual( [ 1, 50 ] );
+		expect( narrowOf( view( 'between', [ 2, 5.5 ] ), columns ).filters[ 0 ].value ).toEqual( [ '2', '5.5' ] );
+		// Szám takes the same operators and decimals.
+		const serial = ( operator, value ) => ( { filters: [ { field: 'serial', operator, value } ] } );
+		expect( narrowOf( serial( 'between', [ '1', '50' ] ), columns ).filters[ 0 ].value ).toEqual( [ '1', '50' ] );
+		expect( narrowOf( serial( 'lessThan', 4 ), columns ).filters ).toEqual( [ { field: 'serial', operator: 'lessThan', value: '4' } ] );
 	} );
 
-	it( 'sends „Nincs válasz” with its columns, and the trimmed search', () => {
-		const view = { filters: [ { field: UNANSWERED, operator: 'isAny', value: [ 'field:note' ] } ], search: ' ors ' };
+	it( 'sends „Nincs válasz” as a value of the column’s own filter, and the trimmed search', () => {
+		const view = { filters: [ { field: 'field:lunch', operator: 'isAny', value: [ 'veg', NO_ANSWER ] } ], search: ' ors ' };
 		expect( narrowOf( view, columns ) ).toEqual( {
-			filters: [ { field: UNANSWERED, operator: 'isAny', value: [ 'field:note' ] } ],
+			filters: [ { field: 'field:lunch', operator: 'isAny', value: [ 'veg', NO_ANSWER ] } ],
 			search: 'ors',
 		} );
+		const yesNo = { filters: [ { field: 'field:photo', operator: 'is', value: NO_ANSWER } ] };
+		expect( narrowOf( yesNo, columns ).filters ).toEqual( [ { field: 'field:photo', operator: 'is', value: NO_ANSWER } ] );
 	} );
 
 	it( 'gives the view\'s own condition as a locked DataViews filter that is never sent', () => {
@@ -159,7 +164,5 @@ describe( 'what is sent to the server', () => {
 		const narrow = narrowOf( { filters: [ { field: 'code', operator: 'contains', value: 'a' } ] }, columns );
 		expect( isNarrowed( narrow ) ).toBe( true );
 		expect( [ ...filteredIds( narrow ) ] ).toEqual( [ 'code' ] );
-		const none = narrowOf( { filters: [ { field: UNANSWERED, operator: 'isAny', value: [ 'field:note' ] } ] }, columns );
-		expect( [ ...filteredIds( none ) ] ).toEqual( [ 'field:note' ] );
 	} );
 } );

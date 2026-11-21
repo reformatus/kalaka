@@ -55,10 +55,10 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
 
 /* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
-   DataViews' own table text is already its muted token, so the dimming is the contrast: an active row's text
-   takes the stronger token, an inactive row keeps the muted one (at least 4.5:1, no opacity). [UNAPPROVED N25] */
-#kalaka-grid .kg-active { color: var(--wpds-color-foreground-content-neutral, #1e1e1e); }
-#kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-content-neutral-weak, #707070); }
+   An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design
+   system's own disabled foreground token (lighter than the table text, about 3.4:1 on white; the choice and its
+   alternative, a reduced opacity, are N25's). [UNAPPROVED N25] */
+#kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d); }
 
 /* A long field is one line, cut with „…”. */
 .kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -129,8 +129,8 @@ final class ViewQuery extends Query
         if ($sort === 'status') {
             $order = 'r.status' . $direction . ', ' . $serialOrder;
         } elseif ($sort === 'serial') {
-            // The computed sorszám as a number; the rows with none (withdrawn, removed) sort first ascending,
-            // and a tie (the same number in `registered` and `waitlisted`) falls back to the default order.
+            // The computed sorszám as a number [UNAPPROVED N53]; the rows with none (withdrawn, removed) sort first
+            // ascending, and a tie (the same number in `registered` and `waitlisted`) falls back to the default order.
             [$ranked, $joinArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
                 $eventId
@@ -396,15 +396,12 @@ final class ViewQuery extends Query
     {
         $column = $filter->column;
         $kind = $filter->kind;
-        if ($kind === FilterKind::Unanswered) {
-            return $this->unanswered($filter, $listed);
-        }
         $fits = match (true) {
             $column === 'code' => $kind === FilterKind::Text,
-            $column === 'serial' => $kind === FilterKind::Range,
+            $column === 'serial' => $kind === FilterKind::Number,
             $column === 'status' => $kind === FilterKind::Members,
             str_starts_with($column, 'decision:') => $kind === FilterKind::Members || $kind === FilterKind::Text,
-            str_starts_with($column, 'field:') => $kind !== FilterKind::Range,
+            str_starts_with($column, 'field:') => true,
             default => false,
         };
         if (!$fits || !in_array($column, $listed, true)) {
@@ -414,15 +411,27 @@ final class ViewQuery extends Query
         $value = $filter->value;
         $text = is_string($value) ? $value : '';
 
-        if ($kind === FilterKind::Range && is_array($value)) {
+        if ($column === 'serial') {
+            // The computed sorszám as a number, with the operators of any number column. [UNAPPROVED N54]
             [$ranked, $rankedArgs] = RegistrationTables::serialNumbers(
                 $this->table(RegistrationTables::REGISTRATIONS),
                 $eventId
             );
+            if (is_array($value)) {
+                $compare = 'n.serial_no BETWEEN CAST(%s AS DECIMAL(26,8)) AND CAST(%s AS DECIMAL(26,8))';
+                $compareArgs = $value;
+            } else {
+                $compare = 'n.serial_no' . match ($filter->operator) {
+                    'lessThan' => ' < ',
+                    'greaterThan' => ' > ',
+                    default => ' = ',
+                } . 'CAST(%s AS DECIMAL(26,8))';
+                $compareArgs = [$text];
+            }
 
             return [
-                'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE n.serial_no BETWEEN %d AND %d)',
-                [...$rankedArgs, (int) $value[0], (int) $value[1]],
+                'r.code IN (SELECT n.code FROM (' . $ranked . ') n WHERE ' . $compare . ')',
+                [...$rankedArgs, ...$compareArgs],
             ];
         }
         if ($column === 'code' && is_string($value)) {
@@ -440,14 +449,7 @@ final class ViewQuery extends Query
             $decisions = $this->table(DecisionTables::DECISIONS);
             $kindArgs = [$decisions, $decisions, substr($column, 9)];
             if (is_array($value)) {
-                $in = implode(', ', array_fill(0, count($value), '%s'));
-
-                return [
-                    $filter->operator === 'isAny'
-                        ? $state . ' IN (' . $in . ')'
-                        : 'NOT (COALESCE(' . $state . ", '') IN (" . $in . '))',
-                    [...$kindArgs, ...$value],
-                ];
+                return $this->decisionMembers($filter, $state, $kindArgs, $value);
             }
 
             return [
@@ -463,11 +465,23 @@ final class ViewQuery extends Query
 
         switch ($kind) {
             case FilterKind::Members:
-                $members = is_array($value) ? $value : [];
-                [$match, $matchArgs] = self::memberMatch('f', $members);
-                $exists = 'EXISTS (' . $field . $match . ')';
+                $members = is_array($value) ? array_values(array_diff($value, [ColumnFilter::NO_ANSWER])) : [];
+                $none = is_array($value) && in_array(ColumnFilter::NO_ANSWER, $value, true);
+                $parts = [];
+                $partArgs = [];
+                if ($members !== []) {
+                    [$match, $matchArgs] = self::memberMatch('f', $members);
+                    $parts[] = 'EXISTS (' . $field . $match . ')';
+                    array_push($partArgs, ...$base, ...$matchArgs);
+                }
+                if ($none) {
+                    // „Nincs válasz”: no non-empty value in the field's row.
+                    $parts[] = 'NOT EXISTS (' . $field . "f.value <> '')";
+                    array_push($partArgs, ...$base);
+                }
+                $any = '(' . implode(' OR ', $parts) . ')';
 
-                return [$filter->operator === 'isAny' ? $exists : 'NOT ' . $exists, [...$base, ...$matchArgs]];
+                return [$filter->operator === 'isAny' ? $any : 'NOT ' . $any, $partArgs];
             case FilterKind::Text:
                 return [
                     'EXISTS (' . $field . 'f.value LIKE %s COLLATE ' . self::SQL_COLLATION . ')',
@@ -499,7 +513,12 @@ final class ViewQuery extends Query
                     [...$base, $text],
                 ];
             default:
-                // Yes/no: a stored 1 is yes and a stored 0 is no; no value is neither.
+                // Yes/no: a stored 1 is yes and a stored 0 is no; no value is neither, and „Nincs válasz” is that.
+                if ($value === ColumnFilter::NO_ANSWER) {
+                    $answered = 'EXISTS (' . $field . "f.value <> '')";
+
+                    return [$filter->operator === 'is' ? 'NOT ' . $answered : $answered, $base];
+                }
                 $stored = $value === true ? '1' : '0';
                 $exists = 'EXISTS (' . $field . 'f.value = %s)';
 
@@ -508,37 +527,44 @@ final class ViewQuery extends Query
     }
 
     /**
-     * „Nincs válasz”: some named column has no answer: no non-empty value for a field, no decision for a
-     * decision column.
+     * A decision column's `isAny` / `isNone` over its latest state; `NO_ANSWER` in the list is „no record”.
      *
-     * @param list<string> $listed
+     * @param literal-string $state the latest state of the kind, as a select expression
+     * @param list<string|int> $kindArgs the placeholders' arguments of one use of `$state`
+     * @param list<string> $value
      * @return array{0: literal-string, 1: list<string|int>}
-     * @throws InvalidInput
      */
-    private function unanswered(ColumnFilter $filter, array $listed): array
+    private function decisionMembers(ColumnFilter $filter, string $state, array $kindArgs, array $value): array
     {
-        $values = $this->table(RegistrationTables::FIELD_VALUES);
-        $decisions = $this->table(DecisionTables::DECISIONS);
+        $states = array_values(array_diff($value, [ColumnFilter::NO_ANSWER]));
+        $none = in_array(ColumnFilter::NO_ANSWER, $value, true);
+        $in = implode(', ', array_fill(0, count($states), '%s'));
         /** @var list<literal-string> $parts */
         $parts = [];
         $args = [];
-        foreach (is_array($filter->value) ? $filter->value : [] as $column) {
-            if (!in_array($column, $listed, true)) {
-                throw new InvalidInput();
+        if ($filter->operator === 'isAny') {
+            if ($states !== []) {
+                $parts[] = $state . ' IN (' . $in . ')';
+                array_push($args, ...$kindArgs, ...$states);
             }
-            if (str_starts_with($column, 'field:')) {
-                $parts[] = 'NOT EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
-                    . " AND f.field_key = %s AND f.value <> '')";
-                array_push($args, $values, substr($column, 6));
-            } elseif (str_starts_with($column, 'decision:')) {
-                $parts[] = DecisionTables::currentState('r', 'd', 'm') . ' IS NULL';
-                array_push($args, $decisions, $decisions, substr($column, 9));
-            } else {
-                throw new InvalidInput();
+            if ($none) {
+                $parts[] = $state . ' IS NULL';
+                array_push($args, ...$kindArgs);
             }
+
+            return ['(' . implode(' OR ', $parts) . ')', $args];
+        }
+        // None of them: a decision with no record is none of the states, unless „Nincs válasz” is named.
+        if ($states !== []) {
+            $parts[] = 'NOT (COALESCE(' . $state . ", '') IN (" . $in . '))';
+            array_push($args, ...$kindArgs, ...$states);
+        }
+        if ($none) {
+            $parts[] = $state . ' IS NOT NULL';
+            array_push($args, ...$kindArgs);
         }
 
-        return ['(' . implode(' OR ', $parts) . ')', $args];
+        return ['(' . implode(' AND ', $parts) . ')', $args];
     }
 
     /**

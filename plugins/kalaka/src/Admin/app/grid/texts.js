@@ -21,6 +21,7 @@ export const GRID = {
 	noMatch: 'Nincs megfelelő jelentkező.',
 	// A view or a filter set with no registrations at all. [UNAPPROVED N10]
 	emptyView: 'Nincs jelentkező.',
+	// One more value in a list column's own filter; the owner's own word (2026-11-21).
 	unanswered: 'Nincs válasz',
 	// A failed table load, in the table's place.
 	loadFail: 'A táblázat betöltése nem sikerült.',
@@ -44,7 +45,7 @@ export const SUM = {
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
-/** The hint under Kód's sort options in the column's menu. [UNAPPROVED T29] */
+/** The hint under Kód's sort options in the column's menu. [UNAPPROVED T37] */
 export const COLUMN = {
 	codeAsc: 'Jelentkezés sorrendjében',
 	codeDesc: 'Jelentkezés fordított sorrendjében',

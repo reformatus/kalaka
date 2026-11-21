@@ -10,18 +10,21 @@ namespace Kalaka\Admin\Api;
  */
 enum FilterKind: string
 {
-    /** A status, a choice or a decision's state: one of the listed stored values (`isAny`, `isNone`). */
+    /**
+     * A status, a choice or a decision's state: one of the listed stored values (`isAny`, `isNone`). The list may
+     * also hold `ColumnFilter::NO_ANSWER`, which stands for „Nincs válasz”: no value (a field) or no record
+     * (a decision).
+     */
     case Members = 'members';
     /** Text, or the code: the folded text contains the value (`contains`). */
     case Text = 'text';
-    /** A number-valued field: `is`, `lessThan`, `greaterThan`, `between`. */
+    /** A number-valued field, or the sorszám: `is`, `lessThan`, `greaterThan`, `between`. */
     case Number = 'number';
-    /** The sorszám: a range, both ends included (`between`). */
-    case Range = 'range';
     /** A date-valued field: `before`, `after`. */
     case Date = 'date';
-    /** A yes/no field: stored `1` is yes, stored `0` is no, no value is neither (`is`, `isNot`). */
+    /**
+     * A yes/no field: stored `1` is yes, stored `0` is no, no value is neither; the value may be
+     * `ColumnFilter::NO_ANSWER` (`is`, `isNot`).
+     */
     case YesNo = 'yesno';
-    /** The pseudo column `unanswered`: some of the listed field or decision columns has no answer (`isAny`). */
-    case Unanswered = 'unanswered';
 }

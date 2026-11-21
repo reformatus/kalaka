@@ -48,7 +48,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>
+     *     states?: array<string, string>, empty?: true
      * }>
      */
     public function columns(HeldView $view, array $fields): array
@@ -167,7 +167,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>
+     *     states?: array<string, string>, empty?: true
      * }>
      */
     public function describe(array $columns, array $fields, int $eventId): array
@@ -452,12 +452,12 @@ final class GridModel
      * @return array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>
+     *     states?: array<string, string>, empty?: true
      * }
      */
     private function meta(string $column, array $fields, int $eventId): array
     {
-        // Kód carries the default order and sorts both ways; Szám is a plain number sort. [UNAPPROVED N49]
+        // Kód carries the default order and sorts both ways; Szám is a plain number sort. [UNAPPROVED N60]
         $meta = ['column' => $column, 'sortable' => true, 'numeric' => false];
         if ($column === 'code') {
             return $meta + ['label' => Texts::CODE, 'type' => 'code'];
@@ -478,12 +478,13 @@ final class GridModel
         if (str_starts_with($column, 'decision:')) {
             $kind = $this->decision($eventId, substr($column, 9));
 
+            // A decision can always have no record, so a list of states offers „Nincs válasz”.
             return $meta + [
                 'label' => $kind['label'],
                 'type' => 'decision',
                 'states' => $kind['states'],
                 'members' => $this->members($column, $fields, $eventId) ?? [],
-            ];
+            ] + ($kind['states'] === [] ? [] : ['empty' => true]);
         }
 
         $field = $fields[substr($column, 6)] ?? null;
@@ -504,6 +505,10 @@ final class GridModel
         }
         if ($type === 'consent') {
             $meta['options'] = ['1' => Texts::YES, '0' => Texts::NO];
+        }
+        // „Nincs válasz” in the filter of a list column that can be empty: optional in at least one form.
+        if (($type === 'choice' || $type === 'consent') && !$field->required) {
+            $meta['empty'] = true;
         }
 
         return $meta;

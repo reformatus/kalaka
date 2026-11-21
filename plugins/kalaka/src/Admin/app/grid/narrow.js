@@ -6,8 +6,11 @@
  */
 import { GRID } from './texts';
 
-/** The pseudo column of „Nincs válasz”: a filter on the answers a row lacks, not a column of the table. */
-export const UNANSWERED = 'unanswered';
+/**
+ * „Nincs válasz” as one more value of a list column's own filter (a choice, a yes/no, a decision): the rows with
+ * no value or no record. Never a stored value; the server knows it as `ColumnFilter::NO_ANSWER`.
+ */
+export const NO_ANSWER = 'kalaka:no-answer';
 
 const NUMBER_OPERATORS = [ 'is', 'lessThan', 'greaterThan', 'between' ];
 
@@ -17,18 +20,31 @@ const isList = ( column ) =>
 	column.type === 'choice' ||
 	( column.type === 'decision' && Object.keys( column.states || {} ).length > 0 );
 
-/** The members a list column's filter offers: value and label. */
+/** The „Nincs válasz” element, for a list column that can be empty (`column.empty`, from the server). */
+const noAnswer = ( column ) => ( column.empty ? [ { value: NO_ANSWER, label: GRID.unanswered } ] : [] );
+
+/** The members a list column's filter offers: value and label, then „Nincs válasz” where the column can be empty. */
 function elementsOf( column ) {
-	if ( column.type === 'decision' ) {
-		return Object.entries( column.states ).map( ( [ value, label ] ) => ( { value, label } ) );
-	}
-	return ( column.members || [] ).map( ( { value, label } ) => ( { value, label } ) );
+	const members =
+		column.type === 'decision'
+			? Object.entries( column.states ).map( ( [ value, label ] ) => ( { value, label } ) )
+			: ( column.members || [] ).map( ( { value, label } ) => ( { value, label } ) );
+	return [ ...members, ...noAnswer( column ) ];
 }
+
+/** A number as its chip shows it: Hungarian decimal comma, no padding (DataViews' own number format pads). */
+const numberText = ( { item, field } ) => {
+	const value = field.getValue( { item } );
+	const number = Number( value );
+	return value === null || value === undefined || value === '' || ! Number.isFinite( number )
+		? ''
+		: String( number ).replace( '.', ',' );
+};
 
 /**
  * The DataViews field props that give a column its filter, by the column's type. Every operator is
- * DataViews' own: a list is `isAny`/`isNone`, yes/no `is`/`isNot`, a number `is`/`lessThan`/`greaterThan`/
- * `between`, text (and Kód) `contains`, a date `before`/`after`, Sorszám `between`.
+ * DataViews' own: a list is `isAny`/`isNone`, yes/no `is`/`isNot`, a number and Szám `is`/`lessThan`/
+ * `greaterThan`/`between`, text (and Kód) `contains`, a date `before`/`after`.
  */
 export function filterSpec( column ) {
 	if ( isList( column ) ) {
@@ -42,14 +58,21 @@ export function filterSpec( column ) {
 				elements: [
 					{ value: true, label: options[ '1' ] },
 					{ value: false, label: options[ '0' ] },
+					...noAnswer( column ),
 				],
 				filterBy: { operators: [ 'is', 'isNot' ] },
 			};
 		}
 		case 'serial':
-			return { type: 'integer', filterBy: { operators: [ 'between' ] } };
 		case 'number':
-			return { type: 'integer', filterBy: { operators: NUMBER_OPERATORS } };
+			// Szám and the number columns take the same operators and decimals: DataViews' own number control,
+			// with the chip in Hungarian form. [UNAPPROVED N54]
+			return {
+				type: 'number',
+				format: { separatorThousand: '', separatorDecimal: ',', decimals: 2 },
+				getValueFormatted: numberText,
+				filterBy: { operators: NUMBER_OPERATORS },
+			};
 		case 'date':
 			// The chip shows the date as the cell does; the site's own date format would be „F j, Y”.
 			return { type: 'date', format: { date: 'Y. m. d.' }, filterBy: { operators: [ 'before', 'after' ] } };
@@ -59,35 +82,6 @@ export function filterSpec( column ) {
 		default:
 			return { type: 'text', filterBy: { operators: [ 'contains' ] } };
 	}
-}
-
-/** The columns „Nincs válasz” can name: a participant field or a decision. */
-export const answerable = ( columns ) =>
-	columns.filter( ( c ) => c.column.startsWith( 'field:' ) || c.column.startsWith( 'decision:' ) );
-
-/**
- * The virtual DataViews field of „Nincs válasz”: no operator of DataViews' is „empty”, so it is one more
- * filter whose members are the columns, and the filter holds the rows that have no answer in at least one of them.
- * It is not a column of the table (the view's `fields` do not list it).
- */
-export function unansweredField( columns ) {
-	const members = answerable( columns );
-	if ( ! members.length ) {
-		return null;
-	}
-	return {
-		id: UNANSWERED,
-		label: GRID.unanswered,
-		type: 'text',
-		elements: members.map( ( c ) => ( { value: c.column, label: c.label } ) ),
-		// A plain option under „Szűrő hozzáadása”, like the other filters, not pinned: no chip until the user
-		// adds it. [UNAPPROVED N10] The owner's ruling of 2026-11-18.
-		filterBy: { operators: [ 'isAny' ] },
-		getValue: () => '',
-		render: () => null,
-		enableSorting: false,
-		enableHiding: false,
-	};
 }
 
 /** The pseudo column of the view's own condition: a locked filter, shown as DataViews' own chip. */
@@ -119,27 +113,39 @@ export function conditionField( condition ) {
 export const lockedFilters = ( condition ) =>
 	condition ? [ { field: CONDITION, operator: 'isAny', value: undefined, isLocked: true } ] : [];
 
-const whole = ( x ) => ( Number.isFinite( parseFloat( x ) ) ? Math.trunc( parseFloat( x ) ) : '' );
+/**
+ * A typed number as the server takes it: a decimal string with a dot, or '' when it is no number. The decimal
+ * comma and the dot both read as a decimal point; at most eight decimals, as the server keeps them.
+ */
+export function decimal( x ) {
+	const text = typeof x === 'number' ? ( Number.isFinite( x ) ? x.toFixed( 8 ) : '' ) : String( x ?? '' ).trim().replace( ',', '.' );
+	if ( ! /^-?(?:\d+\.?\d*|\.\d+)$/.test( text ) ) {
+		return '';
+	}
+	const [ whole, fraction = '' ] = text.split( '.' );
+	const kept = fraction.slice( 0, 8 ).replace( /0+$/, '' );
+	const sign = whole.startsWith( '-' ) ? '-' : '';
+	const digits = whole.replace( '-', '' ).replace( /^0+(?=\d)/, '' ) || '0';
+	const out = sign + digits + ( kept ? '.' + kept : '' );
+	return out === '-0' ? '0' : out;
+}
 
 /**
  * One DataViews filter as the server takes it, or null while it narrows nothing (a filter just added from
- * the header menu has no value yet). A number is cut to the whole number its chip shows, so the chip and the
- * rows agree; a range narrows only with both ends set.
+ * the header menu has no value yet). A number is a decimal (comma or dot); a range narrows only with both ends set.
  */
 function filterOf( filter, column ) {
 	let value = filter.value;
 	if ( typeof value === 'string' ) {
 		value = value.trim();
 	}
-	if ( filter.field === UNANSWERED ) {
-		// no column to look at: the value is the list of columns
-	} else if ( column && ( column.type === 'number' || column.type === 'serial' ) ) {
+	if ( column && ( column.type === 'number' || column.type === 'serial' ) ) {
 		if ( filter.operator === 'between' ) {
-			value = Array.isArray( value ) && value.length === 2 && value.every( ( x ) => whole( x ) !== '' )
-				? value.map( whole )
+			value = Array.isArray( value ) && value.length === 2 && value.every( ( x ) => decimal( x ) !== '' )
+				? value.map( decimal )
 				: '';
 		} else {
-			value = value === '' || value === undefined || value === null ? '' : whole( value );
+			value = decimal( value );
 		}
 	}
 	const empty =
@@ -164,6 +170,5 @@ export function narrowOf( view, columns ) {
 /** Whether a filter or a search narrows the view. */
 export const isNarrowed = ( narrow ) => narrow.filters.length > 0 || narrow.search !== '';
 
-/** The columns a filter narrows, for the header shade: a column's own, and those „Nincs válasz” names. */
-export const filteredIds = ( narrow ) =>
-	new Set( narrow.filters.flatMap( ( f ) => ( f.field === UNANSWERED ? f.value : [ f.field ] ) ) );
+/** The columns a filter narrows, for the header shade. */
+export const filteredIds = ( narrow ) => new Set( narrow.filters.map( ( f ) => f.field ) );

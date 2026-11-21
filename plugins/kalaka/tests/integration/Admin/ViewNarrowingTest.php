@@ -181,10 +181,31 @@ final class ViewNarrowingTest extends AdminTestCase
         // Not yes is no and no answer; not no is yes and no answer. Nothing is folded into „no”.
         self::assertSame(['00A2', '00A5', '00B0', '00B3'], $this->where('field:photo', 'isNot', true));
         self::assertSame(['00A0', '00A5', '00A8', '00B0'], $this->where('field:photo', 'isNot', false));
+        // „Nincs válasz” is one more value of the yes/no's own filter: the rows with no value.
+        self::assertSame(['00A5', '00B0'], $this->where('field:photo', 'is', ColumnFilter::NO_ANSWER));
         self::assertSame(
-            ['00A5', '00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:photo'])])
+            ['00A0', '00A2', '00A8', '00B3'],
+            $this->where('field:photo', 'isNot', ColumnFilter::NO_ANSWER)
         );
+    }
+
+    public function testNoAnswerIsOneMoreValueOfAChoiceFilter(): void
+    {
+        $view = $this->view();
+        $none = ColumnFilter::NO_ANSWER;
+
+        // Nothing stored for 00A8 and 00B3 (the multiple choice has no row).
+        self::assertSame(['00A8', '00B3'], $this->where('field:programs', 'isAny', [$none]));
+        self::assertSame(['00A0', '00A8', '00B0', '00B3'], $this->where('field:programs', 'isAny', ['hike', $none]));
+        // None of them, and the rows that have an answer only.
+        self::assertSame(
+            ['00A2', '00A5'],
+            $this->codes($view, [self::filter('field:programs', 'isNone', ['hike', $none])])
+        );
+        self::assertSame(['00A0', '00A2', '00A5', '00B0'], $this->where('field:programs', 'isNone', [$none]));
+        // An empty stored value is no answer either.
+        $this->addValue(self::EVENT, '00A8', 'programs', '');
+        self::assertSame(['00A8', '00B3'], $this->where('field:programs', 'isAny', [$none]));
     }
 
     public function testNumberFiltersAndRanges(): void
@@ -216,7 +237,7 @@ final class ViewNarrowingTest extends AdminTestCase
         self::assertSame(['00B3'], $this->where('field:note', 'contains', 'x_y'));
     }
 
-    public function testDecisionFiltersAndUnanswered(): void
+    public function testDecisionFiltersAndNoAnswer(): void
     {
         $view = $this->view();
 
@@ -229,24 +250,37 @@ final class ViewNarrowingTest extends AdminTestCase
             ['00A0', '00A5', '00A8', '00B0', '00B3'],
             $this->codes($view, [self::filter('decision:confirmation', 'isNone', ['pending'])])
         );
+        // „Nincs válasz” is one more value of the decision's own filter: no record at all.
+        $none = ColumnFilter::NO_ANSWER;
+        self::assertSame(['00A8'], $this->where('decision:confirmation', 'isAny', [$none]));
+        self::assertSame(['00A2', '00A8'], $this->where('decision:confirmation', 'isAny', ['pending', $none]));
+        self::assertSame(['00A2'], $this->where('decision:confirmation', 'isNone', ['confirmed', $none]));
         self::assertSame(
-            ['00A8'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['decision:confirmation'])])
+            ['00A0', '00A2', '00A5', '00B0', '00B3'],
+            $this->where('decision:confirmation', 'isNone', [$none])
         );
-        // „Nincs válasz” on several columns: some of them unanswered. An empty value is no answer.
-        $this->addValue(self::EVENT, '00B0', 'note', '');
-        self::assertSame(
-            ['00A5', '00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:note', 'field:photo'])])
-        );
-        self::assertSame(
-            ['00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:note'])])
-        );
-        self::assertSame(
-            ['00A5', '00B0'],
-            $this->codes($view, [self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:photo'])])
-        );
+    }
+
+    /** Topic 12: Szám takes the operators of any number column, and decimals. */
+    public function testTheSorszamTakesTheNumberOperators(): void
+    {
+        $serials = (new Serials())->forEvent(self::EVENT);
+        $with = static fn (callable $test): array => array_keys(array_filter($serials, $test));
+
+        $is = $this->where('serial', 'is', 2);
+        sort($is);
+        self::assertSame($with(static fn (int $n): bool => $n === 2), $is);
+        $less = $this->where('serial', 'lessThan', 3);
+        sort($less);
+        self::assertSame($with(static fn (int $n): bool => $n < 3), $less);
+        $greater = $this->where('serial', 'greaterThan', 2);
+        sort($greater);
+        self::assertSame($with(static fn (int $n): bool => $n > 2), $greater);
+        // A fraction is a number: 1.5 sits between 1 and 2, so nobody is _at_ it and 2 is greater than it.
+        self::assertSame([], $this->where('serial', 'is', '1.5'));
+        $above = $this->where('serial', 'greaterThan', '1.5');
+        sort($above);
+        self::assertSame($with(static fn (int $n): bool => $n > 1.5), $above);
     }
 
     public function testTheSorszamRangeIsNumberedAsTheRegistrationListNumbersIt(): void
@@ -375,18 +409,14 @@ final class ViewNarrowingTest extends AdminTestCase
         yield 'an empty text' => [[self::filter('code', 'contains', '   ')]];
         yield 'a number that is not a number' => [[self::filter('field:nights', 'is', 'abc')]];
         yield 'a range with one end' => [[self::filter('serial', 'between', [1])]];
-        yield 'a range with a fraction' => [[self::filter('serial', 'between', [1.5, 3])]];
-        yield 'a range operator on the sorszám that is not between' => [[self::filter('serial', 'is', 1)]];
+        yield 'an operator of another type on the sorszám' => [[self::filter('serial', 'contains', '1')]];
         yield 'a date that is not a day' => [[self::filter('field:born', 'before', '2011-02-30')]];
         yield 'a yes/no that is not a bool' => [[self::filter('field:photo', 'is', 'yes')]];
         yield 'the same column twice' => [[
             self::filter('status', 'isAny', ['registered']),
             self::filter('status', 'isNone', ['removed']),
         ]];
-        yield 'unanswered on the code' => [[self::filter(ColumnFilter::UNANSWERED, 'isAny', ['code'])]];
-        yield 'unanswered on an unlisted column' => [[
-            self::filter(ColumnFilter::UNANSWERED, 'isAny', ['field:ghost']),
-        ]];
+        yield 'a no-answer on a yes/no that is not one' => [[self::filter('field:photo', 'is', 'maybe')]];
         yield 'too many filters' => [
             array_fill(0, Narrowing::MAX_FILTERS + 1, self::filter('status', 'isAny', ['registered'])),
         ];

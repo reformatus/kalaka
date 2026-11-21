@@ -73,8 +73,12 @@ final class GridNarrowing
                 throw new InvalidInput();
             }
             $field = $one['field'];
-            $kind = $field === ColumnFilter::UNANSWERED ? FilterKind::Unanswered : self::kind($columns[$field] ?? null);
-            $filters[] = ColumnFilter::of($field, $kind, $one['operator'], $one['value'] ?? null);
+            $filters[] = ColumnFilter::of(
+                $field,
+                self::kind($columns[$field] ?? null),
+                $one['operator'],
+                $one['value'] ?? null
+            );
         }
 
         return $filters;
@@ -94,9 +98,8 @@ final class GridNarrowing
             'status', 'choice' => FilterKind::Members,
             'decision' => ($meta['states'] ?? []) === [] ? FilterKind::Text : FilterKind::Members,
             'consent' => FilterKind::YesNo,
-            'number' => FilterKind::Number,
+            'number', 'serial' => FilterKind::Number,
             'date' => FilterKind::Date,
-            'serial' => FilterKind::Range,
             default => FilterKind::Text,
         };
     }

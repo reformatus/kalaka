@@ -9,13 +9,16 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 /**
  * One ad hoc filter of the grid on a column (S37), validated when it is made: the operator must belong to the
  * kind and the value must have the kind's shape. The value is canonical afterwards: `list<string>` for
- * `Members` and `Unanswered`, a string for `Text`, `Number` (a decimal) and `Date` (`Y-m-d`), `list{string, string}`
- * for a range or a `between`, a bool for `YesNo`.
+ * `Members`, a string for `Text`, `Number` (a decimal) and `Date` (`Y-m-d`), `list{string, string}` for a
+ * `between`, a bool for `YesNo`. `Members` and `YesNo` may also name `NO_ANSWER`: no value, no record.
  */
 final readonly class ColumnFilter
 {
-    /** The pseudo column of the `Unanswered` kind. */
-    public const UNANSWERED = 'unanswered';
+    /**
+     * „Nincs válasz” as a value of a list column's own filter (a choice, a yes/no, a decision): the rows with no
+     * value (a field) or no record (a decision). Never a stored value. [UNAPPROVED N55]
+     */
+    public const NO_ANSWER = 'kalaka:no-answer';
 
     /** @param string|bool|list<string> $value canonical, see above */
     private function __construct(
@@ -33,12 +36,10 @@ final readonly class ColumnFilter
     {
         $value = match ($kind) {
             FilterKind::Members => self::list($operator, ['isAny', 'isNone'], $value),
-            FilterKind::Unanswered => self::list($operator, ['isAny'], $value),
             FilterKind::Text => self::text($operator, $value),
             FilterKind::Number => $operator === 'between'
-                ? self::pair($value, false)
+                ? self::pair($value)
                 : self::number($operator, ['is', 'lessThan', 'greaterThan'], $value),
-            FilterKind::Range => $operator === 'between' ? self::pair($value, true) : self::reject(),
             FilterKind::Date => self::date($operator, $value),
             FilterKind::YesNo => self::yesNo($operator, $value),
         };
@@ -106,19 +107,13 @@ final readonly class ColumnFilter
     }
 
     /** @return list{string, string} */
-    private static function pair(mixed $value, bool $whole): array
+    private static function pair(mixed $value): array
     {
         if (!is_array($value) || !array_is_list($value) || count($value) !== 2) {
             throw new InvalidInput();
         }
-        $pair = [self::decimal($value[0]), self::decimal($value[1])];
-        foreach ($pair as $end) {
-            if ($whole && preg_match('/^(?:0|[1-9][0-9]*)$/D', $end) !== 1) {
-                throw new InvalidInput();
-            }
-        }
 
-        return $pair;
+        return [self::decimal($value[0]), self::decimal($value[1])];
     }
 
     private static function date(string $operator, mixed $value): string
@@ -135,17 +130,13 @@ final readonly class ColumnFilter
         return $day;
     }
 
-    private static function yesNo(string $operator, mixed $value): bool
+    private static function yesNo(string $operator, mixed $value): bool|string
     {
-        if (!in_array($operator, ['is', 'isNot'], true) || !is_bool($value)) {
+        if (!in_array($operator, ['is', 'isNot'], true) || !(is_bool($value) || $value === self::NO_ANSWER)) {
             throw new InvalidInput();
         }
 
         return $value;
     }
 
-    private static function reject(): never
-    {
-        throw new InvalidInput();
-    }
 }

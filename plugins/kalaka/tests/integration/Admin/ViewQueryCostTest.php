@@ -220,10 +220,9 @@ final class ViewQueryCostTest extends PerEventCostTestCase
         $narrowing = new Narrowing([
             ColumnFilter::of('status', FilterKind::Members, 'isAny', ['registered', 'waitlisted']),
             ColumnFilter::of('code', FilterKind::Text, 'contains', '0a'),
-            ColumnFilter::of('serial', FilterKind::Range, 'between', [1, 5]),
-            ColumnFilter::of('field:module', FilterKind::Members, 'isNone', ['c']),
+            ColumnFilter::of('serial', FilterKind::Number, 'between', [1, 5]),
+            ColumnFilter::of('field:module', FilterKind::Members, 'isNone', ['c', ColumnFilter::NO_ANSWER]),
             ColumnFilter::of('decision:confirmation', FilterKind::Members, 'isAny', ['confirmed', 'pending']),
-            ColumnFilter::of(ColumnFilter::UNANSWERED, FilterKind::Unanswered, 'isAny', ['field:module']),
         ], [
             new SearchWord('a', [
                 'status' => ['registered'],

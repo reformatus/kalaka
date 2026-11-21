@@ -21,7 +21,6 @@ import {
 	isNarrowed,
 	lockedFilters,
 	narrowOf,
-	unansweredField,
 } from './narrow';
 import { useSerialHint } from './patches';
 import { writeClipboard } from './clipboard';
@@ -35,7 +34,7 @@ import { GRID, SUM } from './texts';
 
 /**
  * The default order: Kód ascending, when the view lists Kód (the ordering time, then the code); a view without
- * it has no sort at all, and only clearing the other sorts gives it the default order. [UNAPPROVED N49]
+ * it has no sort at all, and only clearing the other sorts gives it the default order. [UNAPPROVED N60]
  */
 const defaultSort = ( tab ) =>
 	tab.columns.some( ( c ) => c.column === 'code' ) ? { field: 'code', direction: 'asc' } : undefined;
@@ -74,7 +73,7 @@ export default function Page( { config } ) {
 	const [ notices, setNotices ] = useState( [] );
 	const [ host, setHost ] = useState( null );
 	// The counting picks since the tab was opened: the viewer's own, for the session, and for full access too.
-	// Never saved; reset on a tab switch, like the sort and the filters (topic 6a G1, B1). [UNAPPROVED N50]
+	// Never saved; reset on a tab switch, like the sort and the filters (topic 6a G1, B1). [UNAPPROVED N61]
 	const picks = useRef( null );
 	if ( ! picks.current ) {
 		picks.current = createPicks();
@@ -232,24 +231,12 @@ export default function Page( { config } ) {
 			enableHiding: false,
 			...filterSpec( column ),
 		} ) );
-		const none = unansweredField( tab.columns );
 		const condition = conditionField( tab.condition );
-		return [
-			...own,
-			...( none
-				? [
-						{
-							...none,
-							header: <span className={ filtered.has( none.id ) ? 'kg-hd is-filtered' : 'kg-hd' }>{ none.label }</span>,
-						},
-				  ]
-				: [] ),
-			...( condition ? [ condition ] : [] ),
-		];
+		return condition ? [ ...own, condition ] : own;
 	}, [ tab, narrowKey ] );
 
 	// The copy result is a snackbar, not text beside the button: a success goes away by itself, an error stays
-	// until it is dismissed. [UNAPPROVED N51]
+	// until it is dismissed. [UNAPPROVED N62]
 	const timers = useRef( [] );
 	useEffect(
 		() => () => {
@@ -398,6 +385,7 @@ export default function Page( { config } ) {
 				>
 					<div className="kg-bulkbar" role="toolbar" aria-label={ GRID.toolbar }>
 						<DataViews.Search />
+						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N52] */ }
 						<DataViews.FiltersToggle />
 						<DataViews.FiltersToggled className="kg-filters" />
 						<Button
