@@ -93,7 +93,9 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
         $lines = $this->lineCount();
 
         $this->command()->preview([(string) $this->event], [
-            'file' => $this->file(['components' => ['extras' => ['charges' => [self::item('a', 'Ebéd', '500', 'ebed')]]]]),
+            'file' => $this->file([
+                'components' => ['extras' => ['charges' => [self::item('a', 'Ebéd', '500', 'ebed')]]],
+            ]),
         ]);
         self::assertSame($lines, $this->lineCount());
         self::assertSame([], $this->extras->charges($this->event));
