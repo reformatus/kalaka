@@ -290,7 +290,7 @@ describe( 'what each type records', () => {
 	} );
 } );
 
-describe( '„Rögtön teljesítve”', () => {
+describe( '„Azonnal befizetve” / „Azonnal visszafizetve”', () => {
 	const checkbox = () => host.querySelector( 'input[type="checkbox"]' );
 
 	test( 'the checkbox shows only for Díj and Kedvezmény, unticked, with its help', async () => {
@@ -379,6 +379,71 @@ describe( '„Rögtön teljesítve”', () => {
 		expect( host.textContent ).toContain( MONEY.methodEmpty );
 		expect( apiFetch ).not.toHaveBeenCalled();
 	} );
+
+	test( 'Közlemény follows the title whatever was typed in a Közlemény before (the A1 bug)', async () => {
+		await render( ALL );
+		// No type yet: the payment fields show; type something in „Közlemény”, then clear it.
+		await setValue( field( MONEY.noteField ), 'Régi' );
+		await setValue( field( MONEY.noteField ), '' );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+		await pick( checkbox() );
+		expect( field( MONEY.noteField ).value ).toBe( 'Pótdíj' );
+		await setValue( field( MONEY.titleField ), 'Pótdíj, késői' );
+		expect( field( MONEY.noteField ).value ).toBe( 'Pótdíj, késői' );
+	} );
+
+	test( 'Közlemény typed under Befizetés does not decide the pair\'s Közlemény', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		await setValue( field( MONEY.noteField ), 'Készpénz a helyszínen' );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+		await pick( checkbox() );
+		expect( field( MONEY.noteField ).value ).toBe( 'Pótdíj' );
+	} );
+
+	test( 'the pair\'s Közlemény does not leak into a Befizetés, and the edited flag does not follow a type switch', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+		await pick( checkbox() );
+		await setValue( field( MONEY.noteField ), 'Átutalva' );
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		expect( field( MONEY.noteField ).value ).toBe( '' );
+		// Back to an owed-side type: the Közlemény is the title again, not the earlier edit.
+		await pick( typeRadios().find( ( r ) => r.value === 'discount' ) );
+		expect( field( MONEY.noteField ).value ).toBe( 'Pótdíj' );
+		await setValue( field( MONEY.titleField ), 'Elengedés' );
+		expect( field( MONEY.noteField ).value ).toBe( 'Elengedés' );
+	} );
+
+	test( 'errors of an earlier submit go when the type changes or the box is unticked (C7)', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.amountField ), '2 000' );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+		await pick( checkbox() );
+		await submit();
+		expect( host.textContent ).toContain( MONEY.methodEmpty );
+		await pick( checkbox() ); // unticked
+		expect( host.textContent ).not.toContain( MONEY.methodEmpty );
+		await pick( checkbox() ); // ticked again: no stale message before a new submit
+		expect( host.textContent ).not.toContain( MONEY.methodEmpty );
+		await submit();
+		expect( host.textContent ).toContain( MONEY.methodEmpty );
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		expect( host.textContent ).not.toContain( MONEY.methodEmpty );
+	} );
+
+	test( 'the title\'s hint stays visible while its message shows (C6)', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.amountField ), '2 000' );
+		await submit();
+		expect( host.textContent ).toContain( MONEY.titleEmpty );
+		expect( host.textContent ).toContain( MONEY.titleHint );
+	} );
 } );
 
 describe( 'the preview: „Tartozás”', () => {
@@ -449,5 +514,60 @@ describe( 'the Korrekció dialog', () => {
 		expect( request.path ).toBe( '/wp-abilities/v1/abilities/kalaka/record-correction/run' );
 		expect( request.data.input ).toMatchObject( { direction: 'in', reason: 'Téves összeg' } );
 		expect( done ).toHaveBeenCalledWith( 'Korrekció rögzítve.' );
+	} );
+} );
+
+describe( 'the idempotency key (N22)', () => {
+	const checkbox = () => host.querySelector( 'input[type="checkbox"]' );
+	const keys = () => apiFetch.mock.calls.map( ( [ request ] ) => request.data.input.idempotency_key );
+
+	// A save that fails keeps the dialog, so the same dialog can be sent again.
+	beforeEach( () => {
+		apiFetch.mockReset();
+		apiFetch.mockRejectedValue( new Error( 'offline' ) );
+	} );
+	afterEach( () => {
+		apiFetch.mockReset();
+		apiFetch.mockResolvedValue( { id: 1 } );
+	} );
+
+	async function fillCharge() {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		await setValue( field( MONEY.amountField ), '2 000' );
+		await setValue( field( MONEY.titleField ), 'Pótdíj' );
+	}
+
+	test( 'a retry of the same values reuses the key', async () => {
+		await fillCharge();
+		await submit();
+		await submit();
+		expect( keys().length ).toBe( 2 );
+		expect( keys()[ 0 ] ).toMatch( /^ui-[0-9a-f]{32}$/ );
+		expect( keys()[ 1 ] ).toBe( keys()[ 0 ] );
+	} );
+
+	test( 'a changed type gives a new key', async () => {
+		await fillCharge();
+		await submit();
+		await pick( typeRadios().find( ( r ) => r.value === 'discount' ) );
+		await submit();
+		expect( keys().length ).toBe( 2 );
+		expect( keys()[ 1 ] ).not.toBe( keys()[ 0 ] );
+		expect( apiFetch.mock.calls[ 1 ][ 0 ].path ).toContain( 'record-discount' );
+	} );
+
+	test( 'a ticked or unticked box gives a new key', async () => {
+		await fillCharge();
+		await submit();
+		await pick( checkbox() );
+		await pick( radios( MONEY.methodField ).find( ( r ) => r.value === 'cash' ) );
+		await submit();
+		expect( keys().length ).toBe( 2 );
+		expect( keys()[ 1 ] ).not.toBe( keys()[ 0 ] );
+		await pick( checkbox() ); // unticked again: the box is part of the entry, so this is another key
+		await submit();
+		expect( keys().length ).toBe( 3 );
+		expect( keys()[ 2 ] ).not.toBe( keys()[ 1 ] );
 	} );
 } );

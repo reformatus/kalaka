@@ -8,7 +8,6 @@ import {
 	formatBalance,
 	formatBalanceMinor,
 	formatDay,
-	formatEntry,
 	formatMinor,
 	formatMoney,
 	lineNote,
@@ -65,14 +64,18 @@ describe( 'money as shown', () => {
 		expect( formatMinor( -500000 ) ).toBe( `−5${ NBSP }000${ NBSP }Ft` );
 	} );
 
-	test( 'an entry\'s amount is signed: a minus is money out (topic 6a G11)', () => {
-		// The ledger stores a payment as negative and a refund as positive; the panel shows the same sign as `paid`.
-		expect( formatEntry( '-35000.00000000', 'manual_payment' ) ).toBe( `35${ NBSP }000${ NBSP }Ft` );
-		expect( formatEntry( '1000.00000000', 'manual_refund' ) ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
-		expect( formatEntry( '1000.00000000', 'refund' ) ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
+	test( 'an entry\'s amount is signed: a minus means the opposite of its column (topic 6a G11, topic 10)', () => {
+		// The ledger stores a payment as negative and a refund as positive; the panel flips the paid side.
+		const col = ( amount, kind, side ) => entryColumns( { amount, kind, side } );
+		expect( col( '-35000.00000000', 'manual_payment' ).paid ).toBe( `35${ NBSP }000${ NBSP }Ft` );
+		expect( col( '1000.00000000', 'manual_refund' ).paid ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
+		expect( col( '1000.00000000', 'refund' ).paid ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
+		// The read's own `side` decides, whatever the kind says.
+		expect( col( '1000.00000000', 'refund', 'paid' ).paid ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
+		expect( col( '1000.00000000', 'refund', 'owed' ).owed ).toBe( `1${ NBSP }000${ NBSP }Ft` );
 		// A charge is shown as stored, positive like „Fizetendő”.
-		expect( formatEntry( '30000.00000000', 'charge' ) ).toBe( `30${ NBSP }000${ NBSP }Ft` );
-		expect( formatEntry( '0.00000000', 'charge' ) ).toBe( `0${ NBSP }Ft` );
+		expect( col( '30000.00000000', 'charge' ).owed ).toBe( `30${ NBSP }000${ NBSP }Ft` );
+		expect( col( '0.00000000', 'charge' ).owed ).toBe( `0${ NBSP }Ft` );
 	} );
 
 	test( 'a minus means the opposite of the column: a discount in „Fizetendő”, a refund in „Befizetett”', () => {
@@ -88,7 +91,8 @@ describe( 'money as shown', () => {
 		[ '30000', '-30000', '0', '1000.50' ].forEach( ( v ) => {
 			expect( formatMoney( v ) ).not.toContain( '+' );
 			[ 'charge', 'payment', 'refund', 'manual_discount' ].forEach( ( k ) => {
-				expect( formatEntry( v, k ) ).not.toContain( '+' );
+				const cols = entryColumns( { amount: v, kind: k } );
+				expect( cols.owed + cols.paid ).not.toContain( '+' );
 			} );
 		} );
 		expect( formatBalanceMinor( 100 ) ).not.toContain( '+' );
@@ -106,7 +110,7 @@ describe( '„Tartozás”: positive still owed, a negative value is an overpaym
 
 	test( 'the word stays out of „Fizetendő” and „Befizetett”', () => {
 		expect( formatMoney( '-5000.00000000' ) ).not.toContain( MONEY.overpaid );
-		expect( formatEntry( '1000.00000000', 'refund' ) ).not.toContain( MONEY.overpaid );
+		expect( entryColumns( { amount: '1000.00000000', kind: 'refund' } ).paid ).not.toContain( MONEY.overpaid );
 	} );
 
 	test( 'the owner\'s words for the payer table and the preview', () => {
@@ -426,6 +430,13 @@ describe( 'the recording dialog\'s checks', () => {
 		expect( MONEY.typeEmpty ).toBe( 'Válassz típust.' );
 	} );
 
+	test( 'with no type picked the type error is the only one, whatever else is empty (N56)', () => {
+		const blank = { several: true, payer: '', amount: '', date: '', method: '', note: '', title: '', kind: '', direction: '', completed: false };
+		expect( validateEntry( blank, day ) ).toEqual( { type: 'Válassz típust.' } );
+		// A correction has its own field errors, as before.
+		expect( Object.keys( validateEntry( { ...blank, kind: 'correction' }, day ) ).sort() ).toEqual( [ 'amount', 'direction', 'note', 'payer' ] );
+	} );
+
 	test( 'a charge and a discount need a title and no method or date', () => {
 		const charge = { ...ok, kind: 'charge', method: '', date: '', title: 'Pótdíj' };
 		expect( validateEntry( charge, day ) ).toEqual( {} );
@@ -492,7 +503,7 @@ describe( 'the recording dialog\'s checks', () => {
 	} );
 
 	test( 'every wrong field is reported at once', () => {
-		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', kind: '', direction: '' }, day );
-		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'payer', 'type', 'value_date' ] );
+		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', kind: 'payment', direction: '' }, day );
+		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'payer', 'value_date' ] );
 	} );
 } );

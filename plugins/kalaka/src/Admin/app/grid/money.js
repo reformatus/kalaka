@@ -82,8 +82,6 @@ export const lineSide = ( line ) => line.side || sideOf( line.kind );
  */
 const shownMinor = ( value, side ) => ( side === 'paid' ? -( toMinor( value ) ?? 0 ) : toMinor( value ) ?? 0 );
 
-export const formatEntry = ( value, kind, currency ) => formatMinor( shownMinor( value, sideOf( kind ) ), currency );
-
 /** A line's two amount cells: the amount in its own side's column, the other left empty (""). */
 export function entryColumns( line, currency ) {
 	const side = lineSide( line );
@@ -318,7 +316,7 @@ export function today( zone, now = new Date() ) {
  * picked); the correction a direction and a required reason, no method and no date. A payment and a refund
  * have a method and a date and an optional note; a charge and a discount a required title (the participant sees
  * it) and no method or date, unless they are saved „completed immediately”, which adds the paid-side line's
- * method and date. [UNAPPROVED N15] [UNAPPROVED N44] [UNAPPROVED N45] [UNAPPROVED N48]
+ * method and date. [UNAPPROVED N15] [UNAPPROVED N57] [UNAPPROVED N44] [UNAPPROVED N45] [UNAPPROVED N48]
  *
  * @param {Object}  entry { several, payer, amount, date, method, note, title, kind, direction, completed }
  * @param {string}  day   today as `YYYY-MM-DD`
@@ -328,12 +326,16 @@ export function validateEntry( entry, day ) {
 	const { kind } = entry;
 	const correction = kind === 'correction';
 	const owedSide = kind === 'charge' || kind === 'discount';
+	// Neither dialog defaults its choice: the entry's type, or the correction's direction. With no type picked the
+	// type is the only thing to say, since the fields below depend on it. [UNAPPROVED N56]
+	if ( ! correction && ! kind ) {
+		return { type: MONEY.typeEmpty };
+	}
 	if ( entry.several && ! entry.payer ) {
 		errors.payer = MONEY.payerEmpty;
 	}
-	// Neither dialog defaults its choice: the entry's type, or the correction's direction.
-	if ( correction ? ! entry.direction : ! kind ) {
-		errors[ correction ? 'direction' : 'type' ] = correction ? MONEY.directionEmpty : MONEY.typeEmpty;
+	if ( correction && ! entry.direction ) {
+		errors.direction = MONEY.directionEmpty;
 	}
 	const minor = parseAmount( entry.amount );
 	if ( String( entry.amount ).trim() === '' ) {

@@ -62,10 +62,22 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 	const [ date, setDate ] = useState( () => today( config.timezone ) );
 	const [ method, setMethod ] = useState( '' );
 	const [ note, setNote ] = useState( '' );
-	const [ noteEdited, setNoteEdited ] = useState( false );
+	// The „Közlemény” of a payment or a refund (and a correction's reason) and the one of a „completed
+	// immediately” pair are two fields with two values: typing in one never decides the other. [UNAPPROVED N53]
+	const [ pairNote, setPairNote ] = useState( '' );
+	const [ pairNoteEdited, setPairNoteEdited ] = useState( false );
 	const [ title, setTitle ] = useState( '' );
 	const [ completed, setCompleted ] = useState( false ); // unticked by default [UNAPPROVED N45]
 	const [ errors, setErrors ] = useState( {} );
+	// Another type starts afresh: the paid-side line's „Közlemény” of the pair follows the title again, and the
+	// messages of the earlier submit go. The values typed for the other type stay (they are not sent). [UNAPPROVED N53]
+	// [UNAPPROVED N58]
+	const pickType = ( value ) => {
+		setType( value );
+		setPairNoteEdited( false );
+		setPairNote( '' );
+		setErrors( {} );
+	};
 	const [ failed, setFailed ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const form = useRef();
@@ -88,10 +100,11 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 	const before = row ? toMinor( row.balance ) : null;
 	// A refund, a charge and a correction that lowers „Befizetett” raise „Tartozás”; a payment, a discount and a
 	// correction that raises it lower it. Until the type is picked there is no "after" even with an amount.
-	// [UNAPPROVED N15] [UNAPPROVED N46]
+	// [UNAPPROVED N15] [UNAPPROVED N57] [UNAPPROVED N46]
 	const paired = owedSide && completed;
-	// „Közlemény” of the paid-side line starts as the title and follows it until the admin edits it. [UNAPPROVED N53]
-	const noteValue = paired && ! noteEdited ? title : note;
+	// „Közlemény” of the paid-side line starts as the title and follows it until the admin edits that field itself.
+	// [UNAPPROVED N53]
+	const noteValue = pairNoteEdited ? pairNote : title;
 	const pair = paired ? pairPreview( { kind, minor: parseAmount( amount ) } ) : [];
 	const after = previewAfter( { before, minor: parseAmount( amount ), kind, direction, completed: paired } );
 
@@ -146,6 +159,13 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 	};
 
 	const fieldError = ( name ) => errors[ name ] && <span className="kg-err">{ errors[ name ] }</span>;
+	// The title's hint stays under the field while its message shows (the message first). [UNAPPROVED N59]
+	const titleHelp = (
+		<Fragment>
+			{ fieldError( 'title' ) }
+			{ MONEY.titleHint }
+		</Fragment>
+	);
 	const directionOptions = [
 		{ value: 'in', label: MONEY.directionIn },
 		{ value: 'out', label: MONEY.directionOut },
@@ -209,7 +229,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 							label={ MONEY.typeField }
 							selected={ type }
 							options={ typeOptions }
-							onChange={ setType }
+							onChange={ pickType }
 							help={ fieldError( 'type' ) }
 						/>
 					</div>
@@ -247,7 +267,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 							onChange={ setTitle }
 							autoComplete="off"
 							aria-invalid={ errors.title ? 'true' : undefined }
-							help={ fieldError( 'title' ) || MONEY.titleHint }
+							help={ titleHelp }
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
 						/>
@@ -256,7 +276,13 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 						<CheckboxControl
 							label={ kind === 'charge' ? MONEY.completedCharge : MONEY.completedDiscount }
 							checked={ completed }
-							onChange={ setCompleted }
+							onChange={ ( value ) => {
+								setCompleted( value );
+								if ( ! value ) {
+									// The paid-side fields go; so do their messages from an earlier submit.
+									setErrors( {} );
+								}
+							} }
 							help={ kind === 'charge' ? MONEY.completedChargeHelp : MONEY.completedDiscountHelp }
 							__nextHasNoMarginBottom
 						/>
@@ -266,8 +292,8 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 								label={ MONEY.noteField }
 								value={ noteValue }
 								onChange={ ( value ) => {
-									setNote( value );
-									setNoteEdited( true );
+									setPairNote( value );
+									setPairNoteEdited( true );
 								} }
 								autoComplete="off"
 								__next40pxDefaultSize
@@ -282,10 +308,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 						<TextControl
 							label={ correction ? MONEY.reasonField : MONEY.noteField }
 							value={ note }
-							onChange={ ( value ) => {
-								setNote( value );
-								setNoteEdited( true );
-							} }
+							onChange={ setNote }
 							autoComplete="off"
 							aria-invalid={ errors.note ? 'true' : undefined }
 							help={ fieldError( 'note' ) }
@@ -307,6 +330,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 						<dd aria-live="polite">
 							{ after === null ? (
 								<Fragment>
+									{ /* The empty value and its screen-reader text. [UNAPPROVED T35] [UNAPPROVED T13] */ }
 									<span aria-hidden="true">–</span>
 									<span className="screen-reader-text">{ MONEY.noAmount }</span>
 								</Fragment>
@@ -322,6 +346,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 					</Notice>
 				) }
 				<div className="kg-dialog-actions">
+					{ /* „Mentés” and „Mégse”. [UNAPPROVED T34] */ }
 					<Button variant="primary" type="submit" isBusy={ busy } aria-disabled={ busy }>
 						{ paired ? MONEY.saveTwo : MONEY.save }
 					</Button>

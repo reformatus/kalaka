@@ -139,7 +139,7 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 			) }
 			<h3 className="kg-sub">{ MONEY.entries }</h3>
 			{ money.lines.length === 0 ? (
-				<p className="kg-none">{ MONEY.none }</p>
+				<p className="kg-none">{ /* [UNAPPROVED T33] */ }{ MONEY.none }</p>
 			) : (
 				<div className="kg-table-wrap" tabIndex={ 0 } role="region" aria-label={ MONEY.entries }>
 					<table className="kg-money kg-lines">
