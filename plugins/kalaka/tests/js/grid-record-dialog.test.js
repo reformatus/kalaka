@@ -446,6 +446,41 @@ describe( '„Azonnal befizetve” / „Azonnal visszafizetve”', () => {
 	} );
 } );
 
+describe( 'the note fields carry the participant-visible hint (topic 11, T36)', () => {
+	const hints = () => host.textContent.split( MONEY.titleHint ).length - 1;
+	const checkbox = () => host.querySelector( 'input[type="checkbox"]' );
+	const noteHint = ( label ) => field( label ).closest( 'label' ).textContent;
+
+	test( 'Közlemény of a Befizetés and a Visszafizetés', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'payment' ) );
+		expect( noteHint( MONEY.noteField ) ).toContain( MONEY.titleHint );
+		await pick( typeRadios().find( ( r ) => r.value === 'refund' ) );
+		expect( noteHint( MONEY.noteField ) ).toContain( MONEY.titleHint );
+		expect( hints() ).toBe( 1 );
+	} );
+
+	test( 'Közlemény of the paid line of the „completed immediately” pair', async () => {
+		await render( ALL );
+		await pick( typeRadios().find( ( r ) => r.value === 'charge' ) );
+		expect( field( MONEY.noteField ) ).toBeNull();
+		expect( hints() ).toBe( 1 ); // the title's own
+		await pick( checkbox() );
+		expect( noteHint( MONEY.noteField ) ).toContain( MONEY.titleHint );
+		expect( hints() ).toBe( 2 );
+	} );
+
+	test( 'Indoklás of the Korrekció, also while its message shows', async () => {
+		await render( { record_correction: true }, 'correction' );
+		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
+		await pick( radios( MONEY.directionField )[ 0 ] );
+		await setValue( field( MONEY.amountField ), '500' );
+		await submit();
+		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.noteRequired );
+		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
+	} );
+} );
+
 describe( 'the preview: „Tartozás”', () => {
 	const preview = () => host.querySelector( 'dl.kg-bal' ).textContent;
 

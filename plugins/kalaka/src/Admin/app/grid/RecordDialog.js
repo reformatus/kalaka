@@ -166,6 +166,14 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 			{ MONEY.titleHint }
 		</Fragment>
 	);
+	// The same hint under every note field: the participant sees the note of every money movement (owner topic 11).
+	// The „Megnevezés” hint reused in a new place. [UNAPPROVED T36]
+	const noteHelp = (
+		<Fragment>
+			{ fieldError( 'note' ) }
+			{ MONEY.titleHint }
+		</Fragment>
+	);
 	const directionOptions = [
 		{ value: 'in', label: MONEY.directionIn },
 		{ value: 'out', label: MONEY.directionOut },
@@ -296,6 +304,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 									setPairNoteEdited( true );
 								} }
 								autoComplete="off"
+								help={ MONEY.titleHint }
 								__next40pxDefaultSize
 								__nextHasNoMarginBottom
 							/>
@@ -311,7 +320,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 							onChange={ setNote }
 							autoComplete="off"
 							aria-invalid={ errors.note ? 'true' : undefined }
-							help={ fieldError( 'note' ) }
+							help={ noteHelp }
 							__next40pxDefaultSize
 							__nextHasNoMarginBottom
 						/>
