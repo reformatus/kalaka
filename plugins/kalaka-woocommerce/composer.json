@@ -1,0 +1,18 @@
+{
+    "name": "kalaka/woocommerce",
+    "description": "Kaláka WooCommerce integration: grant holders reach Kaláka's admin",
+    "type": "wordpress-plugin",
+    "require": {
+        "php": ">=8.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Kalaka\\WooCommerce\\": "src/WooCommerce/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}
