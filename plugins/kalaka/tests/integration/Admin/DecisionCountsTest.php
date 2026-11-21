@@ -6,7 +6,6 @@ namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Grid\GridModel;
-use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -54,8 +53,7 @@ final class DecisionCountsTest extends GrantTestCase
     /** @param list<string> $members */
     private function pick(string $column, array $members): void
     {
-        $input = ['event_id' => $this->event, 'column' => $column, 'members' => $members];
-        $this->exec(SaveMasterCounts::prepared($input), $input);
+        $this->seedMaster($this->event, [$column => $members]);
     }
 
     public function testADeclaredKindGivesTheColumnItsLabelAndItsStatesAsMembers(): void
@@ -101,27 +99,6 @@ final class DecisionCountsTest extends GrantTestCase
         self::assertSame(2, $sum['n']);
         self::assertSame(['granted'], $sum['members']);
         self::assertSame(['Megadva'], $sum['labels']);
-    }
-
-    public function testCountedStatesAreValidatedAgainstTheKindsStates(): void
-    {
-        $this->pick('decision:approval', ['pending', 'granted']);
-        self::assertSame(
-            ['decision:approval' => ['pending', 'granted']],
-            (new Access())->master($this->admin, $this->event)->counts()
-        );
-
-        foreach ([['revoked'], ['']] as $members) {
-            try {
-                $this->pick('decision:approval', $members);
-                self::fail('Expected InvalidInput.');
-            } catch (InvalidInput) {
-                self::assertSame(
-                    ['decision:approval' => ['pending', 'granted']],
-                    (new Access())->master($this->admin, $this->event)->counts()
-                );
-            }
-        }
     }
 
     public function testAViewStoresTheCountedStatesOfItsDecisionColumn(): void

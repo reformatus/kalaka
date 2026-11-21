@@ -21,17 +21,18 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 /**
  * The grid's REST routes under `kalaka-admin/v1` (S37), each through `Boundary::route()`: the table data the
  * app reads. The gate of every route is `Access::mayReachAdmin()`; reads go through a view `Access` hands out
- * (`{view}` 0 is the master view, which is full access only). The app's writes are the abilities
- * (`kalaka/save-view`, `kalaka/delete-view`, `kalaka/save-master-counts`), through core's run endpoint.
+ * (`{view}` 0 is the master view, which is full access only). The grid app writes nothing of a view
+ * (the counting is the viewer's own, for the session); the abilities `kalaka/save-view` and `kalaka/delete-view` stay.
  *
  * - `GET /events/{id}/views/{view}/rows?grant&page&per_page&orderby&order`: one page, following core's paging
- *   (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than `code` and `serial`.
+ *   (`X-WP-Total`, `X-WP-TotalPages`); `orderby` is a listed column other than `serial`; `code`
+ *   is the default order (the ordering time, then the code), ascending or descending.
  * - `GET /events/{id}/views/{view}/sums?grant&counts`: the sum row over the whole view; the aggregates are
- *   built here from the view's columns, the field definitions and the stored counts. A grant holder may send
- *   an optional `counts` override (never stored, validated against the held view's listed columns and their
- *   members), so their own counting changes only this request's sum row.
- * - `GET /events/{id}/views`: the views list a counting save reads (`ViewsData`); for full access each view
- *   also carries its `version`, which a save sends back.
+ *   built here from the view's columns, the field definitions and the stored counts. Any holder of the view
+ *   may send an optional `counts` override (never stored, validated against the held view's listed columns and their
+ *   members), so the viewer's own counting changes only this request's sum row.
+ * - `GET /events/{id}/views`: the views list (`ViewsData`; the grid app no longer reads it); for full access each
+ *   view also carries its `version`, which a save sends back.
  */
 final class GridRoutes
 {

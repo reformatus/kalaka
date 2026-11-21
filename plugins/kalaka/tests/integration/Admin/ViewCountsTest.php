@@ -8,7 +8,6 @@ use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Grant\SaveGrant;
 use Kalaka\Admin\View\CopyViews;
 use Kalaka\Admin\View\DeleteView;
-use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
 use Kalaka\Admin\View\View;
 use Kalaka\Admin\View\ViewList;
@@ -16,12 +15,12 @@ use Kalaka\Admin\View\ViewShape;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\PermissionDenied;
 
 /**
  * S37: the counted members of the sum row, stored with a view (`counts`, validated against the field's
  * options) and, for the master view, in the event's master row of `kalaka_views`: at most one per event,
- * never listed as a view, never a grant's view, copied with the views.
+ * never listed as a view, never a grant's view, copied with the views. No use case writes the master row
+ * any more (topic 6a B1: the counting in the grid is the viewer's own, for the session); the tests seed it.
  */
 final class ViewCountsTest extends GrantTestCase
 {
@@ -46,13 +45,10 @@ final class ViewCountsTest extends GrantTestCase
         ];
     }
 
-    private function saveCounts(int $event, string $column, array $members, ?UserActor $actor = null): void
+    /** @param list<string> $members */
+    private function seedMasterCounts(int $event, string $column, array $members): void
     {
-        $this->exec(
-            new SaveMasterCounts(options: self::OPTIONS),
-            ['event_id' => $event, 'column' => $column, 'members' => $members],
-            $actor
-        );
+        $this->seedMaster($event, [$column => $members]);
     }
 
     /** @return list<array<string, ?string>> */
@@ -131,111 +127,11 @@ final class ViewCountsTest extends GrantTestCase
         }
     }
 
-    public function testTheFirstMasterCountsInsertTheMasterRowAndLaterOnesUpdateIt(): void
-    {
-        $event = $this->createEvent();
-
-        $this->saveCounts($event, 'field:lunch', ['veg']);
-        $this->saveCounts($event, 'status', ['registered']);
-        $this->saveCounts($event, 'field:lunch', []);
-
-        $rows = $this->masterRows($event);
-        self::assertCount(1, $rows);
-        self::assertSame(['', '[]', '[]', '{"status":["registered"]}', '1', (string) $event, '3'], [
-            $rows[0]['name'], $rows[0]['filter'], $rows[0]['columns'], $rows[0]['counts'], $rows[0]['master'],
-            $rows[0]['master_event'], $rows[0]['version'],
-        ]);
-        self::assertSame(['status' => ['registered']], (new ViewList())->masterCounts($event));
-    }
-
-    public function testSavingMasterCountsIsAuditedOnTheMasterRow(): void
-    {
-        $event = $this->createEvent();
-        $this->saveCounts($event, 'field:lunch', ['veg']);
-        $id = (int) $this->masterRows($event)[0]['id'];
-
-        $entries = $this->entries();
-        self::assertSame(SaveMasterCounts::name(), end($entries)['action']);
-        self::assertSame(['view/' . $event . '/' . $id], $this->subjectsOf(end($entries)['id']));
-    }
-
-    public function testUnchangedMasterCountsWriteNothing(): void
-    {
-        $event = $this->createEvent();
-        $this->saveCounts($event, 'field:lunch', ['veg']);
-        $this->saveCounts($event, 'field:lunch', ['veg']);
-        $this->saveCounts($event, 'status', []);
-
-        self::assertSame('1', $this->masterRows($event)[0]['version']);
-    }
-
-    /** C3-1: a clear is accepted even when everything the column had to count is gone. */
-    public function testAClearIsAcceptedWhenTheColumnsMembersAreGone(): void
-    {
-        $event = $this->createEvent();
-        $this->exec(
-            new SaveMasterCounts(options: self::OPTIONS),
-            ['event_id' => $event, 'column' => 'field:lunch', 'members' => ['veg']]
-        );
-        $this->exec(
-            new SaveMasterCounts(options: ['decision:confirmation' => ['yes']]),
-            ['event_id' => $event, 'column' => 'decision:confirmation', 'members' => ['yes']]
-        );
-        self::assertSame(
-            ['decision:confirmation' => ['yes'], 'field:lunch' => ['veg']],
-            (new ViewList())->masterCounts($event)
-        );
-
-        // The field's options and the decision kind's states are gone: the clears still go through.
-        $this->exec(
-            new SaveMasterCounts(options: ['field:lunch' => []]),
-            ['event_id' => $event, 'column' => 'field:lunch', 'members' => []]
-        );
-        $this->exec(
-            new SaveMasterCounts(options: []),
-            ['event_id' => $event, 'column' => 'decision:confirmation', 'members' => []]
-        );
-
-        self::assertSame([], (new ViewList())->masterCounts($event));
-    }
-
-    /** @return iterable<string, array{string, list<string>}> */
-    public static function badMasterCounts(): iterable
-    {
-        yield 'not an option' => ['field:lunch', ['fish']];
-        yield 'not a status' => ['status', ['paid']];
-        yield 'a field without options' => ['field:note', ['x']];
-        yield 'a column that cannot count' => ['code', ['x']];
-    }
-
-    /**
-     * @dataProvider badMasterCounts
-     * @param list<string> $members
-     */
-    public function testMasterCountsThatDoNotFitAreRefused(string $column, array $members): void
-    {
-        $event = $this->createEvent();
-
-        $this->expectException(InvalidInput::class);
-        $this->saveCounts($event, $column, $members);
-    }
-
-    public function testOnlyFullAccessSavesMasterCounts(): void
-    {
-        $event = $this->createEvent();
-        $holder = self::factory()->user->create();
-        $this->exec(new SaveGrant(), ['event_id' => $event, 'user_id' => $holder, 'actions' => [self::EDIT]]);
-        Access::forget();
-
-        $this->expectException(PermissionDenied::class);
-        $this->saveCounts($event, 'status', ['registered'], new UserActor($holder));
-    }
-
     public function testTheDatabaseHoldsAtMostOneMasterRowPerEvent(): void
     {
         global $wpdb;
         $event = $this->createEvent();
-        $this->saveCounts($event, 'status', ['registered']);
+        $this->seedMasterCounts($event, 'status', ['registered']);
 
         $suppress = $wpdb->suppress_errors(true);
         $inserted = $wpdb->insert($wpdb->prefix . 'kalaka_views', [
@@ -256,7 +152,7 @@ final class ViewCountsTest extends GrantTestCase
     {
         $event = $this->createEvent();
         $view = $this->plainView($event);
-        $this->saveCounts($event, 'status', ['registered']);
+        $this->seedMasterCounts($event, 'status', ['registered']);
         $master = (int) $this->masterRows($event)[0]['id'];
 
         self::assertSame([$view], array_column((new ViewList())->ofEvent($event), 'id'));
@@ -282,7 +178,7 @@ final class ViewCountsTest extends GrantTestCase
     public function testAGrantNeverPointsAtTheMasterRow(): void
     {
         $event = $this->createEvent();
-        $this->saveCounts($event, 'status', ['registered']);
+        $this->seedMasterCounts($event, 'status', ['registered']);
         $master = (int) $this->masterRows($event)[0]['id'];
 
         $this->expectException(InvalidInput::class);
@@ -298,7 +194,7 @@ final class ViewCountsTest extends GrantTestCase
     {
         global $wpdb;
         $event = $this->createEvent();
-        $this->saveCounts($event, 'status', ['registered']);
+        $this->seedMasterCounts($event, 'status', ['registered']);
         $master = (int) $this->masterRows($event)[0]['id'];
         $holder = self::factory()->user->create();
         $wpdb->insert($wpdb->prefix . 'kalaka_grants', [
@@ -313,7 +209,7 @@ final class ViewCountsTest extends GrantTestCase
         $event = $this->createEvent();
         $holder = self::factory()->user->create();
         $this->exec(new SaveGrant(), ['event_id' => $event, 'user_id' => $holder, 'actions' => [self::EDIT]]);
-        $this->saveCounts($event, 'field:lunch', ['veg']);
+        $this->seedMasterCounts($event, 'field:lunch', ['veg']);
 
         self::assertSame(['field:lunch' => ['veg']], (new Access())->master($this->admin, $event)->counts());
         $held = (new Access())->heldViews(new UserActor($holder), $event);
@@ -327,7 +223,7 @@ final class ViewCountsTest extends GrantTestCase
         $from = $this->createEvent();
         $to = $this->createEvent('Jövő évi tábor');
         $this->plainView($from);
-        $this->saveCounts($from, 'field:lunch', ['veg', 'normal']);
+        $this->seedMasterCounts($from, 'field:lunch', ['veg', 'normal']);
 
         $this->exec(new CopyViews(), ['from_event_id' => $from, 'to_event_id' => $to]);
 
@@ -341,8 +237,8 @@ final class ViewCountsTest extends GrantTestCase
     {
         $from = $this->createEvent();
         $to = $this->createEvent('Jövő évi tábor');
-        $this->saveCounts($from, 'status', ['waitlisted']);
-        $this->saveCounts($to, 'field:lunch', ['veg']);
+        $this->seedMasterCounts($from, 'status', ['waitlisted']);
+        $this->seedMasterCounts($to, 'field:lunch', ['veg']);
 
         $this->exec(new CopyViews(), ['from_event_id' => $from, 'to_event_id' => $to]);
 

@@ -19,7 +19,6 @@ use Kalaka\Admin\Grid\GridPage;
 use Kalaka\Admin\Grid\Texts as GridTexts;
 use Kalaka\Admin\Rest\GridRoutes;
 use Kalaka\Admin\View\DeleteView;
-use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -127,12 +126,6 @@ SQL;
             SaveView::prepared(...)
         );
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
-        Abilities::register(
-            new SaveMasterCounts(),
-            GridTexts::MASTER_COUNTS_LABEL,
-            GridTexts::MASTER_COUNTS_DESCRIPTION,
-            SaveMasterCounts::prepared(...)
-        );
         Abilities::register(
             new SaveGrant(),
             'Hozzáférés mentése',

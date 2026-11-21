@@ -13,7 +13,6 @@
 .kg-tabs .kg-more-toggle { cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.71428571; }
 .kg-bulkbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.kg-copy-msg { color: #50575e; }
 .kg-dv-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
 .kg-dv-foot .kg-perpage { margin-right: auto; }
 .kg-perpage select { min-width: 72px; }
@@ -45,9 +44,11 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
    underline and the open row's own highlight are #217's. [UNAPPROVED N24] */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
 
-/* An inactive registration (waitlisted, withdrawn, removed) looks disabled; it still opens (S38).
-   Muted text, not opacity, so the row keeps at least 4.5:1 contrast. [UNAPPROVED N25] */
-#kalaka-grid tbody tr.dataviews-view-table__row:has(.kg-inactive) > td { color: #646970; }
+/* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
+   DataViews' own table text is already its muted token, so the dimming is the contrast: an active row's text
+   takes the stronger token, an inactive row keeps the muted one (at least 4.5:1, no opacity). [UNAPPROVED N25] */
+#kalaka-grid .kg-active { color: var(--wpds-color-foreground-content-neutral, #1e1e1e); }
+#kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-content-neutral-weak, #707070); }
 
 /* A long field is one line, cut with „…”. */
 .kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -61,11 +62,6 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-serial),
 #kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-code) { min-width: 0; }
 #kalaka-grid .kg-serial { font-variant-numeric: tabular-nums; }
-#kalaka-grid th:has(.kg-hd[data-col="serial"]), #kalaka-grid th:has(.kg-hd[data-col="code"]), #kalaka-grid th:has(.kg-reset-sort[data-col="serial"]), #kalaka-grid th:has(.kg-reset-sort[data-col="code"]), #kalaka-grid td:has(.kg-serial), #kalaka-grid td:has(.kg-code) { width: 1px; white-space: nowrap; }
-#kalaka-grid .kg-reset-sort { all: unset; cursor: pointer; font: inherit; text-transform: inherit; letter-spacing: inherit; display: inline-flex; align-items: center; min-height: 32px; box-sizing: border-box; }
-#kalaka-grid thead th:has(.kg-reset-sort) { vertical-align: middle; }
-#kalaka-grid .kg-reset-sort:hover { color: var(--wp-admin-theme-color, #3858e9); }
-#kalaka-grid .kg-reset-sort:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
 
 /* The sum row inside DataViews' <thead>. */
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
@@ -74,6 +70,6 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-sumtd .kg-sumopen { vertical-align: middle; }
 .kg-sumtd .kg-sumopen.components-button { min-height: 24px; min-width: 24px; padding: 0 4px; font-size: 12px; }
 
-/* The counting choices, inside a column's own header menu (owner's walk, topic 6a G10). */
-.kg-countbox { padding: 8px 12px 10px; border-top: 1px solid #dcdcde; display: grid; gap: 6px; }
-.kg-countbox-title { margin: 0; font-weight: 600; }
+/* The snackbar of the copy result, at the bottom of the window. */
+.kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
+.kg-grid-snacks .components-snackbar-list { position: static; }

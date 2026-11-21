@@ -38,11 +38,7 @@ export function createPicks() {
 			local[ column ] = next;
 			return next;
 		},
-		/** Forget one column's pick, so it shows its stored choice again (a failed full-access save). */
-		revert( column ) {
-			delete local[ column ];
-		},
-		all() {
+			all() {
 			return { ...local };
 		},
 	};

@@ -124,6 +124,48 @@ final class GridRoutesTest extends GrantTestCase
         self::assertSame(200, $this->rest('GET', '/views')->get_status());
     }
 
+    /** Topic 6a: Kód carries the default order both ways; Szám is not sortable yet. */
+    public function testTheRowsRouteSortsByCodeBothWaysAndRefusesTheSerial(): void
+    {
+        $this->as($this->admin->userId);
+
+        $keys = fn (array $params): array => array_column(
+            (array) $this->rest('GET', '/views/0/rows', $params)->get_data(),
+            'key'
+        );
+        $up = $keys(['orderby' => 'code', 'order' => 'asc']);
+        $down = $keys(['orderby' => 'code', 'order' => 'desc']);
+        $default = $keys([]);
+
+        self::assertSame($default, $up);
+        self::assertSame(array_reverse($up), $down);
+        self::assertSame(400, $this->rest('GET', '/views/0/rows', ['orderby' => 'serial'])->get_status());
+    }
+
+    /** Topic 6a B1: nobody's counting is stored; full access sends it with the sums read like a grant holder. */
+    public function testFullAccessCountsOnlyForTheSessionOnTheMasterViewAndAStoredView(): void
+    {
+        $this->as($this->admin->userId);
+        $stored = (new ViewList())->masterCounts($this->event);
+
+        $default = (array) $this->rest('GET', '/views/0/sums')->get_data();
+        self::assertSame(3, $default['status']['n']);
+        $own = (array) $this->rest('GET', '/views/0/sums', [
+            'counts' => (string) wp_json_encode(['status' => ['waitlisted']]),
+        ])->get_data();
+        self::assertSame(1, $own['status']['n']);
+        self::assertSame(['waitlisted'], $own['status']['members']);
+        // Nothing was stored, so the next read is the default again.
+        self::assertSame([], (new ViewList())->masterCounts($this->event));
+        self::assertSame($stored, (new ViewList())->masterCounts($this->event));
+        self::assertSame(3, ((array) $this->rest('GET', '/views/0/sums')->get_data())['status']['n']);
+
+        // A column the view does not list is refused for full access too.
+        self::assertSame(400, $this->rest('GET', '/views/' . $this->view . '/sums', [
+            'counts' => (string) wp_json_encode(['status' => ['registered']]),
+        ])->get_status());
+    }
+
     public function testAGrantHolderReadsOnlyTheirViewWithTheirBoundValue(): void
     {
         $this->as($this->holder);
@@ -278,11 +320,6 @@ final class GridRoutesTest extends GrantTestCase
             'columns' => json_decode($stored['columns'], true),
             'counts' => ['status' => ['waitlisted']],
         ])->get_status());
-        self::assertSame(403, $this->ability('kalaka/save-master-counts', [
-            'event_id' => $this->event,
-            'column' => 'status',
-            'members' => ['waitlisted'],
-        ])->get_status());
         self::assertSame(403, $this->ability('kalaka/delete-view', [
             'id' => $stored['id'],
             'version' => $stored['version'],
@@ -346,19 +383,6 @@ final class GridRoutesTest extends GrantTestCase
         $stale = $this->ability('kalaka/save-view', $input + ['counts' => ['status' => ['registered']]]);
         self::assertSame(409, $stale->get_status());
         self::assertSame('kalaka_version_conflict', ((array) $stale->get_data())['code']);
-
-        $master = $this->ability('kalaka/save-master-counts', [
-            'event_id' => $this->event,
-            'column' => 'status',
-            'members' => ['waitlisted'],
-        ]);
-        self::assertSame(200, $master->get_status());
-        $row = (new ViewList())->master($this->event);
-        self::assertNotNull($row);
-        // Never an empty body: the master row's id.
-        self::assertSame(['id' => $row['id']], $master->get_data());
-        self::assertSame(['status' => ['waitlisted']], (new ViewList())->masterCounts($this->event));
-        self::assertSame(1, ((array) $this->rest('GET', '/views/0/sums')->get_data())['status']['n']);
 
         $deleted = $this->ability('kalaka/delete-view', ['id' => $listed, 'version' => 2]);
         self::assertSame(200, $deleted->get_status());

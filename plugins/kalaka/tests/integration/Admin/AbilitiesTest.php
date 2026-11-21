@@ -10,7 +10,6 @@ use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\Grant\DeleteGrant;
 use Kalaka\Admin\Grant\SaveGrant;
 use Kalaka\Admin\View\DeleteView;
-use Kalaka\Admin\View\SaveMasterCounts;
 use Kalaka\Admin\View\SaveView;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
@@ -48,11 +47,6 @@ final class AbilitiesTest extends GrantTestCase
         return [
             'save-view' => [new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.'],
             'delete-view' => [new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.'],
-            'save-master-counts' => [
-                new SaveMasterCounts(),
-                'Összesítés mentése',
-                'Annak beállítása, hogy egy oszlopban mit számoljon a Jelentkezők összesítő sora.',
-            ],
             'save-grant' => [
                 new SaveGrant(),
                 'Hozzáférés mentése',

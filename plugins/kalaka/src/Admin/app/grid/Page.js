@@ -1,136 +1,31 @@
 /**
  * The „Jelentkezők” page (S37): the view tabs, the „Műveletek” toolbar with „Táblázat másolása”, and
- * DataViews (compact) with the sum row in its header. Sorszám and Kód are not sort toggles: their header
- * returns to the default order (the sorszám order, then the code). The title and the controls stay at the
- * top and the table fills the window (owner's walk, topic 6a G9). The counting choices live in each
- * countable column's own header menu, reached from its sum cell (G10); a grant holder's choice is their own
- * and never changes the shared view (G1).
+ * DataViews (compact) with the sum row in its header. Kód carries the default order (the order of the
+ * applications) and is sortable both ways; the default view state is Kód ascending, so DataViews' own header
+ * shows it. The title and the controls stay at the top and the table fills the window (owner's walk, topic 6a
+ * G9). Every sum cell's arrow opens its column's menu, with the counting choices where the column counts (G10);
+ * the counting is the viewer's own for the session, full access included, and is never saved (B1, round 3).
  */
-import {
-	createPortal,
-	Fragment,
-	useEffect,
-	useLayoutEffect,
-	useMemo,
-	useRef,
-	useState,
-} from '@wordpress/element';
-import { Button, CheckboxControl, SelectControl } from '@wordpress/components';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
+import { Button, SelectControl, SnackbarList } from '@wordpress/components';
 import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
+import Cell from './Cell';
 import { writeClipboard } from './clipboard';
 import * as api from './api';
-import { serial } from './serial';
-import { runPick } from './pick';
 import { countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
+import ColumnMenu from './ColumnMenu';
+import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import { GRID, SUM } from './texts';
 
-const STATUS_ICON = {
-	registered: [ 'dashicons-yes-alt', 'kg-ok' ],
-	waitlisted: [ 'dashicons-clock', 'kg-warn' ],
-	withdrawn: [ 'dashicons-undo', 'kg-off' ],
-	removed: [ 'dashicons-dismiss', 'kg-off' ],
-};
-
-/** A cell as shown: the status with its icon, a decision as an icon with screen-reader text, the code in monospace. */
-function Cell( { column, item } ) {
-	const text = cellText( column, item );
-	if ( text === '' ) {
-		return '';
-	}
-	if ( column.type === 'status' ) {
-		const [ icon, tone ] = STATUS_ICON[ item.values.status ] || [ '', '' ];
-		// An inactive registration (anything but registered) dims its whole row. [UNAPPROVED N25]
-		const inactive = item.values.status !== 'registered';
-		return (
-			<span className={ 'kg-mark' + ( inactive ? ' kg-inactive' : '' ) }>
-				<span className={ `dashicons ${ icon } ${ tone }` } aria-hidden="true" />
-				{ text }
-			</span>
-		);
-	}
-	if ( column.type === 'decision' ) {
-		const [ icon, tone ] = [ 'dashicons-marker', '' ];
-		return (
-			<span className="kg-mark" title={ text }>
-				<span className={ `dashicons ${ icon } ${ tone }` } aria-hidden="true" />
-				<span className="screen-reader-text">{ text }</span>
-			</span>
-		);
-	}
-	if ( column.type === 'code' ) {
-		return <span className="kg-code">{ text }</span>;
-	}
-	if ( column.type === 'serial' ) {
-		return <span className="kg-serial">{ text }</span>;
-	}
-	if ( column.type === 'text' || column.type === 'choice' ) {
-		return (
-			<span className="kg-long" title={ text }>
-				{ text }
-			</span>
-		);
-	}
-	return text;
-}
-
-function ResetHeader( { column, hasSerial, isDefault, onReset } ) {
-	const id = 'kg-reset-desc-' + column.column;
-	// A view without Sorszám still runs in sorszám order, but the text does not name a column the viewer cannot see.
-	const description = hasSerial ? GRID.resetSort : GRID.resetSortShort;
-	return (
-		<Fragment>
-			<button
-				type="button"
-				className={ 'kg-reset-sort' + ( isDefault ? ' is-default' : '' ) }
-				data-col={ column.column }
-				title={ description }
-				aria-disabled={ isDefault ? 'true' : undefined }
-				aria-describedby={ id }
-				onClick={ () => ! isDefault && onReset() }
-			>
-				{ column.label }
-				{ isDefault && column.column === 'serial' && (
-					<span aria-hidden="true" className="kg-reset-arrow">
-						{ ' ↑' }
-					</span>
-				) }
-			</button>
-			<span id={ id } className="screen-reader-text">
-				{ description }
-			</span>
-		</Fragment>
-	);
-}
-
 /**
- * The counting choices as they appear in a column's own header menu: one checkbox per member of the column.
- * Clicks stay in the fieldset, so the menu's own handlers do not take them. Each tick is kept locally at
- * once, so quick successive ticks all apply and the checkbox reflects the click before the save returns.
+ * The default order: Kód ascending, when the view lists Kód (the ordering time, then the code); a view without
+ * it has no sort at all, and only clearing the other sorts gives it the default order. [UNAPPROVED N49]
  */
-function CountingMenu( { column, chosen, onToggle, note } ) {
-	return (
-		<div
-			className="kg-countbox"
-			onPointerDown={ ( event ) => event.stopPropagation() }
-			onClick={ ( event ) => event.stopPropagation() }
-		>
-			<p className="kg-countbox-title">{ SUM.counting }</p>
-			{ note && <p className="kg-countbox-note">{ SUM.pickNote }</p> }
-			{ column.members.map( ( member ) => (
-				<CheckboxControl
-					key={ member.value }
-					label={ member.label }
-					checked={ chosen.includes( member.value ) }
-					__nextHasNoMarginBottom
-					onChange={ ( on ) => onToggle( column, member.value, on ) }
-				/>
-			) ) }
-		</div>
-	);
-}
+const defaultSort = ( tab ) =>
+	tab.columns.some( ( c ) => c.column === 'code' ) ? { field: 'code', direction: 'asc' } : undefined;
 
 const freshView = ( tab, perPage ) => ( {
 	type: 'table',
@@ -138,7 +33,7 @@ const freshView = ( tab, perPage ) => ( {
 	perPage,
 	search: '',
 	filters: [],
-	sort: undefined,
+	sort: defaultSort( tab ),
 	fields: tab.columns.map( ( c ) => c.column ),
 	layout: {
 		density: 'compact',
@@ -154,19 +49,6 @@ const freshView = ( tab, perPage ) => ( {
 	_tab: tab.key,
 } );
 
-/** The column id of the header menu button now open, from the table's own `colgroup`. */
-function openColumnId( button ) {
-	const th = button.closest( 'th' );
-	const table = button.closest( 'table' );
-	if ( ! th || ! table || ! th.parentElement ) {
-		return null;
-	}
-	const index = Array.prototype.indexOf.call( th.parentElement.children, th );
-	const col = table.querySelector( 'colgroup' )?.children[ index ];
-	const match = col && /dataviews-view-table__col-(.+?)(?:\s|$)/.exec( col.className );
-	return match ? match[ 1 ] : null;
-}
-
 export default function Page( { config } ) {
 	const tabs = config.tabs;
 	const [ current, setCurrent ] = useState( config.current );
@@ -175,11 +57,10 @@ export default function Page( { config } ) {
 	const [ data, setData ] = useState( { rows: [], total: 0 } );
 	const [ sums, setSums ] = useState( null );
 	const [ loading, setLoading ] = useState( true );
-	const [ message, setMessage ] = useState( '' );
+	const [ notices, setNotices ] = useState( [] );
 	const [ host, setHost ] = useState( null );
-	const [ menu, setMenu ] = useState( null );
-	// The counting picks since the tab was opened: a grant holder's own, and full access's optimistic state
-	// until the save reloads the server's. Reset on a tab switch, like the sort and the filters.
+	// The counting picks since the tab was opened: the viewer's own, for the session, and for full access too.
+	// Never saved; reset on a tab switch, like the sort and the filters (topic 6a G1, B1). [UNAPPROVED N50]
 	const picks = useRef( null );
 	if ( ! picks.current ) {
 		picks.current = createPicks();
@@ -189,21 +70,20 @@ export default function Page( { config } ) {
 	const v = view._tab === tab.key ? view : freshView( tab, view.perPage );
 	const sort = v.sort ? v.sort.field : null;
 	const desc = v.sort ? v.sort.direction === 'desc' : false;
-	// A grant holder's own counted members: the stored choice with their picks on top, for the view's listed
-	// columns only (a view need not list Állapot). Nothing is sent for full access, whose pick is saved.
-	const counts = config.sumEditable
-		? null
-		: countsToSend( tab.columns, tab.counts, picks.current.all() );
+	// The counted members the viewer picked: the stored choice with the picks on top, for the view's listed
+	// columns only. Nothing is sent before a pick, so the server's stored choice applies.
+	const counts = Object.keys( picks.current.all() ).length
+		? countsToSend( tab.columns, tab.counts, picks.current.all() )
+		: null;
 	const countsKey = JSON.stringify( counts || {} );
 
 	const select = ( id ) => {
 		setCurrent( id );
-		setMessage( '' );
+		setNotices( [] );
 		setData( { rows: [], total: 0 } ); // no old rows under the new columns
 		setSums( null );
 		setSumsFail( false );
 		picks.current.reset();
-		setMenu( null );
 		window.history.replaceState( null, '', tabUrl( id ) );
 	};
 
@@ -226,7 +106,7 @@ export default function Page( { config } ) {
 
 	useEffect( () => {
 		let live = true;
-		api.fetchSums( config, tab, config.sumEditable ? null : counts ).then(
+		api.fetchSums( config, tab, counts ).then(
 			( result ) => {
 				if ( live ) {
 					setSums( result );
@@ -246,23 +126,6 @@ export default function Page( { config } ) {
 		};
 	}, [ tab.key, countsKey ] );
 
-	// The default order is the sorszám order: the Sorszám header cell says so (`aria-sort`).
-	useLayoutEffect( () => {
-		if ( ! host ) {
-			return;
-		}
-		const marker = host.querySelector( '.kg-reset-sort[data-col="serial"]' );
-		const target = marker ? marker.closest( 'th' ) : null;
-		host.querySelectorAll( 'thead th[data-kg-default]' ).forEach( ( th ) => {
-			th.removeAttribute( 'aria-sort' );
-			th.removeAttribute( 'data-kg-default' );
-		} );
-		if ( target && ! v.sort ) {
-			target.setAttribute( 'aria-sort', 'ascending' );
-			target.setAttribute( 'data-kg-default', '1' );
-		}
-	} );
-
 	// The table fills the window (G9): the title and the controls stay put, the rows scroll inside, and the
 	// header row, the horizontal scrollbar and the paging stay in view. The footer keeps its place.
 	useLayoutEffect( () => {
@@ -277,8 +140,8 @@ export default function Page( { config } ) {
 			wrap.style.height = Math.max( 320, window.innerHeight - top - footerHeight - 4 ) + 'px';
 		};
 		fit();
-		// The controls above the table change height on their own (chips wrapping, the copy message), so a
-		// window resize alone is not enough (G9).
+		// The controls above the table change height on their own (chips wrapping), so a window resize alone
+		// is not enough (G9).
 		const observer = new window.ResizeObserver( fit );
 		const above = document.querySelector( '.kg-above' );
 		if ( above ) {
@@ -298,137 +161,64 @@ export default function Page( { config } ) {
 		};
 	}, [] );
 
-	// One header menu is open at a time; its counting choices are portalled into it.
-	useEffect( () => {
-		const find = () => {
-			const button = document.querySelector(
-				'.kg-dv thead button.dataviews-view-table-header-button[aria-expanded="true"]'
-			);
-			if ( ! button ) {
-				setMenu( null );
-				return;
-			}
-			const id = openColumnId( button );
-			const column = id && tab.columns.find( ( c ) => c.column === id );
-			const popup = button.getAttribute( 'aria-controls' )
-				? document.getElementById( button.getAttribute( 'aria-controls' ) )
-				: null;
-			if ( ! column || ! popup || ! ( column.members && column.members.length ) ) {
-				setMenu( null );
-				return;
-			}
-			setMenu( { column, popup } );
-		};
-		find();
-		const observer = new window.MutationObserver( find );
-		observer.observe( document.body, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'aria-expanded' ] } );
-		return () => observer.disconnect();
-	}, [ tab, host ] );
-
-	const hasSerial = tab.columns.some( ( c ) => c.column === 'serial' );
 	const fields = useMemo(
 		() =>
-			tab.columns.map( ( column ) => {
-				const reset = column.column === 'serial' || column.column === 'code';
-				return {
-					id: column.column,
-					label: column.label,
-					header: reset ? (
-						<ResetHeader
-							column={ column }
-							hasSerial={ hasSerial }
-							isDefault={ ! v.sort }
-							onReset={ () => setView( { ...v, sort: undefined, page: 1 } ) }
-						/>
-					) : (
-						<span className="kg-hd" data-col={ column.column }>
-							{ column.label }
-						</span>
-					),
-					type: column.numeric ? 'number' : 'text',
-					getValue: ( { item } ) => cellText( column, item ),
-					render: ( { item } ) => <Cell column={ column } item={ item } />,
-					enableSorting: column.sortable,
-					enableHiding: false,
-					filterBy: false,
-				};
-			} ),
-		[ tab, v, hasSerial ]
+			tab.columns.map( ( column ) => ( {
+				id: column.column,
+				label: column.label,
+				type: column.numeric ? 'number' : 'text',
+				getValue: ( { item } ) => cellText( column, item ),
+				render: ( { item } ) => <Cell column={ column } item={ item } />,
+				enableSorting: column.sortable,
+				enableHiding: false,
+				filterBy: false,
+			} ) ),
+		[ tab ]
 	);
 
-	// The sum row's arrow opens the column's own header menu, where the counting choices are (G10).
-	const openMenu = ( column ) => {
-		if ( ! host ) {
-			return;
-		}
-		const marker = host.querySelector( '.kg-hd[data-col="' + column.column + '"]' );
-		const button = marker && marker.closest( 'th' )?.querySelector( 'button.dataviews-view-table-header-button' );
-		if ( button ) {
-			button.click();
+	// The copy result is a snackbar, not text beside the button: a success goes away by itself, an error stays
+	// until it is dismissed. [UNAPPROVED N51]
+	const timers = useRef( [] );
+	useEffect(
+		() => () => {
+			timers.current.forEach( clearTimeout );
+		},
+		[]
+	);
+	const say = ( text, status ) => {
+		const id = String( Date.now() ) + Math.random();
+		setNotices( ( list ) => withNotice( list, id, text, status ) );
+		if ( status !== 'error' ) {
+			timers.current.push( setTimeout( () => setNotices( ( list ) => withoutNotice( list, id ) ), SNACKBAR_MS ) );
 		}
 	};
 
 	const [ busy, setBusy ] = useState( false );
-	const timer = useRef();
 	const copy = async () => {
 		if ( busy ) {
 			return;
 		}
-		setMessage( '' );
 		setBusy( true );
 		try {
 			const rows = await api.fetchAll( config, tab, sort, desc );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
-			setMessage( fmt( GRID.copied, rows.length ) );
+			say( fmt( GRID.copied, rows.length ), 'success' );
 		} catch {
-			setMessage( GRID.copyFail );
+			say( GRID.copyFail, 'error' );
 		}
 		setBusy( false );
-		clearTimeout( timer.current );
-		timer.current = setTimeout( () => setMessage( '' ), 6000 );
 	};
 
-	// The counted members are saved at once, one save at a time in click order; a failure reloads the stored
-	// state. A failed reload leaves the row as it is, and the next pick still runs. A save or reload that ends
-	// after a tab switch leaves the new tab's row alone. A grant holder's pick is their own: it is kept in the
-	// browser and sent with the sums request, never saved to the shared view (topic 6a G1).
-	const queue = useRef( null );
-	if ( ! queue.current ) {
-		queue.current = serial();
-	}
-	const seq = useRef( 0 );
-	const shown = useRef( tab.key );
-	shown.current = tab.key;
-	// The members the menu starts from: the server's sum row for full access, the stored choice otherwise.
+	// The members the menu starts from: the server's sum row, which is the stored choice (with its default)
+	// or the picks it was asked with.
 	const chosenFor = ( column ) =>
-		config.sumEditable
-			? ( sums && sums[ column.column ] && sums[ column.column ].members ) || []
-			: ( tab.counts || {} )[ column.column ] || [];
+		( sums && sums[ column.column ] && sums[ column.column ].members ) || ( tab.counts || {} )[ column.column ] || [];
 
-	// One tick. The pick is kept locally first, so a second tick before the first save returns builds on it
-	// and the checkbox reflects the click at once; the last state wins and includes every tick.
+	// One tick. The pick is kept in the browser and sent with the sums request; the checkbox reflects the click
+	// at once, and the last state wins. Nothing is saved to the view.
 	const pick = ( column, member, on ) => {
-		const picked = tab;
-		const members = picks.current.toggle( column.column, member, on, chosenFor( column ) );
+		picks.current.toggle( column.column, member, on, chosenFor( column ) );
 		setPickTick( ( n ) => n + 1 );
-		if ( ! config.sumEditable ) {
-			return;
-		}
-		queue.current( () => {
-			const mine = ++seq.current;
-			return runPick( {
-				save: () => api.saveCounts( config, picked, column.column, members ),
-				reload: () => api.fetchSums( config, picked ),
-				apply: setSums,
-				// A failed save reloads the stored sums; the menu then shows those, not the unsaved pick.
-				revert: () => {
-					picks.current.revert( column.column );
-					setPickTick( ( n ) => n + 1 );
-				},
-				isShown: () => shown.current === picked.key,
-				isLatest: () => mine === seq.current,
-			} );
-		} );
 	};
 
 	const perPage = (
@@ -441,6 +231,16 @@ export default function Page( { config } ) {
 			onChange={ ( n ) => setView( { ...v, perPage: parseInt( n, 10 ), page: 1 } ) }
 			__nextHasNoMarginBottom
 			size="compact"
+		/>
+	);
+
+	const menuFor = ( column ) => (
+		<ColumnMenu
+			column={ column }
+			view={ v }
+			onSort={ ( sorted ) => setView( { ...v, sort: sorted, page: 1 } ) }
+			chosen={ picks.current.chosen( column.column, chosenFor( column ) ) }
+			onToggle={ pick }
 		/>
 	);
 
@@ -463,9 +263,6 @@ export default function Page( { config } ) {
 							{ GRID.copy }
 						</Button>
 					</div>
-					<span className="kg-copy-msg" role="status">
-						{ message }
-					</span>
 				</div>
 			</div>
 			{ sumsFail && (
@@ -473,13 +270,7 @@ export default function Page( { config } ) {
 					{ SUM.loadFail }
 				</p>
 			) }
-			<SumRow
-				root={ host }
-				columns={ tab.columns }
-				order={ v.fields }
-				sums={ sums }
-				onOpenMenu={ openMenu }
-			/>
+			<SumRow root={ host } columns={ tab.columns } order={ v.fields } sums={ sums } menuFor={ menuFor } />
 			<div ref={ setHost } className="kg-dv">
 				<DataViews
 					data={ data.rows }
@@ -504,16 +295,12 @@ export default function Page( { config } ) {
 					</div>
 				</DataViews>
 			</div>
-			{ menu &&
-				createPortal(
-					<CountingMenu
-						column={ menu.column }
-						chosen={ picks.current.chosen( menu.column.column, chosenFor( menu.column ) ) }
-						onToggle={ pick }
-						note={ false /* #210 shows it while narrowed, to full access only */ }
-					/>,
-					menu.popup
-				) }
+			<div className="kg-grid-snacks">
+				<SnackbarList
+					notices={ notices }
+					onRemove={ ( id ) => setNotices( ( list ) => withoutNotice( list, id ) ) }
+				/>
+			</div>
 		</Fragment>
 	);
 }
