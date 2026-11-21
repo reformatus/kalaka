@@ -4,6 +4,7 @@ import {
 	BAD_NUMBER,
 	firstBadNumber,
 	guardNumberWheel,
+	measureNumberAffixes,
 } from '../../src/Forms/Blocks/form/number';
 
 guardNumberWheel(document);
@@ -70,5 +71,24 @@ describe('a number control with text the browser cannot parse', () => {
 		b.disabled = true;
 
 		expect(firstBadNumber(form)).toBeNull();
+	});
+});
+
+describe("the affixes' room", () => {
+	it('is measured from each affix and set on the wrapper', () => {
+		document.body.innerHTML =
+			'<form><span class="kalaka-number kalaka-number--prefix kalaka-number--suffix">' +
+			'<span class="kalaka-number__affix kalaka-number__prefix">Ft</span>' +
+			'<input type="number">' +
+			'<span class="kalaka-number__affix kalaka-number__suffix">/ fő</span></span></form>';
+		const wrapper = document.querySelector('.kalaka-number');
+		const [prefix, suffix] = document.querySelectorAll('.kalaka-number__affix');
+		Object.defineProperty(prefix, 'offsetWidth', { value: 24 });
+		Object.defineProperty(suffix, 'offsetWidth', { value: 40 });
+
+		measureNumberAffixes(document);
+
+		expect(wrapper.style.getPropertyValue('--kalaka-number-prefix-room')).toBe('36px');
+		expect(wrapper.style.getPropertyValue('--kalaka-number-suffix-room')).toBe('72px');
 	});
 });

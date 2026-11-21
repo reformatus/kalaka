@@ -25,6 +25,35 @@ export function firstBadNumber(form) {
 	return null;
 }
 
+/** The offsets of the affixes in core's neutral CSS (0.75rem and 2rem). */
+const PREFIX_OFFSET = 12;
+const SUFFIX_OFFSET = 32;
+
+/**
+ * Sizes the room each affix needs, on the wrapper, so no fixed rem can overlap the digits (A3). It measures
+ * each affix once, on resize and after the fonts load; the CSS reads the two properties.
+ *
+ * @param {Document} doc
+ */
+export function measureNumberAffixes(doc = document) {
+	for (const wrapper of doc.querySelectorAll('.kalaka-number')) {
+		const prefix = wrapper.querySelector('.kalaka-number__prefix');
+		const suffix = wrapper.querySelector('.kalaka-number__suffix');
+		if (prefix !== null) {
+			wrapper.style.setProperty(
+				'--kalaka-number-prefix-room',
+				`${prefix.offsetWidth + PREFIX_OFFSET}px`
+			);
+		}
+		if (suffix !== null) {
+			wrapper.style.setProperty(
+				'--kalaka-number-suffix-room',
+				`${suffix.offsetWidth + SUFFIX_OFFSET}px`
+			);
+		}
+	}
+}
+
 /**
  * The number field's wheel guard (owner ruling, topic 7): the mouse wheel never changes a focused number
  * field. The event is left to the page, so the wheel scrolls as usual; the field loses focus instead.

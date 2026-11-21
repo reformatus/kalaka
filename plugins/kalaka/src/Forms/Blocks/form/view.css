@@ -143,6 +143,10 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
  * - `--kalaka-disabled-opacity`: a disabled button, and a control that does nothing now, such as the
  *   ranking's edge move buttons (0.4). The form's own buttons stay `aria-disabled` while a request runs,
  *   and are dimmed then with the form, not by this.
+ * - `--kalaka-number-affix-colour`: a number field's affix text colour (the field's own text colour,
+ *   muted by its opacity; a theme adapter may set a lighter grey);
+ * - `--kalaka-number-prefix-room`, `--kalaka-number-suffix-room`: the room the form's script measures for
+ *   each affix, as the input's left and right padding.
  */
 @layer kalaka {
 	:where(form[data-wp-interactive="kalaka/form"]) :where(
@@ -197,7 +201,7 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 		position: absolute;
 		top: 50%;
 		transform: translateY(-50%);
-		color: inherit;
+		color: var(--kalaka-number-affix-colour, currentColor);
 		opacity: 0.6;
 		pointer-events: none;
 		user-select: none;
@@ -212,10 +216,10 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 	}
 
 	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number--prefix input) {
-		padding-left: 2.5rem;
+		padding-left: var(--kalaka-number-prefix-room, 0);
 	}
 
 	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number--suffix input) {
-		padding-right: 4rem;
+		padding-right: var(--kalaka-number-suffix-room, 0);
 	}
 }

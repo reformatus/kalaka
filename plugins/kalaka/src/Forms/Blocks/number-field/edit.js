@@ -61,6 +61,10 @@ export default function Edit({ name, attributes, setAttributes, clientId, isSele
 	const required = attributes.required === true;
 	const prefix = typeof attributes.prefix === 'string' ? attributes.prefix : '';
 	const suffix = typeof attributes.suffix === 'string' ? attributes.suffix : '';
+	const classes =
+		'kalaka-number' +
+		(prefix === '' ? '' : ' kalaka-number--prefix') +
+		(suffix === '' ? '' : ' kalaka-number--suffix');
 	return el(
 		'div',
 		useBlockProps(canvas.props),
@@ -72,10 +76,14 @@ export default function Edit({ name, attributes, setAttributes, clientId, isSele
 		el(FieldTitle, { name, attributes, setAttributes, required, onBlur: commit }),
 		el(
 			'span',
-			{ className: 'kalaka-number' },
-			prefix === '' ? null : el('span', { className: 'kalaka-number__affix' }, prefix),
+			{ className: classes },
+			prefix === ''
+				? null
+				: el('span', { className: 'kalaka-number__affix kalaka-number__prefix' }, prefix),
 			preview('input', { type: 'number' }),
-			suffix === '' ? null : el('span', { className: 'kalaka-number__affix' }, suffix)
+			suffix === ''
+				? null
+				: el('span', { className: 'kalaka-number__affix kalaka-number__suffix' }, suffix)
 		)
 	);
 }

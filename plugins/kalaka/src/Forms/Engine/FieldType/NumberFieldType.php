@@ -268,8 +268,9 @@ final class NumberFieldType extends AbstractFieldType
     }
 
     /**
-     * The step refusal: with a minimum, the first three values of its grid as bare numbers; without one,
-     * the multiple's text.
+     * The step refusal: the first values of the grid, but only those up to `max`. With more than three (or
+     * no max) it is the approved three-and-so-on text; with two or three it lists them, and with exactly one
+     * it names that one. The values are bare numbers, not the field's affixes. [UNAPPROVED T4]
      *
      * @param array{min: ?string, step: ?string, max: ?string, decimals: int, prefix: string, suffix: string} $settings
      */
@@ -280,21 +281,40 @@ final class NumberFieldType extends AbstractFieldType
             // [UNAPPROVED T4]
             return 'Az érték ' . self::text($settings['step'], $settings) . ' többszöröse legyen.';
         }
-        $min = BigDecimal::of($settings['min']);
         $step = BigDecimal::of($settings['step']);
-        $examples = [];
-        foreach ([0, 1, 2] as $index) {
-            $example = $min->plus($step->multipliedBy($index))->toString();
-            [$canonical] = self::parse($example, self::MAX_DECIMALS);
-            $examples[] = self::plain($canonical ?? '0');
+        $base = BigDecimal::of($settings['min']);
+        $max = $settings['max'] === null ? null : BigDecimal::of($settings['max']);
+        if ($max !== null && $max->isLessThan($base)) {
+            // The grid below a max under the base: the multiple's own text is the safe refusal.
+            // [UNAPPROVED T4]
+            return 'Az érték ' . self::text($settings['step'], $settings) . ' többszöröse legyen.';
         }
-
+        $values = [];
+        $value = $base;
+        while (count($values) < 4 && ($max === null || $value->isLessThanOrEqualTo($max))) {
+            [$canonical] = self::parse($value->toString(), self::MAX_DECIMALS);
+            $values[] = self::plain($canonical ?? '0');
+            $value = $value->plus($step);
+        }
+        if ($max !== null && count($values) <= 3) {
+            if (count($values) === 1) {
+                // [UNAPPROVED T4]
+                return sprintf('Csak ezt az értéket írhatod ide: %s.', $values[0]);
+            }
+            $last = array_pop($values);
+            // [UNAPPROVED T4]
+            return sprintf(
+                'Csak ilyen értéket írhatsz ide: %s vagy' . self::NBSP . '%s.',
+                implode(', ', $values),
+                $last,
+            );
+        }
         // [UNAPPROVED T4]
         return sprintf(
             'Csak ilyen értéket írhatsz ide: %s, %s, %s és így tovább.',
-            $examples[0],
-            $examples[1],
-            $examples[2],
+            $values[0] ?? '0',
+            $values[1] ?? '0',
+            $values[2] ?? '0',
         );
     }
 

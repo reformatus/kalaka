@@ -53,6 +53,25 @@ final class NumberFieldTest extends TestCase
         self::assertSame('Legfeljebb 100' . "\u{00A0}" . '000 legyen.', self::error('100500', $bounds));
     }
 
+    public function testTheStepRefusalListsOnlyTheValuesMaxLeaves(): void
+    {
+        self::assertSame(
+            'Csak ilyen értéket írhatsz ide: 1' . "\u{00A0}" . '000 vagy' . "\u{00A0}" . '2'
+                . "\u{00A0}" . '000.',
+            self::error('1500', ['min' => '1000', 'step' => '1000', 'max' => '2000'])
+        );
+        self::assertSame(
+            'Csak ilyen értéket írhatsz ide: 1' . "\u{00A0}" . '000, 1' . "\u{00A0}" . '500 vagy'
+                . "\u{00A0}" . '2' . "\u{00A0}" . '000.',
+            self::error('1200', ['min' => '1000', 'step' => '500', 'max' => '2000'])
+        );
+        self::assertSame(
+            'Csak ilyen értéket írhatsz ide: 1' . "\u{00A0}" . '000, 2' . "\u{00A0}" . '000, 3'
+                . "\u{00A0}" . '000 és így tovább.',
+            self::error('1500', ['min' => '1000', 'step' => '1000', 'max' => '4000'])
+        );
+    }
+
     public function testWithoutAMinimumTheStepCountsFromZero(): void
     {
         $bounds = ['step' => '500'];

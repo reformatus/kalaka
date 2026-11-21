@@ -50,10 +50,19 @@
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
-import { BAD_NUMBER, firstBadNumber, guardNumberWheel } from './number';
+import {
+	BAD_NUMBER,
+	firstBadNumber,
+	guardNumberWheel,
+	measureNumberAffixes,
+} from './number';
 
-// A focused number field never changes on the mouse wheel (topic 7).
+// A focused number field never changes on the mouse wheel (topic 7), and its affixes get the room they
+// need (A3).
 guardNumberWheel();
+measureNumberAffixes();
+window.addEventListener('resize', () => measureNumberAffixes());
+document.fonts?.ready?.then(() => measureNumberAffixes());
 
 /**
  * What each form on the page started from (its context and its submit token), with its state: the
