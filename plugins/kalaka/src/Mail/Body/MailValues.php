@@ -16,9 +16,11 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\Accounts;
+use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\SecretLinks;
 
 /**
@@ -56,12 +58,21 @@ final class MailValues
      */
     public const FROM_WAITLIST = 'registration.from_waitlist';
 
+    /**
+     * Whether a request of the registration awaits an answer now: a choice of `yes` or `no`, with no display
+     * text, like `from_waitlist`, for a condition in the "answered" mail (a body can tell an answer that
+     * settles every request from one that leaves another open). The same key and value as the form's fact
+     * (`RegistrationFacts::AWAITS_ANSWER`), read at send time. [UNAPPROVED N86]
+     */
+    public const AWAITS_ANSWER = RegistrationFacts::AWAITS_ANSWER;
+
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly SecretLinks $links = new SecretLinks(),
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly Accounts $accounts = new Accounts(),
+        private readonly Requests $requests = new Requests(),
     ) {
     }
 
@@ -96,6 +107,7 @@ final class MailValues
             self::STATUS => ValueType::Choice,
             self::LINK => ValueType::Text,
             self::FROM_WAITLIST => ValueType::Choice,
+            self::AWAITS_ANSWER => ValueType::Choice,
             self::ACCOUNT_UNVERIFIED => ValueType::Choice,
             self::ACCOUNT_PASSWORD_LINK => ValueType::Text,
         ];
@@ -183,6 +195,10 @@ final class MailValues
             self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
             self::FROM_WAITLIST => Value::choice(['no'], ''),
+            self::AWAITS_ANSWER => Value::choice(
+                [$this->requests->awaits($key, $record['status']) ? 'yes' : 'no'],
+                ''
+            ),
             self::ACCOUNT_UNVERIFIED => $unverified === null
                 ? Value::none(ValueType::Choice)
                 : EventValues::yesNo($unverified),

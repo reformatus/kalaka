@@ -146,6 +146,8 @@ the waitlist and reference codes
     the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat call). The
     pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.
-  - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
-    confirmation, then mail) follows in the same run.
+  - The act writes no ledger line or decision; its one mail is "answered", queued in the act's own transaction
+    through `Mail\Api\ActionMails::due()`, keyed by the answer record (`AnswerRead::subject()`), so every
+    answering act mails once and a repeat that writes nothing queues none. The registration is touched, so the
+    evaluation (money, then confirmation, then mail) follows in the same run.
 - Only Registrations writes its tables.

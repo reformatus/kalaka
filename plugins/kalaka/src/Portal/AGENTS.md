@@ -41,7 +41,10 @@ page, and the account area
   details are set.
 - Payment due and overdue are computed on every read, never stored. Payment
   due is Events' date type (`Events\Api\Event::paymentDue()`); Portal passes
-  it `registered_at`, the time the registration last became `registered`.
+  it `registered_at`, the time the registration last became `registered`, the
+  last changed answer (`Requests::lastAnsweredAt()`, not a note alone; the
+  later of the two counts) and whether a request awaits an answer (then there
+  is no due date).
 - The blocks have no look of their own: core preset classes and `portal.css`,
   which is structural only; the texts read correctly without either. Every
   text is the frozen spec's or approved.

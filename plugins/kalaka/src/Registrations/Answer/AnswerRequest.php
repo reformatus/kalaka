@@ -13,6 +13,8 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Mail\Api\ActionMail;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AnswerRead;
 use Kalaka\Registrations\Api\NoOfferSeats;
@@ -35,13 +37,14 @@ use Kalaka\Registrations\Api\RequestState;
  *   except for a "yes" to an offer (a partner's approval), which needs it as its reason. [UNAPPROVED N162]
  *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero; an offer takes no amount.
  *   [UNAPPROVED N5]
- * - Writes one answer record per act (its id is the key the "answered" mail will take) and the answer as the
+ * - Writes one answer record per act (its id is the key the "answered" mail takes) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
  *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
  * - A repeat of the latest answer, the same yes or no, the same amount and no new note, writes nothing; a new
  *   note alone is a new act. [UNAPPROVED N8] Only a
  *   `registered` or `waitlisted` registration is answered; a withdrawn or removed one is a `RuleViolation`.
  *   [UNAPPROVED N9]
+ * - Queues the "answered" mail for the answering act, inside the same transaction (`ActionMails::due()`).
  * - On a `registered` registration a refusal frees the offer's seat; a "yes" after a refusal takes one again, and
  *   when the pool is full the answer stands and `over_limit` says so (B1). A waitlisted registration holds no
  *   place, so it takes and frees none. Both go through `OfferSeats`, a seam until slice A.
@@ -56,6 +59,7 @@ final class AnswerRequest implements AdminUseCase
         private readonly AnswerRepository $answers = new AnswerRepository(),
         private readonly OfferSeats $seats = new NoOfferSeats(),
         private readonly Events $events = new Events(),
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
@@ -157,6 +161,9 @@ final class AnswerRequest implements AdminUseCase
             self::userOf($context),
         ), $context);
         $state->source->writeAnswer($key, $request, $answer, $context);
+        // The "answered" mail, once per answering act (keyed by the answer's record, so a changed answer mails
+        // again); switched off per event, it queues nothing. [UNAPPROVED N85]
+        $this->mails->due($context, ActionMail::Answered, $key, $record->subject());
 
         // A waitlisted registration holds no place (money.md, "Quota places"): its offer seat is decided when it
         // is admitted, so an answer takes and frees nothing for it. [UNAPPROVED N4]

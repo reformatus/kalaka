@@ -137,7 +137,11 @@ final class StatusRead
                 ? $line->amount->negated() : $line->amount);
         }
 
-        $due = $awaits ? null : $event->paymentDue($registration->registeredAt);
+        $due = $event->paymentDue(
+            $registration->registeredAt,
+            $awaits ? null : $this->requests->lastAnsweredAt($registration->key),
+            $awaits
+        );
         // Overdue only while something is still payable, the same rule as the deadline line (SB-3).
         $owes = $participant->balance->roundedUpToPayableUnit()->isPositive();
         $overdue = $owes && !$confirmed && !$awaits && $due !== null && $now >= $due;

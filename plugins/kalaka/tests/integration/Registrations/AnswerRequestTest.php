@@ -37,8 +37,8 @@ use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 /**
  * "Answer a request" end to end (the walkthrough's six cases, B1 to B3): one act for offers and aid, one answer
  * record per act, the answer as the source's own field value, a refusal freeing the seat, and the registration
- * evaluated in the same run (money, then confirmation, then mail). The "answered" mail and the due clock are later
- * slices.
+ * evaluated in the same run (money, then confirmation, then mail), and the "answered" mail queued once per
+ * answering act.
  * The fee components and the source are test doubles for B0's offers and aid.
  */
 final class AnswerRequestTest extends ManualEntryTestCase
@@ -389,6 +389,124 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->answer(TestRequestSource::AID, 'yes', ['amount' => '9000']);
         self::assertCount(2, $this->answerRows());
         self::assertSame(self::huf('9000'), $this->value('aid_award'));
+    }
+
+    /** The event's "answered" mail as the catalogue stores it. */
+    private function answeredMail(bool $enabled): void
+    {
+        global $wpdb;
+        $body = self::factory()->post->create(['post_type' => 'kalaka_mail', 'post_title' => 'Teszt levél']);
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'answered',
+            'version' => 1,
+            'enabled' => $enabled ? 1 : 0,
+            'body_id' => $body,
+            'layout' => 1,
+        ]);
+    }
+
+    /** @return list<array<string, ?string>> */
+    private function deliveryRows(): array
+    {
+        global $wpdb;
+        $rows = $wpdb->get_results($wpdb->prepare(
+            'SELECT mail, code, kind, cause_type, cause_key FROM %i WHERE event_id = %d ORDER BY id',
+            $wpdb->prefix . 'kalaka_deliveries',
+            $this->event
+        ), ARRAY_A);
+        self::assertIsArray($rows);
+
+        /** @var list<array<string, ?string>> $rows */
+        return $rows;
+    }
+
+    public function testEveryAnsweringActQueuesOneAnsweredMailKeyedByItsRecordAndARepeatQueuesNone(): void
+    {
+        $this->answeredMail(true);
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $first = $this->answer(TestRequestSource::OFFER, 'no');
+
+        $repeat = $this->answer(TestRequestSource::OFFER, 'no');
+        self::assertFalse($repeat['changed']);
+        self::assertCount(1, $this->deliveryRows(), 'an identical repeat queues nothing');
+
+        $second = $this->answer(TestRequestSource::OFFER, 'yes');
+
+        self::assertSame(
+            [
+                ['answered', self::KEY, 'action', 'answer', (string) $first['answer']],
+                ['answered', self::KEY, 'action', 'answer', (string) $second['answer']],
+            ],
+            array_map('array_values', $this->deliveryRows()),
+            'a changed answer mails again, each keyed by its own answer record'
+        );
+        self::assertNotSame($first['answer'], $second['answer']);
+
+        $noted = $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
+        self::assertTrue($noted['changed']);
+        $rows = $this->deliveryRows();
+        self::assertCount(3, $rows, 'a note added alone is an act and mails');
+        self::assertSame((string) $noted['answer'], $rows[2]['cause_key'], 'keyed by its own record');
+    }
+
+    public function testOneQualifyingAnswerSendsTheAnsweredMailAndTheConfirmedMailEachQueuedOnce(): void
+    {
+        global $wpdb;
+        $this->answeredMail(true);
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+            'layout' => 1,
+        ]);
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->runner = $this->runnerAt('2026-12-03 10:00');
+        $this->pay('20000', '2026-12-03', 'k1');
+        self::assertSame([], $this->deliveryRows());
+
+        $this->runner = $this->runnerAt('2026-12-05 10:00');
+        $result = $this->answer(TestRequestSource::OFFER, 'yes');
+
+        self::assertSame('confirmed', $this->confirmationState());
+        $rows = $this->deliveryRows();
+        self::assertCount(2, $rows, 'the act\'s mail and the confirmation\'s mail, once each');
+        self::assertSame('answered', $rows[0]['mail']);
+        self::assertSame('answer', $rows[0]['cause_type']);
+        self::assertSame((string) $result['answer'], $rows[0]['cause_key']);
+        self::assertSame('confirmed', $rows[1]['mail']);
+        self::assertSame('decision', $rows[1]['cause_type']);
+    }
+
+    /** The due clock counts only an answer that changed the yes or no or the amount, not a note alone. */
+    public function testANoteAloneDoesNotMoveTheLastAnswerTheDueClockCountsFrom(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        $this->runner = $this->runnerAt('2026-12-08 10:00');
+        $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
+
+        $at = fn (): ?string => $this->requests->lastAnsweredAt($this->key())
+            ?->setTimezone(wp_timezone())->format('Y-m-d H:i');
+        self::assertSame('2026-12-01 10:00', $at(), 'the note-only act is a row, but not a new answer');
+
+        $this->runner = $this->runnerAt('2026-12-10 10:00');
+        $this->answer(TestRequestSource::OFFER, 'no');
+        self::assertSame('2026-12-10 10:00', $at(), 'a changed yes or no moves it');
+    }
+
+    public function testTheAnsweredMailSwitchedOffOrNeverSetUpQueuesNone(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->answer(TestRequestSource::OFFER, 'no');
+        self::assertSame([], $this->deliveryRows(), 'never set up');
+
+        $this->answeredMail(false);
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        self::assertSame([], $this->deliveryRows(), 'switched off');
+        self::assertCount(2, $this->answerRows());
     }
 
     public function testAbsenceOfAnAnswerIsNotAnAnswerOfZero(): void
