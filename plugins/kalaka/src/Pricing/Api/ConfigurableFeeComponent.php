@@ -16,7 +16,7 @@ interface ConfigurableFeeComponent extends FeeComponent
 {
     /**
      * The event's current settings of this component, in the shape `settingsFromArray()` reads. An event
-     * without any gives the empty form of the shape (no tiers, no items, no donation), never null.
+     * without any gives the empty form of the shape (no tiers, no items), never null.
      *
      * @return array<string, mixed>
      */

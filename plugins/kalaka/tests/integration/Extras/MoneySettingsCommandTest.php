@@ -7,7 +7,7 @@ namespace Kalaka\Tests\Integration\Extras;
 use Kalaka\Pricing\Cli\MoneySettingsCommand;
 use Kalaka\Pricing\Cli\SettingsDocument;
 
-/** `wp kalaka money-settings` with the fixed price, the extra charges and the donation (G3). */
+/** `wp kalaka money-settings` with the fixed price and the extra charges; the donation (the key `adomany`) has no setting (G3). */
 final class MoneySettingsCommandTest extends ExtrasTestCase
 {
     /** @var list<string> */
@@ -50,13 +50,12 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
         return $path;
     }
 
-    public function testApplyEntersThePriceChargesAndDonationAndShowPrintsThemBack(): void
+    public function testApplyEntersThePriceAndChargesAndShowPrintsThemBackWithNoDonationSetting(): void
     {
         $file = $this->file([
             'fixed_price' => '30000',
             'components' => [
-                'extras' => ['charges' => [self::item('szombat', 'Szombati ebéd', '2000', 'ebed')]],
-                'donation' => ['field_key' => 'adomany'],
+                'extras' => ['charges' => [self::item('ebed', 'Ebéd', '2000')]],
             ],
         ]);
         $key = $this->registerWith('00A0', ['ebed' => '1', 'adomany' => '5000']);
@@ -65,9 +64,9 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
 
         self::assertSame(
             [
-                'fixed_price participant 30000 charge:fixed_price:participant:1',
-                'extras participant 2000 charge:extras:participant:1',
                 'donation participant 5000 charge:donation:participant:1',
+                'fixed_price participant 30000 charge:fixed_price:participant:1',
+                'extras.ebed participant 2000 charge:extras.ebed:participant:1',
             ],
             $this->charges($key)
         );
@@ -76,10 +75,10 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
         $this->command()->show([(string) $this->event], []);
         $shown = json_decode(\WP_CLI::$calls[0][1], true);
         self::assertSame('30000', $shown['fixed_price']);
-        self::assertSame('szombat', $shown['components']['extras']['charges'][0]['key']);
+        self::assertSame('ebed', $shown['components']['extras']['charges'][0]['key']);
         self::assertSame('2000', $shown['components']['extras']['charges'][0]['amount']);
-        self::assertSame('ebed', $shown['components']['extras']['charges'][0]['field']);
-        self::assertSame(['field_key' => 'adomany'], $shown['components']['donation']);
+        self::assertSame(['key', 'label', 'amount'], array_keys($shown['components']['extras']['charges'][0]));
+        self::assertArrayNotHasKey('donation', $shown['components']);
 
         $lines = $this->lineCount();
         $this->command()->apply([(string) $this->event], ['file' => $this->file($shown), 'yes' => true]);
@@ -94,7 +93,7 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
 
         $this->command()->preview([(string) $this->event], [
             'file' => $this->file([
-                'components' => ['extras' => ['charges' => [self::item('a', 'Ebéd', '500', 'ebed')]]],
+                'components' => ['extras' => ['charges' => [self::item('a', 'Ebéd', '500')]]],
             ]),
         ]);
         self::assertSame($lines, $this->lineCount());
