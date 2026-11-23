@@ -161,8 +161,32 @@ describe( 'the snackbar after a save', () => {
 		expect( CONFIRM.unconfirmedReconfirmed ).toBe( 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.' );
 	} );
 
-	test( 'an unconfirm whose re-read carries no confirmation state counts as not confirmed', () => {
-		expect( snackbarAfter( true, { changed: true }, { registration: { decisions: [] } } ) ).toBe( CONFIRM.unconfirmed );
+	describe( 'on a view without the confirmation column (the re-read carries no decision)', () => {
+		const bare = ( can ) => ( { registration: { decisions: [] }, can } );
+
+		test( 'can.unconfirm true means it is confirmed again: the re-confirm snackbar, not "revoked"', () => {
+			expect( snackbarAfter( true, { changed: true }, bare( { unconfirm: true } ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
+		} );
+
+		test( 'can.unconfirm false means it is not confirmed: revoked', () => {
+			expect( snackbarAfter( true, { changed: true }, bare( { unconfirm: false } ) ) ).toBe( CONFIRM.unconfirmed );
+		} );
+
+		test( 'a read that carries neither the decision nor can.unconfirm cannot tell: no snackbar', () => {
+			expect( snackbarAfter( true, { changed: true }, bare( {} ) ) ).toBeNull();
+			expect( snackbarAfter( true, { changed: true }, bare( undefined ) ) ).toBeNull();
+			expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBeNull();
+		} );
+
+		test( 'the decision, where the read carries it, wins over can.unconfirm', () => {
+			const read = ( state, unconfirm ) => ( { ...detail( state ), can: { unconfirm } } );
+			expect( snackbarAfter( true, { changed: true }, read( 'unconfirmed', true ) ) ).toBe( CONFIRM.unconfirmed );
+			expect( snackbarAfter( true, { changed: true }, read( 'confirmed', false ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
+		} );
+
+		test( 'a set says it is saved whatever the read carries', () => {
+			expect( snackbarAfter( false, { changed: true }, bare( {} ) ) ).toBe( CONFIRM.saved );
+		} );
 	} );
 
 	test( 'changed: false writes nothing: no snackbar, for either act', () => {

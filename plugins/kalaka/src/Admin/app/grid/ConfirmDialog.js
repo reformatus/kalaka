@@ -1,11 +1,14 @@
 /**
  * The manual confirmation dialog (S20): the required reason, for setting the flag or revoking it
- * (`kalaka/set-manual-confirmation`, `kalaka/unconfirm`). A failed save keeps the dialog and the reason, and
+ * (`kalaka/set-manual-confirmation`, `kalaka/unconfirm`). The reason field has no length limit of its own (the check
+ * on submit counts characters, as the server does). [UNAPPROVED N73] A failed save keeps the dialog and the reason, and
  * while it runs the dialog does not close (Esc, ×, Mégse) and a second submit is ignored: an unconfirm is a new
  * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74]
  * The unconfirm has no refusal. When the rules would
  * confirm the registration again at once, the dialog shows the server's warning above the field, before the act
- * ([UNAPPROVED N71]). It says nothing else about what unconfirming does: that text needs a concept the owner has
+ * ([UNAPPROVED N71]). The warning is a notice announced once when the dialog opens; nothing ties it to the
+ * dialog or to the field for a screen reader ([UNAPPROVED N78]), and a small gap separates it from the field's
+ * label ([UNAPPROVED N82]). It says nothing else about what unconfirming does: that text needs a concept the owner has
  * not worded. [UNAPPROVED N33]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
@@ -92,7 +95,6 @@ export default function ConfirmDialog( { config, unconfirm, warning, code, onClo
 					value={ reason }
 					onChange={ setReason }
 					rows={ 3 }
-					maxLength={ 500 }
 					aria-invalid={ error ? 'true' : undefined }
 					help={ error && <span className="kg-err">{ error }</span> }
 					__nextHasNoMarginBottom

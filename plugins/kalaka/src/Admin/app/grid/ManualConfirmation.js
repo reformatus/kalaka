@@ -48,6 +48,7 @@ export default function ManualConfirmation( {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
+	const block = useRef( null );
 	const timers = useRef( [] );
 	const actions = manualActions( manual, can );
 
@@ -58,10 +59,15 @@ export default function ManualConfirmation( {
 		[]
 	);
 
+	// Focus goes back to the button that opened the dialog; when the act removed that button (a plain unconfirm
+	// removes its own, a set removes the set button), to the block itself, which is focusable by script only
+	// ([UNAPPROVED N77]). When the block is not there either (nothing left to show) focus stays where the browser puts it.
 	const focusOpener = () =>
 		window.requestAnimationFrame( () => {
 			if ( opener.current && opener.current.isConnected ) {
 				opener.current.focus();
+			} else if ( block.current && block.current.isConnected ) {
+				block.current.focus();
 			}
 		} );
 	const open = ( kind, event ) => {
@@ -108,7 +114,7 @@ export default function ManualConfirmation( {
 	return (
 		<Fragment>
 			{ shown && ! stale && (
-				<div className="kg-manual">
+				<div className="kg-manual" tabIndex={ -1 } ref={ block }>
 					{ manual && (
 						<Fragment>
 							<p>

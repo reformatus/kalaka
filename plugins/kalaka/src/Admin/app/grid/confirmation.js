@@ -31,7 +31,8 @@ export const REASON_MAX = 500;
 /**
  * The dialog's checks, on the text that is sent (trimmed): the reason is required and at most 500 characters
  * (counted as the server counts them, by character, not by UTF-16 unit); a message, or an empty string when it may
- * be sent. [UNAPPROVED N73] [UNAPPROVED T45]
+ * be sent. The field itself has no length limit: its own `maxLength` would count UTF-16 units, not characters.
+ * [UNAPPROVED N73] [UNAPPROVED T45]
  */
 export function validateReason( reason ) {
 	const text = String( reason ).trim();
@@ -63,7 +64,10 @@ export function manualActions( manual, can ) {
 /**
  * The warning before the unconfirm: the server's own text from `registration.unconfirm_warning` (#213's T5a, T5b,
  * T5c), only while `can.unconfirm` is true and the text is not null. The panel adds no wording and no rule of its
- * own: whether the rules would confirm again at once is the server's call. [UNAPPROVED N71]
+ * own: whether the rules would confirm again at once is the server's call, so `registration.unconfirm_reconfirms`
+ * is not read. [UNAPPROVED N71] [UNAPPROVED N76] The text is as old as the panel's last read, not as the moment the
+ * dialog opens ([UNAPPROVED N79]), and a holder without the money view gets the server's text for that case, which
+ * was not seen in a browser ([UNAPPROVED N81]).
  */
 export function warningOf( registration, can ) {
 	const text = registration && registration.unconfirm_warning;
@@ -71,11 +75,27 @@ export function warningOf( registration, can ) {
 }
 
 /**
+ * Whether the re-read shows the registration confirmed: the confirmation decision's state where the read carries
+ * it (a view lists the column `decision:confirmation`, or the reader has full access), else `can.unconfirm`, which
+ * every read carries and #213 sets from "confirmed now" (for a holder who may confirm manually, as the one who just
+ * unconfirmed may). Null when the read cannot tell.
+ */
+function confirmedIn( detail ) {
+	const now = confirmationOf( detail.registration );
+	if ( now ) {
+		return now.state === 'confirmed';
+	}
+	const can = detail.can;
+	return can && typeof can.unconfirm === 'boolean' ? can.unconfirm : null;
+}
+
+/**
  * The snackbar after a save, from what the server answered and the re-read detail (null when the re-read failed:
  * the panel's load-error message shows, and no snackbar claims a state that was not read). `changed: false` wrote
  * nothing, so the panel only shows what is now. A set says it is saved. An unconfirm says it was revoked; if the
- * re-read shows the registration confirmed again (the rules re-confirmed at once), it says that instead.
- * [UNAPPROVED N72] [UNAPPROVED T46]
+ * re-read shows the registration confirmed again (the rules re-confirmed at once), it says that instead; if the
+ * re-read cannot tell, there is no snackbar. Nothing here says whether the server sent the confirmation mail
+ * again ([UNAPPROVED N80]). [UNAPPROVED N72] [UNAPPROVED T46]
  *
  * @param {boolean}  unconfirm the act was the unconfirm (else the set)
  * @param {?Object}  result    the ability's answer: { changed }
@@ -89,6 +109,9 @@ export function snackbarAfter( unconfirm, result, detail ) {
 	if ( ! unconfirm ) {
 		return CONFIRM.saved;
 	}
-	const now = confirmationOf( detail.registration );
-	return now && now.state === 'confirmed' ? CONFIRM.unconfirmedReconfirmed : CONFIRM.unconfirmed;
+	const confirmed = confirmedIn( detail );
+	if ( confirmed === null ) {
+		return null;
+	}
+	return confirmed ? CONFIRM.unconfirmedReconfirmed : CONFIRM.unconfirmed;
 }

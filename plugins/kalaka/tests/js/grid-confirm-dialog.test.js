@@ -134,8 +134,23 @@ describe( 'the reason', () => {
 
 	test( 'is at most 500 characters: nothing is sent, the message says so', async () => {
 		await render();
-		// The textarea's own maxLength is 500, but a paste of more is checked as well.
 		await write( 'a'.repeat( 501 ) );
+		await submit();
+		expect( apiFetch ).not.toHaveBeenCalled();
+		expect( host.textContent ).toContain( CONFIRM.reasonTooLong );
+	} );
+
+	test( 'is counted by character, as the server counts it: 500 emoji are sent', async () => {
+		await render();
+		expect( textarea().hasAttribute( 'maxlength' ) ).toBe( false );
+		await write( '😀'.repeat( 500 ) );
+		await submit();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'and 501 emoji are over the limit', async () => {
+		await render();
+		await write( '😀'.repeat( 501 ) );
 		await submit();
 		expect( apiFetch ).not.toHaveBeenCalled();
 		expect( host.textContent ).toContain( CONFIRM.reasonTooLong );
