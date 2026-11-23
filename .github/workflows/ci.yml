@@ -147,17 +147,35 @@ jobs:
             [ "$slug" = kalaka ] || slugs+=("$slug")
           done
           [ -f preview/zips/kalaka.zip ] || { echo "No core zip kalaka-$version.zip." >&2; exit 1; }
-          printf '%s\n' kalaka "${slugs[@]}" | jq -R . | jq -s '{
+          # Plugins an extension names in its "Requires Plugins:" header that
+          # no zip here provides come from wordpress.org, installed before the
+          # extensions, as bin/playground-smoke.sh does.
+          required=()
+          for slug in "${slugs[@]}"; do
+            line="$(unzip -p "preview/zips/$slug.zip" "$slug/$slug.php" 2> /dev/null | sed -n -E 's/^[[:space:]\/#@*]*Requires Plugins:[[:space:]]*//Ip' | head -n 1 || true)"
+            IFS=',' read -r -a names <<< "$line"
+            for name in "${names[@]}"; do
+              name="$(printf '%s' "$name" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+              [ -n "$name" ] || continue
+              [[ "$name" =~ ^[a-z0-9_-]+$ ]] || { echo "Unexpected plugin slug '$name' in $slug." >&2; exit 1; }
+              [ -f "preview/zips/$name.zip" ] && continue
+              [[ " ${required[*]} " == *" $name "* ]] || required+=("$name")
+            done
+          done
+          printf '%s\n' "${required[@]}" | jq -R 'select(length > 0)' | jq -s . > preview/required.json
+          printf '%s\n' kalaka "${slugs[@]}" | jq -R . | jq -s --slurpfile required preview/required.json '{
             "$schema": "https://playground.wordpress.net/blueprint-schema.json",
             preferredVersions: { php: "8.3", wp: "latest" },
             landingPage: "/wp-admin/",
             login: true,
             steps: (
               [ { step: "defineWpConfigConsts", consts: { WP_ENVIRONMENT_TYPE: "development" } } ]
+              + ($required[0] | map({ step: "installPlugin", pluginData: { resource: "wordpress.org/plugins", slug: . }, options: { activate: true } }))
               + map({ step: "installPlugin", pluginData: { resource: "url", url: ("{{ARTIFACT_URL:" + . + "}}") }, options: { activate: true } })
               + [ { step: "wp-cli", command: "wp kalaka seed" } ]
             )
           }' > preview/blueprint.json
+          rm preview/required.json
           cat preview/blueprint.json
       - if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7
