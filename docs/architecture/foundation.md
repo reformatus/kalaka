@@ -565,6 +565,11 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
+  - **Seats follow one rule:** the event's places, a set option's places, and
+    a limited tier's or offer's places. A seat is a fact. The form only
+    controls visibility; the backend takes the seat under a lock, inside the
+    registration's own act. Leaving frees it, and only another act can take
+    it again; a seat never moves by itself.
 - **Decisions** are made by the system: confirmation in core
   ([Money](money.md#confirmation)), and the late fee, price-tier place and
   support place from extensions ([Money](money.md#quota-places)).

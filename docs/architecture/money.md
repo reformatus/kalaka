@@ -165,19 +165,17 @@ only at the participant's side.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are seats: facts,
-not decisions.
+Tier places of the price ladder and support-offer places are seats, under the
+one seat rule
+([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Taken** at the registration's own act (submit, admission or restore),
-  under a `FOR UPDATE` lock on the tier or offer row. Waitlisted
-  registrations hold no place.
+- **Taken** at submit, admission or restore, under a `FOR UPDATE` lock on the
+  tier or offer row. Waitlisted registrations hold no place.
 - **A full one cannot be chosen:** the submit is refused, as for a full set
   option. Staff can still place a registration by hand, warned that the pool
   is full.
 - **Released** on withdrawal or removal, and when an answer refuses the
   offer (a partner approves or refuses through the same act as staff).
-- **A freed place stays free** until an act takes it; it never moves to
-  anyone by itself.
 - **A restored or admitted registration** gets a place only if one is free.
 
 ## Withdrawal, removal and substitution
