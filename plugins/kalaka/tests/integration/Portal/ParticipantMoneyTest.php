@@ -573,7 +573,7 @@ final class ParticipantMoneyTest extends PortalTestCase
         $this->source($key, '60000', 'fixed_price');
 
         self::assertSame([
-            'Részvételi díj | + | 60 000 Ft |  | ',
+            'kalaka-owed: Részvételi díj | + | 60 000 Ft |  | ',
             'kalaka-total: Fizetendő összesen |  | 60 000 Ft |  | ',
             'kalaka-total kalaka-rule: Befizetve összesen |  | 0 Ft |  | ',
             'kalaka-rule kalaka-due: Még fizetendő |  | 60 000 Ft |  | ',
@@ -588,7 +588,7 @@ final class ParticipantMoneyTest extends PortalTestCase
         $this->manual($key, LineKind::ManualPayment, '-15000', '2026-11-28', PaymentMethod::BankTransfer, 'TAB27 12A3');
 
         self::assertSame([
-            'Részvételi díj | + | 60 000 Ft |  | ',
+            'kalaka-owed: Részvételi díj | + | 60 000 Ft |  | ',
             'kalaka-total: Fizetendő összesen |  | 60 000 Ft |  | ',
             'kalaka-move kalaka-rule: Befizetés | Bankkártya | + | 8 000 Ft | 2026. 11. 27. | ⓘ',
             'kalaka-move: Befizetés | Átutalás · „TAB27 12A3” | + | 15 000 Ft | 2026. 11. 28. | ⓘ',
@@ -690,16 +690,16 @@ final class ParticipantMoneyTest extends PortalTestCase
         $this->manualFee($key, ManualFeeType::Charge, '3000', 'Teszt póló');
 
         $rows = $this->tableRows($key);
-        self::assertSame('Részvételi díj | + | 40 000 Ft |  | ', $rows[0]);
-        self::assertSame('Teszt póló | + | 3 000 Ft |  | ', $rows[1]);
-        self::assertSame('Teszt kedvezmény | − | 500 Ft |  | ', $rows[2]);
+        self::assertSame('kalaka-owed: Részvételi díj | + | 40 000 Ft |  | ', $rows[0]);
+        self::assertSame('kalaka-owed: Teszt póló | + | 3 000 Ft |  | ', $rows[1]);
+        self::assertSame('kalaka-owed: Teszt kedvezmény | − | 500 Ft |  | ', $rows[2]);
         self::assertSame('kalaka-total: Fizetendő összesen |  | 42 500 Ft |  | ', $rows[3]);
 
         $this->erase($key);
         ObjectCache::clear();
         $rows = $this->tableRows($key);
-        self::assertSame('Díj | + | 3 000 Ft |  | ', $rows[1]);
-        self::assertSame('Kedvezmény | − | 500 Ft |  | ', $rows[2]);
+        self::assertSame('kalaka-owed: Díj | + | 3 000 Ft |  | ', $rows[1]);
+        self::assertSame('kalaka-owed: Kedvezmény | − | 500 Ft |  | ', $rows[2]);
     }
 
     public function testAWithdrawnRegistrationWithARefundShowsTheTableAndItsOverpayment(): void
@@ -728,9 +728,9 @@ final class ParticipantMoneyTest extends PortalTestCase
         $this->source($key, '-10000', 'church');
 
         $rows = $this->tableRows($key);
-        self::assertSame('Részvételi díj | + | 60 000 Ft |  | ', $rows[0]);
-        self::assertSame('Kirándulás | + | 3 000 Ft |  | ', $rows[1]);
-        self::assertSame('Gyülekezeti támogatás | − | 10 000 Ft |  | ', $rows[2]);
+        self::assertSame('kalaka-owed: Részvételi díj | + | 60 000 Ft |  | ', $rows[0]);
+        self::assertSame('kalaka-owed: Kirándulás | + | 3 000 Ft |  | ', $rows[1]);
+        self::assertSame('kalaka-owed: Gyülekezeti támogatás | − | 10 000 Ft |  | ', $rows[2]);
         self::assertSame('kalaka-total: Fizetendő összesen |  | 53 000 Ft |  | ', $rows[3]);
     }
 }
