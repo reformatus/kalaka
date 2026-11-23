@@ -5,18 +5,26 @@ declare(strict_types=1);
 namespace Kalaka\Extras\Charges;
 
 use Kalaka\Events\Api\Events;
+use Kalaka\Extras\Api\Charge;
+use Kalaka\Extras\Donation\DonationComponent;
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Saves an event's extra charges, the whole list in order: a step of a money settings apply
  * (`Pricing\Api\MoneySettings::apply()` with `Api\Extras::propose()`), which then re-evaluates every open
  * registration. Charges left out are deleted; an empty list removes them. Charging alone touches no
- * registration. Site-level, like core's fixed price: full access only. The currency must be the event's, and
- * a number field with a charge's key must take whole numbers.
+ * registration. Site-level, like core's fixed price: full access only. The currency must be the event's. Each
+ * charge declares its participant field (key = the charge's key, its type, its label as the title), and the
+ * donation's number field `adomany` is declared too, so a form field joins them by key and never creates them;
+ * a `form` field of the same type under a key is adopted, and a key a staff or system field or a field of another
+ * type holds refuses the save, whole. A number field multiplying a charge must take whole numbers: the declared
+ * field fixes its decimals at 0.
  */
 final class SetExtraCharges implements AdminUseCase
 {
@@ -24,6 +32,7 @@ final class SetExtraCharges implements AdminUseCase
         private readonly ChargeRepository $charges = new ChargeRepository(),
         private readonly Events $events = new Events(),
         private readonly ChargesInput $input = new ChargesInput(),
+        private readonly ParticipantFields $fields = new ParticipantFields(),
     ) {
     }
 
@@ -96,6 +105,31 @@ final class SetExtraCharges implements AdminUseCase
         foreach ($stored as $record) {
             $this->charges->delete($record, $context);
         }
+        // The code defines its fields (events-and-forms.md, "Fields"); a form field joins one by its key. A charge
+        // taken out leaves its field declared: no rule retires a declared field. [UNAPPROVED N3]
+        foreach ($proposed as $charge) {
+            $this->fields->declareExtensionField(
+                $context,
+                $eventId,
+                $charge->key,
+                ChargeField::block($charge->type),
+                $charge->label,
+                null,
+                true,
+                $charge->type === Charge::NUMBER ? 0 : null,
+            );
+        }
+        // The donation's number field is declared whenever the extras are saved, with or without charges.
+        // [UNAPPROVED N2]
+        $this->fields->declareExtensionField(
+            $context,
+            $eventId,
+            DonationComponent::KEY,
+            FieldKind::NUMBER,
+            DonationComponent::FIELD_TITLE,
+            null,
+            true,
+        );
 
         return null;
     }
