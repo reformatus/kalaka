@@ -23,7 +23,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  */
 final class MoneyRead
 {
-    /** The method label of every `payment` and `refund` line: the automatic methods are online. [UNAPPROVED T2] */
+    /** The method label of every `payment` and `refund` line: the automatic methods are online. */
     private const ONLINE = 'Online';
 
     public function __construct(

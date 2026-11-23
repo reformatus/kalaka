@@ -18,7 +18,7 @@ class LineLabels
 {
     /**
      * The word of an owed row that names nothing (an unnamed fee line, an erased manual charge's title). Its own
-     * participant-side constant, so an admin relabel of `LineKind::Charge` does not move it. [UNAPPROVED T3]
+     * participant-side constant, so an admin relabel of `LineKind::Charge` does not move it.
      */
     public const FEE = 'Díj';
 
@@ -31,7 +31,7 @@ class LineLabels
     /**
      * The words of an owed row of the money table: the base price, a manual line's title (the fact's, never
      * the line's), a component's own word, and „Díj” for a line that names nothing. A manual discount whose title
-     * was erased reads „Kedvezmény”. [UNAPPROVED T1]
+     * was erased reads „Kedvezmény”.
      */
     public function owedLabelOf(LineName $name): string
     {
