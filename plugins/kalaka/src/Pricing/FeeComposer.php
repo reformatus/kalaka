@@ -127,7 +127,19 @@ final class FeeComposer
             $lines[$key] = $this->checked($component, $payers, $currency);
         }
 
-        return [$this->checked($component, $targets->owed, $currency), $lines];
+        if ($lines === []) {
+            return [$this->checked($component, $targets->owed, $currency), []];
+        }
+        // Lines given: what is owed in all is their sum, whatever `owed` says (the constructor takes both).
+        // [UNAPPROVED N18]
+        $owed = [];
+        foreach ($lines as $payers) {
+            foreach ($payers as $payer => $amount) {
+                $owed[$payer] = isset($owed[$payer]) ? $owed[$payer]->plus($amount) : $amount;
+            }
+        }
+
+        return [$owed, $lines];
     }
 
     /**

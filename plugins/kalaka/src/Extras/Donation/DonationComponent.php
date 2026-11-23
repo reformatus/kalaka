@@ -14,10 +14,11 @@ use Kalaka\Pricing\Api\FeeTargets;
 
 /**
  * The donation's fee component, at the extras stage: the value of the event's number field with the fixed key
- * `adomany`, owed by the participant as one `donation` line, exactly as stored (no whole-number rule; the form
- * field's own settings decide whether decimals are allowed). Empty, 0, a negative value or an event without
- * that field owes nothing and writes no line. There is no setting: the key alone decides. The congregation
- * share never covers it: the share reads only the earlier stages. [UNAPPROVED N5]
+ * `adomany` (only a number field; a consent or a text field with the key is not the donation), owed by the
+ * participant as one `donation` line, exactly as stored (no whole-number rule; the form field's own settings
+ * decide whether decimals are allowed). Empty, 0, a negative value or an event without that field owes nothing
+ * and writes no line. There is no setting: the key alone decides. The congregation share never covers it: the
+ * share reads only the earlier stages. [UNAPPROVED N5]
  */
 final class DonationComponent implements FeeComponent
 {
@@ -38,6 +39,10 @@ final class DonationComponent implements FeeComponent
 
     public function targets(FeeComponentInput $input): FeeTargets
     {
+        $kind = $input->facts->fieldKind(self::KEY);
+        if ($kind === null || !$kind->isNumber()) {
+            return FeeTargets::none();
+        }
         try {
             $value = $input->facts->get(self::KEY);
         } catch (SystemFailure) {

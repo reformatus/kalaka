@@ -27,7 +27,7 @@ final class ChargesInput
     public const ITEM_SCHEMA = [
         'type' => 'object',
         'properties' => [
-            'key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]{0,56}$'],
+            'key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]{0,' . (self::MAX_KEY_LENGTH - 1) . '}$'],
             'label' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 191],
             'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?$'],
         ],

@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * A component that owes several things apart (one line each, e.g. an event's extra charges) returns them
  * with `ofLines()`: each line key is its own ledger line source, `<component ID>.<line key>`, and `owed` is
  * their sum per payer. A line a component stops returning is reversed, as a component's line always is.
+ * [UNAPPROVED N18]
  */
 final readonly class FeeTargets
 {

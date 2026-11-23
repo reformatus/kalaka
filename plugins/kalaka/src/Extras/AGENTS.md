@@ -30,24 +30,34 @@ plugin. It holds two fee components at the extras stage and is core money
 - A form-to-backend link is by key
   ([Fields](../../../../docs/architecture/events-and-forms.md#fields)): an
   extra charge names no field. The participant field whose key equals the
-  charge's key calls it, and each charge is its amount times that field's
-  whole answer: a consent's `1` charges it once, a positive whole `n` charges
-  it `n` times; anything else charges nothing. A charge key no field uses
-  charges nobody, with no warning. The save refuses only a number field with
-  the charge's key that allows decimals (the multiplier is whole) and a charge
-  key that is the donation's. The component reads only the registration's
-  facts and its own settings, never `ParticipantFields::of()`.
+  charge's key calls it, **by the field's type**: a consent counts the
+  amount once (a `1`), a number field whose stored decimals are 0 counts it a
+  positive whole `n` times, and every other type charges nobody. A charge key
+  no field uses charges nobody, with no warning. The component is the guard:
+  a number field with decimals is no multiplier, however it came to have the
+  key (N13); the save refuses such a field too, as an early refusal. The
+  component reads each field's type and decimals from the registration's
+  facts (`RegistrationFacts::fieldKind()`), never `ParticipantFields::of()`.
+- The save refuses: a key given twice, a key that is the donation's, a key
+  that does not match `^[a-z][a-z0-9_]*$` or holds more than 57 characters,
+  a label outside 1 to 191 characters, a malformed amount, more than 50
+  charges, a property besides `key`, `label` and `amount`, and a number
+  field with the charge's key that allows decimals.
 - An extra charge has no condition. Each charge is **its own** ledger line,
   `extras.<key>` (the materializer keeps one line source per component line
   and payer, `FeeTargets::ofLines()`); a charge key holds at most 57
   characters so the source key fits 64. Removing a charge, or a registration
   that no longer owes it, reverses that charge's line alone. The line's name
-  is the charge's label, read from its source by whoever shows it.
+  is the charge's label, read from its source key by whoever shows the line;
+  this stack names no line yet (S24), and a removed charge's lines carry no
+  name at all.
 - The donation is the value of the event's number field with the fixed key
   `adomany`, set by Kaláka: one per event, as its own `donation` line, charged
   exactly as stored (no whole-number rule; the form field's settings decide
-  decimals). Empty, 0, a negative value or an event without that field writes
-  no line. It has no setting and no use case: the key alone decides.
+  decimals). Only a number field is the donation: a consent or a text field
+  with the key `adomany` is not. Empty, 0, a negative value or an event
+  without that field writes no line. It has no setting and no use case: the
+  key alone decides.
 - Whether a field a charge or the donation meets is money-relevant is N5's
   open question; the lock is S60's.
 - The extra charges change only through `kalaka/set-extra-charges`, the save

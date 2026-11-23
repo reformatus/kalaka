@@ -311,7 +311,7 @@ flowchart LR
   F["Registration facts<br/>status, field values from every form"] --> R
   X["Extension-written field values<br/>aid award, …"] --> R
   PF["Payment facts<br/>read from payment lines only"] --> R
-  R["Fee components<br/>target amount per component and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
+  R["Fee components<br/>target amount per component,<br/>or component line, and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]
   PM["Payment-method plugin<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
   ST["Organizers<br/>cash, bank transfer"] --> L
@@ -324,7 +324,8 @@ flowchart LR
   numbers. Aid comes out of the participant's part only and never reduces
   the congregation's share.
 - **It converges:** it writes only the difference between target and
-  recorded, per component and payer, so it can run any number of times, with
+  recorded, per component, or component line (`<component ID>.<line key>`),
+  and payer, so it can run any number of times, with
   line idempotency keys.
 - **Changes caused by an action** are materialized by the evaluation inside
   that action ([Foundation](foundation.md#evaluation)). **Changes caused by

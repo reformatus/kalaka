@@ -175,4 +175,10 @@ final class MaterializerTest extends PricingTestCase
         $this->expectException(\LogicException::class);
         (new CoreFeeComponents([new TierComponent('1', 'fixed_price')]))->list();
     }
+
+    public function testAComponentIdWithADotIsRefused(): void
+    {
+        $this->expectException(\LogicException::class);
+        (new CoreFeeComponents([new TierComponent('1', 'extras.x')]))->list();
+    }
 }

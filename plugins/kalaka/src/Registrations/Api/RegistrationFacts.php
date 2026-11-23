@@ -7,6 +7,7 @@ namespace Kalaka\Registrations\Api;
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Facts;
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
@@ -20,8 +21,9 @@ use Kalaka\Forms\Api\ValueType;
  * Read by the fee components and, later, by every rule that reads registration facts. Built by
  * `Registrations::factsOf()`; it holds values only and reads nothing.
  *
- * The field values are typed by `Forms\Api\Forms::participantValues()` (S25): every participant field of
- * the event is declared, an unanswered or retired one as `Value::none()` of its type. Decisions join under
+ * The field values are typed by `Forms\Api\Forms::participantFacts()` (S25): every participant field of
+ * the event is declared, an unanswered or retired one as `Value::none()` of its type, and each field's kind
+ * (its block type and a number field's decimals) is read with `fieldKind()` (N19). Decisions join under
  * dotted keys as their slices land.
  */
 final readonly class RegistrationFacts implements Facts
@@ -33,13 +35,17 @@ final readonly class RegistrationFacts implements Facts
 
     private ValueContext $values;
 
-    /** @param array<string, Value> $fieldValues field key → value (`Forms::participantValues()`) */
+    /**
+     * @param array<string, Value> $fieldValues field key → value (`Forms::participantFacts()`)
+     * @param array<string, FieldKind> $fieldKinds field key → its kind (the same call)
+     */
     public function __construct(
         public RegistrationKey $registration,
         public RegistrationStatus $status,
         public ?\DateTimeImmutable $registeredAt,
         Event $event,
         array $fieldValues = [],
+        private array $fieldKinds = [],
     ) {
         $this->values = new ValueContext($fieldValues + EventValues::of($event) + [
             self::CODE => Value::text($registration->code, $registration->code),
@@ -62,6 +68,12 @@ final readonly class RegistrationFacts implements Facts
         }
 
         return $types + [self::CODE => ValueType::Text, self::STATUS => ValueType::Choice];
+    }
+
+    /** The kind of the participant field with that key; null for a key that is no participant field. */
+    public function fieldKind(string $key): ?FieldKind
+    {
+        return $this->fieldKinds[$key] ?? null;
     }
 
     public function get(string $key): Value

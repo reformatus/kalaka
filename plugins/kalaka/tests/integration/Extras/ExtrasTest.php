@@ -85,6 +85,17 @@ final class ExtrasTest extends ExtrasTestCase
         $this->evaluate($anna);
 
         self::assertSame('0', $this->balance($anna));
+        self::assertSame([
+            'extras.ebed participant 3500 charge:extras.ebed:participant:1',
+            'extras.ejjel participant 2000 charge:extras.ejjel:participant:1',
+            'extras.ebed participant -3500 charge:extras.ebed:participant:2',
+            'extras.ejjel participant -2000 charge:extras.ejjel:participant:2',
+        ], $this->charges($anna), 'Each charge line is reversed.');
+
+        $this->setStatus($anna, RegistrationStatus::Registered);
+        $this->evaluate($anna);
+
+        self::assertSame('5500', $this->balance($anna), 'Restored, the charges are owed again.');
     }
 
     public function testAnythingButAPositiveWholeQuantityChargesNothing(): void
@@ -137,6 +148,46 @@ final class ExtrasTest extends ExtrasTestCase
 
         self::assertSame('1000', $this->balance($anna));
         self::assertSame(64, strlen('extras.' . $key));
+    }
+
+    public function testOnlyAConsentAndAWholeNumberFieldChargeAndEveryOtherTypeChargesNobody(): void
+    {
+        $this->declareField('szoveg', 'kalaka/text-field', null, 3);
+        $this->declareField('skala', 'kalaka/scale-field', null, 4);
+        $this->declareField('valasz', 'kalaka/choice-field', null, 5);
+        $this->applyCharges([
+            self::item('szoveg', 'Szöveg', '1000'),
+            self::item('skala', 'Skála', '1000'),
+            self::item('valasz', 'Választás', '1000'),
+        ]);
+
+        $anna = $this->registerWith('00A0', ['szoveg' => '3', 'skala' => '4', 'valasz' => '["1"]']);
+
+        self::assertSame([], $this->charges($anna), 'A text, a scale and a choice field charge nobody.');
+    }
+
+    public function testASavedChargeIsNotChargedByANumberFieldDeclaredWithDecimalsAfterwards(): void
+    {
+        $this->applyCharges([self::item('uj', 'Új', '1000')]);
+        $this->declareField('uj', 'kalaka/number-field', ['decimals' => 2], 3);
+
+        $anna = $this->registerWith('00A0', ['uj' => '3']);
+
+        self::assertSame([], $this->charges($anna), 'The component is the guard: a decimals field is no multiplier.');
+    }
+
+    public function testTheDonationsKeyIsRefusedAsAChargeKeyWhateverTheFieldIs(): void
+    {
+        global $wpdb;
+        // A whole-number field with the key (decimals 0): no other check refuses it, so only the key does.
+        $wpdb->delete(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['event_id' => $this->event, 'field_key' => 'adomany']
+        );
+        $this->declareField('adomany', 'kalaka/number-field', ['decimals' => 0], 1);
+
+        $this->expectException(InvalidInput::class);
+        $this->extras->propose($this->event, [self::item('adomany', 'Adomány', '3500')]);
     }
 
     public function testAnInvalidChargeIsRefusedBeforeAnythingIsSaved(): void

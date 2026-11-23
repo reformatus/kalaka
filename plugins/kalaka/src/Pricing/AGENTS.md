@@ -33,7 +33,8 @@ retention and the materializer
 - A component may keep its lines apart (`FeeTargets::ofLines()`): each is
   recorded and reversed on its own under the source key
   `<component ID>.<line key>` (at most 64 characters), and a line the
-  component no longer returns is reversed.
+  component no longer returns is reversed. A component ID matches
+  `[a-z][a-z0-9_]*` (no dot, which would be another component's line).
 - Lines of components not registered now are never touched, and
   `adjustment` lines never count as recorded.
 - A fee component returns a value and writes nothing. Core composes the

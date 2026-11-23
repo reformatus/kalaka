@@ -64,7 +64,7 @@ final class Materializer
         }
 
         // A component that keeps lines apart owns every recorded `<component ID>.<line key>`; one it no longer
-        // returns (a removed charge) is owed nothing now, so its line is reversed.
+        // returns (a removed charge) is owed nothing now, so its line is reversed. [UNAPPROVED N18]
         $registered = [];
         foreach ($components as $component) {
             $registered[$component->id()] = true;

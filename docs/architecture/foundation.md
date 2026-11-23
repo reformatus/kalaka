@@ -566,7 +566,7 @@ sort on the first two ([Views and grants](#views-and-grants)).
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
   - **A setting that money or a rule needs from a field** (a number field's
-    decimals, its affixes) is stored on the event's participant field, never
+    decimals) is stored on the event's participant field, never
     read from the form post.
 - **Decisions** are made by the system: confirmation in core
   ([Money](money.md#confirmation)), and the late fee, price-tier place and

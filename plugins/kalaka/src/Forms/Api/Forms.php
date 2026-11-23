@@ -202,8 +202,22 @@ final class Forms
      */
     public function participantValues(int $eventId, array $stored): array
     {
+        return $this->participantFacts($eventId, $stored)->values;
+    }
+
+    /**
+     * `participantValues()` with each field's kind beside its value (N19): the block type and the number
+     * field's decimals a money rule needs to tell a consent from a quantity. One walk, one read of
+     * `ParticipantFields::of()`, the same exception as `participantValues()`.
+     *
+     * @param array<string, string> $stored field key → the stored value
+     */
+    public function participantFacts(int $eventId, array $stored): ParticipantFacts
+    {
         $values = [];
+        $kinds = [];
         foreach ($this->typedFields($eventId) as [$field, $type]) {
+            $kinds[$field->key] = new FieldKind($field->type, (int) ($field->settings['decimals'] ?? 0));
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -214,7 +228,7 @@ final class Forms
                 : $type->value(new FieldTypeInput($answer, self::attributesOf($field, $answer)));
         }
 
-        return $values;
+        return new ParticipantFacts($values, $kinds);
     }
 
     /**

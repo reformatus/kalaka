@@ -42,6 +42,26 @@ final class DonationTest extends ExtrasTestCase
         self::assertSame([], $this->charges($anna));
     }
 
+    public function testOnlyANumberFieldIsTheDonationNotAConsentOrATextFieldWithTheKey(): void
+    {
+        global $wpdb;
+        $wpdb->delete(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['event_id' => $this->event, 'field_key' => 'adomany']
+        );
+        $this->declareField('adomany', 'kalaka/consent-field', null, 1);
+        $anna = $this->registerWith('00A0', ['adomany' => '1']);
+        self::assertSame([], $this->charges($anna), 'A consent with the key is no donation.');
+
+        $wpdb->delete(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['event_id' => $this->event, 'field_key' => 'adomany']
+        );
+        $this->declareField('adomany', 'kalaka/text-field', null, 1);
+        $bence = $this->registerWith('00A2', ['adomany' => '5000']);
+        self::assertSame([], $this->charges($bence), 'A text field with the key is no donation.');
+    }
+
     public function testAnEventWithoutTheFieldOwesNoDonation(): void
     {
         global $wpdb;

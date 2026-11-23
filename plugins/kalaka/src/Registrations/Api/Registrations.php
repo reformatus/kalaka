@@ -76,7 +76,7 @@ final class Registrations
     /**
      * The registration's fact source, from plain reads without a lock (inside the evaluation the run already
      * holds the row): the row, its field values (`values()`, one statement) typed over the event's participant
-     * fields (`Forms::participantValues()`: one statement and the block registry, no post). Null when there is
+     * fields (`Forms::participantFacts()`: one statement and the block registry, no post). Null when there is
      * no such registration.
      */
     public function factsOf(RegistrationKey $key, Event $event): ?RegistrationFacts
@@ -86,12 +86,15 @@ final class Registrations
             return null;
         }
 
+        $fields = $this->forms->participantFacts($key->eventId, $this->values($key));
+
         return new RegistrationFacts(
             $key,
             $registration->status,
             $registration->registeredAt,
             $event,
-            $this->forms->participantValues($key->eventId, $this->values($key)),
+            $fields->values,
+            $fields->kinds,
         );
     }
 
