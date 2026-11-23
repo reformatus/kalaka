@@ -98,7 +98,6 @@ final class MoneySettingsCommandTest extends PricingTestCase
                 'fixed_price' => '1500',
                 'components' => [
                     'extras' => ['charges' => []],
-                    'donation' => ['field_key' => null],
                     'extra' => ['amount' => '200'],
                 ],
             ],
@@ -119,8 +118,7 @@ final class MoneySettingsCommandTest extends PricingTestCase
         self::assertStringContainsString('"components": {', \WP_CLI::$calls[0][1]);
         self::assertStringContainsString('"extras": {', \WP_CLI::$calls[0][1]);
         self::assertStringContainsString('"charges": []', \WP_CLI::$calls[0][1]);
-        self::assertStringContainsString('"donation": {', \WP_CLI::$calls[0][1]);
-        self::assertStringContainsString('"field_key": null', \WP_CLI::$calls[0][1]);
+        self::assertStringNotContainsString('"donation"', \WP_CLI::$calls[0][1]);
     }
 
     public function testPreviewShowsWhatEachPayerOwesNowAndWouldOweAndWritesNothing(): void
