@@ -32,7 +32,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * - → `confirmed` when the payments reach every threshold, the manual flag is set, or nothing is due. Its
  *   effective time is the value date (paid time online) of the payment that reached the last required
  *   threshold, the flag's set time, or the moment of the check when nothing is due; with both payments and
- *   the flag, the earlier, and never before staff's latest unconfirm. [UNAPPROVED N10, N15]
+ *   the flag, the earlier, and never before staff's latest unconfirm. [UNAPPROVED N15]
  * - → `unconfirmed` from `confirmed` only by staff's explicit unconfirm (`kalaka/unconfirm`, newer than the
  *   current `confirmed` record), effective at its time: a refund, a later charge or a higher threshold never
  *   unconfirms (the owner's ruling 2026-11-19); a lower threshold can confirm at the next evaluation. That
@@ -43,7 +43,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state. [UNAPPROVED N7]
  * - Withdrawal or removal closes the sequence: a `confirmed` registration that is no longer `registered` gets
  *   `unconfirmed`, so a restore or admission writes a new `confirmed` record if it qualifies and the old one is
- *   never revived. [UNAPPROVED N8]
+ *   never revived.
  */
 final class ConfirmationRule implements DecisionRule
 {

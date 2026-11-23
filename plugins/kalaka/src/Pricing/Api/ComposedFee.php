@@ -14,7 +14,10 @@ use Kalaka\Registrations\Api\RegistrationFacts;
  */
 final readonly class ComposedFee
 {
-    /** @param array<string, array<string, Money>> $byComponent line source key (a component's ID, or `<ID>:<item>`) → payer → amount owed */
+    /**
+     * @param array<string, array<string, Money>> $byComponent line source key (a component's ID, or `<ID>:<item>`)
+     *                                                         → payer → amount owed
+     */
     public function __construct(
         public RegistrationFacts $facts,
         public Currency $currency,

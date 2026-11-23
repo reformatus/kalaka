@@ -111,7 +111,7 @@ final class Evaluation
     /**
      * The decisions phase, after money: the rules in the order they were declared, core first, then extensions.
      * A core rule reads its own kind and the core kinds decided before it; an extension rule its own kind and
-     * every core kind (one not yet decided in this pass as it stood before the pass), never another
+     * every core kind, never another
      * extension's.
      *
      * @return list<DecisionRecord> the records this pass wrote, in order

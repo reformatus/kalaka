@@ -45,7 +45,7 @@ final class ManualConfirmationAbilityTest extends ManualEntryTestCase
     {
         $money = new Materializer(new CoreFeeComponents([]));
         $rules = new DecisionRules();
-        $rules->add(new ConfirmationRule($money->composition()), true, true);
+        $rules->add(new ConfirmationRule($money->composition()), true);
 
         return new Runner($this->clockAt($local), true, new Evaluation($rules, money: $money));
     }

@@ -127,4 +127,26 @@ final class ConfirmedMailTest extends ConfirmationTestCase
         $this->assertMailedPerConfirmedRecord($anna);
         $this->assertMailedPerConfirmedRecord($bela);
     }
+
+    public function testARestoreConfirmedBySurvivingFlagMailsAgain(): void
+    {
+        $this->confirmedMailOn();
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->setFlag($anna);
+        self::assertCount(1, $this->deliveryRows(), 'The flag confirmed it.');
+
+        $this->setStatus($anna, RegistrationStatus::Withdrawn);
+        self::assertCount(1, $this->deliveryRows(), 'The closing `unconfirmed` mails nothing.');
+
+        $this->setStatus($anna, RegistrationStatus::Registered);
+
+        self::assertSame('confirmed', $this->confirmationState($anna), 'The surviving flag confirms the restore.');
+        self::assertMatchesRegularExpression(
+            '/^confirmed 2026-11-30 08:00:\d\d manual_confirmation$/',
+            $this->confirmations($anna)[2]
+        );
+        self::assertCount(2, $this->deliveryRows());
+        $this->assertMailedPerConfirmedRecord($anna);
+    }
 }

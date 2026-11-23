@@ -158,8 +158,8 @@ title: Money
   audited, and allowed on any confirmed registration. It revokes the manual
   flag if set and records `unconfirmed`; then confirmation is decided again at
   once, so payments that reach the threshold or nothing due confirm it again.
-  Staff are warned before that happens, and that the registrant then gets the
-  confirmed mail again.
+  Staff are warned before that happens, and, while the event's confirmed mail is
+  on, that the registrant then gets that mail.
 
 | Transition | When |
 |---|---|

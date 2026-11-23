@@ -46,8 +46,8 @@ retention and the materializer
   `money/<component id>`.
 - Only a `registered` registration composes; every other status owes zero
   (retention is an empty step until S23).
-- The money phase runs after the decisions phase, with the registration's
-  row lock held.
+- The money phase runs first in the evaluation, before the decision rules,
+  with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
   the apply saves the settings in one use case, then re-evaluates each
   `registered` and `waitlisted` registration in its own, through Foundation's
@@ -71,7 +71,7 @@ retention and the materializer
   Confirmation reads payment facts (`Ledger::paymentFactsOf()`) and the
   manual flag, never charge lines.
 - Confirmation (`Api\ConfirmationRule`, kind `confirmation`) is a core rule
-  that reads a target: every payer with something owed must reach its own
+  that reads every payer's target: every payer with something owed must reach its own
   threshold (core: the full target; `Api\ConfirmationThreshold` may lower it,
   held between zero and the target). It decides only for a `registered`
   registration and writes no first record: its declared base state
