@@ -15,8 +15,11 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\Seats;
 use Kalaka\Tests\Integration\Registrations\RegistrationsTestCase;
 
 /**
@@ -401,6 +404,108 @@ final class AssignmentsTest extends RegistrationsTestCase
         ]], $response->get_data());
         wp_set_current_user(0);
         $GLOBALS['wp_rest_server'] = null;
+    }
+
+    public function testPlacingTakesASeatInTheOptionsPoolAndStaffMayGoOverTheCapacity(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $second = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($first, $second);
+        $seats = new Seats();
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        self::assertSame('option.' . $set . '.modul_a', $pool->key());
+        self::assertSame(1, $seats->left($pool));
+
+        $this->place($first, $set, 'modul_a');
+        self::assertSame(0, $seats->left($pool));
+        self::assertTrue($seats->holds($pool, $first));
+
+        // Staff go over: the placing is warned about, never refused.
+        $this->place($second, $set, 'modul_a');
+        self::assertSame(2, $seats->held($pool));
+        self::assertSame(1, $seats->over($pool));
+        self::assertSame(0, $seats->left($pool));
+    }
+
+    public function testPlacingTheSameOptionAgainKeepsOneSeat(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $key = new RegistrationKey($this->event, '00A0');
+        $this->seedRegistrations($key);
+
+        $this->place($key, $set, 'modul_a');
+        $this->place($key, $set, 'modul_a');
+
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        self::assertSame(1, (new Seats())->held($pool));
+        self::assertSame([], $this->sets->placementWarnings($key, $set, 'modul_a'));
+    }
+
+    public function testPlacingElsewhereFreesTheOldSeatAndNobodyMovesIn(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul B', null, ['capacity' => 1]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $second = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($first, $second);
+        $seats = new Seats();
+        $a = $this->sets->seatPool($set, 'modul_a');
+        $b = $this->sets->seatPool($set, 'modul_b');
+        self::assertNotNull($a);
+        self::assertNotNull($b);
+        $this->place($first, $set, 'modul_a');
+
+        $this->place($first, $set, 'modul_b');
+
+        self::assertSame(0, $seats->held($a));
+        self::assertSame(1, $seats->held($b));
+        self::assertFalse($seats->holds($a, $second));
+        self::assertSame('modul_b', $this->sets->assignment($first, $set)?->optionKey);
+    }
+
+    public function testAWithdrawalFreesTheOptionSeatAndTheNextPlacingTakesIt(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $second = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($first, $second);
+        $seats = new Seats();
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        $this->place($first, $set, 'modul_a');
+        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+
+        $this->inRun(function (array $input, Context $context) use ($seats, $first): void {
+            (new Registrations())->lock($first, $context);
+            $seats->releaseAll($first, $context);
+        });
+
+        self::assertSame(1, $seats->left($pool));
+        self::assertFalse($seats->holds($pool, $second));
+        self::assertSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+        // The assignment is the choice; the seat was the place: the choice stays, nobody else took the seat.
+        self::assertSame('modul_a', $this->sets->assignment($first, $set)?->optionKey);
+        $this->place($second, $set, 'modul_a');
+        self::assertSame(0, $seats->left($pool));
+    }
+
+    public function testAnOptionWithoutALimitHasNoSeatsLeftFigure(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => null]);
+
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        self::assertNull((new Seats())->left($pool));
+        self::assertNull($this->sets->seatPool($set, 'nincs'));
+        self::assertNull($this->sets->seatPool($set + 1000, 'modul_a'));
     }
 
     private function place(RegistrationKey $key, int $set, string $option): void

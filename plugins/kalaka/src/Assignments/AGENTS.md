@@ -33,9 +33,14 @@ mode (S65) and the screens (S72/S48) come later.
   replacing what the registration held in that set; neither capacity nor
   eligibility stops it (staff override), but staff are warned first
   (`Api\AssignmentSets::placementWarnings()`, a plain read): the option is
-  full (the confirmed assignments to it, not counting the registration's own,
-  have reached its capacity), or the registration does not meet its
-  condition. The option must be the set's and the set the
+  full (the seats held in it, not counting the registration's own, have reached
+  its capacity), or the registration does not meet its condition.
+- A confirmed assignment holds a seat in its option's pool (`OptionSeatPool`,
+  `option.<set ID>.<option key>`, under the one seat rule of
+  `Registrations\Api\Seats`): staff placing takes it under a lock on the option
+  row, over the capacity if need be, and frees the seat of the option the
+  registration held in the set before. A proposed assignment holds none. The
+  option's capacity is the pool's limit; nobody is moved into a freed seat. The option must be the set's and the set the
   registration's event's.
 - An option's eligibility is one condition in the one format, decided only
   through `Forms\Api\Availability` (an option is a `Forms\Api\Conditional`);

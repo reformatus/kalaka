@@ -70,7 +70,7 @@ flowchart LR
 | Forms | forms, the registration slot, field types, field definitions, values and conditions, prefill, form links |
 | ParticipantFields | the event's participant fields: the list, its sources, titles and option labels, retired fields |
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
-| Registrations | registrations, field values, submissions, presets, statuses, waitlist, reference codes |
+| Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
@@ -92,6 +92,11 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
+- **A confirmed assignment holds a seat in its option's pool,** under the one
+  seat rule ([Foundation](foundation.md#facts-decisions-and-computed-values)):
+  taken under the lock on the option row, freed by withdrawal, removal or a
+  placing elsewhere in the set. A proposed assignment holds none until it is
+  confirmed. The option's capacity is the pool's limit.
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
     field writes a confirmed assignment; capacity and eligibility are checked

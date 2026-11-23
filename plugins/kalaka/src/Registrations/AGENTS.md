@@ -11,6 +11,8 @@ the waitlist and reference codes
   [Submissions and values](../../../../docs/architecture/registrations-and-identity.md#submissions-and-values),
   the status, sorszám and submit-time capacity decision of [Status, capacity and waitlist](../../../../docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist),
   [Reference codes](../../../../docs/architecture/registrations-and-identity.md#reference-codes),
+  the seat rule of [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values)
+  and [Quota places](../../../../docs/architecture/money.md#quota-places) (`Api\Seats`),
   the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
   the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
 - foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
@@ -119,4 +121,19 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
+  and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
+  staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
+  before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
+  at a lock level before the registration row (a quota row) is locked and checked before the registration is
+  written; any other once it is in.
+- A full pool refuses `take()` and `kalaka-portal/submit-registration` (the form comes back with the refusal on
+  the choice's field, nothing saved); `takeIfFree()` gives an admission or a restore no seat and no error;
+  `takeOver()` is staff placing past the limit. Only a `registered` submit takes its claims' seats: a waitlisted
+  one holds none and is not refused.
+- A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
+  refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
+  from one registration to another, and a count never hands a place on.
+- The event's pool has no rows: its seats are the `registered` statuses, and the latch decides the waitlist as it
+  always did. `Seats::left()` and `over()` are computed on read, never stored.
 - Only Registrations writes its tables.
