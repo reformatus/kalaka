@@ -201,6 +201,30 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringNotContainsString('Visszaigazolva', $html);
     }
 
+    public function testAnAnswerLaterThanTheRegistrationRestartsTheDueClock(): void
+    {
+        // Registered 2026-11-20: due 2026-11-27 (23:00 UTC). Answered 2026-11-30 12:00 UTC: due 2026-12-07.
+        $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        self::assertSame('2026-12-07 23:00:00', $read->forActive()?->payment?->paymentDue?->format('Y-m-d H:i:s'));
+        self::assertStringContainsString('Fizetési határidő: 2026. december 7.', $this->statusBlock($read));
+    }
+
+    public function testAnAnswerEarlierThanTheRegistrationLeavesTheDueClockOnTheRegisteredTime(): void
+    {
+        $key = $this->stored('12A3', at: '2026-12-01 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        self::assertSame('2026-12-08 23:00:00', $read->forActive()?->payment?->paymentDue?->format('Y-m-d H:i:s'));
+    }
+
     /** A request on the registration (a test source), and the read that sees it. */
     private function askingForAnAnswer(RegistrationKey $key): StatusRead
     {

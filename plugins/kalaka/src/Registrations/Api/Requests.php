@@ -40,28 +40,16 @@ final class Requests
     }
 
     /**
-     * The registration's requests that need an answer now, each with its latest answer. A plain read.
+     * The registration's requests that need an answer now, each with whether its source says it is answered and
+     * its latest answer record. A plain read.
      *
      * @return list<RequestState>
      */
     public function states(RegistrationKey $registration): array
     {
-        $sources = $this->sources ?? Contributions::current()->requestSources();
-        if ($sources === []) {
-            return [];
-        }
-
-        $values = [];
-        foreach ($this->values->forRegistration($registration) as $value) {
-            $values[$value->fieldKey] = $value->value;
-        }
-        $owned = $this->requestsOf($registration, $values, $sources);
-        if ($owned === []) {
-            return [];
-        }
-
+        [$owned, $rows, $values] = $this->read($registration);
         $latest = [];
-        foreach ($this->answers->forRegistration($registration) as $answer) {
+        foreach ($rows as $answer) {
             $latest[$answer->request] = $answer;
         }
         $states = [];
@@ -75,6 +63,35 @@ final class Requests
         }
 
         return $states;
+    }
+
+    /**
+     * The requests the registration has now, keyed by id with their source, every answer row of it in the order
+     * they were given, and its field values. With no source, or no request, nothing more is read.
+     *
+     * @return array{
+     *     0: array<string, array{0: Request, 1: RequestSource}>,
+     *     1: list<AnswerRead>,
+     *     2: array<string, string>
+     * }
+     */
+    private function read(RegistrationKey $registration): array
+    {
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        if ($sources === []) {
+            return [[], [], []];
+        }
+
+        $values = [];
+        foreach ($this->values->forRegistration($registration) as $value) {
+            $values[$value->fieldKey] = $value->value;
+        }
+        $owned = $this->requestsOf($registration, $values, $sources);
+        if ($owned === []) {
+            return [[], [], $values];
+        }
+
+        return [$owned, $this->answers->forRegistration($registration), $values];
     }
 
     /**
@@ -147,16 +164,28 @@ final class Requests
     }
 
     /**
-     * When the registration was last answered (of the requests it has now): the time the due clock will count
-     * from beside the moment it last became `registered`; null when none is answered.
+     * When the registration was last answered (of the requests it has now): the time the due clock counts from
+     * beside the moment it last became `registered`; null when none is answered. Only an answer whose yes or no,
+     * or amount, differs from the request's answer before it counts; a note added alone is an answer too (it
+     * mails) but does not move the due date. [UNAPPROVED N84]
      */
     public function lastAnsweredAt(RegistrationKey $registration): ?\DateTimeImmutable
     {
+        [$owned, $rows] = $this->read($registration);
         $last = null;
-        foreach ($this->states($registration) as $state) {
-            $at = $state->answer?->answeredAt;
-            if ($at !== null && ($last === null || $at > $last)) {
-                $last = $at;
+        $before = [];
+        foreach ($rows as $answer) {
+            if (!isset($owned[$answer->request])) {
+                continue;
+            }
+            $previous = $before[$answer->request] ?? null;
+            $before[$answer->request] = $answer;
+            $changed = $previous === null || $previous->approved !== $answer->approved
+                || ($previous->amount === null || $answer->amount === null
+                    ? $previous->amount !== $answer->amount
+                    : !$previous->amount->isEqualTo($answer->amount));
+            if ($changed && ($last === null || $answer->answeredAt > $last)) {
+                $last = $answer->answeredAt;
             }
         }
 
