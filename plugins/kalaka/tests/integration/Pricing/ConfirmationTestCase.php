@@ -13,6 +13,7 @@ use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\EvaluateRegistration;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Ledger\Api\LineKind;
+use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Pricing\Api\ConfirmationRule;
@@ -39,6 +40,15 @@ abstract class ConfirmationTestCase extends PricingTestCase
 
     private int $lineCount = 0;
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    public function tear_down(): void
+    {
+        // A queued confirmed mail schedules the sender; leave no event behind for other tests.
+        wp_unschedule_hook(MailQueue::SEND_HOOK);
+
+        parent::tear_down();
+    }
+
     protected function useComponents(FeeComponent ...$more): void
     {
         $this->useRules(static fn (DecisionRules $rules): null => null, ...$more);
@@ -55,7 +65,7 @@ abstract class ConfirmationTestCase extends PricingTestCase
         $money = new Materializer($components);
         $this->rules = new DecisionRules();
         $also($this->rules);
-        $this->rules->add(new ConfirmationRule($money->composition(), $this->threshold), true, true);
+        $this->rules->add(new ConfirmationRule($money->composition(), $this->threshold), true);
         $this->runner = new Runner(
             new TestClock($this->utc('2026-11-30 08:00:00'), true),
             true,
@@ -205,5 +215,74 @@ abstract class ConfirmationTestCase extends PricingTestCase
     protected function confirmationState(RegistrationKey $key): ?string
     {
         return (new Decisions(rules: $this->rules))->currentOf($key)[ConfirmationRule::KIND]->state ?? null;
+    }
+
+    /** Switches the event's „Jelentkezés véglegesítve” mail on (no body: only the decision is looked at). */
+    protected function confirmedMailOn(): void
+    {
+        global $wpdb;
+
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+            'layout' => 1,
+        ]);
+    }
+
+    /**
+     * The queued deliveries of the confirmed mail, as "code cause_type cause_key".
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function deliveryRows(): array
+    {
+        global $wpdb;
+
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT code, cause_type, cause_key, status FROM %i WHERE mail = 'confirmed' ORDER BY id",
+            $wpdb->prefix . 'kalaka_deliveries'
+        ), ARRAY_A);
+        self::assertIsArray($rows);
+
+        return $rows;
+    }
+
+    /**
+     * The ids of the registration's `confirmed` confirmation records, oldest first.
+     *
+     * @return list<string>
+     */
+    protected function confirmedRecordIds(RegistrationKey $key): array
+    {
+        global $wpdb;
+
+        $ids = $wpdb->get_col($wpdb->prepare(
+            'SELECT id FROM %i WHERE event_id = %d AND code = %s'
+            . " AND kind = 'confirmation' AND state = 'confirmed' ORDER BY id",
+            $wpdb->prefix . 'kalaka_decisions',
+            $key->eventId,
+            $key->code
+        ));
+        self::assertIsArray($ids);
+
+        return array_map('strval', $ids);
+    }
+
+    /** The queued confirmed mails' cause keys must be exactly the registration's `confirmed` record ids. */
+    protected function assertMailedPerConfirmedRecord(RegistrationKey $key): void
+    {
+        $causes = array_map(
+            static fn (array $row): string => $row['cause_type'] . ':' . $row['cause_key'],
+            array_values(array_filter(
+                $this->deliveryRows(),
+                static fn (array $row): bool => $row['code'] === $key->code
+            ))
+        );
+        self::assertSame(
+            array_map(static fn (string $id): string => 'decision:' . $id, $this->confirmedRecordIds($key)),
+            $causes
+        );
     }
 }

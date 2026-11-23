@@ -63,15 +63,19 @@ final class ManualConfirmations
      * The warning read before staff's unconfirm (money.md, "Confirmation"): whether confirmation would decide
      * `confirmed` again at once, the flag aside, and why. `'payments'` when the payments reach every required
      * threshold, `'nothing_due'` when nothing is due, null when it would stay unconfirmed or the registration
-     * is not confirmed. A dry run of the second decision `kalaka/unconfirm` makes in the same pass; it writes
+     * is not confirmed. A caller that has just read `isConfirmed()` passes `$knownConfirmed` to skip the second
+     * read. A dry run of the second decision `kalaka/unconfirm` makes in the same pass; it writes
      * nothing and takes no lock.
      *
      * @return 'payments'|'nothing_due'|null
      * @throws FeeComponentFailed when a component throws or returns something invalid
      */
-    public function reconfirmsOnUnconfirm(RegistrationKey $registration, \DateTimeImmutable $now): ?string
-    {
-        if (!$this->isConfirmed($registration)) {
+    public function reconfirmsOnUnconfirm(
+        RegistrationKey $registration,
+        \DateTimeImmutable $now,
+        bool $knownConfirmed = false,
+    ): ?string {
+        if (!$knownConfirmed && !$this->isConfirmed($registration)) {
             return null;
         }
 

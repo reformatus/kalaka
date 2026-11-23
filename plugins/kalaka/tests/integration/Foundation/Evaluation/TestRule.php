@@ -20,8 +20,8 @@ final class TestRule implements DecisionRule
 
     public ?\Throwable $throws = null;
 
-    /** Whether every transition asks to decide again. */
-    public bool $decideAgain = false;
+    /** @var list<string> when not empty, the states returned together, in order, as one answer */
+    public array $sequence = [];
 
     /** @var list<?string> when not empty, the answers in the order asked, instead of `answer` */
     public array $answers = [];
@@ -62,7 +62,7 @@ final class TestRule implements DecisionRule
         return $this->default;
     }
 
-    public function decide(DecisionInput $input): ?Transition
+    public function decide(DecisionInput $input): array
     {
         $this->inputs[] = $input;
         $this->asked?->append($this->kind);
@@ -73,13 +73,16 @@ final class TestRule implements DecisionRule
             throw $this->throws;
         }
 
-        $answer = $this->answers === [] ? $this->answer : array_shift($this->answers);
+        $states = $this->sequence;
+        if ($states === []) {
+            $answer = $this->answers === [] ? $this->answer : array_shift($this->answers);
+            $states = $answer === null ? [] : [$answer];
+        }
 
-        return $answer === null ? null : new Transition(
-            $answer,
+        return array_map(static fn (string $state): Transition => new Transition(
+            $state,
             new \DateTimeImmutable('2026-11-29 23:59:59', new \DateTimeZone('Europe/Budapest')),
             new Subject('test_record', 12, '7'),
-            $this->decideAgain,
-        );
+        ), $states);
     }
 }

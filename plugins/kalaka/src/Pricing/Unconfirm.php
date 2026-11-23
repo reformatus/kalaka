@@ -12,7 +12,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Staff's explicit unconfirm, "Visszaigazolás visszavonása" (the owner's ruling 2026-11-21): the one way to take
  * a confirmation back. It records the unconfirm with its reason, who and when, and revokes the manual flag if it
  * is set; the evaluation then writes `unconfirmed` in the same run and decides confirmation again at once
- * (`Transition::$decideAgain`), so payments that reach every threshold, or nothing due, confirm it again.
+ * (the rule's own second check), so payments that reach every threshold, or nothing due, confirm it again.
  *
  * - Allowed on any confirmed registration: no threshold condition and no refusal.
  * - A registration that is not `confirmed` stays as it is: `{changed: false}`, nothing written.

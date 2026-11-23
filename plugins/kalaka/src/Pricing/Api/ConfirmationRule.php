@@ -36,9 +36,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * - → `unconfirmed` from `confirmed` only by staff's explicit unconfirm (`kalaka/unconfirm`, newer than the
  *   current `confirmed` record), effective at its time: a refund, a later charge or a higher threshold never
  *   unconfirms (the owner's ruling 2026-11-19); a lower threshold can confirm at the next evaluation. That
- *   transition asks to decide again (`Transition::$decideAgain`): the flag is revoked by then, so payments that
- *   reach every threshold, or nothing due, confirm the registration again in the same pass. A later payment or
- *   correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12, N14]
+ *   transition is followed, in the same answer, by the rule's own second check: the flag is revoked by then, so
+ *   payments that reach every threshold, or nothing due, confirm the registration again in the same pass. A
+ *   later payment or correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12, N16]
  * - No record is the base state: a `registered` registration with none reads `unconfirmed`, derived, never
  *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state. [UNAPPROVED N7]
  * - Withdrawal or removal closes the sequence: a `confirmed` registration that is no longer `registered` gets
@@ -110,47 +110,61 @@ final class ConfirmationRule implements DecisionRule
         };
     }
 
-    public function decide(DecisionInput $input): ?Transition
+    public function decide(DecisionInput $input): array
     {
         $key = $input->registration;
         $composed = $this->composition->of($key, $input->now);
         if ($composed === null) {
-            return null;
+            return [];
         }
         $current = $input->decisions[self::KIND] ?? null;
         $confirmed = $current !== null && $current->state === self::CONFIRMED;
 
         if ($composed->facts->status !== RegistrationStatus::Registered) {
-            return $confirmed ? new Transition(self::UNCONFIRMED, $input->now, Subject::registration($key)) : null;
+            return $confirmed ? [new Transition(self::UNCONFIRMED, $input->now, Subject::registration($key))] : [];
         }
 
         if (!$confirmed) {
-            $flag = $this->flags->find($key);
-            $below = [];
-            $reached = $this->reached($composed, $this->ledger->paymentFactsOf($key), $input->now, $below);
-
-            $floor = $this->unconfirmations->find($key)?->unconfirmedAt;
-
-            return $this->confirmation(
-                $key,
-                $reached,
-                $flag !== null && $flag->isSet() ? $flag : null,
-                $input,
-                $floor,
-            );
+            return $this->qualifies($key, $composed, $input);
         }
 
         $unconfirmed = $this->unconfirmations->find($key);
         if ($unconfirmed === null || $unconfirmed->unconfirmedAt <= $current->recordedAt) {
-            return null;
+            return [];
         }
 
-        return new Transition(
-            self::UNCONFIRMED,
-            $unconfirmed->unconfirmedAt,
-            new Subject('unconfirmation', $key->eventId, $key->code),
-            true
+        // The second check, run in a row with the flag already revoked: payments that reach every threshold, or
+        // nothing due, confirm the registration again at once. [UNAPPROVED N16]
+        return [
+            new Transition(
+                self::UNCONFIRMED,
+                $unconfirmed->unconfirmedAt,
+                new Subject('unconfirmation', $key->eventId, $key->code),
+            ),
+            ...$this->qualifies($key, $composed, $input),
+        ];
+    }
+
+    /**
+     * The check of an unconfirmed registration: `confirmed` when the payments or the flag qualify, never effective
+     * before staff's latest unconfirm.
+     *
+     * @return list<Transition> none or the one `confirmed`
+     */
+    private function qualifies(RegistrationKey $key, ComposedFee $composed, DecisionInput $input): array
+    {
+        $flag = $this->flags->find($key);
+        $below = [];
+        $reached = $this->reached($composed, $this->ledger->paymentFactsOf($key), $input->now, $below);
+
+        $confirmed = $this->confirmation(
+            $key,
+            $reached,
+            $flag !== null && $flag->isSet() ? $flag : null,
+            $input,
         );
+
+        return $confirmed === null ? [] : [$confirmed];
     }
 
     /**
@@ -224,14 +238,13 @@ final class ConfirmationRule implements DecisionRule
 
     /**
      * The `confirmed` transition when the payments or the flag qualify, else null. It is never effective before
-     * staff's latest unconfirm (`$floor`). [UNAPPROVED N15]
+     * staff's latest unconfirm, read only when something qualifies. [UNAPPROVED N15]
      */
     private function confirmation(
         RegistrationKey $key,
         PaymentFact|bool $reached,
         ?ManualConfirmationRecord $flag,
         DecisionInput $input,
-        ?\DateTimeImmutable $floor,
     ): ?Transition {
         $candidates = [];
         if ($reached instanceof PaymentFact) {
@@ -246,6 +259,7 @@ final class ConfirmationRule implements DecisionRule
             return null;
         }
         usort($candidates, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $floor = $this->unconfirmations->find($key)?->unconfirmedAt;
         $effectiveAt = $floor !== null && $candidates[0][0] < $floor ? $floor : $candidates[0][0];
 
         return new Transition(self::CONFIRMED, $effectiveAt, $candidates[0][1]);

@@ -9,12 +9,7 @@ use Kalaka\Foundation\Api\Decision\DecisionInput;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Decision\DecisionRules;
-use Kalaka\Ledger\Api\Payer;
 use Kalaka\Pricing\Api\ConfirmationRule;
-use Kalaka\Pricing\Api\FeeComponent;
-use Kalaka\Pricing\Api\FeeComponentInput;
-use Kalaka\Pricing\Api\FeeStage;
-use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -22,58 +17,40 @@ use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
 /**
- * Confirmation inside the decisions phase: it runs after the rules that change a target, in the same pass,
- * reads the target through the read-only fee composition (no charge line, no write), declares its approved
- * labels, and costs the same number of statements whatever the event holds.
+ * Confirmation inside the evaluation: money first, then the decision rules (core before extensions), then the
+ * mail step, in the same pass; it reads the target through the read-only fee composition (no charge line, no
+ * write), declares its approved labels, and costs the same number of statements whatever the event holds.
  */
 final class ConfirmationEvaluationTest extends ConfirmationTestCase
 {
-    public function testATargetChangingRuleRunsBeforeConfirmationInTheSamePass(): void
+    public function testThePassRunsMoneyThenConfirmationThenMail(): void
     {
-        $support = new class implements FeeComponent {
-            public bool $granted = false;
-
-            public function id(): string
-            {
-                return 'support';
-            }
-
-            public function stage(): FeeStage
-            {
-                return FeeStage::Support;
-            }
-
-            public function targets(FeeComponentInput $input): FeeTargets
-            {
-                return $this->granted
-                    ? new FeeTargets([Payer::PARTICIPANT => Money::of('-4000', $input->currency)])
-                    : FeeTargets::none();
-            }
+        $seen = [];
+        $probe = new TestRule('probe', ['seen' => 'Teszt']);
+        $probe->onDecide = function (DecisionInput $input) use (&$seen): void {
+            // An extension rule is asked after core's confirmation: the charge lines (money) and the
+            // confirmation record are already written, the mail is not queued yet.
+            $seen = [
+                'charges' => count($this->charges($input->registration)),
+                'confirmation' => $this->confirmations($input->registration),
+                'deliveries' => count($this->deliveryRows()),
+            ];
         };
-        $grant = false;
-        $place = new TestRule('support_place', ['held' => 'Teszt']);
-        $place->onDecide = static function () use ($support, &$grant): void {
-            $support->granted = $grant;
-        };
-        // Registered first as an extension rule that changes a target; confirmation is added after it.
-        $this->useRules(static fn (DecisionRules $rules): null => $rules->add($place, false), $support);
+        $this->useRules(static fn (DecisionRules $rules): null => $rules->add($probe, false));
+        $this->confirmedMailOn();
         $this->setPrice('10000');
         $anna = $this->register('00A0');
-        $this->payOn($anna, '6000', '2026-11-20');
-        self::assertSame('unconfirmed', $this->confirmationState($anna));
+        $seen = [];
 
-        $grant = true;
-        $this->evaluate($anna);
+        $this->payOn($anna, '10000', '2026-11-20');
 
-        self::assertSame(
-            ['confirmed 2026-11-19 23:00:00 ledger_line'],
-            $this->confirmations($anna),
-            'Confirmation saw the target the support place changed earlier in the same pass.'
-        );
-        self::assertContains('support participant -4000 charge:support:participant:1', $this->charges($anna));
+        self::assertSame(1, $seen['charges'], 'The money phase ran first.');
+        self::assertSame(['confirmed 2026-11-19 23:00:00 ledger_line'], $seen['confirmation']);
+        self::assertSame(0, $seen['deliveries'], 'The mail step comes after every decision.');
+        self::assertCount(1, $this->deliveryRows());
     }
 
-    public function testAnExtensionRuleBeforeConfirmationSeesItAsItStoodBeforeThePass(): void
+    public function testAnExtensionRuleSeesConfirmationAsDecidedEarlierInThePass(): void
     {
         $place = new TestRule('support_place');
         $this->useRules(static fn (DecisionRules $rules): null => $rules->add($place, false));
@@ -85,8 +62,7 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
 
         self::assertSame('confirmed', $this->confirmationState($anna));
         self::assertCount(1, $place->inputs);
-        // A rule reads the records: no confirmation record yet, which is the base state, unconfirmed.
-        self::assertSame([], array_keys($place->inputs[0]->decisions));
+        self::assertSame('confirmed', $place->inputs[0]->decisions['confirmation']->state);
     }
 
     public function testACoreRuleReadsOnlyItsOwnKindAndTheCoreKindsBeforeIt(): void
@@ -95,12 +71,12 @@ final class ConfirmationEvaluationTest extends ConfirmationTestCase
         $extension->answer = 'on';
         $coreAfter = new TestRule('core_after');
         $this->useRules(static function (DecisionRules $rules) use ($extension): void {
-            $rules->add($extension, false, readsTarget: true);
+            $rules->add($extension, false);
         });
-        $this->rules->add($coreAfter, true, readsTarget: true);
+        $this->rules->add($coreAfter, true);
         $coreAfter->inputs = [];
 
-        // Nothing due: confirmation writes its record, and the core rule after it sees it.
+        // Nothing due: confirmation writes its record, and the core rule after it sees it, not the extension's.
         $this->register('00A0');
 
         self::assertSame(['confirmation'], array_keys($coreAfter->inputs[0]->decisions));

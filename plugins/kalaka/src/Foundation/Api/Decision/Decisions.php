@@ -19,7 +19,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  */
 final class Decisions
 {
-    /** @param ?DecisionRules $rules the declarations; none: the registry the evaluation uses [UNAPPROVED N1] */
+    /** @param ?DecisionRules $rules the declarations; none: the registry the evaluation uses */
     public function __construct(
         private readonly DecisionQuery $query = new DecisionQuery(),
         private readonly ?DecisionRules $rules = null,
@@ -29,7 +29,6 @@ final class Decisions
 
     /**
      * Every declared decision kind, in reading order: core first, then extensions, each as registered.
-     * [UNAPPROVED N1]
      *
      * @return list<DecisionKind>
      */
@@ -46,7 +45,7 @@ final class Decisions
         );
     }
 
-    /** The declared kind, or null when nothing declares it. [UNAPPROVED N1] */
+    /** The declared kind, or null when nothing declares it. */
     public function kind(string $kind): ?DecisionKind
     {
         foreach ($this->kinds() as $declared) {
@@ -131,7 +130,7 @@ final class Decisions
     }
 
     /**
-     * The distinct states recorded for a kind in an event, and its base state, in byte order. [UNAPPROVED N1, N7]
+     * The distinct states recorded for a kind in an event, and its base state, in byte order. [UNAPPROVED N7]
      *
      * @return list<string>
      */

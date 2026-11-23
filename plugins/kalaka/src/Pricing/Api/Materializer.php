@@ -40,7 +40,7 @@ final class Materializer
         $this->composition = new FeeComposition($components, $composer, $events, $registrations);
     }
 
-    /** The composition this materializer records, for a decision that reads a target: one source of components. */
+    /** The composition this materializer records, for confirmation, which reads each payer's target: one source of components. */
     public function composition(): FeeComposition
     {
         return $this->composition;

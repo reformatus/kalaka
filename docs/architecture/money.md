@@ -138,6 +138,9 @@ title: Money
   only for `registered` registrations. The evaluation writes its transition
   records; nobody sets it directly. It is not a status
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+  It is checked once at the end of every pass, after money: a payment, a
+  correction, a „Kedvezmény”, an apply, an admission or a restore all lead to
+  the same check.
 - **The threshold** is a target per payer. Each payer with something owed must
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every
@@ -155,7 +158,8 @@ title: Money
   audited, and allowed on any confirmed registration. It revokes the manual
   flag if set and records `unconfirmed`; then confirmation is decided again at
   once, so payments that reach the threshold or nothing due confirm it again.
-  Staff are warned before that happens.
+  Staff are warned before that happens, and that the registrant then gets the
+  confirmed mail again.
 
 | Transition | When |
 |---|---|
@@ -176,7 +180,8 @@ title: Money
   on it like any state. Other statuses have no confirmation state.
 - **Withdrawal or removal closes the sequence:** a confirmed registration gets
   an `unconfirmed` record. Restore or admission writes a
-  new record if the registration qualifies; the old one is never revived.
+  new record if the registration qualifies; the old one is never revived. A
+  manual flag set before the withdrawal is kept and counts at the restore.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
 

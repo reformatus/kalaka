@@ -7,10 +7,9 @@ namespace Kalaka\Foundation\Api\Decision;
 use Kalaka\Foundation\Api\Audit\Subject;
 
 /**
- * What a rule decides: the new state, when it took effect, and the record that caused it. With `decideAgain`,
- * the evaluation asks the same rule once more in the same pass, right after writing this transition; that
- * second answer is final and its own `decideAgain` is ignored (foundation.md, "Facts, decisions and computed
- * values"). [UNAPPROVED N14]
+ * What a rule decides: the new state, when it took effect, and the record that caused it. A rule returns
+ * its transitions in order; core writes each one that changes the running state (foundation.md, "Facts,
+ * decisions and computed values"). [UNAPPROVED N16]
  */
 final readonly class Transition
 {
@@ -18,7 +17,6 @@ final readonly class Transition
         public string $state,
         public \DateTimeImmutable $effectiveAt,
         public Subject $cause,
-        public bool $decideAgain = false,
     ) {
     }
 }

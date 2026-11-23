@@ -8,7 +8,17 @@ use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Admin\Api\RegistrationNotInView;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Admin\Api\RegistrationDetail;
+use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Pricing\Api\FeeComponentInput;
+use Kalaka\Pricing\Api\FeeComposition;
+use Kalaka\Pricing\Api\FeeStage;
+use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
@@ -805,5 +815,113 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $warning($seeing),
             'T5b.'
         );
+    }
+
+    /** T6, appended to T5a, T5b or T5c only while the event's confirmed mail is on (the ruling 2026-11-23, Q4). */
+    public function testTheMailNoteIsAppendedOnlyWhileTheConfirmedMailIsOn(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+        $warning = fn (int $user): ?string => $this->detail($user)['registration']['unconfirm_warning'];
+        $note = ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.';
+        $generic = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+        $nothingDue = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra '
+            . 'visszaigazolt lesz.';
+        // No price: nothing is due, so the unconfirm would confirm again.
+        self::assertSame($generic, $warning($blind));
+        self::assertSame($nothingDue, $warning($seeing));
+
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+            'layout' => 1,
+        ]);
+        ObjectCache::clear();
+
+        self::assertSame($generic . $note, $warning($blind), 'T5c and T6.');
+        self::assertSame($nothingDue . $note, $warning($seeing), 'T5b and T6.');
+
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_action_mails',
+            ['enabled' => 0],
+            ['event_id' => $this->event, 'mail' => 'confirmed']
+        );
+        ObjectCache::clear();
+        self::assertSame($generic, $warning($blind), 'Off again: the note goes.');
+    }
+
+    public function testTheReconfirmsKeyTellsTheReasonToAMoneyViewHolderAndOnlyYesToOthers(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+
+        self::assertSame('yes', $this->detail($blind)['registration']['unconfirm_reconfirms']);
+        self::assertSame('nothing_due', $this->detail($seeing)['registration']['unconfirm_reconfirms']);
+    }
+
+    /** A failing fee component leaves `can.unconfirm` and gives no warning, for either kind of holder (review C3). */
+    public function testAFailingFeeComponentGivesNoWarningAndNoReasonForEitherHolder(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $blind = $this->plainUser();
+        $this->grant($blind, [], [['column' => 'code', 'write' => false]], ['kalaka_confirm_manually']);
+        $seeing = $this->plainUser();
+        $this->grant(
+            $seeing,
+            [],
+            [['column' => 'code', 'write' => false]],
+            ['kalaka_confirm_manually', 'kalaka_view_money']
+        );
+        $broken = new class implements FeeComponent {
+            public function id(): string
+            {
+                return 'broken';
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Support;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                throw new \RuntimeException('secret component message');
+            }
+        };
+        $confirmations = new ManualConfirmations(
+            rule: new ConfirmationRule(new FeeComposition(new CoreFeeComponents([$broken])))
+        );
+
+        foreach ([$blind, $seeing] as $user) {
+            $read = (new RegistrationDetail(manualConfirmations: $confirmations))
+                ->of(new UserActor($user), $this->event, '00A0');
+
+            self::assertTrue($read['can']['unconfirm']);
+            self::assertNull($read['registration']['unconfirm_warning']);
+            self::assertNull($read['registration']['unconfirm_reconfirms']);
+            self::assertStringNotContainsString('secret component message', (string) wp_json_encode($read));
+        }
     }
 }

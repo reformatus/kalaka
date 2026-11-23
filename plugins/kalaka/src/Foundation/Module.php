@@ -155,10 +155,10 @@ SQL;
         $binlog = new BinlogCheck();
         // Core's decision rules, added here as the materializer is built: confirmation, which reads every
         // payer's target through the materializer's own composition. Extensions get the decision point with
-        // the first extension rule. [UNAPPROVED N4]
+        // the first extension rule (the late fee). [UNAPPROVED N4]
         $money = new Materializer();
         $rules = new DecisionRules();
-        $rules->add(new ConfirmationRule($money->composition()), core: true, readsTarget: true);
+        $rules->add(new ConfirmationRule($money->composition()), core: true);
         DecisionRules::publish($rules);
         $evaluation = new Evaluation($rules, money: $money);
         $runner = new Runner($clock, evaluation: $evaluation, binlog: $binlog);

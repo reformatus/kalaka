@@ -59,14 +59,15 @@ retention and the materializer
   amounts change later, an apply included (owner rule, 2026-11-14), nor by a
   refund (the owner's ruling 2026-11-19): only staff's unconfirm
   (`kalaka/unconfirm`, newer than the current `confirmed` record) unconfirms
-  it; it is allowed on any confirmed registration, and confirmation is then
-  decided again in the same pass (`Transition::$decideAgain`), effective no
-  earlier than the unconfirm.
+  it; it is allowed on any confirmed registration. Confirmation is checked
+  after the materializer in every pass; after staff's unconfirm it returns
+  `unconfirmed` and, if it still qualifies, `confirmed` in the same answer,
+  effective no earlier than the unconfirm.
   `Api\ManualConfirmations::reconfirmsOnUnconfirm()` is the one dry run of
   that decision, for the warning.
 - There is one fee composition, `Api\FeeComposition`: the materializer records
   its difference, and confirmation reads each payer's target from it
-  read-only, inside the decision; it reads no ledger line and writes nothing.
+  read-only; it reads no ledger line and writes nothing.
   Confirmation reads payment facts (`Ledger::paymentFactsOf()`) and the
   manual flag, never charge lines.
 - Confirmation (`Api\ConfirmationRule`, kind `confirmation`) is a core rule

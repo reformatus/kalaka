@@ -93,20 +93,19 @@ final class DecisionRulesTest extends WP_UnitTestCase
         ));
     }
 
-    public function testTheEvaluationOrderPutsTheTargetReadersLastExtensionsFirstAndKeepsAllInDeclaredOrder(): void
+    public function testTheRulesAreDeclaredCoreFirstThenExtensionsEachAsAdded(): void
     {
         $rules = new DecisionRules();
-        $coreReader = new TestRule('core_reader');
-        $extReader = new TestRule('ext_reader');
-        $coreChanger = new TestRule('core_changer');
-        $extChanger = new TestRule('ext_changer');
+        $extFirst = new TestRule('ext_first');
+        $coreFirst = new TestRule('core_first');
+        $extSecond = new TestRule('ext_second');
+        $coreSecond = new TestRule('core_second');
 
-        $rules->add($coreReader, true, readsTarget: true);
-        $rules->add($extReader, false, readsTarget: true);
-        $rules->add($coreChanger, true);
-        $rules->add($extChanger, false);
+        $rules->add($extFirst, false);
+        $rules->add($coreFirst, true);
+        $rules->add($extSecond, false);
+        $rules->add($coreSecond, true);
 
-        self::assertSame([$coreChanger, $extChanger, $extReader, $coreReader], $rules->inEvaluationOrder());
-        self::assertSame([$coreReader, $coreChanger, $extReader, $extChanger], $rules->all());
+        self::assertSame([$coreFirst, $coreSecond, $extFirst, $extSecond], $rules->all());
     }
 }

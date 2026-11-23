@@ -521,7 +521,7 @@ of deferred work gets exactly the guarantee it needs:
 ### Evaluation
 
 **The evaluation is one core procedure, not an extension point.** It brings a
-registration's decisions, money and mail up to date with its facts.
+registration's money, decisions and mail up to date with its facts.
 
 - **When it runs:**
   - Repositories mark the registrations a use case writes to as touched. The
@@ -533,13 +533,15 @@ registration's decisions, money and mail up to date with its facts.
     evaluates it: a page
     view writes nothing.
 - **Three phases, in order:**
-  1. **decisions** ([Facts, decisions and computed
-     values](#facts-decisions-and-computed-values));
-  2. **money:** fee targets and the materializer
+  1. **money:** fee targets and the materializer
      ([Money](money.md#materializer));
+  2. **decisions:** confirmation, checked once
+     ([Money](money.md#confirmation)), reading the fee targets and the payment
+     facts ([Facts, decisions and computed
+     values](#facts-decisions-and-computed-values));
   3. **mail decisions** ([Mail](mail.md)).
 
-  Money and mail read facts plus the decisions recorded in the same pass.
+  The mail step reads facts plus the decisions recorded in the same pass.
 - **Writes happen only on change:** a new transition, a non-zero difference,
   or a new delivery key.
 - **Locks** follow the [lock order](#lock-order).
@@ -569,9 +571,10 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
-- **Decisions** are made by the system: confirmation in core
-  ([Money](money.md#confirmation)), and the late fee, price-tier place and
-  support place from extensions ([Money](money.md#quota-places)).
+- **Decisions** are written by the system alone and hold once written,
+  whatever the facts do later. At launch there is one, confirmation in core
+  ([Money](money.md#confirmation)); the late fee is foreseen as a second, from
+  an extension, and is settled with its own slice.
   - **Each decision is an append-only transition record** with kind, state,
     effective time, recorded time, cause (record type, event and key) and
     actor. The current state is the latest record.
@@ -581,9 +584,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
     filters too (confirmation: `unconfirmed`, for `registered` only).
   - The records live in their own table, indexed by event first.
   - **A decision is never recomputed;** only a named transition changes it.
-    A transition may ask that its rule decide once more in the same pass,
-    right after it (confirmation after staff's unconfirm); the second answer
-    is final.
+    A rule may return more than one transition in a pass, in order
+    (confirmation after staff's unconfirm: `unconfirmed`, then `confirmed`);
+    core writes each one that changes the state.
   - **A kind is declared with a Hungarian label and its states, each with a
     Hungarian label;** the grid shows them for every kind.
   - Extensions contribute transition rules through a decision point, and core
@@ -592,14 +595,12 @@ sort on the first two ([Views and grants](#views-and-grants)).
 - **Computed values are never stored:** balance, tallies, the tree's
   ancestors, a meal turn from the option map, the sorszám. The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
-- **Reading order:** inside the decisions phase, decisions that change a
-  target (tier places, support places) come first, then decisions that read
-  a target (the late fee, then confirmation). A decision that reads a target
-  reads it through the read-only fee composition of the pass so far, never
-  another extension's decision records directly, and never counts its own
-  charge. A decision reads facts and earlier decisions only. An extension
-  decision reads facts and core decisions, never another extension's
-  decision.
+- **Reading order:** confirmation is checked once at the end of every pass,
+  after money; whatever act caused the pass, the check is the same. It reads
+  the composed targets (the one read-only fee composition) and the payment
+  facts, never ledger charge lines. A decision reads facts and earlier
+  decisions only. An extension decision reads facts and core decisions, never
+  another extension's decision.
 - **No decision, condition or view depends on deliveries.** Only the sender
   and the staff screens that list deliveries read them ([Mail](mail.md)).
 

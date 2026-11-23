@@ -154,16 +154,14 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   is never written; `Decisions` applies it in PHP and
   `DecisionTables::stateOf()` in SQL, the one read every view column, filter,
   sort and aggregate uses. The evaluation's rules read the records.
-- A decision rule returns a transition or nothing and never writes; core
-  writes the record, and only when the state changes; a transition with
-  `decideAgain` has its rule asked once more in the same pass, and that answer
-  is final. The decisions phase
-  runs the rules that change a target or read none first (core, then
-  extensions), then the rules that read a target (extensions, then core), so
-  confirmation comes last. A core rule reads its own kind and the core kinds
-  decided before it; an extension rule reads its own kind and every core kind
-  (one not yet decided in the pass as it stood before it), never another
-  extension's.
+- A decision rule returns its transitions (none, one, or more in order) and
+  never writes; core writes each one that changes the state. The evaluation
+  runs money, then the decision rules (core first, then extensions, each as
+  declared), then the mail step, which queues the confirmed mail for every
+  `confirmed` record the pass wrote
+  (`Mail\Api\ActionMails::due()`, keyed by the record). A core rule reads its
+  own kind and earlier core kinds; an extension rule its own and every core
+  kind, never another extension's.
 - The decision rule contract (`DecisionRule`, `DecisionInput`, `Decision`,
   `Transition`) is `Api`; the registry `DecisionRules` is not. Foundation's
   boot adds core's rules (Pricing's confirmation, over the materializer's own

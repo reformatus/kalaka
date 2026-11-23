@@ -19,6 +19,8 @@ use Kalaka\Ledger\Api\LedgerEntry;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Ledger\Api\Side;
+use Kalaka\Mail\Api\ActionMail;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
@@ -45,6 +47,7 @@ final class RegistrationDetail
         private readonly PayerKinds $payerKinds = new PayerKinds(),
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
+        private readonly ActionMails $actionMails = new ActionMails(),
     ) {
     }
 
@@ -111,7 +114,10 @@ final class RegistrationDetail
             'fields' => $this->fieldsPart($registration),
         ];
         if ($canUnconfirm) {
-            $read['registration']['unconfirm_warning'] = $this->unconfirmWarning($key, $viewMoney);
+            $reconfirms = $this->unconfirmReconfirms($key);
+            $read['registration']['unconfirm_reconfirms'] = $reconfirms === null ? null
+                : ($viewMoney ? $reconfirms : 'yes');
+            $read['registration']['unconfirm_warning'] = $this->unconfirmWarning($key, $viewMoney, $reconfirms);
         }
         if ($viewMoney) {
             $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
@@ -201,32 +207,48 @@ final class RegistrationDetail
     }
 
     /**
-     * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
-     * at once, null otherwise (and when a fee component fails: the act itself would fail then, too). A holder
-     * with money-view gets the reason, payments or nothing due; a holder without it gets one text that names
-     * neither a reason nor money, so the read never tells them what the payments are. It reads and writes
-     * nothing else. [UNAPPROVED N11, Q4, T5a, T5b, T5c]
+     * Whether the unconfirm would confirm the registration again at once, and why: `'payments'`, `'nothing_due'`
+     * or null (also when a fee component fails: the act itself would fail then, too). The caller has read that
+     * the registration is confirmed.
+     *
+     * @return 'payments'|'nothing_due'|null
      */
-    private function unconfirmWarning(RegistrationKey $key, bool $viewMoney): ?string
+    private function unconfirmReconfirms(RegistrationKey $key): ?string
     {
         try {
-            $reconfirms = $this->manualConfirmations->reconfirmsOnUnconfirm($key, Runner::current()->clock()->now());
+            return $this->manualConfirmations->reconfirmsOnUnconfirm($key, Runner::current()->clock()->now(), true);
         } catch (FeeComponentFailed) {
             return null;
         }
+    }
+
+    /**
+     * The warning to show before staff's unconfirm: the text when confirmation would decide `confirmed` again
+     * at once, null otherwise. A holder with money-view gets the reason, payments or nothing due; a holder
+     * without it gets one text that names neither a reason nor money, so the read never tells them what the
+     * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
+     * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
+     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
+     */
+    private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
+    {
         if ($reconfirms === null) {
             return null;
         }
         if (!$viewMoney) {
-            return 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.'; // [UNAPPROVED T5c]
+            $text = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.'; // [UNAPPROVED T5c]
+        } elseif ($reconfirms === 'payments') {
+            // [UNAPPROVED T5a]
+            $text = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal '
+                . 'újra visszaigazolt lesz.';
+        } else {
+            // [UNAPPROVED T5b]
+            $text = 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
         }
 
-        return $reconfirms === 'payments'
-            // [UNAPPROVED T5a]
-            ? 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra '
-                . 'visszaigazolt lesz.'
-            // [UNAPPROVED T5b]
-            : 'Nincs fizetendő összeg, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+        return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
+            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
+            : $text;
     }
 
     /**

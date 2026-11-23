@@ -14,7 +14,7 @@ use Kalaka\Registrations\Api\Registrations;
  * The one fee composition (money.md, "Materializer"), read-only: the event's current settings, the
  * registration's facts and the registered fee components, composed stage by stage. The materializer records
  * its difference; a decision that reads a target (confirmation, later the late fee) runs the same composition
- * inside the decisions phase and writes nothing, so the target never comes from charge lines. [UNAPPROVED N1]
+ * inside the decision and writes nothing, so the target never comes from charge lines. [UNAPPROVED N1]
  */
 final class FeeComposition
 {

@@ -145,7 +145,7 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         self::assertNull((new ManualConfirmations())->of(new RegistrationKey($this->event, '00A0')));
     }
 
-    public function testBothAreIdempotentAndASetFlagKeepsItsTimeAndReason(): void
+    public function testASetFlagAndAnUnconfirmOfAnUnconfirmedRegistrationWriteNothingAndTheFlagKeepsItsData(): void
     {
         self::assertSame(['changed' => false], $this->exec(new Unconfirm(), $this->input()), 'Not confirmed.');
         self::assertSame([], $this->flagRows());
