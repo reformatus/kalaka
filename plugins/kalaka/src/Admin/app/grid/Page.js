@@ -145,10 +145,10 @@ export default function Page( { config } ) {
 	const closePanel = () => {
 		const key = openRef.current;
 		setOpen( null );
-		// Focus returns to the row's button, or to the search box when that row is gone.
+		// Focus returns to the row's button, or to DataViews' search box when that row is gone.
 		window.requestAnimationFrame( () => {
 			const button = host && key !== null ? host.querySelector( '.kg-open[data-key="' + window.CSS.escape( key ) + '"]' ) : null;
-			const box = searchSlot && searchSlot.querySelector( 'input' );
+			const box = host && host.querySelector( '.dataviews-search input' );
 			const target = button || box;
 			if ( target ) {
 				target.focus();
