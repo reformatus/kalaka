@@ -17,3 +17,4 @@
 @media (max-width:680px){.kalaka-status table.kalaka-money td.kalaka-method{visibility:hidden;width:0;max-width:0;padding:0;border:0;overflow:hidden;font-size:0;line-height:0}}
 .kalaka-status table.kalaka-money td.kalaka-method{overflow-wrap:break-word}
 .kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}
+.kalaka-status table.kalaka-money th{overflow-wrap:anywhere}
