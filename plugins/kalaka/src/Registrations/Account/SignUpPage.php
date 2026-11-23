@@ -47,13 +47,13 @@ use Kalaka\Forms\Api\SignUp;
 final class SignUpPage
 {
     /** The user meta of an account Kaláka created whose password was never set: `1`. */
+    public const UNVERIFIED = 'kalaka_unverified';
+
     /**
      * Social-login providers that post their callback back to the site (OAuth `response_mode=form_post`),
      * by `loginSocial` value, with their origin (`scheme://host:port`, see `origin()`).
      */
     private const FORM_POST_PROVIDERS = ['apple' => 'https://appleid.apple.com:443'];
-
-    public const UNVERIFIED = 'kalaka_unverified';
 
     /** How long a reset link lasts for an unverified account: 7 days. */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
@@ -151,7 +151,6 @@ final class SignUpPage
         if ($method !== 'POST' || self::sameSite() || self::providerCallback()) {
             return;
         }
-        // [UNAPPROVED T1]
         wp_die(
             esc_html(
                 'Az űrlapot nem erről a weboldalról küldték el. Nyisd meg újra itt, ezen a weboldalon, '
@@ -162,10 +161,7 @@ final class SignUpPage
         );
     }
 
-    /**
-     * Whether this is a form_post social-login callback from the provider itself: see `refuseCrossSite()`.
-     * [UNAPPROVED N3]
-     */
+    /** Whether this is a form_post social-login callback from the provider itself: see `refuseCrossSite()`. */
     private static function providerCallback(): bool
     {
         $provider = self::input('request', 'loginSocial');
