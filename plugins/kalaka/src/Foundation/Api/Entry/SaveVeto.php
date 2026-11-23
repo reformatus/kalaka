@@ -36,7 +36,7 @@ final class SaveVeto
     /**
      * Reports one vetoed save.
      *
-     * [UNAPPROVED N4] One log line, a WP-CLI warning and exit 1, or a PHP warning with no logged-in
+     * One log line, a WP-CLI warning and exit 1, or a PHP warning with no logged-in
      * user outside REST.
      *
      * @param string $what what was refused, e.g. "saving form 12"

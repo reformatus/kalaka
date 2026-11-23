@@ -375,7 +375,7 @@ function apply(form, { availability, parts }) {
 		started.pages = availability.pages;
 		showButtons(form);
 	}
-	// [UNAPPROVED N2] A field that no longer shows loses its message, so a stale one never comes back with it.
+	// A field that no longer shows loses its message, so a stale one never comes back with it.
 	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
 		if (!shows(wrapper)) {
 			clearFieldMessage(wrapper);
@@ -1241,7 +1241,7 @@ async function send(form) {
 
 store('kalaka/form', {
 	actions: {
-		// [UNAPPROVED N1] A field's message clears on the first edit of that field.
+		// A field's message clears on the first edit of that field.
 		edited(event) {
 			const form = getElement().ref;
 			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
