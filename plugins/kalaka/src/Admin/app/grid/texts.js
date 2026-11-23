@@ -76,22 +76,20 @@ export const PANEL = {
 
 /**
  * The „Pénzügyek” tab and its two dialogs. Most words are the owner's (topic 10, 2026-11-21) and are built
- * verbatim, their boxes waiting for Master's tick: [UNAPPROVED T7] the payer table, [UNAPPROVED T8] the
- * entries, [UNAPPROVED T9] the actions, [UNAPPROVED T10] the dialog fields. The title field's label and hint
- * and the „completed immediately” checkboxes with their help are #209's lektor-approved texts, built verbatim by
- * #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Drafts: [UNAPPROVED T28] the title's empty-field
- * message, [UNAPPROVED T29] the snackbars of a saved pair, [UNAPPROVED T30] the pair's save button;
- * [UNAPPROVED T11] the messages, [UNAPPROVED T13] the screen-reader text; „0 Ft” is [UNAPPROVED T5];
- * [UNAPPROVED T33] the empty list, [UNAPPROVED T34] „Mentés” and „Mégse”, [UNAPPROVED T35] the preview's empty „–”.
+ * verbatim, approved by the owner: the payer table, the entries and the dialog fields; [UNAPPROVED T9] the
+ * actions. The title field's label and hint and the „completed immediately” checkboxes with their help are #209's
+ * lektor-approved texts, built verbatim by #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Approved by the
+ * owner: the title's empty-field message, the snackbars of a saved pair, the pair's save button, the empty list,
+ * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages, [UNAPPROVED T13] the
+ * screen-reader text; „0 Ft” is [UNAPPROVED T5].
  */
 export const MONEY = {
 	payer: 'Fizető',
 	owed: 'Fizetendő',
 	// The two sides (topic 10): „Fizetendő” and „Befizetett”, then „Tartozás” = Fizetendő − Befizetett.
-	// [UNAPPROVED T25] [UNAPPROVED T7]
 	paid: 'Befizetett',
 	balance: 'Tartozás',
-	// A negative „Tartozás” in the panel: „−5 000 Ft (túlfizetés)”. [UNAPPROVED T7]
+	// A negative „Tartozás” in the panel: „−5 000 Ft (túlfizetés)”.
 	overpaid: 'túlfizetés',
 	total: 'Összesen',
 	entries: 'Tételek',
@@ -99,7 +97,7 @@ export const MONEY = {
 	type: 'Típus',
 	method: 'Mód',
 	note: 'Megjegyzés',
-	// The empty list. [UNAPPROVED T33]
+	// The empty list.
 	none: 'Még nincs tétel.',
 	correction: 'korrekció',
 	// The owner's G12 words (topic 6a): one „Tétel rögzítése” dialog (topic 10: a payment, a refund, a charge or a
@@ -112,12 +110,12 @@ export const MONEY = {
 	methodField: 'Fizetési mód',
 	noteField: 'Közlemény',
 	reasonField: 'Indoklás',
-	// The dialogs' preview (topic 10): „Tartozás” replaces „egyenleg”. [UNAPPROVED T10]
+	// The dialogs' preview (topic 10): „Tartozás” replaces „egyenleg”.
 	balanceNow: 'Jelenlegi tartozás',
 	balanceAfter: 'Tartozás mentés után',
-	// The screen-reader text of the preview's empty „–”. [UNAPPROVED T35] [UNAPPROVED T13]
+	// The screen-reader text of the preview's empty „–”. [UNAPPROVED T13]
 	noAmount: 'még nincs összeg',
-	// The dialogs' buttons. [UNAPPROVED T34]
+	// The dialogs' buttons.
 	save: 'Mentés',
 	cancel: 'Mégse',
 	// [UNAPPROVED T18]: the payment snackbar's text.
@@ -125,11 +123,11 @@ export const MONEY = {
 	// The refund and correction words and snackbars, approved by the owner 2026-11-20 (T1, T2, T4, T12, T15).
 	savedRefund: 'Visszafizetés rögzítve.',
 	savedCorrection: 'Korrekció rögzítve.',
-	// The owner's topic 10 snackbars, built verbatim. [UNAPPROVED T27]
+	// The owner's topic 10 snackbars, built verbatim.
 	savedCharge: 'Díj rögzítve.',
 	savedDiscount: 'Kedvezmény rögzítve.',
 	// The „Tétel rögzítése” dialog's first field and its four options (topic 10, the owner's words), with no
-	// default unless only one type is allowed. [UNAPPROVED T27]
+	// default unless only one type is allowed.
 	typeField: 'Típus',
 	entryIn: 'Befizetés',
 	entryOut: 'Visszafizetés',
@@ -137,11 +135,10 @@ export const MONEY = {
 	entryDiscount: 'Kedvezmény',
 	typeEmpty: 'Válassz típust.',
 	// The owed-side type words of the entries, used only where the read gives no label for a manual line (the
-	// read's `kind_label` wins). [UNAPPROVED T8]
+	// read's `kind_label` wins).
 	manualCharge: 'Kézi díj',
 	manualDiscount: 'Kézi kedvezmény',
 	// The correction dialog's direction (the lektor's form, approved by the owner, topic 10) and its message.
-	// [UNAPPROVED T19]
 	directionField: 'Irány',
 	directionIn: 'Befizetett összeg növelése',
 	directionOut: 'Befizetett összeg csökkentése',
@@ -150,7 +147,7 @@ export const MONEY = {
 	// text, built verbatim by #217. [UNAPPROVED #209 T28]
 	titleField: 'Megnevezés',
 	titleHint: 'Ezt a jelentkező is látja.',
-	// The empty-field message is a draft for the lektor. [UNAPPROVED T28]
+	// The empty-field message is approved by the owner.
 	titleEmpty: 'Add meg a megnevezést.',
 	// „Completed immediately” (the owner's addendum, topic 10): the checkboxes and their help are #209's
 	// lektor-approved text, built verbatim by #217. [UNAPPROVED #209 T28]
@@ -158,9 +155,9 @@ export const MONEY = {
 	completedDiscount: 'Azonnal visszafizetve',
 	completedChargeHelp: 'A díjjal együtt ugyanekkora befizetést is rögzít, így a tartozás nem változik.',
 	completedDiscountHelp: 'A kedvezménnyel együtt ugyanekkora visszafizetést is rögzít, így a tartozás nem változik.',
-	// The save button when both lines are saved (draft for the lektor). [UNAPPROVED T30]
+	// The save button when both lines are saved (approved by the owner).
 	saveTwo: '2 tétel rögzítése',
-	// The snackbars when both lines are saved (drafts for the lektor). [UNAPPROVED T29]
+	// The snackbars when both lines are saved (approved by the owner).
 	savedChargePaid: 'Díj és befizetés rögzítve.',
 	savedDiscountRefund: 'Kedvezmény és visszafizetés rögzítve.',
 	amountEmpty: 'Add meg az összeget.',

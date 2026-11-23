@@ -47,7 +47,7 @@ export const formatMoney = ( value, currency ) => formatMinor( toMinor( value ) 
 /**
  * „Tartozás” in minor units as the panel shows it: positive is still owed, zero is settled, and a negative value
  * is „−5 000 Ft (túlfizetés)”, the word lowercase in brackets (owner, topic 10). Only the „Tartozás” cells and
- * the dialogs' preview use it, never „Fizetendő” or „Befizetett”. [UNAPPROVED N6] [UNAPPROVED N49]
+ * the dialogs' preview use it, never „Fizetendő” or „Befizetett”. [UNAPPROVED N6]
  */
 export const formatBalanceMinor = ( minor, currency ) =>
 	formatMinor( minor, currency ) + ( minor < 0 ? ` (${ MONEY.overpaid })` : '' );
@@ -62,12 +62,12 @@ export const formatBalance = ( value, currency ) => formatBalanceMinor( toMinor(
  * `manual_discount`, `component`, `payment`, `refund`, `manual_payment`, `manual_refund`), `side` (`owed` or
  * `paid`) and `title` (set on manual rows only), and `can.record_money` replaces `can.record_payment`,
  * `can.record_refund` and `can.record_correction`. Until it lands today's read has `kind` (and `kind_label`) and
- * the three old flags, and the panel falls back to them. [UNAPPROVED N44] [UNAPPROVED N47] [UNAPPROVED N51]
+ * the three old flags, and the panel falls back to them.
  */
 
 /** The kinds on the paid side: money that moved. Every other kind (the fee, a manual charge or discount, a named
  * component, and later the support lines) is owed-side, shown as stored. Used only while the read has no `side`.
- * [UNAPPROVED N51] */
+ */
 const PAID_SIDE = new Set( [ 'payment', 'manual_payment', 'refund', 'manual_refund' ] );
 export const sideOf = ( kind ) => ( PAID_SIDE.has( kind ) ? 'paid' : 'owed' );
 
@@ -90,7 +90,7 @@ export function entryColumns( line, currency ) {
 }
 
 /** The type word of a line: the read's own label (a named component under its own name), and for the fee and the
- * two manual owed-side types the owner's words when the read gives none. [UNAPPROVED T8] */
+ * two manual owed-side types the owner's words when the read gives none. */
 export function typeWord( line ) {
 	const own = line.kind_label || '';
 	if ( own ) {
@@ -104,14 +104,14 @@ export function typeWord( line ) {
 }
 
 /** The „Megjegyzés” cell: a manual charge or discount shows its participant-visible `title`, the others their
- * note. [UNAPPROVED N47] */
+ * note. */
 export const lineNote = ( line ) => line.title || line.note || '';
 
 /**
  * The types the „Tétel rögzítése” dialog offers, in the fixed order. The one money-recording permission
  * (`can.record_money`) offers all four, but Díj and Kedvezmény only while the registration is `registered`
  * (Backend boxes that for the owner). TEMPORARY, until #209 lands: today's server sends `can.record_payment`
- * and `can.record_refund`, which offer Befizetés and Visszafizetés only. [UNAPPROVED N44] [UNAPPROVED N54]
+ * and `can.record_refund`, which offer Befizetés and Visszafizetés only.
  *
  * @param {Object} can    the read's `can`
  * @param {string} status the registration's status (`registered`, …)
@@ -148,7 +148,7 @@ export const ABILITIES = {
  * The ability and its input for one entry, with `can` and the registration's status checked first: a type the
  * read does not allow is never called. `completed` makes the call also record the matching paid-side line (a
  * Befizetés for a Díj, a Visszafizetés for a Kedvezmény), its method, value date and Közlemény (`note`). The two
- * rows have no link. [UNAPPROVED N45]
+ * rows have no link.
  *
  * @param {number} event  the event's ID
  * @param {Object} entry  { kind, code, currency, payer, amount, valueDate, method, note, direction, title,
@@ -193,7 +193,7 @@ export function buildCall( event, entry, can, status ) {
 	return { ability: ABILITIES[ kind ], input };
 }
 
-/** The snackbar text for a saved entry. [UNAPPROVED T29] */
+/** The snackbar text for a saved entry. */
 export function savedText( kind, completed ) {
 	if ( completed && kind === 'charge' ) {
 		return MONEY.savedChargePaid;
@@ -244,7 +244,7 @@ export const raisesDebt = ( kind, direction ) =>
  * The preview's „Tartozás mentés után” in minor units, or null while the type (or a correction's direction) or a
  * valid amount is missing. A charge or discount saved „completed immediately” is paired with a payment or a
  * refund of the same amount, so the net is no change; the preview shows the two lines separately (`pairPreview`)
- * and this net. [UNAPPROVED N46]
+ * and this net.
  */
 export function previewAfter( { before, minor, kind, direction, completed } ) {
 	if ( ! kind || ( kind === 'correction' && ! direction ) ) {
@@ -257,7 +257,7 @@ export function previewAfter( { before, minor, kind, direction, completed } ) {
 /**
  * The two lines a „completed immediately” entry records, each with its effect on „Tartozás” in minor units (a
  * charge or a refund raises it, a discount or a payment lowers it): the owed-side line, then the paid-side one.
- * Empty without a valid amount. [UNAPPROVED N46]
+ * Empty without a valid amount.
  */
 export function pairPreview( { kind, minor } ) {
 	if ( ( kind !== 'charge' && kind !== 'discount' ) || minor === null || minor <= 0 ) {
@@ -316,7 +316,7 @@ export function today( zone, now = new Date() ) {
  * picked); the correction a direction and a required reason, no method and no date. A payment and a refund
  * have a method and a date and an optional note; a charge and a discount a required title (the participant sees
  * it) and no method or date, unless they are saved „completed immediately”, which adds the paid-side line's
- * method and date. [UNAPPROVED N15] [UNAPPROVED N57] [UNAPPROVED N44] [UNAPPROVED N45] [UNAPPROVED N48]
+ * method and date.
  *
  * @param {Object}  entry { several, payer, amount, date, method, note, title, kind, direction, completed }
  * @param {string}  day   today as `YYYY-MM-DD`
@@ -327,7 +327,7 @@ export function validateEntry( entry, day ) {
 	const correction = kind === 'correction';
 	const owedSide = kind === 'charge' || kind === 'discount';
 	// Neither dialog defaults its choice: the entry's type, or the correction's direction. With no type picked the
-	// type is the only thing to say, since the fields below depend on it. [UNAPPROVED N56]
+	// type is the only thing to say, since the fields below depend on it.
 	if ( ! correction && ! kind ) {
 		return { type: MONEY.typeEmpty };
 	}

@@ -90,7 +90,7 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 				className="kg-table-wrap"
 				tabIndex={ 0 }
 				role="region"
-				// The region's screen-reader name, from the column names. [UNAPPROVED T31]
+				// The region's screen-reader name, from the column names.
 				aria-label={ `${ MONEY.owed } / ${ MONEY.paid } / ${ MONEY.balance }` }
 			>
 				{ /* „Befizetett” and the total row are net: a refund lowers „Befizetett”. [UNAPPROVED N7] */ }
@@ -115,7 +115,7 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 								<th scope="row">{ p.payer === '_total' ? p.label : payerName( p.payer ) }</th>
 								<td className="is-num">{ formatMoney( p.charged, money.currency ) }</td>
 								<td className="is-num">{ formatMoney( p.paid, money.currency ) }</td>
-								{ /* The total row's „Tartozás” nets one payer against another: a hole. [UNAPPROVED N50] */ }
+								{ /* The total row's „Tartozás” nets one payer against another: a hole. */ }
 								<td className="is-num">{ formatBalance( p.balance, money.currency ) }</td>
 							</tr>
 						) ) }
@@ -139,7 +139,7 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 			) }
 			<h3 className="kg-sub">{ MONEY.entries }</h3>
 			{ money.lines.length === 0 ? (
-				<p className="kg-none">{ /* [UNAPPROVED T33] */ }{ MONEY.none }</p>
+				<p className="kg-none">{ MONEY.none }</p>
 			) : (
 				<div className="kg-table-wrap" tabIndex={ 0 } role="region" aria-label={ MONEY.entries }>
 					<table className="kg-money kg-lines">
@@ -147,7 +147,7 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 							<tr>
 								<th scope="col">{ MONEY.date }</th>
 								<th scope="col">{ MONEY.type }</th>
-								{ /* Kept with several payers, though the owner's column list does not name it. [UNAPPROVED N55] */ }
+								{ /* Kept with several payers, though the owner's column list does not name it. */ }
 								{ several && <th scope="col">{ MONEY.payer }</th> }
 								<th scope="col" className="is-num">
 									{ MONEY.owed }
