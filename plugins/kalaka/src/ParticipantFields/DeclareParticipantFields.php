@@ -146,7 +146,12 @@ final class DeclareParticipantFields implements AdminUseCase
             $record->retiredAt = null;
             // The title is the participant field's own: set when it is declared, changed only by
             // `RenameParticipantField` (owner ruling 2026-11-13).
+            $declared = $record->settings['declared'] ?? null;
             $record->settings = self::settings($field['settings'] ?? null);
+            // What an extension declared for its field (the number of decimals) outlives the form's settings.
+            if ($record->source === ParticipantFieldRecord::SOURCE_EXTENSION && is_array($declared)) {
+                $record->settings = ($record->settings ?? []) + ['declared' => $declared];
+            }
             // An extension field's options are its declarer's: a form offers a subset of them, never adds one
             // (`SharedKeyCheck`'s `extension_option`). [UNAPPROVED, #200 N9]
             if ($record->source !== ParticipantFieldRecord::SOURCE_EXTENSION) {

@@ -94,11 +94,13 @@ final class ParticipantFields
     /**
      * An extension declares one field of the event, source `extension` (`kalaka/declare-extension-field`), nested
      * in the extension's own use case: its type, title and choice options (the declarer's texts; an option it no
-     * longer declares is retired, its label kept) and whether forms may hold its key. [UNAPPROVED, #200 N10]
+     * longer declares is retired, its label kept) and whether forms may hold its key. A `form` field of the same
+     * type under the key is adopted. [UNAPPROVED, #200 N10]
      *
      * @param ?list<array{value: string, label: string}> $options null for a field without options
+     * @param ?int $decimals the number of decimals the declarer fixes for a number field; none when null
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws: `RuleViolation` when the key is
-     *     held by another source or with another type
+     *     held by a staff or system field or with another type
      */
     public function declareExtensionField(
         Context $context,
@@ -108,6 +110,7 @@ final class ParticipantFields
         string $title,
         ?array $options,
         bool $formWritable,
+        ?int $decimals = null,
     ): void {
         $context->run(new DeclareExtensionField(), [
             'event_id' => $eventId,
@@ -116,6 +119,7 @@ final class ParticipantFields
             'title' => $title,
             'options' => $options,
             'form_writable' => $formWritable,
+            'decimals' => $decimals,
         ]);
     }
 

@@ -11,16 +11,18 @@ use Kalaka\Foundation\Api\Module\Schema;
 
 /**
  * Extra charges and the donation (money.md, "Core money scope"): two fee components at the extras stage. An
- * event's extra charges are a key, a label and an amount; the participant field with the same key calls one,
+ * event's extra charges are a key, a label, an amount and a type (a consent or a number); each charge
+ * declares the participant field with its key and type when it is saved, a form field joins it by the key,
  * and each charge is its own `extras:<key>` line. The donation is the event's number field with the fixed
- * key `adomany`, as its own `donation` line, with no setting. Core, not a plugin.
+ * key `adomany`, as its own `donation` line, with no setting; the same save declares that field. Core, not a
+ * plugin.
  */
 final class Module extends AbstractModule
 {
     /**
      * An event's extra charges, one row per charge, keyed by (event ID, charge key); `position` is the
-     * order. The participant field with the same key calls a charge. The amounts are read as they are now:
-     * there is no tariff snapshot.
+     * order. The participant field with the same key, which the charge declares, calls it. The amounts are read
+     * as they are now: there is no tariff snapshot.
      */
     private const CHARGES = <<<'SQL'
 CREATE TABLE {prefix}kalaka_extras_charges (

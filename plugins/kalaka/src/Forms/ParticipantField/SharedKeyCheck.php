@@ -37,6 +37,7 @@ final class SharedKeyCheck
     public const UNKNOWN_SET = 'unknown_set';
     public const REQUEST_FIELD_TAKEN = 'request_field_taken';
     public const EXTENSION_OPTION = 'extension_option';
+    public const EXTENSION_DECIMALS = 'extension_decimals';
 
     /**
      * The first problem of the content's field blocks in document order, or null.
@@ -81,6 +82,12 @@ final class SharedKeyCheck
             }
             if ($record->source === ParticipantField::SOURCE_EXTENSION && !self::declaredOptions($record, $field)) {
                 return [self::EXTENSION_OPTION, $key];
+            }
+            $fixed = $record->source === ParticipantField::SOURCE_EXTENSION
+                ? ($record->settings['declared']['decimals'] ?? null)
+                : null;
+            if (is_int($fixed) && (int) ($field['settings']['decimals'] ?? 0) !== $fixed) {
+                return [self::EXTENSION_DECIMALS, $key];
             }
         }
 
