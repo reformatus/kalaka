@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Kalaka\Extras\Api;
 
 use Kalaka\Events\Api\Events;
+use Kalaka\Extras\Charges\ChargeField;
 use Kalaka\Extras\Charges\ChargeRecord;
 use Kalaka\Extras\Charges\ChargeRepository;
 use Kalaka\Extras\Charges\ChargesInput;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Extra charges for every other module and the settings screen (S72): an event's charges, and proposed
@@ -22,29 +25,42 @@ final class Extras
         private readonly ChargeRepository $charges = new ChargeRepository(),
         private readonly Events $events = new Events(),
         private readonly ChargesInput $input = new ChargesInput(),
+        private readonly ParticipantFields $fields = new ParticipantFields(),
     ) {
     }
 
     /**
-     * The event's charges in order; none when it has none.
+     * The event's charges in order; none when it has none. A charge's type is its declared field's: a number for
+     * an `extension` number field, a consent otherwise.
      *
      * @return list<Charge>
      */
     public function charges(int $eventId): array
     {
+        $fields = [];
+        foreach ($this->fields->of($eventId, true) as $field) {
+            $fields[$field->key] = $field;
+        }
+
         return array_map(
-            static fn (ChargeRecord $record): Charge => $record->charge(),
+            static fn (ChargeRecord $record): Charge => new Charge(
+                $record->key,
+                $record->label,
+                $record->amount,
+                ChargeField::typeOf($fields, $record->key),
+            ),
             $this->charges->forEvent($eventId)
         );
     }
 
     /**
      * Proposed charges, the whole list in order (an empty list removes them), each
-     * `{key, label, amount}`: `amount` a decimal string in the event's currency; the participant field with
-     * the same key calls it.
+     * `{key, label, amount, type?}`: `amount` a decimal string in the event's currency, `type` `consent` (the
+     * default) or `number`; the charge declares the participant field with its key and type when it is saved.
      *
      * @param list<array<string, mixed>> $charges
      * @throws NotFound when there is no such event
+     * @throws RuleViolation when a field another source defined holds a charge's key
      * @throws InvalidInput when the charges are not valid; `kalaka/set-extra-charges` checks its schema again
      */
     public function propose(int $eventId, array $charges): ProposedExtras

@@ -16,9 +16,10 @@ use Kalaka\Tests\Integration\Pricing\PricingTestCase;
 
 /**
  * The base of the extras tests: core's Pricing test case (an event in HUF, the money phase, the contributed
- * extras and donation components) with a consent question (`ebed`), the donation's number field
- * (`adomany`, decimals as its form field sets them) and a whole-number quantity field (`ejjel`), and helpers
- * to save settings through a money settings apply.
+ * extras and donation components) with the participant fields the extras declare: a consent question (`ebed`),
+ * the donation's number field (`adomany`, decimals as its form field sets them) and a whole-number quantity
+ * field (`ejjel`), each as an `extension` field as the first apply declares it, and helpers to save settings
+ * through a money settings apply.
  */
 abstract class ExtrasTestCase extends PricingTestCase
 {
@@ -34,9 +35,14 @@ abstract class ExtrasTestCase extends PricingTestCase
         $this->declareField('ejjel', 'kalaka/number-field', ['decimals' => 0], 2);
     }
 
-    /** A participant field of the event, written as the form sync's use case would. */
-    protected function declareField(string $key, string $type, ?array $settings = null, int $position = 0): void
-    {
+    /** A participant field of the event, written as the form sync's use case would (or by an extension). */
+    protected function declareField(
+        string $key,
+        string $type,
+        ?array $settings = null,
+        int $position = 0,
+        string $source = 'extension',
+    ): void {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
             'event_id' => $this->event,
@@ -46,22 +52,34 @@ abstract class ExtrasTestCase extends PricingTestCase
             'title' => $key,
             'options' => null,
             'settings' => $settings === null ? null : wp_json_encode($settings),
-            'source' => 'form',
+            'source' => $source,
             'created_at' => '2026-11-13 08:00:00.000000',
             'updated_at' => '2026-11-13 08:00:00.000000',
             'position' => $position,
-            'form_writable' => 0,
+            'form_writable' => $source === 'extension' ? 1 : 0,
         ]);
     }
 
+    /** Changes a declared field's type and settings in place, as a form that joined it could not (a written-around row). */
+    protected function retypeField(string $key, string $type, ?array $settings = null): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['type' => $type, 'settings' => $settings === null ? null : wp_json_encode($settings)],
+            ['event_id' => $this->event, 'field_key' => $key]
+        );
+    }
+
     /**
-     * An extra charge, as an organizer would set it: the participant field with the same key calls it.
+     * An extra charge, as an organizer would set it: it declares the participant field with its key, a `consent` or
+     * (given) a `number`.
      *
      * @return array<string, mixed>
      */
-    protected static function item(string $key, string $label, string $amount): array
+    protected static function item(string $key, string $label, string $amount, ?string $type = null): array
     {
-        return ['key' => $key, 'label' => $label, 'amount' => $amount];
+        return ['key' => $key, 'label' => $label, 'amount' => $amount] + ($type === null ? [] : ['type' => $type]);
     }
 
     protected function applySettings(ProposedComponentSettings ...$components): ApplyReport
