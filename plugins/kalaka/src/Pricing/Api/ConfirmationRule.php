@@ -110,6 +110,37 @@ final class ConfirmationRule implements DecisionRule
         };
     }
 
+    /**
+     * A dry run of the rule's `confirmed` transition against a given composition (the money settings preview's
+     * proposed one): whether a `registered` registration that is not confirmed now would be confirmed, by its
+     * payments or its manual flag, by the same check `decide()` makes (`qualifiesBy()`). It reads payment facts
+     * and the flag, writes nothing and never looks at the current confirmation state: the caller leaves out a
+     * registration that is confirmed already.
+     *
+     * @throws FeeComponentFailed when a component throws or returns something invalid
+     */
+    public function wouldConfirm(ComposedFee $composed, \DateTimeImmutable $now): bool
+    {
+        if ($composed->facts->status !== RegistrationStatus::Registered) {
+            return false;
+        }
+        $key = $composed->facts->registration;
+        $flag = $this->flags->find($key);
+        $below = [];
+        $reached = $this->reached($composed, $this->ledger->paymentFactsOf($key), $now, $below);
+
+        return self::qualifiesBy($reached, $flag !== null && $flag->isSet() ? $flag : null);
+    }
+
+    /**
+     * The one check of an unconfirmed registration, shared by `decide()` and the dry run: the payments reach
+     * every required threshold (or nothing is due), or the manual flag is set.
+     */
+    private static function qualifiesBy(PaymentFact|bool $reached, ?ManualConfirmationRecord $flag): bool
+    {
+        return $reached !== false || $flag !== null;
+    }
+
     public function decide(DecisionInput $input): array
     {
         $key = $input->registration;
@@ -246,6 +277,9 @@ final class ConfirmationRule implements DecisionRule
         ?ManualConfirmationRecord $flag,
         DecisionInput $input,
     ): ?Transition {
+        if (!self::qualifiesBy($reached, $flag)) {
+            return null;
+        }
         $candidates = [];
         if ($reached instanceof PaymentFact) {
             $candidates[] = [$reached->valueAt(), new Subject('ledger_line', $key->eventId, (string) $reached->id)];
@@ -254,9 +288,6 @@ final class ConfirmationRule implements DecisionRule
         }
         if ($flag !== null) {
             $candidates[] = [$flag->setAt, new Subject('manual_confirmation', $key->eventId, $key->code)];
-        }
-        if ($candidates === []) {
-            return null;
         }
         usort($candidates, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $floor = $this->unconfirmations->find($key)?->unconfirmedAt;

@@ -54,7 +54,11 @@ retention and the materializer
   `Evaluations` (Pricing never marks a registration touched itself); one
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
-  refuses (a negative price).
+  refuses (a negative price). It also says, per `registered` registration not
+  confirmed now, whether it would be confirmed under the proposed composition
+  (`ConfirmationRule::wouldConfirm()`, a dry run that reads payment facts and
+  the manual flag and writes nothing) and whether the event's "confirmed" mail
+  would go; a confirmed one is never counted.
 - Once confirmed, a registered registration never becomes unconfirmed because
   amounts change later, an apply included (owner rule, 2026-11-14), nor by a
   refund (the owner's ruling 2026-11-19): only staff's unconfirm

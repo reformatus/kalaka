@@ -71,7 +71,12 @@ abstract class ConfirmationTestCase extends PricingTestCase
             true,
             new Evaluation($this->rules, money: $money)
         );
-        $this->settings = new MoneySettings($this->runner, $components);
+        $this->settings = new MoneySettings(
+            $this->runner,
+            $components,
+            confirmation: new ConfirmationRule($money->composition(), $this->threshold),
+            decisions: new Decisions(rules: $this->rules)
+        );
     }
 
     /** A manual payment with its value date (a day). */

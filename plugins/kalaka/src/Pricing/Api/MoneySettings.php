@@ -6,17 +6,21 @@ namespace Kalaka\Pricing\Api;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Evaluation\Evaluations;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Mail\Api\ActionMail;
+use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * How a change of an event's money settings reaches its registrations: preview → confirm → apply, with a
@@ -38,12 +42,18 @@ final class MoneySettings
         private readonly FeeComposer $composer = new FeeComposer(),
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
+        private readonly ConfirmationRule $confirmation = new ConfirmationRule(),
+        private readonly Decisions $decisions = new Decisions(),
+        private readonly ActionMails $mails = new ActionMails(),
     ) {
     }
 
     /**
      * Composes every open registration of the event under the current and the proposed settings, without
-     * writing. Plain reads, outside any use case.
+     * writing. Plain reads, outside any use case. Each row also says whether the registration would be confirmed
+     * after the apply, by a dry run of the confirmation rule over the proposed composition, and whether the
+     * "confirmed" mail would go: one statement for every current confirmation state, then the payment facts and
+     * the manual flag of each registration that is `registered` and not confirmed.
      *
      * @return list<PreviewRow>
      * @throws NotFound when there is no such event
@@ -57,18 +67,28 @@ final class MoneySettings
         $current = $this->components->list();
         $next = $this->components->list($proposed);
 
+        $keys = $this->registrations->openOf($eventId);
+        $states = $this->confirmationStates($eventId, $keys);
+        $mailed = $this->mails->isOn($eventId, ActionMail::Confirmed);
+
         $rows = [];
-        foreach ($this->registrations->openOf($eventId) as $key) {
+        foreach ($keys as $key) {
             $facts = $this->registrations->factsOf($key, $event);
             if ($facts === null) {
                 continue;
             }
             try {
                 $before = $this->composer->compose($facts, $event->currency, $now, $current);
-                $after = $this->composer->compose($facts, $event->currency, $now, $next);
+                $composedAfter = $this->composer->compose($facts, $event->currency, $now, $next);
                 $before = self::byPayer($before, $event->currency);
-                $after = self::byPayer($after, $event->currency);
-                $rows[] = new PreviewRow($key, $facts->status, $before, $after);
+                $after = self::byPayer($composedAfter, $event->currency);
+                $confirms = $facts->status === RegistrationStatus::Registered
+                    && ($states[$key->code] ?? null) !== ConfirmationRule::CONFIRMED
+                    && $this->confirmation->wouldConfirm(
+                        new ComposedFee($facts, $event->currency, $composedAfter),
+                        $now
+                    );
+                $rows[] = new PreviewRow($key, $facts->status, $before, $after, null, $confirms, $confirms && $mailed);
             } catch (FeeComponentFailed $failed) {
                 $rows[] = new PreviewRow($key, $facts->status, [], [], $failed);
             }
@@ -121,6 +141,24 @@ final class MoneySettings
         }
 
         return new ApplyItem($key);
+    }
+
+    /**
+     * Each registration's current confirmation state, by code, in one statement, the base state applied.
+     * Every key is asked as `registered`; the caller reads the state of a registered one only.
+     *
+     * @param list<RegistrationKey> $keys
+     * @return array<string, string>
+     */
+    private function confirmationStates(int $eventId, array $keys): array
+    {
+        $statuses = [];
+        foreach ($keys as $key) {
+            $statuses[$key->code] = RegistrationStatus::Registered;
+        }
+        $states = $this->decisions->currentStates($eventId, $statuses, [ConfirmationRule::KIND]);
+
+        return array_map(static fn (array $byKind): string => $byKind[ConfirmationRule::KIND], $states);
     }
 
     /** @throws InvalidInput on a negative proposed price, so the preview never shows what the apply refuses */
