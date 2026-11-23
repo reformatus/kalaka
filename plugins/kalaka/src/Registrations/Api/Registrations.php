@@ -23,6 +23,7 @@ final class Registrations
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
+        private readonly Requests $requests = new Requests(),
     ) {
     }
 
@@ -81,7 +82,35 @@ final class Registrations
             return null;
         }
 
-        return new RegistrationFacts($key, $registration->status, $registration->registeredAt, $event);
+        return new RegistrationFacts(
+            $key,
+            $registration->status,
+            $registration->registeredAt,
+            $event,
+            $this->requests->awaits($key, $registration->status),
+        );
+    }
+
+    /**
+     * Writes one field value from an extension's own use case (events-and-forms.md, "Fields": the source
+     * "extension"; foundation.md: a field value is a fact whatever writes it), e.g. the answer to a request.
+     * Inside a use case's run, with the registration locked; the value is the field type's stored form. The
+     * caller owns the field and its type: this checks neither. [UNAPPROVED N11]
+     */
+    public function writeValue(RegistrationKey $key, string $fieldKey, string $value, Context $context): void
+    {
+        $stored = $this->values->findForUpdate(
+            ['eventId' => $key->eventId, 'code' => $key->code, 'fieldKey' => $fieldKey],
+            $context
+        );
+        if ($stored === null) {
+            $this->values->upsert(new FieldValue($key, $fieldKey, $value), $context);
+
+            return;
+        }
+        /** @var FieldValue $stored */
+        $stored->value = $value;
+        $this->values->upsert($stored, $context);
     }
 
     /**

@@ -289,7 +289,7 @@ never our prefix.
 ```mermaid
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
-  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
+  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer ·<br/>request source"]
   REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
@@ -304,8 +304,8 @@ flowchart LR
   - **Inside** (fee component, payment guard, ledger line source (only the
     deferred wallet's), rule or mail condition, date type, confirmation
     threshold, retention rule,
-    decision, action-mail act, assignment proposer): fires no WordPress
-    hooks.
+    decision, action-mail act, assignment proposer, request source): fires no
+    WordPress hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
     view column, filterable fact, theme adapter).
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
@@ -325,6 +325,12 @@ flowchart LR
   check-in) that can cause an action mail, keyed by the act's record
   ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in
   extension.
+- **A request source** is an inside point: a module's requests on a
+  registration that need an answer (a support offer that needs approval, an
+  aid request), read from its field values, and the writer of its own field
+  when the one "answer a request" act answers one. Core keeps the answer
+  record and the computed "awaits an answer"
+  ([Money](money.md#sponsor-and-church-support)).
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it

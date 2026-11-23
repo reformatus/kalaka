@@ -19,7 +19,10 @@ use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Foundation\Evaluation\TestRule;
+use Kalaka\Tests\Integration\Registrations\RecordingSeats;
+use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** S22 and S38: the detail read of one registration, through views and grants. */
 final class RegistrationDetailTest extends RegistrationDetailTestCase
@@ -38,7 +41,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ),
             true
         );
-        $rules->add(new TestRule('payment_hold', ['held' => 'Zárolva'], label: 'Fizetési zárolás'), true);
+        $rules->add(new TestRule('sample_kind', ['held' => 'Zárolva'], label: 'Minta döntés'), true);
 
         return new Decisions(rules: $rules);
     }
@@ -53,7 +56,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $this->addValue('00A0', 'email', 'teszt.elek@example.com');
         $this->addValue('00A0', 'szuletesi_datum', '2009-04-17');
         $this->addDecision('00A0', 'confirmation', 'unconfirmed');
-        $this->addDecision('00A0', 'payment_hold', 'held');
+        $this->addDecision('00A0', 'sample_kind', 'held');
 
         $recorder = $this->namedUser('Teszt Könyvelő');
         $charge = $this->addLine('charge', '60000', 'charge:1', overrides: [
@@ -109,8 +112,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
-                        'kind' => 'payment_hold',
-                        'label' => 'Fizetési zárolás',
+                        'kind' => 'sample_kind',
+                        'label' => 'Minta döntés',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
                         'effective_at' => '2026-11-30T08:00:00Z',
@@ -218,6 +221,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
         self::assertSame(
             [
+                'answer_request' => true,
                 'view_money' => true,
                 'record_money' => true,
                 'record_charge' => true,
@@ -356,6 +360,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
             [
+                'answer_request' => false,
                 'view_money' => false,
                 'record_money' => false,
                 'record_charge' => false,
@@ -518,6 +523,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertArrayNotHasKey('money', $detail);
         self::assertSame(
             [
+                'answer_request' => false,
                 'view_money' => false,
                 'record_money' => false,
                 'record_charge' => false,
@@ -537,6 +543,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertArrayHasKey('money', $shown);
         self::assertSame(
             [
+                'answer_request' => false,
                 'view_money' => true,
                 'record_money' => false,
                 'record_charge' => false,
@@ -555,6 +562,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
 
         $cases = [
             'kalaka_record_money' => [
+                'answer_request' => false,
                 'view_money' => true,
                 'record_money' => true,
                 'record_charge' => true,
@@ -982,5 +990,77 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             self::assertNull($read['registration']['unconfirm_reconfirms']);
             self::assertStringNotContainsString('secret component message', (string) wp_json_encode($read));
         }
+    }
+
+    /**
+     * Slice B: the requests, with their latest answers, show only to a holder of the answer action of a grant whose
+     * view holds the registration, or full access; `can.answer_request` says whether the action is carried.
+     */
+    public function testTheRequestsShowToTheHolderOfTheAnswerActionOnly(): void
+    {
+        global $wpdb;
+        $this->addRegistration('00A0');
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $user, ?RecordingSeats $seats = null): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource()]),
+            seats: $seats ?? new RecordingSeats(),
+        ))->of(new UserActor($user), $this->event, '00A0');
+
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        $expected = [
+            'currency' => 'HUF',
+            'items' => [
+                [
+                    'id' => 'offer:church',
+                    'kind' => 'offer',
+                    'label' => 'Egyházi támogatás',
+                    'state' => 'awaiting',
+                    'amount' => null,
+                    'answered_at' => null,
+                    'seat_full' => false,
+                ],
+                [
+                    'id' => 'aid',
+                    'kind' => 'aid',
+                    'label' => 'Támogatási kérelem',
+                    'state' => 'awaiting',
+                    'amount' => null,
+                    'answered_at' => null,
+                    'seat_full' => false,
+                ],
+            ],
+        ];
+        self::assertSame($expected, $read($this->admin->userId)['requests']);
+        self::assertSame($expected, $read($partner)['requests']);
+        self::assertTrue($read($partner)['can']['answer_request']);
+        $without = $read($viewer);
+        self::assertArrayNotHasKey('requests', $without);
+        self::assertFalse($without['can']['answer_request']);
+
+        // An answer: a refused offer with a full pool warns; an aid award shows its amount; the aid "no" is 0.
+        foreach ([['offer:church', 0, null], ['aid', 1, '9000.00000000']] as [$request, $approved, $amount]) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_answers', [
+                'event_id' => $this->event,
+                'code' => '00A0',
+                'request' => $request,
+                'approved' => $approved,
+                'amount' => $amount,
+                'currency' => $amount === null ? null : 'HUF',
+                'answered_at' => '2026-12-04 09:00:00.000000',
+            ]);
+        }
+        $seats = new RecordingSeats();
+        $seats->full = true;
+        $items = $read($partner, $seats)['requests']['items'];
+        self::assertSame(['refused', 'approved'], array_column($items, 'state'));
+        self::assertSame([null, '9000.00000000'], array_column($items, 'amount'));
+        self::assertSame(['2026-12-04T09:00:00Z', '2026-12-04T09:00:00Z'], array_column($items, 'answered_at'));
+        self::assertSame([true, false], array_column($items, 'seat_full'));
+        self::assertSame([false, false], array_column($read($partner)['requests']['items'], 'seat_full'));
     }
 }

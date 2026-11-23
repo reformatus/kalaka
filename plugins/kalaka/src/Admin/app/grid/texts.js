@@ -190,3 +190,30 @@ export const CONFIRM = {
 	// [UNAPPROVED T46] after the unconfirm, when the rules confirmed the registration again at once (the re-read says so).
 	unconfirmedReconfirmed: 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.',
 };
+
+/**
+ * The block of requests (slice B, "answer a request"): the heading, the state of each request, the buttons and the
+ * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). Every string here is
+ * unapproved until the owner ticks its box: [UNAPPROVED T3] the heading, [UNAPPROVED T4] „Válaszra vár”,
+ * [UNAPPROVED T5] the states „Jóváhagyva” and „Elutasítva”, [UNAPPROVED T6] the award line, [UNAPPROVED T7] the
+ * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar. The „full” warning is the
+ * approved assignment warning, reused as it is.
+ */
+export const REQUESTS = {
+	heading: 'Kérelmek',
+	awaiting: 'Válaszra vár',
+	approved: 'Jóváhagyva',
+	refused: 'Elutasítva',
+	award: 'Megítélt összeg: %s',
+	answer: 'Megválaszolás',
+	change: 'Válasz módosítása',
+	dialogTitle: 'Kérelem megválaszolása',
+	answerField: 'Válasz',
+	answerEmpty: 'Add meg a választ.',
+	yes: 'Igen',
+	no: 'Nem',
+	amountField: 'Megítélt összeg (Ft)',
+	noteField: 'Megjegyzés',
+	saved: 'Válasz rögzítve.',
+	full: 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.',
+};

@@ -117,6 +117,10 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 .kg-manual p { margin: 0 0 4px; overflow-wrap: anywhere; }
 
 .kg-sub { font-size: 14px; margin: 20px 0 6px; }
+.kg-requests { margin: 8px 0 4px; }
+.kg-requests-title { margin: 0 0 4px; font-size: 13px; }
+.kg-requests ul { margin: 0; padding: 0; list-style: none; }
+.kg-requests li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; overflow-wrap: anywhere; }
 .kg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .kg-snacks { position: fixed; left: auto; right: 12px; bottom: 12px; z-index: 9996; }
 .kg-dialog .components-base-control, .kg-dialog .components-radio-control, .kg-dialog .components-notice.is-warning { margin-bottom: 16px; }

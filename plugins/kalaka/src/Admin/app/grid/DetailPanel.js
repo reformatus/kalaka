@@ -14,6 +14,7 @@ import * as api from './api';
 import { confirmationOf, markOf, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
+import Requests from './Requests';
 import StatusMark from './StatusMark';
 import { PANEL } from './texts';
 
@@ -149,6 +150,16 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					can={ detail.can || {} }
 					manual={ registration.manual_confirmation }
 					warning={ warningOf( registration, detail.can ) }
+					reload={ reload }
+					onSaved={ onSaved }
+				/>
+			) }
+			{ detail && (
+				<Requests
+					config={ config }
+					code={ code }
+					detail={ detail }
+					stale={ !! problem }
 					reload={ reload }
 					onSaved={ onSaved }
 				/>

@@ -9,7 +9,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the three tables of the module. */
+/** AC1: the tables of the module (the answers of slice B among them). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -41,6 +41,18 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'submit_token' => 'varchar(22) null',
             'answers_hash' => 'varchar(64) null',
         ],
+        'kalaka_answers' => [
+            'id' => 'bigint(20) unsigned',
+            'event_id' => 'bigint(20) unsigned',
+            'code' => 'varchar(16)',
+            'request' => 'varchar(64)',
+            'approved' => 'tinyint(1) unsigned',
+            'amount' => 'decimal(26,8) null',
+            'currency' => 'char(3) null',
+            'note' => 'varchar(500) null',
+            'answered_at' => 'datetime(6)',
+            'answered_by' => 'bigint(20) unsigned null',
+        ],
     ];
 
     /** The columns compared exactly (#42, D1). */
@@ -49,13 +61,15 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.submit_token' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.answers_hash' => 'utf8mb4_nopad_bin',
+        'kalaka_answers.request' => 'utf8mb4_nopad_bin',
+        'kalaka_answers.currency' => 'utf8mb4_nopad_bin',
     ];
 
     public function testTheTablesExistWithTheirColumnsAndTheDeclaredCollation(): void
     {
         global $wpdb;
 
-        self::assertSame(3, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(4, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -96,7 +110,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         $tables = (new Module())->schema()->tables;
-        self::assertCount(3, $tables);
+        self::assertCount(4, $tables);
         foreach ($tables as $statement) {
             $statement = str_replace('{prefix}', $wpdb->prefix, $statement);
             self::assertSame(1, preg_match('/CREATE TABLE\s+(\S+)/', $statement, $match));

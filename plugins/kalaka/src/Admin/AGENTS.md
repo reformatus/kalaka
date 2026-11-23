@@ -78,3 +78,7 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The detail panel shows only what the registration detail read returns and
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
+- The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
+  its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
+  access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
+  block of requests only calls it.

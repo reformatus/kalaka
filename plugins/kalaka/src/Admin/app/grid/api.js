@@ -166,3 +166,12 @@ export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
 		code,
 		reason,
 	} );
+
+/**
+ * Answers a request (`kalaka/answer-request`): the same act for staff and for a partner, for an offer and for aid.
+ * `input` is `buildAnswer`'s (requests.js). The answer is `{ changed, answer, over_limit }`; an identical repeat
+ * answers `{ changed: false }`, so a retry is safe.
+ *
+ * @param {Object} input see `buildAnswer`
+ */
+export const answerRequest = ( input ) => runAbility( 'kalaka/answer-request', input );

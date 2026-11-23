@@ -94,7 +94,7 @@ reached; the grant defines who holds the view.**
     The last holder cannot lose it. On multisite, super admins pass every
     check.
 - **Actions that are not a column** (withdraw, remove, admit, confirm without
-  payment, record money, view money, regenerate link, notes, audit history)
+  payment, record money, view money, answer a request, regenerate link, notes, audit history)
   are carried by the grant, not by WordPress roles. An action is usable only
   on registrations inside the filter of the same grant's view. Modules
   declare the actions they
@@ -567,7 +567,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     field's source ([Fields](events-and-forms.md#fields)): answers copied
     from a form's submission; a staff write; or an extension's own use case,
     the only writer of its fields (e.g. the award of adjudicated aid, an
-    organizer's act).
+    organizer's act); the answer to a request, an offer's approval or an
+    award, written by staff's or a partner's act.
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
@@ -595,7 +596,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).
 - **Computed values are never stored:** balance, tallies, the tree's
-  ancestors, a meal turn from the option map, the sorszám. The one exception:
+  ancestors, a meal turn from the option map, the sorszám, whether a
+  registration awaits an answer. The one exception:
   a congregation answer keeps the path snapshot taken when it was answered.
 - **Reading order:** confirmation is checked once at the end of every pass,
   after money; whatever act caused the pass, the check is the same. It reads

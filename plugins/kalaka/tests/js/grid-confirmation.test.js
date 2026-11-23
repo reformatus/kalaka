@@ -22,14 +22,14 @@ const confirmed = {
 
 describe( 'the confirmation decision of a read', () => {
 	test( 'is found by its kind among the decisions', () => {
-		const other = { kind: 'payment_hold', state: 'held', state_label: 'Zárolva' };
+		const other = { kind: 'sample_kind', state: 'held', state_label: 'Zárolva' };
 		expect( CONFIRMATION_KIND ).toBe( 'confirmation' );
 		expect( confirmationOf( { decisions: [ other, confirmed ] } ) ).toBe( confirmed );
 	} );
 
 	test( 'is null when the read has none, or no decisions at all', () => {
 		expect( confirmationOf( { decisions: [] } ) ).toBeNull();
-		expect( confirmationOf( { decisions: [ { kind: 'payment_hold' } ] } ) ).toBeNull();
+		expect( confirmationOf( { decisions: [ { kind: 'sample_kind' } ] } ) ).toBeNull();
 		expect( confirmationOf( {} ) ).toBeNull();
 		expect( confirmationOf( undefined ) ).toBeNull();
 	} );

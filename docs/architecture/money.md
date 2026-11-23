@@ -28,7 +28,9 @@ title: Money
      decision; automatic evaluation may come later. **The award is a
      participant field of source "extension,"** written only by the aid
      extension's own use case, never by a form
-     ([Fields](events-and-forms.md#fields));
+     ([Fields](events-and-forms.md#fields)); staff and partners answer aid and
+     offers alike through the one "answer a request" act, which calls that use
+     case, so the extension stays the award's only writer;
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
 - Price-ladder tier quotas are separate from the event's waitlist. Each
@@ -148,7 +150,8 @@ title: Money
   ([Money settings apply](#money-settings-apply)). A payer's target is what
   the fee composition says it owes now, manual charges and discounts
   included; **nothing is due** when every payer's target is zero or below.
-  Confirmation reads payment facts, never charge lines.
+  Confirmation reads payment facts, never charge lines. A request that
+  awaits an answer does not block it: payments still count.
 - **The manual flag** ("may come without paying") is a fact: set with a
   reason, audited, carrying its own set time. Staff can always take it back,
   through staff's unconfirm; that is allowed also when payments or nothing

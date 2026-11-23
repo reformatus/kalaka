@@ -9,7 +9,11 @@ use Kalaka\Events\Api\Phase;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Portal\StatusMarkup;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** The status block and the transfer block over every state of the frozen spec (2026-11-13). */
 final class StatusBlockTest extends PortalTestCase
@@ -140,14 +144,14 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $this->statusBlock());
     }
 
-    public function testHeldShowsThePinkNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
+    public function testAwaitingAnAnswerShowsThePinkNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
     {
         $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
         $this->charge($key, '48000');
-        $this->decide($key, StatusRead::PAYMENT_HOLD, 'held');
+        $read = $this->askingForAnAnswer($key);
         $this->activate($key);
 
-        $html = $this->statusBlock();
+        $html = $this->statusBlock($read);
         self::assertStringContainsString(
             'has-pale-pink-background-color has-text-color has-black-color"><p><strong>Elbírálás alatt.</strong>'
             . ' Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges összeget.</p></div>',
@@ -161,7 +165,53 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('Fizetési határidő', $html);
         self::assertStringContainsString(self::NOTE, $html);
-        self::assertSame('', $this->transferBlock());
+        self::assertSame('', StatusMarkup::transfer($read->forActive(), false));
+        self::assertNull($read->forActive()?->payment?->paymentDue);
+        self::assertTrue($read->forActive()?->payment?->awaitsAnswer);
+    }
+
+    public function testOnceAnsweredTheNoticeGoesAndTheDeadlineAndTheTransferBlockComeBack(): void
+    {
+        $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        $html = $this->statusBlock($read);
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
+        self::assertStringContainsString('Fizetési határidő', $html);
+        self::assertStringContainsString('Fizetésre vár.', $html);
+        self::assertNotSame('', StatusMarkup::transfer($read->forActive(), false));
+        self::assertFalse($read->forActive()?->payment?->awaitsAnswer);
+    }
+
+    /** A request on the registration (a test source), and the read that sees it. */
+    private function askingForAnAnswer(RegistrationKey $key): StatusRead
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => 'support',
+            'version' => 1,
+            'value' => 'church',
+        ]);
+
+        return new StatusRead(requests: new Requests([new TestRequestSource()]));
+    }
+
+    /** An answering act's record, written behind the use case. */
+    private function answered(RegistrationKey $key, string $request): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_answers', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'request' => $request,
+            'approved' => 1,
+            'answered_at' => '2026-11-30 12:00:00.000000',
+        ]);
     }
 
     public function testConfirmedShowsTheGreenBoxAZeroAmountThatIsNotBoldAndNoTransfer(): void

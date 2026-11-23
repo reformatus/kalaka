@@ -13,7 +13,9 @@ the waitlist and reference codes
   [Reference codes](../../../../docs/architecture/registrations-and-identity.md#reference-codes),
   the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
   the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
-- foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
+- foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order),
+  the answer to a request of [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values).
+- money.md: the answer act of [Sponsor and church support](../../../../docs/architecture/money.md#sponsor-and-church-support).
 
 ## Invariants
 
@@ -111,4 +113,24 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
+  computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
+  ships none, so with no source every read is empty and costs no statement.
+  - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
+    `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
+    holds only their registrations); the runner checks the target against the view.
+  - An answer is a fact with two writes in one act: one `kalaka_answers` row per answering act (append-only,
+    never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`), and the answer as the
+    source's own participant field value, written by the source through `Registrations::writeValue()`, so the
+    source stays that field's only writer.
+  - The latest row per request is the answer. An identical repeat writes nothing. Aid "no" is an award of 0 Ft: an
+    absent answer awaits, a zero is an answer.
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request with no answer, for a
+    registration that is not withdrawn or removed. It is `registration.awaits_answer` in the fact source, and it
+    hides the due date and the transfer block in Portal. It never blocks confirmation.
+  - A refusing offer answer frees the offer's seat and a "yes" after a refusal takes one, both through the
+    `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands), whose pool lock is taken before the
+    registration lock. A full pool never refuses the "yes": the result says `over_limit`.
+  - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
+    confirmation) follows in the same run.
 - Only Registrations writes its tables.

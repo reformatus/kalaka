@@ -40,7 +40,7 @@ final class ViewQueryCostTest extends PerEventCostTestCase
             foreach (['module', 'team'] as $key) {
                 $values[] = $wpdb->prepare("(%d, %s, %s, 1, %s)", $event, $code, $key, $index % 3 === 0 ? 'a' : 'b');
             }
-            foreach (['confirmation', 'payment_hold'] as $kind) {
+            foreach (['confirmation', 'sample_kind'] as $kind) {
                 foreach (['pending', 'confirmed', 'pending'] as $state) {
                     $decisions[] = $wpdb->prepare(
                         "(%d, %s, %s, %s, '2026-11-30 08:00:00.000000', '2026-11-30 08:00:00.000000',"
@@ -99,7 +99,7 @@ final class ViewQueryCostTest extends PerEventCostTestCase
             default => [
                 ['column' => 'status', 'in' => ['registered', 'waitlisted']],
                 ['column' => 'field:module', 'in' => ['a', 'b']],
-                ['column' => 'decision:payment_hold', 'in' => ['pending']],
+                ['column' => 'decision:sample_kind', 'in' => ['pending']],
             ],
         }, $listed);
     }
