@@ -148,8 +148,8 @@ jobs:
           done
           [ -f preview/zips/kalaka.zip ] || { echo "No core zip kalaka-$version.zip." >&2; exit 1; }
           # Plugins an extension names in its "Requires Plugins:" header that
-          # no zip here provides come from wordpress.org, installed before the
-          # extensions, as bin/playground-smoke.sh does.
+          # no zip here provides come from wordpress.org, installed after core
+          # and before the extensions, as bin/playground-smoke.sh does.
           required=()
           for slug in "${slugs[@]}"; do
             line="$(unzip -p "preview/zips/$slug.zip" "$slug/$slug.php" 2> /dev/null | sed -n -E 's/^[[:space:]\/#@*]*Requires Plugins:[[:space:]]*//Ip' | head -n 1 || true)"
@@ -170,8 +170,9 @@ jobs:
             login: true,
             steps: (
               [ { step: "defineWpConfigConsts", consts: { WP_ENVIRONMENT_TYPE: "development" } } ]
+              + (.[:1] | map({ step: "installPlugin", pluginData: { resource: "url", url: ("{{ARTIFACT_URL:" + . + "}}") }, options: { activate: true } }))
               + ($required[0] | map({ step: "installPlugin", pluginData: { resource: "wordpress.org/plugins", slug: . }, options: { activate: true } }))
-              + map({ step: "installPlugin", pluginData: { resource: "url", url: ("{{ARTIFACT_URL:" + . + "}}") }, options: { activate: true } })
+              + (.[1:] | map({ step: "installPlugin", pluginData: { resource: "url", url: ("{{ARTIFACT_URL:" + . + "}}") }, options: { activate: true } }))
               + [ { step: "wp-cli", command: "wp kalaka seed" } ]
             )
           }' > preview/blueprint.json
