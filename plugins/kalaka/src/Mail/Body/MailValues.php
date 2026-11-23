@@ -17,7 +17,6 @@ use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Portal\Api\MailMoney;
-use Kalaka\Portal\Api\MovementRow;
 use Kalaka\Portal\Api\MovementType;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationFacts;
@@ -74,7 +73,7 @@ final class MailValues
      * `payment.amount` is the amount without a sign; `payment.direction` a choice of `in` or `out`, with the text
      * „Befizetés” or „Visszafizetés”; `payment.method` a choice, the method's word („Átutalás”, „Készpénz”,
      * „Bankkártya” or „Online”); `payment.date` the value day, as the date sentences of a page read.
-     * They are declared in every mail and none outside "payment recorded". [UNAPPROVED T10..T13]
+     * They are declared in every mail and none outside "payment recorded". [UNAPPROVED T6]
      */
     public const PAYMENT_AMOUNT = 'payment.amount';
     public const PAYMENT_DIRECTION = 'payment.direction';
@@ -238,8 +237,8 @@ final class MailValues
      */
     private function payment(RegistrationKey $key, ?int $lineId): array
     {
-        $movement = $lineId === null ? null : $this->money->movement($key, $lineId);
-        if (!$movement instanceof MovementRow) {
+        $read = $lineId === null ? null : $this->money->movement($key, $lineId);
+        if ($read === null) {
             return [
                 self::PAYMENT_AMOUNT => Value::none(ValueType::Number),
                 self::PAYMENT_DIRECTION => Value::none(ValueType::Choice),
@@ -247,9 +246,10 @@ final class MailValues
                 self::PAYMENT_DATE => Value::none(ValueType::Date),
             ];
         }
+        $movement = $read->row;
         $amount = $movement->amount->isNegative() ? $movement->amount->negated() : $movement->amount;
         $out = $movement->type === MovementType::Refund;
-        $method = MailMoney::methodId($movement);
+        $method = $read->methodId;
 
         return [
             self::PAYMENT_AMOUNT => Value::number($amount->amount(), MailMoney::amountText($amount)),

@@ -93,7 +93,14 @@ final class BlockGateTest extends WP_UnitTestCase
 
             $hidden = BlockGate::hidden($postType, 'core/edit-post', Contributions::current());
             self::assertEqualsCanonicalizing(
-                [...self::FIELDS, 'kalaka/form-page', 'kalaka/after-submit', 'kalaka/account'],
+                [
+                    ...self::FIELDS,
+                    'kalaka/form-page',
+                    'kalaka/after-submit',
+                    'kalaka/account',
+                    'kalaka/mail-money',
+                    'kalaka/mail-transfer',
+                ],
                 $hidden,
                 $postType
             );

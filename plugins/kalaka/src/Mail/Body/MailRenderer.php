@@ -68,7 +68,12 @@ final class MailRenderer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
         }
-        $context = $this->values->context($registration, MailValues::readsPasswordLink($body->content), $lineId);
+        // Only the "payment recorded" mail reads a line: the `payment.*` keys are none in every other mail.
+        $context = $this->values->context(
+            $registration,
+            MailValues::readsPasswordLink($body->content),
+            $action === ActionMail::PaymentRecorded ? $lineId : null
+        );
         MailInProgress::push($registration);
         try {
             $html = $this->renderer->render($body->content, $context);

@@ -7,8 +7,11 @@ import { useBlockProps } from '@wordpress/block-editor';
 import { createElement } from '@wordpress/element';
 import metadata from './block.json';
 
+// [UNAPPROVED T3]
+// The wording is the lektor's suggestion.
 const PLACEHOLDER =
-	'Pénzügyek táblázata: a levél elküldésekor itt jelenik meg a jelentkezés fizetendő és befizetett összege.';
+	'Pénzügyek táblázata: a levél elküldésekor itt jelenik meg a jelentkezés fizetendő összege, ' +
+	'befizetései és visszafizetései, valamint a még fizetendő összeg.';
 
 registerBlockType( metadata.name, {
 	edit: function Edit() {

@@ -38,7 +38,8 @@ page, and the account area
 - The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached
   through `Api\MailMoney`), with the owner's words in `MoneyWords`; the owed lines are the read's, signed, the base
   price included. The page's popovers are native (`popover`, `popovertarget`), with an ID of their own per table
-  on a page.
+  on a page. Whether a money table shows is one rule, `RegistrationStatusView::showsMoney()`, read by the page
+  and by the mail's money block: none for a waitlisted registration.
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank

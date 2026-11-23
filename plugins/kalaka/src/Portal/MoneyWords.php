@@ -30,10 +30,15 @@ final class MoneyWords
         };
     }
 
-    /** The note in Hungarian quotes. */
+    /**
+     * The note in Hungarian quotes. A note that holds quotes of its own shows them as »…« inside the outer „…”
+     * (Hungarian typography; the page and the mail read the same function). [UNAPPROVED N19]
+     */
     public static function quoted(string $text): string
     {
-        return "\u{201E}" . $text . "\u{201D}";
+        $inner = strtr($text, ["\u{201E}" => '»', "\u{201D}" => '«', "\u{201C}" => '«']);
+
+        return "\u{201E}" . $inner . "\u{201D}";
     }
 
     /** The note cut at `NOTE_LENGTH` characters with „…” inside the quotes; the note itself when it is short. */
@@ -66,7 +71,7 @@ final class MoneyWords
         return $amount->isNegative() ? $amount->negated() : $amount;
     }
 
-    /** The line of a movement that the popover and the mail read: `Type · Method · day`, a correction's without method. */
+    /** The line of a movement that the popover reads: `Type · Method · day`, a correction's without method. */
     public static function headline(MovementRow $movement): string
     {
         return implode(' · ', array_filter([

@@ -138,7 +138,9 @@ values and conditions, prefill and form links
   editor an allow-all `true` stays `true` (blocks registered only in JavaScript
   must survive); the gated blocks are hidden there on the client. Forms never
   names another module's post type; that module contributes the host. The
-  condition blocks are not gated: every block editor offers them.
+  condition blocks are not gated: every block editor offers them. The mail
+  body's two money blocks (`BlockGate::HOST_ONLY_BLOCKS`) are in no form's
+  allow-list and are hidden in every editor except a mail body's.
 - Every form in the registration slot has exactly one contact email and one
   display name; additional forms have neither.
 - Access checks are pure: they read no current user, cookie or request; the

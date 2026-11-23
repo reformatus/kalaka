@@ -96,6 +96,9 @@ final class StatusMarkup
      */
     private static function moneySection(RegistrationStatusView $view): string
     {
+        if (!$view->showsMoney()) {
+            return '';
+        }
         $money = $view->money;
         $html = '<h3>Pénzügyek</h3>' . self::table($money);
         $payment = $view->payment;
@@ -143,7 +146,9 @@ final class StatusMarkup
             $html .= self::moneyRow(
                 $row->label,
                 MoneyWords::sign($row->amount),
-                MoneyWords::absolute($row->amount)
+                MoneyWords::absolute($row->amount),
+                false,
+                'kalaka-owed'
             );
         }
         $html .= self::moneyRow('Fizetendő összesen', '', $money->owedTotal, false, 'kalaka-total');

@@ -20,14 +20,14 @@ final class MailMarkup
 {
     private const TABLE = 'border-collapse:collapse;width:100%;max-width:600px;font-size:15px;line-height:1.4';
 
-    private const CELL = 'padding:6px 8px;border-top:1px solid #e5e5e5;vertical-align:top;text-align:left';
+    private const CELL = 'padding:6px 8px;border-top:1px solid #e5e5e5;vertical-align:top';
 
-    private const RULE = 'padding:6px 8px;border-top:1px solid #888;vertical-align:top;text-align:left';
+    private const RULE = 'padding:6px 8px;border-top:1px solid #888;vertical-align:top';
 
     /** The money table: owed rows, „Fizetendő összesen”, the movements, „Befizetve összesen”, the last row. */
     public static function money(ParticipantMoney $money): string
     {
-        $html = '<table role="presentation" cellpadding="0" cellspacing="0" style="' . self::TABLE . '"><tbody>';
+        $html = '<table cellpadding="0" cellspacing="0" style="' . self::TABLE . '"><tbody>';
         foreach ($money->owed as $row) {
             $html .= self::row(
                 $row->label,
@@ -65,10 +65,11 @@ final class MailMarkup
             'Közlemény' => $transfer->reference,
         ];
         $html = '<p style="margin:0 0 8px">Az átutaláshoz ezeket az adatokat add meg:</p>'
-            . '<table role="presentation" cellpadding="0" cellspacing="0" style="' . self::TABLE . '"><tbody>';
+            . '<table cellpadding="0" cellspacing="0" style="' . self::TABLE . '"><tbody>';
         foreach ($rows as $label => $value) {
-            $html .= '<tr><th scope="row" style="' . self::CELL . ';font-weight:normal">' . esc_html($label)
-                . '</th><td style="' . self::CELL . '">' . esc_html($value) . '</td></tr>';
+            $html .= '<tr><th scope="row" style="' . self::CELL . ';text-align:left;font-weight:normal">'
+                . esc_html($label) . '</th><td style="' . self::CELL . ';text-align:left">' . esc_html($value)
+                . '</td></tr>';
         }
 
         return $html . '</tbody></table>';
@@ -76,7 +77,8 @@ final class MailMarkup
 
     /**
      * One movement: its type word, the details (the method, the day, then the whole note in quotes; a correction
-     * has no method) in italic, the sign and the amount. The separator is above the first movement.
+     * has no method) in italic, the sign and the amount. The separator is above the first movement. The details'
+     * order and form are [UNAPPROVED T7].
      */
     private static function movement(MovementRow $movement, bool $first): string
     {
@@ -110,10 +112,11 @@ final class MailMarkup
         $cell = ($rule ? self::RULE : self::CELL) . ($italic ? ';font-style:italic' : '')
             . ($bold ? ';font-weight:bold' : '');
         $head = $details === ''
-            ? '<th scope="row" colspan="2" style="' . $cell . ';' . ($bold ? '' : 'font-weight:normal') . '">'
+            ? '<th scope="row" colspan="2" style="' . $cell . ';text-align:left;' . ($bold ? '' : 'font-weight:normal')
+                . '">'
                 . esc_html($label) . '</th>'
-            : '<th scope="row" style="' . $cell . ';font-weight:normal">' . esc_html($label) . '</th>'
-                . '<td style="' . $cell . ';font-style:italic">' . esc_html($details) . '</td>';
+            : '<th scope="row" style="' . $cell . ';text-align:left;font-weight:normal">' . esc_html($label) . '</th>'
+                . '<td style="' . $cell . ';text-align:left;font-style:italic">' . esc_html($details) . '</td>';
 
         return '<tr>' . $head . '<td style="' . $cell . ';width:1%;white-space:nowrap;text-align:center">'
             . esc_html($sign) . '</td><td style="' . $cell . ';white-space:nowrap;text-align:right">'

@@ -7,8 +7,10 @@ import { useBlockProps } from '@wordpress/block-editor';
 import { createElement } from '@wordpress/element';
 import metadata from './block.json';
 
+// [UNAPPROVED T4]
 const PLACEHOLDER =
-	'Átutalási adatok: a levél elküldésekor itt jelennek meg az átutaláshoz szükséges adatok, ha még van fizetendő összeg.';
+	'Átutalási adatok: a levél elküldésekor itt jelennek meg az átutaláshoz szükséges adatok, ' +
+	'ha még van fizetendő összeg.';
 
 registerBlockType( metadata.name, {
 	edit: function Edit() {

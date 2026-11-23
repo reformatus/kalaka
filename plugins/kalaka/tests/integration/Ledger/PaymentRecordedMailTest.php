@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Ledger;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
@@ -52,14 +53,23 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
         return $rows;
     }
 
-    /** An online payment or refund: the act that records it decides the mail through the same one rule. */
-    private function recordOnline(LineKind $kind, string $amount, string $key): int
-    {
+    /**
+     * An online payment or refund: the act that records it decides the mail through the same one rule. The line
+     * is recorded for the payer given (`Ledger::record()` checks only that the payer ID is well formed); with
+     * `$fail` the act fails after it decided the mail, so its whole transaction rolls back.
+     */
+    private function recordOnline(
+        LineKind $kind,
+        string $amount,
+        string $key,
+        string $payer = 'participant',
+        bool $fail = false,
+    ): int {
         $registration = new RegistrationKey($this->event, '00A0');
         $line = new NewLine(
             $registration,
             $kind,
-            'participant',
+            $payer,
             \Kalaka\Foundation\Api\Money\Money::of($amount, \Kalaka\Foundation\Api\Money\Currency::HUF),
             new Subject('gateway', null, 'g1'),
             'online:' . $key,
@@ -67,10 +77,14 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
             new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC')),
         );
         $queued = $this->runner->run(
-            new AdminProbe(function (array $input, Context $context) use ($registration, $line): bool {
+            new AdminProbe(function (array $input, Context $context) use ($registration, $line, $fail): bool {
                 $this->lockRegistrations($context, $registration);
+                $queued = (new ActionMails())->lineRecorded($context, (new Ledger())->record($line, $context));
+                if ($fail) {
+                    throw new RuleViolation();
+                }
 
-                return (new ActionMails())->lineRecorded($context, (new Ledger())->record($line, $context));
+                return $queued;
             }),
             [],
             $this->admin
@@ -105,31 +119,67 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
         self::assertCount(2, $this->queued());
     }
 
-    public function testAReplayOfTheSameLineQueuesNothingMore(): void
+    public function testAReplayOrARetryOfALineQueuesNothingMore(): void
     {
         $this->switchMail(true);
 
+        // By hand: the same payment, the same refund (a retry of the act with its key).
         $this->exec(new RecordPayment(), $this->paymentInput());
         $this->exec(new RecordPayment(), $this->paymentInput());
-
-        self::assertCount(1, $this->queued());
-        // The same online line again: its replay inserts nothing, so it queues nothing.
-        $this->switchMail(true);
-        $this->recordOnline(LineKind::Payment, '-700', 'z');
-        self::assertSame(0, $this->recordOnline(LineKind::Payment, '-700', 'z'));
+        $refund = $this->paymentInput(['idempotency_key' => 'r1', 'amount' => '1000']);
+        $first = $this->exec(new RecordRefund(), $refund);
+        self::assertSame($first, $this->exec(new RecordRefund(), $refund));
+        self::assertCount(2, $this->lines());
         self::assertCount(2, $this->queued());
+
+        // Online: the same line again inserts nothing, so it queues nothing.
+        self::assertSame(1, $this->recordOnline(LineKind::Payment, '-700', 'z'));
+        self::assertSame(0, $this->recordOnline(LineKind::Payment, '-700', 'z'));
+        self::assertCount(3, $this->queued());
     }
 
-    public function testARetryOfARecordingActWithTheSameKeyQueuesNone(): void
+    /** Without the "only a newly inserted line queues" guard, the replay below would queue a mail for an old line. */
+    public function testAReplayAfterTheMailWasSwitchedOnQueuesNoneForTheOldLine(): void
+    {
+        $this->switchMail(false);
+        self::assertSame(0, $this->recordOnline(LineKind::Payment, '-900', 'late'));
+        self::assertSame([], $this->queued());
+
+        $this->switchMail(true);
+        self::assertSame(0, $this->recordOnline(LineKind::Payment, '-900', 'late'));
+
+        self::assertSame([], $this->queued());
+    }
+
+    public function testARecordingThatRollsBackLeavesNeitherTheLineNorTheDelivery(): void
     {
         $this->switchMail(true);
-        $refund = $this->paymentInput(['idempotency_key' => 'r1', 'amount' => '1000']);
 
-        $first = $this->exec(new RecordRefund(), $refund);
-        $again = $this->exec(new RecordRefund(), $refund);
+        try {
+            $this->recordOnline(LineKind::Payment, '-4000', 'gone', 'participant', true);
+            self::fail('The act should have failed.');
+        } catch (RuleViolation) {
+            self::assertSame([], $this->queued());
+            self::assertSame([], $this->lines());
+        }
 
-        self::assertSame($first, $again);
+        // The same key again, now without the failure: the line and its mail are written together.
+        self::assertSame(1, $this->recordOnline(LineKind::Payment, '-4000', 'gone'));
         self::assertCount(1, $this->lines());
+        self::assertCount(1, $this->queued());
+    }
+
+    public function testALineOfAPayerOtherThanTheParticipantQueuesNone(): void
+    {
+        $this->switchMail(true);
+
+        self::assertSame(0, $this->recordOnline(LineKind::Payment, '-20000', 'c1', 'congregation'));
+        self::assertSame(0, $this->recordOnline(LineKind::Refund, '1000', 'c2', 'congregation'));
+        self::assertCount(2, $this->lines());
+        self::assertSame([], $this->queued());
+
+        // The participant's own line still queues one.
+        self::assertSame(1, $this->recordOnline(LineKind::Payment, '-500', 'p1'));
         self::assertCount(1, $this->queued());
     }
 

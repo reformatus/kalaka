@@ -162,7 +162,84 @@ final class MoneyMailTest extends MailBodyTestCase
     {
         $this->line('manual_payment', '-1000', 'cash', '2026-11-29');
 
-        self::assertSame('', self::text($this->render($this->keys(), 'registered')));
+        // A line given to another mail (a cause that is a ledger line) reads as none there as well.
+        $line = $this->line('manual_payment', '-1000', 'cash', '2026-11-29');
+        self::assertSame('', self::text($this->render($this->keys(), 'registered', $line)));
+        self::assertSame('', self::text($this->render($this->keys(), 'confirmed', $line)));
+        // The same line in its own mail reads.
+        self::assertSame(
+            'Befizetés 1 000 Ft Készpénz 2026. november 29.',
+            self::text($this->render($this->keys(), 'payment_recorded', $line))
+        );
+    }
+
+    public function testAnOnlineLineReadsOnlineAndItsPaidTimesDayInTheSiteZone(): void
+    {
+        // 23:30 UTC on 29 November is 00:30 on 30 November in Budapest.
+        $line = $this->line('payment', '-2000');
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_ledger_lines', ['paid_at' => '2026-11-29 23:30:00'], ['id' => $line]);
+        update_option('timezone_string', 'Europe/Budapest');
+
+        self::assertSame(
+            'Befizetés 2 000 Ft Online 2026. november 30.',
+            self::text($this->render($this->keys(), 'payment_recorded', $line))
+        );
+    }
+
+    public function testAChargeLineUsedAsACauseReadsAsNone(): void
+    {
+        $charge = $this->line('charge', '500');
+
+        self::assertSame('', self::text($this->render($this->keys(), 'payment_recorded', $charge)));
+    }
+
+    public function testALineOfAnotherPayerReadsAsNone(): void
+    {
+        global $wpdb;
+        $line = $this->line('manual_payment', '-1000', 'cash', '2026-11-29');
+        $wpdb->update($wpdb->prefix . 'kalaka_ledger_lines', ['payer' => 'congregation'], ['id' => $line]);
+
+        self::assertSame('', self::text($this->render($this->keys(), 'payment_recorded', $line)));
+    }
+
+    public function testAWaitlistedRegistrationsMailCarriesNoMoneyTableJustAsItsPageDoesNot(): void
+    {
+        global $wpdb;
+        $this->key();
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => 'waitlisted'],
+            ['event_id' => $this->event, 'code' => '12A3']
+        );
+        ObjectCache::clear();
+
+        $html = $this->render('<!-- wp:kalaka/mail-money /-->', 'waitlisted');
+
+        self::assertSame('', trim(self::text($html)));
+        self::assertStringNotContainsString('<table', $html);
+        // The page's own rule: no money table for a waitlisted registration.
+        $view = (new \Kalaka\Portal\Api\StatusRead())->of($this->key());
+        self::assertNotNull($view);
+        self::assertFalse($view->showsMoney());
+        self::assertStringNotContainsString('Pénzügyek', \Kalaka\Portal\StatusMarkup::status($view, false));
+    }
+
+    public function testAWithdrawnRegistrationsMailKeepsTheTableAsItsPageDoes(): void
+    {
+        global $wpdb;
+        $this->line('manual_payment', '-8000', 'cash', '2026-11-29');
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => 'withdrawn'],
+            ['event_id' => $this->event, 'code' => '12A3']
+        );
+        ObjectCache::clear();
+
+        self::assertStringContainsString(
+            'Befizetve összesen 8 000 Ft',
+            self::text($this->render('<!-- wp:kalaka/mail-money /-->', 'confirmed'))
+        );
     }
 
     public function testTheMoneyTableRendersInMailMarkupThroughTheSameReadAsThePage(): void

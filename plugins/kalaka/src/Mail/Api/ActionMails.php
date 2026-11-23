@@ -7,6 +7,7 @@ namespace Kalaka\Mail\Api;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\RecordedLine;
 use Kalaka\Mail\Catalogue\ActionMailRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -54,8 +55,10 @@ final class ActionMails
     /**
      * The "payment recorded" mail (mail.md, "Five kinds of mail"), decided by the use case that recorded the
      * line, keyed by the line: money in and money out, by hand or online (a payment or a refund). A correction, a
-     * charge (a „Díj” or a „Kedvezmény” is a fact and its charge line) and a replay of a line already written
-     * send none. The one rule of which lines mail, for every act that records a payment fact. Queued only when
+     * charge (a „Díj” or a „Kedvezmény” is a fact and its charge line), a replay of a line already written and a
+     * line of a payer other than the participant send none: the registrant sees only the participant's side
+     * (Portal), and the mail's table would not list that line. [UNAPPROVED N16] The one rule of which lines
+     * mail, for every act that records a payment fact. Queued only when
      * the event has the mail switched on.
      *
      * @return bool whether a delivery was queued
@@ -63,7 +66,10 @@ final class ActionMails
     public function lineRecorded(Context $context, RecordedLine $recorded): bool
     {
         $line = $recorded->line;
-        if (!$recorded->inserted || $line->correction || !$line->kind->isPaymentFact()) {
+        if (
+            !$recorded->inserted || $line->correction || !$line->kind->isPaymentFact()
+            || $line->payer !== Payer::PARTICIPANT
+        ) {
             return false;
         }
 

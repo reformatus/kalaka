@@ -20,7 +20,10 @@ enum ActionMail: string
     case Answered = 'answered';
     case LinkRegenerated = 'link_regenerated';
 
-    /** The catalogue's name of the mail: what causes it. */
+    /**
+     * The catalogue's name of the mail: what causes it. The label of `PaymentRecorded` changes the owner-approved
+     * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds. [UNAPPROVED T5]
+     */
     public function label(): string
     {
         return match ($this) {

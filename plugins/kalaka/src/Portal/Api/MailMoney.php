@@ -7,7 +7,7 @@ namespace Kalaka\Portal\Api;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Ledger\Api\Ledger;
-use Kalaka\Ledger\Api\PaymentMethod;
+use Kalaka\Ledger\Api\Payer;
 use Kalaka\Portal\MailMarkup;
 use Kalaka\Portal\MoneyWords;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -26,12 +26,16 @@ final class MailMoney
     ) {
     }
 
-    /** The money table in mail markup; empty when the registration or its event does not exist. */
+    /**
+     * The money table in mail markup; empty when the registration or its event does not exist, and wherever the
+     * page shows no money table (`RegistrationStatusView::showsMoney()`, the page's own rule: a waitlisted
+     * registration has none).
+     */
     public function table(RegistrationKey $key): string
     {
         $view = $this->status->of($key);
 
-        return $view === null ? '' : MailMarkup::money($view->money);
+        return $view === null || !$view->showsMoney() ? '' : MailMarkup::money($view->money);
     }
 
     /** The transfer block in mail markup; empty exactly where the page's transfer block renders nothing (SB-4). */
@@ -43,36 +47,25 @@ final class MailMoney
     }
 
     /**
-     * The movement a payment or a refund line of the registration is, as the table lists it; null for any other
-     * line, a correction included (a correction sends no "payment recorded" mail, so it reads as none).
+     * The movement a payment or a refund line of the participant is, as the table lists it, with its method's ID;
+     * null for any other line, a correction or another payer's line included (a correction sends no "payment
+     * recorded" mail, so it reads as none).
      */
-    public function movement(RegistrationKey $key, int $lineId): ?MovementRow
+    public function movement(RegistrationKey $key, int $lineId): ?MailMovement
     {
         foreach ($this->ledger->entriesOf($key) as $entry) {
-            if ($entry->id === $lineId) {
-                return $entry->kind->isPaymentFact() && !$entry->correction ? MoneyRead::movement($entry) : null;
+            if ($entry->id !== $lineId) {
+                continue;
             }
+            if (!$entry->kind->isPaymentFact() || $entry->correction || $entry->payer !== Payer::PARTICIPANT) {
+                return null;
+            }
+            $row = MoneyRead::movement($entry);
+
+            return new MailMovement($row, $entry->kind->carriesMethod() ? $entry->method?->value : 'online');
         }
 
         return null;
-    }
-
-    /**
-     * The stable ID of a movement's method for a mail's condition: the manual method's own ID, or `online` for an
-     * online payment or refund; null for a movement with no method.
-     */
-    public static function methodId(MovementRow $movement): ?string
-    {
-        if ($movement->methodLabel === null) {
-            return null;
-        }
-        foreach (PaymentMethod::cases() as $method) {
-            if ($method->label() === $movement->methodLabel) {
-                return $method->value;
-            }
-        }
-
-        return 'online';
     }
 
     /** An amount as the page shows it: `48 000 Ft`. */

@@ -32,4 +32,14 @@ final readonly class RegistrationStatusView
         public ParticipantMoney $money,
     ) {
     }
+
+    /**
+     * Whether the money table shows: the one rule of the page and of the mail's money block. An open event's
+     * registered, withdrawn or removed registration shows it; a waitlisted one shows none (nothing is payable
+     * until it is in), and a closed or archived event shows nothing of the registration (SB-11).
+     */
+    public function showsMoney(): bool
+    {
+        return $this->availability === Availability::Open && $this->status !== RegistrationStatus::Waitlisted;
+    }
 }

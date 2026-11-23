@@ -106,8 +106,17 @@ CREATE TABLE {prefix}kalaka_mail_layouts (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
-    /** Kaláka's gated blocks a mail body may hold: the condition blocks (mail.md, "Content"). */
-    public const BODY_BLOCKS = ['kalaka/if', 'kalaka/else-if', 'kalaka/else'];
+    /**
+     * Kaláka's blocks a mail body may hold: the condition blocks (mail.md, "Content") and the two money blocks,
+     * which no other editor offers (`BlockGate::HOST_ONLY_BLOCKS`).
+     */
+    public const BODY_BLOCKS = [
+        'kalaka/if',
+        'kalaka/else-if',
+        'kalaka/else',
+        MailBlocks::MONEY_BLOCK,
+        MailBlocks::TRANSFER_BLOCK,
+    ];
 
     private ?Sender $sender = null;
 
