@@ -5,7 +5,7 @@
  * the required marker and the error element are `Kalaka\Forms\Engine\FieldMarkup`'s, with the theme
  * adapter's classes; the input is the browser's own number control, with the optional prefix and suffix
  * as muted, non-interactive text at its ends (the owner's look, 2026-11-21). The look is proposed:
- * [UNAPPROVED N7].
+ *.
  *
  * @var array<string, mixed> $attributes
  */

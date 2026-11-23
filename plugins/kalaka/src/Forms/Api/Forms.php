@@ -195,7 +195,7 @@ final class Forms
      *
      * Unlike the rest of this class it reads no post, only `ParticipantFields::of()` (its table and the block
      * registry), and each stored answer is typed by its field type's `value()`, which fires no hook and writes
-     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`). [UNAPPROVED N1]
+     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`).
      *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value

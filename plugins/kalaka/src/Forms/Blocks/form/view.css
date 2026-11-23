@@ -187,7 +187,7 @@ form[data-wp-interactive="kalaka/form"] [data-kalaka-spinner][hidden] {
 	}
 	/* The number field's optional prefix and suffix (owner, 2026-11-21): muted, stuck to the input's ends,
 	   non-interactive. Minimal on the theme's own colour; UX fixes the placement next to the spinner later.
-	   [UNAPPROVED N7] */
+	   */
 	:where(form[data-wp-interactive="kalaka/form"]) :where(.kalaka-number) {
 		position: relative;
 		display: block;

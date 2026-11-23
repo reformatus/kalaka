@@ -12,7 +12,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * Checks the participant field an extra charge's key meets, for the preview and the save alike: the charge is
  * linked by key, so a field need not exist, but a number field with the charge's key multiplies the amount
  * and so must take whole numbers (decimals 0; the multiplier is a whole quantity). It reads the event's
- * participant fields (no post). [UNAPPROVED N13]
+ * participant fields (no post).
  */
 final class ChargeField
 {

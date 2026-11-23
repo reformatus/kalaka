@@ -50,7 +50,7 @@ final class FeeComposer
 
         // The fixed price is the base only without a ladder (money.md, "Congregation share": "the chosen tier,
         // or the fixed price without a ladder"): it composes last in the tier stage, and owes nothing once
-        // another tier-stage component owes something. [UNAPPROVED N3]
+        // another tier-stage component owes something.
         $last = static fn (FeeComponent $component): int => $component instanceof FixedPrice ? 1 : 0;
         usort($components, static fn (FeeComponent $a, FeeComponent $b): int => $last($a) <=> $last($b));
 

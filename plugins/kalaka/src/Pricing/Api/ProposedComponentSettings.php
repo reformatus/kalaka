@@ -9,7 +9,7 @@ namespace Kalaka\Pricing\Api;
  * a money settings preview and apply (money.md, "Money settings apply"). The extension builds it through
  * its own `Api`; core composes `component()` in place of the registered component with the same ID for the
  * preview, and the apply runs `save()` first, then re-evaluates every open registration.
- * [UNAPPROVED N2]
+ *
  */
 interface ProposedComponentSettings
 {

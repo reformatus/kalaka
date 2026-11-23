@@ -36,9 +36,10 @@ title: Money
   extras stage that the participant pays. An event's extra charges are a
   key, a label and an amount each, set through the money settings apply; the
   participant field with the same key calls one, and the amount is
-  multiplied by the answer's whole value (a charge key no field uses charges
-  nobody). Each extra charge a registration owes is its own line,
-  `extras.<key>`, with no condition of its own. The donation is the value of
+  multiplied by the answer's whole value, by the field's type: a consent
+  once, a whole-number field `n` times (a charge key no field uses charges
+  nobody, nor does any other field type). Each extra charge a registration
+  owes is its own line, `extras.<key>`, with no condition of its own. The donation is the value of
   the event's number field with the fixed key `adomany`, which Kaláka sets,
   as one `donation` line, charged exactly as stored; empty, 0 or a negative
   value writes none, and it has no setting. Support and the congregation

@@ -108,6 +108,18 @@ final class ExtrasTest extends ExtrasTestCase
         }
     }
 
+    public function testAnAmountTimesAnAnswerMoneyCannotHoldChargesNobodyAndNothingThrows(): void
+    {
+        $this->applyCharges([
+            self::item('ejjel', 'Éjszaka', '100000000000000'),
+            self::item('ebed', 'Ebéd', '3500'),
+        ]);
+
+        $anna = $this->registerWith('00A0', ['ejjel' => '999999999999', 'ebed' => '1']);
+
+        self::assertSame(['extras.ebed participant 3500 charge:extras.ebed:participant:1'], $this->charges($anna));
+    }
+
     public function testThePreviewWritesNothingThenTheApplyConverges(): void
     {
         $this->setPrice('40000');

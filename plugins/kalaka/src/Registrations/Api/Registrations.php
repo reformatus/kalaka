@@ -6,7 +6,6 @@ namespace Kalaka\Registrations\Api;
 
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
@@ -96,17 +95,6 @@ final class Registrations
             $fields->values,
             $fields->kinds,
         );
-    }
-
-    /**
-     * The keys and types a registration's facts declare for the event (`RegistrationFacts::declared()`), with
-     * every participant field of the event: what a condition over them is checked against when it is saved.
-     *
-     * @return array<string, ValueType>
-     */
-    public function declaredFacts(Event $event): array
-    {
-        return RegistrationFacts::declared($event, $this->forms->participantValues($event->id, []));
     }
 
     /**

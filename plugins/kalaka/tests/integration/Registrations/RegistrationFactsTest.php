@@ -59,14 +59,6 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         self::assertSame('Teljes', $facts->get('tamogatas')->text);
         self::assertSame(ValueType::Text, $facts->get('megjegyzes')->type);
         self::assertTrue($facts->get('megjegyzes')->isEmpty());
-        self::assertSame(
-            ['tamogatas' => ValueType::Choice, 'megjegyzes' => ValueType::Text],
-            array_intersect_key(
-                (new Registrations())->declaredFacts($event),
-                ['tamogatas' => true, 'megjegyzes' => true]
-            )
-        );
-        self::assertSame(ValueType::Choice, (new Registrations())->declaredFacts($event)[RegistrationFacts::STATUS]);
     }
 
     public function testTheOpenRegistrationsAreTheRegisteredAndWaitlistedOnes(): void
