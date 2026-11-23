@@ -227,18 +227,18 @@ final class SubmitRegistration implements PublicUseCase
     }
 
     /**
-     * Locks the pool rows of the submit's seat claims that sit before the registration row in the lock order
-     * (quota rows), in pool-key order, and refuses the submit when one of them is full: the form comes back
-     * with the message on that choice and nothing is saved. The other pools are locked and checked by
-     * `Seats::take()` once the registration row is in.
+     * Orders the submit's seat claims as their pool rows may be locked (`Seats::inLockOrder()`: by level, table
+     * and key as the runner's lock guard compares them), locks the pool rows that sit before the registration row
+     * in the lock order (quota rows), and refuses the submit when one of them is full: the form comes back with
+     * the message on that choice and nothing is saved. The other pools are locked and checked by `Seats::take()`
+     * once the registration row is in, in the same order.
      *
      * @return list<SeatClaim>
      * @throws InvalidAnswers
      */
     private function lockedClaims(Context $context): array
     {
-        $claims = $this->seatClaims;
-        usort($claims, static fn (SeatClaim $a, SeatClaim $b): int => strcmp($a->pool->key(), $b->pool->key()));
+        $claims = $this->seats->inLockOrder($this->seatClaims);
         foreach ($claims as $claim) {
             if ($claim->pool->lockLevel()->value >= LockLevel::Registration->value) {
                 continue;

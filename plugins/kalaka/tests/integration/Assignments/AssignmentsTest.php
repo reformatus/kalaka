@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Assignments;
 
+use Kalaka\Assignments\Api\AssignmentSeats;
 use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Assignments\Api\AssignmentSource;
 use Kalaka\Assignments\Api\AssignmentState;
@@ -19,6 +20,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Tests\Integration\Registrations\RegistrationsTestCase;
 
@@ -506,6 +509,94 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertNull((new Seats())->left($pool));
         self::assertNull($this->sets->seatPool($set, 'nincs'));
         self::assertNull($this->sets->seatPool($set + 1000, 'modul_a'));
+    }
+
+    public function testPlacingAWaitlistedRegistrationWritesTheAssignmentAndTakesNoSeat(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $waiting = new RegistrationKey($this->event, '00A0');
+        $this->seedRegistrations($waiting);
+        $this->setStatus($waiting, RegistrationStatus::Waitlisted);
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+
+        $this->place($waiting, $set, 'modul_a');
+
+        $assignment = $this->sets->assignment($waiting, $set);
+        self::assertNotNull($assignment);
+        self::assertSame('modul_a', $assignment->optionKey);
+        self::assertSame(AssignmentState::Confirmed, $assignment->state);
+        self::assertFalse((new Seats())->holds($pool, $waiting));
+        self::assertSame(1, (new Seats())->left($pool));
+    }
+
+    public function testAnAdmissionTakesTheSeatsOfTheConfirmedAssignmentsAndAFullOptionIsReported(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $other = $this->newSet(['name' => 'Délután']);
+        $this->newOption($other, 'Modul B', null, ['capacity' => 1]);
+        $waiting = new RegistrationKey($this->event, '00A0');
+        $holder = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($waiting, $holder);
+        $this->setStatus($waiting, RegistrationStatus::Waitlisted);
+        $this->place($waiting, $set, 'modul_a');
+        $this->place($waiting, $other, 'modul_b');
+        $this->place($holder, $other, 'modul_b');
+        $seats = new Seats();
+        $a = $this->sets->seatPool($set, 'modul_a');
+        $b = $this->sets->seatPool($other, 'modul_b');
+        self::assertNotNull($a);
+        self::assertNotNull($b);
+        $this->setStatus($waiting, RegistrationStatus::Registered);
+
+        $full = $this->inRun(function (array $input, Context $context) use ($waiting): array {
+            (new Registrations())->lock($waiting, $context);
+
+            return (new AssignmentSeats())->retake($waiting, SeatAct::Admission, $context);
+        });
+
+        self::assertTrue($seats->holds($a, $waiting));
+        self::assertFalse($seats->holds($b, $waiting));
+        self::assertSame(1, $seats->held($b));
+        self::assertCount(1, $full);
+        self::assertSame([$other, 'modul_b'], [$full[0]->setId, $full[0]->optionKey]);
+        // The assignment stays over the limit; nobody was moved out of the full option.
+        self::assertSame('modul_b', $this->sets->assignment($waiting, $other)?->optionKey);
+        self::assertTrue($seats->holds($b, $holder));
+    }
+
+    public function testAWithdrawnRegistrationKeepsItsAssignmentAndARestoreTakesTheSeatAgain(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $key = new RegistrationKey($this->event, '00A0');
+        $this->seedRegistrations($key);
+        $seats = new Seats();
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        $this->place($key, $set, 'modul_a');
+        $this->inRun(function (array $input, Context $context) use ($seats, $key): void {
+            (new Registrations())->lock($key, $context);
+            $seats->releaseAll($key, $context);
+        });
+        $this->setStatus($key, RegistrationStatus::Withdrawn);
+        // Staff place a withdrawn registration again: the assignment is written, no seat is taken.
+        $this->place($key, $set, 'modul_a');
+        self::assertFalse($seats->holds($pool, $key));
+        self::assertSame(1, $seats->left($pool));
+        $this->setStatus($key, RegistrationStatus::Registered);
+
+        $full = $this->inRun(function (array $input, Context $context) use ($key): array {
+            (new Registrations())->lock($key, $context);
+
+            return (new AssignmentSeats())->retake($key, SeatAct::Restore, $context);
+        });
+
+        self::assertSame([], $full);
+        self::assertTrue($seats->holds($pool, $key));
+        self::assertSame(0, $seats->left($pool));
     }
 
     private function place(RegistrationKey $key, int $set, string $option): void

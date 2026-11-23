@@ -17,7 +17,7 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
  */
 interface SeatPool
 {
-    /** The pool of the event's own places: its seats are the event's `registered` registrations. */
+    /** The pool of the event's own places: its seats are the event's counted `registered` registrations. */
     public const EVENT = 'event';
 
     public function eventId(): int;
@@ -34,6 +34,15 @@ interface SeatPool
      * registration is written; any other once it is.
      */
     public function lockLevel(): LockLevel;
+
+    /**
+     * The row `lock()` reads `FOR UPDATE`, as the runner's lock guard sees it: the table name without the
+     * WordPress prefix and the key columns in key order. An act that claims several pools sorts them by it
+     * (`Seats::inLockOrder()`), so it takes their rows in the order the guard accepts.
+     *
+     * @return array{0: string, 1: list<int|string>}
+     */
+    public function lockRow(): array;
 
     /** The pool's limit by a plain read, without a lock; null when it has none. */
     public function limit(): ?int;

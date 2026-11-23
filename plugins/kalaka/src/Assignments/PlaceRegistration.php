@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\Seats;
 
@@ -22,9 +23,12 @@ use Kalaka\Registrations\Api\Seats;
  * registration row is locked first; the option must be one of the set's, and the set the registration's
  * event's.
  *
- * The placing is the registration's own act under the seat rule (`Registrations\Api\Seats`): the seat in the
- * option's pool is taken under a lock on the option row and may go over the capacity, and the seat in the
- * option the registration held in the set before is freed (never moved to anyone else).
+ * The placing is the registration's own act under the seat rule (`Registrations\Api\Seats`): when the
+ * registration is `registered`, the seat in the option's pool is taken under a lock on the option row and may go
+ * over the capacity. A registration that is not (waitlisted, withdrawn, removed) holds no seat, so the
+ * assignment is written without one; the seat follows when it becomes `registered` (`Api\AssignmentSeats::retake()`).
+ * The seat in the option the registration held in the set before is freed either way (never moved to anyone
+ * else). [UNAPPROVED N9]
  */
 final class PlaceRegistration implements AdminUseCase
 {
@@ -86,12 +90,14 @@ final class PlaceRegistration implements AdminUseCase
             $held = new OptionSeatPool($registration->eventId, $target->setId, $record->optionKey);
             $this->seats->release($held, $registration, $context);
         }
-        $this->seats->takeOver(
-            new OptionSeatPool($registration->eventId, $target->setId, $target->option->key),
-            $registration,
-            SeatAct::Placement,
-            $context
-        );
+        if ($this->registrations->find($registration)?->status === RegistrationStatus::Registered) {
+            $this->seats->takeOver(
+                new OptionSeatPool($registration->eventId, $target->setId, $target->option->key),
+                $registration,
+                SeatAct::Placement,
+                $context
+            );
+        }
         $record ??= new AssignmentRecord(
             $registration,
             $target->setId,

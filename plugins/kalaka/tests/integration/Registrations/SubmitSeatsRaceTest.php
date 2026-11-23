@@ -21,10 +21,12 @@ use Kalaka\Tests\Integration\Foundation\RealTableTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
 /**
- * Two submits race for the last seat of an option: the seat is taken under a lock on the option row, so the
- * second waits for the first's commit and then counts its seat and is refused. The first runs in a child process
- * (`seat-holder.php`) as the SQL a seat taking runs; this one is the real use case with the production runner.
- * The rows are committed and removed in `tear_down()`.
+ * A submit races a seat-taking act for the last seat of an option: the seat is taken under a lock on the option
+ * row, so the submit waits for the other act's commit, then counts its seat and is refused. The other act (the
+ * kind staff placing is, `PlaceRegistration`) runs in a child process (`seat-holder.php`) as the SQL a seat taking
+ * runs, holding the option row; this one is the real submit use case with the production runner. Two submits
+ * serialise on the event row before any option row, so the option-row lock is proved against an act that does
+ * not take the event row, not submit against submit. The rows are committed and removed in `tear_down()`.
  */
 final class SubmitSeatsRaceTest extends RealTableTestCase
 {
@@ -118,7 +120,7 @@ final class SubmitSeatsRaceTest extends RealTableTestCase
         parent::tear_down();
     }
 
-    public function testTheSubmitThatWaitedForTheLastSeatIsRefusedAndNothingIsSaved(): void
+    public function testTheSubmitThatWaitedForTheLastSeatOfASeatTakingActIsRefusedAndNothingIsSaved(): void
     {
         global $wpdb;
         $form = new Form(999999, $this->event, FormPlacement::Registration, null, false, 1);

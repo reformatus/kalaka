@@ -92,11 +92,16 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
-- **A confirmed assignment holds a seat in its option's pool,** under the one
-  seat rule ([Foundation](foundation.md#facts-decisions-and-computed-values)):
-  taken under the lock on the option row, freed by withdrawal, removal or a
-  placing elsewhere in the set. A proposed assignment holds none until it is
-  confirmed. The option's capacity is the pool's limit.
+- **A `registered` registration holds a seat in the pool of each option it
+  is confirmed into,** under the one seat rule
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)): taken
+  under the lock on the option row, freed by withdrawal, removal or a placing
+  elsewhere in the set. The confirmed assignment stays as the record, and
+  holds no seat while its registration is not `registered`. An admission or a
+  restore takes the seats again where they are free; where an option is full,
+  staff are warned and the assignment stays without one. A proposed
+  assignment holds none until it is confirmed. The option's capacity is the
+  pool's limit.
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
     field writes a confirmed assignment; capacity and eligibility are checked
@@ -297,7 +302,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -314,7 +319,7 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter).
+    view column, filterable fact, theme adapter, seat claim source).
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
@@ -332,6 +337,11 @@ flowchart LR
   check-in) that can cause an action mail, keyed by the act's record
   ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in
   extension.
+- **A seat claim source** is an outside point: a submit's validated answers
+  in, the seat claims of the limited choices made in them out (the field and
+  the pool of each). It locks, counts and writes nothing; the submit locks the
+  pools and takes the seats when the registration becomes `registered`
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it

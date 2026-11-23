@@ -101,7 +101,8 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(4, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::SEATS]);
+        // Version 4 is #194's (drafts). Whichever of the two merges second renumbers, if #194 lands later.
+        return new Schema(5, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::SEATS]);
     }
 
     /**

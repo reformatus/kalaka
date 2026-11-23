@@ -17,7 +17,12 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Events\Api\Event;
+use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -27,6 +32,7 @@ use Kalaka\Registrations\SecretLink;
 use Kalaka\Registrations\SubmitRegistration;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
+use Kalaka\Tests\Integration\Foundation\TestItemRepository;
 
 /**
  * A submit that chooses a limited option takes its seat when it becomes `registered` and is refused, with
@@ -79,7 +85,25 @@ final class SubmitSeatsTest extends FormsTestCase
         ], new CliActor(null));
     }
 
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
+    public function tear_down(): void
+    {
+        global $wpdb;
+        foreach (['kalaka_test_items', 'kalaka_test_items_other'] as $table) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- test setup; the statement is built from the table prefix and a constant only
+            $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}{$table}");
+        }
+
+        parent::tear_down();
+    }
+
     private function submit(): SubmitResult
+    {
+        return $this->submitClaiming([new SeatClaim('modul', $this->pool())]);
+    }
+
+    /** @param list<SeatClaim> $claims */
+    private function submitClaiming(array $claims): SubmitResult
     {
         $form = $this->readForm($this->form);
         $useCase = new SubmitRegistration(
@@ -91,7 +115,7 @@ final class SubmitSeatsTest extends FormsTestCase
             false,
             [],
             (new ParticipantFields())->of($this->event),
-            seatClaims: [new SeatClaim('modul', new OptionSeatPool($this->event, $this->set, 'modul_a'))],
+            seatClaims: $claims,
         );
         $result = $this->runner->run(
             $useCase,
@@ -217,5 +241,125 @@ final class SubmitSeatsTest extends FormsTestCase
         self::assertSame(RegistrationStatus::Waitlisted, $second->status);
         self::assertFalse($this->seats->holds($this->pool(), $second->registration));
         self::assertSame(1, $this->seats->held($this->pool()));
+    }
+
+    /**
+     * Test tables of quota rows: `kalaka_test_items` with ten rows, `kalaka_test_items_other` with one. A pool over
+     * a row is a quota-level pool, as a price tier's or an offer's will be.
+     *
+     * @return array{TestQuotaPool, TestQuotaPool, TestQuotaPool} the rows 9 and 10 of the first table, then the
+     *     other table's row, each with a single seat
+     */
+    private function quotaPools(): array
+    {
+        global $wpdb;
+        TestItemRepository::create('kalaka_test_items');
+        TestItemRepository::create('kalaka_test_items_other');
+        for ($row = 1; $row <= 10; $row++) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_test_items', ['label' => 'Sor ' . $row, 'version' => 1]);
+        }
+        $wpdb->insert($wpdb->prefix . 'kalaka_test_items_other', ['label' => 'Egyéb', 'version' => 1]);
+
+        return [
+            new TestQuotaPool($this->event, 'tier.9', 'kalaka_test_items', 9, 1),
+            new TestQuotaPool($this->event, 'tier.10', 'kalaka_test_items', 10, 1),
+            new TestQuotaPool($this->event, 'offer.1', 'kalaka_test_items_other', 1, 1),
+        ];
+    }
+
+    public function testQuotaClaimsAreLockedInTheRunnersOrderNotByPoolKey(): void
+    {
+        $this->openEvent(10, 2);
+        [$nine, $ten, $other] = $this->quotaPools();
+
+        // As text "offer.1" < "tier.10" < "tier.9"; the guard wants the first table's rows 9, 10, then the other table.
+        $result = $this->submitClaiming([
+            new SeatClaim('a', $other),
+            new SeatClaim('b', $ten),
+            new SeatClaim('c', $nine),
+        ]);
+
+        self::assertSame(RegistrationStatus::Registered, $result->status);
+        foreach ([$nine, $ten, $other] as $pool) {
+            self::assertTrue($this->seats->holds($pool, $result->registration), $pool->key());
+        }
+    }
+
+    public function testAFullQuotaPoolRefusesTheSubmitBeforeAnythingIsWrittenAndTheEarlierPoolsKeepNothing(): void
+    {
+        $this->openEvent(10, 2);
+        [$nine, $ten] = $this->quotaPools();
+        $this->submitClaiming([new SeatClaim('b', $ten)]);
+
+        try {
+            $this->submitClaiming([new SeatClaim('a', $nine), new SeatClaim('b', $ten)]);
+            self::fail('The full quota pool should have refused the submit.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['b' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+        }
+
+        self::assertSame(1, $this->registrationCount());
+        self::assertSame(0, $this->seats->held($nine));
+        self::assertSame(1, $this->seats->held($ten));
+    }
+
+    public function testARestoreIntoAFullOptionGetsNoSeatAndNoError(): void
+    {
+        $this->openEvent(10, 1);
+        $this->submit();
+        $other = new RegistrationKey($this->event, '00A0');
+        $this->inAdminRun(function (Context $context) use ($other): void {
+            $created = new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
+            (new RegistrationRepository())->upsert(new Registration(
+                $other,
+                RegistrationStatus::Registered,
+                SecretLink::generate(),
+                $created,
+                $created
+            ), $context);
+        });
+
+        $this->inAdminRun(function (Context $context) use ($other): void {
+            (new Registrations())->lock($other, $context);
+            self::assertFalse($this->seats->takeIfFree($this->pool(), $other, SeatAct::Restore, $context));
+        });
+
+        self::assertSame(1, $this->seats->held($this->pool()));
+        self::assertFalse($this->seats->holds($this->pool(), $other));
+    }
+
+    public function testTheContributedSeatClaimSourceFeedsTheSubmit(): void
+    {
+        $this->openEvent(10, 1);
+        $pool = $this->pool();
+        $source = new class ($pool) implements SeatClaimSource {
+            public function __construct(private readonly OptionSeatPool $pool)
+            {
+            }
+
+            public function claims(Event $event, ValidatedAnswers $answers): array
+            {
+                return [new SeatClaim('modul', $this->pool)];
+            }
+        };
+        $submit = function () use ($source): SubmitResult {
+            $form = $this->readForm($this->form);
+
+            return (new RegistrationSubmit($this->runner, seatClaimSources: [$source]))->submit(
+                new SubmitRequest($form->id, $form->version, self::ANSWERS, SubmitToken::generate()),
+                new GuestActor()
+            );
+        };
+
+        $first = $submit();
+        self::assertTrue($this->seats->holds($pool, $first->registration));
+
+        try {
+            $submit();
+            self::fail('The source\'s full pool should have refused the submit.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['modul' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+        }
+        self::assertSame(1, $this->registrationCount());
     }
 }

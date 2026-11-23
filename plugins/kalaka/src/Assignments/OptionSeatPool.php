@@ -39,6 +39,11 @@ final class OptionSeatPool implements SeatPool
         return LockLevel::Other;
     }
 
+    public function lockRow(): array
+    {
+        return ['kalaka_assignment_options', [$this->setId, $this->optionKey]];
+    }
+
     public function limit(): ?int
     {
         return ($this->options->find($this->row()) ?? throw new NotFound())->capacity;

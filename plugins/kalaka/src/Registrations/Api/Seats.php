@@ -6,8 +6,10 @@ namespace Kalaka\Registrations\Api;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Foundation\Api\UseCase\LockOrder;
 use Kalaka\Registrations\EventSeatPool;
 use Kalaka\Registrations\RegistrationCount;
+use Kalaka\Registrations\RegistrationRepository;
 use Kalaka\Registrations\SeatCount;
 use Kalaka\Registrations\SeatRecord;
 use Kalaka\Registrations\SeatRepository;
@@ -20,11 +22,19 @@ use Kalaka\Registrations\SeatRepository;
  * (`release()`, `releaseAll()`). A freed seat stays free until some registration's own act takes it: nothing
  * here moves a seat from one registration to another.
  *
- * The event's pool has no seat rows: its seats are the `registered` registrations (the status is the
+ * The event's pool has no seat rows: its seats are the counted `registered` registrations (the status is the
  * stored fact), and a submit decides its status by the latch, not by this API. Every other pool's seats are
  * rows of `kalaka_seats`, one per registration and pool.
  *
  * Tiers and offers use the same API: a pool implements `SeatPool` over its own row.
+ *
+ * Lock order (foundation.md, "Lock order"). A pool whose row sits before the registration row (a quota row) is
+ * locked before the registration is: an act on an existing registration calls `lock()` for the pool first, then
+ * locks the registration, then takes the seat (the pool row is then held, so `take*()` locks nothing new). A
+ * `take*()` that finds the registration held and the quota row not fails the run with the guard's `SystemFailure`
+ * (a Quota lock after a Registration lock): it cannot take the pool's lock itself, the registration row being
+ * locked already. A submit claims its pools in `inLockOrder()`. Pools at any other level are locked inside
+ * `take*()`.
  */
 final class Seats
 {
@@ -32,6 +42,7 @@ final class Seats
         private readonly SeatRepository $seats = new SeatRepository(),
         private readonly SeatCount $count = new SeatCount(),
         private readonly RegistrationCount $registered = new RegistrationCount(),
+        private readonly RegistrationRepository $registrations = new RegistrationRepository(),
     ) {
     }
 
@@ -51,7 +62,8 @@ final class Seats
 
     /**
      * The seats left in the pool, never below zero; null when the pool has no limit. A plain read: the
-     * value of the form-condition variable `seats_left.<pool>`.
+     * value of the form-condition variable `event.seats_left` (the event's pool) or
+     * `seats_left.<field key>.<option value>` (a set option's pool, by the ranking/request field key).
      */
     public function left(SeatPool $pool): ?int
     {
@@ -68,16 +80,49 @@ final class Seats
         return $limit === null ? 0 : max(0, $this->held($pool) - $limit);
     }
 
-    /** Whether the registration holds a seat in the pool. A plain read; never true for the event's pool. */
+    /**
+     * Whether the registration holds a seat in the pool. A plain read. In the event's pool it holds one when it is
+     * `registered` (the status is the seat); in any other when it has a seat row.
+     */
     public function holds(SeatPool $pool, RegistrationKey $registration): bool
     {
-        return $pool->key() !== SeatPool::EVENT && $this->seats->find(self::key($registration, $pool)) !== null;
+        if ($pool->key() === SeatPool::EVENT) {
+            return $registration->eventId === $pool->eventId()
+                && $this->registrations->find($registration)?->status === RegistrationStatus::Registered;
+        }
+
+        return $this->seats->find(self::key($registration, $pool)) !== null;
+    }
+
+    /**
+     * The claims in the order their pool rows may be locked: by lock level, then by table and key as the
+     * runner's lock guard compares them (not by pool key, which sorts "10" before "9"). A claim's pool must
+     * not be locked in any other order, or the run fails with a lock-order `SystemFailure`.
+     *
+     * @param list<SeatClaim> $claims
+     * @return list<SeatClaim>
+     */
+    public function inLockOrder(array $claims): array
+    {
+        usort($claims, static function (SeatClaim $a, SeatClaim $b): int {
+            $levels = $a->pool->lockLevel()->value <=> $b->pool->lockLevel()->value;
+            if ($levels !== 0) {
+                return $levels;
+            }
+            [$tableA, $keyA] = $a->pool->lockRow();
+            [$tableB, $keyB] = $b->pool->lockRow();
+
+            return LockOrder::compare($tableA, $keyA, $tableB, $keyB);
+        });
+
+        return $claims;
     }
 
     /**
      * Locks the pool's own row `FOR UPDATE` and returns the seats left, never below zero; null when the pool
      * has no limit. The check a use case makes before it writes anything, for a pool whose row sits
-     * before the registration row in the lock order.
+     * before the registration row in the lock order: call it before the registration row is locked, in
+     * `inLockOrder()` when there are several pools.
      */
     public function lock(SeatPool $pool, Context $context): ?int
     {
@@ -88,7 +133,8 @@ final class Seats
 
     /**
      * Takes a seat for the registration's own act, refusing when the pool is full. A registration that
-     * already holds one keeps it.
+     * already holds one keeps it. The registration's row must be held; for a quota pool its row must have been
+     * locked by `lock()` before (see the class comment).
      *
      * @throws SeatsFull
      */
@@ -99,7 +145,7 @@ final class Seats
 
     /**
      * Takes a seat when one is free, for an admission or a restore into a pool that may be full: a full pool
-     * gives no seat and no error.
+     * gives no seat and no error. [UNAPPROVED N6]
      *
      * @return bool whether the registration holds a seat in the pool now
      */
@@ -127,7 +173,11 @@ final class Seats
         }
     }
 
-    /** Frees every seat the registration holds: withdrawal and removal. */
+    /**
+     * Frees every seat the registration holds: withdrawal and removal. A confirmed assignment stays as a record
+     * (`Assignments`); a restore or an admission takes the seats again (`AssignmentSeats::retake()`).
+     * [UNAPPROVED N6, N10]
+     */
     public function releaseAll(RegistrationKey $registration, Context $context): void
     {
         $this->assertHeld($registration, $context);

@@ -14,6 +14,7 @@ use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
@@ -23,6 +24,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Account\AccountOutcome;
@@ -39,16 +41,24 @@ use Kalaka\Registrations\SubmitRegistration;
  * accounts (`accountOutcome()`): a logged-in person owns the registration, and someone not logged in may
  * submit only in `optional` mode. The account itself was created earlier, on WordPress's registration page
  * (`Account\SignUpPage`).
+ *
+ * Seat claims (N8): the limited choices of the answers come from the contributed `SeatClaimSource`s (none on
+ * main until a module builds a limited choice), asked on every attempt for the answers as checked then, and
+ * go to the use case, which locks the pools and takes the seats.
  */
 final class RegistrationSubmit
 {
     public const ATTEMPTS = 3;
 
+    /**
+     * @param list<SeatClaimSource>|null $seatClaimSources null: the contributed ones; a test passes its own
+     */
     public function __construct(
         private readonly ?Runner $runner = null,
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly ParticipantFields $participantFields = new ParticipantFields(),
+        private readonly ?array $seatClaimSources = null,
     ) {
     }
 
@@ -111,6 +121,7 @@ final class RegistrationSubmit
                 self::fieldTypes($definition),
                 $this->participantFields->of($form->eventId),
                 account: $account,
+                seatClaims: $this->seatClaims($event, $answers),
             );
             try {
                 $result = $runner->run($useCase, ['form' => $form->id, 'token' => $request->token], $actor);
@@ -128,6 +139,22 @@ final class RegistrationSubmit
             // After the transaction: the after-submit content reads the form's post.
             return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result));
         }
+    }
+
+    /**
+     * The seat claims of the validated answers, asked of every contributed `SeatClaimSource` (N8): one list in
+     * contribution order, empty while no module builds a limited choice.
+     *
+     * @return list<SeatClaim>
+     */
+    private function seatClaims(Event $event, ValidatedAnswers $answers): array
+    {
+        $claims = [];
+        foreach ($this->seatClaimSources ?? Contributions::current()->seatClaimSources() as $source) {
+            array_push($claims, ...$source->claims($event, $answers));
+        }
+
+        return $claims;
     }
 
     /**

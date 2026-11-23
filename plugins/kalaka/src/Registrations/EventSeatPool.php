@@ -13,7 +13,7 @@ use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * The event's own places. Its pool row is the event row, the first lock of a submit; its seats are the
- * event's `registered` registrations, so the status stays the one stored fact (`Api\Seats::held()`) and no
+ * event's counted `registered` registrations, so the status stays the one stored fact (`Api\Seats::held()`) and no
  * seat row is written. Whether a submit lands on the waitlist stays the latch's decision
  * (registrations-and-identity.md, "Status, capacity and waitlist"). [UNAPPROVED N2]
  */
@@ -39,6 +39,11 @@ final class EventSeatPool implements SeatPool
     public function lockLevel(): LockLevel
     {
         return LockLevel::Event;
+    }
+
+    public function lockRow(): array
+    {
+        return ['kalaka_events', [$this->eventId]];
     }
 
     public function limit(): ?int

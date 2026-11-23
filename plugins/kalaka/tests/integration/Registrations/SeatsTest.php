@@ -12,6 +12,7 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SeatsFull;
@@ -36,13 +37,31 @@ final class SeatsTest extends RegistrationsTestCase
         $this->event = (int) $this->runner->run(new CreateEvent(), ['name' => 'Tábor'], new CliActor(null));
     }
 
-    private function pool(?int $limit, string $key = 'tier.tamogatott'): SeatPool
-    {
-        return new class ($this->event, $key, $limit) implements SeatPool {
+    /**
+     * @param array{0: string, 1: list<int|string>}|null $row the pool's lock row; by default a row of its own key
+     */
+    private function pool(
+        ?int $limit,
+        string $key = 'tier.tamogatott',
+        ?array $row = null,
+        LockLevel $level = LockLevel::Quota,
+    ): SeatPool {
+        return new class ($this->event, $key, $limit, $row ?? ['kalaka_stand_in', [$key]], $level) implements SeatPool {
             public int $locks = 0;
 
-            public function __construct(private int $event, private string $key, private ?int $limit)
+            /** @param array{0: string, 1: list<int|string>} $row */
+            public function __construct(
+                private int $event,
+                private string $key,
+                private ?int $limit,
+                private array $row,
+                private LockLevel $level,
+            ) {
+            }
+
+            public function lockRow(): array
             {
+                return $this->row;
             }
 
             public function eventId(): int
@@ -57,7 +76,7 @@ final class SeatsTest extends RegistrationsTestCase
 
             public function lockLevel(): LockLevel
             {
-                return LockLevel::Quota;
+                return $this->level;
             }
 
             public function limit(): ?int
@@ -231,5 +250,41 @@ final class SeatsTest extends RegistrationsTestCase
 
         $this->expectException(SystemFailure::class);
         $this->by('00A2', 'take', $event);
+    }
+
+    public function testTheEventPoolIsHeldByARegisteredRegistrationAndNoOther(): void
+    {
+        $this->inRun(function (array $input, Context $c): void {
+            $this->registrations->upsert($this->newRegistration($this->event, '00A0'), $c);
+            $waitlisted = $this->newRegistration($this->event, '00A2', RegistrationStatus::Waitlisted);
+            $this->registrations->upsert($waitlisted, $c);
+        });
+        $event = $this->seats->eventPool($this->event);
+
+        self::assertTrue($this->seats->holds($event, new RegistrationKey($this->event, '00A0')));
+        self::assertFalse($this->seats->holds($event, new RegistrationKey($this->event, '00A2')));
+        self::assertFalse($this->seats->holds($event, new RegistrationKey($this->event, '00A5')));
+    }
+
+    public function testClaimsAreOrderedAsTheRunnersGuardComparesRows(): void
+    {
+        $other = $this->pool(1, 'offer.1', ['kalaka_test_b', [1]]);
+        $ten = $this->pool(1, 'tier.10', ['kalaka_test_a', [10]]);
+        $nine = $this->pool(1, 'tier.9', ['kalaka_test_a', ['9']]);
+        $option = $this->pool(1, 'option.1.a', ['kalaka_assignment_options', [1, 'a']], LockLevel::Other);
+        $claims = [
+            new SeatClaim('o', $option),
+            new SeatClaim('b', $other),
+            new SeatClaim('t10', $ten),
+            new SeatClaim('t9', $nine),
+        ];
+
+        $ordered = array_map(
+            static fn (SeatClaim $claim): string => $claim->fieldKey,
+            $this->seats->inLockOrder($claims)
+        );
+
+        // Quota rows first, by table and then by number (9 before 10, though "tier.10" sorts first as text).
+        self::assertSame(['t9', 't10', 'b', 'o'], $ordered);
     }
 }

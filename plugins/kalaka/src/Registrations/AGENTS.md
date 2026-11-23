@@ -125,8 +125,13 @@ the waitlist and reference codes
   and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
   staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
   before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
-  at a lock level before the registration row (a quota row) is locked and checked before the registration is
-  written; any other once it is in.
+  at a lock level before the registration row (a quota row) is locked before the registration row is:
+  a submit locks and checks its quota pools before the registration is written, in `Seats::inLockOrder()` (by
+  level, then table and key as the runner's guard compares them, never by pool-key string); an act on an
+  existing registration (admission, restore, staff placing) calls `Seats::lock()` for such a pool first, then
+  locks the registration, then takes the seat. A `take*()` that finds the registration held and a quota row not
+  fails the run with the guard's `SystemFailure`: the pool's lock cannot be taken after the registration's. Any
+  other pool is locked inside `take*()`, once the registration row is in.
 - A full pool refuses `take()` and `kalaka-portal/submit-registration` (the form comes back with the refusal on
   the choice's field, nothing saved); `takeIfFree()` gives an admission or a restore no seat and no error;
   `takeOver()` is staff placing past the limit. Only a `registered` submit takes its claims' seats: a waitlisted
@@ -134,6 +139,9 @@ the waitlist and reference codes
 - A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
   refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
   from one registration to another, and a count never hands a place on.
-- The event's pool has no rows: its seats are the `registered` statuses, and the latch decides the waitlist as it
-  always did. `Seats::left()` and `over()` are computed on read, never stored.
+- A submit's seat claims come from contributed `Api\SeatClaimSource`s
+  (`Contributions::seatClaimSource()`): answers in, `SeatClaim`s out; a source locks, counts and writes nothing.
+  `RegistrationSubmit` asks each on every attempt and hands the claims to the use case.
+- The event's pool has no rows: its seats are the counted `registered` statuses, and the latch decides the
+  waitlist as it always did. `Seats::left()` and `over()` are computed on read, never stored.
 - Only Registrations writes its tables.
