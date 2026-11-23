@@ -165,18 +165,20 @@ only at the participant's side.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are extension
-decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+Tier places of the price ladder and support-offer places are seats: facts,
+not decisions.
 
-- **Held** when the registration becomes `registered` (at submit, admission or
-  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
-  Waitlisted registrations hold no place.
-- **Released** on withdrawal or removal.
-- **Reassigned by a staff act** for price-tier places: staff give a freed
-  place to a requester from a list in registration order, so nobody's money
-  changes automatically. **A support-offer place** that staff's evaluation
-  refuses goes to the next requester in registration order at once.
-- **A restored registration** gets a place only if one is free.
+- **Taken** at the registration's own act (submit, admission or restore),
+  under a `FOR UPDATE` lock on the tier or offer row. Waitlisted
+  registrations hold no place.
+- **A full one cannot be chosen:** the submit is refused, as for a full set
+  option. Staff can still place a registration by hand, warned that the pool
+  is full.
+- **Released** on withdrawal or removal, and when an answer refuses the
+  offer (a partner approves or refuses through the same act as staff).
+- **A freed place stays free** until an act takes it; it never moves to
+  anyone by itself.
+- **A restored or admitted registration** gets a place only if one is free.
 
 ## Withdrawal, removal and substitution
 
@@ -243,11 +245,12 @@ such as lunch or a donation.
   `EXPLAIN` test.
 - **Support offers per event on any node,** the root included, several per
   node, are offered to the node and everything below it, and the registrant
-  selects them: amount, evaluated or not (approved by the body, in its view
-  or through a form link, or by staff; payment is held until then), and an
-  optional limit of places (people only). Availability is set up on the form,
-  as for price tiers and extra charges. A selected offer with a limit takes a
-  place ([Quota places](#quota-places)).
+  selects them: amount, whether it needs a request (answered by staff or by
+  the body, where a partner approves, through the one "answer a request" act;
+  while the selection awaits an answer, no payment is asked and no due date is
+  shown), and an optional limit of places (people only). Availability is set
+  up on the form, as for price tiers and extra charges. A selected offer with
+  a limit takes a place ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.

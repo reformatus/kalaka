@@ -36,12 +36,12 @@ what is dropped. The architecture pages say how things are built; this page says
 3. **Congregation share** ([NR-1](money.md#congregation-share)): the
    organization directory, the congregation picker and the share pair.
 4. **Support and decisions:** support offers with quota places (Baptist,
-   Dunamellék); pending decisions with the payment hold (support offers that IVK
-   staff evaluate, aid requests, partner confirmation). A partner confirms in a
-   view of its own with an editable grant, the same mechanism staff use,
-   filtered to the partner's registrations. Until partners have their own
-   views, IVK staff record a partner's confirmation on its behalf, audited
-   with a reason.
+   Dunamellék); requests that await an answer (support offers, aid requests,
+   partner approval). A partner approves in a view of its own through the one
+   "answer a request" act its grant carries, the act staff use, filtered to
+   the partner's registrations. Until partners have their own views, IVK
+   staff record a partner's confirmation on its behalf, audited with a
+   reason.
 5. **Mail:** IVK's mails 1, 1O, 1V and 2 and the other action mails; the
    sender with its throttle; staff see which deliveries
    failed and can send a chosen mail to chosen registrations. Mail is never
@@ -68,7 +68,7 @@ Not a commitment: the owner drops requirements when needed. Candidates:
 
 1. **Card payment through WooCommerce:** bank transfer only on opening day,
    card payment in early December.
-2. **Partner self-service views:** staff record confirmations meanwhile
+2. **Partner self-service views:** staff record approvals meanwhile
    (item 4).
 3. **The Evangélikus and Akadémia support offers,** which also wait on
    stakeholder question SQ-5.
