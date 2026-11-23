@@ -30,7 +30,7 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testTheNumberFieldWithTheChargesKeyMultipliesTheAmount(): void
     {
-        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000')]);
+        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000', 'number')]);
 
         $anna = $this->registerWith('00A0', ['ejjel' => '3']);
 
@@ -51,7 +51,7 @@ final class ExtrasTest extends ExtrasTestCase
     {
         $this->applyCharges([
             self::item('ebed', 'Ebéd', '3500'),
-            self::item('ejjel', 'Éjszaka', '1000'),
+            self::item('ejjel', 'Éjszaka', '1000', 'number'),
         ]);
 
         $anna = $this->registerWith('00A0', ['ebed' => '1', 'ejjel' => '2']);
@@ -77,7 +77,7 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testAWithdrawnRegistrationReversesEveryChargeLine(): void
     {
-        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éjszaka', '1000')]);
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éjszaka', '1000', 'number')]);
         $anna = $this->registerWith('00A0', ['ebed' => '1', 'ejjel' => '2']);
         self::assertSame('5500', $this->balance($anna));
 
@@ -100,7 +100,7 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testAnythingButAPositiveWholeQuantityChargesNothing(): void
     {
-        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000')]);
+        $this->applyCharges([self::item('ejjel', 'Éjszaka', '1000', 'number')]);
 
         foreach (['00A0' => '0', '00A2' => '-2', '00A5' => '2.5', '00A8' => ''] as $code => $answer) {
             $key = $this->registerWith($code, ['ejjel' => $answer]);
@@ -111,7 +111,7 @@ final class ExtrasTest extends ExtrasTestCase
     public function testAnAmountTimesAnAnswerMoneyCannotHoldChargesNobodyAndNothingThrows(): void
     {
         $this->applyCharges([
-            self::item('ejjel', 'Éjszaka', '100000000000000'),
+            self::item('ejjel', 'Éjszaka', '100000000000000', 'number'),
             self::item('ebed', 'Ebéd', '3500'),
         ]);
 
@@ -164,14 +164,15 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testOnlyAConsentAndAWholeNumberFieldChargeAndEveryOtherTypeChargesNobody(): void
     {
-        $this->declareField('szoveg', 'kalaka/text-field', null, 3);
-        $this->declareField('skala', 'kalaka/scale-field', null, 4);
-        $this->declareField('valasz', 'kalaka/choice-field', null, 5);
         $this->applyCharges([
             self::item('szoveg', 'Szöveg', '1000'),
             self::item('skala', 'Skála', '1000'),
             self::item('valasz', 'Választás', '1000'),
         ]);
+        // The declaration only makes consents and numbers: the other types are rows written around it.
+        $this->retypeField('szoveg', 'kalaka/text-field');
+        $this->retypeField('skala', 'kalaka/scale-field');
+        $this->retypeField('valasz', 'kalaka/choice-field');
 
         $anna = $this->registerWith('00A0', ['szoveg' => '3', 'skala' => '4', 'valasz' => '["1"]']);
 
@@ -181,7 +182,7 @@ final class ExtrasTest extends ExtrasTestCase
     public function testASavedChargeIsNotChargedByANumberFieldDeclaredWithDecimalsAfterwards(): void
     {
         $this->applyCharges([self::item('uj', 'Új', '1000')]);
-        $this->declareField('uj', 'kalaka/number-field', ['decimals' => 2], 3);
+        $this->retypeField('uj', 'kalaka/number-field', ['decimals' => 2]);
 
         $anna = $this->registerWith('00A0', ['uj' => '3']);
 
@@ -208,7 +209,7 @@ final class ExtrasTest extends ExtrasTestCase
 
         $bad = [
             [self::item('ebed', 'Ebéd', '3500'), self::item('ebed', 'Ebéd', '3000')],
-            [self::item('tizedes', 'Tizedes', '3500')],
+            [self::item('tizedes', 'Tizedes', '3500', 'number')],
             [self::item('adomany', 'Adomány', '3500')],
             [self::item('a' . str_repeat('b', 40), 'Hosszú', '3500')],
             [['key' => 'ebed', 'label' => 'Ebéd', 'amount' => '3500', 'field' => 'ebed']],

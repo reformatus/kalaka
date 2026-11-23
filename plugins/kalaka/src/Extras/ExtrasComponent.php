@@ -85,6 +85,7 @@ final class ExtrasComponent implements ConfigurableFeeComponent
                 'key' => $charge->key,
                 'label' => $charge->label,
                 'amount' => PlainAmount::of($charge->amount),
+                'type' => $charge->type,
             ];
         }
 

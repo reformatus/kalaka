@@ -45,8 +45,10 @@ keeps of what it knows about its participants
   `extension` field's texts are its declarer's.
 - An `extension` field's options are its declarer's too: `DeclareExtensionField`
   sets them (an option no longer declared is retired, its label kept), and
-  the forms' union never adds or retires one. A declaration never takes over
-  a key held by another source or with another type.
+  the forms' union never adds or retires one. A declaration adopts a `form`
+  field of the same type (it becomes `extension`, retired or not, values
+  untouched) and never takes over a `staff` or `system` field or a key
+  of another type [UNAPPROVED, N4 of #231].
 - A field's `type` is a block name. The module reads only that block's
   registered title from WordPress's block registry (the type label) and
   nothing of Forms: which forms hold a field is Forms' to add

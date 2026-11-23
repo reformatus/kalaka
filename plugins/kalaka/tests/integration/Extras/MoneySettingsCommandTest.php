@@ -77,7 +77,7 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
         self::assertSame('30000', $shown['fixed_price']);
         self::assertSame('ebed', $shown['components']['extras']['charges'][0]['key']);
         self::assertSame('2000', $shown['components']['extras']['charges'][0]['amount']);
-        self::assertSame(['key', 'label', 'amount'], array_keys($shown['components']['extras']['charges'][0]));
+        self::assertSame(['key', 'label', 'amount', 'type'], array_keys($shown['components']['extras']['charges'][0]));
         self::assertArrayNotHasKey('donation', $shown['components']);
 
         $lines = $this->lineCount();

@@ -355,11 +355,17 @@ flowchart TB
   the forms that hold it; an option no form offers any more is retired,
   keeping its label, so stored values still read. An extension field's
   options are its declarer's, not the forms' union.
-- **Every form-to-backend link is by key.** An admin adds a backend thing
-  (a charge, the donation), authors a form, adds a field, and sets the
-  field's key to the backend thing's key; the backend names no field. The
-  field with that key is what the thing reads. A backend key no field uses
-  does nothing.
+- **Who defines a participant field.** A field that only holds data is
+  created by the form field that first asks for it. A field that code acts
+  on (the price tier, an extra charge, the donation, a share or support
+  answer) is defined by that code, which declares it with its key and type
+  when its setting is saved (`extension` source); a form field joins it by
+  taking its key and never creates it. The field with that key is what the
+  code reads; a declared key no form field holds does nothing. When a form
+  field already holds the key, with the same type, the declaration adopts
+  it: the field becomes an `extension` field with the declarer's title, and
+  its values stay. A key a `staff` or `system` field holds, or a field of
+  another type, refuses the declaration.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins, or declared

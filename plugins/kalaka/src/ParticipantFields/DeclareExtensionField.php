@@ -14,8 +14,10 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * "Fields"): its type, title, choice options and whether forms may hold its key. The field's texts are its
  * declarer's, so a declaration sets the title and the option labels as given; an option it no longer
  * declares is retired with its label kept, and one declared again is active again. A key no row has yet
- * is added after every field declared before. A key that is held by another source or with another type is
- * refused: the declaration never takes over a form's, staff or system field. Run nested in the declarer's own
+ * is added after every field declared before. A key that is held by a staff or system field, or by a field of
+ * another type, is refused. A `form` field of the same type is adopted: it becomes an `extension` field with the
+ * declarer's title, retired or not (a declaration makes it active), its values untouched (a form created the key
+ * first, as a convenience; events-and-forms.md, "Fields"). Run nested in the declarer's own
  * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save. [UNAPPROVED, #200 N10]
  */
 final class DeclareExtensionField implements AdminUseCase
@@ -52,6 +54,7 @@ final class DeclareExtensionField implements AdminUseCase
                     ],
                 ],
                 'form_writable' => ['type' => 'boolean'],
+                'decimals' => ['type' => ['integer', 'null'], 'minimum' => 0],
             ],
             'required' => ['event_id', 'key', 'type', 'title', 'options', 'form_writable'],
             'additionalProperties' => false,
@@ -73,7 +76,12 @@ final class DeclareExtensionField implements AdminUseCase
         return [];
     }
 
-    /** @throws RuleViolation when the key is held by another source or with another type */
+    /**
+     * `decimals`, when given, is the number of decimals the declarer fixes for a number field: a form field that
+     * joins it holds that many and no other (`SharedKeyCheck`'s `extension_decimals`).
+     *
+     * @throws RuleViolation when the key is held by a staff or system field, or with another type
+     */
     public function execute(array $input, Context $context): null
     {
         $eventId = (int) $input['event_id'];
@@ -104,11 +112,15 @@ final class DeclareExtensionField implements AdminUseCase
                 $now,
                 $position + 1,
                 (bool) $input['form_writable'],
+                0,
+                self::settings(null, $input['decimals'] ?? null),
             ), $context);
 
             return null;
         }
-        if ($record->source !== ParticipantFieldRecord::SOURCE_EXTENSION || $record->type !== $input['type']) {
+        $adoptable = $record->source === ParticipantFieldRecord::SOURCE_FORM
+            || $record->source === ParticipantFieldRecord::SOURCE_EXTENSION;
+        if (!$adoptable || $record->type !== $input['type']) {
             throw new RuleViolation();
         }
 
@@ -116,6 +128,8 @@ final class DeclareExtensionField implements AdminUseCase
         $record->title = (string) $input['title'];
         $record->options = self::options($record->options, $declared, $now);
         $record->formWritable = (bool) $input['form_writable'];
+        $record->source = ParticipantFieldRecord::SOURCE_EXTENSION;
+        $record->settings = self::settings($record->settings, $input['decimals'] ?? null);
         $record->retiredAt = null;
         if ($record->toRow() !== $before) {
             $record->updatedAt = $now;
@@ -123,6 +137,21 @@ final class DeclareExtensionField implements AdminUseCase
         }
 
         return null;
+    }
+
+    /**
+     * The stored settings with the declared decimals set (and left alone when the declarer fixes none).
+     *
+     * @param ?array<string, mixed> $stored
+     * @return ?array<string, mixed>
+     */
+    private static function settings(?array $stored, mixed $decimals): ?array
+    {
+        if (!is_int($decimals)) {
+            return $stored;
+        }
+
+        return array_merge($stored ?? [], ['decimals' => $decimals, 'declared' => ['decimals' => $decimals]]);
     }
 
     /**
