@@ -1,25 +1,30 @@
 /**
  * The manual confirmation dialog (S20): the required reason, for setting the flag or revoking it
  * (`kalaka/set-manual-confirmation`, `kalaka/unconfirm`). A failed save keeps the dialog and the reason, and
- * while it runs the dialog does not close (Esc, ×, Mégse). A refused unconfirm (a 422) shows the server's text.
- * The unconfirm dialog says nothing about what unconfirming does: that text needs a concept the owner has not
- * worded. [UNAPPROVED N33]
+ * while it runs the dialog does not close (Esc, ×, Mégse) and a second submit is ignored: an unconfirm is a new
+ * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74]
+ * The unconfirm has no refusal. When the rules would
+ * confirm the registration again at once, the dialog shows the server's warning above the field, before the act
+ * ([UNAPPROVED N71]). It says nothing else about what unconfirming does: that text needs a concept the owner has
+ * not worded. [UNAPPROVED N33]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
 import * as api from './api';
-import { refusalOf, validateReason } from './confirmation';
+import { validateReason } from './confirmation';
 import { CONFIRM, MONEY } from './texts';
 
 /**
  * @param {Object}   props
  * @param {Object}   props.config  window.kalakaGrid
  * @param {boolean}  props.unconfirm the unconfirm dialog (else the set dialog)
+ * @param {?string}  props.warning the server's warning for the unconfirm, null for none
  * @param {string}   props.code    the registration's code
  * @param {Function} props.onClose closes the dialog
- * @param {Function} props.onDone  called with the snackbar text once it is saved
+ * @param {Function} props.onDone  called with (unconfirm, the ability's answer) once it is saved; it re-reads and
+ *                                 decides the snackbar
  */
-export default function ConfirmDialog( { config, unconfirm, code, onClose, onDone } ) {
+export default function ConfirmDialog( { config, unconfirm, warning, code, onClose, onDone } ) {
 	const [ reason, setReason ] = useState( '' );
 	const [ error, setError ] = useState( '' );
 	const [ failed, setFailed ] = useState( null ); // the failure text, or null
@@ -59,13 +64,12 @@ export default function ConfirmDialog( { config, unconfirm, code, onClose, onDon
 		setBusy( true );
 		try {
 			const result = await api.setManualConfirmation( config, code, reason.trim(), unconfirm );
-			// An unconfirm that found nothing to unconfirm changed nothing: the panel only shows what is now.
-			await onDone( result && result.changed === false ? null : unconfirm ? CONFIRM.unconfirmed : CONFIRM.saved );
-		} catch ( error ) {
+			await onDone( unconfirm, result );
+		} catch {
 			// Whatever the server refused or lost, the dialog stays with the reason.
 			sending.current = false;
 			setBusy( false );
-			setFailed( refusalOf( error ) || MONEY.saveFail );
+			setFailed( MONEY.saveFail );
 		}
 	};
 
@@ -78,6 +82,11 @@ export default function ConfirmDialog( { config, unconfirm, code, onClose, onDon
 			shouldCloseOnClickOutside={ false }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
+				{ warning && (
+					<Notice status="warning" isDismissible={ false }>
+						{ warning }
+					</Notice>
+				) }
 				<TextareaControl
 					label={ CONFIRM.reasonField }
 					value={ reason }

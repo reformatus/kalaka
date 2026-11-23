@@ -1,4 +1,14 @@
-import { CONFIRMATION_KIND, confirmationOf, manualActions, markOf, refusalOf, validateReason } from '../../src/Admin/app/grid/confirmation';
+import * as confirmation from '../../src/Admin/app/grid/confirmation';
+import {
+	CONFIRMATION_KIND,
+	confirmationOf,
+	manualActions,
+	markOf,
+	REASON_MAX,
+	snackbarAfter,
+	validateReason,
+	warningOf,
+} from '../../src/Admin/app/grid/confirmation';
 import { formatMoment } from '../../src/Admin/app/grid/money';
 import { CONFIRM } from '../../src/Admin/app/grid/texts';
 
@@ -40,6 +50,21 @@ describe( 'the reason', () => {
 	test( 'any text is accepted', () => {
 		expect( validateReason( 'Telefonon egyeztettünk' ) ).toBe( '' );
 	} );
+
+	test( 'is at most 500 characters, counted on the trimmed text and by character', () => {
+		expect( REASON_MAX ).toBe( 500 );
+		expect( validateReason( 'a'.repeat( 500 ) ) ).toBe( '' );
+		expect( validateReason( 'a'.repeat( 501 ) ) ).toBe( CONFIRM.reasonTooLong );
+		// What is sent is trimmed: the spaces around do not count.
+		expect( validateReason( `  ${ 'a'.repeat( 500 ) }  ` ) ).toBe( '' );
+		// An astral character is one character (an emoji is two UTF-16 units).
+		expect( validateReason( '😀'.repeat( 500 ) ) ).toBe( '' );
+		expect( validateReason( '😀'.repeat( 501 ) ) ).toBe( CONFIRM.reasonTooLong );
+	} );
+
+	test( 'both messages are the dialog\'s', () => {
+		expect( CONFIRM.reasonTooLong ).toBe( 'Az indoklás legfeljebb 500 karakter lehet.' );
+	} );
 } );
 
 describe( 'the moment of the flag', () => {
@@ -79,19 +104,81 @@ describe( 'the buttons of the manual confirmation block', () => {
 		expect( manualActions( undefined, { unconfirm: true } ) ).toEqual( [ 'unconfirm' ] );
 		expect( manualActions( flag, { confirm_manually: true, unconfirm: false } ) ).toEqual( [] );
 	} );
-} );
 
-describe( 'a refused unconfirm', () => {
-	test( 'a 422 shows the server\'s own text', () => {
-		expect( refusalOf( { code: 'kalaka_rule_violation', message: 'A művelet nem hajtható végre.', data: { status: 422 } } ) ).toBe(
-			'A művelet nem hajtható végre.'
-		);
+	test( 'can.unconfirm decides alone: it does not matter why the registration is confirmed', () => {
+		// The pure logic takes only the flag and `can`: no status, no confirmation cause, no money.
+		expect( manualActions.length ).toBe( 2 );
+		const can = { unconfirm: true, status: 'waitlisted', cause: 'payments', threshold: 'below', view_money: false };
+		expect( manualActions( null, can ) ).toEqual( [ 'unconfirm' ] );
+		expect( manualActions( flag, { ...can, cause: 'nothing_due' } ) ).toEqual( [ 'unconfirm' ] );
+		expect( manualActions( flag, { ...can, cause: 'manual' } ) ).toEqual( [ 'unconfirm' ] );
+		expect( manualActions( flag, { ...can, unconfirm: false, cause: 'manual' } ) ).toEqual( [] );
 	} );
 
-	test( 'any other failure shows the general text (null here)', () => {
-		expect( refusalOf( { message: 'x', data: { status: 500 } } ) ).toBeNull();
-		expect( refusalOf( { data: { status: 422 } } ) ).toBeNull();
-		expect( refusalOf( new Error( 'offline' ) ) ).toBeNull();
-		expect( refusalOf( null ) ).toBeNull();
+	test( 'the set button follows can.confirm_manually only, whatever else the read says', () => {
+		expect( manualActions( null, { confirm_manually: true, status: 'withdrawn', unconfirm: false } ) ).toEqual( [ 'confirm' ] );
+		expect( manualActions( null, { confirm_manually: false, status: 'registered' } ) ).toEqual( [] );
+	} );
+} );
+
+describe( 'the warning before the unconfirm', () => {
+	const text = 'A jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+
+	test( 'is the server\'s text, shown when it is not null and can.unconfirm is true', () => {
+		expect( warningOf( { unconfirm_warning: text }, { unconfirm: true } ) ).toBe( text );
+	} );
+
+	test( 'is absent when the server says null, or the read does not carry it', () => {
+		expect( warningOf( { unconfirm_warning: null }, { unconfirm: true } ) ).toBeNull();
+		expect( warningOf( { unconfirm_warning: '' }, { unconfirm: true } ) ).toBeNull();
+		expect( warningOf( {}, { unconfirm: true } ) ).toBeNull();
+		expect( warningOf( undefined, { unconfirm: true } ) ).toBeNull();
+	} );
+
+	test( 'is absent without can.unconfirm: the panel never shows a warning for an action it does not offer', () => {
+		expect( warningOf( { unconfirm_warning: text }, { unconfirm: false } ) ).toBeNull();
+		expect( warningOf( { unconfirm_warning: text }, {} ) ).toBeNull();
+		expect( warningOf( { unconfirm_warning: text }, undefined ) ).toBeNull();
+	} );
+} );
+
+describe( 'the snackbar after a save', () => {
+	const detail = ( state ) => ( {
+		registration: { decisions: [ { kind: 'confirmation', state, state_label: state } ] },
+	} );
+
+	test( 'a set says it is saved', () => {
+		expect( snackbarAfter( false, { changed: true }, detail( 'confirmed' ) ) ).toBe( CONFIRM.saved );
+	} );
+
+	test( 'an unconfirm that ends not confirmed says it was revoked', () => {
+		expect( snackbarAfter( true, { changed: true }, detail( 'unconfirmed' ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( CONFIRM.unconfirmed ).toBe( 'Visszaigazolás visszavonva.' );
+	} );
+
+	test( 'an unconfirm the rules re-confirmed at once says so: the re-read ends confirmed', () => {
+		expect( snackbarAfter( true, { changed: true }, detail( 'confirmed' ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
+		expect( CONFIRM.unconfirmedReconfirmed ).toBe( 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.' );
+	} );
+
+	test( 'an unconfirm whose re-read carries no confirmation state counts as not confirmed', () => {
+		expect( snackbarAfter( true, { changed: true }, { registration: { decisions: [] } } ) ).toBe( CONFIRM.unconfirmed );
+	} );
+
+	test( 'changed: false writes nothing: no snackbar, for either act', () => {
+		expect( snackbarAfter( true, { changed: false }, detail( 'unconfirmed' ) ) ).toBeNull();
+		expect( snackbarAfter( true, { changed: false }, detail( 'confirmed' ) ) ).toBeNull();
+		expect( snackbarAfter( false, { changed: false }, detail( 'confirmed' ) ) ).toBeNull();
+	} );
+
+	test( 'a failed re-read claims nothing: no snackbar, the panel\'s load error shows', () => {
+		expect( snackbarAfter( true, { changed: true }, null ) ).toBeNull();
+		expect( snackbarAfter( false, { changed: true }, null ) ).toBeNull();
+	} );
+} );
+
+describe( 'the dead 422 path', () => {
+	test( 'is gone: the unconfirm has no refusal, so nothing reads a refusal text', () => {
+		expect( confirmation.refusalOf ).toBeUndefined();
 	} );
 } );

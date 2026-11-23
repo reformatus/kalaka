@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
-import { confirmationOf, markOf } from './confirmation';
+import { confirmationOf, markOf, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import StatusMark from './StatusMark';
@@ -52,6 +52,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 
 	// After a save: the panel stays on the registration and shows what the server now holds. It never rejects:
 	// the entry is saved, and a failed re-read only says so.
+	// It resolves with the detail it read, or null when both reads failed.
 	const reload = useCallback( async () => {
 		const asked = code;
 		// One more try before it says so.
@@ -62,7 +63,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					setDetail( result );
 					setProblem( null );
 				}
-				return;
+				return result;
 			} catch {
 				// Tried again below.
 			}
@@ -70,6 +71,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		if ( shown.current === asked ) {
 			setProblem( 'failed' );
 		}
+		return null;
 	}, [ config, code ] );
 
 	useEffect( () => {
@@ -146,6 +148,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					code={ code }
 					can={ detail.can || {} }
 					manual={ registration.manual_confirmation }
+					warning={ warningOf( registration, detail.can ) }
 					reload={ reload }
 					onSaved={ onSaved }
 				/>

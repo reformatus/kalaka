@@ -3,12 +3,13 @@
  * without the „Pénzügyek” tab: who set the flag, when and why, the button that sets it (with
  * `can.confirm_manually`, while it is not set) and the one „Visszaigazolás visszavonása” (with `can.unconfirm`, on
  * any confirmed registration). The flag itself is read under the money gate, so a user who may confirm but not
- * see money gets the block without the line: setting is idempotent. [UNAPPROVED N32] [UNAPPROVED N34]
+ * see money gets the block without the line: setting is idempotent (the unconfirm is not, see `api.js`). [UNAPPROVED N32]
+ * [UNAPPROVED N34]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import ConfirmDialog from './ConfirmDialog';
-import { manualActions } from './confirmation';
+import { manualActions, snackbarAfter } from './confirmation';
 import { fmt } from './format';
 import { formatMoment } from './money';
 import { CONFIRM } from './texts';
@@ -27,8 +28,11 @@ const moment = ( instant, zone ) =>
  * @param {Object}   props.can     the read's `can`
  * @param {?Object}  props.manual  the read's `registration.manual_confirmation`: { set_at, reason, set_by }, null
  *                                 when it is not set, undefined when the read does not carry it
+ * @param {?string}  props.warning the read's `registration.unconfirm_warning` (the server's text, only with
+ *                                 `can.unconfirm`), null when the unconfirm would not confirm again at once
  * @param {boolean}  props.stale   the last read failed: the block is left out, the snackbar stays
- * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
+ * @param {Function} props.reload  re-reads the panel's detail; resolves with it once it is on screen, null if
+ *                                 both reads failed
  * @param {Function} props.onSaved tells the grid the flag changed
  */
 export default function ManualConfirmation( {
@@ -36,6 +40,7 @@ export default function ManualConfirmation( {
 	code,
 	can,
 	manual,
+	warning,
 	stale,
 	reload,
 	onSaved,
@@ -67,8 +72,11 @@ export default function ManualConfirmation( {
 		setDialog( null );
 		focusOpener();
 	};
-	const done = async ( text ) => {
-		await reload();
+	// The snackbar follows the re-read, not the answer alone: an unconfirm the rules re-confirmed at once ends
+	// confirmed again.
+	const done = async ( unconfirm, result ) => {
+		const detail = await reload();
+		const text = snackbarAfter( unconfirm, result, detail );
 		onSaved();
 		setDialog( null );
 		if ( ! text ) {
@@ -145,6 +153,7 @@ export default function ManualConfirmation( {
 				<ConfirmDialog
 					config={ config }
 					unconfirm={ dialog === 'unconfirm' }
+					warning={ dialog === 'unconfirm' ? warning : null }
 					code={ code }
 					onClose={ close }
 					onDone={ done }

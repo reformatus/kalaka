@@ -147,16 +147,18 @@ export const recordEntry = ( config, entry, can ) => {
 };
 
 /**
- * Confirms a registration without payment (`kalaka/set-manual-confirmation`) or unconfirms it
- * (`kalaka/unconfirm`, which also clears the manual flag). The reason is required (at most 500 characters);
- * both are idempotent, so a retry is safe: unconfirming a registration that is not confirmed answers
- * `{ changed: false }`. The unconfirm is refused with a 422 when its payments reach the threshold or it was
- * confirmed because nothing was due.
+ * Sets the manual confirmation flag (`kalaka/set-manual-confirmation`) or runs the one unconfirm
+ * (`kalaka/unconfirm`: it revokes the flag if it is set and records unconfirmed with the reason; the rules then
+ * decide again). The reason is required (at most 500 characters). Both answer `{ changed }`: `false` means
+ * nothing was written (the registration was not confirmed, or the flag was already set). Only the set is
+ * idempotent. A retry of the unconfirm is a new act: on a registration the rules confirmed again at once it
+ * unconfirms and re-confirms a second time, with its own records and audit entry, and there is no idempotency
+ * key. So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
  *
  * @param {Object}  config    window.kalakaGrid
  * @param {string}  code      the registration's code
  * @param {string}  reason    why
- * @param {boolean} unconfirm unconfirm (else set the manual flag)
+ * @param {boolean} unconfirm the unconfirm (else set the manual flag)
  */
 export const setManualConfirmation = ( config, code, reason, unconfirm ) =>
 	runAbility( unconfirm ? 'kalaka/unconfirm' : 'kalaka/set-manual-confirmation', {
