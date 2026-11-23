@@ -51,6 +51,15 @@ bodies, the renderer and the per-event action-mail catalogue.
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
   looks at nothing else (not the event's state).
+- The "payment recorded" mail is decided by `Api\ActionMails::lineRecorded()` in the use case that recorded the
+  line: money in and out, a payment or a refund, by hand or online, and nothing for a correction, a charge or a
+  replay; its cause is the ledger line (`ledger_line`, the line's ID), and the mail reads that line at send time
+  as the keys `payment.amount`, `payment.direction`, `payment.method` and `payment.date`, which every mail
+  declares and none but this one fills.
+- A mail body places the money table and the transfer block as the blocks `kalaka/mail-money` and
+  `kalaka/mail-transfer` (`Body\MailBlocks`). They render the registration whose mail is rendering
+  (`Body\MailInProgress`), through `Portal\Api\MailMoney` (the status page's own read), in mail markup, and nothing
+  outside a mail's render. A mail is HTML only: no plain-text twin.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and

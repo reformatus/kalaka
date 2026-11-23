@@ -15,6 +15,7 @@ use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Body\ActionMailComposer;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\BodyInUse;
+use Kalaka\Mail\Body\MailBlocks;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Pause\PauseCause;
@@ -148,6 +149,7 @@ SQL;
     {
         $this->registerPostType();
         $this->registerMeta();
+        MailBlocks::register();
 
         // A mail's version is a revision ID, so revisions of mail documents are never pruned.
         add_filter('wp_' . MailPosts::POST_TYPE . '_revisions_to_keep', static fn (): int => -1);

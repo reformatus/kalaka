@@ -33,8 +33,12 @@ page, and the account area
 - The participant blocks show only the participant payer's side: totals,
   owed lines, money movements with their notes, and the transfer amount; the
   money table is read for every status. A balance below zero shows as an
-  overpayment, never as a negative amount to pay. Only the amount still due is bold, and
-  only while it is payable now (above zero, not awaiting an answer).
+  overpayment, never as a negative amount to pay. Only the last row is bold:
+  „Még fizetendő”, or „Túlfizetés” when overpaid, whether or not anything is payable now.
+- The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached
+  through `Api\MailMoney`), with the owner's words in `MoneyWords`; the owed lines are the read's, signed, the base
+  price included. The page's popovers are native (`popover`, `popovertarget`), with an ID of their own per table
+  on a page.
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank
