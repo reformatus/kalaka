@@ -7,7 +7,7 @@
 import { useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl, TextareaControl } from '@wordpress/components';
 import * as api from './api';
-import { asksAmount, buildAnswer, validateAnswer, warnsFull } from './requests';
+import { asksAmount, buildAnswer, savedText, validateAnswer, warnsFull } from './requests';
 import { MONEY, REQUESTS } from './texts';
 
 /**
@@ -16,7 +16,7 @@ import { MONEY, REQUESTS } from './texts';
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.item    the request as the read gives it
  * @param {Function} props.onClose closes the dialog
- * @param {Function} props.onDone  called with the snackbar text once it is saved
+ * @param {Function} props.onDone  called with the snackbar text once it is saved; empty when nothing changed
  */
 export default function AnswerDialog( { config, code, item, onClose, onDone } ) {
 	const [ answer, setAnswer ] = useState( '' );
@@ -41,8 +41,8 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 		sending.current = true;
 		setBusy( true );
 		try {
-			await api.answerRequest( buildAnswer( config.event, code, item, answer, amount, note ) );
-			await onDone( REQUESTS.saved );
+			const result = await api.answerRequest( buildAnswer( config.event, code, item, answer, amount, note ) );
+			await onDone( savedText( result ) );
 		} catch {
 			sending.current = false;
 			setBusy( false );

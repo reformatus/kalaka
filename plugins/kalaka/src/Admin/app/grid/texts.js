@@ -196,8 +196,8 @@ export const CONFIRM = {
  * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). Every string here is
  * unapproved until the owner ticks its box: [UNAPPROVED T3] the heading, [UNAPPROVED T4] „Válaszra vár”,
  * [UNAPPROVED T5] the states „Jóváhagyva” and „Elutasítva”, [UNAPPROVED T6] the award line, [UNAPPROVED T7] the
- * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar. The „full” warning is the
- * approved assignment warning, reused as it is.
+ * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar, [UNAPPROVED T10] the full-offer
+ * warning, [UNAPPROVED T11] the missing award. The amount field says Ft whatever the currency (T8).
  */
 export const REQUESTS = {
 	heading: 'Kérelmek',
@@ -215,5 +215,6 @@ export const REQUESTS = {
 	amountField: 'Megítélt összeg (Ft)',
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
-	full: 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.',
+	full: 'Ez a támogatás már betelt. Ha jóváhagyod, a létszám túllépi a keretet.',
+	awardEmpty: 'Add meg a megítélt összeget.',
 };

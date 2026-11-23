@@ -25,6 +25,12 @@ interface RequestSource
     public function requestsOf(RegistrationKey $registration, array $values): array;
 
     /**
+     * The key of the seat pool an offer's seat comes from, or null when the request has no limit (an aid
+     * request, an offer with no quota). The answer act passes it to `OfferSeats`.
+     */
+    public function seatPool(Request $request): ?string;
+
+    /**
      * Writes the answer to the source's own participant field, inside the answer act's transaction, with
      * `Registrations::writeValue()`. It may refuse an answer it cannot take (an award above what the
      * registration owes) with `InvalidInput`.

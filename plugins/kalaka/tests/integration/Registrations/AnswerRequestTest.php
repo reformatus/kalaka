@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Registrations;
 
+use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
@@ -28,6 +31,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Requests;
+use Kalaka\Tests\Integration\Foundation\AdminProbe;
 use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 
 /**
@@ -57,6 +61,22 @@ final class AnswerRequestTest extends ManualEntryTestCase
             Requests::ANSWER,
         ]));
         $this->exec(new SetFixedPrice(), ['event_id' => $this->event, 'amount' => '30000', 'currency' => 'HUF']);
+        // The fields the test source writes: the event declares them, source "extension".
+        global $wpdb;
+        foreach (['support_answer', 'aid_award'] as $position => $field) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+                'event_id' => $this->event,
+                'field_key' => $field,
+                'version' => 1,
+                'type' => 'kalaka/text-field',
+                'title' => 'Teszt mező',
+                'source' => 'extension',
+                'created_at' => '2026-11-13 08:00:00.000000',
+                'updated_at' => '2026-11-13 08:00:00.000000',
+                'position' => 100 + $position,
+                'form_writable' => 0,
+            ]);
+        }
         $this->runner = $this->runnerAt('2026-12-01 10:00');
     }
 
@@ -66,8 +86,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->requests ??= new Requests([$this->source]);
         $this->seats ??= new RecordingSeats();
         $money = new Materializer(new CoreFeeComponents([
-            new AnswerComponent('support', FeeStage::Support, TestRequestSource::OFFER, $this->requests, '10000'),
-            new AnswerComponent('aid', FeeStage::Aid, TestRequestSource::AID, $this->requests),
+            new AnswerComponent('support', FeeStage::Support, 'support_answer', new Registrations(), '10000'),
+            new AnswerComponent('aid', FeeStage::Aid, 'aid_award', new Registrations()),
         ]));
         $rules = new DecisionRules();
         $rules->add(new ConfirmationRule($money->composition()), true, true);
@@ -233,7 +253,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame([self::huf('20000'), self::huf('20000'), self::huf('0')], $this->money());
         self::assertSame('confirmed', $this->confirmationState());
         self::assertSame((string) $partner, $this->answerRows()[0]['answered_by']);
-        self::assertNotContains('release:' . TestRequestSource::OFFER, $this->seats->calls);
+        self::assertNotContains('release:' . TestRequestSource::POOL, $this->seats->calls);
     }
 
     public function testAnAwaitingRequestDoesNotBlockConfirmationAndALaterApprovalLeavesAnOverpayment(): void
@@ -260,15 +280,15 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
         self::assertSame('refused', $this->value('support_answer'));
         self::assertSame([self::huf('30000'), self::huf('0'), self::huf('30000')], $this->money());
-        self::assertContains('release:' . TestRequestSource::OFFER, $this->seats->calls);
-        self::assertNotContains('take:' . TestRequestSource::OFFER, $this->seats->calls);
+        self::assertContains('release:' . TestRequestSource::POOL, $this->seats->calls);
+        self::assertNotContains('take:' . TestRequestSource::POOL, $this->seats->calls);
 
         $this->runner = $this->runnerAt('2026-12-06 10:00');
         $second = $this->answer(TestRequestSource::OFFER, 'yes');
 
         self::assertNotSame($first['answer'], $second['answer'], 'a changed answer has its own record');
         self::assertFalse($second['over_limit']);
-        self::assertContains('take:' . TestRequestSource::OFFER, $this->seats->calls);
+        self::assertContains('take:' . TestRequestSource::POOL, $this->seats->calls);
         self::assertSame('approved', $this->value('support_answer'));
         self::assertSame([self::huf('20000'), self::huf('0'), self::huf('20000')], $this->money());
         $rows = $this->answerRows();
@@ -306,7 +326,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
         self::assertSame([self::huf('30000'), self::huf('20000'), self::huf('10000')], $this->money());
         self::assertSame('confirmed', $this->confirmationState());
-        self::assertSame(['lock:offer:church', 'release:offer:church'], $this->seats->calls);
+        self::assertSame(['lock:church', 'release:church'], $this->seats->calls);
         self::assertCount(2, $this->answerRows());
     }
 
@@ -405,6 +425,108 @@ final class AnswerRequestTest extends ManualEntryTestCase
         }
 
         self::assertTrue($this->answer(TestRequestSource::OFFER, 'yes', [], new UserActor($partner))['changed']);
+    }
+
+    public function testAWaitlistedRegistrationTakesAndFreesNoSeatWhateverItAnswers(): void
+    {
+        $this->addRegistration($this->event, '00B0', 'waitlisted');
+        $this->addValue($this->event, '00B0', 'support', 'church');
+
+        $this->answer(TestRequestSource::OFFER, 'no', ['code' => '00B0']);
+        $second = $this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0']);
+
+        self::assertTrue($second['changed']);
+        self::assertFalse($second['over_limit']);
+        self::assertSame('approved', (new Registrations())->values($this->key('00B0'))['support_answer']);
+        self::assertSame(['lock:church', 'lock:church'], $this->seats->calls, 'no release, no take');
+    }
+
+    public function testAnAidRequestLocksNoSeatPool(): void
+    {
+        $this->addValue($this->event, self::KEY, 'aid_asked', '12000');
+
+        $this->answer(TestRequestSource::AID, 'yes', ['amount' => '12000']);
+
+        self::assertSame([], $this->seats->calls);
+    }
+
+    public function testAnAnswerWhoseOnlyChangeIsANewNoteIsANewAct(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Első']);
+
+        $same = $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Első']);
+        self::assertFalse($same['changed'], 'the same note is a repeat');
+        $none = $this->answer(TestRequestSource::OFFER, 'yes');
+        self::assertFalse($none['changed'], 'an empty note adds nothing');
+        $noted = $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
+
+        self::assertTrue($noted['changed']);
+        $rows = $this->answerRows();
+        self::assertSame(['Első', 'Telefonon megerősítve'], array_column($rows, 'note'));
+        self::assertSame(['1', '1'], array_column($rows, 'approved'));
+    }
+
+    public function testTheFieldValueNotTheAnswerRowDrivesTheMoney(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        self::assertSame(self::huf('20000'), $this->money()[0]);
+
+        // The fact is the field: set it to "refused" under the unchanged answer rows and let a payment re-price.
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_field_values',
+            ['value' => 'refused'],
+            ['event_id' => $this->event, 'code' => self::KEY, 'field_key' => 'support_answer']
+        );
+        $this->pay('1000', '2026-12-01', 'k1');
+
+        self::assertSame('1', $this->answerRows()[0]['approved']);
+        self::assertSame(self::huf('30000'), $this->money()[0]);
+    }
+
+    public function testWriteValueNeedsTheRegistrationLockADeclaredFieldAndNotASystemField(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => 'decided',
+            'version' => 1,
+            'type' => 'kalaka/text-field',
+            'title' => 'Teszt mező',
+            'source' => 'system',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 200,
+            'form_writable' => 0,
+        ]);
+        $write = function (string $field, bool $lock): void {
+            $this->runner->run(
+                new AdminProbe(function (array $input, Context $context) use ($field, $lock): null {
+                    if ($lock) {
+                        (new Registrations())->lock($this->key(), $context);
+                    }
+                    (new Registrations())->writeValue($this->key(), $field, 'x', $context);
+
+                    return null;
+                }),
+                [],
+                new SystemActor()
+            );
+        };
+
+        foreach ([['support_answer', false], ['nincs_ilyen', true], ['decided', true]] as [$field, $lock]) {
+            try {
+                $write($field, $lock);
+                self::fail('The write of ' . $field . ' is refused.');
+            } catch (SystemFailure) {
+                self::assertNull($this->value($field));
+            }
+        }
+
+        $write('support_answer', true);
+        self::assertSame('x', $this->value('support_answer'));
     }
 
     public function testTheAnswerIsAuditedOnItsRegistration(): void

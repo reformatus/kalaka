@@ -37,11 +37,13 @@ use Kalaka\Registrations\Api\RequestState;
  * - Writes one answer record per act (its id is the key the "answered" mail will take) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
  *   registration is then evaluated in the same run, so money, then confirmation, follow the answer.
- * - A repeat of the latest answer, the same yes or no and the same amount, writes nothing. [UNAPPROVED N8] Only a
+ * - A repeat of the latest answer, the same yes or no, the same amount and no new note, writes nothing; a new
+ *   note alone is a new act. [UNAPPROVED N8] Only a
  *   `registered` or `waitlisted` registration is answered; a withdrawn or removed one is a `RuleViolation`.
  *   [UNAPPROVED N9]
- * - A refusal frees the offer's seat; a "yes" after a refusal takes one again, and when the pool is full the
- *   answer stands and `over_limit` says so (B1). Both go through `OfferSeats`, a seam until slice A.
+ * - On a `registered` registration a refusal frees the offer's seat; a "yes" after a refusal takes one again, and
+ *   when the pool is full the answer stands and `over_limit` says so (B1). A waitlisted registration holds no
+ *   place, so it takes and frees none. Both go through `OfferSeats`, a seam until slice A.
  *
  * Returns `{changed, answer, over_limit}`: the new record's id, null when nothing was written.
  */
@@ -109,7 +111,10 @@ final class AnswerRequest implements AdminUseCase
         // The request is found with a plain read first: the seat's pool lock, which the request names, comes
         // before the registration lock. It is read again under the lock.
         $first = self::stateOf($this->requests->states($key), (string) $input['request']);
-        $this->seats->lockPool($first->request, $context);
+        $pool = $first->request->kind === RequestKind::Offer ? $first->source->seatPool($first->request) : null;
+        if ($pool !== null) {
+            $this->seats->lockPool($pool, $context);
+        }
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
         }
@@ -124,9 +129,12 @@ final class AnswerRequest implements AdminUseCase
         $amount = $this->amountOf($request, $key, $yes, $input['amount'] ?? null);
         $answer = new Answer($yes, $amount, $note === '' ? null : $note);
         $previous = $state->answer;
+        // An answer whose only change is a new note is a new act (a new row, so the "answered" mail goes out
+        // again); an empty note adds nothing. [UNAPPROVED N8]
+        $newNote = $answer->note !== null && $answer->note !== $previous?->note;
         if (
             $previous !== null && $previous->approved === $yes
-            && self::sameAmount($previous->amount, $answer->amount)
+            && self::sameAmount($previous->amount, $answer->amount) && !$newNote
         ) {
             return ['changed' => false, 'answer' => null, 'over_limit' => false];
         }
@@ -143,12 +151,14 @@ final class AnswerRequest implements AdminUseCase
         ), $context);
         $state->source->writeAnswer($key, $request, $answer, $context);
 
+        // A waitlisted registration holds no place (money.md, "Quota places"): its offer seat is decided when it
+        // is admitted, so an answer takes and frees nothing for it. [UNAPPROVED N4]
         $overLimit = false;
-        if ($request->kind === RequestKind::Offer) {
+        if ($pool !== null && $status === RegistrationStatus::Registered) {
             if (!$yes) {
-                $this->seats->release($key, $request, $context);
+                $this->seats->release($key, $pool, $context);
             } elseif ($previous !== null && !$previous->approved) {
-                $overLimit = !$this->seats->take($key, $request, $context);
+                $overLimit = !$this->seats->take($key, $pool, $context);
             }
         }
 

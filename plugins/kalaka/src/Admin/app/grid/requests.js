@@ -37,7 +37,7 @@ export function validateAnswer( item, answer, amount ) {
 		return '';
 	}
 	if ( String( amount ).trim() === '' ) {
-		return MONEY.amountEmpty;
+		return REQUESTS.awardEmpty;
 	}
 	const minor = parseAmount( amount );
 	return minor === null || minor <= 0 ? MONEY.amountBad : '';
@@ -54,3 +54,6 @@ export function buildAnswer( event, code, item, answer, amount, note ) {
 	}
 	return input;
 }
+
+/** The snackbar after a save: none when the act changed nothing (an identical repeat), so it never claims a save. */
+export const savedText = ( result ) => ( result && result.changed === false ? '' : REQUESTS.saved );

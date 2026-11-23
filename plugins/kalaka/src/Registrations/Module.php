@@ -108,7 +108,8 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(4, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS]);
+        // 6, not 5: slice A (#229) takes 5 for its seats. Renumber to the next free version when the stacks meet.
+        return new Schema(6, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS]);
     }
 
     /**
@@ -140,7 +141,7 @@ SQL;
         Abilities::register(
             new Answer\AnswerRequest(),
             'Kérelem megválaszolása',
-            'Egy jelentkező kérelmének (támogatás, jóváhagyás) megválaszolása.'
+            'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
         );
     }
 }

@@ -47,6 +47,10 @@ export default function Requests( { config, code, detail, stale, reload, onSaved
 		await reload();
 		onSaved();
 		setOpen( null );
+		if ( text === '' ) {
+			focusOpener();
+			return;
+		}
 		const id = String( Date.now() );
 		setNotices( ( list ) => list.concat( { id, content: text, status: 'success', spokenMessage: text } ) );
 		timers.current.push(

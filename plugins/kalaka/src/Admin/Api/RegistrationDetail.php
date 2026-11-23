@@ -239,6 +239,7 @@ final class RegistrationDetail
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
+            $pool = $state->request->kind === RequestKind::Offer ? $state->source->seatPool($state->request) : null;
             $items[] = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
@@ -247,7 +248,7 @@ final class RegistrationDetail
                 'amount' => $answer?->amount?->amount(),
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
-                    && $this->seats->isFull($key, $state->request),
+                    && $pool !== null && $this->seats->isFull($key, $pool),
             ];
         }
 

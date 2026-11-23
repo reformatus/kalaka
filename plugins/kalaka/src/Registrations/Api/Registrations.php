@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\RegistrationList;
@@ -24,6 +27,7 @@ final class Registrations
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
         private readonly Requests $requests = new Requests(),
+        private readonly ParticipantFields $participantFields = new ParticipantFields(),
     ) {
     }
 
@@ -94,11 +98,35 @@ final class Registrations
     /**
      * Writes one field value from an extension's own use case (events-and-forms.md, "Fields": the source
      * "extension"; foundation.md: a field value is a fact whatever writes it), e.g. the answer to a request.
-     * Inside a use case's run, with the registration locked; the value is the field type's stored form. The
-     * caller owns the field and its type: this checks neither. [UNAPPROVED N11]
+     * Inside a use case's run, with the registration locked by it; the value is the field type's stored form.
+     * The field must be one the event declares, and not a "system" field, which stores nothing (foundation.md,
+     * "Facts, decisions and computed values"). The caller owns the field's type: this does not check it.
+     * [UNAPPROVED N11]
+     *
+     * @throws SystemFailure when the run does not hold the registration, the event has no such active field, or
+     *                       the field is a "system" one
      */
     public function writeValue(RegistrationKey $key, string $fieldKey, string $value, Context $context): void
     {
+        if (!$context->holdsRegistration($key)) {
+            $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
+            throw $error;
+        }
+        $declared = null;
+        foreach ($this->participantFields->of($key->eventId) as $field) {
+            if ($field->key === $fieldKey) {
+                $declared = $field;
+                break;
+            }
+        }
+        if ($declared === null) {
+            $error = new SystemFailure(null, new \LogicException('The event declares no such participant field.'));
+            throw $error;
+        }
+        if ($declared->source === ParticipantField::SOURCE_SYSTEM) {
+            $error = new SystemFailure(null, new \LogicException('A system field stores no value.'));
+            throw $error;
+        }
         $stored = $this->values->findForUpdate(
             ['eventId' => $key->eventId, 'code' => $key->code, 'fieldKey' => $fieldKey],
             $context

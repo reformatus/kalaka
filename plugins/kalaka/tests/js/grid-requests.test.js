@@ -1,9 +1,9 @@
 /**
  * The requests block's pure logic (slice B): the state lines, when the dialog asks for an amount, the one check
  * and the ability's input. Every string is unapproved until the owner ticks its box: [UNAPPROVED T3] to
- * [UNAPPROVED T9], see `REQUESTS`.
+ * [UNAPPROVED T11], see `REQUESTS`.
  */
-import { asksAmount, buildAnswer, itemsOf, stateText, validateAnswer, warnsFull } from '../../src/Admin/app/grid/requests';
+import { asksAmount, buildAnswer, itemsOf, savedText, stateText, validateAnswer, warnsFull } from '../../src/Admin/app/grid/requests';
 import { MONEY, REQUESTS } from '../../src/Admin/app/grid/texts';
 
 const offer = { id: 'offer:church', kind: 'offer', label: 'Egyházi támogatás', state: 'awaiting', amount: null };
@@ -26,7 +26,7 @@ describe( 'the state line', () => {
 
 	test( 'shows the award of a granted aid and „Elutasítva” for an award of zero', () => {
 		const granted = { ...aid, state: 'approved', amount: '12000.00000000' };
-		expect( stateText( granted, 'HUF' ).replace( /\s/g, ' ' ) ).toBe( 'Megítélt összeg: 12 000 Ft' );
+		expect( stateText( granted, 'HUF' ) ).toBe( 'Megítélt összeg: 12\u00a0000\u00a0Ft' );
 		expect( stateText( { ...aid, state: 'refused', amount: '0.00000000' }, 'HUF' ) ).toBe( REQUESTS.refused );
 	} );
 } );
@@ -46,7 +46,7 @@ describe( 'the dialog', () => {
 	} );
 
 	test( 'needs an amount above zero for an aid yes, and nothing else', () => {
-		expect( validateAnswer( aid, 'yes', '' ) ).toBe( MONEY.amountEmpty );
+		expect( validateAnswer( aid, 'yes', '' ) ).toBe( REQUESTS.awardEmpty );
 		expect( validateAnswer( aid, 'yes', '0' ) ).toBe( MONEY.amountBad );
 		expect( validateAnswer( aid, 'yes', 'abc' ) ).toBe( MONEY.amountBad );
 		expect( validateAnswer( aid, 'yes', '12 000' ) ).toBe( '' );
@@ -69,5 +69,12 @@ describe( 'the dialog', () => {
 			request: 'offer:church',
 			answer: 'no',
 		} );
+	} );
+} );
+
+describe( 'the snackbar', () => {
+	test( 'says the answer was recorded only when the act changed something', () => {
+		expect( savedText( { changed: true, answer: 7, over_limit: false } ) ).toBe( REQUESTS.saved );
+		expect( savedText( { changed: false, answer: null, over_limit: false } ) ).toBe( '' );
 	} );
 } );

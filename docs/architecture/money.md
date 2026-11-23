@@ -27,10 +27,10 @@ title: Money
      participant's own part. Every request with a positive amount waits for a
      decision; automatic evaluation may come later. **The award is a
      participant field of source "extension,"** written only by the aid
-     extension's own use case, never by a form
+     extension's own code, its request source, never by a form
      ([Fields](events-and-forms.md#fields)); staff and partners answer aid and
-     offers alike through the one "answer a request" act, which calls that use
-     case, so the extension stays the award's only writer;
+     offers alike through the one "answer a request" act, which calls the
+     request source's writer, so the extension stays the award's only writer;
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
 - Price-ladder tier quotas are separate from the event's waitlist. Each

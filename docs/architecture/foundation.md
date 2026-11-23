@@ -94,10 +94,10 @@ reached; the grant defines who holds the view.**
     The last holder cannot lose it. On multisite, super admins pass every
     check.
 - **Actions that are not a column** (withdraw, remove, admit, confirm without
-  payment, record money, view money, answer a request, regenerate link, notes, audit history)
-  are carried by the grant, not by WordPress roles. An action is usable only
-  on registrations inside the filter of the same grant's view. Modules
-  declare the actions they
+  payment, record money, view money, answer a request, regenerate link,
+  notes, audit history) are carried by the grant, not by WordPress roles. An
+  action is usable only on registrations inside the filter of the same
+  grant's view. Modules declare the actions they
   offer ([Modules](modules-and-extensions.md#the-module-interface)). A grant
   lists its actions one by one; there are no default bundles yet.
 - **A grant holds a use case only by name:** the use case names an action
@@ -566,9 +566,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A field value is a fact,** whatever writes it. By the participant
     field's source ([Fields](events-and-forms.md#fields)): answers copied
     from a form's submission; a staff write; or an extension's own use case,
-    the only writer of its fields (e.g. the award of adjudicated aid, an
-    organizer's act); the answer to a request, an offer's approval or an
-    award, written by staff's or a partner's act.
+    the only writer of its fields (e.g. the award of adjudicated aid or an
+    offer's approval, written when staff or a partner answer a request; an
+    organizer's act).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.

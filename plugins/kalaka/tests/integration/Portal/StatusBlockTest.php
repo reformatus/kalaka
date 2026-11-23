@@ -186,6 +186,21 @@ final class StatusBlockTest extends PortalTestCase
         self::assertFalse($read->forActive()?->payment?->awaitsAnswer);
     }
 
+    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheNoticeNotTheGreenBox(): void
+    {
+        // Pins the order as built (M10, a box for the owner): awaiting an answer comes before confirmed.
+        $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
+        $this->charge($key, '48000');
+        $this->pay($key, '48000');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+
+        $html = $this->statusBlock($read);
+        self::assertStringContainsString('<strong>Elbírálás alatt.</strong>', $html);
+        self::assertStringNotContainsString('Visszaigazolva', $html);
+    }
+
     /** A request on the registration (a test source), and the read that sees it. */
     private function askingForAnAnswer(RegistrationKey $key): StatusRead
     {

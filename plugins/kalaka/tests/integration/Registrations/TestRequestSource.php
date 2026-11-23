@@ -23,6 +23,9 @@ final class TestRequestSource implements RequestSource
 
     public const AID = 'aid';
 
+    /** The seat pool of the church offer; the aid request has none. */
+    public const POOL = 'church';
+
     public function __construct(private readonly Registrations $registrations = new Registrations())
     {
     }
@@ -38,6 +41,11 @@ final class TestRequestSource implements RequestSource
         }
 
         return $requests;
+    }
+
+    public function seatPool(Request $request): ?string
+    {
+        return $request->kind === RequestKind::Offer ? self::POOL : null;
     }
 
     public function writeAnswer(

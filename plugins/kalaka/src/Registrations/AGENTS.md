@@ -118,19 +118,26 @@ the waitlist and reference codes
   ships none, so with no source every read is empty and costs no statement.
   - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
     `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
-    holds only their registrations); the runner checks the target against the view.
+    holds only their registrations); the runner checks the target against the view. The one action gates every
+    request kind: a holder may answer any offer and award aid of any amount on the registrations in the view.
   - An answer is a fact with two writes in one act: one `kalaka_answers` row per answering act (append-only,
     never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`), and the answer as the
-    source's own participant field value, written by the source through `Registrations::writeValue()`, so the
-    source stays that field's only writer.
-  - The latest row per request is the answer. An identical repeat writes nothing. Aid "no" is an award of 0 Ft: an
+    source's own participant field value, written by the source (`RequestSource::writeAnswer()`, called by the
+    act) through `Registrations::writeValue()`, so the source stays that field's only writer.
+    `writeValue()` refuses a run that does not hold the registration, a key the event does not declare and a
+    "system" field.
+  - The latest row per request is the answer. An identical repeat (same yes or no, same amount, no new note)
+    writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an award of 0 Ft: an
     absent answer awaits, a zero is an answer.
   - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request with no answer, for a
     registration that is not withdrawn or removed. It is `registration.awaits_answer` in the fact source, and it
     hides the due date and the transfer block in Portal. It never blocks confirmation.
-  - A refusing offer answer frees the offer's seat and a "yes" after a refusal takes one, both through the
-    `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands), whose pool lock is taken before the
-    registration lock. A full pool never refuses the "yes": the result says `over_limit`.
+  - On a registered registration a refusing offer answer frees the offer's seat and a "yes" after a refusal
+    takes one; a waitlisted registration holds no place, so it takes and frees none (its seat is decided at
+    admission). Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands) with
+    the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat call). The
+    pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
+    `over_limit`.
   - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
     confirmation) follows in the same run.
 - Only Registrations writes its tables.
