@@ -26,7 +26,7 @@ enum ActionMail: string
         return match ($this) {
             self::Registered => 'Jelentkezés rögzítve',
             self::Waitlisted => 'Jelentkezés várólistára helyezve',
-            self::PaymentRecorded => 'Befizetés rögzítve',
+            self::PaymentRecorded => 'Befizetés vagy visszafizetés rögzítve',
             self::Confirmed => 'Jelentkezés véglegesítve',
             // [UNAPPROVED T12] the lektor's wording
             self::Answered => 'Kérelem megválaszolva',

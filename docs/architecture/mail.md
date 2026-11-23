@@ -24,7 +24,7 @@ record, the check-in act, and so on.
 
 | Kind | Caused by | Decided by |
 |---|---|---|
-| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded, confirmed, answered, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation's mail step ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so every `confirmed` record mails once, a re-confirmation right after staff's unconfirm included; "answered" by the answering act, keyed by the answer record, so every answer mails, a changed one included; every check-in route calls the same check-in use case |
+| **Action** | an act on one registration: registered (admission from the waitlist sends this mail too), waitlisted, payment recorded (money in and money out, a payment or a refund, by hand or online, keyed by the payment line; never a correction, a „Díj” or a „Kedvezmény”), confirmed, answered, link regenerated, an extension's act such as a check-in or a wallet top-up | the use case, inside its own transaction; "confirmed" by the evaluation's mail step ([Foundation](foundation.md#evaluation)), keyed by the confirmation record, so every `confirmed` record mails once, a re-confirmation right after staff's unconfirm included; "answered" by the answering act, keyed by the answer record, so every answer mails, a changed one included; every check-in route calls the same check-in use case |
 | **Scheduled** | a point on the event's calendar, for an audience (e.g. everyone `registered`) | the periodic run, one delivery per registration |
 | **Reminder** | time passing while a condition holds; repeats | the periodic run, for each due repeat; keyed by the repeat number |
 | **Manual** | staff send a chosen mail to chosen registrations, now or scheduled | the staff use case; keyed by the send batch |
@@ -99,7 +99,9 @@ activated.**
   came through; a field with no value for that registration reads as none,
   so a mail naming a field only one form holds still renders for everyone.
   A key that is not a participant field of the event stays an error. Actions and
-  reminders add their own blocks (e.g. a payment table).
+  reminders add their own blocks (e.g. a payment table). The money table and the
+  transfer block are such blocks: they render through the status page's read at
+  send time, so the mail and the page agree, in a look of their own.
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
 - **The body's title is the subject,** as plain text. Mail is sent as HTML
