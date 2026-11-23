@@ -148,6 +148,16 @@ final class MoneyMailTest extends MailBodyTestCase
         self::assertSame('Befizetés 2 000 Ft Online 2026. november 29.', self::text($html));
     }
 
+    public function testACorrectionLineUsedAsACauseReadsAsNone(): void
+    {
+        $correction = $this->line('manual_payment', '-1000', null, '2026-11-29', 'Javítás', true);
+        $charge = $this->line('charge', '500');
+
+        self::assertSame('', self::text($this->render($this->keys(), 'payment_recorded', $correction)));
+        self::assertSame('', self::text($this->render($this->keys(), 'payment_recorded', $charge)));
+        self::assertSame('', self::text($this->render($this->keys(), 'payment_recorded', 999999)));
+    }
+
     public function testEveryOtherMailDeclaresThePaymentKeysAsNone(): void
     {
         $this->line('manual_payment', '-1000', 'cash', '2026-11-29');

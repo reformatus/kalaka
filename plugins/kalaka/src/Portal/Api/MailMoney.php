@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Portal\Api;
 
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Portal\MailMarkup;
-use Kalaka\Portal\MoneyText;
 use Kalaka\Portal\MoneyWords;
 use Kalaka\Registrations\Api\RegistrationKey;
 
@@ -42,12 +42,15 @@ final class MailMoney
         return $transfer === null ? '' : MailMarkup::transfer($transfer);
     }
 
-    /** The movement a paid-side ledger line of the registration is, as the table lists it; null for any other line. */
+    /**
+     * The movement a payment or a refund line of the registration is, as the table lists it; null for any other
+     * line, a correction included (a correction sends no "payment recorded" mail, so it reads as none).
+     */
     public function movement(RegistrationKey $key, int $lineId): ?MovementRow
     {
         foreach ($this->ledger->entriesOf($key) as $entry) {
             if ($entry->id === $lineId) {
-                return $entry->kind->isPaymentFact() ? MoneyRead::movement($entry) : null;
+                return $entry->kind->isPaymentFact() && !$entry->correction ? MoneyRead::movement($entry) : null;
             }
         }
 

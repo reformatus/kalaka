@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal;
 
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Portal\Api\MovementRow;
 use Kalaka\Portal\Api\ParticipantMoney;
 use Kalaka\Portal\Api\TransferDetails;

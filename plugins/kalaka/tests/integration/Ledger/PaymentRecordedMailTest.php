@@ -120,6 +120,19 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
         self::assertCount(2, $this->queued());
     }
 
+    public function testARetryOfARecordingActWithTheSameKeyQueuesNone(): void
+    {
+        $this->switchMail(true);
+        $refund = $this->paymentInput(['idempotency_key' => 'r1', 'amount' => '1000']);
+
+        $first = $this->exec(new RecordRefund(), $refund);
+        $again = $this->exec(new RecordRefund(), $refund);
+
+        self::assertSame($first, $again);
+        self::assertCount(1, $this->lines());
+        self::assertCount(1, $this->queued());
+    }
+
     public function testACorrectionOfEitherDirectionQueuesNone(): void
     {
         $this->switchMail(true);
