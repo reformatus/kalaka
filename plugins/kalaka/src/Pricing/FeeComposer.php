@@ -56,7 +56,7 @@ final class FeeComposer
         // when no component provides the event's base. [UNAPPROVED, #200 N7]
         $baseProvided = false;
         foreach ($components as $component) {
-            if ($component instanceof ProvidesBase && $component->providesBase($facts->registration->eventId)) {
+            if ($component instanceof ProvidesBase && $this->providesBase($component, $facts->registration->eventId)) {
                 $baseProvided = true;
             }
         }
@@ -125,6 +125,21 @@ final class FeeComposer
         }
 
         return $stage;
+    }
+
+    /**
+     * Whether the component provides the event's base; outside code, so a throw is the component's failure.
+     *
+     * @throws FeeComponentFailed when the component throws
+     */
+    private function providesBase(FeeComponent&ProvidesBase $component, int $eventId): bool
+    {
+        try {
+            return $component->providesBase($eventId);
+        } catch (\Throwable $thrown) {
+            $error = new FeeComponentFailed($component->id(), $thrown);
+            throw $error;
+        }
     }
 
     /**

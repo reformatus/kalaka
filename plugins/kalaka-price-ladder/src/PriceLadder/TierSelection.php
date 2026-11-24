@@ -13,7 +13,7 @@ use Kalaka\Pricing\Api\FeeRefusal;
  * tier is never swapped for another. A chosen tier that is no longer in the ladder, or no `price_tier`
  * answer at all (e.g. after a staff write), refuses (`FeeRefusal`): a base of zero never passes silently.
  * The registrant gets no text of the ladder's own: such a refusal is not reachable from the form, because
- * the slot's `price_tier` is required and offers the ladder's tiers only [UNAPPROVED, #200 N15].
+ * the slot's `price_tier` is required and offers the ladder's tiers only [UNAPPROVED N18].
  */
 final class TierSelection
 {
