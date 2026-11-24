@@ -12,6 +12,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\ValueType;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;

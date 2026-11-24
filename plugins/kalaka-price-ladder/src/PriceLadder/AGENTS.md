@@ -4,7 +4,7 @@ PriceLadder is the price ladder: an event's price tiers, one feature plugin,
 `kalaka-price-ladder` (module `price_ladder`), an extension that uses only
 core's public API
 ([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
-So far it holds the tier stage; tier quotas come later. The ladder sets only
+It holds the tier stage and the tiers' quotas. The ladder sets only
 the base price: the share between payers is decided by the registrant's
 answers (the share extension, S29), never by a tier.
 
@@ -21,6 +21,10 @@ answers (the share extension, S29), never by a tier.
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface)
   (the fee component and the slot requirement), [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership).
+- money.md: [Quota places](../../../../docs/architecture/money.md#quota-places) (the tier's limit).
+- foundation.md: [Facts, decisions and computed values](
+  ../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values)
+  (the seat rule: a seat is a stored fact, the count is computed).
 
 ## Invariants
 
@@ -29,7 +33,8 @@ answers (the share extension, S29), never by a tier.
 - Its fee component `price_ladder` composes at the tier stage, returns a
   value and writes nothing. It reads the ladder as it is now: there is no
   tariff snapshot.
-- A tier is a key, a label, an amount and an order: no condition and no
+- A tier is a key, a label, an amount, an order and an optional limit of
+  people: no condition and no
   deadline (the owner's ruling 2026-11-19). It is chosen only through the
   declared field `price_tier`; date and congregation guards are the form
   author's own conditions on the field's options.
@@ -62,8 +67,24 @@ answers (the share extension, S29), never by a tier.
   the money settings file of `wp kalaka money-settings` reads and writes the tiers
   through `settingsToArray()` and `settingsFromArray()`, which only call
   `Api\PriceLadder`.
+- A tier is a seat pool `tier.<key>` under the one seat rule (`TierSeatPool`, quota lock level:
+  `TierRepository::lockLevel()` is `Quota`), limited or not. The limit is the tier's `seat_limit`, a setting
+  (0 or more; none: unlimited), never a seat. `TierClaims` (a `SeatClaimSource`) claims the seat of the tier
+  chosen in `price_tier`, every chosen tier and only while the registration is entitled to it now, so a limit
+  added later counts the choosers already there; a full tier refuses the submit through core. The ladder writes
+  no seat and never moves one: a price change moves nothing, and the amount a tier owes never reads a seat.
+  A registration admitted or restored into a full tier keeps its tier and takes
+  its seat over the limit (`Seats::retake()`, the count shows over the limit),
+  with the existing "full" warning to staff [UNAPPROVED N3].
+  `TierClaims::pools()` serves the form variable `seats_left.price_tier.<tier key>` (the form host reads it).
+- A tier an open (`registered` or `waitlisted`) registration has chosen is not removed
+  (`LadderSaveGuard`, in the preview and in `SetPriceLadder`, through `Registrations::refuseRemovingChosen()`,
+  which refuses with the typed `ItemChosen`, the one refusal for a chosen item), not by the re-price that would
+  fail afterwards [UNAPPROVED N2, N129]. A tier's limit may be given, changed or removed at any time. The preview also checks, before the save, that
+  `price_tier` is free to declare (`ParticipantFields::checkDeclarable()`, with the ladder's declarer `PriceLadderComponent::DECLARER`, the
+  module's ID, as the declaration itself uses) [UNAPPROVED N130].
 - Only this module writes `kalaka_price_ladder_tiers`; `TierRepository` is
   its only writer.
-- No UI. Its Hungarian texts are the plugin name, the title of `price_tier`
-  (`PriceLadderComponent::FIELD_TITLE`) and the two staff refusals
+- No UI. The refusal of a full tier is core's text (`SeatsFull`). Its Hungarian texts are the plugin name,
+  the title of `price_tier` (`PriceLadderComponent::FIELD_TITLE`) and the two staff refusals
   (`TierSelection`); tier labels are the organizers' own settings.

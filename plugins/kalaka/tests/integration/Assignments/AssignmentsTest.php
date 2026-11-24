@@ -330,10 +330,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
         $this->place($first, $set, 'modul_a');
-        self::assertNotSame(
-            [],
-            $this->sets->placementWarnings($second, $set, 'modul_a')
-        );
+        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
 
         wp_set_current_user(self::factory()->user->create());
         try {

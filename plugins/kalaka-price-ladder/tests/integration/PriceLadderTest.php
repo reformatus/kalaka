@@ -8,6 +8,8 @@ use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Evaluation\EvaluationFailureRepository;
@@ -51,7 +53,7 @@ final class PriceLadderTest extends PriceLadderTestCase
     public function testATierHasNoConditionAndNoDeadlineAndNoShare(): void
     {
         self::assertSame(
-            ['key', 'label', 'amount'],
+            ['key', 'label', 'amount', 'limit'],
             array_map(
                 static fn (\ReflectionProperty $p): string => $p->getName(),
                 (new \ReflectionClass(Tier::class))->getProperties()
@@ -263,20 +265,23 @@ final class PriceLadderTest extends PriceLadderTestCase
         }
     }
 
-    public function testALadderChangeThatDropsAChosenTierFlagsTheRegistrationUntilStaffFixIt(): void
+    public function testALadderChangeThatDropsAChosenTierIsRefusedAtThePreviewUntilStaffMoveTheRegistration(): void
     {
         $this->applyLadder(self::ivkTiers());
         $anna = $this->registerChoosing('00A0', 'gy');
 
-        $only = $this->ladder->propose($this->event, [self::ivkTiers()[0]]);
-        $proposed = new ProposedMoneySettings(components: [$only]);
-        $report = $this->settings->apply($this->event, $proposed, new CliActor(null));
-
-        self::assertCount(1, $report->failed());
-        self::assertSame('money/price_ladder', (new EvaluationFailureRepository())->find($anna)?->rule);
+        try {
+            $this->ladder->propose($this->event, [self::ivkTiers()[0]]);
+            self::fail('The proposal went through.');
+        } catch (ItemChosen) {
+            self::assertCount(5, $this->ladder->tiers($this->event));
+        }
+        self::assertNull((new EvaluationFailureRepository())->find($anna));
         self::assertSame([self::line('34500')], $this->charges($anna));
 
+        // Once the registration has another tier, the one it left may go (the re-price then moves its price).
         $this->writeValue($anna, PriceLadderComponent::FIELD, 'alap');
+        $this->applyLadder([self::ivkTiers()[0]]);
 
         self::assertNull((new EvaluationFailureRepository())->find($anna));
         self::assertSame([self::line('34500'), self::line('15000', 2)], $this->charges($anna));

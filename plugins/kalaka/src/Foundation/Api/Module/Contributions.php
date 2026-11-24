@@ -40,11 +40,10 @@ final class Contributions
     /** @var list<PeriodicStep> */
     private array $periodicSteps = [];
 
-    /** @var list<SeatClaimSource> */
-    private array $seatClaimSources = [];
-
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
+    /** @var list<SeatClaimSource> */
+    private array $seatClaimSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -193,25 +192,6 @@ final class Contributions
     }
 
     /**
-     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
-     * only: the source locks and writes nothing, the submit's use case takes the seats.
-     */
-    public function seatClaimSource(SeatClaimSource $source): void
-    {
-        $this->seatClaimSources[] = $source;
-    }
-
-    /**
-     * In contribution order.
-     *
-     * @return list<SeatClaimSource>
-     */
-    public function seatClaimSources(): array
-    {
-        return $this->seatClaimSources;
-    }
-
-    /**
      * A fee component is an inside point (modules-and-extensions.md, "The extension surface"; money.md,
      * "Materializer"). Its ID is `[a-z][a-z0-9_]*`, at most 50 characters, and unique: a malformed or repeated
      * ID fails the contributing module (Pricing refuses one that is core's own).
@@ -238,5 +218,24 @@ final class Contributions
     public function feeComponents(): array
     {
         return array_values($this->feeComponents);
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<SeatClaimSource>
+     */
+    public function seatClaimSources(): array
+    {
+        return $this->seatClaimSources;
     }
 }
