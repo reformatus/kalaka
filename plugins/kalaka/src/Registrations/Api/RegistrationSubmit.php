@@ -153,12 +153,12 @@ final class RegistrationSubmit
                     $event->version,
                     $request->roles,
                     $request->passwordGiven,
-                    $fingerprint,
                     $fieldTypes,
                     $this->participantFields->of($form->eventId),
                     SubmitAdditionalForm::clearable($definition, $answers, $current),
                     $read,
                     $failure,
+                    fingerprint: $fingerprint,
                 );
                 $input = [
                     'form' => $form->id,
@@ -174,11 +174,11 @@ final class RegistrationSubmit
                     $event->version,
                     $request->roles,
                     $request->passwordGiven,
-                    $fingerprint,
                     $fieldTypes,
                     $this->participantFields->of($form->eventId),
                     account: $account,
                     walkFailure: $failure,
+                    fingerprint: $fingerprint,
                 );
                 $input = ['form' => $form->id, 'token' => $request->token];
             }

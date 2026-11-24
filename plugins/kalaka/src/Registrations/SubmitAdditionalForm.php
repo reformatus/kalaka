@@ -66,7 +66,8 @@ final class SubmitAdditionalForm implements PortalUseCase
      * @param array{values: array<string, string>, status: string|null}|null $read the registration's field
      *     values and status the walk read (its conditions may read them): checked again under the registration
      *     lock, and a difference runs the submit again (`VersionConflict`)
-     * @param string $fingerprint of the answers as sent (`SubmitRegistration::fingerprint()`)
+     * @param string|null $fingerprint of the answers as sent (`SubmitRegistration::fingerprint()`); null (not
+     *     given) never matches an earlier submit's, so a repeat is refused
      * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
      *     until the token's repeat rule has been applied under the lock, then thrown
      */
@@ -77,7 +78,6 @@ final class SubmitAdditionalForm implements PortalUseCase
         private readonly int $eventVersion,
         private readonly array $roles,
         private readonly bool $passwordGiven,
-        private readonly string $fingerprint,
         private readonly array $fieldTypes = [],
         private readonly array $participantFields = [],
         private readonly array $clearable = [],
@@ -88,6 +88,7 @@ final class SubmitAdditionalForm implements PortalUseCase
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
+        private readonly ?string $fingerprint = null,
     ) {
     }
 
@@ -138,7 +139,8 @@ final class SubmitAdditionalForm implements PortalUseCase
         $earlier = $this->submissions->withToken($key->eventId, $token);
         if ($earlier !== null) {
             if (
-                $earlier->answersHash === null
+                $fingerprint === null
+                || $earlier->answersHash === null
                 || !hash_equals($earlier->answersHash, $fingerprint)
                 || $earlier->registration->code !== $key->code
             ) {

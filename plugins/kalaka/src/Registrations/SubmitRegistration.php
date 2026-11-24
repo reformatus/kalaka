@@ -62,6 +62,8 @@ final class SubmitRegistration implements PublicUseCase
      * @param AccountOutcome|null $account the owner account; null for none
      * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
      *     until the token's repeat rule has been applied under the lock, then thrown
+     * @param string|null $fingerprint of the answers as sent (`fingerprint()`); null (not given) never matches an
+     *     earlier submit's, so a repeat is refused
      */
     public function __construct(
         private readonly Form $form,
@@ -70,7 +72,6 @@ final class SubmitRegistration implements PublicUseCase
         private readonly int $eventVersion,
         private readonly array $roles,
         private readonly bool $passwordGiven,
-        private readonly string $fingerprint,
         private readonly array $fieldTypes = [],
         private readonly array $participantFields = [],
         private readonly ReferenceCodeGenerator $codes = new ReferenceCodeGenerator(),
@@ -83,6 +84,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly ActionMails $mails = new ActionMails(),
         private readonly ?AccountOutcome $account = null,
         private readonly ?\Throwable $walkFailure = null,
+        private readonly ?string $fingerprint = null,
     ) {
     }
 
@@ -128,7 +130,11 @@ final class SubmitRegistration implements PublicUseCase
         if ($earlier !== null) {
             // N6: a repeat must carry the same answers; its answer names the registration to nothing but the
             // after-submit content (N13).
-            if ($earlier->answersHash === null || !hash_equals($earlier->answersHash, $fingerprint)) {
+            if (
+                $fingerprint === null
+                || $earlier->answersHash === null
+                || !hash_equals($earlier->answersHash, $fingerprint)
+            ) {
                 $error = new SubmitTokenReused();
                 throw $error;
             }
