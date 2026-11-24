@@ -56,17 +56,36 @@ final class MailRenderer
             throw new BodyUnusable('no_body ' . $mail);
         }
 
-        $body = $this->posts->published($setting->bodyId, $eventId);
+        return $this->renderBody($eventId, $setting->bodyId, $setting->layout, $registration);
+    }
+
+    /**
+     * Renders one published body of the event for a registration, whether or not an action mail uses it: what
+     * `render()` does once it has found the body, and what a manual mail (`Manual\MailBatch`) renders.
+     *
+     * @param bool $wrapped whether the event's layout wraps the body
+     * @throws SystemFailure a body without a revision, a stored layout without its one placeholder (`layout`),
+     *         or what `Values::render()` and the context throw
+     * @throws BodyUnusable the body's own problem, as `render()`
+     */
+    public function renderBody(int $eventId, int $bodyId, bool $wrapped, RegistrationKey $registration): RenderedMail
+    {
+        $body = $this->posts->published($bodyId, $eventId);
         try {
-            $this->renderer->check($body->content, $this->values->types($eventId), $this->values->paths($eventId));
+            $types = $this->values->types($eventId, $body->content);
+            $this->renderer->check($body->content, $types, $this->values->paths($eventId));
         } catch (SystemFailure $e) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
         }
-        $context = $this->values->context($registration, MailValues::readsPasswordLink($body->content));
+        $context = $this->values->context(
+            $registration,
+            MailValues::readsPasswordLink($body->content),
+            MailValues::pageLinks($body->content)
+        );
         $html = $this->renderer->render($body->content, $context);
         $version = 'b' . $body->revision;
-        $layout = $setting->layout ? $this->layouts->of($eventId) : null;
+        $layout = $wrapped ? $this->layouts->of($eventId) : null;
         if ($layout !== null) {
             if (!MailLayout::isValid($layout->html)) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
