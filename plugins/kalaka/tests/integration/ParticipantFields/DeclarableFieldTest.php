@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\ParticipantFields;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
@@ -136,13 +136,15 @@ final class DeclarableFieldTest extends FormsTestCase
             try {
                 (new ParticipantFields())->checkDeclarable(self::EVENT, $key, $type, 'kalaka-extras');
                 self::fail('The check accepted ' . $key);
-            } catch (RuleViolation) {
+            } catch (FieldKeyHeld $held) {
+                self::assertSame('kalaka_field_key_held', $held->errorCode());
                 self::assertTrue(true);
             }
             try {
                 $this->declareAs($key, 'kalaka-extras', $type);
                 self::fail('The declaration accepted ' . $key);
-            } catch (RuleViolation) {
+            } catch (FieldKeyHeld $held) {
+                self::assertSame('kalaka_field_key_held', $held->errorCode());
                 self::assertTrue(true);
             }
         }

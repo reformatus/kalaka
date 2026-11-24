@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Pricing;
 
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Ledger\Api\Payer;
@@ -48,6 +49,9 @@ final class ConfigurableTierComponent implements ConfigurableFeeComponent
     public function settingsFromArray(int $eventId, array $settings): ProposedComponentSettings
     {
         $amount = $settings['amount'] ?? null;
+        if ($amount === 'violation') {
+            throw new RuleViolation();
+        }
         if (array_keys($settings) !== ['amount'] || ($amount !== null && !is_string($amount))) {
             throw new InvalidInput();
         }
