@@ -26,7 +26,7 @@ use Kalaka\Support\Api\Share;
  * the base is the tier stage's total and the support the support stage's, so support lowers the participant's
  * part first and the congregation's only below zero. An X' of zero writes nothing, so an earlier pair is
  * reversed. It reads only the registration's facts (its two answers), its own setting and the stage totals,
- * never a charge line. The pair's lines are named by `NamedFeeComponent`. [UNAPPROVED N5, N6, N11, T7]
+ * never a charge line. The pair's lines are named by `NamedFeeComponent`. [UNAPPROVED N144, N145, N150, T66]
  */
 final class ShareComponent implements ConfigurableFeeComponent, NamedFeeComponent
 {
@@ -44,7 +44,7 @@ final class ShareComponent implements ConfigurableFeeComponent, NamedFeeComponen
     public const SHARED = 'shared';
     public const FULL = 'full';
 
-    /** The name of both lines. [UNAPPROVED T7] */
+    /** The name of both lines. [UNAPPROVED T66] */
     public const LINE_NAME = 'Gyülekezeti hozzájárulás';
 
     /** The most digits before the point an answer may have, so the amount never overflows. */
@@ -87,7 +87,7 @@ final class ShareComponent implements ConfigurableFeeComponent, NamedFeeComponen
         return new FeeTargets([Payer::PARTICIPANT => $part->negated(), self::CONGREGATION => $part]);
     }
 
-    /** Both lines of the pair are named alike (`LineName::COMPONENT`). [UNAPPROVED T7] */
+    /** Both lines of the pair are named alike (`LineName::COMPONENT`). [UNAPPROVED T66] */
     public function lineNames(RegistrationKey $registration, array $items): array
     {
         return in_array(null, $items, true) || in_array('', $items, true)

@@ -119,18 +119,18 @@ congregation share.
   form-writable. The form links to them by key, and any subset of the modes may be offered, never an added one.
   The save refuses (the preview too) when a form, staff or system field, or an extension field of another type,
   already holds either key: turn the share on before the form joins the keys. Off, the row is deleted; the fields
-  and their values stay, and the apply takes the pairs away. [UNAPPROVED N2, N3, N14, N15]
+  and their values stay, and the apply takes the pairs away. [UNAPPROVED N141, N142, N153, N154]
 - The component reads the registration's facts (its two answers), its own setting and the stage totals; never a
   charge line. A missing answer, a form without the field or `none` is no share; `share_amount` is read only for
   `shared`, and an empty, zero, negative or non-numeric amount is no share (no refusal). `share_mode` is not a slot
   requirement. X' = max(0, min(share, base - support)), with the base the tier stage's participant total and the
   support the support stage's; an X' of zero returns `FeeTargets::none()`, so an earlier pair is reversed and no
   zero line is written. The pair is one undivided `share` line per payer, participant -X' and congregation +X'.
-  [UNAPPROVED N5, N6, N11]
+  [UNAPPROVED N144, N145, N150]
 - Nothing re-checks `share_mode` against the tier at evaluation: the form's option conditions are the judge at
   submit. An additional form that holds one of `price_tier` and `share_mode` but not the other can still make a
-  mismatch; author both together. [UNAPPROVED N7]
+  mismatch; author both together. [UNAPPROVED N146]
 - The module declares the payer kind `congregation` (label „Gyülekezet”) through `Contributions::payerKind()`, so a
   congregation payment can be recorded by hand and is credited to the congregation alone. The kind is site-wide while
-  the plugin is active. [UNAPPROVED N8, T6]
+  the plugin is active. [UNAPPROVED N147, T65]
 - Only this module writes `kalaka_support_share`.

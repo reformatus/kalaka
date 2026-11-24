@@ -17,7 +17,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * share's two participant fields in the same transaction (the owner's rulings 2026-11-23, topic 14: the code
  * defines the field, the form's field links to it by key). Off, it deletes the row only: the fields and their
  * values stay, and the apply takes the pairs away (the component writes none for an event without the share).
- * [UNAPPROVED N3, N14]
+ * [UNAPPROVED N142, N153]
  */
 final class SetShare implements AdminUseCase
 {
@@ -25,15 +25,15 @@ final class SetShare implements AdminUseCase
     public const CHOICE_TYPE = 'kalaka/choice-field';
     public const NUMBER_TYPE = 'kalaka/number-field';
 
-    /** The title of `share_mode`. [UNAPPROVED T1] */
+    /** The title of `share_mode`. [UNAPPROVED T60] */
     public const MODE_TITLE = 'Gyülekezeti hozzájárulás';
 
-    /** The labels of the three modes. [UNAPPROVED T2, T3, T4] */
+    /** The labels of the three modes. [UNAPPROVED T61, T62, T63] */
     public const NONE_LABEL = 'A gyülekezet nem fizet a részvételi díjból';
     public const SHARED_LABEL = 'A gyülekezet a részvételi díj egy részét fizeti';
     public const FULL_LABEL = 'A gyülekezet a teljes részvételi díjat fizeti';
 
-    /** The title of `share_amount`. [UNAPPROVED T5] */
+    /** The title of `share_amount`. [UNAPPROVED T64] */
     public const AMOUNT_TITLE = 'Gyülekezeti hozzájárulás összege';
 
     public function __construct(

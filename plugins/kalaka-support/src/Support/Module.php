@@ -63,7 +63,7 @@ SQL;
 
     /**
      * money.md, "Congregation share": an event's share is on when it has a row here, keyed by the event. There is
-     * nothing else to store: the mode and the amount are the registrant's answers. [UNAPPROVED N2]
+     * nothing else to store: the mode and the amount are the registrant's answers. [UNAPPROVED N141]
      */
     private const SHARE = <<<'SQL'
 CREATE TABLE {prefix}kalaka_support_share (
@@ -73,7 +73,7 @@ CREATE TABLE {prefix}kalaka_support_share (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
-    /** The congregation's payer-kind label. [UNAPPROVED T6] */
+    /** The congregation's payer-kind label. [UNAPPROVED T65] */
     public const CONGREGATION_LABEL = 'Gyülekezet';
 
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */

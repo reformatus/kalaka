@@ -11,7 +11,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 /**
  * What the share needs checked before it is proposed or saved, for the preview and the save alike: its two field
  * keys must not be held by a form, staff or system field of the event, or by an extension's field of another
- * type (the setup order: turn the share on before the form joins the keys). [UNAPPROVED N15]
+ * type (the setup order: turn the share on before the form joins the keys). [UNAPPROVED N154]
  */
 final class ShareInput
 {
