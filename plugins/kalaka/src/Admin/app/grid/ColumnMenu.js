@@ -38,7 +38,7 @@ export default function ColumnMenu( { column, view, onSort, chosen, onToggle, ch
 			className="kg-sumopen"
 			icon={ chevronDown }
 			label={ label }
-			popoverProps={ { placement: 'bottom-end' } }
+			popoverProps={ { placement: 'bottom-end', shift: true } }
 			toggleProps={ { size: 'small', variant: 'tertiary', accessibleWhenDisabled: true, disabled: ! sortable && ! counts && ! children } }
 		>
 			{ ( { onClose } ) => (

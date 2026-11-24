@@ -10,8 +10,8 @@ jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( '@wordpress/element' );
 	const RealMenuItem = require( '../../../../node_modules/@wordpress/components/build/menu-item/index.cjs' ).default;
 	return {
-		DropdownMenu: ( { label, toggleProps, children } ) =>
-			h( 'div', null, h( 'button', { 'aria-label': label, disabled: toggleProps.disabled } ), children( { onClose: () => mockClose() } ) ),
+		DropdownMenu: ( { label, toggleProps, popoverProps, children } ) =>
+			h( 'div', { 'data-shift': String( !! popoverProps.shift ) }, h( 'button', { 'aria-label': label, disabled: toggleProps.disabled } ), children( { onClose: () => mockClose() } ) ),
 		MenuGroup: ( { label, children } ) => h( 'section', { 'data-group': label || '' }, children ),
 		MenuItem: RealMenuItem,
 		MenuItemsChoice: ( { choices, value, onSelect } ) =>
@@ -43,6 +43,10 @@ const item = ( markup, label ) => {
 };
 
 describe( 'a column’s menu', () => {
+	test( 'its popover is shifted into the screen, so it is not cut off at the edge of a narrow window', () => {
+		expect( html( STATUS ) ).toContain( 'data-shift="true"' );
+	} );
+
 	test( 'every column has its arrow, named after the column', () => {
 		for ( const column of [
 			{ column: 'status', label: 'Állapot', sortable: true, members: [ { value: 'registered', label: 'Rögzített' } ] },
