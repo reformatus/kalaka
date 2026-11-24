@@ -13,6 +13,16 @@ final class Payer
     {
     }
 
+    /**
+     * Whether a line is the participant's own money moving, a payment or a refund: a payment fact of the
+     * participant payer that is not a correction. The one rule of which lines a "payment recorded" mail is
+     * for and of which line its keys read.
+     */
+    public static function isParticipantMovement(LineKind $kind, string $payer, bool $correction): bool
+    {
+        return $kind->isPaymentFact() && !$correction && $payer === self::PARTICIPANT;
+    }
+
     /** The form of a payer-kind ID: lowercase, at most 50 characters. */
     public static function isValid(string $payer): bool
     {

@@ -195,8 +195,8 @@ final class MailEditorTest extends MailBodyTestCase
     public function testOnlyAMailBodyOffersTheTwoMoneyBlocks(): void
     {
         $contributions = Contributions::current();
-        foreach (['kalaka/mail-money', 'kalaka/mail-transfer'] as $name) {
-            self::assertContains($name, Module::BODY_BLOCKS);
+        self::assertSame(['kalaka/mail-money', 'kalaka/mail-transfer'], Module::OWN_BLOCKS);
+        foreach (Module::OWN_BLOCKS as $name) {
             self::assertNotContains($name, BlockGate::hidden('kalaka_mail', 'core/edit-post', $contributions));
             foreach (['page', 'post', 'kalaka_form'] as $postType) {
                 $hiddenHere = BlockGate::hidden($postType, 'core/edit-post', $contributions);

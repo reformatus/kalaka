@@ -98,8 +98,7 @@ final class BlockGateTest extends WP_UnitTestCase
                     'kalaka/form-page',
                     'kalaka/after-submit',
                     'kalaka/account',
-                    'kalaka/mail-money',
-                    'kalaka/mail-transfer',
+                    ...$this->hostOnlyBlocks(Contributions::current()),
                 ],
                 $hidden,
                 $postType
@@ -200,5 +199,35 @@ final class BlockGateTest extends WP_UnitTestCase
         );
         $this->expectException(\InvalidArgumentException::class);
         new BlockHost(['kalaka/if']);
+    }
+
+    public function testAHostOnlyBlockIsOfferedOnlyWhereAHostNamingItApplies(): void
+    {
+        $contributions = new Contributions();
+        foreach (Contributions::current()->fieldTypes() as $type) {
+            $contributions->fieldType($type);
+        }
+        $contributions->blockHost(new BlockHost(['kalaka/if'], 'acme_doc', hostOnly: ['acme/own']));
+        $list = ['core/paragraph', 'acme/own'];
+
+        self::assertContains('acme/own', BlockGate::hidden('post', 'core/edit-post', $contributions));
+        self::assertNotContains('acme/own', BlockGate::hidden('acme_doc', 'core/edit-post', $contributions));
+        // Never in a form's allow-list, with or without an incoming list that names it.
+        self::assertNotContains('acme/own', BlockGate::allowed(true, 'kalaka_form', 'core/edit-post', $contributions));
+        self::assertNotContains('acme/own', BlockGate::allowed($list, 'kalaka_form', 'core/edit-post', $contributions));
+        self::assertSame(['core/paragraph'], BlockGate::allowed($list, 'post', 'core/edit-post', $contributions));
+        self::assertSame($list, BlockGate::allowed($list, 'acme_doc', 'core/edit-post', $contributions));
+        self::assertTrue(BlockGate::allowed(true, 'acme_doc', 'core/edit-post', $contributions));
+    }
+
+    /** @return list<string> every host-only block the contributions name */
+    private function hostOnlyBlocks(Contributions $contributions): array
+    {
+        $names = [];
+        foreach ($contributions->blockHosts() as $host) {
+            $names = [...$names, ...$host->hostOnly];
+        }
+
+        return $names;
     }
 }

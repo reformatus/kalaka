@@ -107,13 +107,16 @@ CREATE TABLE {prefix}kalaka_mail_layouts (
 SQL;
 
     /**
-     * Kaláka's blocks a mail body may hold: the condition blocks (mail.md, "Content") and the two money blocks,
-     * which no other editor offers (`BlockGate::HOST_ONLY_BLOCKS`).
+     * Kaláka's blocks a mail body may hold besides its own: the condition blocks (mail.md, "Content").
      */
     public const BODY_BLOCKS = [
         'kalaka/if',
         'kalaka/else-if',
         'kalaka/else',
+    ];
+
+    /** The mail body's own blocks, which no other editor offers (`BlockHost::$hostOnly`): the two money blocks. */
+    public const OWN_BLOCKS = [
         MailBlocks::MONEY_BLOCK,
         MailBlocks::TRANSFER_BLOCK,
     ];
@@ -141,7 +144,7 @@ SQL;
         $to->siteWarning(new PauseWarning(PauseCause::Errors, $state));
         $to->siteWarning(new PauseWarning(PauseCause::Manual, $state));
         $to->periodicStep($this->sender());
-        $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE));
+        $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE, hostOnly: self::OWN_BLOCKS));
     }
 
     public function boot(): void

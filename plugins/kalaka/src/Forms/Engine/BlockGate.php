@@ -15,8 +15,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * names it; the condition blocks, the form block and every other block are left as they are. What another
  * filter allowed is kept: a list is only narrowed, except that a form's editor always gets its gated and
  * condition blocks back. Outside a form's editor an allow-all `true` stays `true`: the
- * gated blocks are hidden there on the client. `HOST_ONLY_BLOCKS` are the blocks of another module's editor (the
- * mail body's money blocks): in no form's allow-list, and hidden in every other editor unless a host names them.
+ * gated blocks are hidden there on the client. The `hostOnly` blocks of a `BlockHost` (the blocks of another
+ * module's own editor, e.g. the mail body's money blocks) are in no form's allow-list, and hidden in every
+ * editor no host naming them applies to.
  */
 final class BlockGate
 {
@@ -30,15 +31,6 @@ final class BlockGate
         'kalaka/form-page',
         'kalaka/after-submit',
         'kalaka/account',
-    ];
-
-    /**
-     * The mail body's money blocks (`Mail\Body\MailBlocks`): offered only where a `BlockHost` names them (a mail
-     * body), never in a form and never in a page or post editor. They render nothing outside a mail.
-     */
-    public const HOST_ONLY_BLOCKS = [
-        'kalaka/mail-money',
-        'kalaka/mail-transfer',
     ];
 
     /**
@@ -115,8 +107,8 @@ final class BlockGate
     }
 
     /**
-     * The gated blocks (and the host-only ones) an editor other than a form's must not offer: those no `BlockHost`
-     * names for it.
+     * The gated blocks (and the hosts' own, `BlockHost::$hostOnly`) an editor other than a form's must not
+     * offer: those no `BlockHost` names for it.
      *
      * @return list<string>
      */
@@ -126,13 +118,15 @@ final class BlockGate
             return [];
         }
         $hosted = [];
+        $hostOnly = [];
         foreach ($contributions->blockHosts() as $host) {
+            $hostOnly = [...$hostOnly, ...$host->hostOnly];
             if ($host->appliesTo($postType, $editor)) {
-                $hosted = [...$hosted, ...$host->blocks];
+                $hosted = [...$hosted, ...$host->blocks, ...$host->hostOnly];
             }
         }
 
-        return array_values(array_diff([...self::gated($contributions), ...self::HOST_ONLY_BLOCKS], $hosted));
+        return array_values(array_diff([...self::gated($contributions), ...$hostOnly], $hosted));
     }
 
     /**

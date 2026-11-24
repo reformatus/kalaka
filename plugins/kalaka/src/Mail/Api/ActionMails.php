@@ -66,10 +66,7 @@ final class ActionMails
     public function lineRecorded(Context $context, RecordedLine $recorded): bool
     {
         $line = $recorded->line;
-        if (
-            !$recorded->inserted || $line->correction || !$line->kind->isPaymentFact()
-            || $line->payer !== Payer::PARTICIPANT
-        ) {
+        if (!$recorded->inserted || !Payer::isParticipantMovement($line->kind, $line->payer, $line->correction)) {
             return false;
         }
 

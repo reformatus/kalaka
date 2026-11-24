@@ -57,7 +57,7 @@ final class MailMoney
             if ($entry->id !== $lineId) {
                 continue;
             }
-            if (!$entry->kind->isPaymentFact() || $entry->correction || $entry->payer !== Payer::PARTICIPANT) {
+            if (!Payer::isParticipantMovement($entry->kind, $entry->payer, $entry->correction)) {
                 return null;
             }
             $row = MoneyRead::movement($entry);
