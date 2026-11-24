@@ -7,6 +7,8 @@ namespace Kalaka\Tests\Integration\Support\Offers;
 use Kalaka\Admin\Api\RegistrationDetail;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Portal\Api\MoneyRead;
@@ -27,6 +29,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Pricing\Cli\SettingsDocument;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
+use Kalaka\Support\Offers\OfferSeatPool;
 use Kalaka\Support\Offers\OffersInput;
 use Kalaka\Support\Offers\SupportComponent;
 
@@ -100,6 +103,31 @@ final class OffersTest extends OffersTestCase
         self::assertSame('30000', $this->balance($key));
         self::assertSame([], $this->lineSources($key));
         self::assertSame('refused', (new Registrations())->values($key)['egyhaz_answer']);
+    }
+
+    public function testARefusedOfferClaimsNoSeatWhenTheStoredValuesAreAskedAgain(): void
+    {
+        $this->applyOffers([self::offer('egyhaz', '10000', request: true, limit: 1)]);
+        $key = $this->registerSelecting('00A0', 'egyhaz');
+        $this->holdSeat($key, 'egyhaz');
+        $event = (new Events())->find($key->eventId) ?? throw new \LogicException();
+        $claims = static fn (array $values): array => (new OfferClaims())->claims(
+            $event,
+            new ValidatedAnswers($values, $values)
+        );
+
+        // Entitled while it awaits its answer or is approved.
+        self::assertCount(1, $claims((new Registrations())->values($key)));
+        $this->answer($key, 'egyhaz', 'yes');
+        self::assertCount(1, $claims((new Registrations())->values($key)));
+
+        // Refused: the seat went back, and a restore that asks the sources again claims nothing.
+        $this->answer($key, 'egyhaz', 'no');
+        $values = (new Registrations())->values($key);
+        self::assertSame('refused', $values['egyhaz_answer']);
+        self::assertSame([], $claims($values));
+        self::assertFalse($this->holds($key, 'egyhaz'));
+        self::assertSame(1, $this->seats->left(new OfferSeatPool($key->eventId, 'egyhaz')));
     }
 
     public function testAnswerYesConfirmsTheRegistrationInTheSamePass(): void
