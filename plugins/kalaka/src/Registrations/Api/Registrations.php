@@ -85,6 +85,21 @@ final class Registrations
     }
 
     /**
+     * The status of each of the event's registrations, by code: one statement.
+     *
+     * @return array<string, RegistrationStatus>
+     */
+    public function statusesOf(int $eventId): array
+    {
+        $statuses = [];
+        foreach ($this->list->forEvent($eventId) as $row) {
+            $statuses[$row['code']] = $row['status'];
+        }
+
+        return $statuses;
+    }
+
+    /**
      * The event's `registered` and `waitlisted` registrations, in the list's order: the ones a money settings
      * apply re-evaluates (withdrawn and removed are left out). One statement.
      *

@@ -20,20 +20,33 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * The money phase of the evaluation (money.md, "Materializer"; foundation.md, "Evaluation"): composes the
  * fee from the current settings and the registration's facts, and writes, per component and payer, what it
- * owes minus what is recorded as one `charge` line. It converges: a second run writes nothing. Lines of
+ * owes minus what is recorded as one `charge` line (per item too, for a component that owes per item: each
+ * manual charge or discount is its own line). It converges: a second run writes nothing. Lines of
  * components not registered now are left alone. The run holds the registration's row lock.
  */
 final class Materializer
 {
     public const SOURCE = 'fee_component';
 
+    private readonly FeeComposition $composition;
+
     public function __construct(
-        private readonly CoreFeeComponents $components = new CoreFeeComponents(),
-        private readonly FeeComposer $composer = new FeeComposer(),
+        CoreFeeComponents $components = new CoreFeeComponents(),
+        FeeComposer $composer = new FeeComposer(),
         private readonly Ledger $ledger = new Ledger(),
-        private readonly Events $events = new Events(),
-        private readonly Registrations $registrations = new Registrations(),
+        Events $events = new Events(),
+        Registrations $registrations = new Registrations(),
     ) {
+        $this->composition = new FeeComposition($components, $composer, $events, $registrations);
+    }
+
+    /**
+     * The composition this materializer records, for confirmation, which reads each payer's target: one source
+     * of components.
+     */
+    public function composition(): FeeComposition
+    {
+        return $this->composition;
     }
 
     /**
@@ -42,16 +55,12 @@ final class Materializer
      */
     public function materialize(RegistrationKey $key, Context $context): void
     {
-        $event = $this->events->find($key->eventId);
-        if ($event === null) {
+        $composed = $this->composition->of($key, $context->now());
+        if ($composed === null) {
             return;
         }
-        $facts = $this->registrations->factsOf($key, $event);
-        if ($facts === null) {
-            return;
-        }
-
-        $owed = $this->composer->compose($facts, $event->currency, $context->now(), $this->components->list());
+        $currency = $composed->currency;
+        $owed = $composed->byComponent;
 
         /** @var array<string, array<string, ChargeTotal>> $recorded */
         $recorded = [];
@@ -61,14 +70,24 @@ final class Materializer
             }
         }
 
+        // A line of a registered component that the composition no longer names (a withdrawal, a removed item)
+        // owes zero now, so it is reversed. A source key is `<component>` or `<component>:<item>`; lines of a
+        // component not registered now are left alone.
+        $ids = $this->composition->componentIds();
+        foreach (array_keys($recorded) as $sourceKey) {
+            if (!isset($owed[$sourceKey]) && in_array(explode(':', (string) $sourceKey, 2)[0], $ids, true)) {
+                $owed[$sourceKey] = [];
+            }
+        }
+
         foreach ($owed as $id => $targets) {
             $mine = $recorded[$id] ?? [];
             $payers = array_unique([...array_keys($targets), ...array_keys($mine)]);
             sort($payers);
             foreach ($payers as $payer) {
                 $payer = (string) $payer;
-                $difference = ($targets[$payer] ?? Money::zero($event->currency))
-                    ->minus($mine[$payer]->total ?? Money::zero($event->currency));
+                $difference = ($targets[$payer] ?? Money::zero($currency))
+                    ->minus($mine[$payer]->total ?? Money::zero($currency));
                 if (!$difference->isPositive() && !$difference->isNegative()) {
                     continue;
                 }

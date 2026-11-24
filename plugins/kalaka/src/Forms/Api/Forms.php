@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
@@ -23,6 +24,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  */
 final class Forms
 {
+    /** The field type key (block name) of a consent, whose answer is stored as `1` when given. */
+    public const CONSENT_FIELD = ConsentFieldType::BLOCK_NAME;
+
     public function __construct(
         private readonly FormEngine $engine = new FormEngine(new EventFormHost()),
         private readonly FormPosts $posts = new FormPosts(),
@@ -96,6 +100,36 @@ final class Forms
         }
 
         return $scopes;
+    }
+
+    /**
+     * The field keys of the contact email and the display name of a registration-slot form's version (the
+     * version a registration was submitted with), for the admin detail read; null for a key the version does
+     * not mark, or for both when the form or version is not usable now.
+     *
+     * @return array{email: ?string, name: ?string}
+     */
+    public function contactKeys(int $formId, int $version): array
+    {
+        try {
+            $form = $this->form($formId);
+            if ($form === null) {
+                return ['email' => null, 'name' => null];
+            }
+            $definition = $this->definition($form, $version);
+        } catch (SystemFailure) {
+            return ['email' => null, 'name' => null];
+        }
+        $keys = ['email' => null, 'name' => null];
+        foreach ($definition->fields as $field) {
+            if ($field->isContactEmail()) {
+                $keys['email'] = $field->key;
+            } elseif ($field->isDisplayName()) {
+                $keys['name'] = $field->key;
+            }
+        }
+
+        return $keys;
     }
 
     /**
@@ -198,8 +232,38 @@ final class Forms
      */
     public function participantValues(int $eventId, array $stored): array
     {
+        return self::valuesOf($this->typedFields($eventId), $stored);
+    }
+
+    /**
+     * The event's participant fields, each with the value of a registration's stored answers over it: the
+     * same fields and values `participantValues()` gives, read once (the admin detail read needs the field's
+     * label and type beside its value).
+     *
+     * @param array<string, string> $stored field key → the stored value
+     * @return list<array{field: ParticipantField, value: Value}>
+     */
+    public function participantFieldValues(int $eventId, array $stored): array
+    {
+        $typed = $this->typedFields($eventId);
+        $values = self::valuesOf($typed, $stored);
+        $pairs = [];
+        foreach ($typed as [$field]) {
+            $pairs[] = ['field' => $field, 'value' => $values[$field->key]];
+        }
+
+        return $pairs;
+    }
+
+    /**
+     * @param list<array{ParticipantField, FieldType|null}> $typed
+     * @param array<string, string> $stored
+     * @return array<string, Value>
+     */
+    private static function valuesOf(array $typed, array $stored): array
+    {
         $values = [];
-        foreach ($this->typedFields($eventId) as [$field, $type]) {
+        foreach ($typed as [$field, $type]) {
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;

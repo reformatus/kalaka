@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Decision\Transition;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /** One stored transition of a registration's decision; times are in UTC. */

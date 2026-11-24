@@ -30,4 +30,15 @@ final class Events
     {
         return $this->query->published();
     }
+
+    /**
+     * The events that are not archived, by start (events without one last), then by id, in one statement:
+     * for the admin menu.
+     *
+     * @return list<Event>
+     */
+    public function notArchived(): array
+    {
+        return $this->query->notArchived();
+    }
 }

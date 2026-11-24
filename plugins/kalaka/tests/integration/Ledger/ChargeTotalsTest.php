@@ -7,7 +7,7 @@ namespace Kalaka\Tests\Integration\Ledger;
 use Kalaka\Ledger\Api\ChargeTotal;
 use Kalaka\Ledger\Api\LineKind;
 
-/** `chargeTotalsOf()`: the charge lines summed per source and payer; adjustments and payments never count. */
+/** `chargeTotalsOf()`: the charge lines summed per source and payer; payments never count. */
 final class ChargeTotalsTest extends LedgerTestCase
 {
     public function testChargesAreSummedPerSourceAndPayerAndNothingElseCounts(): void
@@ -26,7 +26,6 @@ final class ChargeTotalsTest extends LedgerTestCase
                 payer: 'congregation',
                 source: 'share'
             ),
-            $this->line($anna, LineKind::Adjustment, '-1000', 'adjustment:1', source: 'fixed_price'),
             $this->fitted($anna, LineKind::ManualPayment, '-30000', 'pay:1'),
             $this->line($other, LineKind::Charge, '40000', 'charge:fixed_price:participant:1'),
         );

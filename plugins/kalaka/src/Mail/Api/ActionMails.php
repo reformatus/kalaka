@@ -24,6 +24,14 @@ final class ActionMails
     ) {
     }
 
+    /** Whether the event has the action mail switched on: what `due()` would queue now. */
+    public function isOn(int $eventId, ActionMail $action): bool
+    {
+        $entry = $this->mails->find(['eventId' => $eventId, 'action' => $action]);
+
+        return $entry !== null && $entry->enabled;
+    }
+
     /**
      * @param Subject $cause the record that caused the mail: the registration, the payment line, the
      *                       confirmation record, …; its event is null or the registration's
@@ -32,8 +40,7 @@ final class ActionMails
      */
     public function due(Context $context, ActionMail $action, RegistrationKey $registration, Subject $cause): bool
     {
-        $entry = $this->mails->find(['eventId' => $registration->eventId, 'action' => $action]);
-        if ($entry === null || !$entry->enabled) {
+        if (!$this->isOn($registration->eventId, $action)) {
             return false;
         }
 

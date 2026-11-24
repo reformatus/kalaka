@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Foundation\Decision;
+namespace Kalaka\Foundation\Api\Decision;
 
 use Kalaka\Registrations\Api\RegistrationKey;
 

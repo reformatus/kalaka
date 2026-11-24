@@ -35,6 +35,14 @@ module.exports = [
 	js.configs.recommended,
 	{ languageOptions: { globals: browser } },
 	{
+		// The admin app (Admin/app) is React with JSX, as wp-scripts builds it.
+		files: ['plugins/kalaka/src/Admin/app/**/*.js'],
+		languageOptions: {
+			parserOptions: { ecmaFeatures: { jsx: true } },
+			globals: { ...browser, navigator: 'readonly', URL: 'readonly', URLSearchParams: 'readonly' },
+		},
+	},
+	{
 		files: ['plugins/*/tests/js/**/*.js'],
 		languageOptions: { globals: { ...browser, ...jest, require: 'readonly' } },
 	},
