@@ -171,7 +171,11 @@ erDiagram
   cancels or expires a registration automatically:** a `registered`
   registration that has not paid stays `registered` until someone acts. **A withdrawal
   never automatically admits anyone from the waitlist;** changes to the list
-  after it filled up are explicit admin acts.
+  after it filled up are explicit admin acts. A restore returns the
+  registration to `registered`. Admission and restore take the
+  registration's seats again over the limit when a pool is full, with the
+  "full" warning, and leave the "full" latch as it is; only the registrant's
+  own submit is refused by a full pool.
 - **Only capacity (waitlisted) and withdrawal or removal keep a registration
   from being `registered`.** Deposit or aid status never makes a registration
   invalid.

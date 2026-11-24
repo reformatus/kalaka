@@ -48,7 +48,7 @@ mode (S65) and the screens (S72/S48) come later.
   Leaving frees the seats and the confirmed assignment stays as a record; an
   admission or a restore takes the seats again through `Seats::retake()`
   (`Api\AssignmentSeats::retake()`, which returns the options that went over
-  the limit so the use case can warn staff). A proposed assignment holds none. The option's capacity
+  the limit so the use case can warn staff, and `pools()`, the confirmed assignments' pools as a plain read). A proposed assignment holds none. The option's capacity
   is the pool's limit; nobody is moved into a freed seat.
 - An option's eligibility is one condition in the one format, decided only
   through `Forms\Api\Availability` (an option is a `Forms\Api\Conditional`);

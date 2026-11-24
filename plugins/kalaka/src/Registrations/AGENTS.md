@@ -26,8 +26,27 @@ the waitlist and reference codes
   that holds per-event data is keyed event first.
 - Status is a fact: stored, changed only by people's acts through use cases,
   never recomputed. The sorszám is computed when read and never stored.
+- The status writers are the submit's insert and the four staff acts of
+  `Status/` (`kalaka/admit-registration`, `kalaka/withdraw-registration`,
+  `kalaka/remove-registration`, `kalaka/restore-registration`, one table in
+  `Api\StatusAct`, one shape in `StatusChange`); nothing else updates a status.
+  An act on a registration already in its target state writes nothing
+  (`changed: false`); any other status it does not allow is `StatusActRefused`.
+  A removal needs a reason (the trimmed text); the reason is the audit entry's.
 - `registered_at` is set only by the acts that make a registration
   `registered` (submit, admission, restore) and is never recomputed.
+  `registered_by` (`Api\RegisteredBy`: `submit`, `admission`, `restore`) is
+  written only together with it; withdraw and remove leave both as they are.
+  `registration.from_waitlist` reads `registered_by = admission`.
+- Admission and restore lock the event row, then the quota pools their claims
+  name (`Seats::inLockOrder()`), then the registration; the claims come from
+  the stored values (`Api\SeatClaims`), read before the locks and again under
+  the registration's, and a claim of a quota pool nobody locked is a
+  `VersionConflict` (nothing written). They take seats only through
+  `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
+  and queue the "registered" mail on admission only. Withdraw and remove free
+  seats only through `Seats::releaseAll()`. The preview (`preview: true`)
+  reads with `Seats::wouldOverfill()`, locks and writes nothing.
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list

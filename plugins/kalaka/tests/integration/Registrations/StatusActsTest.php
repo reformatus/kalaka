@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Registrations;
 
+use Kalaka\Admin\Cli\RegistrationCommand;
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\UserActor;
@@ -31,6 +32,7 @@ use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\StatusAct;
+use Kalaka\Registrations\Api\StatusActions;
 use Kalaka\Registrations\Api\StatusActRefused;
 use Kalaka\Registrations\Api\StatusActs;
 use Kalaka\Registrations\Status\AdmitRegistration;
@@ -290,11 +292,8 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame($version, $this->row('00A0')['version']);
         self::assertSame([], $this->entriesWithChanges($entries));
 
-        foreach ([
-            [StatusAct::Remove, '00A0'],
-            [StatusAct::Admit, '00A0'],
-            [StatusAct::Restore, '00A5'],
-        ] as [$act, $code]) {
+        $refused = [[StatusAct::Remove, '00A0'], [StatusAct::Admit, '00A0'], [StatusAct::Restore, '00A5']];
+        foreach ($refused as [$act, $code]) {
             try {
                 $this->act($act, $code, ['reason' => 'x']);
                 self::fail('Refused: ' . $act->value . ' ' . $code);
@@ -585,6 +584,41 @@ final class StatusActsTest extends StaffEditTestCase
         $this->saveGrant($this->event, $third, ['actions' => ['kalaka_restore_registration']]);
         $this->act(StatusAct::Restore, '00A0', [], new UserActor($third));
         self::assertSame('registered', $this->row('00A0')['status']);
+    }
+
+    // --- the command line ---
+
+    public function testTheCommandRunsTheUseCaseAndPrintsTheOutcomeWithoutHoldingARule(): void
+    {
+        require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
+        \WP_CLI::reset();
+        $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
+        $this->capacity(1);
+
+        $command->admit([(string) $this->event, '00A5'], ['reason' => 'Lett hely']);
+
+        self::assertSame('registered', $this->row('00A5')['status']);
+        $kinds = array_map(static fn (array $call): string => $call[0], \WP_CLI::$calls);
+        self::assertSame(['warning', 'success', 'line'], array_slice($kinds, 0, 3));
+        self::assertStringContainsString('registered', (string) \WP_CLI::$calls[1][1]);
+
+        \WP_CLI::reset();
+        try {
+            // The use case refuses, not the command: a registration that is registered cannot be restored.
+            $command->restore([(string) $this->event, '00A0'], []);
+        } catch (\Throwable) {
+            self::assertSame('error', \WP_CLI::$calls[array_key_last(\WP_CLI::$calls)][0]);
+        }
+        self::assertSame('registered', $this->row('00A0')['status']);
+        \WP_CLI::reset();
+        try {
+            $command->remove([(string) $this->event, '00A2'], []);
+            self::fail('A removal needs its reason.');
+        } catch (\Throwable) {
+            self::assertSame('registered', $this->row('00A2')['status']);
+        }
+        $command->withdraw([(string) $this->event, '00A2'], ['reason' => 'Telefon']);
+        self::assertSame('withdrawn', $this->row('00A2')['status']);
     }
 
     public function testNoMoneyIsEverRefundedByALeaving(): void

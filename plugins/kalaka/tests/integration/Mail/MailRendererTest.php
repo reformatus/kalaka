@@ -136,9 +136,30 @@ final class MailRendererTest extends MailBodyTestCase
 
         $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
-        // No admission act exists yet: every registration reads `no`.
+        // A registration its own submit registered reads `no`.
         self::assertStringContainsString('Szia', $html);
         self::assertStringNotContainsString('várólistáról', $html);
+
+        // One a staff admission registered reads `yes`: `registered_by` says so.
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['registered_by' => 'admission'],
+            ['event_id' => $key->eventId, 'code' => $key->code]
+        );
+        \Kalaka\Foundation\ObjectCache::clear();
+        $admitted = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
+        self::assertStringContainsString('várólistáról', $admitted);
+
+        // A restore after it is no admission.
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['registered_by' => 'restore'],
+            ['event_id' => $key->eventId, 'code' => $key->code]
+        );
+        \Kalaka\Foundation\ObjectCache::clear();
+        $restored = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
+        self::assertStringNotContainsString('várólistáról', $restored);
     }
 
     public function testAnEventDateThatIsNotSetReadsAsNone(): void

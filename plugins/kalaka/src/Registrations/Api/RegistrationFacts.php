@@ -15,9 +15,9 @@ use Kalaka\Forms\Api\ValueType;
 /**
  * A registration's fact source after submit (foundation.md, "Facts, decisions and computed values"; the
  * one availability base, S76): the event's values, the registration's field values by participant-field
- * key, its code and status, and when it last became `registered` (null while it is not; a waitlisted
- * registration is not registered). Every time-dependent rule counts from it, never from the submit: payment
- * due, everything.
+ * key, its code and status, and when it last became `registered` (null while it never was; a waitlisted
+ * registration never was, a withdrawn one keeps it). Every time-dependent rule counts from it, never from the
+ * submit: payment due, everything.
  * Read by the fee components and, later, by every rule that reads registration facts. Built by
  * `Registrations::factsOf()`; it holds values only and reads nothing. `registration.awaits_answer` is computed
  * there (`Requests::awaits()`), never stored.
