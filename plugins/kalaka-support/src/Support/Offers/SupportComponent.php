@@ -71,7 +71,7 @@ final class SupportComponent implements ConfigurableFeeComponent, NamedFeeCompon
             }
             if ($offer->limit !== null) {
                 $held ??= $this->seats->poolsOf($input->registration);
-                if (!in_array('offer.' . $offer->key, $held, true)) {
+                if (!in_array((new OfferSeatPool($input->registration->eventId, $offer->key))->key(), $held, true)) {
                     continue;
                 }
             }
