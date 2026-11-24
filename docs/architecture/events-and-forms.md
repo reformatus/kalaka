@@ -294,7 +294,8 @@ flowchart TB
   - **staff:** a column admins add that no participant fills in; staff
     write it through views, and it may also appear in an additional form;
   - **extension:** written by a form when the declaration lets forms write
-    it (off by default; only then may a form hold its key), by staff, or by
+    it (off by default; only then may a form hold its key, and only then may staff correct it
+    through views), by staff, or by
     its declaring extension's own code: its use cases, or the request source
     that core's answer act calls, e.g. the award of adjudicated aid
     ([Money](money.md#core-money-scope)). A form that joins an extension's choice
@@ -374,7 +375,8 @@ flowchart TB
   by an extension for a field it declares; core ships no money field types.
   Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money.
+  only through use cases that re-materialize the money; a staff correction
+  through views is one and needs no unlock.
 
 ### Changing participant fields after submit
 
@@ -396,9 +398,11 @@ is no other participant-side edit.
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
   allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field.
+  refused unless an organizer unlocked the field; a staff correction through
+  views needs no unlock.
 - **Staff fields may appear in an additional form.**
-- **Admins can correct any field at any time,** through views. An admin
+- **Admins can correct a form or staff field at any time, and an extension
+  field only when it is form-writable,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
   period and revokes the form's links that bypass it.

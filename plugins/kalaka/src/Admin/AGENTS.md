@@ -85,3 +85,11 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
   statement for the page's field values, none without a request source); it is a row value, not a column, so it is
   not filterable, sortable or summable.
+- Staff correct a field value only through `kalaka/edit-field-value` (`FieldEdit\EditFieldValue`): a field change with
+  no action, so rights are read-write columns of a held view and full access, never a new grant action. The field
+  type turns the value into its stored form before the run (`FieldEditInput`), never inside it; no form condition is
+  walked (staff override). Staff never edit a `system` field, an `extension` field only its own act writes, or a
+  retired field. The edit is not a submission; the write goes through `Registrations\Api\FieldCorrections`, and the
+  runner's evaluation (money, confirmation, mail) follows it; the edit sends no mail of its own. An identical value
+  writes nothing, and a stored value other than `expected` is a `VersionConflict`.
+- Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.
