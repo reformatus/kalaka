@@ -51,7 +51,7 @@ final class PriceLadderTest extends PriceLadderTestCase
     public function testATierHasNoConditionAndNoDeadlineAndNoShare(): void
     {
         self::assertSame(
-            ['key', 'label', 'amount'],
+            ['key', 'label', 'amount', 'limit'],
             array_map(
                 static fn (\ReflectionProperty $p): string => $p->getName(),
                 (new \ReflectionClass(Tier::class))->getProperties()

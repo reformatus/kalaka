@@ -8,8 +8,11 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\PriceLadder\LadderInput;
+use Kalaka\PriceLadder\PriceLadderComponent;
+use Kalaka\PriceLadder\TierSeatPool;
 use Kalaka\PriceLadder\TierRecord;
 use Kalaka\PriceLadder\TierRepository;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * The price ladder for every other module and the settings screen (S72): an event's tiers, and a proposed
@@ -22,6 +25,7 @@ final class PriceLadder
         private readonly TierRepository $tiers = new TierRepository(),
         private readonly Events $events = new Events(),
         private readonly LadderInput $ladder = new LadderInput(),
+        private readonly Seats $seats = new Seats(),
     ) {
     }
 
@@ -33,6 +37,27 @@ final class PriceLadder
     public function tiers(int $eventId): array
     {
         return array_map(static fn (TierRecord $record): Tier => $record->tier(), $this->tiers->forEvent($eventId));
+    }
+
+    /**
+     * The seats left in each limited tier's pool, by the form-condition variable that reads it
+     * (`seats_left.price_tier.<tier key>`: the field `price_tier` and the tier's key as its option value). A tier
+     * with no limit has no variable. A plain read, never below zero.
+     *
+     * @return array<string, int>
+     */
+    public function seatsLeft(int $eventId): array
+    {
+        $left = [];
+        foreach ($this->tiers->forEvent($eventId) as $record) {
+            if ($record->limit !== null) {
+                $left['seats_left.' . PriceLadderComponent::FIELD . '.' . $record->key] = $this->seats->left(
+                    new TierSeatPool($eventId, $record->key, $this->tiers)
+                ) ?? 0;
+            }
+        }
+
+        return $left;
     }
 
     /**
