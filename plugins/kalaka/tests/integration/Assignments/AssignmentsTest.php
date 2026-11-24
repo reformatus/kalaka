@@ -99,8 +99,8 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAnOptionsLimitIsReadUnderTheSameNameItWasGiven(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['limit' => 12]);
-        $this->newOption($set, 'Modul B', null, ['limit' => null]);
+        $this->newOption($set, 'Modul A', ['limit' => 12]);
+        $this->newOption($set, 'Modul B', ['limit' => null]);
 
         $stored = $this->sets->find($set);
 
@@ -276,7 +276,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testARegistrationThatTakesNoSeatIsNotWarnedThatTheOptionIsFull(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
+        $this->newOption($set, 'Modul A', ['limit' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $waiting = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $waiting);
