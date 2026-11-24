@@ -167,7 +167,7 @@ final class FormValuesTest extends FormsTestCase
 
     private function facts(int $formId): \Kalaka\Forms\Api\ValueContext
     {
-        $facts = $this->host()->facts($this->formOf($formId));
+        $facts = $this->host()->facts($this->formOf($formId), $this->runner->clock()->now());
         self::assertNotNull($facts);
 
         return $facts;
@@ -230,7 +230,7 @@ final class FormValuesTest extends FormsTestCase
 
         $check = function (int $formId) use ($host): void {
             $form = $this->formOf($formId);
-            $facts = $host->facts($form);
+            $facts = $host->facts($form, $this->runner->clock()->now());
             self::assertNotNull($facts);
             foreach (array_keys($host->factTypes($form)) as $key) {
                 self::assertTrue($facts->has((string) $key), 'No value for ' . $key);
@@ -587,7 +587,7 @@ final class FormValuesTest extends FormsTestCase
         $definition = $this->forms->definition($this->readForm($form));
         $gone = $this->host()->goneTypes($this->readForm($form), ['event.points.' . $id, 'event.points.x']);
         self::assertSame(['event.points.' . $id => ValueType::Date], $gone);
-        $facts = $this->host()->facts($this->readForm($form));
+        $facts = $this->host()->facts($this->readForm($form), $this->runner->clock()->now());
         self::assertNotNull($facts);
         self::assertTrue($facts->get('event.points.' . $id)->isEmpty());
         self::assertCount(1, $definition->chains);
