@@ -20,9 +20,9 @@ use Kalaka\Support\Directory\NodeRepository;
  * registration. Offers left out are deleted; an empty list removes them. Saving alone touches no registration.
  * Site-level, like core's fixed price: full access only. The currency must be the event's.
  *
- * It refuses to remove an offer, to give an unlimited one a limit, or to flip its "must be requested" flag, while
- * an open (registered or waitlisted) registration has selected it (`OfferChangeGuard`, which the preview runs
- * too): a seat, a line or a refusal would be taken or overridden by a settings change. A lower limit is allowed,
+ * It refuses to remove an offer, or to flip its "must be requested" flag, while an open (registered or
+ * waitlisted) registration has selected it (`OfferChangeGuard`, which the preview runs too): a line or a refusal
+ * would be taken or overridden by a settings change. A lower limit is allowed,
  * and only makes the pool stand over: nobody loses a seat.
  *
  * In the same transaction it declares the participant fields of each offer (the owner's rulings 2026-11-23, topic
@@ -30,13 +30,16 @@ use Kalaka\Support\Directory\NodeRepository;
  * offer's key, form-writable and titled with the offer's label; and, for an offer that must be requested, its
  * answer `<key>_answer`, a choice of `approved` and `refused`, written only by the offer's request source (the
  * answer act). A removed offer's fields stay declared: core has no way to retire a field, and the form decides
- * whether the field shows. [UNAPPROVED N91, N92, N99]
+ * whether the field shows. [UNAPPROVED N91, N92, N99, N354, N355]
  */
 final class SetSupportOffers implements AdminUseCase
 {
     /** The block type of a consent field and of a choice field, core's. */
     public const CONSENT_TYPE = 'kalaka/consent-field';
     public const CHOICE_TYPE = 'kalaka/choice-field';
+
+    /** The slug this module declares its fields with (`declared_by`) and writes them under. */
+    public const DECLARER = 'kalaka-support';
 
     /** The answer field's key, after the offer's key. */
     public const ANSWER_SUFFIX = '_answer';
@@ -158,6 +161,8 @@ final class SetSupportOffers implements AdminUseCase
             $offer->label,
             null,
             true,
+            self::DECLARER,
+            moneyRelevant: true,
         );
         if ($offer->needsRequest) {
             $this->fields->declareExtensionField(
@@ -171,6 +176,8 @@ final class SetSupportOffers implements AdminUseCase
                     ['value' => 'refused', 'label' => self::REFUSED_LABEL],
                 ],
                 false,
+                self::DECLARER,
+                moneyRelevant: true,
             );
         }
     }

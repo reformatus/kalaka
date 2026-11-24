@@ -603,6 +603,29 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
         $write('support_answer', true);
         self::assertSame('x', $this->value('support_answer'));
+
+        // A field another declarer holds is refused (`declared_by`); the declarer's own write goes through.
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => 'held_by_aid',
+            'version' => 1,
+            'type' => 'kalaka/text-field',
+            'title' => 'Teszt mező',
+            'source' => 'extension',
+            'declared_by' => 'kalaka-aid',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 201,
+            'form_writable' => 0,
+        ]);
+        try {
+            $write('held_by_aid', true);
+            self::fail('Another declarer holds the field.');
+        } catch (SystemFailure) {
+            self::assertNull($this->value('held_by_aid'));
+        }
+        $write('held_by_aid', true, 'kalaka-aid');
+        self::assertSame('x', $this->value('held_by_aid'));
     }
 
     public function testTheAnswerIsAuditedOnItsRegistration(): void
