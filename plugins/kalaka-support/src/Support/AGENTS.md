@@ -131,6 +131,7 @@ congregation share.
   submit. An additional form that holds one of `price_tier` and `share_mode` but not the other can still make a
   mismatch; author both together. [UNAPPROVED N146]
 - The module declares the payer kind `congregation` (label „Gyülekezet”) through `Contributions::payerKind()`, so a
-  congregation payment can be recorded by hand and is credited to the congregation alone. The kind is site-wide while
-  the plugin is active. [UNAPPROVED N147, T65]
+  congregation payment can be recorded by hand and is credited to the congregation alone. The kind applies per event, only
+  where the share is on (`Share::isOn()`); a payer that already has lines stays shown, and recording against the
+  kind is refused where it does not apply. [UNAPPROVED N147, T65]
 - Only this module writes `kalaka_support_share`.

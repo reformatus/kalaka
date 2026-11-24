@@ -384,7 +384,7 @@ final class RegistrationDetail
             $order[$kind->id] = $kind->label;
         }
         foreach ($entries as $entry) {
-            $order[$entry->payer] ??= null;
+            $order[$entry->payer] ??= $this->payerKinds->label($entry->payer);
         }
 
         $payers = [];

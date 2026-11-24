@@ -14,24 +14,30 @@ final class PayerKindDeclarationTest extends TestCase
     public function testADeclaredKindIsListedInContributionOrder(): void
     {
         $to = new Contributions();
-        $to->payerKind(new PayerKind('congregation', 'Gyülekezet'));
-        $to->payerKind(new PayerKind('sponsor', 'Támogató'));
+        $to->payerKind(new PayerKind('congregation', 'Gyülekezet'), static fn (int $eventId): bool => $eventId === 5);
+        $to->payerKind(new PayerKind('sponsor', 'Támogató'), static fn (): bool => true);
 
         self::assertEquals(
             [new PayerKind('congregation', 'Gyülekezet'), new PayerKind('sponsor', 'Támogató')],
             $to->payerKinds()
         );
+        self::assertEquals(
+            [new PayerKind('congregation', 'Gyülekezet'), new PayerKind('sponsor', 'Támogató')],
+            $to->payerKindsFor(5)
+        );
+        self::assertEquals([new PayerKind('sponsor', 'Támogató')], $to->payerKindsFor(6));
     }
 
     public function testAMalformedRepeatedOrParticipantKindFailsTheContributor(): void
     {
         $to = new Contributions();
-        $to->payerKind(new PayerKind('congregation', 'Gyülekezet'));
+        $always = static fn (): bool => true;
+        $to->payerKind(new PayerKind('congregation', 'Gyülekezet'), $always);
 
         $refused = [['congregation', 'Másik'], ['participant', 'Jelentkező'], ['Bad-Id', 'Rossz'], ['sponsor', '']];
         foreach ($refused as [$id, $label]) {
             try {
-                $to->payerKind(new PayerKind($id, $label));
+                $to->payerKind(new PayerKind($id, $label), $always);
                 self::fail($id . ' should be refused.');
             } catch (\InvalidArgumentException) {
                 self::assertCount(1, $to->payerKinds());

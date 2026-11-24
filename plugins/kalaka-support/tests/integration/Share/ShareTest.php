@@ -19,6 +19,7 @@ use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Registrations\Answer\AnswerRequest;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Support\Share\ShareComponent;
 use Kalaka\Tests\Integration\Pricing\ClosureComponent;
@@ -366,28 +367,109 @@ final class ShareTest extends ShareTestCase
         self::assertSame('confirmed', $this->confirmationState($key));
     }
 
-    public function testTheCongregationIsAPayerKindAndItsPaymentIsCreditedToItAlone(): void
+    /** @return array<string, mixed> */
+    private function congregationEntry(RegistrationKey $key, string $amount, string $id): array
     {
-        $kinds = (new PayerKinds())->of($this->event);
-        self::assertSame(['participant', 'congregation'], array_map(static fn ($kind): string => $kind->id, $kinds));
-        self::assertSame('Gyülekezet', (new PayerKinds())->label('congregation'));
-
-        $this->applyShare();
-        $key = $this->registerSharing('00A0', 'shared', '20000');
-        $this->register('01A6');
-        $this->runner->run(new RecordPayment(), [
+        $result = $this->runner->run(new RecordPayment(), [
             'event_id' => $key->eventId,
             'code' => $key->code,
             'payer' => 'congregation',
-            'amount' => '20000',
+            'amount' => $amount,
             'currency' => 'HUF',
             'method' => 'bank_transfer',
             'value_date' => '2026-11-29',
-            'idempotency_key' => 'k_gyul_1',
+            'idempotency_key' => $id,
         ], new UserActor($this->fullAccessUser()));
+
+        return is_array($result) ? $result : [];
+    }
+
+    public function testTheCongregationIsAPayerKindOnlyWhereTheShareIsOnAndRecordingAgainstItIsRefusedElsewhere(): void
+    {
+        $key = $this->register('00A0');
+        // The share is off: the kind does not apply, and nobody may record against it.
+        self::assertSame(['participant'], array_map(
+            static fn ($kind): string => $kind->id,
+            (new PayerKinds())->of($this->event)
+        ));
+        try {
+            $this->congregationEntry($key, '1000', 'k_gyul_off');
+            self::fail('A congregation payment should be refused where the share is off.');
+        } catch (InvalidInput) {
+            self::assertSame('0', $this->congregationBalance($key));
+        }
+
+        $this->applyShare();
+        self::assertSame(['participant', 'congregation'], array_map(
+            static fn ($kind): string => $kind->id,
+            (new PayerKinds())->of($this->event)
+        ));
+        self::assertSame('Gyülekezet', (new PayerKinds())->label('congregation'));
+    }
+
+    public function testACongregationPaymentIsCreditedToTheCongregationAlone(): void
+    {
+        $this->applyShare();
+        $key = $this->registerSharing('00A0', 'shared', '20000');
+        $other = $this->register('01A6');
+        $before = [$this->balance($other), $this->congregationBalance($other)];
+
+        $this->congregationEntry($key, '20000', 'k_gyul_1');
 
         self::assertSame('0', $this->congregationBalance($key));
         self::assertSame('24500', $this->balance($key));
+        self::assertSame($before, [$this->balance($other), $this->congregationBalance($other)]);
+    }
+
+    public function testAPayerWithLinesStaysVisibleAfterTheShareIsSwitchedOff(): void
+    {
+        $this->applyShare();
+        $key = $this->registerSharing('00A0', 'shared', '20000');
+        $this->congregationEntry($key, '20000', 'k_gyul_2');
+
+        $this->applyShare(false);
+
+        $money = (new \Kalaka\Admin\Api\RegistrationDetail())
+            ->of(new \Kalaka\Foundation\Api\Actor\SystemActor(), $this->event, '00A0')['money'];
+        $payers = array_column($money['payers'], 'label', 'payer');
+        self::assertSame(['participant', 'congregation'], array_keys($payers));
+        self::assertSame('Gyülekezet', $payers['congregation']);
+        // It is no longer a kind to record against.
+        try {
+            $this->congregationEntry($key, '1000', 'k_gyul_3');
+            self::fail('Recording should be refused once the share is off.');
+        } catch (InvalidInput) {
+            self::addToAssertionCount(1);
+        }
+    }
+
+    private function setType(string $key, string $type): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_participant_fields',
+            ['type' => $type],
+            ['event_id' => $this->event, 'field_key' => $key]
+        );
+    }
+
+    public function testAFieldThatIsNotOfTheDeclaredTypeOrAHugeAmountGivesNoPair(): void
+    {
+        $this->applyShare();
+
+        // A 13-digit amount is not an amount.
+        $huge = $this->registerSharing('00A0', 'shared', '1000000000000');
+        self::assertSame([], $this->shareLines($huge));
+        self::assertSame('44500', $this->balance($huge));
+
+        // A form's field of that key that is not a choice (or not a number) is not read.
+        $this->setType('share_mode', 'kalaka/text-field');
+        $text = $this->registerSharing('00A2', 'full');
+        self::assertSame([], $this->shareLines($text));
+        $this->setType('share_mode', 'kalaka/choice-field');
+        $this->setType('share_amount', 'kalaka/text-field');
+        $amount = $this->registerSharing('00A5', 'shared', '20000');
+        self::assertSame([], $this->shareLines($amount));
     }
 
     public function testBothLinesOfThePairAreNamedAlike(): void

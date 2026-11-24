@@ -12,8 +12,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * detail read labels its payers with it. [UNAPPROVED Shapes]
  *
  * Core declares the participant; an extension declares another through `Contributions::payerKind()` (the
- * congregation share, S29). A declared kind applies to every event while its module is active, so `$eventId`
- * selects nothing.
+ * congregation share, S29) with a per-event predicate, and this read adds the kinds active for the event.
  */
 final class PayerKinds
 {
@@ -27,15 +26,20 @@ final class PayerKinds
      */
     public function of(int $eventId): array
     {
-        unset($eventId);
-
-        return [new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL), ...Contributions::current()->payerKinds()];
+        return [
+            new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL),
+            ...Contributions::current()->payerKindsFor($eventId),
+        ];
     }
 
-    /** The label of a payer-kind ID; null when nothing declares it. */
+    /** The label of a payer-kind ID, for an event or not: a kind that no longer applies still names its lines. */
     public function label(string $id): ?string
     {
-        foreach ($this->of(0) as $kind) {
+        $declared = [
+            new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL),
+            ...Contributions::current()->payerKinds(),
+        ];
+        foreach ($declared as $kind) {
             if ($kind->id === $id) {
                 return $kind->label;
             }

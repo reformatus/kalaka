@@ -14,6 +14,7 @@ use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\SupportComponent;
 use Kalaka\Ledger\Api\PayerKind;
+use Kalaka\Support\Api\Share;
 use Kalaka\Support\Picker\CongregationFieldType;
 use Kalaka\Support\Share\ShareComponent;
 
@@ -103,7 +104,10 @@ SQL;
         $to->fieldType($this->congregationField);
         $to->feeComponent(new SupportComponent());
         $to->feeComponent(new ShareComponent());
-        $to->payerKind(new PayerKind(ShareComponent::CONGREGATION, self::CONGREGATION_LABEL));
+        $to->payerKind(
+            new PayerKind(ShareComponent::CONGREGATION, self::CONGREGATION_LABEL),
+            static fn (int $eventId): bool => (new Share())->isOn($eventId)
+        );
         $to->requestSource(new OfferRequests());
         $to->seatClaimSource(new OfferClaims());
     }

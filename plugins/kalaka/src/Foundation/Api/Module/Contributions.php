@@ -54,6 +54,9 @@ final class Contributions
     /** @var array<string, PayerKind> */
     private array $payerKinds = [];
 
+    /** @var array<string, \Closure(int): bool> */
+    private array $payerKindActive = [];
+
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
     {
@@ -270,11 +273,13 @@ final class Contributions
 
     /**
      * A payer kind is only declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): an
-     * ID of the form `Payer::isValid()` and a Hungarian label; it runs no code and applies site-wide while its
-     * module is active. The participant is core's and cannot be declared again; a repeated ID fails the
-     * contributing module.
+     * ID of the form `Payer::isValid()` and a Hungarian label, and a predicate that says per event whether the
+     * kind applies there (`$activeFor`, a plain read of the module's own setting); it runs no other code. The
+     * participant is core's and cannot be declared again; a repeated ID fails the contributing module.
+     *
+     * @param \Closure(int): bool $activeFor whether the kind applies to the event
      */
-    public function payerKind(PayerKind $kind): void
+    public function payerKind(PayerKind $kind, \Closure $activeFor): void
     {
         if (!Payer::isValid($kind->id) || $kind->id === Payer::PARTICIPANT || $kind->label === '') {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
@@ -285,15 +290,29 @@ final class Contributions
             throw new \InvalidArgumentException('Payer kind already contributed: ' . $kind->id . '.');
         }
         $this->payerKinds[$kind->id] = $kind;
+        $this->payerKindActive[$kind->id] = $activeFor;
     }
 
     /**
-     * In contribution order.
+     * Every declared payer kind, active or not, in contribution order.
      *
      * @return list<PayerKind>
      */
     public function payerKinds(): array
     {
         return array_values($this->payerKinds);
+    }
+
+    /**
+     * The declared payer kinds that apply to the event, in contribution order.
+     *
+     * @return list<PayerKind>
+     */
+    public function payerKindsFor(int $eventId): array
+    {
+        return array_values(array_filter(
+            $this->payerKinds,
+            fn (PayerKind $kind): bool => ($this->payerKindActive[$kind->id])($eventId)
+        ));
     }
 }
