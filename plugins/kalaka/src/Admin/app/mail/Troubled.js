@@ -1,0 +1,99 @@
+/**
+ * The „Sikertelen küldések” tab: the event's deliveries that need a look (failed, pending with the error of an
+ * earlier attempt, stuck in „sending”), by registration code only: Mail reads no registration values and the
+ * read has no code-list narrowing, so no name is shown (Backend's N549; ViewQuery has no code-list filter). The error
+ * is shown as the server stored it. The one follow-up is a manual mail to that code, the same dialog as the grid's.
+ * [UNAPPROVED N285] [UNAPPROVED N286]
+ */
+import { Fragment, useMemo, useState } from '@wordpress/element';
+import { Button } from '@wordpress/components';
+import ListTable from './ListTable';
+import ManualMailDialog from './ManualMailDialog';
+import useRead from './useRead';
+import { deliveryStatus, moment } from './format';
+import { fmt } from '../grid/format';
+import { COMMON, TROUBLED } from './texts';
+
+export default function Troubled( { config, version } ) {
+	const read = useRead( config.rest, `/events/${ config.event }/mail/troubled` );
+	const [ sending, setSending ] = useState( null );
+	const fields = useMemo(
+		() => [
+			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => item.code, enableHiding: false },
+			{
+				id: 'mail',
+				label: TROUBLED.mail,
+				getValue: ( { item } ) => item.label || fmt( TROUBLED.manual, item.batch_id || 0 ),
+				enableHiding: false,
+			},
+			{ id: 'status', label: TROUBLED.status, getValue: ( { item } ) => deliveryStatus( item.status ), enableHiding: false },
+			{ id: 'attempts', label: TROUBLED.attempts, type: 'integer', getValue: ( { item } ) => item.attempts, enableHiding: false },
+			{
+				id: 'queued_at',
+				label: TROUBLED.queued,
+				getValue: ( { item } ) => item.queued_at,
+				render: ( { item } ) => moment( item.queued_at, config.timezone ),
+				enableHiding: false,
+			},
+			{
+				id: 'last_attempt_at',
+				label: TROUBLED.lastAttempt,
+				getValue: ( { item } ) => item.last_attempt_at || '',
+				render: ( { item } ) => ( item.last_attempt_at ? moment( item.last_attempt_at, config.timezone ) : COMMON.none ),
+				enableHiding: false,
+			},
+			{
+				id: 'error',
+				label: TROUBLED.error,
+				getValue: ( { item } ) => item.error || '',
+				render: ( { item } ) => <span className="km-stored">{ item.error || COMMON.none }</span>,
+				enableHiding: false,
+				enableSorting: false,
+			},
+			{
+				id: 'send',
+				label: '',
+				header: <span className="screen-reader-text">{ TROUBLED.send }</span>,
+				getValue: () => '',
+				render: ( { item } ) => (
+					<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, item.code ) }>
+						{ TROUBLED.send }
+					</Button>
+				),
+				enableHiding: false,
+				enableSorting: false,
+			},
+		],
+		[ config.timezone ]
+	);
+	if ( read.loading && ! read.data ) {
+		return <p>{ COMMON.loading }</p>;
+	}
+	if ( ! read.data ) {
+		return (
+			<p className="km-fail" role="alert">
+				{ COMMON.loadFail }
+			</p>
+		);
+	}
+	return (
+		<Fragment>
+			<ListTable
+				key={ version }
+				data={ read.data }
+				fields={ fields }
+				getId={ ( item ) => String( item.id ) }
+				styles={ { error: { minWidth: '18em' } } }
+				empty={ <p className="km-empty">{ TROUBLED.none }</p> }
+			/>
+			{ sending && (
+				<ManualMailDialog
+					config={ config }
+					codes={ [ sending ] }
+					onClose={ () => setSending( null ) }
+					onSent={ () => read.reload() }
+				/>
+			) }
+		</Fragment>
+	);
+}
