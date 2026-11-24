@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Pause;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 
@@ -43,9 +45,16 @@ final class ResumeMail implements AdminUseCase
         return [];
     }
 
-    /** @return bool whether this call resumed sending; false when it was not paused */
+    /**
+     * @return bool whether this call resumed sending; false when it was not paused
+     * @throws ResumeNeedsPerson when the actor is not a person: the system, or the command line with no user
+     */
     public function execute(array $input, Context $context): bool
     {
+        $actor = $context->actor();
+        if (!(($actor instanceof UserActor || $actor instanceof CliActor) && $actor->userId !== null)) {
+            throw new ResumeNeedsPerson();
+        }
         $state = $this->states->forUpdate($context);
         $context->touch(MailStateRepository::subjectOf());
         if (!$state->isPaused()) {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail;
 
-use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Audit\Correlation;
@@ -14,6 +13,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Pause\MailStateQuery;
 
@@ -96,7 +96,7 @@ final class Sender implements PeriodicStep
             return [new SendReport(), null];
         }
         $share = (new Throttle($this->query))->share($now, $state->hourlyBudget);
-        $published = array_map(static fn (Event $event): int => $event->id, $this->events->published());
+        $published = MailHold::sentEventIds($this->events);
         // One more than the share tells whether candidates are left.
         $limit = max($share, 0) + 1;
         $candidates = $this->query->candidates($published, $limit);
