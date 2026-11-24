@@ -130,10 +130,10 @@ congregation share.
   zero line is written. The pair is one undivided `share` line per payer, participant -X' and congregation +X'.
   [UNAPPROVED N144, N145, N150]
 - Nothing re-checks `share_mode` against the tier at evaluation: the form's option conditions are the judge at
-  submit. Both answers are money relevant, so once written an additional form cannot overwrite them (the lock
-  after the first write is CF4's, not this module's); a mismatch is reachable only where one of the two was never
-  written, through an additional form that holds one of `price_tier` and `share_mode` but not the other. Author
-  both together. [UNAPPROVED N146]
+  submit. Both answers are money relevant; once CF4's lock after the first write lands (#245, D5; not enforced on
+  this base) an additional form cannot overwrite them. A mismatch is reachable where one of the two was never
+  written (an additional form that holds one of `price_tier` and `share_mode` but not the other), or through a
+  staff correction (#243, N163). Author both together. [UNAPPROVED N146]
 - The module declares the payer kind `congregation` (label „Gyülekezet”) through a `PayerKindSource` (`Share/SharePayerKind`), so a
   congregation payment can be recorded by hand and is credited to the congregation alone. The kind applies per event, only
   where the share is on (`Share::isOn()`). One rule for the money tab and the server (`PayerKinds::payersOf()` and

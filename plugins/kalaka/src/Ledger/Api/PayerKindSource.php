@@ -10,7 +10,8 @@ namespace Kalaka\Ledger\Api;
  * extension surface"; money.md, "Ledger"). A kind is declared: it has an ID and a Hungarian label, and the source
  * says per event whether it applies there, from a plain read of the module's own setting. That read runs inside
  * the record use cases and in the admin detail read (`PayerKinds`), fires no hooks and writes nothing; a throw
- * fails the use case or the read like any error. The source runs no other code. [UNAPPROVED N149, N366]
+ * rolls the use case back, and in the detail read is contained (the kind is treated as not applying and logged).
+ * The source runs no other code. [UNAPPROVED N149, N366]
  */
 interface PayerKindSource
 {

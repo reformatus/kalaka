@@ -10,6 +10,10 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Ledger\Api\PayerKind;
+use Kalaka\Ledger\Api\PayerKindInput;
+use Kalaka\Ledger\Api\PayerKindSource;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\RecordCharge;
 use Kalaka\Ledger\RecordCorrection;
@@ -634,6 +638,43 @@ final class ShareTest extends ShareTestCase
             self::fail('A fee against a payer without lines should be refused.');
         } catch (InvalidInput) {
             self::addToAssertionCount(1);
+        }
+    }
+
+    public function testAThrowingPayerKindSourceIsContainedInTheDetailReadAndRollsBackARecordUseCase(): void
+    {
+        $this->applyShare();
+        $key = $this->registerSharing('00A0', 'shared', '20000');
+        $before = Contributions::current();
+        $with = clone $before;
+        $with->payerKindSource(new class implements PayerKindSource {
+            public function kind(): PayerKind
+            {
+                return new PayerKind('sponsor', 'Támogató');
+            }
+
+            public function appliesTo(PayerKindInput $input): bool
+            {
+                throw new \RuntimeException('The source is broken.');
+            }
+        });
+        Contributions::record($with);
+        $actor = new UserActor($this->fullAccessUser());
+
+        try {
+            // The read (outside a transaction) loads without the broken kind: it is logged and not applying.
+            $money = (new \Kalaka\Admin\Api\RegistrationDetail())->of($actor, $this->event, '00A0')['money'];
+            self::assertSame(['participant', 'congregation'], array_column($money['payers'], 'payer'));
+
+            // A record use case is inside the transaction: the throw propagates and nothing is recorded.
+            try {
+                $this->congregationEntry($key, '1000', 'k_gyul_broken');
+                self::fail('The use case should fail.');
+            } catch (\Throwable) {
+                self::assertSame('20000', $this->congregationBalance($key));
+            }
+        } finally {
+            Contributions::record($before);
         }
     }
 

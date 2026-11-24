@@ -10,7 +10,7 @@ use Kalaka\Ledger\Api\PayerKindInput;
 use Kalaka\Ledger\Api\PayerKindSource;
 use PHPUnit\Framework\TestCase;
 
-/** S29: a payer kind is only declared, through a `PayerKindSource` contributed with `payerKindSource()`. */
+/** S29: a payer kind is declared, through a `PayerKindSource` contributed with `payerKindSource()`. */
 final class PayerKindDeclarationTest extends TestCase
 {
     private static function source(string $id, string $label, ?int $event = null): PayerKindSource

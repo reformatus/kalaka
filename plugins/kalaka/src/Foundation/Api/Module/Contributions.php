@@ -274,8 +274,9 @@ final class Contributions
      * A payer kind is declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): the
      * source gives its kind, an ID of the form `Payer::isValid()` and a Hungarian label, and says per event
      * whether it applies there (`PayerKindSource::appliesTo()`, a plain read of the module's own setting that runs
-     * inside the record use cases and in the admin detail read, fires no hooks and writes nothing; a throw fails
-     * the use case or the read like any error); the source runs no other code. The participant is core's and
+     * inside the record use cases and in the admin detail read, fires no hooks and writes nothing; a throw
+     * rolls the use case back, and in the detail read it is contained: the kind is treated as not applying and
+     * logged); the source runs no other code. The participant is core's and
      * cannot be declared again; a repeated ID fails the contributing module. [UNAPPROVED N149, N366]
      */
     public function payerKindSource(PayerKindSource $source): void
@@ -306,7 +307,9 @@ final class Contributions
     }
 
     /**
-     * The declared payer kinds that apply to the event, in contribution order.
+     * The declared payer kinds that apply to the event, in contribution order. A source that throws propagates, so
+     * a record use case rolls back; the admin detail read (outside any transaction) asks the sources one by one
+     * through `payerKindSources()` and contains each (`Ledger\Api\PayerKinds`).
      *
      * @return list<PayerKind>
      */
@@ -320,5 +323,15 @@ final class Contributions
         );
 
         return array_values(array_map(static fn (PayerKindSource $source): PayerKind => $source->kind(), $applying));
+    }
+
+    /**
+     * Every contributed payer-kind source, in contribution order.
+     *
+     * @return list<PayerKindSource>
+     */
+    public function payerKindSources(): array
+    {
+        return array_values($this->payerKindSources);
     }
 }
