@@ -26,7 +26,7 @@ use Kalaka\Support\Api\Offers;
  * (`FeeTargets::ofItems()`), a negative amount, and all of them together are capped at the base price (the tier
  * stage), the earlier offers first, so the fee never goes negative and an offer that finds nothing left writes no
  * line. It reads only the registration's facts, its own current settings (or the proposed ones in a preview)
- * and the seats the registration holds, never a charge line. [UNAPPROVED N6, N7]
+ * and the seats the registration holds, never a charge line. [UNAPPROVED N96, N97]
  */
 final class SupportComponent implements ConfigurableFeeComponent
 {

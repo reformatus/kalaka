@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * The glue between the answer act and the one seat rule: an offer's seat is a seat in the offer's own pool, so
  * a refusal frees it (`Seats::release()`), and a "yes" after a refusal takes one if one is free and goes over
  * the limit otherwise (`takeIfFree()`, then `takeOver()`: the answer stands, the pool stands over, and the act
- * says so). [UNAPPROVED N5]
+ * says so). [UNAPPROVED N95]
  */
 final class SeatOfferSeats implements OfferSeats
 {
