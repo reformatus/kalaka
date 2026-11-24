@@ -18,22 +18,23 @@ keeps of what it knows about its participants
 - The table `kalaka_participant_fields`, keyed by (event ID, field key), is
   this module's schema (option `kalaka_schema_participant_fields`), and
   `ParticipantFieldRepository` is its only writer.
-- Four audited use cases write it, `DeclareParticipantFields`
+- Three audited use cases write it, `DeclareParticipantFields`
   (`kalaka/declare-participant-fields`), `DeclareExtensionField`
-  (`kalaka/declare-extension-field`), `RetireExtensionField`
-  (`kalaka/retire-extension-field`) and `RenameParticipantField`
+  (`kalaka/declare-extension-field`) and `RenameParticipantField`
   (`kalaka/rename-participant-field`). Every other module reads and writes
   only through `Api\ParticipantFields` (`of()`, `declare()`,
-  `declareExtensionField()`, `retireExtensionField()`, `checkDeclarable()`, `lockedAfterFirstWrite()`, `rename()`), whose writes run the use case
-  through the runner, or nested in the extension's own use case for
-  `declareExtensionField()`.
+  `declareExtensionField()`, `rename()`, and the reads `checkDeclarable()` and
+  `lockedAfterFirstWrite()`), whose writes run the use case through the runner, or nested in the extension's own
+  use case for `declareExtensionField()`.
 - `of()` reads outside a use case's transaction, never inside it: a caller
   that needs the fields in a use case reads them first and passes them in.
   `of()` reads only its own table and the block registry, fires no hook and
   writes nothing, so two callers read it inside a transaction: the
   evaluation, which types a registration's field values through
   `Forms::participantValues()` (S25), and a money setting's save, which
-  checks the conditions and the fields it names (S25, S26).
+  checks the conditions and the fields it names (S25, S26). `checkDeclarable()` reads inside a transaction too: a plain
+  read of the same table with no lock, which the money settings' saves (the charges' and the ladder's) run before
+  the declaration re-checks the same rule under its lock [UNAPPROVED N5].
 - A field's type settings (the number field's bounds, decimals and affixes)
   are its JSON `settings` column, stored from the form on declare; the
   module keeps them and does not interpret them.
@@ -49,12 +50,15 @@ keeps of what it knows about its participants
   the forms' union never adds or retires one. A declaration adopts a `form`
   field of the same type (it becomes `extension`, retired or not, values
   untouched) and never takes over a `staff` or `system` field, a key
-  of another type or another declarer's `extension` field [UNAPPROVED, N4 of #231]. A field stores its
-  declarer's slug (`declared_by`, null for form, staff and system fields and for one declared before the column;
-  that one is taken by the first declarer) and `money_relevant`, the lock after the first write: an extension sets
-  it in its declaration, a form field takes it from its block type (`MoneyRelevantFieldType`, passed in by
-  Forms). `checkDeclarable()` and the declaration share one rule (`ParticipantFieldRecord::declarableBy()`).
-  `RetireExtensionField` retires an `extension` field of the declarer. [UNAPPROVED, N3, N5, N300, N301 of #231]
+  of another type or another declarer's `extension` field [UNAPPROVED, N4 of #231]. A field stores
+  its declarer's slug (`declared_by`, the declaring plugin's slug, `kalaka-extras` for core Extras; null for form,
+  staff and system fields and for one declared before the column, which the first declarer takes) and
+  `money_relevant`, the claim that its value is locked after the first write: an extension makes it in its
+  declaration, a form field takes it from its block type (`MoneyRelevantFieldType`, passed in by Forms), and no
+  declaration lowers it. `lockedAfterFirstWrite()` is that flag or the type's own capability, so a row from before
+  the column needs no backfill. `checkDeclarable()` and the declaration share one rule
+  (`ParticipantFieldRecord::declarableBy()`). A declared field is never retired by its declarer: a removed
+  item leaves it declared. [UNAPPROVED N3, N5, N300, N301 of #231]
 - A field's `type` is a block name. The module reads only that block's
   registered title from WordPress's block registry (the type label) and
   nothing of Forms: which forms hold a field is Forms' to add

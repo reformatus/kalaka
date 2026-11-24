@@ -14,9 +14,10 @@ use Kalaka\Foundation\Api\Module\Schema;
 final class Module extends AbstractModule
 {
     /**
-     * The event's participant fields, keyed by (event ID, field key). `field_key` and `type`
-     * and `declared_by` are compared exactly (`utf8mb4_nopad_bin`); `options` and `settings` are JSON; times are UTC
-     * `datetime(6)`.
+     * The event's participant fields, keyed by (event ID, field key). `field_key`, `type` and `declared_by` are
+     * compared exactly (`utf8mb4_nopad_bin`); `options` and `settings` are JSON; times are UTC `datetime(6)`.
+     * `declared_by` is the declaring module's slug and `money_relevant` the claim that the value is locked after its
+     * first write. [UNAPPROVED N300]
      */
     private const PARTICIPANT_FIELDS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_participant_fields (
