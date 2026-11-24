@@ -28,8 +28,8 @@ final class OnlineRefs
     /** @throws \InvalidArgumentException */
     public static function checkRef(string $ref): void
     {
-        if (preg_match('/\A[A-Za-z0-9_.-]{1,40}\z/', $ref) !== 1) {
-            throw new \InvalidArgumentException('A request or refund ref is 1 to 40 of [A-Za-z0-9_.-].');
+        if (preg_match('/\A[a-z0-9_.-]{1,40}\z/', $ref) !== 1) {
+            throw new \InvalidArgumentException('A request or refund ref is 1 to 40 of [a-z0-9_.-].');
         }
     }
 }

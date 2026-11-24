@@ -6,9 +6,13 @@ namespace Kalaka\Tests\Integration\Payments;
 
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\Database\NamedLock;
+use Kalaka\Payments\Api\CardPaymentInFlight;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
 use Kalaka\Payments\Api\CardPayments;
 use Kalaka\Payments\Api\NoPaymentProvider;
+use Kalaka\Payments\Api\OpenPayment;
+use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Payments\Api\PaymentProviders;
 use Kalaka\Payments\StartCardPayment;
 use Kalaka\Portal\Api\StatusRead;
@@ -24,6 +28,8 @@ final class CardPaymentStartTest extends PortalTestCase
 {
     private FakeProvider $provider;
 
+    private ?\mysqli $other = null;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
     public function set_up(): void
     {
@@ -31,6 +37,15 @@ final class CardPaymentStartTest extends PortalTestCase
 
         $this->provider = new FakeProvider();
         $this->contribute($this->provider);
+    }
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
+    public function tear_down(): void
+    {
+        $this->other?->close();
+        $this->other = null;
+
+        parent::tear_down();
     }
 
     private function contribute(FakeProvider ...$providers): void
@@ -60,14 +75,83 @@ final class CardPaymentStartTest extends PortalTestCase
         self::assertNull($request->email);
     }
 
-    public function testTheProviderIsCalledAfterTheRunNotInsideIt(): void
+    public function testNoProviderMethodIsCalledInsideTheRun(): void
     {
         $key = $this->stored('12A3');
         $this->charge($key, '5000');
 
         (new CardPayments())->start($key);
 
+        // Every method core calls: asked outside the transaction, never inside the use case.
+        self::assertSame(['latestOf' => false, 'accepts' => false, 'payUrl' => false], $this->provider->insideARun);
         self::assertFalse($this->provider->ranInsideARun);
+    }
+
+    public function testTheProviderIsAskedWhileOnlyThisStartHoldsTheRegistrationsLock(): void
+    {
+        $key = $this->stored('12A3');
+        $this->charge($key, '5000');
+        $name = (new NamedLock('card_' . $key->eventId . '_12a3'))->scoped();
+        $free = null;
+        $this->provider->whilePaying = function () use ($name, &$free): void {
+            $free = $this->otherConnection()->query("SELECT IS_FREE_LOCK('" . $name . "') AS free")?->fetch_row()[0];
+        };
+
+        (new CardPayments())->start($key);
+
+        self::assertSame('0', $free, 'The lock is held while the provider makes the order.');
+        self::assertSame(
+            '1',
+            $this->otherConnection()->query("SELECT IS_FREE_LOCK('" . $name . "') AS free")?->fetch_row()[0],
+            'And free again after.'
+        );
+    }
+
+    public function testAStartThatCannotGetTheLockIsRefusedAsInFlightAndCallsNoProvider(): void
+    {
+        $key = $this->stored('12A3');
+        $this->charge($key, '5000');
+        $name = (new NamedLock('card_' . $key->eventId . '_12a3'))->scoped();
+        $other = $this->otherConnection();
+        $other->query("SELECT GET_LOCK('" . $name . "', 0)");
+
+        try {
+            (new CardPayments(waitMs: 0))->start($key);
+            self::fail('Nothing refused it.');
+        } catch (CardPaymentInFlight $e) {
+            self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());
+            self::assertSame([], $this->provider->requests);
+            self::assertSame([], $this->provider->insideARun);
+        } finally {
+            $other->query("SELECT RELEASE_LOCK('" . $name . "')");
+        }
+    }
+
+    public function testARequestInFlightAtTheProviderIsRefusedAndAPendingOneIsNot(): void
+    {
+        $key = $this->stored('12A3');
+        $this->charge($key, '5000');
+        $since = new \DateTimeImmutable('2026-11-30 09:30:00');
+
+        $this->provider->latest = new OpenPayment(OpenPaymentState::Pending, $since);
+        (new CardPayments())->start($key);
+        $this->provider->latest = new OpenPayment(OpenPaymentState::Processing, $since);
+        try {
+            (new CardPayments())->start($key);
+            self::fail('Nothing refused it.');
+        } catch (CardPaymentInFlight $e) {
+            self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());
+        }
+        self::assertCount(1, $this->provider->requests);
+    }
+
+    private function otherConnection(): \mysqli
+    {
+        if ($this->other === null) {
+            $this->other = new \mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
+        }
+
+        return $this->other;
     }
 
     public function testOnlyASameSiteReturnAddressIsUsed(): void
@@ -151,7 +235,7 @@ final class CardPaymentStartTest extends PortalTestCase
 
         $this->expectException(CardPaymentUnavailable::class);
         $this->runner->run(
-            new StartCardPayment($key, $this->provider, null, home_url('/'), status: $read),
+            new StartCardPayment($key, null, home_url('/'), status: $read),
             [],
             new SecretLinkActor($key)
         );
@@ -206,7 +290,7 @@ final class CardPaymentStartTest extends PortalTestCase
 
         $this->expectException(\Kalaka\Foundation\Api\Error\PermissionDenied::class);
         $this->runner->run(
-            new StartCardPayment($mine, $this->provider, null, home_url('/')),
+            new StartCardPayment($mine, null, home_url('/')),
             [],
             new SecretLinkActor($other)
         );

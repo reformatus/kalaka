@@ -10,8 +10,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
-use Kalaka\Payments\Api\NoPaymentProvider;
-use Kalaka\Payments\Api\PaymentProvider;
+use Kalaka\Payments\Api\CardPaymentInFlight;
 use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Payments\Api\StartedCardPayment;
@@ -22,21 +21,23 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * Starts a card payment for the active registration (money.md, "Payments"): under the registration's lock it
  * checks again that something is payable, by the one rule of the transfer block (`StatusRead::payableNow()`), and
- * that a provider accepts the event's currency, and builds the one-line request for the participant's due,
- * rounded up. It writes nothing. The provider is called after the run, outside the transaction
- * (`Api\CardPayments`), never here.
+ * builds the one-line request for the participant's due, rounded up. It writes nothing and calls no provider:
+ * a provider is an outside point, so `Api\CardPayments` asks it (whether it accepts the currency, the state of
+ * the latest request, the pay URL) outside the transaction and hands the use case what it read.
  */
 final class StartCardPayment implements PortalUseCase
 {
     /**
      * @param ?string $email the registration's contact email, read before the run
      * @param string $fallbackUrl where the registrant returns to when the input names no same-site address
+     * @param bool $inFlight whether the provider reported the registration's latest request in flight, read
+     *                       before the run
      */
     public function __construct(
         private readonly RegistrationKey $key,
-        private readonly ?PaymentProvider $provider,
         private readonly ?string $email,
         private readonly string $fallbackUrl,
+        private readonly bool $inFlight = false,
         private readonly Registrations $registrations = new Registrations(),
         private readonly Events $events = new Events(),
         private readonly StatusRead $status = new StatusRead(),
@@ -67,7 +68,7 @@ final class StartCardPayment implements PortalUseCase
     /**
      * @param array<string, mixed> $input
      * @throws CardPaymentUnavailable when nothing is payable now
-     * @throws NoPaymentProvider when no provider accepts the event's currency
+     * @throws CardPaymentInFlight when the latest request is in flight at the provider
      */
     public function execute(array $input, Context $context): StartedCardPayment
     {
@@ -82,8 +83,8 @@ final class StartCardPayment implements PortalUseCase
         if ($event === null) {
             throw new NotFound();
         }
-        if ($this->provider === null || !$this->provider->accepts($amount->currency())) {
-            throw new NoPaymentProvider();
+        if ($this->inFlight) {
+            throw new CardPaymentInFlight();
         }
 
         $returnUrl = isset($input['return_url']) ? wp_validate_redirect((string) $input['return_url'], '') : '';

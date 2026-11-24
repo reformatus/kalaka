@@ -42,12 +42,4 @@ final readonly class RegistrationStatusView
     {
         return $this->availability === Availability::Open && $this->status !== RegistrationStatus::Waitlisted;
     }
-
-    /** What can be paid now by card or transfer (`PayableNow`): null unless registered and something is payable. */
-    public function payableNow(): ?\Kalaka\Foundation\Api\Money\Money
-    {
-        return $this->status === RegistrationStatus::Registered && $this->payment !== null
-            ? PayableNow::amount($this->availability, $this->payment->awaitsAnswer, $this->payment->participant)
-            : null;
-    }
 }

@@ -23,6 +23,15 @@ final class FakeProvider implements PaymentProvider
     /** Whether a run was open while `payUrl()` ran. */
     public ?bool $ranInsideARun = null;
 
+    /** @var array<string, bool> by method: whether a run was open while the method ran (each method called) */
+    public array $insideARun = [];
+
+    /** What `latestOf()` answers. */
+    public ?OpenPayment $latest = null;
+
+    /** @var ?callable(): void run inside `payUrl()` */
+    public $whilePaying = null;
+
     public function __construct(private readonly string $id = 'fake', public bool $accepts = true)
     {
     }
@@ -34,12 +43,18 @@ final class FakeProvider implements PaymentProvider
 
     public function accepts(Currency $currency): bool
     {
+        $this->insideARun['accepts'] = Runner::activeRun() !== null;
+
         return $this->accepts;
     }
 
     public function payUrl(PaymentRequest $request, string $returnUrl): string
     {
         $this->ranInsideARun = Runner::activeRun() !== null;
+        $this->insideARun['payUrl'] = $this->ranInsideARun;
+        if ($this->whilePaying !== null) {
+            ($this->whilePaying)();
+        }
         $this->requests[] = $request;
         $this->returnUrls[] = $returnUrl;
 
@@ -48,6 +63,8 @@ final class FakeProvider implements PaymentProvider
 
     public function latestOf(RegistrationKey $key): ?OpenPayment
     {
-        return null;
+        $this->insideARun['latestOf'] = Runner::activeRun() !== null;
+
+        return $this->latest;
     }
 }
