@@ -1,6 +1,6 @@
 /**
  * The status acts of the detail panel (S39 on #247): the acts row from `can` only, each dialog (the ability and
- * input it runs, the reason rule, the preview warning of admit and restore, no money section), a typed refusal
+ * input it runs, the reason rule, the preview's warnings, capacity lines and money section), a typed refusal
  * shown with the server's text, the generic failure for the rest, and what is handed to `onDone`.
  */
 import { act, createElement } from 'react';
@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import apiFetch from '@wordpress/api-fetch';
 import StatusActDialog from '../../src/Admin/app/grid/StatusActDialog';
 import StatusActs from '../../src/Admin/app/grid/StatusActs';
-import { abilityOf, actsFor, failureOf, goesOver, inputOf, staleAfter } from '../../src/Admin/app/grid/statusActs';
+import { abilityOf, actsFor, failureOf, inputOf, moneyRowsOf, previewsAtOpen, seatLinesOf, staleAfter, warningsOf } from '../../src/Admin/app/grid/statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
@@ -33,10 +33,32 @@ let root;
 let done;
 let reload;
 const config = { rest: '', event: 7 };
-const OVER = { changed: true, status: 'registered', over_capacity: true, seats: [ { pool: 'event', field: null, outcome: 'over' } ] };
-const HELD = { changed: true, status: 'registered', over_capacity: false, seats: [ { pool: 'event', field: null, outcome: 'held' } ] };
+const FULL_TEXT = 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.';
+const OVER = {
+	changed: true,
+	status: 'registered',
+	over_capacity: true,
+	seats: [ { pool: 'event', label: 'Nyári tábor', field: null, outcome: 'over', taken: 6, limit: 6 } ],
+	warnings: [ FULL_TEXT ],
+};
+const HELD = {
+	changed: true,
+	status: 'registered',
+	over_capacity: false,
+	seats: [ { pool: 'event', label: 'Nyári tábor', field: null, outcome: 'held', taken: 4, limit: 6 } ],
+	warnings: [],
+};
+const MONEY_LEFT = {
+	changed: true,
+	status: 'withdrawn',
+	over_capacity: false,
+	seats: [],
+	warnings: [],
+	money: [ { payer: 'participant', paid: '60000.00000000', balance_now: '10000.00000000', balance_after: '-5000.00000000' } ],
+};
+const DETAIL_MONEY = { currency: 'HUF', payers: [ { payer: 'participant', label: 'Résztvevő' } ] };
 
-async function render( act_, preview = HELD ) {
+async function render( act_, preview = HELD, money = DETAIL_MONEY ) {
 	apiFetch.mockImplementation( ( request ) => Promise.resolve( request.data.input.preview ? preview : HELD ) );
 	host = document.createElement( 'div' );
 	document.body.appendChild( host );
@@ -44,7 +66,7 @@ async function render( act_, preview = HELD ) {
 	done = jest.fn().mockResolvedValue( undefined );
 	reload = jest.fn();
 	await act( async () => {
-		root.render( createElement( StatusActDialog, { config, code: '92F7', act: act_, onClose: () => {}, onDone: done, reload } ) );
+		root.render( createElement( StatusActDialog, { config, code: '92F7', act: act_, money, onClose: () => {}, onDone: done, reload } ) );
 	} );
 }
 const textarea = () => host.querySelector( 'textarea' );
@@ -127,27 +149,102 @@ describe( 'each dialog', () => {
 		expect( host.textContent ).toContain( CONFIRM.reasonTooLong );
 	} );
 
-	test( 'withdraw and remove show no money section and ask no preview', async () => {
-		await render( 'withdraw' );
-		expect( apiFetch ).not.toHaveBeenCalled();
-		expect( host.textContent ).not.toMatch( /Pénzügyi|Egyenleg/ );
+	test( 'all acts but remove ask the preview as the dialog opens, without a reason', async () => {
+		for ( const name of [ 'admit', 'withdraw', 'restore' ] ) {
+			apiFetch.mockReset();
+			await render( name );
+			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+			expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toEqual( { event_id: 7, code: '92F7', preview: true } );
+			await act( async () => root.unmount() );
+			host.remove();
+		}
+		expect( previewsAtOpen( 'remove' ) ).toBe( false );
 	} );
 
-	test( 'admit and restore ask the preview and warn only when it says over', async () => {
+	test( 'remove asks its preview once a reason has been typed and the field is left', async () => {
+		await render( 'remove', MONEY_LEFT );
+		expect( apiFetch ).not.toHaveBeenCalled();
+		expect( host.textContent ).not.toContain( STATUS_ACTS.moneyHeading );
+		await write( '  Dupla jelentkezés  ' );
+		await act( async () => {
+			textarea().dispatchEvent( new Event( 'focusout', { bubbles: true } ) );
+		} );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toEqual( { event_id: 7, code: '92F7', reason: 'Dupla jelentkezés', preview: true } );
+		expect( host.textContent ).toContain( STATUS_ACTS.moneyHeading );
+		// Leaving the field again with the same reason asks nothing more.
+		await act( async () => {
+			textarea().dispatchEvent( new Event( 'focusout', { bubbles: true } ) );
+		} );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'the warning is the preview\'s own text, one notice per warning, none when it has none', async () => {
 		await render( 'admit', OVER );
-		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input.preview ).toBe( true );
-		expect( notices( 'warning' ) ).toEqual( [ STATUS_ACTS.full ] );
+		expect( notices( 'warning' ) ).toEqual( [ FULL_TEXT ] );
 		await act( async () => root.unmount() );
 		host.remove();
 		await render( 'restore', HELD );
 		expect( notices( 'warning' ) ).toEqual( [] );
+		expect( warningsOf( null ) ).toEqual( [] );
+		expect( warningsOf( { warnings: [ 'a', '', 'b' ] } ) ).toEqual( [ 'a', 'b' ] );
 	} );
 
-	test( 'goesOver reads over_capacity and any pool over', () => {
-		expect( goesOver( null ) ).toBe( false );
-		expect( goesOver( HELD ) ).toBe( false );
-		expect( goesOver( { over_capacity: false, seats: [ { outcome: 'over' } ] } ) ).toBe( true );
-		expect( goesOver( OVER ) ).toBe( true );
+	test( 'a seat with a limit gets its label and taken / limit; an unlimited seat has no line', async () => {
+		await render( 'admit', OVER );
+		expect( host.querySelector( '.kg-act-capacity' ).textContent ).toBe( 'Nyári tábor Foglalt helyek: 6 / 6.' );
+		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'held', taken: 1, limit: null } ] } ) ).toEqual( [] );
+		expect( seatLinesOf( null ) ).toEqual( [] );
+	} );
+
+	test( 'the money section lists each payer from the preview and invents no retention wording', async () => {
+		await render( 'withdraw', MONEY_LEFT );
+		const section = host.querySelector( '.kg-act-money' );
+		expect( section.querySelector( 'h3' ).textContent ).toBe( STATUS_ACTS.moneyHeading );
+		expect( Array.from( section.querySelectorAll( 'th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
+		expect( Array.from( section.querySelectorAll( 'tbody td' ) ).map( ( td ) => td.textContent ) ).toEqual( [
+			'Résztvevő',
+			'60\u00a0000\u00a0Ft',
+			'10\u00a0000\u00a0Ft',
+			'−5\u00a0000\u00a0Ft (túlfizetés)',
+		] );
+		expect( section.textContent ).toContain( STATUS_ACTS.noAutomaticRefund );
+		expect( section.textContent ).not.toMatch( /megtart/i );
+	} );
+
+	test( 'no money section for admit, without money in the preview, or without a payer', async () => {
+		await render( 'admit', HELD );
+		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( 'withdraw', { ...MONEY_LEFT, money: null } );
+		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
+		expect( moneyRowsOf( { money: [] }, DETAIL_MONEY ) ).toBeNull();
+		expect( moneyRowsOf( null, DETAIL_MONEY ) ).toBeNull();
+	} );
+
+	test( 'a payer the read does not name is shown by its key; the currency is the read\'s', () => {
+		const rows = moneyRowsOf( MONEY_LEFT, { currency: 'EUR', payers: [] } );
+		expect( rows[ 0 ].payer ).toBe( 'participant' );
+		expect( rows[ 0 ].paid ).toBe( '60\u00a0000\u00a0EUR' );
+	} );
+
+	test( 'a restore of a leaver shows the reversal as the server computed it', async () => {
+		await render( 'restore', { ...HELD, money: [ { payer: 'participant', paid: '20000.00000000', balance_now: '-20000.00000000', balance_after: '40000.00000000' } ] } );
+		expect( Array.from( host.querySelectorAll( '.kg-act-money tbody td' ) ).map( ( td ) => td.textContent ).slice( 2 ) ).toEqual( [ '−20\u00a0000\u00a0Ft (túlfizetés)', '40\u00a0000\u00a0Ft' ] );
+	} );
+
+	test( 'a failed preview shows nothing', async () => {
+		apiFetch.mockReset();
+		apiFetch.mockImplementation( () => Promise.reject( { code: 'kalaka_not_found', message: 'x' } ) );
+		host = document.createElement( 'div' );
+		document.body.appendChild( host );
+		root = createRoot( host );
+		await act( async () => {
+			root.render( createElement( StatusActDialog, { config, code: '92F7', act: 'admit', money: DETAIL_MONEY, onClose: () => {}, onDone: jest.fn(), reload: jest.fn() } ) );
+		} );
+		expect( notices( 'warning' ) ).toEqual( [] );
+		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
 	} );
 } );
 
@@ -179,7 +276,7 @@ describe( 'a refusal', () => {
 		apiFetch.mockImplementation( () => new Promise( ( resolve ) => ( release = resolve ) ) );
 		await submit();
 		await submit();
-		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		expect( writes() ).toHaveLength( 1 );
 		await act( async () => release( HELD ) );
 	} );
 } );

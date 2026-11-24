@@ -252,15 +252,19 @@ export const STATUS_ACTS = {
 	withdrawn: 'Jelentkezés visszavonva.',
 	removed: 'Jelentkezés törölve.',
 	restored: 'Jelentkezés visszaállítva.',
-	// PlacementWarnings::FULL, verbatim (reused, #216). Shown when the preview says a pool is over.
-	full: 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.',
+	// The money section's heading (the earlier prototype's S16). [UNAPPROVED T718]
+	moneyHeading: 'Pénzügyi hatás',
+	// Under the money table (S23): nothing is paid back by the act. [UNAPPROVED T719]
+	noAutomaticRefund: 'Nincs automatikus visszafizetés.',
+	// The capacity line of a seat with a limit (S24), `taken` and `limit` from the preview's `seats`. [UNAPPROVED T720]
+	capacity: 'Foglalt helyek: %1$d / %2$d.',
 };
 
 /**
  * Staff editing of a registration's field values (B5-2 on #249). Every string is unapproved until the owner ticks
  * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and its two messages
  * (CONFIRM), the generic failure (MONEY.saveFail), „Nincs válasz” (GRID.unanswered), „–” (an empty value, MONEY's
- * preview dash) and the „full” warning (PlacementWarnings::FULL, STATUS_ACTS.full). Server refusals are shown
+ * preview dash) and the „full” warning (the preview's `warnings`, the server's text). Server refusals are shown
  * with the server's own text.
  */
 export const FIELDS = {

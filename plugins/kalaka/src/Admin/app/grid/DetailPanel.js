@@ -150,6 +150,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					config={ config }
 					code={ code }
 					can={ detail.can || {} }
+					money={ detail.money }
 					reload={ reload }
 					onSaved={ onSaved }
 				/>

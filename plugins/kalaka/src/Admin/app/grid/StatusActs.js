@@ -15,11 +15,12 @@ import { actsFor, labelOf, snackbarOf } from './statusActs';
  * @param {Object}   props.config  window.kalakaGrid
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.can     the read's `can`
+ * @param {?Object}  props.money   the read's `money`, for the money section of a dialog
  * @param {boolean}  props.stale   the last re-read failed: the block is left out
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {Function} props.onSaved tells the grid the status changed
  */
-export default function StatusActs( { config, code, can, stale, reload, onSaved } ) {
+export default function StatusActs( { config, code, can, money, stale, reload, onSaved } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -84,6 +85,7 @@ export default function StatusActs( { config, code, can, stale, reload, onSaved 
 					config={ config }
 					code={ code }
 					act={ dialog }
+					money={ money }
 					onClose={ close }
 					onDone={ done }
 					reload={ reload }

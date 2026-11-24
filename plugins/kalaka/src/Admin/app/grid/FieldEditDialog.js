@@ -1,7 +1,8 @@
 /**
  * The dialog that edits one field's value (B5-2 on #249): the control the kind needs, opened on the read's
- * `edit.answer`, the "full" warning when the picked value is full, the reason, and the save. The save goes
- * through when a value is full: placing is never stopped. A failed save keeps the dialog and the reason and
+ * `edit.answer`, the "full" warning when the picked value is full (asked from the ability's preview, which needs
+ * no reason: the text is the server's), the reason, and the save. The save goes through when a value is full:
+ * placing is never stopped. A failed save keeps the dialog and the reason and
  * shows the server's text (a stored value changed by someone else is the 409's own text). While it runs the
  * dialog does not close and a second submit is ignored. [UNAPPROVED N233] [UNAPPROVED N234] [UNAPPROVED N235]
  * [UNAPPROVED N236] [UNAPPROVED N239] [UNAPPROVED N241]
@@ -11,8 +12,8 @@ import { Button, CheckboxControl, Modal, Notice, RadioControl, TextareaControl, 
 import * as api from './api';
 import { validateReason } from './confirmation';
 import { controlOf, inputOf, isFull, openingOf } from './fieldEdit';
-import { failureOf, staleAfter } from './statusActs';
-import { CONFIRM, GRID, MONEY, STATUS_ACTS } from './texts';
+import { failureOf, staleAfter, warningsOf } from './statusActs';
+import { CONFIRM, GRID, MONEY } from './texts';
 
 const NONE = '';
 
@@ -35,6 +36,24 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 	const sending = useRef( false );
 	const form = useRef();
 	const options = field.edit.options || [];
+	const [ warnings, setWarnings ] = useState( [] );
+	const full = isFull( field, picked );
+
+	// The "full" warning is the preview's, asked when the picked value is a full one. A failed preview shows
+	// nothing: the save's own answer decides. [UNAPPROVED N236]
+	useEffect( () => {
+		let live = true;
+		setWarnings( [] );
+		if ( full ) {
+			api.editFieldValue( inputOf( config.event, code, field, picked, '', true ) ).then(
+				( result ) => live && setWarnings( warningsOf( result ) ),
+				() => {}
+			);
+		}
+		return () => {
+			live = false;
+		};
+	}, [ full, picked ] );
 
 	// Focus lands on the first control, not on the dialog frame. [UNAPPROVED N241]
 	useEffect( () => {
@@ -89,13 +108,14 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 			shouldCloseOnClickOutside={ false }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
-				{ control === 'text' && (
+				{ ( control === 'text' || control === 'number' ) && (
 					<TextControl
 						label={ field.label }
 						hideLabelFromVision
 						value={ picked }
 						onChange={ setPicked }
-						type={ field.edit.answer.kind === 'kalaka/date-field' ? 'date' : 'text' }
+						type={ control === 'number' ? 'number' : 'text' }
+						step={ control === 'number' ? 'any' : undefined }
 						__nextHasNoMarginBottom
 						__next40pxDefaultSize
 					/>
@@ -109,7 +129,7 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 						onChange={ setPicked }
 					/>
 				) }
-				{ control === 'multi' && (
+				{ control === 'multi_choice' && (
 					<fieldset className="kg-multi">
 						<legend className="screen-reader-text">{ field.label }</legend>
 						{ options.map( ( option ) => (
@@ -128,11 +148,11 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 				{ control === 'consent' && (
 					<CheckboxControl label={ field.label } checked={ picked } onChange={ setPicked } __nextHasNoMarginBottom />
 				) }
-				{ isFull( field, picked ) && (
-					<Notice status="warning" isDismissible={ false }>
-						{ STATUS_ACTS.full }
+				{ warnings.map( ( text ) => (
+					<Notice key={ text } status="warning" isDismissible={ false }>
+						{ text }
 					</Notice>
-				) }
+				) ) }
 				<TextareaControl
 					label={ CONFIRM.reasonField }
 					value={ reason }

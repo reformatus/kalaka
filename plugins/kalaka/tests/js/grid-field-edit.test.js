@@ -1,7 +1,7 @@
 /**
  * Staff editing of field values in the detail panel (B5-2 on #249): the list and its buttons from `writable`
- * only, the control and the value each kind sends, `expected` sent back as read, the "full" notice before the
- * save (placing never stopped), the reason rule, a conflict shown with the server's text and the re-read, the
+ * only, the control the read names (`edit.control`, `edit.multiple`), the value each kind sends, `expected` sent
+ * back as read, the "full" warning from the preview (no reason) before the save (placing never stopped), the reason rule, a conflict shown with the server's text and the re-read, the
  * generic failure, `changed: false` as done, and the double submit.
  */
 import { act, createElement } from 'react';
@@ -10,7 +10,7 @@ import apiFetch from '@wordpress/api-fetch';
 import FieldEditDialog from '../../src/Admin/app/grid/FieldEditDialog';
 import FieldsBlock from '../../src/Admin/app/grid/FieldsBlock';
 import { controlOf, inputOf, isFull, openingOf, valueOf } from '../../src/Admin/app/grid/fieldEdit';
-import { CONFIRM, FIELDS, GRID, MONEY, STATUS_ACTS } from '../../src/Admin/app/grid/texts';
+import { CONFIRM, FIELDS, GRID, MONEY } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
@@ -44,7 +44,10 @@ jest.mock( '@wordpress/api-fetch', () => ( { __esModule: true, default: jest.fn(
 window.IS_REACT_ACT_ENVIRONMENT = true;
 
 const config = { rest: '', event: 7 };
-const NAME = { key: 'name', label: 'Név', type: 'kalaka/name-field', value: 'Próba', text: 'Próba', writable: true, edit: { answer: { kind: 'kalaka/name-field', value: 'Próba' }, expected: 'Próba' } };
+const FULL_TEXT = 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.';
+const NAME = { key: 'name', label: 'Név', type: 'kalaka/name-field', value: 'Próba', text: 'Próba', writable: true, edit: { answer: { kind: 'kalaka/name-field', value: 'Próba' }, expected: 'Próba', control: 'text' } };
+const AGE = { key: 'kor', label: 'Kor', text: '12', writable: true, edit: { answer: { kind: 'kalaka/number-field', value: '12' }, expected: '12', control: 'number' } };
+const DAY = { key: 'szul', label: 'Születés', text: '2014-05-01', writable: true, edit: { answer: { kind: 'kalaka/date-field', value: '2014-05-01' }, expected: '2014-05-01', control: 'text' } };
 const TIER = {
 	key: 'price_tier',
 	label: 'Díjkategória',
@@ -53,12 +56,14 @@ const TIER = {
 	edit: {
 		answer: { kind: 'kalaka/choice-field', value: 'tamogatott' },
 		expected: 'tamogatott',
+		control: 'choice',
+		multiple: false,
 		options: [ { value: 'alap', label: 'Alap ár', full: false }, { value: 'tamogatott', label: 'Támogatott ár', full: true } ],
 	},
 };
-const OFFER = { key: 'tamogatas', label: 'Gyülekezeti támogatás', text: '', writable: true, edit: { answer: { kind: 'kalaka/consent-field', value: null }, expected: null, full: true } };
+const OFFER = { key: 'tamogatas', label: 'Gyülekezeti támogatás', text: '', writable: true, edit: { answer: { kind: 'kalaka/consent-field', value: null }, expected: null, control: 'consent', full: true } };
 const LOCKED = { key: 'tamogatas_answer', label: 'Válasz', text: '', writable: false };
-const RANKING = { key: 'rang', label: 'Rang', text: 'a', writable: true, edit: { answer: { kind: 'kalaka/ranking-field', value: [ 'a' ] }, expected: '["a"]', options: [] } };
+const RANKING = { key: 'rang', label: 'Rang', text: 'a', writable: true, edit: { answer: { kind: 'kalaka/ranking-field', value: [ 'a' ] }, expected: '["a"]', control: null, options: [] } };
 
 let host;
 let root;
@@ -106,7 +111,15 @@ describe( 'which fields get a control', () => {
 		expect( controlOf( NAME ) ).toBe( 'text' );
 		expect( controlOf( TIER ) ).toBe( 'choice' );
 		expect( controlOf( OFFER ) ).toBe( 'consent' );
-		expect( controlOf( { ...TIER, edit: { ...TIER.edit, answer: { kind: TIER.edit.answer.kind, value: [ 'alap' ] } } } ) ).toBe( 'multi' );
+		expect( controlOf( AGE ) ).toBe( 'number' );
+		expect( controlOf( DAY ) ).toBe( 'text' );
+		// A choice taking several options: the read says so (`multi_choice`, or `multiple`), the stored value is not looked at.
+		const multi = { ...TIER, edit: { ...TIER.edit, control: 'multi_choice', multiple: true, answer: { kind: TIER.edit.answer.kind, value: null } } };
+		expect( controlOf( multi ) ).toBe( 'multi_choice' );
+		expect( controlOf( { ...TIER, edit: { ...TIER.edit, multiple: true } } ) ).toBe( 'multi_choice' );
+		expect( openingOf( multi ) ).toEqual( [] );
+		expect( controlOf( { ...TIER, edit: { ...TIER.edit, options: undefined } } ) ).toBeNull();
+		expect( controlOf( { ...NAME, edit: { ...NAME.edit, control: 'ranking' } } ) ).toBeNull();
 		expect( controlOf( LOCKED ) ).toBeNull();
 		expect( controlOf( RANKING ) ).toBeNull();
 		expect( controlOf( { ...NAME, writable: false } ) ).toBeNull();
@@ -134,6 +147,10 @@ describe( 'what a control opens on and sends', () => {
 		const stored = { ...TIER, edit: { ...TIER.edit, expected: '["tamogatott"]' } };
 		expect( inputOf( 7, 'A', stored, 'alap', 'ok' ) ).toEqual( { event_id: 7, code: 'A', field: 'price_tier', value: 'alap', expected: '["tamogatott"]', reason: 'ok' } );
 		expect( inputOf( 7, 'A', OFFER, true, 'ok' ).expected ).toBeNull();
+	} );
+
+	test( 'a preview carries no reason', () => {
+		expect( inputOf( 7, 'A', TIER, 'alap', '', true ) ).toEqual( { event_id: 7, code: 'A', field: 'price_tier', value: 'alap', expected: 'tamogatott', preview: true } );
 	} );
 
 	test( 'a clear is null; a consent is "1" or "0"', () => {
@@ -177,17 +194,59 @@ describe( 'the dialog', () => {
 		expect( host.textContent ).toContain( CONFIRM.reasonTooLong );
 	} );
 
-	test( 'a full option shows the approved text the moment it is picked, and the save is not stopped', async () => {
-		apiFetch.mockResolvedValue( { changed: true, over_limit: [ 'price_tier' ] } );
+	test( 'a full option asks the preview without a reason and shows its warning text; the save is not stopped', async () => {
+		apiFetch.mockImplementation( ( request ) =>
+			Promise.resolve( request.data.input.preview ? { changed: true, over_limit: [ 'price_tier' ], warnings: [ FULL_TEXT ] } : { changed: true, over_limit: [ 'price_tier' ] } )
+		);
 		const field = { ...TIER, edit: { ...TIER.edit, answer: { kind: TIER.edit.answer.kind, value: 'alap' }, expected: 'alap' } };
 		await dialog( field );
 		expect( warnings() ).toEqual( [] );
+		expect( apiFetch ).not.toHaveBeenCalled();
 		await click( host.querySelector( 'input[value="tamogatott"]' ) );
-		expect( warnings() ).toEqual( [ STATUS_ACTS.full ] );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toEqual( { event_id: 7, code: '01F4', field: 'price_tier', value: 'tamogatott', expected: 'alap', preview: true } );
+		expect( warnings() ).toEqual( [ FULL_TEXT ] );
+		await click( host.querySelector( 'input[value="alap"]' ) );
+		expect( warnings() ).toEqual( [] );
+		await click( host.querySelector( 'input[value="tamogatott"]' ) );
 		await type( textarea(), 'Kérte' );
 		await submit();
-		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toMatchObject( { value: 'tamogatott', expected: 'alap' } );
+		const save = apiFetch.mock.calls.map( ( call ) => call[ 0 ] ).filter( ( request ) => ! request.data.input.preview );
+		expect( save ).toHaveLength( 1 );
+		expect( save[ 0 ].data.input ).toMatchObject( { value: 'tamogatott', expected: 'alap', reason: 'Kérte' } );
 		expect( done ).toHaveBeenCalled();
+	} );
+
+	test( 'a failed preview shows no warning and does not stop the save', async () => {
+		apiFetch.mockImplementation( ( request ) =>
+			request.data.input.preview ? Promise.reject( { code: 'kalaka_version_conflict', message: 'x' } ) : Promise.resolve( { changed: true, over_limit: [] } )
+		);
+		await dialog( { ...TIER, edit: { ...TIER.edit, answer: { kind: TIER.edit.answer.kind, value: 'alap' }, expected: 'alap' } } );
+		await click( host.querySelector( 'input[value="tamogatott"]' ) );
+		expect( warnings() ).toEqual( [] );
+		await type( textarea(), 'Kérte' );
+		await submit();
+		expect( done ).toHaveBeenCalled();
+	} );
+
+	test( 'a number control is a number input and a date is a plain text input', async () => {
+		await dialog( AGE );
+		expect( host.querySelector( 'input' ).getAttribute( 'type' ) ).toBe( 'number' );
+		await act( async () => root.unmount() );
+		host.remove();
+		await dialog( DAY );
+		expect( host.querySelector( 'input' ).getAttribute( 'type' ) ).toBe( 'text' );
+	} );
+
+	test( 'a multiple choice shows checkboxes and sends a list, null when none is left', async () => {
+		apiFetch.mockResolvedValue( { changed: true, over_limit: [] } );
+		const multi = { ...TIER, edit: { ...TIER.edit, control: 'multi_choice', multiple: true, answer: { kind: TIER.edit.answer.kind, value: null }, expected: null } };
+		await dialog( multi );
+		expect( host.querySelectorAll( 'input[type="checkbox"]' ) ).toHaveLength( 2 );
+		await click( host.querySelector( 'input[type="checkbox"]' ) );
+		await type( textarea(), 'Kérte' );
+		await submit();
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toMatchObject( { value: [ 'alap' ], expected: null } );
 	} );
 
 	test( 'a single choice can be cleared through the first option', async () => {
@@ -197,17 +256,18 @@ describe( 'the dialog', () => {
 		await click( host.querySelector( 'input[value=""]' ) );
 		await type( textarea(), 'Töröl' );
 		await submit();
-		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input.value ).toBeNull();
+		const save = apiFetch.mock.calls.map( ( call ) => call[ 0 ] ).filter( ( request ) => ! request.data.input.preview );
+		expect( save[ 0 ].data.input.value ).toBeNull();
 	} );
 
 	test( 'a consent sends "1"', async () => {
 		apiFetch.mockResolvedValue( { changed: true, over_limit: [] } );
 		await dialog( OFFER );
 		await click( host.querySelector( 'input[type="checkbox"]' ) );
-		expect( warnings() ).toEqual( [ STATUS_ACTS.full ] );
 		await type( textarea(), 'Kérte' );
 		await submit();
-		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toMatchObject( { field: 'tamogatas', value: '1', expected: null } );
+		const save = apiFetch.mock.calls.map( ( call ) => call[ 0 ] ).filter( ( request ) => ! request.data.input.preview );
+		expect( save[ 0 ].data.input ).toMatchObject( { field: 'tamogatas', value: '1', expected: null } );
 	} );
 
 	test( 'a conflict shows the server text, keeps the dialog and the reason, and re-reads', async () => {

@@ -5,6 +5,8 @@
  * shown as they come. Every choice is an [UNAPPROVED N7xx] box in internal/docs/s39-247-prototype.md.
  */
 import { validateReason } from './confirmation';
+import { fmt } from './format';
+import { formatBalance, formatMoney } from './money';
 import { MONEY, STATUS_ACTS } from './texts';
 
 /** The four acts, in the order of the buttons. [UNAPPROVED N701] */
@@ -39,15 +41,61 @@ export function reasonProblem( act, reason ) {
 	return String( reason ).trim() === '' ? '' : validateReason( reason );
 }
 
-/** Whether the preview for admit and restore is asked: only the acts that take seats again. [UNAPPROVED N706] */
-export const takesSeats = ( act ) => act === 'admit' || act === 'restore';
+/**
+ * Whether the preview is asked as the dialog opens: for all acts but remove, whose preview needs the reason (the
+ * server refuses it without one, as it refuses the act), so remove asks once a reason has been typed.
+ * [UNAPPROVED N706]
+ */
+export const previewsAtOpen = ( act ) => act !== 'remove';
 
 /**
- * Whether the preview says some seat would go over the limit: `over_capacity` (the event's places) or any pool
- * `over`. [UNAPPROVED N707]
+ * The warnings of a preview, the server's own text (`warnings`: the "full" text when a pool would go over);
+ * nothing is built or copied here. [UNAPPROVED N707]
  */
-export const goesOver = ( preview ) =>
-	!! preview && ( preview.over_capacity === true || ( preview.seats || [] ).some( ( seat ) => seat.outcome === 'over' ) );
+export const warningsOf = ( preview ) =>
+	preview && Array.isArray( preview.warnings ) ? preview.warnings.filter( ( text ) => typeof text === 'string' && text !== '' ) : [];
+
+/**
+ * The money section's rows: the preview's `money` per payer, as the server gives it, shown as the panel's money
+ * words show amounts. Null (no section) without `money` (admit, a user without money view, a fee that cannot be
+ * priced) or with no payer. The payer's name is the read's label, else its key. No retention rule is read or
+ * worded here. [UNAPPROVED N714] [UNAPPROVED N715]
+ *
+ * @param {?Object} preview the act's preview
+ * @param {?Object} money   the detail read's `money` (`{ currency, payers }`), for the currency and the labels
+ */
+export function moneyRowsOf( preview, money ) {
+	if ( ! preview || ! Array.isArray( preview.money ) || preview.money.length === 0 ) {
+		return null;
+	}
+	const currency = money && money.currency;
+	const payers = money && Array.isArray( money.payers ) ? money.payers : [];
+	return preview.money.map( ( row ) => {
+		const found = payers.find( ( payer ) => payer.payer === row.payer );
+		return {
+			key: row.payer,
+			payer: found && found.label ? found.label : row.payer,
+			paid: formatMoney( row.paid, currency ),
+			now: formatBalance( row.balance_now, currency ),
+			after: formatBalance( row.balance_after, currency ),
+		};
+	} );
+}
+
+/**
+ * The capacity lines: each seat of the preview that has a limit, with its label and `taken` of `limit`. A seat
+ * with no limit (null) has no line. `taken` is what the other registrations hold, as the server counts it.
+ * [UNAPPROVED N716]
+ */
+export function seatLinesOf( preview ) {
+	return ( preview && Array.isArray( preview.seats ) ? preview.seats : [] )
+		.filter( ( seat ) => seat.limit !== null && seat.limit !== undefined )
+		.map( ( seat, index ) => ( {
+			key: `${ seat.pool }-${ seat.field || '' }-${ index }`,
+			label: seat.label || '',
+			line: fmt( STATUS_ACTS.capacity, seat.taken, seat.limit ),
+		} ) );
+}
 
 const BY_ACT = {
 	admit: [ 'admit', 'admitTitle', 'admitBody', 'admitted' ],

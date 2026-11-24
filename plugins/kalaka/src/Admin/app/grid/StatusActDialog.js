@@ -1,9 +1,10 @@
 /**
- * One status act's dialog (S39 on #247): the title, what will happen, for admit and restore the preview's
- * warning when a seat would go over the limit, and the reason field. A failed act keeps the dialog and the
- * reason and shows the server's text; while it runs the dialog does not close and a second submit is ignored.
- * The money effect of withdraw and remove is not here: #247's preview carries none. [UNAPPROVED N702]
- * [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
+ * One status act's dialog (S39 on #247): the title, what will happen, what the act's preview says (the
+ * capacity lines of the seats with a limit, the server's warnings, the money effect per payer when the user may
+ * see money) and the reason field. A failed act keeps the dialog and the reason and shows the server's text;
+ * while it runs the dialog does not close and a second submit is ignored. Everything the preview shows is the
+ * server's: no retention wording and no warning text is written here. [UNAPPROVED N702] [UNAPPROVED N706]
+ * [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709] [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
@@ -11,12 +12,14 @@ import * as api from './api';
 import {
 	bodyOf,
 	failureOf,
-	goesOver,
+	moneyRowsOf,
+	previewsAtOpen,
 	reasonProblem,
 	reasonRequired,
+	seatLinesOf,
 	staleAfter,
-	takesSeats,
 	titleOf,
+	warningsOf,
 } from './statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
 
@@ -25,11 +28,12 @@ import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
  * @param {Object}   props.config  window.kalakaGrid
  * @param {string}   props.code    the registration's code
  * @param {string}   props.act     `admit`, `withdraw`, `remove` or `restore`
+ * @param {?Object}  props.money   the detail read's `money`, for the payers' names and the currency
  * @param {Function} props.onClose closes the dialog
  * @param {Function} props.onDone  called with the act once it is saved
  * @param {Function} props.reload  re-reads the panel's detail; called after a refusal that says it is stale
  */
-export default function StatusActDialog( { config, code, act, onClose, onDone, reload } ) {
+export default function StatusActDialog( { config, code, act, money, onClose, onDone, reload } ) {
 	const [ reason, setReason ] = useState( '' );
 	const [ error, setError ] = useState( '' );
 	const [ failed, setFailed ] = useState( null );
@@ -52,12 +56,14 @@ export default function StatusActDialog( { config, code, act, onClose, onDone, r
 		return () => clearTimeout( timer );
 	}, [] );
 
-	// Admit and restore take seats again: ask what they would do. A failed preview shows nothing: the act's own
-	// answer decides. [UNAPPROVED N706]
+	// The preview is asked as the dialog opens, except for remove: its preview needs the reason, so it is asked
+	// when the reason field is left with a reason in it. A failed preview shows nothing: the act's own answer
+	// decides. [UNAPPROVED N706]
+	const [ asked, setAsked ] = useState( previewsAtOpen( act ) ? '' : null );
 	useEffect( () => {
 		let live = true;
-		if ( takesSeats( act ) ) {
-			api.runStatusAct( config, act, code, '', true ).then(
+		if ( asked !== null ) {
+			api.runStatusAct( config, act, code, asked, true ).then(
 				( result ) => live && setPreview( result ),
 				() => {}
 			);
@@ -65,7 +71,16 @@ export default function StatusActDialog( { config, code, act, onClose, onDone, r
 		return () => {
 			live = false;
 		};
-	}, [ config, act, code ] );
+	}, [ config, act, code, asked ] );
+	const leaveField = ( event ) => {
+		const typed = reason.trim();
+		if ( ! previewsAtOpen( act ) && event.target.tagName === 'TEXTAREA' && typed !== '' && typed !== asked ) {
+			setAsked( typed );
+		}
+	};
+	const warnings = warningsOf( preview );
+	const rows = moneyRowsOf( preview, money );
+	const seats = seatLinesOf( preview );
 
 	const submit = async ( event ) => {
 		event.preventDefault();
@@ -102,12 +117,53 @@ export default function StatusActDialog( { config, code, act, onClose, onDone, r
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
 		>
-			<form onSubmit={ submit } noValidate ref={ form }>
+			<form onSubmit={ submit } onBlur={ leaveField } noValidate ref={ form }>
 				<p>{ bodyOf( act ) }</p>
-				{ goesOver( preview ) && (
-					<Notice status="warning" isDismissible={ false }>
-						{ STATUS_ACTS.full }
+				{ seats.length > 0 && (
+					<ul className="kg-act-capacity">
+						{ seats.map( ( seat ) => (
+							<li key={ seat.key }>
+								<strong>{ seat.label }</strong> { seat.line }
+							</li>
+						) ) }
+					</ul>
+				) }
+				{ warnings.map( ( text ) => (
+					<Notice key={ text } status="warning" isDismissible={ false }>
+						{ text }
 					</Notice>
+				) ) }
+				{ rows && (
+					<div className="kg-act-money">
+						<h3>{ STATUS_ACTS.moneyHeading }</h3>
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">{ MONEY.payer }</th>
+									<th scope="col">{ MONEY.paid }</th>
+									<th scope="col">{ MONEY.balanceNow }</th>
+									<th scope="col">{ MONEY.balanceAfter }</th>
+								</tr>
+							</thead>
+							<tbody>
+								{ rows.map( ( row ) => (
+									<tr key={ row.key }>
+										<td data-label={ MONEY.payer }>{ row.payer }</td>
+										<td className="kg-num" data-label={ MONEY.paid }>
+											{ row.paid }
+										</td>
+										<td className="kg-num" data-label={ MONEY.balanceNow }>
+											{ row.now }
+										</td>
+										<td className="kg-num" data-label={ MONEY.balanceAfter }>
+											{ row.after }
+										</td>
+									</tr>
+								) ) }
+							</tbody>
+						</table>
+						<p>{ STATUS_ACTS.noAutomaticRefund }</p>
+					</div>
 				) }
 				{ act === 'admit' && <p>{ STATUS_ACTS.serialEnd }</p> }
 				<TextareaControl
