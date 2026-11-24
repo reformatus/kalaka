@@ -23,8 +23,9 @@ final class PaymentReporter
 
     /**
      * The one function behind `woocommerce_payment_complete`, `woocommerce_order_status_processing` and
-     * `woocommerce_order_status_completed`: records the order when it is ours, paid, and has its paid date.
-     * Recording is idempotent, so all three hooks may fire for one payment.
+     * `woocommerce_order_status_completed`, the refund's catch-up and the reconcile step: records the order when
+     * it is ours and has its paid date, whatever its status is now (an order with a paid date was paid, also one
+     * that was refunded or cancelled since). Recording is idempotent, so all three hooks may fire for one payment.
      *
      * @return bool whether the order is recorded now
      */
@@ -32,13 +33,17 @@ final class PaymentReporter
     {
         try {
             $mine = KalakaOrder::of($orderId);
-            if ($mine === null || !$mine->order->is_paid() || $mine->order->get_date_paid() === null) {
+            if ($mine === null) {
                 return false;
             }
             if ($mine->isRecorded()) {
                 return true;
             }
-            $paidAt = new \DateTimeImmutable('@' . $mine->order->get_date_paid()->getTimestamp());
+            $paidDate = $mine->order->get_date_paid();
+            if ($paidDate === null) {
+                return false;
+            }
+            $paidAt = new \DateTimeImmutable('@' . $paidDate->getTimestamp());
             $items = [];
             foreach ($mine->items() as $item) {
                 if ($item->charged->isPositive()) {
@@ -73,10 +78,10 @@ final class PaymentReporter
             if ($mine === null) {
                 return;
             }
-            // A refund of an order whose payment is not recorded yet records the payment first.
-            if (!$this->recordPaidIfPaid($orderId)) {
-                return;
-            }
+            // A refund of an order whose payment is not recorded yet records the payment first. Whether that
+            // worked or not, the refund is recorded: the order's status when the refund event fires is
+            // `refunded` after a full refund, and a refund is never held back by it.
+            $this->recordPaidIfPaid($orderId);
             $refund = wc_get_order($refundId);
             $paidAt = $refund instanceof \WC_Order_Refund ? $refund->get_date_created() : null;
             if (!$refund instanceof \WC_Order_Refund || $paidAt === null) {

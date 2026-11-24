@@ -16,6 +16,7 @@ final class Module extends AbstractModule
         private readonly PaymentReporter $reporter = new PaymentReporter(),
         private readonly ReconcileStep $reconcile = new ReconcileStep(),
         private readonly ReturnAddress $returnAddress = new ReturnAddress(),
+        private readonly HiddenProduct $product = new HiddenProduct(),
     ) {
     }
 
@@ -57,6 +58,7 @@ final class Module extends AbstractModule
         add_action('woocommerce_order_status_changed', [$this->reporter, 'statusChanged'], 10, 3);
         add_action('woocommerce_trash_order', [$this->reporter, 'trashed'], 10, 1);
         add_filter('woocommerce_get_return_url', [$this->returnAddress, 'of'], 10, 2);
+        add_filter('woocommerce_is_purchasable', [$this->product, 'purchasable'], 10, 2);
     }
 
     /**

@@ -6,10 +6,12 @@ namespace Kalaka\Tests\Integration\WooCommerce\Card;
 
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\LogCapture;
 use Kalaka\WooCommerce\OrderMeta;
 use Kalaka\WooCommerce\ReconcileStep;
 use Kalaka\WooCommerce\WooProvider;
@@ -20,6 +22,8 @@ use Kalaka\WooCommerce\WooProvider;
  */
 abstract class ProviderTestBase extends WooTestCase
 {
+    use LogCapture;
+
     private WooProvider $provider;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
@@ -28,6 +32,9 @@ abstract class ProviderTestBase extends WooTestCase
         parent::set_up();
 
         $this->provider = new WooProvider();
+        // The registrant's browser, as WooCommerce would store it on a new order.
+        $_SERVER['REMOTE_ADDR'] = '203.0.113.7';
+        $_SERVER['HTTP_USER_AGENT'] = 'Teszt Bongeszo/1.0';
     }
 
     /** @param array<string, string> $amounts registration code → amount, in the order of the lines */
@@ -95,6 +102,28 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertSame('success', $result['result']);
     }
 
+    /** The paid hooks of WooCommerce gone, as when a request dies before they run. */
+    private function missTheHooks(): void
+    {
+        remove_all_actions('woocommerce_payment_complete');
+        remove_all_actions('woocommerce_order_status_processing');
+        remove_all_actions('woocommerce_order_status_completed');
+    }
+
+    /** @return list<array<string, ?string>> */
+    private function refundLines(): array
+    {
+        return array_values(array_filter($this->moneyLines(), static fn (array $l): bool => $l['kind'] === 'refund'));
+    }
+
+    private function freshOrder(\WC_Order $order): \WC_Order
+    {
+        $fresh = wc_get_order($order->get_id());
+        self::assertInstanceOf(\WC_Order::class, $fresh);
+
+        return $fresh;
+    }
+
     public function testItCreatesOneGuestOrderWithOneItemPerLine(): void
     {
         $anna = $this->owing('00A0');
@@ -109,6 +138,9 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertSame('teszt@example.com', $order->get_billing_email());
         self::assertSame('', $order->get_billing_country());
         self::assertSame('', $order->get_billing_first_name());
+        // Nothing of the registrant's browser.
+        self::assertSame('', $order->get_customer_ip_address());
+        self::assertSame('', $order->get_customer_user_agent());
         self::assertSame('20000', wc_format_decimal($order->get_total()));
         self::assertSame('0', wc_format_decimal($order->get_total_tax()));
         self::assertSame($order->get_checkout_payment_url(), $url);
@@ -128,6 +160,34 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertInstanceOf(\WC_Product::class, $product);
         self::assertSame('hidden', $product->get_catalog_visibility());
         self::assertTrue($product->is_virtual());
+        self::assertSame('private', $product->get_status());
+    }
+
+    public function testTheOrderHasTheRequestsCurrencyWhateverTheShopsIsAtThatMoment(): void
+    {
+        $anna = $this->owing('00A0');
+        update_option('woocommerce_currency', 'EUR');
+
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+
+        self::assertSame('HUF', $this->freshOrder($this->onlyOrder())->get_currency());
+    }
+
+    public function testTheHiddenProductCannotBeBoughtEvenByAnAdministrator(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $product = wc_get_product((int) get_option(OrderMeta::PRODUCT_OPTION));
+        self::assertInstanceOf(\WC_Product::class, $product);
+        wp_set_current_user(self::factory()->user->create(['role' => 'administrator']));
+
+        // An administrator may see a private product, so only the filter makes this false.
+        self::assertTrue(current_user_can('edit_post', $product->get_id()));
+        self::assertFalse($product->is_purchasable());
+        self::assertFalse(WC()->cart->add_to_cart($product->get_id()));
+        // And it still pays as an item of the order.
+        $this->payOrder($this->onlyOrder());
+        self::assertCount(1, $this->moneyLines());
     }
 
     public function testTheHiddenProductIsCreatedOnceAndRecreatedWhenTrashed(): void
@@ -200,17 +260,39 @@ abstract class ProviderTestBase extends WooTestCase
     {
         $anna = $this->owing('00A0');
         $bela = $this->register('00A2');
+        global $wpdb;
+        $wpdb->replace($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'payment_recorded',
+            'version' => 1,
+            'enabled' => 1,
+            'body_id' => null,
+            'layout' => 1,
+        ]);
         $this->provider->payUrl($this->requestFor([$anna, $bela]), 'https://example.org/');
         $order = $this->onlyOrder();
 
         $this->payOrder($order);
-        $fresh = wc_get_order($order->get_id());
-        self::assertInstanceOf(\WC_Order::class, $fresh);
-        // All three hooks, and again.
-        do_action('woocommerce_payment_complete', $order->get_id(), 'TX');
-        do_action('woocommerce_order_status_processing', $order->get_id(), $fresh);
-        do_action('woocommerce_order_status_completed', $order->get_id(), $fresh);
+        $fresh = $this->freshOrder($order);
+        // Each hook in turn, as if the others never ran: the recorded mark is taken off before each, so every
+        // hook builds the report itself and the ledger's key, not the mark, is what makes it a replay.
+        [$log] = $this->captureLog(function () use ($order, $fresh): void {
+            foreach (
+                [
+                    ['woocommerce_payment_complete', [$order->get_id(), 'TX']],
+                    ['woocommerce_order_status_processing', [$order->get_id(), $fresh]],
+                    ['woocommerce_order_status_completed', [$order->get_id(), $fresh]],
+                ] as [$hook, $args]
+            ) {
+                $again = $this->freshOrder($order);
+                $again->delete_meta_data(OrderMeta::RECORDED);
+                $again->save_meta_data();
+                do_action($hook, ...$args);
+                self::assertNotSame('', (string) $this->freshOrder($order)->get_meta(OrderMeta::RECORDED), $hook);
+            }
+        });
 
+        self::assertSame('', $log, 'No hook failed against the stored lines.');
         $lines = $this->moneyLines();
         self::assertCount(2, $lines);
         self::assertSame('payment', $lines[0]['kind']);
@@ -223,7 +305,13 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertCount(2, array_unique($keys));
         self::assertStringStartsWith('online:woocommerce:order:' . $order->get_id() . ':', $keys[0]);
         self::assertSame('confirmed', $this->confirmationState($anna));
-        self::assertNotSame('', (string) wc_get_order($order->get_id())->get_meta(OrderMeta::RECORDED));
+        self::assertSame(
+            2,
+            (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_deliveries WHERE mail = 'payment_recorded'"
+            ),
+            'One mail per line, not per hook.'
+        );
     }
 
     public function testAFailedPaymentWritesNothingAndTheOrderStaysTheRequest(): void
@@ -353,8 +441,12 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertNull($this->provider->latestOf($anna));
 
         $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->missTheHooks();
         $this->payOrder($this->orders()[1]);
-        self::assertSame(OpenPaymentState::Paid, $this->provider->latestOf($anna)?->state);
+        self::assertSame(OpenPaymentState::Paid, $this->provider->latestOf($anna)?->state, 'Paid, not recorded yet.');
+
+        (new ReconcileStep())->run();
+        self::assertNull($this->provider->latestOf($anna), 'Recorded: the request is over.');
 
         wc_create_refund(['order_id' => $this->orders()[1]->get_id(), 'amount' => 10000]);
         self::assertNull($this->provider->latestOf($anna), 'Refunded in full is no request.');
@@ -434,5 +526,205 @@ abstract class ProviderTestBase extends WooTestCase
         $lines = $this->moneyLines();
         self::assertSame('-12345.00000000', $lines[0]['amount']);
         self::assertTrue(Money::of('12345', Currency::HUF)->isPositive());
+    }
+
+    public function testARefundThatFullyRefundsTheOrderIsRecordedAndTheBalanceOwesAgain(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->payOrder($order);
+        self::assertSame('0', $this->balance($anna));
+
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 10000]);
+
+        // The order is `refunded` when WooCommerce tells us about the refund.
+        self::assertSame('refunded', $this->freshOrder($order)->get_status());
+        $lines = $this->moneyLines();
+        self::assertSame(['payment', 'refund'], array_column($lines, 'kind'));
+        self::assertSame('10000.00000000', $lines[1]['amount']);
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testTheLastOfSeveralPartialRefundsIsRecordedToo(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->payOrder($order);
+
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 6000]);
+        self::assertNotSame('refunded', $this->freshOrder($order)->get_status());
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 4000]);
+
+        self::assertSame('refunded', $this->freshOrder($order)->get_status());
+        self::assertSame(
+            ['6000.00000000', '4000.00000000'],
+            array_column($this->refundLines(), 'amount')
+        );
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testAnOrderMovedToRefundedByHandIsRecordedAsRefunded(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->payOrder($order);
+
+        // WooCommerce makes the refund itself, after the status is already `refunded`.
+        $this->freshOrder($order)->update_status('refunded');
+
+        self::assertSame(['payment', 'refund'], array_column($this->moneyLines(), 'kind'));
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testAFullRefundOfAnOrderWhosePaymentHookWasMissedRecordsThePaymentAndTheRefund(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->missTheHooks();
+        $this->payOrder($order);
+        self::assertSame([], $this->moneyLines());
+
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 10000]);
+
+        self::assertSame(['payment', 'refund'], array_column($this->moneyLines(), 'kind'));
+        self::assertNotSame('', (string) $this->freshOrder($order)->get_meta(OrderMeta::RECORDED));
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testTheReconcileStepRecordsAPaidOrderThatWasRefundedInFullBeforeItWasRecorded(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->missTheHooks();
+        remove_all_actions('woocommerce_order_refunded');
+        $this->payOrder($order);
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 10000]);
+        self::assertSame([], $this->moneyLines());
+
+        (new ReconcileStep())->run();
+        (new ReconcileStep())->run();
+
+        self::assertSame(['payment', 'refund'], array_column($this->moneyLines(), 'kind'));
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testTheReconcileStepRecordsARefundWhoseRecordingFailedEarlier(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->payOrder($order);
+        remove_all_actions('woocommerce_order_refunded');
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 3000]);
+        self::assertSame([], $this->refundLines());
+
+        (new ReconcileStep())->run();
+        (new ReconcileStep())->run();
+
+        self::assertSame(['3000.00000000'], array_column($this->refundLines(), 'amount'));
+        self::assertCount(2, $this->moneyLines());
+    }
+
+    public function testTheReconcileWindowIs30DaysOfTheRunnersClock(): void
+    {
+        $old = $this->owing('00A0');
+        $recent = $this->register('00A2');
+        $this->provider->payUrl($this->requestFor([$old]), 'https://example.org/');
+        $this->provider->payUrl($this->requestFor([$recent]), 'https://example.org/');
+        $this->missTheHooks();
+        $now = Runner::current()->clock()->now();
+        foreach ($this->orders() as $i => $order) {
+            $this->payOrder($order);
+            $paid = $this->freshOrder($order);
+            $paid->set_date_paid($now->modify($i === 0 ? '-31 days' : '-29 days')->getTimestamp());
+            $paid->save();
+        }
+
+        (new ReconcileStep())->run();
+
+        self::assertSame(['00A2'], array_column($this->moneyLines(), 'code'));
+    }
+
+    public function testAnOnHoldOrderBlocksWhateverTheNewestOrderIs(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->onlyOrder()->update_status('on-hold');
+        self::assertSame(OpenPaymentState::Processing, $this->provider->latestOf($anna)?->state);
+
+        // A newer pending order of the same registration does not hide it.
+        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+
+        self::assertCount(2, $this->orders());
+        self::assertSame(OpenPaymentState::Processing, $this->provider->latestOf($anna)?->state);
+    }
+
+    public function testAnOrderCancelledByALaterClickThatIsPaidAnywayIsRecordedAndShowsAsAnOverpayment(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+        $orders = $this->orders();
+        self::assertSame('cancelled', $orders[0]->get_status());
+
+        // The registrant had the first order's pay page open and pays it.
+        $this->payOrder($orders[0]);
+        $this->payOrder($this->freshOrder($orders[1]));
+
+        self::assertSame(['-10000.00000000', '-7000.00000000'], array_column($this->moneyLines(), 'amount'));
+        self::assertSame('-7000', $this->balance($anna), 'Recorded, never gated: overpaid.');
+    }
+
+    public function testARefundThatNamesItemsButAMoreThanTheyAddUpToIsRecordedInFull(): void
+    {
+        $anna = $this->owing('00A0');
+        $bela = $this->register('00A2');
+        $request = $this->requestFor([$anna, $bela], ['00A0' => '4000', '00A2' => '6000']);
+        $this->provider->payUrl($request, 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->payOrder($order);
+        $items = array_values($order->get_items());
+
+        wc_create_refund([
+            'order_id' => $order->get_id(),
+            'amount' => 5000,
+            'line_items' => [$items[0]->get_id() => ['qty' => 0, 'refund_total' => 3000, 'refund_tax' => []]],
+        ]);
+
+        // The named 3000, then the excess 2000 in item order: 1000 of the first item's room, 1000 of the second.
+        self::assertSame(
+            [['00A0', '4000.00000000'], ['00A2', '1000.00000000']],
+            array_map(static fn (array $l): array => [$l['code'], $l['amount']], $this->refundLines())
+        );
+        self::assertStringContainsString('"allocated":true', $this->refundAudit());
+    }
+
+    public function testARefundWhoseItemLinesAllHaveNoAmountIsSplitAndMarkedAsAllocated(): void
+    {
+        $anna = $this->owing('00A0');
+        $bela = $this->register('00A2');
+        $request = $this->requestFor([$anna, $bela], ['00A0' => '4000', '00A2' => '6000']);
+        $this->provider->payUrl($request, 'https://example.org/');
+        $order = $this->onlyOrder();
+        $this->payOrder($order);
+        $items = array_values($order->get_items());
+
+        // A quantity was entered but the amount was typed in the total box.
+        wc_create_refund([
+            'order_id' => $order->get_id(),
+            'amount' => 5000,
+            'line_items' => [$items[1]->get_id() => ['qty' => 1, 'refund_total' => 0, 'refund_tax' => []]],
+        ]);
+
+        self::assertSame(
+            [['00A0', '4000.00000000'], ['00A2', '1000.00000000']],
+            array_map(static fn (array $l): array => [$l['code'], $l['amount']], $this->refundLines())
+        );
+        self::assertStringContainsString('"allocated":true', $this->refundAudit());
     }
 }

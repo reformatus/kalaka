@@ -39,8 +39,8 @@ final class OrderFinder
     }
 
     /**
-     * Paid orders of ours since the time that no report has recorded: the meta filter finds ours, and the recorded ones
-     * are left out here.
+     * Orders of ours paid since the time that no report has recorded, whatever status they have now (one refunded
+     * or cancelled since was paid all the same): the meta filter finds ours, and the recorded ones are left out here.
      *
      * @return list<\WC_Order>
      */
@@ -48,7 +48,7 @@ final class OrderFinder
     {
         $found = wc_get_orders([
             'limit' => -1,
-            'status' => wc_get_is_paid_statuses(),
+            'status' => array_keys(wc_get_order_statuses()),
             'type' => 'shop_order',
             'date_paid' => '>=' . $since->getTimestamp(),
             'meta_key' => OrderMeta::MARKER,
@@ -59,6 +59,32 @@ final class OrderFinder
             $this->orders($found),
             static fn (\WC_Order $o): bool => !(new KalakaOrder($o))->isRecorded()
         ));
+    }
+
+    /**
+     * Every refund made since the time, of any order; the caller keeps the refunds of its own orders.
+     *
+     * @return list<\WC_Order_Refund> oldest first
+     */
+    public function refundsSince(\DateTimeImmutable $since): array
+    {
+        /** @var mixed $found */
+        $found = wc_get_orders([
+            'limit' => -1,
+            'type' => 'shop_order_refund',
+            'status' => 'any',
+            'orderby' => 'ID',
+            'order' => 'ASC',
+            'date_created' => '>=' . $since->getTimestamp(),
+        ]);
+        $refunds = [];
+        foreach (is_array($found) ? $found : [] as $refund) {
+            if ($refund instanceof \WC_Order_Refund) {
+                $refunds[] = $refund;
+            }
+        }
+
+        return $refunds;
     }
 
     /**

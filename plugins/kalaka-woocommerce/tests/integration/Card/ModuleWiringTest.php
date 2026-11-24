@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\WooCommerce\Card;
 
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\WooCommerce\HiddenProduct;
 use Kalaka\WooCommerce\Module;
+use Kalaka\WooCommerce\PaymentReporter;
 use Kalaka\WooCommerce\ReconcileStep;
+use Kalaka\WooCommerce\ReturnAddress;
 use Kalaka\WooCommerce\WooProvider;
 use WP_UnitTestCase;
 
@@ -27,19 +30,29 @@ final class ModuleWiringTest extends WP_UnitTestCase
         self::assertInstanceOf(ReconcileStep::class, $steps[0]);
     }
 
-    public function testItHooksWooCommercesPaidRefundedAndReturnEvents(): void
+    public function testBootHooksTheModulesOwnCallbacksOnWooCommercesPaidRefundedAndReturnEvents(): void
     {
+        $reporter = new PaymentReporter();
+        $return = new ReturnAddress();
+        $product = new HiddenProduct();
+        $module = new Module(reporter: $reporter, returnAddress: $return, product: $product);
+
+        $module->boot();
+
+        // WooCommerce hooks several of these names itself, so each callback is asked for by name.
         foreach (
             [
-                'woocommerce_payment_complete',
-                'woocommerce_order_status_processing',
-                'woocommerce_order_status_completed',
-                'woocommerce_order_refunded',
-                'woocommerce_order_status_changed',
-                'woocommerce_get_return_url',
-            ] as $hook
+                ['woocommerce_payment_complete', [$module, 'paid']],
+                ['woocommerce_order_status_processing', [$module, 'paid']],
+                ['woocommerce_order_status_completed', [$module, 'paid']],
+                ['woocommerce_order_refunded', [$reporter, 'recordRefund']],
+                ['woocommerce_order_status_changed', [$reporter, 'statusChanged']],
+                ['woocommerce_trash_order', [$reporter, 'trashed']],
+                ['woocommerce_get_return_url', [$return, 'of']],
+                ['woocommerce_is_purchasable', [$product, 'purchasable']],
+            ] as [$hook, $callback]
         ) {
-            self::assertNotFalse(has_filter($hook), $hook . ' is not hooked.');
+            self::assertNotFalse(has_filter($hook, $callback), $hook . ' has no callback of the module.');
         }
     }
 }

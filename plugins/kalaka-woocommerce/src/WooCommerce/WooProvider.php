@@ -10,6 +10,8 @@ use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Payments\Api\PaymentProvider;
 use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RegistrationRef;
+use Kalaka\Payments\Api\RequestLine;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -52,8 +54,11 @@ final class WooProvider implements PaymentProvider
     public function payUrl(PaymentRequest $request, string $returnUrl): string
     {
         $wanted = array_map(
-            static fn ($line): string => $line->registration->eventId . ':' . $line->registration->code . '|'
-                . $line->payer . '|' . $line->amount->amount(),
+            static fn (RequestLine $line): string => KalakaItem::signatureOf(
+                $line->registration,
+                $line->payer,
+                $line->amount
+            ),
             $request->lines
         );
         sort($wanted);
@@ -86,28 +91,42 @@ final class WooProvider implements PaymentProvider
 
     public function latestOf(RegistrationKey $key): ?OpenPayment
     {
-        foreach ($this->finder->of($key, ['any']) as $order) {
+        $orders = $this->finder->of($key, ['any']);
+        // An authorised payment that is not paid yet blocks a new one, whichever order is the newest.
+        foreach ($orders as $order) {
+            if ($order->get_status() === 'on-hold') {
+                return $this->open(OpenPaymentState::Processing, $order);
+            }
+        }
+        foreach ($orders as $order) {
             $state = match ($order->get_status()) {
                 'pending' => OpenPaymentState::Pending,
                 'failed' => OpenPaymentState::Failed,
-                'on-hold' => OpenPaymentState::Processing,
-                'processing', 'completed' => OpenPaymentState::Paid,
+                // Paid: the request ends once its payment is recorded (the money table shows it from then on).
+                'processing', 'completed' => (new KalakaOrder($order))->isRecorded()
+                    ? null
+                    : OpenPaymentState::Paid,
                 default => null,
             };
             if ($state === null) {
-                // Cancelled, refunded in full, a draft: the request is gone, and so is the one before it.
+                // Cancelled, refunded in full, a draft, paid and recorded: the request is over, and any before it.
                 return null;
             }
-            $since = $order->get_date_paid() ?? $order->get_date_modified() ?? $order->get_date_created();
 
-            return new OpenPayment(
-                $state,
-                $since === null ? new \DateTimeImmutable('now', new \DateTimeZone('UTC'))
-                    : (new \DateTimeImmutable('@' . $since->getTimestamp()))
-            );
+            return $this->open($state, $order);
         }
 
         return null;
+    }
+
+    private function open(OpenPaymentState $state, \WC_Order $order): OpenPayment
+    {
+        $since = $order->get_date_paid() ?? $order->get_date_modified() ?? $order->get_date_created();
+
+        return new OpenPayment(
+            $state,
+            $since === null ? Runner::current()->clock()->now() : new \DateTimeImmutable('@' . $since->getTimestamp())
+        );
     }
 
     /**
@@ -130,10 +149,15 @@ final class WooProvider implements PaymentProvider
 
     private function create(PaymentRequest $request, string $returnUrl): \WC_Order
     {
-        $order = wc_create_order(['status' => 'pending', 'customer_id' => 0, 'currency' => $request->currency->value]);
+        $order = wc_create_order(['status' => 'pending', 'customer_id' => 0]);
         if (!$order instanceof \WC_Order) {
             throw new \RuntimeException('WooCommerce did not create the order.');
         }
+        // `wc_create_order()` takes the shop's currency whatever is passed, and stores the requesting browser's
+        // address and user agent: the order holds the request's currency and none of the registrant's browser.
+        $order->set_currency($request->currency->value);
+        $order->set_customer_ip_address('');
+        $order->set_customer_user_agent('');
         $order->set_prices_include_tax(false);
         if ($request->email !== null && $request->email !== '') {
             $order->set_billing_email($request->email);

@@ -18,10 +18,10 @@ throws, the incoming value is returned and a throw is reported through
 
 Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (`payUrl()` creates a guest order with one item of the
 hidden product (`HiddenProduct`) per line, or reuses an unpaid one with equal lines and cancels the other unpaid ones;
-`latestOf()`; `accepts()`), `OrderFinder` (`wc_get_orders()` by `meta_key`, valid in both storage modes), `KalakaOrder`
+`latestOf()`; `accepts()`), the hidden product is private and not purchasable (`HiddenProduct::purchasable()`), `OrderFinder` (`wc_get_orders()` by `meta_key`, valid in both storage modes), `KalakaOrder`
 and `KalakaItem` (an order as the plugin reads it), `OrderMeta` (the meta names and the option), `PaymentReporter`
 (`recordPaidIfPaid()`, `recordRefund()`, `statusChanged()`, `trashed()`: what WooCommerce tells core), `RefundSplit`
-(which items a refund gave back), `ReconcileStep` (the periodic step for a paid order no report recorded) and
+(which items a refund gave back), `ReconcileStep` (the periodic step for a paid order and a refund no report recorded) and
 `ReturnAddress` (`woocommerce_get_return_url`: back to the page the registrant came from).
 
 Tests: `tests/integration/` (the filter on a real WooCommerce install, a grant

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\WooCommerce;
 
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Payments\Api\RegistrationRef;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /** One request line as an order item holds it: the item's ID, its registration and payer, and its amounts. */
@@ -26,7 +27,12 @@ final readonly class KalakaItem
     /** The line as a comparable text: registration, payer and requested amount. */
     public function signature(): string
     {
-        return $this->registration->eventId . ':' . $this->registration->code . '|' . $this->payer . '|'
-            . $this->requested->amount();
+        return self::signatureOf($this->registration, $this->payer, $this->requested);
+    }
+
+    /** The one composition of a line's signature, for an order's item and for a request line alike. */
+    public static function signatureOf(RegistrationKey $registration, string $payer, Money $amount): string
+    {
+        return RegistrationRef::compose($registration) . '|' . $payer . '|' . $amount->amount();
     }
 }
