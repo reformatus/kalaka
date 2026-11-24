@@ -199,7 +199,7 @@ final class MaterializerTest extends PricingTestCase
     {
         $this->useComponents(new ClosureComponent('tier', FeeStage::Tier, static fn (): FeeTargets => new FeeTargets(
             [],
-            ['registration.code' => Value::text('x', 'x')]
+            computed: ['registration.code' => Value::text('x', 'x')]
         )));
 
         try {
