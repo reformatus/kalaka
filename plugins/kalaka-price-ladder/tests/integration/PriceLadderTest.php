@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\PriceLadder;
 
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -289,7 +290,7 @@ final class PriceLadderTest extends PriceLadderTestCase
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $field->source);
         self::assertTrue($field->formWritable);
         self::assertSame(PriceLadderComponent::FIELD_TITLE, $field->title);
-        self::assertSame('kalaka/choice-field', $field->type);
+        self::assertSame(FieldKind::CHOICE, $field->type);
         self::assertSame(
             ['alap', 'teljes', 'gy_megosztott', 'gy', 'gy_alap'],
             array_column($field->options, 'value')

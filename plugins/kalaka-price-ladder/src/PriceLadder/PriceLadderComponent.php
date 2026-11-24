@@ -34,9 +34,6 @@ final class PriceLadderComponent implements ProvidesBase
     /** The computed value of the applied tier, for the later stages. [UNAPPROVED, #200 N12] */
     public const APPLIED = 'price_tier.applied';
 
-    /** The block type of a choice field, core's. */
-    public const CHOICE_TYPE = 'kalaka/choice-field';
-
     /** @param list<Tier>|null $proposed the tiers to compose with instead of the stored ones (a preview) */
     public function __construct(
         private readonly TierRepository $tiers = new TierRepository(),

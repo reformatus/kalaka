@@ -24,4 +24,9 @@ final class FeeRefused extends RuleViolation
     {
         return $this->text;
     }
+
+    public function errorCode(): string
+    {
+        return 'kalaka_fee_refused';
+    }
 }

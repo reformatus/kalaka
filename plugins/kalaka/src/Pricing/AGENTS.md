@@ -49,7 +49,7 @@ retention and the materializer
   throws `Api\FeeRefusal` with a text for staff and, when its form can reach the case, one for the registrant (none:
   the registrant gets the generic failure);
   the evaluation refuses the use case with the actor side's text
-  (`Api\FeeRefused`, a `RuleViolation`), still naming the rule
+  (`Api\FeeRefused`, a `RuleViolation` with its own code `kalaka_fee_refused`), still naming the rule
   `money/<component id>`, so the periodic run flags it.
 - The components are core's fixed price, then those the modules contribute
   (`Contributions::feeComponent()`, IDs unique), core's Extras among them. The fixed
