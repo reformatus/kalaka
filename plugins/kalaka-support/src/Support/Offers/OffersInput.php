@@ -7,6 +7,8 @@ namespace Kalaka\Support\Offers;
 use Kalaka\Events\Api\Event;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Support\Api\Offer;
 use Kalaka\Support\Directory\NodeRepository;
 
@@ -18,7 +20,7 @@ use Kalaka\Support\Directory\NodeRepository;
  */
 final class OffersInput
 {
-    /** The longest an offer key can be: an item key of the `support` component. */
+    /** The longest an offer key can be: an item key of the `support` component. [UNAPPROVED N1] */
     public const MAX_KEY_LENGTH = 40;
 
     /** The most offers an event has. */
@@ -39,28 +41,39 @@ final class OffersInput
         'additionalProperties' => false,
     ];
 
-    public function __construct(private readonly NodeRepository $nodes = new NodeRepository())
-    {
+    public function __construct(
+        private readonly NodeRepository $nodes = new NodeRepository(),
+        private readonly ParticipantFields $fields = new ParticipantFields(),
+    ) {
     }
 
     /**
      * @param array<array-key, mixed> $items the offers as sent, in order, each valid for `ITEM_SCHEMA`
      * @return list<Offer>
-     * @throws InvalidInput a key given twice, an amount that is not positive, or a node the directory does not have
+     * @throws InvalidInput a key given twice, an offer's key that is another offer's answer field, a key a form or
+     *     staff field of the event already holds, an amount that is not positive, or a node the directory does
+     *     not have
      */
     public function offers(Event $event, array $items): array
     {
         $parsed = [];
         $seen = [];
+        $held = $this->heldKeys($event->id);
         foreach ($items as $item) {
             if (!is_array($item)) {
                 throw new InvalidInput();
             }
             $key = (string) $item['key'];
-            if (isset($seen[$key])) {
+            $answerKey = $key . SetSupportOffers::ANSWER_SUFFIX;
+            if (
+                isset($seen[$key]) || isset($seen[$answerKey])
+                || self::clashes($held, $key, SetSupportOffers::CONSENT_TYPE)
+                || self::clashes($held, $answerKey, SetSupportOffers::CHOICE_TYPE)
+            ) {
                 throw new InvalidInput();
             }
             $seen[$key] = true;
+            $seen[$answerKey] = true;
             $amount = Money::of((string) $item['amount'], $event->currency);
             if (!$amount->isPositive() || $this->nodes->findByExternalId((string) $item['node']) === null) {
                 throw new InvalidInput();
@@ -76,5 +89,33 @@ final class OffersInput
         }
 
         return $parsed;
+    }
+
+    /**
+     * The event's fields by key, with their source and type: what an offer's declaration must not take over.
+     *
+     * @return array<string, ParticipantField>
+     */
+    private function heldKeys(int $eventId): array
+    {
+        $held = [];
+        foreach ($this->fields->of($eventId, true) as $field) {
+            $held[$field->key] = $field;
+        }
+
+        return $held;
+    }
+
+    /**
+     * Whether a field already holds the key other than as the extension's own declaration of the type: a form's,
+     * a staff's or a system field, or an extension's of another type.
+     *
+     * @param array<string, ParticipantField> $held
+     */
+    private static function clashes(array $held, string $key, string $type): bool
+    {
+        $field = $held[$key] ?? null;
+
+        return $field !== null && ($field->source !== ParticipantField::SOURCE_EXTENSION || $field->type !== $type);
     }
 }

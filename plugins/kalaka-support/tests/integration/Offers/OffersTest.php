@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Support\Offers;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Pricing\Cli\SettingsDocument;
+use Kalaka\Support\Offers\OfferClaims;
+use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\SupportComponent;
 
 /**
@@ -83,6 +88,82 @@ final class OffersTest extends OffersTestCase
         self::assertSame('30000', $this->balance($key));
         self::assertSame([], $this->lineSources($key));
         self::assertSame('refused', (new Registrations())->values($key)['egyhaz_answer']);
+    }
+
+    public function testAnswerYesConfirmsTheRegistrationInTheSamePass(): void
+    {
+        $this->applyOffers([self::offer('egyhaz', '10000', request: true)]);
+        $key = $this->registerSelecting('00A0', 'egyhaz');
+        $this->payIn($key, '20000');
+
+        // While the offer awaits its answer the full price stands, so 20 000 of 30 000 is not enough.
+        self::assertNotSame('confirmed', $this->confirmationState($key));
+
+        $this->answer($key, 'egyhaz', 'yes');
+
+        self::assertSame('confirmed', $this->confirmationState($key));
+        self::assertSame('0', $this->balance($key));
+    }
+
+    public function testTheSupportComponentIsPartOfOneApplyThroughTheSettingsDocument(): void
+    {
+        $document = new SettingsDocument();
+        $proposed = $document->proposed($this->event, [
+            'fixed_price' => '25000',
+            'components' => ['support' => ['offers' => [self::offer('diak', '5000')]]],
+        ]);
+        $report = $this->settings->apply($this->event, $proposed, new CliActor(null));
+        self::assertSame([], $report->failed());
+
+        $shown = $document->show($this->event);
+        self::assertSame('25000', $shown['fixed_price']);
+        self::assertSame('diak', $shown['components']['support']['offers'][0]['key']);
+        $key = $this->registerSelecting('00A0', 'diak');
+        self::assertSame('20000', $this->balance($key));
+    }
+
+    public function testTheModuleContributesItsComponentSourceAndClaims(): void
+    {
+        $contributions = Contributions::current();
+
+        self::assertContains(SupportComponent::ID, array_map(
+            static fn ($component): string => $component->id(),
+            $contributions->feeComponents()
+        ));
+        self::assertNotSame([], array_filter(
+            $contributions->requestSources(),
+            static fn ($source): bool => $source instanceof OfferRequests
+        ));
+        self::assertNotSame([], array_filter(
+            $contributions->seatClaimSources(),
+            static fn ($source): bool => $source instanceof OfferClaims
+        ));
+    }
+
+    public function testAKeyAnotherOfferOrAnotherFieldHoldsIsRefusedWhileTheOffersAreProposed(): void
+    {
+        $this->declareParticipantField($this->event, 'gyulekezet');
+        $this->declareParticipantField($this->event, 'tamogatas_answer');
+        $bad = [
+            'an offer beside the answer field of another' => [
+                self::offer('egyhaz', '1000', request: true),
+                self::offer('egyhaz_answer', '2000'),
+            ],
+            'the answer field first' => [
+                self::offer('egyhaz_answer', '2000'),
+                self::offer('egyhaz', '1000'),
+            ],
+            'a key a form field holds' => [self::offer('gyulekezet', '1000')],
+            'an answer key a form field holds' => [self::offer('tamogatas', '1000', request: true)],
+        ];
+        foreach ($bad as $what => $offers) {
+            try {
+                $this->offers->propose($this->event, $offers);
+                self::fail('Accepted: ' . $what);
+            } catch (InvalidInput) {
+                self::assertSame([], $this->offers->offers($this->event), $what);
+            }
+        }
     }
 
     public function testALimitedOfferAppliesOnlyWhileTheRegistrationHoldsItsSeat(): void
