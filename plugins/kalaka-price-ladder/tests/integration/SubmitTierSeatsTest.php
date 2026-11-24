@@ -79,9 +79,27 @@ final class SubmitTierSeatsTest extends FormsTestCase
         );
     }
 
-    private function pool(): TierSeatPool
+    private function pool(string $tier = 'tamogatott'): TierSeatPool
     {
-        return new TierSeatPool($this->event, 'tamogatott');
+        return new TierSeatPool($this->event, $tier);
+    }
+
+    /** @param array<string, int> $limits the limit of each tier by key */
+    private function saveLadder(array $limits): void
+    {
+        $this->runner->run(new SetPriceLadder(), [
+            'event_id' => $this->event,
+            'currency' => 'HUF',
+            'tiers' => [
+                ['key' => 'alap', 'label' => 'Alap ár', 'amount' => '49500', 'limit' => $limits['alap']],
+                [
+                    'key' => 'tamogatott',
+                    'label' => 'Támogatott ár',
+                    'amount' => '20000',
+                    'limit' => $limits['tamogatott'],
+                ],
+            ],
+        ], new CliActor(null));
     }
 
     private function registrationCount(): int
@@ -123,14 +141,47 @@ final class SubmitTierSeatsTest extends FormsTestCase
         self::assertFalse($this->seats->holds($this->pool(), $other->registration));
     }
 
-    public function testAnUnlimitedTierIsNeverRefusedAndHoldsNoSeat(): void
+    public function testAnUnlimitedTierIsNeverRefusedAndStillHoldsItsSeatRow(): void
     {
-        $this->submit('tamogatott');
-
         $result = $this->submit('alap');
 
         self::assertSame(RegistrationStatus::Registered, $result->status);
-        self::assertSame(1, $this->seats->held($this->pool()));
+        self::assertTrue($this->seats->holds($this->pool('alap'), $result->registration));
+        self::assertNull($this->seats->left($this->pool('alap')));
+        self::assertSame(0, $this->seats->held($this->pool()));
+        // Nobody is refused however many choose it (the event's two places).
+        self::assertSame(RegistrationStatus::Registered, $this->submit('alap')->status);
+        self::assertSame(2, $this->seats->held($this->pool('alap')));
+    }
+
+    public function testALimitAddedAfterChoosersHoldRowsCountsThemAndRefusesTheNext(): void
+    {
+        $this->submit('alap');
+        $this->saveLadder(['alap' => 1, 'tamogatott' => 1]);
+
+        self::assertSame(1, $this->seats->held($this->pool('alap')));
+        self::assertSame(0, $this->seats->left($this->pool('alap')));
+        try {
+            $this->submit('alap');
+            self::fail('The tier, full with its earlier chooser, should have refused the submit.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['price_tier' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+        }
+        self::assertSame(1, $this->registrationCount());
+    }
+
+    public function testATierWithALimitOfZeroRefusesEverySubmit(): void
+    {
+        $this->saveLadder(['alap' => 0, 'tamogatott' => 1]);
+
+        try {
+            $this->submit('alap');
+            self::fail('A tier with a limit of 0 should have refused the submit.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['price_tier' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+        }
+        self::assertSame(0, $this->registrationCount());
+        self::assertSame(RegistrationStatus::Registered, $this->submit('tamogatott')->status);
     }
 
     public function testAWaitlistedSubmitWithAFullTierIsNotRefusedAndHoldsNoSeat(): void

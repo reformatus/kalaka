@@ -10,9 +10,10 @@ use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\SeatPool;
 
 /**
- * The places of one limited price tier under the one seat rule: the pool row is the tier's own row, its limit
- * the tier's limit of people (a tier with none has no pool). Its key is `tier.<tier key>`. The row is at the
- * quota lock level, so a submit locks and checks it before it writes the registration. [UNAPPROVED N1]
+ * The places of one price tier under the one seat rule: the pool row is the tier's own row, its limit
+ * the tier's limit of people (none: unlimited, but every chooser still holds a seat row). Its key is
+ * `tier.<tier key>`. The row is at the quota lock level, so a submit locks and checks it before it writes the
+ * registration. [UNAPPROVED N1]
  */
 final class TierSeatPool implements SeatPool
 {
