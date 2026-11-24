@@ -31,6 +31,8 @@ use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Registrations\Answer\AnswerRequest;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Support\Module;
+use Kalaka\Support\Share\SetShare;
 use Kalaka\Support\Share\ShareComponent;
 use Kalaka\Tests\Integration\Pricing\ClosureComponent;
 
@@ -187,9 +189,10 @@ final class ShareTest extends ShareTestCase
         $declared = $this->declared();
         foreach (['share_mode', 'share_amount'] as $key) {
             self::assertSame(ParticipantField::SOURCE_EXTENSION, $declared[$key]->source);
-            self::assertSame('kalaka-support', $declared[$key]->declaredBy);
+            self::assertSame('support', $declared[$key]->declaredBy);
             self::assertTrue($declared[$key]->moneyRelevant);
         }
+        self::assertSame((new Module())->id(), SetShare::DECLARER);
     }
 
     public function testAKeyAnotherDeclarerHoldsRefusesTheShare(): void
@@ -203,7 +206,7 @@ final class ShareTest extends ShareTestCase
             'title' => 'Mód',
             'options' => wp_json_encode([]),
             'source' => 'extension',
-            'declared_by' => 'kalaka-aid',
+            'declared_by' => 'aid',
             'created_at' => '2026-11-13 08:00:00.000000',
             'updated_at' => '2026-11-13 08:00:00.000000',
             'position' => 1,
@@ -254,7 +257,7 @@ final class ShareTest extends ShareTestCase
 
         $mode = $this->declared()['share_mode'];
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $mode->source);
-        self::assertSame('kalaka-support', $mode->declaredBy);
+        self::assertSame('support', $mode->declaredBy);
         $options = array_column($mode->options, null, 'value');
         self::assertTrue($options['half']['retired']);
         foreach (['none', 'shared', 'full'] as $value) {

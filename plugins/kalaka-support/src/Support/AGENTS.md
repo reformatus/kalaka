@@ -114,7 +114,7 @@ congregation share.
 - The share is on for an event when it has a row in `kalaka_support_share`, written only through `kalaka/set-share`,
   which the money settings apply runs (`Api\Share::propose()`, the component `share`'s settings document
   `{"on": bool}`; any other shape is refused). On, the save declares the two participant fields in the same
-  transaction through core's `declareExtensionField()` as declarer `kalaka-support`, money relevant: `share_mode`,
+  transaction through core's `declareExtensionField()` as declarer `support` (the module's ID, `SetShare::DECLARER`), money relevant: `share_mode`,
   a choice of the fixed values `none`, `shared` and `full`, and `share_amount`, a number with no declared minimum,
   maximum or decimals; both extension-sourced and form-writable. The form links to them by key, and any subset of
   the modes may be offered, never an added one. Their keys are judged by core's
