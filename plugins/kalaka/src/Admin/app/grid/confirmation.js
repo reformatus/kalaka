@@ -75,18 +75,12 @@ export function warningOf( registration, can ) {
 }
 
 /**
- * Whether the re-read shows the registration confirmed: the confirmation decision's state where the read carries
- * it (a view lists the column `decision:confirmation`, or the reader has full access), else `can.unconfirm`, which
- * every read carries and #213 sets from "confirmed now" (for a holder who may confirm manually, as the one who just
- * unconfirmed may). Null when the read cannot tell.
+ * Whether the re-read shows the registration confirmed: `registration.confirmed`, which every detail read carries
+ * (#213). Null only when the field is absent (an old server).
  */
 function confirmedIn( detail ) {
-	const now = confirmationOf( detail.registration );
-	if ( now ) {
-		return now.state === 'confirmed';
-	}
-	const can = detail.can;
-	return can && typeof can.unconfirm === 'boolean' ? can.unconfirm : null;
+	const confirmed = detail.registration && detail.registration.confirmed;
+	return typeof confirmed === 'boolean' ? confirmed : null;
 }
 
 /**

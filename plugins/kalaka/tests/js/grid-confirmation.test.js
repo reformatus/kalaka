@@ -143,56 +143,42 @@ describe( 'the warning before the unconfirm', () => {
 } );
 
 describe( 'the snackbar after a save', () => {
-	const detail = ( state ) => ( {
-		registration: { decisions: [ { kind: 'confirmation', state, state_label: state } ] },
-	} );
+	const detail = ( confirmedNow ) => ( { registration: { confirmed: confirmedNow } } );
 
 	test( 'a set says it is saved', () => {
-		expect( snackbarAfter( false, { changed: true }, detail( 'confirmed' ) ) ).toBe( CONFIRM.saved );
+		expect( snackbarAfter( false, { changed: true }, detail( true ) ) ).toBe( CONFIRM.saved );
+		expect( snackbarAfter( false, { changed: true }, { registration: {} } ) ).toBe( CONFIRM.saved );
 	} );
 
 	test( 'an unconfirm that ends not confirmed says it was revoked', () => {
-		expect( snackbarAfter( true, { changed: true }, detail( 'unconfirmed' ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( snackbarAfter( true, { changed: true }, detail( false ) ) ).toBe( CONFIRM.unconfirmed );
 		expect( CONFIRM.unconfirmed ).toBe( 'Visszaigazolás visszavonva.' );
 	} );
 
 	test( 'an unconfirm the rules re-confirmed at once says so: the re-read ends confirmed', () => {
-		expect( snackbarAfter( true, { changed: true }, detail( 'confirmed' ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
+		expect( snackbarAfter( true, { changed: true }, detail( true ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
 		expect( CONFIRM.unconfirmedReconfirmed ).toBe( 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.' );
 	} );
 
-	describe( 'on a view without the confirmation column (the re-read carries no decision)', () => {
-		const bare = ( can ) => ( { registration: { decisions: [] }, can } );
-
-		test( 'can.unconfirm true means it is confirmed again: the re-confirm snackbar, not "revoked"', () => {
-			expect( snackbarAfter( true, { changed: true }, bare( { unconfirm: true } ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
+	test( 'registration.confirmed alone decides: not the decision list, not can.unconfirm', () => {
+		const read = ( confirmedNow, state, unconfirm ) => ( {
+			registration: { confirmed: confirmedNow, decisions: [ { kind: 'confirmation', state } ] },
+			can: { unconfirm },
 		} );
+		expect( snackbarAfter( true, { changed: true }, read( false, 'confirmed', true ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( snackbarAfter( true, { changed: true }, read( true, 'unconfirmed', false ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
+	} );
 
-		test( 'can.unconfirm false means it is not confirmed: revoked', () => {
-			expect( snackbarAfter( true, { changed: true }, bare( { unconfirm: false } ) ) ).toBe( CONFIRM.unconfirmed );
-		} );
-
-		test( 'a read that carries neither the decision nor can.unconfirm cannot tell: no snackbar', () => {
-			expect( snackbarAfter( true, { changed: true }, bare( {} ) ) ).toBeNull();
-			expect( snackbarAfter( true, { changed: true }, bare( undefined ) ) ).toBeNull();
-			expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBeNull();
-		} );
-
-		test( 'the decision, where the read carries it, wins over can.unconfirm', () => {
-			const read = ( state, unconfirm ) => ( { ...detail( state ), can: { unconfirm } } );
-			expect( snackbarAfter( true, { changed: true }, read( 'unconfirmed', true ) ) ).toBe( CONFIRM.unconfirmed );
-			expect( snackbarAfter( true, { changed: true }, read( 'confirmed', false ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
-		} );
-
-		test( 'a set says it is saved whatever the read carries', () => {
-			expect( snackbarAfter( false, { changed: true }, bare( {} ) ) ).toBe( CONFIRM.saved );
-		} );
+	test( 'a read without the field (an old server) cannot tell: no snackbar', () => {
+		expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBeNull();
+		expect( snackbarAfter( true, { changed: true }, { registration: { confirmed: null }, can: { unconfirm: true } } ) ).toBeNull();
+		expect( snackbarAfter( true, { changed: true }, {} ) ).toBeNull();
 	} );
 
 	test( 'changed: false writes nothing: no snackbar, for either act', () => {
-		expect( snackbarAfter( true, { changed: false }, detail( 'unconfirmed' ) ) ).toBeNull();
-		expect( snackbarAfter( true, { changed: false }, detail( 'confirmed' ) ) ).toBeNull();
-		expect( snackbarAfter( false, { changed: false }, detail( 'confirmed' ) ) ).toBeNull();
+		expect( snackbarAfter( true, { changed: false }, detail( false ) ) ).toBeNull();
+		expect( snackbarAfter( true, { changed: false }, detail( true ) ) ).toBeNull();
+		expect( snackbarAfter( false, { changed: false }, detail( true ) ) ).toBeNull();
 	} );
 
 	test( 'a failed re-read claims nothing: no snackbar, the panel\'s load error shows', () => {
