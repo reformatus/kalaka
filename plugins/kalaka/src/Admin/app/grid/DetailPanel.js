@@ -15,6 +15,7 @@ import { confirmationOf, markOf, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import RequestsBlock from './RequestsBlock';
+import StatusActs from './StatusActs';
 import StatusMark from './StatusMark';
 import { PANEL } from './texts';
 
@@ -141,6 +142,16 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				<p className="kg-none" role="status">
 					{ PANEL.loading }
 				</p>
+			) }
+			{ detail && (
+				<StatusActs
+					stale={ !! problem }
+					config={ config }
+					code={ code }
+					can={ detail.can || {} }
+					reload={ reload }
+					onSaved={ onSaved }
+				/>
 			) }
 			{ detail && (
 				<ManualConfirmation

@@ -138,3 +138,6 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
    button, below core's modal layer; the opened WordPress menu goes over it. */
 @media (max-width: 600px) { .kg-panel { top: 0; z-index: 99999; } .kg-snacks { z-index: 100001; } }
 .wp-responsive-open .kg-panel { z-index: 99; }
+
+/* S39 on #247: the status acts row. */
+.kg-status-acts { margin: 8px 0 4px; }

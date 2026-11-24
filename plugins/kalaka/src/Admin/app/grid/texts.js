@@ -220,3 +220,38 @@ export const REQUESTS = {
 	awardEmpty: 'Add meg a megítélt összeget.',
 	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
 };
+
+/**
+ * The four status acts of the detail panel (S39 on #247). Every visible string is unapproved until the owner ticks
+ * its box (T700..T717), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and „Add meg az indoklást.”
+ * (CONFIRM), the generic failure (MONEY.saveFail) and the „full” warning (PlacementWarnings::FULL, #216), which
+ * is built verbatim. Server refusals are shown with the server's own text and are not here.
+ */
+export const STATUS_ACTS = {
+	// The four buttons. [UNAPPROVED T700] [UNAPPROVED T701] [UNAPPROVED T702] [UNAPPROVED T703]
+	admit: 'Felvétel a várólistáról',
+	withdraw: 'Jelentkezés visszavonása',
+	remove: 'Jelentkezés törlése',
+	restore: 'Jelentkezés visszaállítása',
+	// The dialog titles. [UNAPPROVED T704] [UNAPPROVED T705] [UNAPPROVED T706] [UNAPPROVED T707]
+	admitTitle: 'Jelentkező felvétele a várólistáról',
+	withdrawTitle: 'Jelentkezés visszavonása',
+	removeTitle: 'Jelentkezés törlése',
+	restoreTitle: 'Jelentkezés visszaállítása',
+	// What will happen. [UNAPPROVED T708] [UNAPPROVED T709] [UNAPPROVED T710] [UNAPPROVED T711]
+	admitBody: 'A jelentkezés rögzített állapotba kerül.',
+	withdrawBody: 'A jelentkezés visszavont állapotba kerül. A várólistáról senki sem kerül be automatikusan.',
+	removeBody: 'A jelentkezés törölt állapotba kerül. A várólistáról senki sem kerül be automatikusan.',
+	restoreBody: 'A jelentkezés rögzített állapotba kerül.',
+	// Under the reason field when it is optional. [UNAPPROVED T712]
+	reasonOptional: 'Nem kötelező.',
+	// Under the admit dialog's warning. [UNAPPROVED T713]
+	serialEnd: 'A felvett jelentkező az utolsó sorszámot kapja.',
+	// The snackbars. [UNAPPROVED T714] [UNAPPROVED T715] [UNAPPROVED T716] [UNAPPROVED T717]
+	admitted: 'Jelentkező felvéve a várólistáról.',
+	withdrawn: 'Jelentkezés visszavonva.',
+	removed: 'Jelentkezés törölve.',
+	restored: 'Jelentkezés visszaállítva.',
+	// PlacementWarnings::FULL, verbatim (reused, #216). Shown when the preview says a pool is over.
+	full: 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.',
+};
