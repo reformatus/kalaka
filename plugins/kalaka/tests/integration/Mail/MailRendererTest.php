@@ -84,6 +84,39 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertStringNotContainsString('Téli tábor.', $html);
     }
 
+    public function testABodyMayBranchOnTheMomentItIsRenderedAt(): void
+    {
+        $event = $this->filled();
+        $key = $this->registration($event);
+        $body = $this->document(
+            $event,
+            $this->branch(
+                'if',
+                $this->paragraph('Még nem kezdődött el.'),
+                [
+                    'match' => 'all',
+                    'items' => [['key' => 'event.start', 'operator' => 'greaterThan', 'value' => ['ref' => 'now']]],
+                ]
+            ) . "\n" . $this->branch('else', $this->paragraph('Már elkezdődött.'))
+        );
+        $this->switchOn($event, 'registered', $body);
+        $renderer = new MailRenderer();
+
+        // The event starts on 2027-07-05: before it the first side shows, after it the other one.
+        $before = $renderer->render($event, 'registered', $key, self::now())->html;
+        $after = $renderer->render(
+            $event,
+            'registered',
+            $key,
+            new \DateTimeImmutable('2027-08-01 08:00:00', new \DateTimeZone('UTC'))
+        )->html;
+
+        self::assertStringContainsString('Még nem kezdődött el.', $before);
+        self::assertStringNotContainsString('Már elkezdődött.', $before);
+        self::assertStringContainsString('Már elkezdődött.', $after);
+        self::assertStringNotContainsString('Még nem kezdődött el.', $after);
+    }
+
     public function testABodyMayBranchOnWhetherTheRegistrationCameFromTheWaitlist(): void
     {
         $event = $this->create();
