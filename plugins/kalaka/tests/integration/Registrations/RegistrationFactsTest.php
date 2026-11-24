@@ -60,6 +60,29 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         self::assertSame(['00A0', '00A2'], $codes);
     }
 
+    public function testAnOpenRegistrationHoldingAValueIsFoundAndAWithdrawnOneIsNot(): void
+    {
+        $event = $this->event();
+        $this->insertRegistration($this->newRegistration($event->id, '00A0', RegistrationStatus::Withdrawn));
+        $this->insertRegistration($this->newRegistration($event->id, '00A2', RegistrationStatus::Registered));
+        global $wpdb;
+        foreach (['00A0' => 'a', '00A2' => 'b'] as $code => $value) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_field_values', [
+                'event_id' => $event->id,
+                'code' => $code,
+                'field_key' => 'tier',
+                'version' => 1,
+                'value' => $value,
+            ]);
+        }
+        $registrations = new Registrations();
+
+        self::assertFalse($registrations->openHolds($event->id, 'tier', 'a'));
+        self::assertTrue($registrations->openHolds($event->id, 'tier', 'b'));
+        self::assertFalse($registrations->openHolds($event->id, 'tier', 'c'));
+        self::assertFalse($registrations->openHolds($event->id, 'other', 'b'));
+    }
+
     private function event(): \Kalaka\Events\Api\Event
     {
         $stored = $this->inRun(

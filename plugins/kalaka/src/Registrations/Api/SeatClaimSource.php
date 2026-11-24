@@ -14,6 +14,10 @@ use Kalaka\Forms\Api\ValidatedAnswers;
  * the answers, the event and its own pools' identity: it locks nothing, counts nothing and writes nothing; the
  * submit's use case locks the pools, counts their seats and takes them when the registration becomes
  * `registered` ([UNAPPROVED N8]).
+ *
+ * A source claims only what the registration is entitled to now: a choice that gives it no place at present (an
+ * offer whose request was refused, say) makes no claim, whether the answers are a submit's or a registration's
+ * stored values asked again at admission or restore ([UNAPPROVED R6]).
  */
 interface SeatClaimSource
 {

@@ -142,6 +142,9 @@ the waitlist and reference codes
 - A submit's seat claims come from contributed `Api\SeatClaimSource`s
   (`Contributions::seatClaimSource()`): answers in, `SeatClaim`s out; a source locks, counts and writes nothing.
   `RegistrationSubmit` asks each on every attempt and hands the claims to the use case.
+  A source claims only the registration's current entitlement: a choice that gives it no place now (an offer
+  whose request was refused) makes no claim, for a submit's answers and for stored values alike
+  [UNAPPROVED R6].
 - The event's pool has no rows: its seats are the counted `registered` statuses, and the latch decides the
   waitlist as it always did. `Seats::left()` and `over()` are computed on read, never stored.
 - Only Registrations writes its tables.

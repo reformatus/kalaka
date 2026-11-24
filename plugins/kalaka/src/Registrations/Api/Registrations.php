@@ -104,6 +104,29 @@ final class Registrations
     }
 
     /**
+     * Whether an open (`registered` or `waitlisted`) registration of the event holds the value in the field: two
+     * statements however many registrations there are. A plain read.
+     */
+    public function openHolds(int $eventId, string $fieldKey, string $value): bool
+    {
+        $rows = $this->values->withValue($eventId, $fieldKey, $value);
+        if ($rows === []) {
+            return false;
+        }
+        $open = [];
+        foreach ($this->openOf($eventId) as $key) {
+            $open[$key->code] = true;
+        }
+        foreach ($rows as $row) {
+            if (isset($open[$row->registration->code])) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Reads the registration `FOR UPDATE` at `LockLevel::Registration`, so the run holds it
      * (`Context::holdsRegistration()`).
      *
