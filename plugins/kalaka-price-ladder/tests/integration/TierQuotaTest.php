@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\PriceLadder;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\PriceLadder\Api\PriceLadder;
 use Kalaka\PriceLadder\PriceLadderComponent;
@@ -131,25 +134,58 @@ final class TierQuotaTest extends PriceLadderTestCase
         self::assertSame([], $claims->claims($event, new ValidatedAnswers([], [])));
     }
 
-    public function testAnAdmittedRegistrationWhoseTierSeatIsGoneKeepsItsTierAndPaysItsPrice(): void
+    /**
+     * Stands in for the admission test of S23, which will go through the claim sources and the admission use
+     * case: here the act is its seat step alone. [UNAPPROVED N3]
+     */
+    public function testAnAdmittedRegistrationWhoseTierIsFullKeepsItsTierAndTakesItsSeatOverTheLimit(): void
     {
         $this->applyLadder(self::tiers(1));
         $this->holdSeat($this->choosing('00A0', 'tamogatott'));
         $late = $this->choosing('00A2', 'tamogatott');
 
-        // The admission: the pool first, then the registration, then the seat if one is free (no error).
-        $taken = $this->inRun(function (array $input, Context $context) use ($late): bool {
+        // The admission: the pool first, then the registration, then the seat, over the limit as staff placing.
+        $this->inRun(function (array $input, Context $context) use ($late): void {
             $this->seats->lock($this->pool(), $context);
             $this->lockRegistrations($context, $late);
-
-            return $this->seats->takeIfFree($this->pool(), $late, SeatAct::Admission, $context);
+            $this->seats->takeOver($this->pool(), $late, SeatAct::Admission, $context);
         });
 
-        self::assertFalse($taken);
-        self::assertFalse($this->seats->holds($this->pool(), $late));
-        self::assertSame(1, $this->seats->held($this->pool()));
+        self::assertTrue($this->seats->holds($this->pool(), $late));
+        self::assertSame(2, $this->seats->held($this->pool()));
+        self::assertSame(1, $this->seats->over($this->pool()));
+        self::assertSame(0, $this->seats->left($this->pool()));
         self::assertSame([self::line('20000')], $this->charges($late));
         self::assertSame([self::line('20000')], $this->charges(new RegistrationKey($this->event, '00A0')));
+    }
+
+    public function testALimitGivenToATierAnOpenRegistrationChoseIsRefusedAndALowerOneIsNot(): void
+    {
+        $this->applyLadder(self::tiers(null));
+        // Made while nobody had chosen the tier, applied after somebody has.
+        $stale = new ProposedMoneySettings(components: [$this->ladder->propose($this->event, self::tiers(1))]);
+        $anna = $this->choosing('00A0', 'tamogatott');
+
+        // The preview refuses, and so does the apply, before anything is saved.
+        try {
+            $this->ladder->propose($this->event, self::tiers(1));
+            self::fail('The proposal went through.');
+        } catch (RuleViolation) {
+            self::assertNull($this->ladder->tiers($this->event)[1]->limit);
+        }
+        try {
+            $this->settings->apply($this->event, $stale, new CliActor(null));
+            self::fail('The apply went through.');
+        } catch (RuleViolation) {
+            self::assertNull($this->ladder->tiers($this->event)[1]->limit);
+        }
+
+        // Once the choosing registration has left, the tier may gain a limit; a limit may then go down.
+        $this->setStatus($anna, RegistrationStatus::Withdrawn);
+        $this->applyLadder(self::tiers(3));
+        $this->choosing('00A2', 'tamogatott');
+        $this->applyLadder(self::tiers(2));
+        self::assertSame(2, $this->ladder->tiers($this->event)[1]->limit);
     }
 
     public function testAPriceChangeNeverMovesASeat(): void
