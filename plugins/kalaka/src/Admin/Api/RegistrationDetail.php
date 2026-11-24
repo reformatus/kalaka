@@ -227,7 +227,8 @@ final class RegistrationDetail
     }
 
     /**
-     * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`,
+     * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`
+     * while the source's answer field holds none (the field is the truth), else the act's record says
      * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
      * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
      * "yes" that would go over the limit (B1). No hold is read: awaiting is computed.
@@ -244,7 +245,7 @@ final class RegistrationDetail
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
-                'state' => $answer === null ? 'awaiting' : ($answer->approved ? 'approved' : 'refused'),
+                'state' => $state->awaits() ? 'awaiting' : ($answer?->approved === true ? 'approved' : 'refused'),
                 'amount' => $answer?->amount?->amount(),
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved

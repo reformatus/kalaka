@@ -570,13 +570,13 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'position' => 200,
             'form_writable' => 0,
         ]);
-        $write = function (string $field, bool $lock): void {
+        $write = function (string $field, bool $lock, string $declarer = TestRequestSource::DECLARER): void {
             $this->runner->run(
-                new AdminProbe(function (array $input, Context $context) use ($field, $lock): null {
+                new AdminProbe(function (array $input, Context $context) use ($field, $lock, $declarer): null {
                     if ($lock) {
                         (new Registrations())->lock($this->key(), $context);
                     }
-                    (new Registrations())->writeValue($this->key(), $field, 'x', $context);
+                    (new Registrations())->writeValue($this->key(), $field, 'x', $context, $declarer);
 
                     return null;
                 }),
@@ -592,6 +592,13 @@ final class AnswerRequestTest extends ManualEntryTestCase
             } catch (SystemFailure) {
                 self::assertNull($this->value($field));
             }
+        }
+
+        try {
+            $write('support_answer', true, '');
+            self::fail('A write names its declarer.');
+        } catch (SystemFailure) {
+            self::assertNull($this->value('support_answer'));
         }
 
         $write('support_answer', true);

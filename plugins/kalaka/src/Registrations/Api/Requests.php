@@ -11,12 +11,15 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
 /**
  * The reads behind "answer a request" (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions
  * and computed values"): a registration's requests with their latest answers, and the computed "awaits an
- * answer". Nothing is stored for the latter: a registration awaits an answer while it has a request no answer
- * has been given for, whatever the answer says ("no", or an award of 0 Ft, is an answer). A withdrawn or removed
- * registration awaits nothing; a waitlisted one does. [UNAPPROVED N10]
+ * answer". Nothing is stored for the latter: a registration awaits an answer while it has a request its source
+ * says is not answered, read from the source's own answer field, whatever the answer says ("no", or an award of
+ * 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record the act (who, when, the note, the
+ * mail's key) and decide nothing else. A withdrawn or removed registration awaits nothing; a waitlisted one
+ * does. [UNAPPROVED N10] [UNAPPROVED N136]
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
- * statement. With some, a read costs two: the field values and the answers. [UNAPPROVED N1] [UNAPPROVED N2]
+ * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
+ * values). [UNAPPROVED N1] [UNAPPROVED N2]
  */
 final class Requests
 {
@@ -62,13 +65,21 @@ final class Requests
         }
         $states = [];
         foreach ($owned as $id => [$request, $source]) {
-            $states[] = new RequestState($request, $source, $latest[$id] ?? null);
+            $states[] = new RequestState(
+                $request,
+                $source,
+                $source->isAnswered($request, $values),
+                $latest[$id] ?? null
+            );
         }
 
         return $states;
     }
 
-    /** Whether the registration has a request with no answer; false for a withdrawn or removed registration. */
+    /**
+     * Whether the registration has a request its source says is not answered (from its answer field); false for a
+     * withdrawn or removed registration.
+     */
     public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
     {
         return $this->awaitsOf($registration->eventId, [$registration->code => $status])[$registration->code];
@@ -77,9 +88,9 @@ final class Requests
     /**
      * "Awaits an answer" for several of one event's registrations at once, by the one rule of `awaits()`: the
      * cost is fixed whatever the count: with no source, or when every registration is withdrawn or removed, no
-     * statement; otherwise the field values and then (only if some registration has a request) the answers, one
-     * statement each. (Shapes) grid rows carry awaits_answer: bool, PHP-computed per page; not filterable,
-     * sortable or summable (alt: a per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
+     * statement; otherwise one, the field values, which hold every answer. (Shapes) grid rows carry
+     * awaits_answer: bool, PHP-computed per page; not filterable, sortable or summable (alt: a
+     * per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
      *
      * @param array<string, RegistrationStatus> $statusByCode the registrations' codes with their statuses
      * @return array<string, bool> by code, every given code
@@ -102,25 +113,11 @@ final class Requests
         foreach ($this->values->forRegistrations($eventId, $live) as $value) {
             $values[$value->registration->code][$value->fieldKey] = $value->value;
         }
-        $owned = [];
         foreach ($live as $code) {
             $key = new RegistrationKey($eventId, $code);
-            foreach ($this->requestsOf($key, $values[$code] ?? [], $sources) as $request) {
-                $owned[$code][] = $request[0]->id;
-            }
-        }
-        if ($owned === []) {
-            return $awaits;
-        }
-
-        $answered = [];
-        foreach ($this->answers->forRegistrations($eventId, array_map('strval', array_keys($owned))) as $answer) {
-            $answered[$answer->registration->code][$answer->request] = true;
-        }
-        foreach ($owned as $code => $ids) {
-            foreach ($ids as $id) {
-                if (!isset($answered[$code][$id])) {
-                    $awaits[(string) $code] = true;
+            foreach ($this->requestsOf($key, $values[$code] ?? [], $sources) as [$request, $source]) {
+                if (!$source->isAnswered($request, $values[$code] ?? [])) {
+                    $awaits[$code] = true;
                     break;
                 }
             }

@@ -565,7 +565,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
   audited writes.
   - **A field value is a fact,** whatever writes it. By the participant
     field's source ([Fields](events-and-forms.md#fields)): answers copied
-    from a form's submission; a staff write; or an extension's own use case,
+    from a form's submission; a staff write; or the declaring extension's
+    own code (its use cases, or the request source core's answer act calls),
     the only writer of its fields (e.g. the award of adjudicated aid or an
     offer's approval, written when staff or a partner answer a request; an
     organizer's act).

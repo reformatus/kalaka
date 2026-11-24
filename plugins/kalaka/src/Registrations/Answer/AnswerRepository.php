@@ -34,20 +34,6 @@ final class AnswerRepository extends AppendOnlyRepository
         );
     }
 
-    /**
-     * The answering acts of several of the event's registrations, oldest first, in one statement.
-     *
-     * @param non-empty-list<string> $codes
-     * @return list<AnswerRead>
-     */
-    public function forRegistrations(int $eventId, array $codes): array
-    {
-        return $this->findWhere(
-            'event_id = %d AND code IN (' . implode(', ', array_fill(0, count($codes), '%s')) . ') ORDER BY id',
-            [$eventId, ...$codes]
-        );
-    }
-
     protected function table(): string
     {
         return 'kalaka_answers';

@@ -37,6 +37,7 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         // Another event's request never counts here.
         $this->addRegistration(self::EVENT + 1, '00A2');
         $this->addValue(self::EVENT + 1, '00A2', 'support', 'church');
+        $this->addValue(self::EVENT, '00A2', 'support_answer', 'refused');
         $wpdb->insert($wpdb->prefix . 'kalaka_answers', [
             'event_id' => self::EVENT,
             'code' => '00A2',
@@ -137,6 +138,6 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         $none = $count(new ViewQuery(requests: new Requests([])), $this->held());
         $with = $count($this->query(), $this->held());
 
-        self::assertSame(2, $with - $none, 'The field values and the answers, one statement each.');
+        self::assertSame(1, $with - $none, 'The field values, which hold every answer: one statement.');
     }
 }

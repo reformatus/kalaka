@@ -227,6 +227,14 @@ final class StatusBlockTest extends PortalTestCase
             'approved' => 1,
             'answered_at' => '2026-11-30 12:00:00.000000',
         ]);
+        // The source's answer field is the truth: the act writes it beside the record.
+        $wpdb->replace($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => $request === TestRequestSource::AID ? 'aid_award' : 'support_answer',
+            'version' => 1,
+            'value' => $request === TestRequestSource::AID ? '9000' : 'approved',
+        ]);
     }
 
     public function testConfirmedShowsTheGreenBoxAZeroAmountThatIsNotBoldAndNoTransfer(): void

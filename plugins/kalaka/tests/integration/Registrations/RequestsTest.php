@@ -21,8 +21,8 @@ use Kalaka\Registrations\Api\Requests;
 
 /**
  * The reads behind "awaits an answer" (foundation.md, "Facts, decisions and computed values"): computed from the
- * requests a contributed source names and the answer records, never stored; `registration.awaits_answer` in the
- * fact source; the read's cost.
+ * requests a contributed source names and the answer fields it reads them from, never stored;
+ * `registration.awaits_answer` in the fact source; the read's cost.
  */
 final class RequestsTest extends RegistrationsTestCase
 {
@@ -85,9 +85,24 @@ final class RequestsTest extends RegistrationsTestCase
         return new RegistrationKey($event, $code);
     }
 
+    /** The source's own answer field, the truth: written as the answer act's source writes it. */
+    private function field(RegistrationKey $key, string $fieldKey, string $value): void
+    {
+        global $wpdb;
+        $wpdb->replace($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => $fieldKey,
+            'version' => 1,
+            'value' => $value,
+        ]);
+    }
+
+    /** An answering act as the act leaves it: the record, and the answer in the source's field. */
     private function answer(RegistrationKey $key, bool $approved, string $at = '2026-12-04 09:00:00.000000'): void
     {
         global $wpdb;
+        $this->field($key, 'support_answer', $approved ? 'approved' : 'refused');
         $wpdb->insert($wpdb->prefix . 'kalaka_answers', [
             'event_id' => $key->eventId,
             'code' => $key->code,
@@ -111,6 +126,34 @@ final class RequestsTest extends RegistrationsTestCase
             '2026-12-04 09:00:00',
             $requests->lastAnsweredAt($key)?->format('Y-m-d H:i:s')
         );
+    }
+
+    public function testTheAnswerFieldIsTheTruthAndTheRecordDecidesNothing(): void
+    {
+        $key = $this->asking();
+        $requests = new Requests([new TestRequestSource()]);
+
+        $this->field($key, 'support_answer', 'refused');
+        self::assertFalse($requests->awaits($key, RegistrationStatus::Registered), 'The field alone answers.');
+        self::assertTrue($requests->states($key)[0]->answered);
+        self::assertNull($requests->states($key)[0]->answer, 'No record of the act.');
+
+        $this->field($key, 'support_answer', '');
+        $this->answer($key, true);
+        $this->field($key, 'support_answer', '');
+        self::assertTrue($requests->awaits($key, RegistrationStatus::Registered), 'A record alone answers nothing.');
+        self::assertNotNull($requests->states($key)[0]->answer);
+    }
+
+    public function testARequestRestatedAfterAnAnswerReadsAsAnsweredUntilStaffAnswerAgain(): void
+    {
+        $key = $this->asking();
+        $requests = new Requests([new TestRequestSource()]);
+        $this->answer($key, true);
+
+        $this->field($key, 'support', 'church');
+
+        self::assertFalse($requests->awaits($key, RegistrationStatus::Registered));
     }
 
     public function testTheLatestAnswerWinsAndEachActIsItsOwnRecord(): void
@@ -175,6 +218,7 @@ final class RequestsTest extends RegistrationsTestCase
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame(['yes'], $facts->get(RegistrationFacts::AWAITS_ANSWER)->data);
         self::assertSame('', $facts->get(RegistrationFacts::AWAITS_ANSWER)->text);
+        self::assertSame('rögzített', $facts->get(RegistrationFacts::STATUS)->text);
 
         $this->answer($key, true);
         $facts = (new Registrations())->factsOf($key, $event);
@@ -182,13 +226,15 @@ final class RequestsTest extends RegistrationsTestCase
         self::assertSame(['no'], $facts->get(RegistrationFacts::AWAITS_ANSWER)->data);
     }
 
-    public function testTheReadCostsTwoStatementsAndNoneWithoutRequests(): void
+    public function testTheReadsCostOneOrTwoStatementsAndNoneWithoutRequests(): void
     {
         $key = $this->asking();
         $requests = new Requests([new TestRequestSource()]);
 
         $selects = $this->statementsOf(static fn (): bool => $requests->awaits($key, RegistrationStatus::Registered));
-        self::assertCount(2, $selects, 'The field values and the answers, one statement each.');
+        self::assertCount(1, $selects, 'The field values hold every answer.');
+        $states = $this->statementsOf(static fn (): array => $requests->states($key));
+        self::assertCount(2, $states, 'The field values and the answer records, one statement each.');
 
         $plain = $this->asking('00A2');
         $wpdb = $GLOBALS['wpdb'];
@@ -198,7 +244,7 @@ final class RequestsTest extends RegistrationsTestCase
             ['event_id' => $plain->eventId, 'code' => '00A2']
         );
         $none = $this->statementsOf(static fn (): bool => $requests->awaits($plain, RegistrationStatus::Registered));
-        self::assertCount(1, $none, 'No request: the answers are not read.');
+        self::assertCount(1, $none, 'No request: only the field values are read.');
     }
 
     public function testAnAmountIsStoredWithItsCurrency(): void

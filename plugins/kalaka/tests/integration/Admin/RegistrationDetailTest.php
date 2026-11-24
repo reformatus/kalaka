@@ -1053,6 +1053,12 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'currency' => $amount === null ? null : 'HUF',
                 'answered_at' => '2026-12-04 09:00:00.000000',
             ]);
+            // The source's answer field is the truth: the act writes it beside the record.
+            $this->addValue(
+                '00A0',
+                $request === 'aid' ? 'aid_award' : 'support_answer',
+                $request === 'aid' ? '9000' : 'refused'
+            );
         }
         $seats = new RecordingSeats();
         $seats->full = true;

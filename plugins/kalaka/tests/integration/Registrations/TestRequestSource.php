@@ -26,6 +26,9 @@ final class TestRequestSource implements RequestSource
     /** The seat pool of the church offer; the aid request has none. */
     public const POOL = 'church';
 
+    /** The module slug the test source writes under (`Registrations::writeValue()`'s declarer). */
+    public const DECLARER = 'kalaka-test';
+
     public function __construct(private readonly Registrations $registrations = new Registrations())
     {
     }
@@ -41,6 +44,13 @@ final class TestRequestSource implements RequestSource
         }
 
         return $requests;
+    }
+
+    public function isAnswered(Request $request, array $values): bool
+    {
+        return $request->kind === RequestKind::Offer
+            ? in_array($values['support_answer'] ?? '', ['approved', 'refused'], true)
+            : ($values['aid_award'] ?? '') !== '';
     }
 
     public function seatPool(Request $request): ?string
@@ -59,11 +69,18 @@ final class TestRequestSource implements RequestSource
                 $registration,
                 'support_answer',
                 $answer->approved ? 'approved' : 'refused',
-                $context
+                $context,
+                self::DECLARER
             );
 
             return;
         }
-        $this->registrations->writeValue($registration, 'aid_award', (string) $answer->amount?->amount(), $context);
+        $this->registrations->writeValue(
+            $registration,
+            'aid_award',
+            (string) $answer->amount?->amount(),
+            $context,
+            self::DECLARER
+        );
     }
 }

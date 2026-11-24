@@ -75,7 +75,8 @@ the waitlist and reference codes
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
 - `Api\RegistrationFacts` is a registration's fact source after submit (the
-  one availability base): the event's values, the code, the status and when
+  one availability base), built only by `Registrations::factsOf()`: the event's values, the code, the status
+  (with its word, `RegistrationStatus::word()`, the text a mail shows too), `registration.awaits_answer` and when
   it last became `registered` (`registered_at`, null while it is not), which
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
@@ -121,17 +122,23 @@ the waitlist and reference codes
     holds only their registrations); the runner checks the target against the view. The one action gates every
     request kind: a holder may answer any offer and award aid of any amount on the registrations in the view.
   - An answer is a fact with two writes in one act: one `kalaka_answers` row per answering act (append-only,
-    never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`), and the answer as the
-    source's own participant field value, written by the source (`RequestSource::writeAnswer()`, called by the
-    act) through `Registrations::writeValue()`, so the source stays that field's only writer.
-    `writeValue()` refuses a run that does not hold the registration, a key the event does not declare and a
-    "system" field.
-  - The latest row per request is the answer. An identical repeat (same yes or no, same amount, no new note)
-    writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an award of 0 Ft: an
-    absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a non-empty
-    note, its reason; a refusal and aid take a note optionally.
-  - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request with no answer, for a
-    registration that is not withdrawn or removed. It is `registration.awaits_answer` in the fact source, and it
+    never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`; it records who, when,
+    the note), and the answer as the source's own participant field value, written by the source
+    (`RequestSource::writeAnswer()`, called by the act) through `Registrations::writeValue()`, so the source
+    stays that field's only writer. `writeValue()` takes the writing module's declarer (`kalaka-aid`,
+    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (the refusal of
+    another declarer's field completes when CF3 #231 stores `declared_by`). It refuses a run that does not hold
+    the registration, a key the event does not declare and a "system" field.
+  - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
+    amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
+    award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
+    non-empty note, its reason; a refusal and aid take a note optionally.
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
+    source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
+    offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
+    withdrawn or removed. The field is the truth: the `kalaka_answers` rows record the act (who, when, the note,
+    `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
+    answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
     hides the due date and the transfer block in Portal. It never blocks confirmation.
   - On a registered registration a refusing offer answer frees the offer's seat and a "yes" after a refusal
     takes one; a waitlisted registration holds no place, so it takes and frees none (its seat is decided at

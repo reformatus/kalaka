@@ -82,3 +82,6 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
   access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
+- A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
+  statement for the page's field values, none without a request source); it is a row value, not a column, so it is
+  not filterable, sortable or summable.

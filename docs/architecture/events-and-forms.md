@@ -292,10 +292,11 @@ flowchart TB
   - **form:** created by a form field; most fields are;
   - **staff:** a column admins add that no participant fills in; staff
     write it through views, and it may also appear in an additional form;
-  - **extension:** written only by an extension's own use case, e.g. the
-    award of adjudicated aid ([Money](money.md#core-money-scope)), unless
-    the extension declares the field form-writable (off by default); only
-    then may a form hold its key;
+  - **extension:** written by a form when the declaration lets forms write
+    it (off by default; only then may a form hold its key), by staff, or by
+    its declaring extension's own code: its use cases, or the request source
+    that core's answer act calls, e.g. the award of adjudicated aid
+    ([Money](money.md#core-money-scope));
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth

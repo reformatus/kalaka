@@ -96,20 +96,34 @@ final class Registrations
     }
 
     /**
-     * Writes one field value from an extension's own use case (events-and-forms.md, "Fields": the source
+     * Writes one field value from the extension that declared the field (events-and-forms.md, "Fields": the source
      * "extension"; foundation.md: a field value is a fact whatever writes it), e.g. the answer to a request.
      * Inside a use case's run, with the registration locked by it; the value is the field type's stored form.
-     * The field must be one the event declares, and not a "system" field, which stores nothing (foundation.md,
-     * "Facts, decisions and computed values"). The caller owns the field's type: this does not check it.
-     * [UNAPPROVED N11]
+     * `$declarer` is the writing module's slug, the one it declared the field with (`kalaka-aid`, `kalaka-support`):
+     * one writer rule, a field is written by its declarer's own code only. The field must be one the event
+     * declares, and not a "system" field, which stores nothing (foundation.md, "Facts, decisions and computed
+     * values"). The caller owns the field's type: this does not check it. [UNAPPROVED N11] [UNAPPROVED N137]
      *
-     * @throws SystemFailure when the run does not hold the registration, the event has no such active field, or
-     *                       the field is a "system" one
+     * TODO(CF3, #231): refuse a field whose `declared_by` is another declarer. The column and
+     * `ParticipantField::$declaredBy` arrive with CF3; until then the declarer is required but not compared, so
+     * this completes at the restack onto CF3.
+     *
+     * @throws SystemFailure when the run does not hold the registration, the declarer is empty, the event has no
+     *                       such active field, or the field is a "system" one
      */
-    public function writeValue(RegistrationKey $key, string $fieldKey, string $value, Context $context): void
-    {
+    public function writeValue(
+        RegistrationKey $key,
+        string $fieldKey,
+        string $value,
+        Context $context,
+        string $declarer,
+    ): void {
         if (!$context->holdsRegistration($key)) {
             $error = new SystemFailure(null, new \LogicException('The run does not hold the registration.'));
+            throw $error;
+        }
+        if ($declarer === '') {
+            $error = new SystemFailure(null, new \LogicException('A field value is written for a declarer.'));
             throw $error;
         }
         $declared = null;
