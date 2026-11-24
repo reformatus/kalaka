@@ -59,6 +59,7 @@ final class ActionCatalogueTest extends RunnerTestCase
                 'kalaka_regenerate_link',
                 'kalaka_record_payment',
                 'kalaka_record_refund',
+                'kalaka_manual_mail',
                 'kalaka_notes',
                 'kalaka_audit_history',
             ],

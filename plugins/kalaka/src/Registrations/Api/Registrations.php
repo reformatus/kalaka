@@ -104,6 +104,18 @@ final class Registrations
     }
 
     /**
+     * The statuses of some of an event's registrations, in one statement and without a lock; a code that is no
+     * registration of the event is absent from the result. A plain read.
+     *
+     * @param list<string> $codes
+     * @return array<string, RegistrationStatus> code → status
+     */
+    public function statusesOf(int $eventId, array $codes): array
+    {
+        return $this->list->statusesOf($eventId, $codes);
+    }
+
+    /**
      * Reads the registration `FOR UPDATE` at `LockLevel::Registration`, so the run holds it
      * (`Context::holdsRegistration()`).
      *
