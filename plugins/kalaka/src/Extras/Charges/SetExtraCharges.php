@@ -104,11 +104,10 @@ final class SetExtraCharges implements AdminUseCase
         }
         foreach ($stored as $record) {
             $this->charges->delete($record, $context);
-            // A charge taken out retires its declared field, as a form field no form holds is; declaring the key
-            // again makes it active. Refusing the removal of a charge an open registration chose comes later (CF4).
-            $this->fields->retireExtensionField($context, $eventId, $record->key, ChargeField::DECLARER);
         }
-        // The code defines its fields (events-and-forms.md, "Fields"); a form field joins one by its key.
+        // The code defines its fields (events-and-forms.md, "Fields"); a form field joins one by its key. A charge
+        // taken out leaves its field declared, as for every kind of item; refusing the removal of a charge an open
+        // registration chose comes with CF4. [UNAPPROVED N3]
         foreach ($proposed as $charge) {
             $this->fields->declareExtensionField(
                 $context,

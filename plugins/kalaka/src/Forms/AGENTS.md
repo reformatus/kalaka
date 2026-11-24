@@ -74,7 +74,8 @@ values and conditions, prefill and form links
   refuse (REST 400, else a graceful veto with an admin notice, a log line
   and, on WP-CLI, a warning and a failing exit), and
   `ParticipantFieldSync`, after the post and its settings are stored, writes
-  the participant fields through `ParticipantFields::declare()`; besides it
+  the participant fields through `ParticipantFields::declare()`, each field with `money_relevant` from its block
+  type (`MoneyRelevantFieldType`) [UNAPPROVED N301]; besides it
   only the rename route (an explicit request) does, through
   `ParticipantFields::rename()`.
 - The form editor derives a key unique across the form's event: against the
