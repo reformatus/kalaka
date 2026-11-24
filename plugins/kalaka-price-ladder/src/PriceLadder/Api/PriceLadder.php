@@ -7,8 +7,10 @@ namespace Kalaka\PriceLadder\Api;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\PriceLadder\LadderInput;
 use Kalaka\PriceLadder\PriceLadderComponent;
+use Kalaka\PriceLadder\TierLimitGuard;
 use Kalaka\PriceLadder\TierSeatPool;
 use Kalaka\PriceLadder\TierRecord;
 use Kalaka\PriceLadder\TierRepository;
@@ -26,6 +28,7 @@ final class PriceLadder
         private readonly Events $events = new Events(),
         private readonly LadderInput $ladder = new LadderInput(),
         private readonly Seats $seats = new Seats(),
+        private readonly TierLimitGuard $guard = new TierLimitGuard(),
     ) {
     }
 
@@ -62,11 +65,14 @@ final class PriceLadder
 
     /**
      * A proposed ladder, the whole list of tiers in ladder order (an empty list removes the ladder), each
-     * `{key, label, amount}`: `amount` a decimal string in the event's currency.
+     * `{key, label, amount}` and an optional `limit` (a positive integer: the people the tier takes): `amount` a
+     * decimal string in the event's currency.
      *
      * @param list<array<string, mixed>> $tiers
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the ladder is not valid; `kalaka/set-price-ladder` checks its schema again
+     * @throws RuleViolation when a tier would gain a limit that an open registration has already chosen
+     *     (`TierLimitGuard`): the preview and the apply refuse before anything is saved
      */
     public function propose(int $eventId, array $tiers): ProposedLadder
     {
@@ -78,6 +84,9 @@ final class PriceLadder
             }
         }
 
-        return new ProposedLadder($this->ladder->tiers($event, $tiers), $input);
+        $proposed = $this->ladder->tiers($event, $tiers);
+        $this->guard->checkAgainstStored($eventId, $proposed);
+
+        return new ProposedLadder($proposed, $input);
     }
 }
