@@ -11,46 +11,32 @@ use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Mail\Api\ManualMails;
-use Kalaka\Mail\Body\MailPosts;
-use Kalaka\Mail\Manual\MailBatch;
-use Kalaka\Mail\Manual\MailBatchQuery;
 use Kalaka\Mail\Manual\SendManualMail;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * `wp kalaka mail send|batches`: sends a chosen mail body to chosen registrations of an event, and lists what
- * was sent (mail.md, "Five kinds of mail", Manual). A thin entry point: `send` changes only through the use case
+ * `wp kalaka mail send`: sends a chosen mail body to chosen registrations of an event (mail.md, "Five kinds
+ * of mail", Manual). A thin entry point: it changes only through the use case
  * `SendManualMail` (`ManualMails::send()`), as the command line (full access) or as WP-CLI's `--user`, checked
  * by that user's grants on the codes before anything about them is printed. Registered beside `MailCommand`'s
  * commands, so either can merge first. Mail is never sent here: the batch only queues deliveries.
  */
 final class ManualMailCommand
 {
-    private const BATCH_FIELDS = ['batch', 'created_at_utc', 'by', 'body', 'layout', 'queued', 'skipped'];
-
-    private const MEMBER_FIELDS = ['code', 'outcome'];
-
     /**
-     * @param ?\Closure(string, list<array<string, mixed>>, list<string>): void $print prints rows in a format
      * @param ?\Closure(string, array<string, mixed>): void $confirm asks to go on; ends the command when declined
      */
     public function __construct(
         private readonly ManualMails $mails = new ManualMails(),
-        private readonly MailBatchQuery $batches = new MailBatchQuery(),
         private readonly Events $events = new Events(),
-        private readonly MailPosts $posts = new MailPosts(),
-        private readonly ?\Closure $print = null,
         private readonly ?\Closure $confirm = null,
     ) {
     }
 
     public static function register(): void
     {
-        $command = new self();
-        \WP_CLI::add_command('kalaka mail send', $command->send(...));
-        \WP_CLI::add_command('kalaka mail batches', $command->batches(...));
+        \WP_CLI::add_command('kalaka mail send', new self());
     }
 
     /**
@@ -93,7 +79,7 @@ final class ManualMailCommand
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
      */
-    public function send(array $args, array $assocArgs): void
+    public function __invoke(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
             $eventId = $this->event($args);
@@ -152,63 +138,6 @@ final class ManualMailCommand
         });
     }
 
-    /**
-     * Lists the manual mail batches of an event, or one batch's registrations.
-     *
-     * Newest batch first; with a batch ID, the registrations of that batch and what became of each. It reads the batch's own record, not the deliveries: `wp kalaka mail failed`
-     * shows what a delivery did.
-     *
-     * ## OPTIONS
-     *
-     * <event_id>
-     * : The event ID.
-     *
-     * [<batch_id>]
-     * : One batch.
-     *
-     * [--format=<format>]
-     * : table, json or csv.
-     * ---
-     * default: table
-     * ---
-     *
-     * @param list<string> $args
-     * @param array<string, mixed> $assocArgs
-     */
-    public function batches(array $args, array $assocArgs): void
-    {
-        Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
-            $format = self::format($assocArgs);
-            if (!AdminAccess::isFull(self::actor())) {
-                throw new PermissionDenied();
-            }
-            if (isset($args[1])) {
-                if (preg_match('/\A[1-9][0-9]*\z/', $args[1]) !== 1) {
-                    throw new CommandFailure('The batch ID must be a positive whole number.');
-                }
-                $batch = $this->batches->find($eventId, (int) $args[1]) ?? throw new NotFound();
-                $rows = array_map(static fn ($member): array => [
-                    'code' => $member->code,
-                    'outcome' => $member->outcome,
-                ], $this->batches->members($batch->id));
-                $this->show($format, $rows, self::MEMBER_FIELDS);
-
-                return;
-            }
-            $rows = array_map(fn (MailBatch $batch): array => [
-                'batch' => $batch->id,
-                'created_at_utc' => $batch->createdAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
-                'by' => self::who($batch->createdBy),
-                'body' => $batch->bodyId . ' ' . $this->subject($batch->bodyId),
-                'layout' => $batch->layout ? 'yes' : 'no',
-                'queued' => $batch->queued,
-                'skipped' => $batch->skipped,
-            ], $this->batches->ofEvent($eventId));
-            $this->show($format, $rows, self::BATCH_FIELDS);
-        });
-    }
-
     /** @param array<string, mixed> $assocArgs */
     private function ask(string $question, array $assocArgs): void
     {
@@ -220,22 +149,6 @@ final class ManualMailCommand
         // WP-CLI's helper, not in the stubs for the static analysis.
         // @phpstan-ignore staticMethod.notFound
         \WP_CLI::confirm($question, $assocArgs);
-    }
-
-    /**
-     * @param list<array<string, mixed>> $rows
-     * @param list<string> $fields
-     */
-    private function show(string $format, array $rows, array $fields): void
-    {
-        if ($this->print !== null) {
-            ($this->print)($format, $rows, $fields);
-
-            return;
-        }
-        // WP-CLI's helper, not installed for the static analysis.
-        // @phpstan-ignore function.notFound
-        \WP_CLI\Utils\format_items($format, $rows, $fields);
     }
 
     /** @param list<string> $args */
@@ -312,33 +225,5 @@ final class ManualMailCommand
         $current = get_current_user_id();
 
         return new CliActor($current > 0 ? $current : null);
-    }
-
-    private static function who(?int $userId): string
-    {
-        if ($userId === null) {
-            return 'the system or the command line';
-        }
-        $user = get_userdata($userId);
-
-        return $user === false ? 'user ' . $userId : $user->user_login . ' (user ' . $userId . ')';
-    }
-
-    private function subject(int $bodyId): string
-    {
-        $post = $this->posts->eventOf($bodyId) === null ? null : get_post($bodyId);
-
-        return $post instanceof \WP_Post ? $post->post_title : '(gone)';
-    }
-
-    /** @param array<string, mixed> $assocArgs */
-    private static function format(array $assocArgs): string
-    {
-        $format = $assocArgs['format'] ?? 'table';
-        if (!in_array($format, ['table', 'json', 'csv'], true)) {
-            throw new CommandFailure('The format must be table, json or csv.');
-        }
-
-        return $format;
     }
 }

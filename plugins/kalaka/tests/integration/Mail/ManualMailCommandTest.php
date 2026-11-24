@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
+use Kalaka\Mail\Cli\ManualMailBatchesCommand;
 use Kalaka\Mail\Cli\ManualMailCommand;
 
 /** `wp kalaka mail send|batches`: what they print, queue and refuse. */
@@ -41,14 +42,22 @@ final class ManualMailCommandTest extends MailBodyTestCase
         $this->asked = [];
 
         return new ManualMailCommand(
-            print: function (string $format, array $rows, array $fields): void {
-                $this->printed[] = [$format, $rows, $fields];
-            },
             confirm: function (string $question, array $assocArgs): void {
                 $this->asked[] = $question;
                 if (!isset($assocArgs['yes'])) {
                     throw new \RuntimeException('declined');
                 }
+            }
+        );
+    }
+
+    private function batchesCommand(): ManualMailBatchesCommand
+    {
+        $this->printed = [];
+
+        return new ManualMailBatchesCommand(
+            print: function (string $format, array $rows, array $fields): void {
+                $this->printed[] = [$format, $rows, $fields];
             }
         );
     }
@@ -98,7 +107,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         $this->registration($event, '00A2', status: 'withdrawn');
         $body = $this->document($event, $this->paragraph('Szia'));
 
-        $this->command()->send([(string) $event], [
+        $this->command()->__invoke([(string) $event], [
             'body' => (string) $body, 'codes' => '00A0,00A2,00A5', 'dry-run' => true,
         ]);
 
@@ -114,14 +123,14 @@ final class ManualMailCommandTest extends MailBodyTestCase
     {
         [$event, $body] = $this->ready();
 
-        $this->fails(fn () => $this->command()->send(
+        $this->fails(fn () => $this->command()->__invoke(
             [(string) $event],
             ['body' => (string) $body, 'codes' => '00A0,00A2']
         ));
         self::assertSame(['Queue this mail for 2 registrations of event ' . $event . '?'], $this->asked);
         self::assertSame([], $this->deliveries());
 
-        $this->command()->send(
+        $this->command()->__invoke(
             [(string) $event],
             ['body' => (string) $body, 'codes' => '00A0,00A2,00A0', 'yes' => true]
         );
@@ -141,7 +150,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- a temporary test file
         file_put_contents($path, "00A0\n00A2,\n");
         try {
-            $this->command()->send(
+            $this->command()->__invoke(
                 [(string) $event],
                 ['body' => (string) $body, 'codes-file' => $path, 'yes' => true]
             );
@@ -157,13 +166,13 @@ final class ManualMailCommandTest extends MailBodyTestCase
         [$event, $body] = $this->ready();
         $args = ['body' => (string) $body, 'codes' => '00A0', 'layout' => false, 'key' => 'rerun-key-1', 'yes' => true];
 
-        $this->command()->send([(string) $event], $args);
+        $this->command()->__invoke([(string) $event], $args);
         \WP_CLI::reset();
-        $this->command()->send([(string) $event], $args);
+        $this->command()->__invoke([(string) $event], $args);
 
         self::assertStringContainsString('same key was used before', $this->lines()[1]);
         self::assertCount(1, $this->deliveries());
-        $this->command()->batches([(string) $event], []);
+        $this->batchesCommand()->__invoke([(string) $event], []);
         self::assertSame('no', $this->printed[0][1][0]['layout']);
     }
 
@@ -171,14 +180,14 @@ final class ManualMailCommandTest extends MailBodyTestCase
     {
         [$event, $body] = $this->ready();
 
-        $message = $this->fails(fn () => $this->command()->send([(string) $event], [
+        $message = $this->fails(fn () => $this->command()->__invoke([(string) $event], [
             'body' => (string) $body, 'codes' => '00A0,00A5', 'yes' => true,
         ]));
         self::assertStringContainsString('no registration of the event', $message);
         self::assertSame([], $this->asked);
         self::assertSame([], $this->deliveries());
 
-        $message = $this->fails(fn () => $this->command()->send([(string) $event], [
+        $message = $this->fails(fn () => $this->command()->__invoke([(string) $event], [
             'body' => (string) $body, 'codes' => '00A0,xx', 'yes' => true,
         ]));
         self::assertStringContainsString('Not a registration code: xx', $message);
@@ -189,12 +198,12 @@ final class ManualMailCommandTest extends MailBodyTestCase
         [$event, $body] = $this->ready();
 
         self::assertStringContainsString('--codes', $this->fails(
-            fn () => $this->command()->send([(string) $event], ['body' => (string) $body])
+            fn () => $this->command()->__invoke([(string) $event], ['body' => (string) $body])
         ));
         self::assertStringContainsString('--body', $this->fails(
-            fn () => $this->command()->send([(string) $event], ['codes' => '00A0'])
+            fn () => $this->command()->__invoke([(string) $event], ['codes' => '00A0'])
         ));
-        $this->fails(fn () => $this->command()->send(['0'], ['body' => (string) $body, 'codes' => '00A0']));
+        $this->fails(fn () => $this->command()->__invoke(['0'], ['body' => (string) $body, 'codes' => '00A0']));
     }
 
     public function testAnUnpublishedBodyIsRefusedWithTheUseCasesText(): void
@@ -203,7 +212,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         $draft = $this->document($event, $this->paragraph('Szia'));
         wp_update_post(['ID' => $draft, 'post_status' => 'draft']);
 
-        $message = $this->fails(fn () => $this->command()->send([(string) $event], [
+        $message = $this->fails(fn () => $this->command()->__invoke([(string) $event], [
             'body' => (string) $draft, 'codes' => '00A0', 'yes' => true,
         ]));
 
@@ -217,7 +226,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         $body = $this->document($event, $this->paragraph('Szia'));
         $this->storeState(['paused_at' => '2026-11-30 08:00:00.000000', 'cause' => 'manual', 'errors_in_row' => 0]);
 
-        $this->command()->send([(string) $event], ['body' => (string) $body, 'codes' => '00A0', 'yes' => true]);
+        $this->command()->__invoke([(string) $event], ['body' => (string) $body, 'codes' => '00A0', 'yes' => true]);
 
         $warnings = $this->lines('warning');
         self::assertCount(2, $warnings);
@@ -231,7 +240,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         [$event, $body] = $this->ready();
         wp_set_current_user(self::factory()->user->create());
 
-        $this->fails(fn () => $this->command()->send([(string) $event], [
+        $this->fails(fn () => $this->command()->__invoke([(string) $event], [
             'body' => (string) $body, 'codes' => '00A0,00A5', 'dry-run' => true,
         ]));
 
@@ -258,11 +267,11 @@ final class ManualMailCommandTest extends MailBodyTestCase
         ]);
         wp_set_current_user($user);
 
-        $this->command()->send([(string) $event], ['body' => (string) $body, 'codes' => '00A0', 'yes' => true]);
+        $this->command()->__invoke([(string) $event], ['body' => (string) $body, 'codes' => '00A0', 'yes' => true]);
         self::assertCount(1, $this->deliveries());
         \WP_CLI::reset();
 
-        $this->fails(fn () => $this->command()->send([(string) $event], [
+        $this->fails(fn () => $this->command()->__invoke([(string) $event], [
             'body' => (string) $body, 'codes' => '00A0,00A2', 'yes' => true,
         ]));
         self::assertCount(1, $this->deliveries());
@@ -277,9 +286,12 @@ final class ManualMailCommandTest extends MailBodyTestCase
         $body = $this->document($event, $this->paragraph('Szia'), 'Tájékoztató');
         $user = $this->fullUser();
         wp_set_current_user($user);
-        $this->command()->send([(string) $event], ['body' => (string) $body, 'codes' => '00A0,00A2', 'yes' => true]);
+        $this->command()->__invoke(
+            [(string) $event],
+            ['body' => (string) $body, 'codes' => '00A0,00A2', 'yes' => true]
+        );
 
-        $this->command()->batches([(string) $event], ['format' => 'json']);
+        $this->batchesCommand()->__invoke([(string) $event], ['format' => 'json']);
 
         [$format, $rows, $fields] = $this->printed[0];
         self::assertSame('json', $format);
@@ -288,7 +300,7 @@ final class ManualMailCommandTest extends MailBodyTestCase
         self::assertSame($body . ' Tájékoztató', $rows[0]['body']);
         self::assertStringContainsString('(user ' . $user . ')', $rows[0]['by']);
 
-        $this->command()->batches([(string) $event, (string) $rows[0]['batch']], []);
+        $this->batchesCommand()->__invoke([(string) $event, (string) $rows[0]['batch']], []);
         self::assertSame(
             [['code' => '00A0', 'outcome' => 'queued'], ['code' => '00A2', 'outcome' => 'skipped_removed']],
             $this->printed[0][1]
@@ -299,11 +311,11 @@ final class ManualMailCommandTest extends MailBodyTestCase
     {
         [$event, $body] = $this->ready();
         wp_set_current_user(self::factory()->user->create());
-        $this->fails(fn () => $this->command()->batches([(string) $event], []));
+        $this->fails(fn () => $this->batchesCommand()->__invoke([(string) $event], []));
 
         wp_set_current_user(0);
         $other = $this->published();
-        $this->fails(fn () => $this->command()->batches([(string) $other, '1'], []));
+        $this->fails(fn () => $this->batchesCommand()->__invoke([(string) $other, '1'], []));
         self::assertNotSame(0, $body);
     }
 
