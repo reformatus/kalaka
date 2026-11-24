@@ -27,6 +27,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Pricing\Cli\SettingsDocument;
+use Kalaka\Support\Api\OfferSelected;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\OfferSeatPool;
@@ -311,7 +312,9 @@ final class OffersTest extends OffersTestCase
             try {
                 $this->applyOffers($offers);
                 self::fail('The save went through.');
-            } catch (RuleViolation) {
+            } catch (RuleViolation $refused) {
+                self::assertInstanceOf(OfferSelected::class, $refused);
+                self::assertSame('kalaka_offer_selected', $refused->errorCode());
                 self::assertCount(2, $this->offers->offers($this->event));
             }
         }
