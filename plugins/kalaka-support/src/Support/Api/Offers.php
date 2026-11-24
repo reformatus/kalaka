@@ -85,6 +85,9 @@ final class Offers
     public function propose(int $eventId, array $offers): ProposedOffers
     {
         $event = $this->events->find($eventId) ?? throw new NotFound();
+        if (count($offers) > OffersInput::MAX_OFFERS) {
+            throw new InvalidInput();
+        }
         foreach ($offers as $offer) {
             if (rest_validate_value_from_schema($offer, OffersInput::ITEM_SCHEMA) !== true) {
                 throw new InvalidInput();

@@ -27,6 +27,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Pricing\Cli\SettingsDocument;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
+use Kalaka\Support\Offers\OffersInput;
 use Kalaka\Support\Offers\SupportComponent;
 
 /**
@@ -174,6 +175,21 @@ final class OffersTest extends OffersTestCase
             } catch (InvalidInput) {
                 self::assertSame([], $this->offers->offers($this->event), $what);
             }
+        }
+    }
+
+    public function testMoreThanTheMostOffersAreRefusedAtTheProposalAsAtTheSave(): void
+    {
+        $offers = [];
+        for ($i = 0; $i <= OffersInput::MAX_OFFERS; $i++) {
+            $offers[] = self::offer('o' . $i, '1000');
+        }
+
+        try {
+            $this->offers->propose($this->event, $offers);
+            self::fail('Accepted.');
+        } catch (InvalidInput) {
+            self::assertSame([], $this->offers->offers($this->event));
         }
     }
 
