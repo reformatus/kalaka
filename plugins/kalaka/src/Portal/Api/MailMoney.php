@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal\Api;
 
-use Kalaka\Foundation\Api\Money\Money;
-use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Mail\Api\PaymentRecordedLines;
 use Kalaka\Portal\MailMarkup;
@@ -66,12 +64,6 @@ final class MailMoney
         }
 
         return null;
-    }
-
-    /** An amount as the page shows it: `48 000 Ft`. */
-    public static function amountText(Money $amount): string
-    {
-        return MoneyText::of($amount);
     }
 
     /** A movement's type word as the table shows it: „Befizetés”, „Visszafizetés” or „Korrekció”. */

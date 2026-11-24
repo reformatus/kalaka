@@ -15,6 +15,7 @@ use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Portal\Api\MailMoney;
 use Kalaka\Portal\Api\MovementType;
@@ -252,7 +253,7 @@ final class MailValues
         $method = $read->methodId;
 
         return [
-            self::PAYMENT_AMOUNT => Value::number($amount->amount(), MailMoney::amountText($amount)),
+            self::PAYMENT_AMOUNT => Value::number($amount->amount(), MoneyText::of($amount)),
             self::PAYMENT_DIRECTION => Value::choice([$out ? 'out' : 'in'], MailMoney::typeWord($movement->type)),
             self::PAYMENT_METHOD => $method === null
                 ? Value::none(ValueType::Choice)
