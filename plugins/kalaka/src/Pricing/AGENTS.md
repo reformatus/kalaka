@@ -54,7 +54,8 @@ retention and the materializer
   `Evaluations` (Pricing never marks a registration touched itself); one
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
-  refuses (a negative price). It also says, per `registered` registration not
+  refuses: a negative price, and an actor without full access (it takes the actor and checks it itself, as it
+  reads payment-derived flags of every registration outside a use case). It also says, per `registered` registration not
   confirmed now, whether it would be confirmed under the proposed composition
   (`ConfirmationRule::wouldConfirm()`, a dry run that reads payment facts and
   the manual flag and writes nothing) and whether the event's "confirmed" mail

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Pricing\Api;
 
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Actor\Side;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Evaluation\Evaluations;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
@@ -53,14 +56,19 @@ final class MoneySettings
      * writing. Plain reads, outside any use case. Each row also says whether the registration would be confirmed
      * after the apply, by a dry run of the confirmation rule over the proposed composition, and whether the
      * "confirmed" mail would go: one statement for every current confirmation state, then the payment facts and
-     * the manual flag of each registration that is `registered` and not confirmed.
+     * the manual flag of each registration that is `registered` and not confirmed. It reads payment-derived
+     * flags of every registration, so it takes the actor and needs what the apply needs: full access.
      *
      * @return list<PreviewRow>
+     * @throws PermissionDenied when the actor lacks full access, as the apply's use case refuses it
      * @throws NotFound when there is no such event
      * @throws InvalidInput when a proposed setting is one the apply would refuse (a negative price)
      */
-    public function preview(int $eventId, ProposedMoneySettings $proposed): array
+    public function preview(int $eventId, ProposedMoneySettings $proposed, Actor $actor): array
     {
+        if ($actor->side() !== Side::Admin || !AdminAccess::isFull($actor)) {
+            throw new PermissionDenied();
+        }
         self::check($proposed);
         $event = $this->events->find($eventId) ?? throw new NotFound();
         $now = $this->runner()->clock()->now();

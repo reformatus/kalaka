@@ -196,7 +196,9 @@ final class MoneySettingsConfirmsTest extends ConfirmationTestCase
     /** @return list<PreviewRow> */
     private function preview(string $price): array
     {
-        return $this->settings->preview($this->event, new ProposedMoneySettings($this->huf($price)));
+        $proposed = new ProposedMoneySettings($this->huf($price));
+
+        return $this->settings->preview($this->event, $proposed, new CliActor(null));
     }
 
     /**
