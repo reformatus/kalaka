@@ -55,7 +55,7 @@ final class MailValues
     public const ACCOUNT_UNVERIFIED = 'account.unverified';
     public const ACCOUNT_PASSWORD_LINK = 'account.password_link';
 
-    /** [UNAPPROVED T57] the page-link key's shape: `page_<ID>.link`, the ID of a published page. */
+    /** [UNAPPROVED T75] the page-link key's shape: `page_<ID>.link`, the ID of a published page. */
     private const PAGE_LINK = '/\Apage_([1-9][0-9]{0,18})\.link\z/D';
 
     /**
