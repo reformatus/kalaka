@@ -51,3 +51,8 @@ Events is events, their states, timeline points, date types, capacity and the
   case's own refusal. It checks nothing itself (no state, field or value rule): it runs
   the permission check first, then the use case. Nothing it does re-evaluates a
   registration, so it asks nothing except that `archive` (read-only for good) needs `--yes`.
+- The refusal of `kalaka/publish-event` for an event that lacks fields is `Api\EventNotReady`
+  (`missing`: the field keys), and the refusal of an account mode a published form cannot take
+  is `Api\AccountBlockMissing` (`forms`: the form IDs). Both are rule violations with the
+  same Hungarian text and their own error codes; the keys and IDs are typed properties for the
+  operator's console (`wp kalaka event`) and are never sent to REST (`toWpError()` is unchanged).

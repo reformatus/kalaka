@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Events\Cli;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Events\Api\AccountBlockMissing;
 use Kalaka\Events\Api\Event;
+use Kalaka\Events\Api\EventNotReady;
 use Kalaka\Events\Api\Events;
 use Kalaka\Events\ArchiveEvent;
 use Kalaka\Events\CreateEvent;
@@ -117,7 +119,8 @@ final class EventCommand
                 return;
             }
 
-            $this->events->update(EventDocument::input($proposed, $given, $event->id, $event->version), $actor);
+            $input = EventDocument::input($proposed, $given, $event->id, $event->version);
+            self::detailed(fn () => $this->events->update($input, $actor));
             \WP_CLI::success('The event is saved (version ' . ($event->version + 1) . ').');
         });
     }
@@ -272,7 +275,28 @@ final class EventCommand
         $actor = self::actor();
         $this->allow($useCase, $args, $actor);
         $event = $this->event($args);
-        Runner::current()->run($useCase, ['id' => $event->id, 'version' => $event->version], $actor);
+        $input = ['id' => $event->id, 'version' => $event->version];
+        self::detailed(static fn () => Runner::current()->run($useCase, $input, $actor));
+    }
+
+    /**
+     * Runs a write; a refusal that names what it lacks prints that after the use case's own message, in English.
+     * Only a run that passed the permission check gets here, so a refused actor learns nothing.
+     *
+     * @param \Closure(): mixed $run
+     */
+    private static function detailed(\Closure $run): void
+    {
+        try {
+            $run();
+        } catch (EventNotReady $e) {
+            $error = new CommandFailure($e->operatorMessage() . "\nmissing: " . implode(', ', $e->missing), $e);
+            throw $error;
+        } catch (AccountBlockMissing $e) {
+            $text = "\nforms without the account block: " . implode(', ', $e->forms);
+            $error = new CommandFailure($e->operatorMessage() . $text, $e);
+            throw $error;
+        }
     }
 
     /**

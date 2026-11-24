@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Events;
 
+use Kalaka\Events\Api\AccountBlockMissing;
 use Kalaka\Events\Api\AccountMode;
+use Kalaka\Events\Api\EventNotReady;
+use Kalaka\Events\PublishEvent;
 use Kalaka\Events\UpdateEvent;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -166,7 +169,10 @@ final class EventSettingsTest extends FormsTestCase
             try {
                 $this->save($id, ['account_mode' => $mode]);
                 self::fail('The mode was accepted.');
-            } catch (RuleViolation) {
+            } catch (AccountBlockMissing $e) {
+                self::assertSame([$form], $e->forms);
+                self::assertSame((new RuleViolation())->getMessage(), $e->getMessage());
+                self::assertSame('kalaka_account_block_missing', $e->errorCode());
                 $event = $this->events->find($id);
                 self::assertNotNull($event);
                 self::assertSame(AccountMode::Off, $event->accountMode);
@@ -233,5 +239,25 @@ final class EventSettingsTest extends FormsTestCase
         $sorted = $ids;
         sort($sorted);
         self::assertSame($sorted, $ids);
+    }
+
+    public function testPublishingAnIncompleteEventNamesTheMissingFieldsInTheRefusal(): void
+    {
+        $id = $this->create();
+        $this->update($id, ['capacity' => null, 'starts_at' => null, 'ends_at' => null]);
+
+        try {
+            $this->transition(new PublishEvent(), $id);
+            self::fail('The event was published.');
+        } catch (EventNotReady $e) {
+            self::assertSame(['capacity', 'starts_at', 'ends_at'], $e->missing);
+            self::assertSame((new RuleViolation())->getMessage(), $e->getMessage());
+            self::assertSame('kalaka_event_not_ready', $e->errorCode());
+            self::assertSame(422, $e->status());
+            self::assertSame(['status' => 422], array_intersect_key(
+                $e->toWpError()->get_error_data(),
+                ['status' => 1]
+            ));
+        }
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Events;
 
+use Kalaka\Events\Api\AccountBlockMissing;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Audit\Subject;
@@ -174,7 +175,7 @@ final class UpdateEvent implements AdminUseCase
      * @param array<string, mixed> $input
      * @return array<string, mixed>
      * @throws InvalidInput when a text is longer than its column
-     * @throws RuleViolation when the mode would leave a published registration form without its account block
+     * @throws AccountBlockMissing when the mode would leave a published registration form without its account block
      */
     private function settings(array $input, EventRecord $record): array
     {
@@ -216,7 +217,8 @@ final class UpdateEvent implements AdminUseCase
             throw $error;
         }
         if ($this->formsWithoutAccountBlock !== []) {
-            throw new RuleViolation();
+            $error = new AccountBlockMissing($this->formsWithoutAccountBlock);
+            throw $error;
         }
     }
 

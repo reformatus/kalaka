@@ -279,11 +279,11 @@ final class EventCommandTest extends FormsTestCase
     {
         $id = $this->newId();
         $registration = ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'];
-        $this->insertForm($this->slotFields(), $registration);
+        $form = $this->insertForm($this->slotFields(), $registration);
         $path = $this->file(['account_mode' => 'mandatory']);
 
         $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
-        self::assertSame(self::REFUSED, $error);
+        self::assertSame(self::REFUSED . "\nforms without the account block: " . $form, $error);
         $event = $this->events->find($id);
         self::assertNotNull($event);
         self::assertSame(AccountMode::Off, $event->accountMode);
@@ -307,9 +307,10 @@ final class EventCommandTest extends FormsTestCase
     public function testAnActorWithoutAccessLearnsNothing(): void
     {
         $id = $this->newId();
+        $this->insertForm($this->slotFields(), ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration']);
         $user = self::factory()->user->create(['role' => 'administrator']);
         wp_set_current_user($user);
-        $path = $this->file(['capacity' => 5]);
+        $path = $this->file(['capacity' => 5, 'account_mode' => 'mandatory']);
         $denied = $this->fails(fn () => $this->command()->update(['99999'], ['file' => $path]));
         // The same refusal for an event that exists and one that does not, and for the transitions.
         self::assertSame($denied, $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path])));
@@ -317,6 +318,8 @@ final class EventCommandTest extends FormsTestCase
         self::assertSame($denied, $this->fails(fn () => $this->command()->unpublish(['99999'], [])));
         self::assertSame($denied, $this->fails(fn () => $this->command()->archive([(string) $id], ['yes' => true])));
         self::assertStringNotContainsString('no event', $denied);
+        self::assertStringNotContainsString('missing', $denied);
+        self::assertStringNotContainsString('forms without', $denied);
         wp_set_current_user(0);
         self::assertSame(1, $this->versionOf($id));
     }
@@ -386,7 +389,10 @@ final class EventCommandTest extends FormsTestCase
     {
         $id = $this->newId();
 
-        self::assertSame(self::REFUSED, $this->fails(fn () => $this->command()->publish([(string) $id], [])));
+        self::assertSame(
+            self::REFUSED . "\nmissing: capacity, registration_opens_at, registration_closes_at, starts_at, ends_at",
+            $this->fails(fn () => $this->command()->publish([(string) $id], []))
+        );
 
         $this->command()->update([(string) $id], ['file' => $this->file(self::ivkLike())]);
         \WP_CLI::reset();
