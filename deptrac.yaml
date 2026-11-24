@@ -6,6 +6,7 @@ deptrac:
     - plugins/kalaka-ranking/src
     - plugins/kalaka-woocommerce/src
     - plugins/kalaka-price-ladder/src
+    - plugins/kalaka-aid/src
   layers:
     - name: Foundation
       collectors:
@@ -216,6 +217,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\PriceLadder\\Api\\'
+    - name: Aid
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Aid\\(?!Api\\)'
+    - name: Aid Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Aid\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -953,6 +962,24 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+    Aid:
+      - WordPress
+      - Aid Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - ParticipantFields Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+    Aid Api:
+      - WordPress
+      - Aid
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Pricing Api
     Decision tables: []
 
 # A base class in a module's Api may use its own module (S3's D16).
