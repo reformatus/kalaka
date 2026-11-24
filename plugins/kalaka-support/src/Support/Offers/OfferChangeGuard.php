@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Support\Offers;
 
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Support\Api\Offer;
+use Kalaka\Support\Api\OfferSelected;
 
 /**
  * The rule that keeps a settings save from taking something from somebody (Q-B0-6, [UNAPPROVED N99]): an offer
@@ -31,7 +31,7 @@ final class OfferChangeGuard
      * saves anything.
      *
      * @param list<Offer> $proposed
-     * @throws RuleViolation when a watched offer is selected on an open registration
+     * @throws OfferSelected when a watched offer is selected on an open registration
      */
     public function checkAgainstStored(int $eventId, array $proposed): void
     {
@@ -45,7 +45,7 @@ final class OfferChangeGuard
     /**
      * @param array<string, OfferRecord> $stored by key
      * @param list<Offer> $proposed
-     * @throws RuleViolation when a watched offer is selected on an open registration
+     * @throws OfferSelected when a watched offer is selected on an open registration
      */
     public function check(int $eventId, array $stored, array $proposed): void
     {
@@ -59,7 +59,7 @@ final class OfferChangeGuard
                 || ($record->limit === null && $next->limit !== null)
                 || $record->needsRequest !== $next->needsRequest;
             if ($changes && $this->registrations->openHolds($eventId, $key, '1')) {
-                throw new RuleViolation();
+                throw new OfferSelected();
             }
         }
     }

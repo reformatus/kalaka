@@ -25,6 +25,9 @@ use Kalaka\Pricing\CoreFeeComponents;
  */
 final class SettingsDocument
 {
+    /** The code of kalaka-support's `OfferSelected`: an offer a save would change is selected by open registrations. */
+    private const OFFER_SELECTED = 'kalaka_offer_selected';
+
     public function __construct(
         private readonly MoneySettings $settings = new MoneySettings(),
         private readonly CoreFeeComponents $components = new CoreFeeComponents(),
@@ -112,6 +115,17 @@ final class SettingsDocument
                     'The settings of "' . $id . '" are refused: a key they declare is held by a participant field of '
                     . 'the event that code may not take over (a staff or system field, a field of another type, '
                     . 'or another declarer\'s field).',
+                    $refused
+                );
+                throw $error;
+            } catch (RuleViolation $refused) {
+                // By code, not by type: only an offer selected by open registrations is named here; any other
+                // rule violation goes on to the command's boundary as it is.
+                if ($refused->errorCode() !== self::OFFER_SELECTED) {
+                    throw $refused;
+                }
+                $error = new CommandFailure(
+                    'The settings of "' . $id . '" are refused: an offer is selected by open registrations.',
                     $refused
                 );
                 throw $error;
