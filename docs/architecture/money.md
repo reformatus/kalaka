@@ -337,10 +337,11 @@ such as lunch or a donation.
   it chose.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: payment due, everything. A registration that became `registered` before an early price
-  ended keeps that price at every later evaluation. A waitlisted registration
-  is not registered, so an admission from the waitlist counts from its
-  admission. A deadline's day ends at midnight in the site time zone
+  "now" and never from the submit: payment due, everything. A price-ladder tier chosen at submit is kept, also at an
+  admission from the waitlist, at the tier's current amount; any date guard on
+  an early price is the form's condition on `price_tier`'s options, checked at
+  submit. A waitlisted registration is not registered, so an admission from
+  the waitlist counts from its admission. A deadline's day ends at midnight in the site time zone
   ([Cross-cutting rules](foundation.md#cross-cutting-rules)).
 - **Personal facts still recompute automatically:** e.g. a price-ladder
   choice, the aid award, staff status (a field value written by the staff

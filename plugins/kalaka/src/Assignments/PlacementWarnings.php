@@ -11,7 +11,6 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -28,8 +27,9 @@ use Kalaka\Registrations\Api\Seats;
  * it (one per confirmed assignment), not counting this registration's own (it may already hold the option),
  * have reached it. A registration that takes no seat is not warned. A proposed assignment holds no seat
  * until staff confirm it. Eligible: the option's condition read against the registration's current field
- * values and the event's keys, the facts the condition was saved against (`SaveAssignmentOption`); a
- * condition that cannot be read is not held against the registration, and gives no warning here.
+ * values and the event's keys and the act's moment (`EventValues::now()`), the facts the condition was saved
+ * against (`SaveAssignmentOption`). A condition that cannot be read is a broken system, not a pass: the
+ * failure is not caught here.
  */
 final class PlacementWarnings
 {
@@ -48,9 +48,11 @@ final class PlacementWarnings
      * the placing would refuse the placement (an unknown registration, another event's set, or an unknown
      * option).
      *
+     * @param \DateTimeImmutable $now the act's moment, the one clock passed down: the facts of a `now` condition
      * @return list<string>
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure an invalid condition, or a key the facts lack
      */
-    public function of(RegistrationKey $registration, int $setId, string $optionKey): array
+    public function of(RegistrationKey $registration, int $setId, string $optionKey, \DateTimeImmutable $now): array
     {
         try {
             $target = $this->lookup->find($registration, $setId, $optionKey);
@@ -66,7 +68,7 @@ final class PlacementWarnings
         ) {
             $warnings[] = self::FULL;
         }
-        if ($option->condition !== null && !$this->eligible($registration, $option->condition)) {
+        if ($option->condition !== null && !$this->eligible($registration, $option->condition, $now)) {
             $warnings[] = self::NOT_ELIGIBLE;
         }
 
@@ -74,17 +76,17 @@ final class PlacementWarnings
     }
 
     /** @param array<array-key, mixed> $condition */
-    private function eligible(RegistrationKey $registration, array $condition): bool
+    private function eligible(RegistrationKey $registration, array $condition, \DateTimeImmutable $now): bool
     {
         $event = (new Events())->find($registration->eventId);
         if ($event === null) {
             return true;
         }
         $values = (new Forms())->participantValues($registration->eventId, $this->registrations->values($registration));
-        try {
-            return (new Availability())->holds($condition, new ValueContext($values + EventValues::of($event)));
-        } catch (SystemFailure) {
-            return true;
-        }
+
+        return (new Availability())->holds(
+            $condition,
+            new ValueContext($values + EventValues::of($event) + EventValues::now($now))
+        );
     }
 }

@@ -14,6 +14,7 @@ use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
@@ -359,7 +360,8 @@ final class Forms
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
-     *     form whose conditions read them; none when null
+     *     form whose conditions read them; when null, only the runner's moment (`EventValues::now()`), so
+     *     every condition scope carries `now`
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
      * @throws FormTerminal a terminal page shows for the answers
@@ -367,7 +369,11 @@ final class Forms
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->engine->validate($definition, $answers, $facts);
+        return $this->engine->validate(
+            $definition,
+            $answers,
+            $facts ?? new ValueContext(EventValues::now(Runner::current()->clock()->now()))
+        );
     }
 
     /**
