@@ -131,6 +131,24 @@ final class MaterializerTest extends PricingTestCase
         self::assertSame(0, $this->registrationCount());
     }
 
+    public function testAComponentWhoseProvidesBaseThrowsFailsTheUseCaseAsTheRuleMoneyAndItsId(): void
+    {
+        $this->useComponents(new FailingBaseComponent());
+
+        try {
+            $this->register('00A0');
+            self::fail('The registration was written.');
+        } catch (SystemFailure $failure) {
+            $rule = $failure->getPrevious();
+            self::assertInstanceOf(RuleFailed::class, $rule);
+            self::assertSame('money/flaky', $rule->getMessage());
+            $failed = $rule->getPrevious();
+            self::assertInstanceOf(FeeComponentFailed::class, $failed);
+            self::assertInstanceOf(\RuntimeException::class, $failed->getPrevious());
+        }
+        self::assertSame(0, $this->registrationCount());
+    }
+
     public function testTheFixedPriceIsChargedOnlyWhenNoComponentProvidesTheBase(): void
     {
         $ladder = new TierComponent('49500', 'tier', true);
