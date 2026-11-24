@@ -64,6 +64,8 @@ final class SubmitRefusalTest extends FormsTestCase
         } catch (FeeRefused $refused) {
             self::assertSame('Jelentkezői szöveg.', $refused->publicMessage());
             self::assertSame(422, $refused->toWpError()->get_error_data()['status'] ?? null);
+            self::assertSame('kalaka_fee_refused', $refused->errorCode());
+            self::assertSame('kalaka_fee_refused', $refused->toWpError()->get_error_code());
         }
 
         global $wpdb;
