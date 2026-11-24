@@ -13,6 +13,7 @@
  *                                       selection earlier would unmount the action's modal and the answer in it)
  */
 import { useRef } from '@wordpress/element';
+import { envelope } from '@wordpress/icons';
 import { ManualMailForm } from './ManualMailDialog';
 import { GRIDACTION, MANUAL } from './texts';
 
@@ -41,6 +42,8 @@ export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 		id: 'kalaka-manual-mail',
 		label: GRIDACTION.label,
 		modalHeader: MANUAL.title,
+		// DataViews shows an action on a narrow screen only when it has an icon (then as the icon alone). [UNAPPROVED N287]
+		icon: envelope,
 		supportsBulk: true,
 		isEligible: () => eligible,
 		RenderModal: ( { items, closeModal } ) => (
