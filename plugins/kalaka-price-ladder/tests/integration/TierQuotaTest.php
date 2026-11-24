@@ -1,0 +1,199 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Tests\Integration\PriceLadder;
+
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\PriceLadder\Api\PriceLadder;
+use Kalaka\PriceLadder\PriceLadderComponent;
+use Kalaka\PriceLadder\TierClaims;
+use Kalaka\PriceLadder\TierSeatPool;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\Seats;
+use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Events\Api\Events;
+
+/**
+ * A tier's optional limit of people: the setting, the form variable and the seat of a registration that is
+ * admitted or restored into a full tier (O4: it keeps its tier and owes the tier's price). A tier with no
+ * limit is unchanged.
+ */
+final class TierQuotaTest extends PriceLadderTestCase
+{
+    private Seats $seats;
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names it
+    public function set_up(): void
+    {
+        parent::set_up();
+        $this->seats = new Seats();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function tiers(?int $limit): array
+    {
+        return [
+            self::tier('alap', 'Alap ár', '49500'),
+            self::tier('tamogatott', 'Támogatott ár', '20000') + ($limit === null ? [] : ['limit' => $limit]),
+        ];
+    }
+
+    private function pool(): TierSeatPool
+    {
+        return new TierSeatPool($this->event, 'tamogatott');
+    }
+
+    /** A registration that chose the tier, holding its seat the way a submit does (or over the limit). */
+    private function holdSeat(RegistrationKey $key, bool $over = false): void
+    {
+        $this->inRun(function (array $input, Context $context) use ($key, $over): void {
+            $this->seats->lock($this->pool(), $context);
+            $this->lockRegistrations($context, $key);
+            if ($over) {
+                $this->seats->takeOver($this->pool(), $key, SeatAct::Placement, $context);
+
+                return;
+            }
+            $this->seats->take($this->pool(), $key, SeatAct::Submit, $context);
+        });
+    }
+
+    private function choosing(string $code, string $tier): RegistrationKey
+    {
+        $key = $this->register($code, RegistrationStatus::Waitlisted);
+        $this->writeValue($key, PriceLadderComponent::FIELD, $tier);
+        $this->setStatus($key, RegistrationStatus::Registered, '2026-11-30 08:00:00');
+
+        return $key;
+    }
+
+    public function testALimitIsSavedReadBackAndShownInTheSettingsDocument(): void
+    {
+        $this->applyLadder(self::tiers(2));
+
+        $tiers = $this->ladder->tiers($this->event);
+        self::assertNull($tiers[0]->limit);
+        self::assertSame(2, $tiers[1]->limit);
+        self::assertSame(2, $this->pool()->limit());
+        $document = (new PriceLadderComponent())->settingsToArray($this->event);
+        self::assertSame(
+            ['key' => 'tamogatott', 'label' => 'Támogatott ár', 'amount' => '20000', 'limit' => 2],
+            $document['tiers'][1]
+        );
+        self::assertArrayNotHasKey('limit', $document['tiers'][0]);
+    }
+
+    public function testAZeroOrNegativeLimitIsRefused(): void
+    {
+        foreach ([0, -1] as $limit) {
+            try {
+                $this->ladder->propose($this->event, self::tiers($limit));
+                self::fail('A limit of ' . $limit . ' was accepted.');
+            } catch (InvalidInput) {
+                self::assertSame([], $this->ladder->tiers($this->event));
+            }
+        }
+    }
+
+    public function testTheFormVariableIsTheSeatsLeftOfEachLimitedTierOnly(): void
+    {
+        $this->applyLadder(self::tiers(2));
+        self::assertSame(['seats_left.price_tier.tamogatott' => 2], $this->ladder->seatsLeft($this->event));
+
+        $this->holdSeat($this->choosing('00A0', 'tamogatott'));
+        self::assertSame(['seats_left.price_tier.tamogatott' => 1], $this->ladder->seatsLeft($this->event));
+
+        $this->holdSeat($this->choosing('00A2', 'tamogatott'));
+        $this->holdSeat($this->choosing('00A5', 'tamogatott'), over: true);
+        self::assertSame(['seats_left.price_tier.tamogatott' => 0], $this->ladder->seatsLeft($this->event));
+
+        $this->applyLadder(self::tiers(null));
+        self::assertSame([], $this->ladder->seatsLeft($this->event));
+    }
+
+    public function testOnlyALimitedChosenTierMakesAClaim(): void
+    {
+        $this->applyLadder(self::tiers(1));
+        $event = (new Events())->find($this->event) ?? throw new \LogicException();
+        $claims = new TierClaims();
+
+        $limited = $claims->claims($event, self::answers('tamogatott'));
+        self::assertCount(1, $limited);
+        self::assertSame('price_tier', $limited[0]->fieldKey);
+        self::assertSame('tier.tamogatott', $limited[0]->pool->key());
+        foreach (['alap', 'nincs_ilyen'] as $chosen) {
+            self::assertSame([], $claims->claims($event, self::answers($chosen)));
+        }
+        self::assertSame([], $claims->claims($event, new ValidatedAnswers([], [])));
+    }
+
+    public function testAnAdmittedRegistrationWhoseTierSeatIsGoneKeepsItsTierAndPaysItsPrice(): void
+    {
+        $this->applyLadder(self::tiers(1));
+        $this->holdSeat($this->choosing('00A0', 'tamogatott'));
+        $late = $this->choosing('00A2', 'tamogatott');
+
+        // The admission: the pool first, then the registration, then the seat if one is free (no error).
+        $taken = $this->inRun(function (array $input, Context $context) use ($late): bool {
+            $this->seats->lock($this->pool(), $context);
+            $this->lockRegistrations($context, $late);
+
+            return $this->seats->takeIfFree($this->pool(), $late, SeatAct::Admission, $context);
+        });
+
+        self::assertFalse($taken);
+        self::assertFalse($this->seats->holds($this->pool(), $late));
+        self::assertSame(1, $this->seats->held($this->pool()));
+        self::assertSame([self::line('20000')], $this->charges($late));
+        self::assertSame([self::line('20000')], $this->charges(new RegistrationKey($this->event, '00A0')));
+    }
+
+    public function testAPriceChangeNeverMovesASeat(): void
+    {
+        $this->applyLadder(self::tiers(1));
+        $anna = $this->choosing('00A0', 'tamogatott');
+        $this->holdSeat($anna);
+
+        $this->applyLadder([
+            self::tier('alap', 'Alap ár', '49500'),
+            self::tier('tamogatott', 'Támogatott ár', '25000') + ['limit' => 1],
+        ]);
+
+        self::assertTrue($this->seats->holds($this->pool(), $anna));
+        // The re-price adds the difference as its own line; the seat stays where it was.
+        self::assertSame(
+            [self::line('20000'), 'price_ladder participant 5000 charge:price_ladder:participant:2'],
+            $this->charges($anna)
+        );
+        self::assertSame(0, $this->seats->left($this->pool()));
+    }
+
+    public function testAHeldSeatIsReleasedByLeavingAndStaysFreeUntilAnActTakesIt(): void
+    {
+        $this->applyLadder(self::tiers(1));
+        $anna = $this->choosing('00A0', 'tamogatott');
+        $this->holdSeat($anna);
+        $this->inRun(function (array $input, Context $context) use ($anna): void {
+            $this->lockRegistrations($context, $anna);
+            $this->seats->releaseAll($anna, $context);
+        });
+
+        self::assertSame(1, $this->seats->left($this->pool()));
+        self::assertFalse($this->seats->holds($this->pool(), $anna));
+        self::assertSame(['seats_left.price_tier.tamogatott' => 1], $this->ladder->seatsLeft($this->event));
+    }
+
+    private static function answers(string $tier): ValidatedAnswers
+    {
+        return new ValidatedAnswers(['price_tier' => $tier], ['price_tier' => $tier]);
+    }
+
+    private static function line(string $amount): string
+    {
+        return 'price_ladder participant ' . $amount . ' charge:price_ladder:participant:1';
+    }
+}

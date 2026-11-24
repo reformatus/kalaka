@@ -88,13 +88,21 @@ final class SetPriceLadder implements AdminUseCase
             $record = $stored[$tier->key] ?? null;
             unset($stored[$tier->key]);
             if ($record === null) {
-                $record = new TierRecord($eventId, $tier->key, $position, $tier->label, $tier->amount);
+                $record = new TierRecord(
+                    $eventId,
+                    $tier->key,
+                    $position,
+                    $tier->label,
+                    $tier->amount,
+                    limit: $tier->limit,
+                );
                 $this->tiers->upsert($record, $context);
                 continue;
             }
             $record->position = $position;
             $record->label = $tier->label;
             $record->amount = $tier->amount;
+            $record->limit = $tier->limit;
             $this->tiers->upsert($record, $context);
         }
         $hadLadder = $stored !== [] || $proposed !== [];
