@@ -6,6 +6,7 @@ namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\AccountBlock;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
@@ -143,14 +144,14 @@ final class Forms
             }
             try {
                 $form = $this->form($post->ID);
-                if ($form === null || EventFormHost::stepFor($form->placement, $mode) === null) {
+                if ($form === null) {
                     continue;
                 }
-                $definition = $this->definition($form);
+                $missing = AccountBlock::missing($this->definition($form), $form->placement, $mode);
             } catch (SystemFailure) {
                 continue;
             }
-            if ($definition->account === null) {
+            if ($missing) {
                 $lacking[] = $post->ID;
             }
         }

@@ -51,6 +51,9 @@ Events is events, their states, timeline points, date types, capacity and the
   case's own refusal. It checks nothing itself (no state, field or value rule): it runs
   the permission check first, then the use case. Nothing it does re-evaluates a
   registration, so it asks nothing except that `archive` (read-only for good) needs `--yes`.
+  The file's `version` goes to the use case, whose `VersionConflict` is the one stale-write
+  check, and `update --dry-run` runs `kalaka/update-event` with `preview: true`, which makes every
+  check of a real run and writes nothing; the command keeps no version check or dry run of its own.
 - The refusal of `kalaka/publish-event` for an event that lacks fields is `Api\EventNotReady`
   (`missing`: the field keys), and the refusal of an account mode a published form cannot take
   is `Api\AccountBlockMissing` (`forms`: the form IDs). Both are rule violations with the

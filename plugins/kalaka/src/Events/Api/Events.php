@@ -50,7 +50,8 @@ final class Events
      * Replaces the editable record of an event (`kalaka/update-event`; the input is passed on as given). When
      * the input gives an account mode with accounts, the event's published registration forms are read first
      * and passed in, so the use case refuses a mode that would leave one without its account block; after the
-     * run the broken-form list is refreshed when the mode was given, as it reads the mode.
+     * run the broken-form list is refreshed when the mode was given, as it reads the mode. With `preview: true`
+     * the run checks everything and saves nothing, and the list is left as it is.
      *
      * @param array<string, mixed> $input
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
@@ -65,7 +66,7 @@ final class Events
 
         ($this->runner ?? Runner::current())->run(new UpdateEvent(formsWithoutAccountBlock: $lacking), $input, $actor);
 
-        if ($mode !== null) {
+        if ($mode !== null && ($input['preview'] ?? false) !== true) {
             $forms->refreshBrokenList();
         }
     }

@@ -25,8 +25,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * (events-and-forms.md, "Events", "Event lifecycle"), through the use cases of the module and their checks. It
  * runs as the command line without a user (full access), or, with WP-CLI's `--user`, checked as that user, and
  * is audited like the use cases it runs. The screen for the same is S72's. Nothing here re-evaluates a
- * registration (a point or a setting is read at the time), so no command previews or asks: `update --dry-run`
- * only lists the changes it would make. [UNAPPROVED N1]
+ * registration (a point or a setting is read at the time), so no command asks: `update --dry-run` runs the use
+ * case with `preview`, which checks everything and saves nothing. [UNAPPROVED N1]
  */
 final class EventCommand
 {
@@ -88,10 +88,10 @@ final class EventCommand
      * --file=<json>
      * : The changes: name, capacity, registration_opens_at, registration_closes_at, starts_at, ends_at, points,
      *   account_mode (mandatory, optional or off), payment_due_days, transfer_beneficiary, transfer_account and
-     *   transfer_reference_prefix. The read-only keys of `show` may stay in it when they still match.
+     *   transfer_reference_prefix. The read-only keys of `show` may stay in it; the version must still be the event's.
      *
      * [--dry-run]
-     * : List the changes without saving.
+     * : List the changes and run every check, without saving.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assocArgs
@@ -103,7 +103,8 @@ final class EventCommand
             $this->allow(new UpdateEvent(), $args, $actor);
             $event = $this->event($args);
             $current = EventDocument::of($event);
-            [$proposed, $given] = EventDocument::proposed($current, self::file($assocArgs));
+            $file = self::file($assocArgs);
+            [$proposed, $given] = EventDocument::proposed($current, $file);
             $changes = EventDocument::changes($current, $proposed);
             if ($changes === []) {
                 \WP_CLI::success('Nothing to change.');
@@ -113,15 +114,18 @@ final class EventCommand
             foreach ($changes as $key => [$before, $after]) {
                 \WP_CLI::line($key . ': ' . self::text($before) . ' -> ' . self::text($after));
             }
+
+            $version = EventDocument::fileVersion($file, $event->version);
+            $input = EventDocument::input($proposed, $given, $event->id, $version);
             if (!empty($assocArgs['dry-run'])) {
+                self::detailed(fn () => $this->events->update($input + ['preview' => true], $actor));
                 \WP_CLI::success('Nothing is saved (dry run).');
 
                 return;
             }
 
-            $input = EventDocument::input($proposed, $given, $event->id, $event->version);
             self::detailed(fn () => $this->events->update($input, $actor));
-            \WP_CLI::success('The event is saved (version ' . ($event->version + 1) . ').');
+            \WP_CLI::success('The event is saved (version ' . ($version + 1) . ').');
         });
     }
 

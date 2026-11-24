@@ -12,6 +12,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -27,6 +28,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * are kept as entered, trimmed. Changing the account mode to one with accounts is refused while a published
  * registration form of the event lacks the account block (events-and-forms.md, "Forms implementation"); the
  * forms are read before the run and passed in (`Api\Events::update()`), as a use case reads no post.
+ *
+ * With `preview: true` it makes every check of a real run, including the stale `version`, and writes nothing: it
+ * returns when a real run would have saved, and throws what a real run would throw.
  */
 final class UpdateEvent implements AdminUseCase
 {
@@ -63,6 +67,7 @@ final class UpdateEvent implements AdminUseCase
             'properties' => [
                 'id' => ['type' => 'integer', 'minimum' => 1],
                 'version' => ['type' => 'integer', 'minimum' => 1],
+                'preview' => ['type' => 'boolean'],
                 'name' => ['type' => 'string'],
                 'capacity' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 50000],
                 'registration_opens_at' => $at,
@@ -151,6 +156,14 @@ final class UpdateEvent implements AdminUseCase
         }
 
         $settings = $this->settings($input, $record);
+
+        if (($input['preview'] ?? false) === true) {
+            if ((int) $input['version'] !== $record->version) {
+                throw new VersionConflict();
+            }
+
+            return null;
+        }
 
         $record->name = $name;
         $record->capacity = $capacity;

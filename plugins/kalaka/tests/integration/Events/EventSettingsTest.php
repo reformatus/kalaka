@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\KalakaException;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /** The writer of the event's payment and account settings, in `kalaka/update-event` (go-live G2). */
@@ -53,6 +54,30 @@ final class EventSettingsTest extends FormsTestCase
         $last = $entries[array_key_last($entries)];
         self::assertSame('kalaka/update-event', $last['action']);
         self::assertStringContainsString('transfer_account', (string) $last['changes']);
+    }
+
+    public function testAPreviewChecksEverythingAndSavesNothing(): void
+    {
+        $id = $this->filled();
+        $version = $this->versionOf($id);
+        $registration = ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'];
+        $lacking = $this->insertForm($this->slotFields(), $registration);
+
+        $this->save($id, ['preview' => true, 'payment_due_days' => 9]);
+        self::assertSame($version, $this->versionOf($id));
+
+        try {
+            $this->save($id, ['preview' => true, 'account_mode' => 'mandatory']);
+            self::fail('The preview did not refuse.');
+        } catch (AccountBlockMissing $error) {
+            self::assertSame([$lacking], $error->forms);
+        }
+        try {
+            $this->save($id, ['preview' => true, 'version' => $version + 5]);
+            self::fail('The preview did not refuse.');
+        } catch (VersionConflict) {
+            self::assertSame($version, $this->versionOf($id));
+        }
     }
 
     public function testAKeyThatIsAbsentStaysAndNullOrAnEmptyTextClearsIt(): void

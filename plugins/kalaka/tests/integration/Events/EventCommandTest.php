@@ -18,6 +18,8 @@ final class EventCommandTest extends FormsTestCase
 
     private const REFUSED = 'A művelet nem hajtható végre.';
 
+    private const CONFLICT = 'Valaki időközben módosította ezeket az adatokat. Töltsd újra az oldalt, és próbáld újra.';
+
     /** @var list<string> */
     private array $files = [];
 
@@ -212,6 +214,45 @@ final class EventCommandTest extends FormsTestCase
         self::assertSame(1, $this->versionOf($id));
     }
 
+    public function testADryRunRunsTheUseCaseSoItRefusesWhatARealRunWould(): void
+    {
+        $id = $this->newId();
+        $registration = ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'];
+        $form = $this->insertForm($this->slotFields(), $registration);
+        $path = $this->file(['account_mode' => 'mandatory']);
+        $stale = $this->file(['name' => 'Más név', 'version' => 9]);
+
+        $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path, 'dry-run' => true]));
+        self::assertSame(self::REFUSED . "\nforms without the account block: " . $form, $error);
+        $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $stale, 'dry-run' => true]));
+        self::assertSame(self::CONFLICT, $error);
+        self::assertSame(1, $this->versionOf($id));
+    }
+
+    public function testAStaleVersionInTheFileMeetsTheUseCasesConflictAndNothingChanges(): void
+    {
+        $id = $this->newId();
+        $before = $this->row($id);
+        $path = $this->file(['version' => 9, 'capacity' => 10]);
+
+        $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
+
+        self::assertSame(self::CONFLICT, $error);
+        self::assertSame($before, $this->row($id));
+    }
+
+    public function testTheFilesOwnVersionIsTheOneTheUseCaseChecks(): void
+    {
+        $id = $this->newId();
+        $document = $this->shown($id);
+        \WP_CLI::reset();
+
+        $path = $this->file(['version' => $document['version'], 'capacity' => 10]);
+        $this->command()->update([(string) $id], ['file' => $path]);
+
+        self::assertSame(2, $this->versionOf($id));
+    }
+
     /** @return iterable<string, array{array<string, mixed>|string, string}> */
     public static function badFiles(): iterable
     {
@@ -223,7 +264,6 @@ final class EventCommandTest extends FormsTestCase
             ['state' => 'published'],
             '"state" cannot be changed here, or the file is out of date.',
         ];
-        yield 'a stale version' => [['version' => 9], '"version" cannot be changed here, or the file is out of date.'];
         yield 'bad mode' => [['account_mode' => 'required'], self::INVALID];
         yield 'negative days' => [['payment_due_days' => -2], self::INVALID];
         yield 'long account' => [['transfer_account' => str_repeat('1', 65)], self::INVALID];

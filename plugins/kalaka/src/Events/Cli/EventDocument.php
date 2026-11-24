@@ -17,7 +17,10 @@ use Kalaka\Foundation\Api\Entry\CommandFailure;
  */
 final class EventDocument
 {
-    /** What the file may carry but never changes: `update` refuses a value that differs from the event's. */
+    /**
+     * What the file may carry but never changes: `update` refuses a value that differs from the event's, except
+     * the `version`, which is the file's claim of what it was made from and goes to the use case (`fileVersion()`).
+     */
     private const READ_ONLY = ['id', 'version', 'state', 'is_full', 'currency'];
 
     private const POINTS = ['registration_opens_at', 'registration_closes_at', 'starts_at', 'ends_at'];
@@ -76,6 +79,9 @@ final class EventDocument
                 $error = new CommandFailure('Unknown key "' . $key . '" in the file.');
                 throw $error;
             }
+            if ($key === 'version') {
+                continue;
+            }
             if (in_array($key, self::READ_ONLY, true)) {
                 if ($value !== $current[$key]) {
                     $error = new CommandFailure('"' . $key . '" cannot be changed here, or the file is out of date.');
@@ -88,6 +94,12 @@ final class EventDocument
         }
 
         return [$proposed, $given];
+    }
+
+    /** The `version` the file carries, or the event's own when it gives none: the use case checks it. */
+    public static function fileVersion(mixed $file, int $current): int
+    {
+        return is_array($file) && is_int($file['version'] ?? null) ? $file['version'] : $current;
     }
 
     /**
