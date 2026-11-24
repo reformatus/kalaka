@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\Pricing\Api\ConfigurableFeeComponent;
