@@ -36,7 +36,10 @@ is asked until decided. Sponsor and church support is the other extension
   step of a money settings apply (`Api\Aid::propose()` with
   `Pricing\Api\MoneySettings`): preview, then apply. Turning aid off deletes
   the row only; the stored requests and awards stay, and the component
-  writes no line for an event without aid.
+  writes no line for an event without aid. An unanswered request stops
+  awaiting at once (full price, transfer block, due date from the
+  registration); turning aid on again revives stored awards and unanswered
+  requests.
 - The save declares two participant fields of source `extension` (number
   fields): `aid_can_pay`, form-writable, where the participant states what
   they can pay, and `aid_award`, never form-writable. A form links to
@@ -46,7 +49,9 @@ is asked until decided. Sponsor and church support is the other extension
   `aid_can_pay` and the event has aid. Staff answer 0 when nothing is
   needed. The request source reads only the field values and the settings.
 - The award is written only by `AidRequests::writeAnswer()`, called by the
-  answer act: the amount for a yes (above zero), 0 for a no. Nothing else
+  answer act: the amount for a yes (above zero, and no more than the number
+  field holds), 0 for a no. An emptied `aid_can_pay` ends the request but
+  leaves the award's line. Nothing else
   sets `aid_award`; nobody sets a derived fact directly.
 - The fee component `aid` composes at the aid stage, returns a value and
   writes nothing. The award is one participant-side item line `aid:award`,

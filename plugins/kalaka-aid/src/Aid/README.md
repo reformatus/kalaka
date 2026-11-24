@@ -8,4 +8,4 @@ At the module root: `AidComponent` (the fee component, at the aid stage), `AidRe
 
 `Api/` holds `Aid` (`label()`, and `propose()`, which gives a `ProposedAid` for `Pricing\Api\MoneySettings::preview()` and `apply()`).
 
-Entry points: none. The money settings file carries it as `"aid": {"label": "<the organizers' name for the aid>"}` (`null` turns it off).
+Entry points: none. The money settings file carries it as `"aid": {"label": "<the organizers' name for the aid>"}` (`{"label": null}` turns it off; the component's settings must be a JSON object, so `"aid": null` is refused). The label must not be „Kedvezmény”, the manual adjustment's approved word.
