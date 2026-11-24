@@ -197,7 +197,7 @@ final class FieldTypeRegistryTest extends FormsTestCase
                         'Felár',
                         null,
                         true,
-                        'kalaka-test',
+                        'test_module',
                         null,
                         false
                     );

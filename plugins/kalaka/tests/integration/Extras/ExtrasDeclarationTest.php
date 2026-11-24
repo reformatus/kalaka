@@ -292,13 +292,13 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
             self::assertNotNull($field);
             self::assertTrue($field->moneyRelevant, $key);
             self::assertTrue($fields->lockedAfterFirstWrite($field), $key);
-            self::assertSame('kalaka-extras', $this->declaredBy($key), $key);
+            self::assertSame('extras', $this->declaredBy($key), $key);
         }
     }
 
     public function testAKeyAnotherDeclarerHoldsRefusesTheChargeSave(): void
     {
-        $this->declareField('ebed', 'kalaka/consent-field', null, 0, 'extension', 'kalaka-aid');
+        $this->declareField('ebed', 'kalaka/consent-field', null, 0, 'extension', 'aid');
 
         $this->expectException(RuleViolation::class);
         $this->extras->propose($this->event, [self::item('ebed', 'Ebéd', '3500')]);

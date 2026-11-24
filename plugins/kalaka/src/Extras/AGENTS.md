@@ -43,7 +43,7 @@ plugin. It holds two fee components at the extras stage and is core money
   (`ChargeField` at the preview, the declaration at the save; the CLI prints its own English line). A number
   charge's field fixes its decimals at 0, and a form field that joins it holds none
   (`SharedKeyCheck`'s `extension_decimals`) [UNAPPROVED N6]. Every declaration stores
-  `kalaka-extras` as the field's declarer (`declared_by`) and marks it money relevant (locked after its first
+  `extras` (its module's ID) as the field's declarer (`declared_by`) and marks it money relevant (locked after its first
   write; `adomany` too) [UNAPPROVED N301], and a key another declarer's `extension` field holds is refused, by the
   one check `ParticipantFields::checkDeclarable()` (`ChargeField` calls it) [UNAPPROVED N5]. A charge taken out
   leaves its declared field in place, as every kind of item does; refusing the removal of a charge an open

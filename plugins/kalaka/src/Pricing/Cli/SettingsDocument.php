@@ -110,7 +110,8 @@ final class SettingsDocument
             } catch (FieldKeyHeld $refused) {
                 $error = new CommandFailure(
                     'The settings of "' . $id . '" are refused: a key they declare is held by a participant field of '
-                    . 'the event that code may not take over (a staff or system field, or one of another type).',
+                    . 'the event that code may not take over (a staff or system field, a field of another type, '
+                    . 'or another declarer\'s field).',
                     $refused
                 );
                 throw $error;
