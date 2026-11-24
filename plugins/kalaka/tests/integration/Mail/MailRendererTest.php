@@ -42,7 +42,7 @@ final class MailRendererTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $mail = (new MailRenderer())->render($event, 'registered', $key);
+        $mail = (new MailRenderer())->render($event, 'registered', $key, self::now());
 
         self::assertSame('Jelentkezés & tábor', $mail->subject);
         self::assertStringContainsString(
@@ -77,7 +77,7 @@ final class MailRendererTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertStringContainsString('Tábor: 2027. július 5. – 2027. július 12.', self::text($html));
         self::assertStringContainsString('Nyári tábor.', $html);
@@ -101,7 +101,7 @@ final class MailRendererTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         // No admission act exists yet: every registration reads `no`.
         self::assertStringContainsString('Szia', $html);
@@ -118,7 +118,7 @@ final class MailRendererTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertStringContainsString('Kezdés: .', self::text($html));
     }
@@ -136,7 +136,7 @@ final class MailRendererTest extends MailBodyTestCase
             ));
         $this->switchOn($event, 'registered', $body);
 
-        $mail = (new MailRenderer())->render($event, 'registered', $key);
+        $mail = (new MailRenderer())->render($event, 'registered', $key, self::now());
 
         self::assertSame('Póló: []', self::text($mail->html));
     }
@@ -161,7 +161,8 @@ final class MailRendererTest extends MailBodyTestCase
             $this->paragraph('Sáv: [<span data-kalaka-value="tier">sáv</span>]')
         ));
 
-        self::assertSame('Sáv: []', self::text((new MailRenderer())->render($event, 'registered', $key)->html));
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
+        self::assertSame('Sáv: []', self::text($html));
     }
 
     public function testTheLinkCarriesTheSecretAndTheRegistrationKey(): void
@@ -171,7 +172,7 @@ final class MailRendererTest extends MailBodyTestCase
         $body = $this->document($event, $this->paragraph('<span data-kalaka-value="registration.link">link</span>'));
         $this->switchOn($event, 'link_regenerated', $body);
 
-        $html = (new MailRenderer())->render($event, 'link_regenerated', $key)->html;
+        $html = (new MailRenderer())->render($event, 'link_regenerated', $key, self::now())->html;
 
         self::assertSame(1, preg_match('/<span\s*>([^<]+)<\/span>/', $html, $match));
         $url = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5);
@@ -190,7 +191,7 @@ final class MailRendererTest extends MailBodyTestCase
             . '{{content}} Lábléc &amp;</div>');
         $this->switchOn($event, 'waitlisted', $body);
 
-        $mail = (new MailRenderer())->render($event, 'waitlisted', $key);
+        $mail = (new MailRenderer())->render($event, 'waitlisted', $key, self::now());
 
         $head = '<div style="color:#333">Fejléc <span data-kalaka-value="nincs">x</span>';
         self::assertStringStartsWith($head, $mail->html);
@@ -209,7 +210,7 @@ final class MailRendererTest extends MailBodyTestCase
         $this->setLayout($event, '<p>Fejléc</p>{{content}}');
         $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')), false);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertStringContainsString('Szia', $html);
         self::assertStringNotContainsString('Fejléc', $html);
@@ -223,7 +224,7 @@ final class MailRendererTest extends MailBodyTestCase
         $this->switchOn($event, 'registered', $body);
 
         try {
-            (new MailRenderer())->render($event, 'registered', $key);
+            (new MailRenderer())->render($event, 'registered', $key, self::now());
             self::fail('Expected a failure.');
         } catch (BodyUnusable $e) {
             self::assertSame('unknown_value_key event.place', $e->problem);
@@ -242,7 +243,7 @@ final class MailRendererTest extends MailBodyTestCase
         clean_post_cache($body);
 
         try {
-            (new MailRenderer())->render($event, 'registered', $key);
+            (new MailRenderer())->render($event, 'registered', $key, self::now());
             self::fail('Expected a failure.');
         } catch (BodyUnusable $e) {
             self::assertSame('unpublished ' . $body, $e->problem);
@@ -298,7 +299,8 @@ final class MailRendererTest extends MailBodyTestCase
         }
 
         self::assertSame('teszt@example.test', (new MailValues())->recipient($key));
-        self::assertSame('teszt@example.test', (new MailValues())->context($key)->get('recipient.email')->text);
+        $context = (new MailValues())->context($key, self::now());
+        self::assertSame('teszt@example.test', $context->get('recipient.email')->text);
     }
 
     /** The text of rendered HTML, its whitespace collapsed. */

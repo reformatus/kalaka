@@ -12,7 +12,7 @@ use Kalaka\Tests\Integration\Foundation\TestClock;
 
 /**
  * The date reference "now": the render time at a form's render and re-fetch, the submit time at submit,
- * the runner's clock in an evaluation; a branch reading it is withheld like an event value.
+ * the moment of the read that renders it after submit; a branch reading it is withheld like an event value.
  */
 final class ConditionNowTest extends FormsTestCase
 {
@@ -49,7 +49,7 @@ final class ConditionNowTest extends FormsTestCase
         $event = $this->events->find($this->published());
         self::assertNotNull($event);
 
-        return new ValueContext(EventValues::form($event, null));
+        return new ValueContext(EventValues::form($event, null, Runner::current()->clock()->now()));
     }
 
     public function testTheFormFactsCarryTheDayOfTheRunnersClockInTheSitesTimeZone(): void
@@ -103,12 +103,12 @@ final class ConditionNowTest extends FormsTestCase
         self::assertSame(['name', 'email', 'born', 'motivation'], array_keys($kept->stored()));
     }
 
-    public function testAnEvaluationReadsTheRunnersClock(): void
+    public function testTheFactReadsTheMomentItIsGivenAndNoClockOfItsOwn(): void
     {
         $this->withClockAt('2026-11-30 08:00:00');
-        self::assertSame('2026-11-30', EventValues::now()[Facts::NOW]->data);
-        $this->withClockAt('2027-01-05 08:00:00');
-        self::assertSame('2027-01-05', EventValues::now()[Facts::NOW]->data);
+        $given = new \DateTimeImmutable('2027-01-05 08:00:00', new \DateTimeZone('UTC'));
+
+        self::assertSame('2027-01-05', EventValues::now($given)[Facts::NOW]->data);
     }
 
     public function testTheNowKeyIsNoKeyAConditionMayNameOnItsOwn(): void

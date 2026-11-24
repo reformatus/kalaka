@@ -278,12 +278,12 @@ final class FormRulesTest extends FormsTestCase
         $registered = $this->forms->afterSubmit(
             $form,
             $form->version,
-            AfterSubmit::context($this->event(), '00A5', 'registered')
+            AfterSubmit::context($this->event(), '00A5', 'registered', new \DateTimeImmutable())
         );
         $waitlisted = $this->forms->afterSubmit(
             $form,
             $form->version,
-            AfterSubmit::context($this->event(), '00B3', 'waitlisted')
+            AfterSubmit::context($this->event(), '00B3', 'waitlisted', new \DateTimeImmutable())
         );
 
         self::assertIsString($registered);
@@ -303,7 +303,7 @@ final class FormRulesTest extends FormsTestCase
     {
         $form = $this->readForm($this->slotForm());
 
-        $context = AfterSubmit::context($this->event(), '00A5', 'registered');
+        $context = AfterSubmit::context($this->event(), '00A5', 'registered', new \DateTimeImmutable());
 
         self::assertNull($this->forms->afterSubmit($form, $form->version, $context));
     }

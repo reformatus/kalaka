@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
-use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * The event keys of a value context and a fact source (events-and-forms.md, "Values and
@@ -39,25 +38,26 @@ final class EventValues
      *
      * @return array<string, Value>
      */
-    public static function form(Event $event, ?bool $loggedIn): array
+    public static function form(Event $event, ?bool $loggedIn, \DateTimeImmutable $at): array
     {
         $fact = $loggedIn === null
             ? Value::none(ValueType::Choice)
             : self::yesNo($loggedIn);
 
-        return self::of($event) + self::now() + [SignUp::LOGGED_IN => $fact];
+        return self::of($event) + self::now($at) + [SignUp::LOGGED_IN => $fact];
     }
 
     /**
      * The key a date reference to "now" reads (`Facts::NOW`): the day of the clock's time in the site's time
-     * zone, the runner's `Clock` unless `$at` is given. A fact source whose conditions may use the reference adds
-     * it to the event's keys; it is no key a condition may name itself, so it is in no `TYPES`.
+     * zone, of the moment `$at` the caller holds (the act's, never a clock read here: one read, one clock). A fact
+     * source whose conditions may use the reference adds it to the event's keys; it is no key a condition may
+     * name itself, so it is in no `TYPES`.
      *
      * @return array<string, Value>
      */
-    public static function now(?\DateTimeImmutable $at = null): array
+    public static function now(\DateTimeImmutable $at): array
     {
-        return [Facts::NOW => self::day($at ?? Runner::current()->clock()->now())];
+        return [Facts::NOW => self::day($at)];
     }
 
     /**

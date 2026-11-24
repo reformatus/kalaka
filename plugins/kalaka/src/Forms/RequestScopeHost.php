@@ -27,9 +27,9 @@ final class RequestScopeHost implements FormHost
         return $this->host->factTypes();
     }
 
-    public function facts(Form $form): ?ValueContext
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
-        return $this->host->facts($form);
+        return $this->host->facts($form, $now);
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array
