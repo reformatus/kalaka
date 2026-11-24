@@ -571,10 +571,12 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
-- **Decisions** are written by the system alone and hold once written,
-  whatever the facts do later. At launch there is one, confirmation in core
-  ([Money](money.md#confirmation)); the late fee is foreseen as a second, from
-  an extension, and is settled with its own slice.
+- **Decisions** are written by the system alone. A fact that changes does not
+  recompute a decision; only a transition its rule names changes it (a
+  withdrawal or removal, and staff's unconfirm, are facts that name one for
+  confirmation). Core defines confirmation ([Money](money.md#confirmation));
+  the late fee is foreseen as a second, from an extension, and is settled with
+  its own slice.
   - **Each decision is an append-only transition record** with kind, state,
     effective time, recorded time, cause (record type, event and key) and
     actor. The current state is the latest record.

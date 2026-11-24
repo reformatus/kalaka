@@ -60,6 +60,18 @@ final class ManualConfirmations
     }
 
     /**
+     * When the registration's current `confirmed` record was recorded, or null when its confirmation state is
+     * not `confirmed`. Read in the use case that holds the registration's lock, it is the record that is current
+     * in the lock's order (not the order the attempts started in).
+     */
+    public function confirmedRecordedAt(RegistrationKey $registration): ?\DateTimeImmutable
+    {
+        $current = $this->decisions->currentOf($registration)[ConfirmationRule::KIND] ?? null;
+
+        return $current !== null && $current->state === ConfirmationRule::CONFIRMED ? $current->recordedAt : null;
+    }
+
+    /**
      * The warning read before staff's unconfirm (money.md, "Confirmation"): whether confirmation would decide
      * `confirmed` again at once, the flag aside, and why. `'payments'` when the payments reach every required
      * threshold, `'nothing_due'` when nothing is due, null when it would stay unconfirmed or the registration

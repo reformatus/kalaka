@@ -71,7 +71,8 @@ final class Decisions
                 $decision->kind,
                 $decision->state,
                 $decision->effectiveAt,
-                $decision->cause
+                $decision->cause,
+                $decision->recordedAt
             );
         }
         $defaults = $this->defaults();

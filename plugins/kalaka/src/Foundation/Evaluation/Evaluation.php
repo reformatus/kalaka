@@ -193,8 +193,15 @@ final class Evaluation
                 continue;
             }
 
+            // Recorded in the order of the registration's lock, not of the attempts' start times: an act that
+            // started earlier but writes later still records after the kind's current decision, a microsecond
+            // later at least, so "recorded after" always means "written after" (the confirmation rule compares).
+            $previous = $decisions[$kind]->recordedAt ?? null;
+            $recordedAt = $previous !== null && $context->now() <= $previous
+                ? $previous->modify('+1 microsecond')
+                : $context->now();
             $stored = $this->decisions->insert(
-                DecisionRecord::by($context->actor(), $key, $kind, $transition, $context->now()),
+                DecisionRecord::by($context->actor(), $key, $kind, $transition, $recordedAt),
                 $context
             );
             $decisions[$kind] = new Decision(

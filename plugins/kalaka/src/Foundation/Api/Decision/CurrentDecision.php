@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 
 /**
  * The current decision of one kind of a registration, for a reader outside Foundation; the time is UTC. The
- * cause is the record's; a base state (`DecisionDefault`) has none.
+ * cause and the recorded time are the record's; a base state (`DecisionDefault`) has neither.
  */
 final readonly class CurrentDecision
 {
@@ -17,6 +17,7 @@ final readonly class CurrentDecision
         public string $state,
         public \DateTimeImmutable $effectiveAt,
         public ?Subject $cause = null,
+        public ?\DateTimeImmutable $recordedAt = null,
     ) {
     }
 }

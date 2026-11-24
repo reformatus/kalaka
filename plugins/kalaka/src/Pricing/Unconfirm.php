@@ -42,7 +42,8 @@ final class Unconfirm extends ManualConfirmationChange
         string $reason,
         Context $context,
     ): bool {
-        if (!$this->confirmations->isConfirmed($key)) {
+        $confirmedAt = $this->confirmations->confirmedRecordedAt($key);
+        if ($confirmedAt === null) {
             return false;
         }
         if ($flag !== null && $flag->isSet()) {
@@ -50,12 +51,16 @@ final class Unconfirm extends ManualConfirmationChange
             $this->flags->upsert($flag, $context);
         }
 
+        // The attempt's start time was taken before the lock: another act may have recorded the `confirmed` record
+        // after it. The unconfirm is later than the record that is current under the lock, one microsecond at
+        // least, the order the evaluation records decisions in too.
+        $at = max($context->now(), $confirmedAt->modify('+1 microsecond'));
         $record = $this->unconfirmations->findForUpdate($key, $context);
         $by = self::userOf($context->actor());
         if ($record === null) {
-            $record = new UnconfirmationRecord($key, $context->now(), $by, $reason);
+            $record = new UnconfirmationRecord($key, $at, $by, $reason);
         } else {
-            $record->unconfirmedAt = $context->now();
+            $record->unconfirmedAt = $at;
             $record->unconfirmedBy = $by;
             $record->reason = $reason;
         }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Pricing;
 
+use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -11,6 +12,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\Evaluation\EvaluateRegistration;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Pricing\Api\ConfirmationRule;
@@ -202,6 +204,73 @@ final class ManualConfirmationTest extends ManualEntryTestCase
         self::assertSame('Új indok', $rows[0]['reason']);
         self::assertNull($rows[0]['revoked_at']);
         self::assertSame('confirmed', $this->confirmationState());
+    }
+
+    /** @return list<string> the registration's confirmation states, oldest first */
+    private function confirmationStates(): array
+    {
+        global $wpdb;
+        $states = $wpdb->get_col($wpdb->prepare(
+            "SELECT state FROM %i WHERE event_id = %d AND code = '00A0' AND kind = 'confirmation' ORDER BY id",
+            $wpdb->prefix . 'kalaka_decisions',
+            $this->event
+        ));
+        self::assertIsArray($states);
+
+        return array_map('strval', $states);
+    }
+
+    /**
+     * An act that started before staff's unconfirm but gets the registration's lock after it (its attempt time is
+     * the earlier one, the lock order the later) writes `confirmed` after the unconfirm: the next pass must not
+     * take the unconfirm for pending again. The interleaving is simulated deterministically with the clocks of
+     * two runs; without the fix the confirmed record is recorded before the unconfirm and the next run
+     * unconfirms and confirms again (a second confirmed mail).
+     */
+    public function testAnActThatStartedBeforeAnUnconfirmButCommitsAfterItCausesNoPhantomUnconfirm(): void
+    {
+        $this->runner = $this->runnerAt('2026-12-01 09:00');
+        $this->exec(new SetManualConfirmation(), $this->input());
+        $this->runner = $this->runnerAt('2026-12-01 11:00');
+        $this->exec(new Unconfirm(), $this->input());
+        self::assertSame(['confirmed', 'unconfirmed'], $this->confirmationStates());
+
+        // Started at 10:00 (before the unconfirm), got the lock after it.
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+        $this->exec(new SetManualConfirmation(), $this->input(['reason' => 'Késői']));
+        self::assertSame(['confirmed', 'unconfirmed', 'confirmed'], $this->confirmationStates());
+
+        $this->runner = $this->runnerAt('2026-12-01 12:00');
+        $this->exec(new SetManualConfirmation(), $this->input(['reason' => 'Újabb']));
+        $this->runner = $this->runnerAt('2026-12-01 13:00');
+        $this->runner->run(
+            new EvaluateRegistration(),
+            ['event_id' => $this->event, 'code' => '00A0'],
+            new CliActor(null)
+        );
+
+        self::assertSame(
+            ['confirmed', 'unconfirmed', 'confirmed'],
+            $this->confirmationStates(),
+            'No second unconfirm, no second confirmed record.'
+        );
+    }
+
+    /** The other order: an unconfirm that started before the confirmed record, and commits after it, still counts. */
+    public function testAnUnconfirmThatStartedBeforeTheConfirmedRecordButCommitsAfterItUnconfirms(): void
+    {
+        $this->runner = $this->runnerAt('2026-12-01 11:00');
+        $this->exec(new SetManualConfirmation(), $this->input());
+
+        $this->runner = $this->runnerAt('2026-12-01 10:00');
+        self::assertSame(['changed' => true], $this->exec(new Unconfirm(), $this->input()));
+
+        self::assertSame(['confirmed', 'unconfirmed'], $this->confirmationStates());
+        self::assertSame(
+            '2026-12-01 10:00:00.000001',
+            $this->flagRows('kalaka_unconfirmations')[0]['unconfirmed_at'],
+            'Later than the record that is current under the lock.'
+        );
     }
 
     /** @return array<string, array{array<string, mixed>}> */
