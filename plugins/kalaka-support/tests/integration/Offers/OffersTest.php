@@ -303,7 +303,8 @@ final class OffersTest extends OffersTestCase
             );
             self::fail('The apply went through.');
         } catch (RuleViolation) {
-            self::assertTrue($this->huf('30000')->isEqualTo($this->settings->fixedPrice($this->event) ?? $this->huf('0')));
+            $price = $this->settings->fixedPrice($this->event);
+            self::assertTrue($price !== null && $price->isEqualTo($this->huf('30000')));
             self::assertCount(2, $this->offers->offers($this->event));
             self::assertSame('25000', $this->balance($key));
         }
