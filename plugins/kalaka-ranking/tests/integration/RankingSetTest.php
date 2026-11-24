@@ -12,12 +12,18 @@ use Kalaka\Forms\Api\FieldTypeInput;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\DefinitionCheck;
+use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Ranking\RankingFieldType;
+use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SubmitRequest;
+use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
@@ -392,5 +398,46 @@ final class RankingSetTest extends FormsTestCase
             ['invalid_option_conditions', 'modulok'],
             DefinitionCheck::problem($content, 0, FormPlacement::Registration, $this->event)
         );
+    }
+
+    public function testAReRankingFormsOptionConditionsReadTheStoredTrackItDoesNotHold(): void
+    {
+        $slot = $this->form();
+        $registration = (new RegistrationSubmit($this->runner))->submit(
+            new SubmitRequest(
+                $slot,
+                $this->readForm($slot)->version,
+                self::NAMES + ['szolgalati_terulet' => 'iskolamisszio', 'modulok' => ['modul_a']],
+                SubmitToken::generate()
+            ),
+            new GuestActor()
+        )->registration;
+        ActiveRegistrationState::set($registration, false);
+
+        try {
+            // The re-ranking form holds only the ranking: the track is read from the registration (CF2). The
+            // same content as a registration form has no such track before the ranking, so the save refuses it.
+            self::assertSame(
+                ['condition_key_not_earlier', 'szolgalati_terulet'],
+                DefinitionCheck::problem($this->ranking(), 0, FormPlacement::Registration, $this->event)
+            );
+            self::assertNull(DefinitionCheck::problem($this->ranking(), 0, FormPlacement::Additional, $this->event));
+            $form = $this->insertChecked($this->ranking(), $this->meta('additional'));
+
+            $definition = $this->forms->definition($this->readForm($form));
+            $facts = (new EventFormHost())->facts($this->readForm($form));
+            self::assertNotNull($facts);
+            $availability = $this->forms->availability($definition, [], $facts);
+
+            self::assertSame(
+                ['modul_a', 'modul_b', 'modul_c', 'iskolamisszio'],
+                $availability->offeredOptions('modulok')
+            );
+            // The submit's walk offers the same options, so "PRO" (not this track's) is dropped.
+            $ranked = $this->forms->validate($definition, ['modulok' => ['iskolamisszio', 'pro']], $facts);
+            self::assertSame('["iskolamisszio"]', $ranked->stored()['modulok']);
+        } finally {
+            ActiveRegistrationState::set(null, false);
+        }
     }
 }

@@ -21,6 +21,7 @@ use Kalaka\Forms\Engine\Condition\Chain;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
 use Kalaka\Forms\Engine\Condition\Chains;
 use Kalaka\Forms\Engine\Condition\Condition;
+use Kalaka\Forms\Engine\Condition\ConditionKeys;
 use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Forms\Engine\Condition\FormScope;
@@ -97,7 +98,19 @@ final class DefinitionParser
         FormHost $host,
         bool $saving = false
     ): FormDefinition {
-        $this->factTypes = $host->factTypes($form);
+        // A key the form holds as a field is read from its answers, never from the host's list of stored values.
+        $blocks = parse_blocks($content);
+        $this->factTypes = array_diff_key($host->factTypes($form), self::fieldKeys($blocks, $contributions));
+        if (!$saving) {
+            // Reading any revision: a key its conditions read that the host knows is gone reads as empty, so
+            // a removed custom point never closes a form or an older revision (a save refuses it instead).
+            $gone = array_values(array_diff(
+                ConditionKeys::in($blocks),
+                array_keys($this->factTypes),
+                array_keys(self::fieldKeys($blocks, $contributions))
+            ));
+            $this->factTypes += $gone === [] ? [] : $host->goneTypes($form, $gone);
+        }
         $this->host = $host;
         $this->form = $form;
         $this->saving = $saving;
@@ -110,7 +123,7 @@ final class DefinitionParser
         $this->account = null;
         $fields = [];
         try {
-            $this->topLevel(ChainMarks::mark(array_values(parse_blocks($content))), $contributions, $fields);
+            $this->topLevel(ChainMarks::mark(array_values($blocks)), $contributions, $fields);
             $this->slotRules->check($form->id, $form->placement, $fields, $this->pages);
             $triggers = [];
             foreach ($fields as $field) {
@@ -138,6 +151,28 @@ final class DefinitionParser
             $this->form = null;
             $this->saving = false;
         }
+    }
+
+    /**
+     * The keys of the field blocks anywhere in the blocks, in no order.
+     *
+     * @param array<array<string, mixed>> $blocks
+     * @return array<string, true>
+     */
+    private static function fieldKeys(array $blocks, Contributions $contributions): array
+    {
+        $keys = [];
+        foreach ($blocks as $block) {
+            $attributes = is_array($block['attrs'] ?? null) ? $block['attrs'] : [];
+            $name = is_string($block['blockName'] ?? null) ? $block['blockName'] : '';
+            if (isset($contributions->fieldTypes()[$name]) && is_string($attributes['key'] ?? null)) {
+                $keys[$attributes['key']] = true;
+            }
+            $inner = is_array($block['innerBlocks'] ?? null) ? $block['innerBlocks'] : [];
+            $keys += self::fieldKeys($inner, $contributions);
+        }
+
+        return $keys;
     }
 
     /**

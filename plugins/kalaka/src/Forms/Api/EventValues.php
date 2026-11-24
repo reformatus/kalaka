@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Events\Api\EventPoint;
 
 /**
  * The event keys of a value context and a fact source (events-and-forms.md, "Values and
@@ -57,6 +58,15 @@ final class EventValues
         return Value::choice([$yes ? 'yes' : 'no'], $yes ? 'Igen' : 'Nem');
     }
 
+    /** The places left (a number); a form's condition reads it, no mail or document does (`volatile()`). */
+    public const SEATS_LEFT = 'event.seats_left';
+
+    /** Before a custom point's ID: the point's date (`event.points.<id>`), for a form's conditions only. */
+    public const POINT_PREFIX = 'event.points.';
+
+    /** Before a request field's key: whether the choice window of the set it names is open now. */
+    public const CHOICE_OPEN_PREFIX = 'choice_open.';
+
     /** Every event key and its type. */
     public const TYPES = [
         self::NAME => ValueType::Text,
@@ -81,6 +91,58 @@ final class EventValues
             self::START => self::day($event->start),
             self::END => self::day($event->end),
         ];
+    }
+
+    /**
+     * The types of the keys only a form's conditions read, which change on their own or are the event's own
+     * extras (CF2; the owner's convention 2026-11-23: whatever decides visibility is a value a condition can
+     * read). They are not in `of()`, which a mail, the after-submit section and `RegistrationFacts` also read.
+     *
+     * @param list<string> $requestFieldKeys the keys of the event's request fields (`choice_open.<key>`)
+     * @return array<string, ValueType>
+     */
+    public static function volatileTypes(Event $event, array $requestFieldKeys): array
+    {
+        $types = [self::SEATS_LEFT => ValueType::Number];
+        foreach ($event->customPoints as $point) {
+            $types[self::POINT_PREFIX . $point->id] = ValueType::Date;
+        }
+        foreach ($requestFieldKeys as $key) {
+            $types[self::CHOICE_OPEN_PREFIX . $key] = ValueType::Choice;
+        }
+
+        return $types;
+    }
+
+    /**
+     * The values of `volatileTypes()`. `event.seats_left` is `max(0, capacity - registered)` and 0 while the
+     * event's "full" latch is set; none while the event is a draft without a capacity. A custom point is a day
+     * in the site's time zone, like the event's other points. `choice_open.<key>` is yes or no.
+     *
+     * @param int $registered the event's `registered` registrations
+     * @param array<string, bool> $choiceOpen request field key → whether its set's window holds now
+     * @return array<string, Value>
+     */
+    public static function volatile(Event $event, int $registered, array $choiceOpen): array
+    {
+        $left = $event->capacity === null
+            ? Value::none(ValueType::Number)
+            : self::count($event->isFull ? 0 : max(0, $event->capacity - $registered));
+        $values = [self::SEATS_LEFT => $left];
+        foreach ($event->customPoints as $point) {
+            /** @var EventPoint $point */
+            $values[self::POINT_PREFIX . $point->id] = self::day($point->at);
+        }
+        foreach ($choiceOpen as $key => $open) {
+            $values[self::CHOICE_OPEN_PREFIX . $key] = self::yesNo($open);
+        }
+
+        return $values;
+    }
+
+    private static function count(int $number): Value
+    {
+        return Value::number((string) $number, (string) $number);
     }
 
     private static function day(?\DateTimeImmutable $point): Value

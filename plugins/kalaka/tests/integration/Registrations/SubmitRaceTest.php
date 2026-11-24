@@ -94,6 +94,7 @@ final class SubmitRaceTest extends RealTableTestCase
             1,
             [],
             false,
+            SubmitRegistration::fingerprint($form->id, $answers),
             [],
             (new ParticipantFields())->of($this->event),
         );

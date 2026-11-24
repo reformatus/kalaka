@@ -29,6 +29,17 @@ interface FormHost
     public function factTypes(Form $form): array;
 
     /**
+     * Of the keys that the conditions of any revision of the form read and `factTypes()` does not declare, the
+     * ones that were valid once and are gone now (e.g. a custom point staff removed), with their types. A
+     * revision that reads one still parses, and the key reads as empty (none), so the condition is unknown and
+     * its branch does not hold. Asked only when a definition is read, never when it is saved.
+     *
+     * @param list<string> $keys
+     * @return array<string, ValueType>
+     */
+    public function goneTypes(Form $form, array $keys): array;
+
+    /**
      * The values of `factTypes()` for the form; null when what the form belongs to is gone (the form's
      * page then shows it unavailable, and its routes answer `NotFound`).
      */

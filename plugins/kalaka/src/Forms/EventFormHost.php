@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Assignments\Api\AssignmentSet;
 use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
@@ -19,12 +20,19 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\RequestOptions;
+use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Forms\Api\ValueType;
+use Kalaka\Forms\Engine\Condition\ConditionKeys;
+use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -63,12 +71,81 @@ final class EventFormHost implements FormHost
         return $this->registrations ??= new Registrations();
     }
 
+    /**
+     * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for
+     * every form the event's places left, its custom points and whether each request field's choice window is
+     * open (`EventValues::volatileTypes()`); for an additional form also the registration's status and the
+     * stored values of the event's participant fields, by their keys (`typesOf()`). A key the form holds as a
+     * field is read from the answers: the parser drops it from this list.
+     */
     public function factTypes(Form $form): array
     {
-        return EventValues::FORM_TYPES;
+        $event = $this->event($form);
+
+        return $event === null ? EventValues::FORM_TYPES : $this->typesOf($event, $form->placement);
     }
 
-    /** The event's keys and `account.logged_in`: yes or no on a form with an account step, none on one without. */
+    /**
+     * A custom point that a revision's conditions read and the event no longer has (staff removed it) is gone:
+     * a date that reads as empty, so no revision closes over it, as none closes over a removed set option
+     * (CF1). Only such a point counts; any other unknown key stays an error. A save refuses it
+     * (`DefinitionCheck`, `unknown_point`).
+     */
+    public function goneTypes(Form $form, array $keys): array
+    {
+        $event = $this->event($form);
+        $gone = [];
+        foreach ($keys as $key) {
+            if (
+                $event !== null
+                && preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
+                && !isset(EventValues::volatileTypes($event, [])[$key])
+            ) {
+                $gone[$key] = ValueType::Date;
+            }
+        }
+
+        return $gone;
+    }
+
+    /**
+     * The gone points (`goneTypes()`) that the revision being walked (`Form::$version`) reads: valued as none in
+     * the facts. A revision that is not readable has none.
+     *
+     * @return list<string>
+     */
+    private function gonePoints(Form $form): array
+    {
+        try {
+            $content = (new FormPosts())->content($form, $form->version);
+        } catch (SystemFailure) {
+            return [];
+        }
+
+        return array_keys($this->goneTypes($form, ConditionKeys::in(parse_blocks($content))));
+    }
+
+    /**
+     * The types `factTypes()` declares, for an event and a placement (the editor lists them too).
+     *
+     * @return array<string, ValueType>
+     */
+    public function typesOf(Event $event, FormPlacement $placement): array
+    {
+        $types = EventValues::FORM_TYPES
+            + EventValues::volatileTypes($event, array_keys($this->requestSets($event->id)));
+        if ($placement === FormPlacement::Additional) {
+            $types[RegistrationFacts::STATUS] = ValueType::Choice;
+            $types += (new Forms())->storedTypes($event->id);
+        }
+
+        return $types;
+    }
+
+    /**
+     * The values of `factTypes()` on a form's page and re-fetch: the active registration's status and field
+     * values for an additional form, as they are now.
+     */
     public function facts(Form $form): ?ValueContext
     {
         $event = $this->event($form);
@@ -76,8 +153,67 @@ final class EventFormHost implements FormHost
             return null;
         }
         $loggedIn = self::accountStepOf($form, $event) === null ? null : is_user_logged_in();
+        $target = $this->target($form);
+        $stored = $target === null ? null : $this->registrations()->values($target);
+        $status = $target === null ? null : $this->registrations()->find($target)?->status->value;
 
-        return new ValueContext(EventValues::form($event, $loggedIn));
+        return $this->factsFor($form, $event, $loggedIn, Runner::current()->clock()->now(), $stored, $status);
+    }
+
+    /**
+     * The values of `typesOf()` for the form, from what the caller read: the one builder behind the page, the
+     * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued; an additional
+     * form with no registration (`$stored` null) reads its registration keys as none, never fails.
+     *
+     * @param array<string, string>|null $stored the registration's field values by key (an additional form)
+     * @param string|null $status the registration's status (an additional form)
+     */
+    public function factsFor(
+        Form $form,
+        Event $event,
+        ?bool $loggedIn,
+        \DateTimeImmutable $now,
+        ?array $stored,
+        ?string $status
+    ): ValueContext {
+        $open = [];
+        foreach ($this->requestSets($event->id) as $key => $set) {
+            $open[$key] = $set->windowContains($now);
+        }
+        $values = array_map(
+            static fn (ValueType $type): Value => Value::none($type),
+            array_fill_keys($this->gonePoints($form), ValueType::Date)
+        ) + EventValues::form($event, $loggedIn)
+            + EventValues::volatile($event, $this->registrations()->registeredCount($event->id), $open);
+        if ($form->placement === FormPlacement::Additional) {
+            $values[RegistrationFacts::STATUS] = $status === null
+                ? Value::none(ValueType::Choice)
+                : Value::choice([$status], '');
+            $typed = $stored === null ? [] : (new Forms())->participantValues($event->id, $stored);
+            foreach ((new Forms())->storedTypes($event->id) as $key => $type) {
+                $values[$key] = $typed[$key] ?? Value::none($type);
+            }
+        }
+
+        return new ValueContext($values);
+    }
+
+    /**
+     * The event's request fields with the set each names (request field key → set), whose window a form's
+     * condition reads as `choice_open.<key>`.
+     *
+     * @return array<string, AssignmentSet>
+     */
+    private function requestSets(int $eventId): array
+    {
+        $sets = [];
+        foreach ($this->sets->ofEvent($eventId) as $set) {
+            if ($set->requestFieldKey !== null) {
+                $sets[$set->requestFieldKey] = $set;
+            }
+        }
+
+        return $sets;
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array

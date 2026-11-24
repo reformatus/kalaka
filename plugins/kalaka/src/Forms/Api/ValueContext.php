@@ -8,12 +8,13 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
  * The declared keys of a document and their values: built by whoever renders the document. A key
- * is a field key or a dotted `<group>.<name>`; each key's type is known even when its value is `none`.
+ * is a field key or a dotted `<group>.<name>` (or `<group>.<name>.<id>`, the event's custom points); each
+ * key's type is known even when its value is `none`.
  * It is the plain fact source: a map of keys to values.
  */
 final readonly class ValueContext implements Facts
 {
-    private const KEY_PATTERN = '/\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?\z/';
+    private const KEY_PATTERN = '/\A[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*(\.[0-9]+)?)?\z/';
 
     /** @param array<string, Value> $values key → value */
     public function __construct(private array $values = [])

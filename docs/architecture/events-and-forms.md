@@ -414,6 +414,12 @@ is no other participant-side edit.
     logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
     form has an account step, and none where it has none (the event's off
     account mode, an additional form), never no there.
+    An additional form's conditions also read its registration's status
+    (`registration.status`). Every form's conditions read the places the
+    event has left (`event.seats_left`), whether a set's choice window is open
+    (`choice_open.<field key>`) and the event's own points
+    (`event.points.<id>`). Whatever decides what a form shows is such a
+    value; the backend keeps no rule of its own on who sees what.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -461,9 +467,20 @@ is no other participant-side edit.
   stores nothing. Validation follows what shows: at submit a required
   choice left unanswered has its own required error, and the fields of the
   branch shown at that moment (an `else`, say) are checked like any shown
-  field.
+  field. A registration form's submit and an
+  additional form's submit both walk the form this way, so a required field
+  that shows and is left blank refuses the submit with the general answer
+  error.
 - **Mid-form availability is advisory.** Seats and capacity are decided only
   at submit, under the lock; the texts say so (approved when built).
+- **The submit judges values that change.** The time, the places left, a
+  registration's status and the choice windows can change between the page and
+  the submit. The submit's walk reads them as they are then: a field that now shows is checked
+  like any shown field, and an answer that no longer shows or is no longer
+  offered is dropped. An additional form's submit reads the registration's
+  stored values and status once for its walk and reads them again under the
+  registration lock; if they differ, the walk is run again. Places are still
+  taken only under the lock, by the rules that own them.
 
 **The condition format:**
 

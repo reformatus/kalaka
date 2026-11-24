@@ -799,6 +799,7 @@ final class SubmitRegistrationTest extends FormsTestCase
             $version - 1,
             [],
             false,
+            SubmitRegistration::fingerprint($form->id, self::ANSWERS),
         );
 
         try {
@@ -819,6 +820,7 @@ final class SubmitRegistrationTest extends FormsTestCase
             $this->versionOf($form->eventId),
             [],
             false,
+            SubmitRegistration::fingerprint($form->id, self::ANSWERS),
         );
 
         $this->expectException(\Kalaka\Foundation\Api\Error\SystemFailure::class);

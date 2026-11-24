@@ -187,9 +187,26 @@ values and conditions, prefill and form links
   fact source; the evaluator never runs the materializer on a draft.
 - A form is walked the same way for a draft's re-render and at submit
   (`FormWalk`). In a form, a condition reads only answers of fields before it
-  and the event's keys (`Api\EventValues`). At submit, an answer in a branch
+  and the host's keys (`FormHost::factTypes()`: the event's, `Api\EventValues`,
+  and an additional form's stored values). At submit, an answer in a branch
   that does not hold, or an option that is not offered, is dropped: never
   stored, never required, never an error.
+- The keys only a form's conditions read (`event.seats_left`,
+  `choice_open.<field key>`, `event.points.<id>`) are `EventValues::volatile()`,
+  never in `EventValues::of()`, which mails, the after-submit section and
+  `RegistrationFacts` also read. An additional form also reads
+  `registration.status` and, by key, the stored values of the event's
+  participant fields it does not hold (a field the form holds is read from its
+  answers: `DefinitionParser` drops its key from the host's list, and
+  `FormScope` prefers the form's own field). `EventFormHost::typesOf()` and
+  `factsFor()` are the one pair that declares and values them, for the page,
+  the re-fetch and the submit's walk (`Forms::submitFacts()`) alike, and the
+  editor lists the same keys (`Module::editorData()`). A branch that reads any
+  of them is withheld. The submit's walk reads them as they are then.
+- A key a revision's conditions read that the host says is gone (`FormHost::goneTypes()`: a custom point staff
+  removed) is declared as its type with value none when a definition is read, for every revision, so a removed
+  point never closes a form or an older revision; the save check refuses it (`unknown_point`). Only conditions
+  count: text that mentions a key declares nothing (`Engine\Condition\ConditionKeys`).
 - A form's chains are numbered once, by `Engine\Condition\ChainMarks`, on the parsed
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
   blocks render them (`data-kalaka-chain`, `data-kalaka-branch`), so nothing

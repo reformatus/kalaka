@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
+use Kalaka\Registrations\RegistrationCount;
 use Kalaka\Registrations\RegistrationList;
 use Kalaka\Registrations\RegistrationRepository;
 use Kalaka\Registrations\Submission\SubmissionRepository;
@@ -23,6 +24,7 @@ final class Registrations
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
+        private readonly RegistrationCount $count = new RegistrationCount(),
     ) {
     }
 
@@ -68,6 +70,15 @@ final class Registrations
         }
 
         return $values;
+    }
+
+    /**
+     * The event's `registered` registrations: the places taken (waitlisted ones take none). A plain read,
+     * without a lock; a form's `event.seats_left` is computed from it.
+     */
+    public function registeredCount(int $eventId): int
+    {
+        return $this->count->registered($eventId);
     }
 
     /**

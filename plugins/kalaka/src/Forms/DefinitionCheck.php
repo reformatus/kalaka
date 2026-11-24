@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
+use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Engine\Condition\ConditionKeys;
 use Kalaka\Forms\Engine\DefinitionParser;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\Api\Form;
@@ -309,6 +312,12 @@ final class DefinitionCheck
         if ($problem !== null || !$published || $placement === null) {
             return $problem;
         }
+        // CF2: a custom point the event does not have is refused on save (a point removed later only reads as empty).
+        $point = self::unknownPoint($content, $eventId);
+        if ($point !== null) {
+            return ['unknown_point', $point];
+        }
+
         try {
             $form = new Form($formId, $eventId ?? 0, $placement, null, false, 0);
             $parser = new DefinitionParser();
@@ -319,6 +328,22 @@ final class DefinitionCheck
 
         // S15 (owner ruling 2026-11-18): a registration form of an event with accounts holds the account block.
         return AccountBlock::problem($definition, $placement, $eventId);
+    }
+
+    /** The first `event.points.<id>` the content reads that the event has no custom point for; null for none. */
+    private static function unknownPoint(string $content, ?int $eventId): ?string
+    {
+        $keys = array_values(array_filter(
+            ConditionKeys::in(parse_blocks($content)),
+            static fn (string $key): bool => preg_match('/\\Aevent\\.points\\.[0-9]+\\z/', $key) === 1
+        ));
+        $event = $keys === [] || $eventId === null ? null : (new Events())->find($eventId);
+        if ($event === null) {
+            return null;
+        }
+        $known = array_keys(EventValues::volatileTypes($event, []));
+
+        return array_values(array_diff($keys, $known))[0] ?? null;
     }
 
     /** The placement being saved, else the stored one, else null. */

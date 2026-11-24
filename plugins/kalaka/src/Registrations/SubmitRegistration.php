@@ -60,6 +60,8 @@ final class SubmitRegistration implements PublicUseCase
      *     stored value's key must be a participant field of the event with that type
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      * @param AccountOutcome|null $account the owner account; null for none
+     * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
+     *     until the token's repeat rule has been applied under the lock, then thrown
      */
     public function __construct(
         private readonly Form $form,
@@ -68,6 +70,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly int $eventVersion,
         private readonly array $roles,
         private readonly bool $passwordGiven,
+        private readonly string $fingerprint,
         private readonly array $fieldTypes = [],
         private readonly array $participantFields = [],
         private readonly ReferenceCodeGenerator $codes = new ReferenceCodeGenerator(),
@@ -79,6 +82,7 @@ final class SubmitRegistration implements PublicUseCase
         private readonly RegistrationCount $count = new RegistrationCount(),
         private readonly ActionMails $mails = new ActionMails(),
         private readonly ?AccountOutcome $account = null,
+        private readonly ?\Throwable $walkFailure = null,
     ) {
     }
 
@@ -119,7 +123,7 @@ final class SubmitRegistration implements PublicUseCase
 
         $event = $this->capacity->lockForRegistration($context, $eventId);
 
-        $fingerprint = self::fingerprint($this->form->id, $this->answers->stored());
+        $fingerprint = $this->fingerprint;
         $earlier = $this->submissions->withToken($eventId, $token);
         if ($earlier !== null) {
             // N6: a repeat must carry the same answers; its answer names the registration to nothing but the
@@ -142,6 +146,10 @@ final class SubmitRegistration implements PublicUseCase
             // The answers' conditions read the event as it was: the caller checks them again.
             $error = new VersionConflict();
             throw $error;
+        }
+        // The answers' walk failed before the transaction: said now, after the repeat rule had its say.
+        if ($this->walkFailure !== null) {
+            throw $this->walkFailure;
         }
 
         $refusals = $this->forms->refusals(
@@ -246,14 +254,16 @@ final class SubmitRegistration implements PublicUseCase
     }
 
     /**
-     * The fingerprint of a submit's answers (N6): SHA-256 of the form ID and the stored answers, sorted by
-     * key, as JSON. Two submits with the same answers have the same fingerprint whatever their order.
+     * The fingerprint of a submit's answers (N6): SHA-256 of the form ID and the answers as sent, sorted by
+     * key, as JSON. Two submits with the same answers have the same fingerprint whatever their order. It is
+     * over what was sent, not what the walk kept, so a resend is a repeat even when a value the form's
+     * conditions read (the places left) has changed since and the walk keeps other answers now (CF2).
      *
-     * @param array<string, string> $stored
+     * @param array<array-key, mixed> $sent
      */
-    public static function fingerprint(int $formId, array $stored): string
+    public static function fingerprint(int $formId, array $sent): string
     {
-        ksort($stored, SORT_STRING);
+        $stored = self::sorted($sent);
         try {
             $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR;
             // phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- wp_json_encode() would repair invalid UTF-8
@@ -264,5 +274,18 @@ final class SubmitRegistration implements PublicUseCase
         }
 
         return hash('sha256', $json);
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     * @return array<array-key, mixed>
+     */
+    private static function sorted(array $value): array
+    {
+        if (!array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+
+        return array_map(static fn (mixed $item): mixed => is_array($item) ? self::sorted($item) : $item, $value);
     }
 }
