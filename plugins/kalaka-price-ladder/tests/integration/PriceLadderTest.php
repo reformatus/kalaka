@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Evaluation\EvaluationFailureRepository;
@@ -272,7 +273,7 @@ final class PriceLadderTest extends PriceLadderTestCase
         try {
             $this->ladder->propose($this->event, [self::ivkTiers()[0]]);
             self::fail('The proposal went through.');
-        } catch (RuleViolation) {
+        } catch (ItemChosen) {
             self::assertCount(5, $this->ladder->tiers($this->event));
         }
         self::assertNull((new EvaluationFailureRepository())->find($anna));
