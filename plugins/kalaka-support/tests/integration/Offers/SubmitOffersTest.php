@@ -12,6 +12,8 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -145,5 +147,33 @@ final class SubmitOffersTest extends FormsTestCase
         self::assertFalse($this->seats->holds($this->pool(), $unticked->registration));
         self::assertFalse($this->seats->holds($this->pool(), $absent->registration));
         self::assertSame(3, $this->registrationCount());
+    }
+
+    public function testTheSubmitEntryPointReachesTheOffersClaimsThroughTheContributedSources(): void
+    {
+        $submit = function (): SubmitResult {
+            $form = $this->readForm($this->form);
+
+            return (new RegistrationSubmit($this->runner))->submit(
+                new SubmitRequest(
+                    $form->id,
+                    $form->version,
+                    ['name' => 'Teszt Elek', 'email' => 'teszt@example.org', 'keret' => true],
+                    SubmitToken::generate()
+                ),
+                new GuestActor()
+            );
+        };
+
+        $first = $submit();
+        self::assertTrue($this->seats->holds($this->pool(), $first->registration));
+
+        try {
+            $submit();
+            self::fail('The full offer should have refused the submit.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['keret'], array_keys($invalid->fields));
+        }
+        self::assertSame(1, $this->registrationCount());
     }
 }

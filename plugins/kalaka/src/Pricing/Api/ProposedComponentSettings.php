@@ -19,6 +19,10 @@ interface ProposedComponentSettings
     /** The component as it would compose with the proposed settings instead of the stored ones. */
     public function component(): FeeComponent;
 
-    /** The audited use case that saves the proposed settings, run by the apply through the runner. */
+    /**
+     * The audited use case that saves the proposed settings, run by the apply through the runner. The apply asks
+     * every component for its save before it runs any, so settings that can no longer be saved refuse here
+     * (throw) while nothing is saved yet.
+     */
     public function save(): SettingsSave;
 }
