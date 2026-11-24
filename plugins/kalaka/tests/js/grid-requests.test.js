@@ -36,7 +36,7 @@ describe( 'the state line', () => {
 
 	test( 'shows the award of a granted aid and „Elutasítva” for an award of zero', () => {
 		const granted = { ...aid, state: 'approved', amount: '12000.00000000' };
-		expect( stateText( granted, 'HUF' ) ).toBe( 'Megítélt összeg: 12\u00a0000\u00a0Ft' );
+		expect( stateText( granted, 'HUF' ) ).toBe( 'Jóváhagyva (12\u00a0000\u00a0Ft)' );
 		expect( stateText( { ...aid, state: 'refused', amount: '0.00000000' }, 'HUF' ) ).toBe( REQUESTS.refused );
 	} );
 } );

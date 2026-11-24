@@ -204,7 +204,7 @@ export const REQUESTS = {
 	awaiting: 'Válaszra vár',
 	approved: 'Jóváhagyva',
 	refused: 'Elutasítva',
-	award: 'Megítélt összeg: %s',
+	award: 'Jóváhagyva (%s)', // [UNAPPROVED T6]
 	answer: 'Megválaszolás',
 	change: 'Válasz módosítása',
 	dialogTitle: 'Kérelem megválaszolása',
@@ -215,7 +215,8 @@ export const REQUESTS = {
 	amountField: 'Megítélt összeg (Ft)',
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
-	full: 'Ennek a támogatásnak már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
+	// [UNAPPROVED T10]
+	full: 'Ennek a lehetőségnek már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
 	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
 };
