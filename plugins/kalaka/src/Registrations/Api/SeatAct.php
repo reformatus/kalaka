@@ -11,4 +11,5 @@ enum SeatAct: string
     case Admission = 'admission';
     case Restore = 'restore';
     case Placement = 'placement';
+    case Answer = 'answer';
 }

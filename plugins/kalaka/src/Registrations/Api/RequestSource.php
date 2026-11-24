@@ -35,10 +35,10 @@ interface RequestSource
     public function isAnswered(Request $request, array $values): bool;
 
     /**
-     * The key of the seat pool an offer's seat comes from, or null when the request has no limit (an aid
-     * request, an offer with no quota). The answer act passes it to `OfferSeats`.
+     * The seat pool an offer's seat comes from, or null when the request has no limit (an aid request, an offer
+     * with no quota). A plain read. The answer act passes it to `OfferSeats`.
      */
-    public function seatPool(Request $request): ?string;
+    public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool;
 
     /**
      * Writes the answer to the source's own participant field, inside the answer act's transaction, with
