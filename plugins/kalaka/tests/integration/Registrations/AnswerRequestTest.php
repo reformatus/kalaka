@@ -645,7 +645,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
             'type' => 'kalaka/text-field',
             'title' => 'Teszt mező',
             'source' => 'extension',
-            'declared_by' => 'kalaka-aid',
+            'declared_by' => 'aid',
             'created_at' => '2026-11-13 08:00:00.000000',
             'updated_at' => '2026-11-13 08:00:00.000000',
             'position' => 201,
@@ -657,7 +657,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         } catch (SystemFailure) {
             self::assertNull($this->value('held_by_aid'));
         }
-        $write('held_by_aid', true, 'kalaka-aid');
+        $write('held_by_aid', true, 'aid');
         self::assertSame('x', $this->value('held_by_aid'));
     }
 

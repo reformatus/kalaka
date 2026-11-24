@@ -137,8 +137,8 @@ the waitlist and reference codes
     never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`; it records who, when,
     the note), and the answer as the source's own participant field value, written by the source
     (`RequestSource::writeAnswer()`, called by the act) through `Registrations::writeValue()`, so the source
-    stays that field's only writer. `writeValue()` takes the writing module's declarer (`kalaka-aid`,
-    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (it refuses a field
+    stays that field's only writer. `writeValue()` takes the writing module's declarer (`aid`,
+    `support`): one writer rule, a field is written by its declarer's own code only (it refuses a field
     whose `declared_by` is another declarer). It refuses a run that does not hold
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same

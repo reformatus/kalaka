@@ -23,6 +23,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -32,7 +33,9 @@ use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\OfferSeatPool;
 use Kalaka\Support\Offers\OffersInput;
+use Kalaka\Support\Offers\SetSupportOffers;
 use Kalaka\Support\Offers\SupportComponent;
+use Kalaka\Support\Module;
 
 /**
  * S30 on the topic-15 model: a selected offer is one participant-side `support:<key>` line, capped together at
@@ -208,8 +211,8 @@ final class OffersTest extends OffersTestCase
         $this->declareParticipantField($this->event, 'gyulekezet');
         $this->declareParticipantField($this->event, 'tamogatas_answer');
         $this->declareParticipantField($this->event, 'ar', [['value' => 'a', 'label' => 'A']]);
-        $this->extensionField('masike', 'kalaka/consent-field', 'kalaka-aid');
-        $this->extensionField('masike2_answer', 'kalaka/choice-field', 'kalaka-aid');
+        $this->extensionField('masike', 'kalaka/consent-field', 'aid');
+        $this->extensionField('masike2_answer', 'kalaka/choice-field', 'aid');
         $bad = [
             'a key a form field of another type holds' => [self::offer('gyulekezet', '1000')],
             'an answer key a form field of another type holds' => [self::offer('tamogatas', '1000', request: true)],
@@ -238,9 +241,10 @@ final class OffersTest extends OffersTestCase
             $fields[$field->key] = $field;
         }
         self::assertSame('extension', $fields['egyhaz']->source);
-        self::assertSame('kalaka-support', $fields['egyhaz']->declaredBy);
+        self::assertSame('support', $fields['egyhaz']->declaredBy);
         self::assertTrue($fields['egyhaz']->moneyRelevant);
-        self::assertSame('kalaka-support', $fields['egyhaz_answer']->declaredBy);
+        self::assertSame('support', $fields['egyhaz_answer']->declaredBy);
+        self::assertSame((new Module())->id(), SetSupportOffers::DECLARER);
         self::assertTrue($fields['egyhaz_answer']->moneyRelevant);
     }
 
@@ -376,6 +380,7 @@ final class OffersTest extends OffersTestCase
             self::fail('The save went through.');
         } catch (RuleViolation $refused) {
             self::assertInstanceOf(OfferSelected::class, $refused);
+            self::assertInstanceOf(ItemChosen::class, $refused);
             self::assertSame('kalaka_offer_selected', $refused->errorCode());
             self::assertCount(2, $this->offers->offers($this->event));
         }
@@ -684,7 +689,7 @@ final class OffersTest extends OffersTestCase
         try {
             $this->inRun(function (array $input, Context $context) use ($key): void {
                 $this->lockRegistrations($context, $key);
-                (new Registrations())->writeValue($key, 'egyhaz_answer', 'refused', $context, 'kalaka-aid');
+                (new Registrations())->writeValue($key, 'egyhaz_answer', 'refused', $context, 'aid');
             });
             self::fail('Another declarer wrote the field.');
         } catch (\Kalaka\Foundation\Api\Error\SystemFailure) {
