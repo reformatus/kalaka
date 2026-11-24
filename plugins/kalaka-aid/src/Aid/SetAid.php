@@ -25,16 +25,16 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * the participant states what they can pay in, form-writable, and `aid_award`, a number written only by the aid
  * request source (the answer act), never by a form. [UNAPPROVED N115, N361, N362]
  *
- * The two fields are declared as declarer `kalaka-aid`, money relevant (locked after their first write), and their
- * keys are judged by core's `ParticipantFields::checkDeclarable()`.
+ * The two fields are declared as declarer `aid` (the module's ID), money relevant (locked after their first
+ * write), and their keys are judged by core's `ParticipantFields::checkDeclarable()`.
  */
 final class SetAid implements AdminUseCase
 {
     /** The block type of a number field, core's. */
     public const NUMBER_TYPE = 'kalaka/number-field';
 
-    /** The slug this module declares its fields with (`declared_by`) and writes them under. */
-    public const DECLARER = 'kalaka-aid';
+    /** The declarer this module declares its fields with (`declared_by`) and writes them under: its module ID. */
+    public const DECLARER = 'aid';
 
     /** The title of `aid_can_pay`, the declarer's text. [UNAPPROVED T55] */
     public const CAN_PAY_TITLE = 'Befizetni vállalt összeg';

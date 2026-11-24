@@ -41,8 +41,7 @@ is asked until decided. Sponsor and church support is the other extension
   registration); turning aid on again revives stored awards and unanswered
   requests.
 - The save declares two participant fields of source `extension` (number
-  fields) as declarer `kalaka-aid`, money relevant: `aid_can_pay`,
-  form-writable, where the participant states what they can pay, and
+  fields) as declarer `aid` (the module's ID, `SetAid::DECLARER`), money relevant: `aid_can_pay`, form-writable, where the participant states what they can pay, and
   `aid_award`, never form-writable. A form links to `aid_can_pay` by key; who
   sees it is a condition on the form. Their keys are judged by core's
   `ParticipantFields::checkDeclarable()` (a form's number field is adopted; a
@@ -53,7 +52,7 @@ is asked until decided. Sponsor and church support is the other extension
   needed. The request source reads only the field values and the settings.
 - The award is written only by `AidRequests::writeAnswer()`, called by the
   answer act: the amount for a yes (above zero, and no more than the number
-  field holds), 0 for a no, under the declarer `kalaka-aid`. The award field
+  field holds), 0 for a no, under the declarer `aid`. The award field
   is the truth of the answer (`isAnswered()`): empty is awaiting, `0` is
   refused, an amount is granted. An emptied `aid_can_pay` ends the request but
   leaves the award's line. Nothing else
