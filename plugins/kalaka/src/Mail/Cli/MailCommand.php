@@ -6,28 +6,29 @@ namespace Kalaka\Mail\Cli;
 
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Events;
-use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailStats;
 use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\ClearMailQueue;
 use Kalaka\Mail\Delivery;
 use Kalaka\Mail\DeliveryQuery;
+use Kalaka\Mail\EventMailNotHeld;
 use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\ResumeMail;
+use Kalaka\Mail\Pause\ResumeNeedsPerson;
 
 /**
  * `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed`: the mail engine from the command line
  * (mail.md, "Pausing", "Failures"), through the use cases `PauseMail`, `ResumeMail`, `ClearMailQueue` and
  * `ClearEventMail`, never through SQL. It runs as the command line without a user (full access), or, with
  * WP-CLI's `--user`, checked as that user; `status` and `failed` read for full access only. Only a person
- * resumes sending, so `resume` is refused without `--user`. The screen for the same is S41's.
+ * resumes sending: `ResumeMail` refuses an actor that is no person, and `resume` adds the hint to give
+ * `--user`. The screen for the same is S41's.
  */
 final class MailCommand
 {
@@ -75,8 +76,8 @@ final class MailCommand
     public function status(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($assocArgs): void {
-            $format = self::format($assocArgs);
-            self::fullAccess();
+            $format = CliInput::format($assocArgs);
+            CliInput::fullAccess();
             $state = $this->state->current();
             $queued = $this->stats->site()->queued;
 
@@ -123,7 +124,7 @@ final class MailCommand
     public function pause(array $args, array $assocArgs): void
     {
         Boundary::cli(function (): void {
-            $paused = Runner::current()->run(new PauseMail(), [], self::actor());
+            $paused = Runner::current()->run(new PauseMail(), [], CliActor::current());
             \WP_CLI::success($paused === true ? 'Sending is paused.' : 'Sending was already paused; nothing changed.');
         });
     }
@@ -138,11 +139,12 @@ final class MailCommand
     public function resume(array $args, array $assocArgs): void
     {
         Boundary::cli(function (): void {
-            $actor = self::actor();
-            if ($actor->userId === null) {
+            try {
+                $resumed = Runner::current()->run(new ResumeMail(), [], CliActor::current());
+            } catch (ResumeNeedsPerson) {
+                // The use case holds the rule; the command only adds the hint for the command line.
                 throw new CommandFailure('Only a person resumes sending: give the user with --user=<user>.');
             }
-            $resumed = Runner::current()->run(new ResumeMail(), [], $actor);
             \WP_CLI::success($resumed === true ? 'Sending is resumed.' : 'Sending was not paused; nothing changed.');
         });
     }
@@ -164,7 +166,7 @@ final class MailCommand
     public function clearQueue(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($assocArgs): void {
-            $actor = self::actor();
+            $actor = CliActor::current();
             AdminAccess::check(new ClearMailQueue(), [], $actor);
             $this->ask('Delete all ' . $this->stats->site()->queued . ' pending deliveries of the site?', $assocArgs);
             $deleted = Runner::current()->run(new ClearMailQueue(), [], $actor);
@@ -192,12 +194,15 @@ final class MailCommand
     public function clearEvent(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
-            $actor = self::actor();
+            $eventId = CliInput::eventId($args);
+            $actor = CliActor::current();
             $input = ['event_id' => $eventId];
             AdminAccess::check(new ClearEventMail(), $input, $actor);
             $event = $this->events->find($eventId) ?? throw new NotFound();
-            if ($event->state() === EventState::Published) {
+            try {
+                ClearEventMail::refuse($event, $this->events);
+            } catch (EventMailNotHeld) {
+                // The use case's own check, run ahead so the refusal comes before the question.
                 $error = new CommandFailure(
                     'Event ' . $eventId . ' is published: its pending mail is on its way, not held.'
                 );
@@ -232,9 +237,9 @@ final class MailCommand
     public function failed(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
-            $format = self::format($assocArgs);
-            self::fullAccess();
+            $eventId = CliInput::existingEventId($args);
+            $format = CliInput::format($assocArgs);
+            CliInput::fullAccess();
             $rows = array_map(static fn (Delivery $delivery): array => [
                 'code' => $delivery->registration->code,
                 'mail' => $delivery->mail,
@@ -277,33 +282,6 @@ final class MailCommand
         \WP_CLI\Utils\format_items($format, $rows, $fields);
     }
 
-    /** @param list<string> $args */
-    private function event(array $args): int
-    {
-        $given = $args[0] ?? '';
-        if (preg_match('/\A[1-9][0-9]*\z/', $given) !== 1) {
-            throw new CommandFailure('The event ID must be a positive whole number.');
-        }
-        $this->events->find((int) $given) ?? throw new NotFound();
-
-        return (int) $given;
-    }
-
-    /** @throws PermissionDenied unless the command line, or its user, has full access */
-    private static function fullAccess(): void
-    {
-        if (!AdminAccess::isFull(self::actor())) {
-            throw new PermissionDenied();
-        }
-    }
-
-    private static function actor(): CliActor
-    {
-        $current = get_current_user_id();
-
-        return new CliActor($current > 0 ? $current : null);
-    }
-
     private static function who(?int $userId): string
     {
         if ($userId === null) {
@@ -322,16 +300,5 @@ final class MailCommand
     private static function count(mixed $deleted): int
     {
         return is_int($deleted) ? $deleted : 0;
-    }
-
-    /** @param array<string, mixed> $assocArgs */
-    private static function format(array $assocArgs): string
-    {
-        $format = $assocArgs['format'] ?? 'table';
-        if (!in_array($format, ['table', 'json', 'csv'], true)) {
-            throw new CommandFailure('The format must be table, json or csv.');
-        }
-
-        return $format;
     }
 }
