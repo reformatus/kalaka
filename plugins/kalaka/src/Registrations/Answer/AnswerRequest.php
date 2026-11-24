@@ -36,7 +36,7 @@ use Kalaka\Registrations\Api\RequestState;
  *   [UNAPPROVED N5]
  * - Writes one answer record per act (its id is the key the "answered" mail will take) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
- *   registration is then evaluated in the same run, so money, then confirmation, follow the answer.
+ *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
  * - A repeat of the latest answer, the same yes or no, the same amount and no new note, writes nothing; a new
  *   note alone is a new act. [UNAPPROVED N8] Only a
  *   `registered` or `waitlisted` registration is answered; a withdrawn or removed one is a `RuleViolation`.

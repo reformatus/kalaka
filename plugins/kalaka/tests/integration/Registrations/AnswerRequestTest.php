@@ -37,7 +37,8 @@ use Kalaka\Tests\Integration\Ledger\ManualEntryTestCase;
 /**
  * "Answer a request" end to end (the walkthrough's six cases, B1 to B3): one act for offers and aid, one answer
  * record per act, the answer as the source's own field value, a refusal freeing the seat, and the registration
- * evaluated in the same run (money, then confirmation). The "answered" mail and the due clock are later slices.
+ * evaluated in the same run (money, then confirmation, then mail). The "answered" mail and the due clock are later
+ * slices.
  * The fee components and the source are test doubles for B0's offers and aid.
  */
 final class AnswerRequestTest extends ManualEntryTestCase
@@ -90,7 +91,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
             new AnswerComponent('aid', FeeStage::Aid, 'aid_award', new Registrations()),
         ]));
         $rules = new DecisionRules();
-        $rules->add(new ConfirmationRule($money->composition()), true, true);
+        $rules->add(new ConfirmationRule($money->composition()), true);
 
         return new Runner($this->clockAt($local), true, new Evaluation($rules, money: $money));
     }
@@ -254,6 +255,37 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame('confirmed', $this->confirmationState());
         self::assertSame((string) $partner, $this->answerRows()[0]['answered_by']);
         self::assertNotContains('release:' . TestRequestSource::POOL, $this->seats->calls);
+    }
+
+    /** The pass runs money, confirmation, mail: an answer that makes the payments enough confirms and queues the mail. */
+    public function testAnAnswerThatConfirmsQueuesTheConfirmedMailInTheSamePass(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+            'layout' => 1,
+        ]);
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->runner = $this->runnerAt('2026-12-03 10:00');
+        $this->pay('20000', '2026-12-03', 'k1');
+        self::assertNull($this->confirmationState());
+        $deliveries = fn (): array => $wpdb->get_results($wpdb->prepare(
+            "SELECT code, cause_type, cause_key FROM %i WHERE mail = 'confirmed' ORDER BY id",
+            $wpdb->prefix . 'kalaka_deliveries'
+        ), ARRAY_A);
+        self::assertSame([], $deliveries());
+
+        $this->runner = $this->runnerAt('2026-12-05 10:00');
+        $this->answer(TestRequestSource::OFFER, 'yes');
+
+        self::assertSame('confirmed', $this->confirmationState());
+        $rows = $deliveries();
+        self::assertCount(1, $rows);
+        self::assertSame(self::KEY, $rows[0]['code']);
+        self::assertSame('decision', $rows[0]['cause_type']);
     }
 
     public function testAnAwaitingRequestDoesNotBlockConfirmationAndALaterApprovalLeavesAnOverpayment(): void

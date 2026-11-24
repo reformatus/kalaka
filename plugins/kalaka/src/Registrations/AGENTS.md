@@ -139,5 +139,5 @@ the waitlist and reference codes
     pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.
   - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
-    confirmation) follows in the same run.
+    confirmation, then mail) follows in the same run.
 - Only Registrations writes its tables.

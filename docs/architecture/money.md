@@ -141,8 +141,8 @@ title: Money
   records; nobody sets it directly. It is not a status
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
   It is checked once at the end of every pass, after money: a payment, a
-  correction, a „Kedvezmény”, an apply, an admission or a restore all lead to
-  the same check.
+  correction, a „Kedvezmény”, an answer, an apply, an admission or a restore
+  all lead to the same check.
 - **The threshold** is a target per payer. Each payer with something owed must
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every

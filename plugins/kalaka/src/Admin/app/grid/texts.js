@@ -215,6 +215,6 @@ export const REQUESTS = {
 	amountField: 'Megítélt összeg (Ft)',
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
-	full: 'Ez a támogatás már betelt. Ha jóváhagyod, a létszám túllépi a keretet.',
+	full: 'Ennek a támogatásnak már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
 };
