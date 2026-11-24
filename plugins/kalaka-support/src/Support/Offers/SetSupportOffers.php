@@ -31,7 +31,7 @@ use Kalaka\Support\Directory\NodeRepository;
  * offer's key, form-writable and titled with the offer's label; and, for an offer that must be requested, its
  * answer `<key>_answer`, a choice of `approved` and `refused`, written only by the offer's request source (the
  * answer act). A removed offer's fields stay declared: core has no way to retire a field, and the form decides
- * whether the field shows. [UNAPPROVED N1, N2]
+ * whether the field shows. [UNAPPROVED N1, N2, N9]
  */
 final class SetSupportOffers implements AdminUseCase
 {

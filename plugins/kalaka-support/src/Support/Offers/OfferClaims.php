@@ -13,7 +13,7 @@ use Kalaka\Registrations\Api\SeatClaimSource;
  * The seat claims of a submit's support offers: one claim, in the offer's own field, for each limited offer
  * whose consent the registrant ticked. It locks nothing, counts nothing and writes nothing: the submit locks
  * the pools (a full one refuses the submit, with the message on that field) and takes the seats when the
- * registration becomes `registered`. [UNAPPROVED N4]
+ * registration becomes `registered`. [UNAPPROVED N6]
  */
 final class OfferClaims implements SeatClaimSource
 {
