@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Cli\MailCommand;
 
 /** `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed`: what they print, change and refuse. */
@@ -16,6 +17,8 @@ final class MailCommandTest extends MailTestCase
     /** @var list<string> the questions asked */
     private array $asked = [];
 
+    private Runner $production;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
@@ -25,12 +28,16 @@ final class MailCommandTest extends MailTestCase
             self::markTestSkipped('The real WP-CLI is loaded; the recording double is not in use.');
         }
         \WP_CLI::reset();
+        // The command runs the use cases through the production runner: in a test it joins the harness's transaction.
+        $this->production = Runner::current();
+        Runner::publish($this->runner);
     }
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function tear_down(): void
     {
         wp_set_current_user(0);
+        Runner::publish($this->production);
         parent::tear_down();
     }
 
@@ -169,9 +176,9 @@ final class MailCommandTest extends MailTestCase
         $this->command()->resume([], []);
 
         self::assertSame(['Sending is resumed.', 'Sending was not paused; nothing changed.'], $this->lines());
-        self::assertNull($this->stateRow()['paused_at'] ?? 'x');
+        self::assertNull($this->stateRow()['paused_at']);
         $entries = $this->entriesOf('kalaka/resume-mail');
-        self::assertSame($user, (int) $entries[0]['actor_user_id']);
+        self::assertSame($user, (int) $entries[count($entries) - 1]['actor_user_id']);
     }
 
     public function testClearQueueAsksFirstAndDeletesOnlyPendingDeliveries(): void
