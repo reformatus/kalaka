@@ -123,6 +123,19 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame([$set], array_map(static fn ($s) => $s->id, $this->sets->ofEvent($this->event)));
     }
 
+    public function testAnOptionsLimitIsReadUnderTheSameNameItWasGiven(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['limit' => 12]);
+        $this->newOption($set, 'Modul B', null, ['limit' => null]);
+
+        $stored = $this->sets->find($set);
+
+        self::assertNotNull($stored);
+        self::assertSame(12, $stored->option('modul_a')?->limit);
+        self::assertNull($stored->option('modul_b')?->limit);
+    }
+
     public function testTheWindowHoldsFromItsOpeningUpToItsClosing(): void
     {
         $set = $this->sets->find($this->newSet());
@@ -290,7 +303,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame([], $warn($second, 'modul_a'));
         $this->place($first, $set, 'modul_a');
         self::assertSame([], $warn($first, 'modul_a'));
-        // Another registration would exceed the capacity of one.
+        // Another registration would exceed the limit of one.
         self::assertSame(
             ['Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.'],
             $warn($second, 'modul_a')
@@ -308,6 +321,24 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->place($second, $set, 'modul_a');
         self::assertSame('modul_a', $this->sets->assignment($second, $set)?->optionKey);
         self::assertSame([], $warn($second, 'nincs'));
+    }
+
+    public function testARegistrationThatTakesNoSeatIsNotWarnedThatTheOptionIsFull(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $waiting = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($first, $waiting);
+        $this->place($first, $set, 'modul_a');
+        self::assertSame(
+            ['Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.'],
+            $this->sets->placementWarnings($waiting, $set, 'modul_a')
+        );
+
+        $this->setStatus($waiting, RegistrationStatus::Waitlisted);
+
+        self::assertSame([], $this->sets->placementWarnings($waiting, $set, 'modul_a'));
     }
 
     public function testAWarningIsNotComputedForARegistrationThePlacingWouldRefuse(): void

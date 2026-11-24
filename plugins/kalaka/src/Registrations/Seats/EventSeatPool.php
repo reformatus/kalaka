@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Seats;
 
 use Kalaka\Events\Api\EventCapacity;
 use Kalaka\Events\Api\Events;

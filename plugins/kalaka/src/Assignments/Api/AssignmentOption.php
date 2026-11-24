@@ -10,7 +10,7 @@ use Kalaka\Forms\Api\Conditional;
  * One option of an assignment set (modules-and-extensions.md, "Assignment sets"): IVK's module. Its key is
  * derived once from the label (`Forms\Api\KeyDerivation::value()`) and never changes. Whether it is offered
  * is decided by its eligibility condition, in the one condition format, through the one availability base
- * (`Forms\Api\Availability`, S76); it never evaluates the condition itself. The capacity limits only this
+ * (`Forms\Api\Availability`, S76); it never evaluates the condition itself. The limit applies only to this
  * option, and only at confirmation (request mode); `leaders` and `place` are display text.
  */
 final readonly class AssignmentOption implements Conditional
@@ -20,7 +20,7 @@ final readonly class AssignmentOption implements Conditional
         public int $setId,
         public string $key,
         public string $label,
-        public ?int $capacity,
+        public ?int $limit,
         public string $leaders,
         public string $place,
         public ?array $condition,
