@@ -22,7 +22,7 @@ use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
 /**
- * A registrant's own submit through the real submit, with a fee component that refuses (#200 N11, N15): the
+ * A registrant's own submit through the real submit, with a fee component that refuses (#200 N11, N18): the
  * submit is refused with the component's text for the registrant, and nothing is written.
  */
 final class SubmitRefusalTest extends FormsTestCase

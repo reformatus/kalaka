@@ -137,13 +137,22 @@ final class ConditionNowTest extends TestCase
     {
         $facts = new ValueContext([
             'note' => Value::text('Teszt', 'Teszt'),
+            'closes' => Value::date('2026-12-15', ''),
             Facts::NOW => Value::date('2026-11-30', ''),
         ]);
+        $reference = static fn (string $key): array => [
+            'match' => 'all',
+            'items' => [['key' => $key, 'operator' => 'equals', 'value' => ['ref' => 'now']]],
+        ];
+        $parser = new ConditionParser();
 
-        $this->expectException(SystemFailure::class);
-        (new ConditionParser())->parse(
-            ['match' => 'all', 'items' => [['key' => 'note', 'operator' => 'equals', 'value' => ['ref' => 'now']]]],
-            new ContextScope($facts)
-        );
+        // The same reference parses on a date key, so the refusal below is the key's type, nothing else.
+        $parser->parse($reference('closes'), new ContextScope($facts));
+        try {
+            $parser->parse($reference('note'), new ContextScope($facts));
+            self::fail('a text key must not compare with now');
+        } catch (SystemFailure $failure) {
+            self::assertStringEndsWith('invalid_condition note', $failure->getMessage());
+        }
     }
 }

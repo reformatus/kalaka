@@ -25,10 +25,9 @@ short. The architecture pages say how things are built; this page says when.
    IVK) and activated through a set-password link in the registration's
    mail (the account area itself may only say "Coming soon").
 2. **Money core:** the ledger with payers, the materializer and the money
-   settings apply; IVK's price tiers (examples only: 48 000 Ft with no share,
-   42 000 Ft with a declared share, 32 000 Ft with the whole tier as the
-   share; the 68 000 Ft "Teljes ár" is the 48 000 Ft tier plus a 20 000 Ft
-   donation); donation, lunch, the invoice request and billing fields, with
+   settings apply; IVK's price tiers (examples only: the tiers 48 000 Ft, 42 000 Ft and
+   32 000 Ft, each a base price only, the share set by separate questions; the
+   68 000 Ft "Teljes ár" is the 48 000 Ft tier plus a 20 000 Ft donation); donation, lunch, the invoice request and billing fields, with
    every line shown on the invoice and the part another payer pays marked;
    the payment-due date with its one anchor; confirmation per payer;
    recording a payment by hand.

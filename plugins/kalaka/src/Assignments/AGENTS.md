@@ -35,7 +35,10 @@ mode (S65) and the screens (S72/S48) come later.
   (`Api\AssignmentSets::placementWarnings()`, a plain read): the option is
   full (the seats held in it, not counting the registration's own, have reached
   its capacity), or the registration does not meet its condition. The option
-  must be the set's and the set the registration's event's.
+  must be the set's and the set the registration's event's. The read takes the
+  act's moment (`$now`, spread as `EventValues::now()` into its facts, for a
+  condition that compares with "now"); a condition that cannot be read fails
+  the read, it is never taken as a pass.
 - A `registered` registration holds a seat in the pool of each option it is
   confirmed into (`OptionSeatPool`, `option.<set ID>.<option key>`, under the
   one seat rule of `Registrations\Api\Seats`): staff placing takes it under a

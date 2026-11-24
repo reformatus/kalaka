@@ -13,6 +13,7 @@ use Kalaka\Assignments\PlaceRegistration;
 use Kalaka\Assignments\SetOptionClaimSource;
 use Kalaka\Events\Api\Events;
 use Kalaka\Events\CreateEvent;
+use Kalaka\Events\UpdateEvent;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Foundation\Api\Actor\CliActor;
@@ -296,7 +297,8 @@ final class AssignmentsTest extends RegistrationsTestCase
         $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings(
             $key,
             $set,
-            $option
+            $option,
+            $this->runner->clock()->now()
         );
 
         // Nobody holds Modul A yet: nothing to warn about, and a registration's own place never makes it full.
@@ -333,12 +335,48 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->place($first, $set, 'modul_a');
         self::assertSame(
             ['Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.'],
-            $this->sets->placementWarnings($waiting, $set, 'modul_a')
+            $this->sets->placementWarnings($waiting, $set, 'modul_a', $this->runner->clock()->now())
         );
 
         $this->setStatus($waiting, RegistrationStatus::Waitlisted);
 
-        self::assertSame([], $this->sets->placementWarnings($waiting, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($waiting, $set, 'modul_a', $this->runner->clock()->now()));
+    }
+
+    public function testAConditionOnNowReadsTheMomentTheActPassesDown(): void
+    {
+        global $wpdb;
+        $this->runner->run(new UpdateEvent(), [
+            'id' => $this->event,
+            'version' => (int) $wpdb->get_var(
+                $wpdb->prepare('SELECT version FROM ' . $wpdb->prefix . 'kalaka_events WHERE id = %d', $this->event)
+            ),
+            'name' => 'Tábor',
+            'capacity' => 41,
+            'registration_opens_at' => '2026-11-30 08:00',
+            'registration_closes_at' => '2026-12-15 20:00',
+            'starts_at' => '2027-07-05 10:00',
+            'ends_at' => '2027-07-12 14:00',
+            'points' => [],
+        ], new CliActor(null));
+        $set = $this->newSet();
+        $this->newOption($set, 'Korai', [
+            'match' => 'all',
+            'items' => [['key' => 'event.start', 'operator' => 'greaterThan', 'value' => ['ref' => 'now']]],
+        ]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $this->seedRegistrations($first);
+        $utc = new \DateTimeZone('UTC');
+
+        // The event starts on 2027-07-05: a condition on the event's start meets a moment before it, not after.
+        self::assertSame(
+            [],
+            $this->sets->placementWarnings($first, $set, 'korai', new \DateTimeImmutable('2026-11-30 08:00', $utc))
+        );
+        self::assertSame(
+            ['A jelentkező nem felel meg a lehetőség feltételeinek.'],
+            $this->sets->placementWarnings($first, $set, 'korai', new \DateTimeImmutable('2027-08-01 08:00', $utc))
+        );
     }
 
     public function testAWarningIsNotComputedForARegistrationThePlacingWouldRefuse(): void
@@ -347,7 +385,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $missing = new RegistrationKey($this->event, '00A0');
 
-        self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a', $this->runner->clock()->now()));
 
         $this->expectException(NotFound::class);
         $this->place($missing, $set, 'modul_a');
@@ -360,7 +398,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $other = new RegistrationKey($this->event + 1, '00A0');
         $this->seedRegistrations($other);
 
-        self::assertSame([], $this->sets->placementWarnings($other, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($other, $set, 'modul_a', $this->runner->clock()->now()));
 
         $this->expectException(NotFound::class);
         $this->place($other, $set, 'modul_a');
@@ -380,7 +418,10 @@ final class AssignmentsTest extends RegistrationsTestCase
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
         $this->place($first, $set, 'modul_a');
-        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+        self::assertNotSame(
+            [],
+            $this->sets->placementWarnings($second, $set, 'modul_a', $this->runner->clock()->now())
+        );
 
         wp_set_current_user(self::factory()->user->create());
         try {
@@ -506,7 +547,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $pool = $this->sets->seatPool($set, 'modul_a');
         self::assertNotNull($pool);
         self::assertSame(1, (new Seats())->held($pool));
-        self::assertSame([], $this->sets->placementWarnings($key, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($key, $set, 'modul_a', $this->runner->clock()->now()));
     }
 
     public function testPlacingElsewhereFreesTheOldSeatAndNobodyMovesIn(): void
@@ -543,7 +584,10 @@ final class AssignmentsTest extends RegistrationsTestCase
         $pool = $this->sets->seatPool($set, 'modul_a');
         self::assertNotNull($pool);
         $this->place($first, $set, 'modul_a');
-        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+        self::assertNotSame(
+            [],
+            $this->sets->placementWarnings($second, $set, 'modul_a', $this->runner->clock()->now())
+        );
 
         $this->inRun(function (array $input, Context $context) use ($seats, $first): void {
             (new Registrations())->lock($first, $context);
@@ -552,7 +596,7 @@ final class AssignmentsTest extends RegistrationsTestCase
 
         self::assertSame(1, $seats->left($pool));
         self::assertFalse($seats->holds($pool, $second));
-        self::assertSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($second, $set, 'modul_a', $this->runner->clock()->now()));
         // The assignment is the choice; the seat was the place: the choice stays, nobody else took the seat.
         self::assertSame('modul_a', $this->sets->assignment($first, $set)?->optionKey);
         $this->place($second, $set, 'modul_a');
