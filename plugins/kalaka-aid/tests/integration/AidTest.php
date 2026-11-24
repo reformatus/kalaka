@@ -32,6 +32,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\Api\MoneyRead;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Pricing\Cli\SettingsDocument;
+use Kalaka\Aid\Module;
 use Kalaka\Aid\SetAid;
 use Kalaka\Registrations\Api\Registrations;
 
@@ -353,7 +354,7 @@ final class AidTest extends AidTestCase
         $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', $row + [
             'field_key' => 'aid_award',
             'source' => 'extension',
-            'declared_by' => 'kalaka-support',
+            'declared_by' => 'support',
         ]);
         try {
             $this->aid->propose($this->event, 'Teszt ösztöndíj');
@@ -373,9 +374,10 @@ final class AidTest extends AidTestCase
         }
         foreach ([AidRequests::CAN_PAY_FIELD, AidComponent::AWARD_FIELD] as $key) {
             self::assertSame(ParticipantField::SOURCE_EXTENSION, $fields[$key]->source);
-            self::assertSame('kalaka-aid', $fields[$key]->declaredBy);
+            self::assertSame('aid', $fields[$key]->declaredBy);
             self::assertTrue($fields[$key]->moneyRelevant);
         }
+        self::assertSame((new Module())->id(), SetAid::DECLARER);
     }
 
     public function testTheAwardFieldIsTheTruthEmptyAwaitsZeroIsRefusedAnAmountIsGranted(): void
@@ -397,7 +399,7 @@ final class AidTest extends AidTestCase
         try {
             $this->inRun(function (array $input, Context $context) use ($key): void {
                 $this->lockRegistrations($context, $key);
-                (new Registrations())->writeValue($key, 'aid_award', '5', $context, 'kalaka-support');
+                (new Registrations())->writeValue($key, 'aid_award', '5', $context, 'support');
             });
             self::fail('Another declarer wrote the award.');
         } catch (SystemFailure) {
