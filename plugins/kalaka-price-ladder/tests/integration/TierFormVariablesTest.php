@@ -100,7 +100,7 @@ final class TierFormVariablesTest extends FormsTestCase
 
     private function facts(int $form): \Kalaka\Forms\Api\ValueContext
     {
-        $facts = (new EventFormHost())->facts($this->readForm($form));
+        $facts = (new EventFormHost())->facts($this->readForm($form), $this->runner->clock()->now());
         self::assertNotNull($facts);
 
         return $facts;

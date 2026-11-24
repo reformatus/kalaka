@@ -957,7 +957,7 @@ final class FormValuesTest extends FormsTestCase
         $event = $this->events->find($this->event);
         self::assertNotNull($event);
         $form = $this->additional($this->field('text', 'note'));
-        $builder = (new Registrations())->factsOf($this->registration, $event);
+        $builder = (new Registrations())->factsOf($this->registration, $event, $this->runner->clock()->now());
         self::assertNotNull($builder);
         $types = $this->host()->factTypes($this->formOf($form));
         $facts = $this->facts($form);

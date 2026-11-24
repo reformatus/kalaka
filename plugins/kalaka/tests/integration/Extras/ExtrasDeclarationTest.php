@@ -18,6 +18,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Pricing\Cli\SettingsDocument;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
@@ -293,7 +294,8 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
         try {
             $this->extras->propose($this->event, [self::item('ejjel', 'Éj', '1000', 'number')]);
             self::fail('The preview took out a chosen charge.');
-        } catch (RuleViolation) {
+        } catch (ItemChosen $chosen) {
+            self::assertSame('kalaka_item_chosen', $chosen->errorCode());
             self::assertCount(2, $this->extras->charges($this->event));
         }
         try {
@@ -303,7 +305,8 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
                 'charges' => [self::item('ejjel', 'Éj', '1000', 'number')],
             ], new CliActor(null));
             self::fail('The save took out a chosen charge.');
-        } catch (RuleViolation) {
+        } catch (ItemChosen $chosen) {
+            self::assertSame('kalaka_item_chosen', $chosen->errorCode());
             self::assertCount(2, $this->extras->charges($this->event));
         }
         self::assertSame('3500', $this->balance($anna));
@@ -324,7 +327,8 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
             try {
                 $this->extras->propose($this->event, []);
                 self::fail('A quantity of 3 on a ' . $status->value . ' registration was not a choice.');
-            } catch (RuleViolation) {
+            } catch (ItemChosen $chosen) {
+                self::assertSame('kalaka_item_chosen', $chosen->errorCode());
                 self::assertCount(1, $this->extras->charges($this->event));
             }
         }

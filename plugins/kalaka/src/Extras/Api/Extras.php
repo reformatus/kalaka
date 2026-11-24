@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Api\ItemChosen;
 
 /**
  * Extra charges for every other module and the settings screen (S72): an event's charges, and proposed
@@ -62,8 +63,8 @@ final class Extras
      *
      * @param list<array<string, mixed>> $charges
      * @throws NotFound when there is no such event
-     * @throws RuleViolation when a field another source defined holds a charge's key, or a charge an open
-     *     registration chose is taken out (`ChargeRemovalGuard`)
+     * @throws RuleViolation when a field another source defined holds a charge's key
+     * @throws ItemChosen when a charge an open registration chose is taken out (`ChargeRemovalGuard`)
      * @throws InvalidInput when the charges are not valid; `kalaka/set-extra-charges` checks its schema again
      */
     public function propose(int $eventId, array $charges): ProposedExtras

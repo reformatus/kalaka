@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Extras\Charges;
 
-use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
@@ -12,7 +12,8 @@ use Kalaka\Registrations\Api\Registrations;
  * rule as #239's tier guard (N129) and #237's offer guard): the save's preview and the save itself refuse, so a
  * line is never reversed behind a registrant's back. A charge no open registration chose may be removed, and its
  * declared field stays declared. A charge is chosen by a positive value of its field: a consent's `1`, a quantity
- * of one or more (`Registrations::openChose()`). A plain read: one per removed charge.
+ * of one or more (`Registrations::refuseRemovingChosen()`, with no value: `openChose()`). A plain read: one per
+ * removed charge.
  */
 final class ChargeRemovalGuard
 {
@@ -23,15 +24,12 @@ final class ChargeRemovalGuard
     /**
      * @param list<string> $stored the keys of the event's charges now
      * @param list<string> $proposed the keys the save keeps
-     * @throws RuleViolation when a removed charge is chosen on an open registration
+     * @throws ItemChosen when a removed charge is chosen on an open registration
      */
     public function check(int $eventId, array $stored, array $proposed): void
     {
         foreach (array_diff($stored, $proposed) as $key) {
-            if ($this->registrations->openChose($eventId, $key)) {
-                $error = new RuleViolation();
-                throw $error;
-            }
+            $this->registrations->refuseRemovingChosen($eventId, $key, null);
         }
     }
 }

@@ -255,6 +255,7 @@ final class SubmitAdditionalForm implements PortalUseCase
      * places left are no part of the read: a seat count moving is not a changed read.
      *
      * @param array<string, FieldValue> $current the registration's values by field key, read under the lock
+     * @param \DateTimeImmutable $now the act's moment
      * @throws VersionConflict
      */
     private function refuseChangedRead(
@@ -262,20 +263,19 @@ final class SubmitAdditionalForm implements PortalUseCase
         Event $event,
         array $current,
         \DateTimeImmutable $now
-    ): void
-    {
+    ): void {
         if ($this->read === null) {
             return;
         }
-        $now = [];
+        $held = [];
         foreach ($current as $fieldKey => $value) {
-            $now[$fieldKey] = $value->value;
+            $held[$fieldKey] = $value->value;
         }
         $before = $this->read['values'];
-        ksort($now);
+        ksort($held);
         ksort($before);
         $facts = $this->facts->factsOf($key, $event, $now)?->formRead() ?? [];
-        if ($this->read['facts'] !== $facts || $before !== $now) {
+        if ($this->read['facts'] !== $facts || $before !== $held) {
             $error = new VersionConflict();
             throw $error;
         }
