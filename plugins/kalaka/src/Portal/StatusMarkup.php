@@ -6,6 +6,7 @@ namespace Kalaka\Portal;
 
 use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Portal\Api\Availability;
 use Kalaka\Portal\Api\PaymentView;
 use Kalaka\Portal\Api\RegistrationStatusView;
@@ -25,7 +26,7 @@ final class StatusMarkup
     /** SB-11: the active registration's event is not open (unpublished, a draft or archived). */
     public const EVENT_CLOSED = 'A jelentkezésed állapota jelenleg nem érhető el.';
 
-    public const BAD_LINK = 'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.';
+    public const BAD_LINK = ActiveRegistration::BAD_LINK_TEXT;
 
     private const MINUS = "\u{2212}";
 
