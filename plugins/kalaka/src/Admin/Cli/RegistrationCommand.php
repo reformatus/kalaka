@@ -6,6 +6,7 @@ namespace Kalaka\Admin\Cli;
 
 use Kalaka\Admin\FieldEdit\EditFieldValue;
 use Kalaka\Admin\FieldEdit\FieldEditInput;
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
