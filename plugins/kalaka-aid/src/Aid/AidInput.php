@@ -17,8 +17,19 @@ final class AidInput
     /** The longest label the organizers give the aid. */
     public const MAX_LABEL = 191;
 
+    /** The label the aid may not have, lower case: the manual adjustment's approved word. */
+    private const RESERVED_LABEL = 'kedvezmény';
+
     public function __construct(private readonly ParticipantFields $fields = new ParticipantFields())
     {
+    }
+
+    /** @throws InvalidInput when the label is „Kedvezmény” (any case, trimmed): the manual adjustment's word */
+    public function assertLabelAllowed(string $label): void
+    {
+        if (mb_strtolower(trim($label), 'UTF-8') === self::RESERVED_LABEL) {
+            throw new InvalidInput();
+        }
     }
 
     /** @throws InvalidInput when another field holds `aid_can_pay` or `aid_award` */

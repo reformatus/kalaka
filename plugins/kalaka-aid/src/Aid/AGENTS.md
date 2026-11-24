@@ -60,5 +60,7 @@ is asked until decided. Sponsor and church support is the other extension
   an award of 0, writes no line; an unanswered request has no award, so it
   reduces nothing. It never reads a charge line.
 - Aid reduces only the participant's part, never the congregation's share.
+- The aid line is named by the event's aid label (`NamedFeeComponent`); the label
+  is never „Kedvezmény” (any case, trimmed): `propose()` and `SetAid` refuse it.
 - No UI. Its Hungarian texts are the plugin name and the titles of the two
   fields (`SetAid`); the organizers' label of the aid is their own setting.

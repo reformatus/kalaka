@@ -6,15 +6,19 @@ namespace Kalaka\Tests\Integration\Aid;
 
 use Kalaka\Aid\AidComponent;
 use Kalaka\Aid\AidRequests;
+use Kalaka\Admin\Api\RegistrationDetail;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Registrations\Api\Answer;
@@ -23,8 +27,10 @@ use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Tests\Integration\Pricing\ClosureComponent;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Portal\Api\MoneyRead;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Pricing\Cli\SettingsDocument;
+use Kalaka\Aid\SetAid;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
@@ -327,6 +333,47 @@ final class AidTest extends AidTestCase
         } catch (InvalidInput) {
             self::assertNull($this->aid->label($this->event));
         }
+    }
+
+    public function testTheAidLineIsNamedByTheEventsAidLabelInBothMoneyReads(): void
+    {
+        $this->applyAid('Teszt ösztöndíj');
+        $key = $this->registerAsking('00A0', '10000');
+        $this->answer($key, 'yes', '12000');
+
+        $names = new LineNames();
+        $owed = (new MoneyRead(new Ledger(), $names))->of($key, Currency::HUF)->owed;
+        $labels = array_map(static fn ($row): string => $row->label, $owed);
+        self::assertContains('Teszt ösztöndíj', $labels);
+        self::assertNotContains('Díj', $labels);
+
+        $detail = new RegistrationDetail(lineNames: $names);
+        $lines = $detail->of(new SystemActor(), $this->event, '00A0')['money']['lines'];
+        $aid = array_values(array_filter($lines, static fn (array $line): bool => $line['amount'] < 0));
+        self::assertNotSame([], $aid);
+        foreach ($aid as $line) {
+            self::assertSame('Teszt ösztöndíj', $line['kind_label']);
+            self::assertSame('component', $line['type']);
+        }
+    }
+
+    public function testTheLabelKedvezmenyIsRefusedInAnyCaseAtTheProposalAndTheSave(): void
+    {
+        foreach (['Kedvezmény', ' kedvezmény ', 'KEDVEZMÉNY'] as $label) {
+            try {
+                $this->aid->propose($this->event, $label);
+                self::fail('Proposed.');
+            } catch (InvalidInput) {
+                self::addToAssertionCount(1);
+            }
+            try {
+                $this->runner->run(new SetAid(), ['event_id' => $this->event, 'label' => $label], new CliActor(null));
+                self::fail('Saved.');
+            } catch (InvalidInput) {
+                self::assertNull($this->aid->label($this->event));
+            }
+        }
+        self::assertSame('Kedvezményes', $this->aid->propose($this->event, 'Kedvezményes')->label);
     }
 
     public function testALabelOutsideOneTo191CharactersIsRefused(): void
