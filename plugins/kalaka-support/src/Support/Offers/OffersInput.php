@@ -6,8 +6,8 @@ namespace Kalaka\Support\Offers;
 
 use Kalaka\Events\Api\Event;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
-use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Support\Api\Offer;
 use Kalaka\Support\Directory\NodeRepository;
@@ -35,7 +35,8 @@ final class OffersInput
             'node' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 255],
             'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?$'],
             'request' => ['type' => 'boolean'],
-            'limit' => ['type' => ['integer', 'null'], 'minimum' => 1],
+            // A limit of 0 is a full offer. [UNAPPROVED N359]
+            'limit' => ['type' => ['integer', 'null'], 'minimum' => 0],
         ],
         'required' => ['key', 'label', 'node', 'amount', 'request', 'limit'],
         'additionalProperties' => false,
@@ -50,15 +51,16 @@ final class OffersInput
     /**
      * @param array<array-key, mixed> $items the offers as sent, in order, each valid for `ITEM_SCHEMA`
      * @return list<Offer>
-     * @throws InvalidInput a key given twice, an offer's key that is another offer's answer field, a key a form or
-     *     staff field of the event already holds, an amount that is not positive, or a node the directory does
-     *     not have
+     * @throws InvalidInput a key given twice, an offer's key that is another offer's answer field, an amount that is
+     *     not positive, or a node the directory does not have
+     * @throws RuleViolation a key the event's participant fields hold that this module may
+     *     not declare (`ParticipantFields::checkDeclarable()`: a staff or system field, another type, another
+     *     declarer); a form's field of the same type is adopted
      */
     public function offers(Event $event, array $items): array
     {
         $parsed = [];
         $seen = [];
-        $held = $this->heldKeys($event->id);
         foreach ($items as $item) {
             if (!is_array($item)) {
                 throw new InvalidInput();
@@ -67,13 +69,24 @@ final class OffersInput
             // The answer key is held only by an offer that must be requested: it declares no answer field otherwise.
             $request = (bool) $item['request'];
             $answerKey = $key . SetSupportOffers::ANSWER_SUFFIX;
-            if (
-                isset($seen[$key])
-                || ($request && (isset($seen[$answerKey])
-                    || self::clashes($held, $answerKey, SetSupportOffers::CHOICE_TYPE)))
-                || self::clashes($held, $key, SetSupportOffers::CONSENT_TYPE)
-            ) {
+            if (isset($seen[$key]) || ($request && isset($seen[$answerKey]))) {
                 throw new InvalidInput();
+            }
+            // One rule for every extension: a key a form's field of the type holds is adopted, any other holder
+            // (staff, system, another type, another declarer) refuses with a RuleViolation.
+            $this->fields->checkDeclarable(
+                $event->id,
+                $key,
+                SetSupportOffers::CONSENT_TYPE,
+                SetSupportOffers::DECLARER
+            );
+            if ($request) {
+                $this->fields->checkDeclarable(
+                    $event->id,
+                    $answerKey,
+                    SetSupportOffers::CHOICE_TYPE,
+                    SetSupportOffers::DECLARER
+                );
             }
             $seen[$key] = true;
             if ($request) {
@@ -94,33 +107,5 @@ final class OffersInput
         }
 
         return $parsed;
-    }
-
-    /**
-     * The event's fields by key, with their source and type: what an offer's declaration must not take over.
-     *
-     * @return array<string, ParticipantField>
-     */
-    private function heldKeys(int $eventId): array
-    {
-        $held = [];
-        foreach ($this->fields->of($eventId, true) as $field) {
-            $held[$field->key] = $field;
-        }
-
-        return $held;
-    }
-
-    /**
-     * Whether a field already holds the key other than as the extension's own declaration of the type: a form's,
-     * a staff's or a system field, or an extension's of another type.
-     *
-     * @param array<string, ParticipantField> $held
-     */
-    private static function clashes(array $held, string $key, string $type): bool
-    {
-        $field = $held[$key] ?? null;
-
-        return $field !== null && ($field->source !== ParticipantField::SOURCE_EXTENSION || $field->type !== $type);
     }
 }

@@ -136,17 +136,22 @@ final class SubmitOffersTest extends FormsTestCase
         self::assertSame(1, $this->seats->held($this->pool()));
     }
 
-    public function testAnUntickedOrAnUnlimitedOfferClaimsNothingAndIsNeverRefused(): void
+    public function testAnUntickedOfferClaimsNothingAndAnUnlimitedOneHoldsItsSeatRowAndIsNeverRefused(): void
     {
         $this->submit(['keret' => '1']);
 
         $unticked = $this->submit(['keret' => '0', 'szabad' => '1']);
         $absent = $this->submit([]);
+        $again = $this->submit(['szabad' => '1']);
 
         self::assertSame(RegistrationStatus::Registered, $unticked->status);
         self::assertFalse($this->seats->holds($this->pool(), $unticked->registration));
         self::assertFalse($this->seats->holds($this->pool(), $absent->registration));
-        self::assertSame(3, $this->registrationCount());
+        $free = new OfferSeatPool($this->event, 'szabad');
+        self::assertTrue($this->seats->holds($free, $unticked->registration));
+        self::assertTrue($this->seats->holds($free, $again->registration));
+        self::assertFalse($this->seats->holds($free, $absent->registration));
+        self::assertSame(4, $this->registrationCount());
     }
 
     public function testTheSubmitEntryPointReachesTheOffersClaimsThroughTheContributedSources(): void

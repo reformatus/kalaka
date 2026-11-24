@@ -10,13 +10,15 @@ use Kalaka\Support\Api\OfferSelected;
 
 /**
  * The rule that keeps a settings save from taking something from somebody (Q-B0-6, [UNAPPROVED N99]): an offer
- * an open (`registered` or `waitlisted`) registration has selected cannot be removed, given a limit it had not,
- * or have its "must be requested" flag flipped (a seat, a line, or a refusal would be taken or overridden).
- * A lower limit is allowed: the pool only stands over. It runs in the preview and before any save of an apply,
- * and again inside the use case as a guard. A plain read: the selections are one statement per watched offer.
+ * an open (`registered` or `waitlisted`) registration has selected cannot be removed or have its "must be
+ * requested" flag flipped (a line or a refusal would be taken or overridden), judged by the one shared read
+ * `Registrations::openHolds()`. A limit may be added, lowered or raised at any time (every chooser holds a seat
+ * row, so the count is right): a lower limit only makes the pool stand over. It runs in the preview and before
+ * any save of an apply, and again inside the use case as a guard. A plain read: the selections are one statement
+ * per watched offer.
  *
- * The race with a submit that selects an offer while it is saved is accepted: an unlimited offer's row is not
- * locked by a submit, so the selection can slip in after this check.
+ * A submit that selects an offer locks the offer's row (every chosen offer is claimed, limited or not), so the
+ * guard inside the use case, which holds the rows, sees every selection that was committed before it.
  */
 final class OfferChangeGuard
 {
@@ -55,9 +57,7 @@ final class OfferChangeGuard
         }
         foreach ($stored as $key => $record) {
             $next = $kept[$key] ?? null;
-            $changes = $next === null
-                || ($record->limit === null && $next->limit !== null)
-                || $record->needsRequest !== $next->needsRequest;
+            $changes = $next === null || $record->needsRequest !== $next->needsRequest;
             if ($changes && $this->registrations->openHolds($eventId, $key, '1')) {
                 throw new OfferSelected();
             }
