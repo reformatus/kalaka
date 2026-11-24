@@ -78,7 +78,9 @@ retention and the materializer
   knowing any of them; Pricing itself reads and writes only the fixed price (core's Extras
   carries its own). The
   command is a thin entry point over `Api\MoneySettings`: it runs as the command
-  line, or as WP-CLI's `--user`, and the apply asks first.
+  line, or as WP-CLI's `--user`, and the apply asks first. Every verb, `show` and
+  `preview` too, is checked as the fixed price's save (`SetFixedPrice`, full
+  access only) before it reads.
 - Once confirmed, a registration never becomes unconfirmed because amounts
   change later, an apply included (owner rule, 2026-11-14; confirmation is
   S20's).

@@ -70,8 +70,17 @@ final class SettingsDocument
         }
 
         $price = $document['fixed_price'] ?? null;
-        if ($price !== null && (!is_string($price) || preg_match('/\A[0-9]{1,18}(\.[0-9]{1,8})?\z/', $price) !== 1)) {
-            $error = new CommandFailure('"fixed_price" must be a decimal string such as "15000", or null.');
+        $badPrice = '"fixed_price" must be a decimal string such as "15000", or null.';
+        if ($price !== null && !is_string($price)) {
+            $error = new CommandFailure($badPrice);
+            throw $error;
+        }
+        // The text's form and range are `Money::of()`'s, its sign `MoneySettings::check()`'s: no pattern of the
+        // CLI's own beside the use case's input schema.
+        try {
+            $fixed = $price === null ? null : Money::of($price, $event->currency);
+        } catch (InvalidInput $invalid) {
+            $error = new CommandFailure($badPrice, $invalid);
             throw $error;
         }
 
@@ -100,7 +109,7 @@ final class SettingsDocument
             }
         }
 
-        return new ProposedMoneySettings($price === null ? null : Money::of($price, $event->currency), $proposed);
+        return new ProposedMoneySettings($fixed, $proposed);
     }
 
     /** @return array<string, ConfigurableFeeComponent> by component ID, in registration order */
