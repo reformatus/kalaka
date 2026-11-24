@@ -6,7 +6,6 @@ namespace Kalaka\ParticipantFields\Api;
 
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Forms\Api\MoneyRelevantFieldType;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -106,7 +105,7 @@ final class ParticipantFields
      *
      * @param ?list<array{value: string, label: string}> $options null for a field without options
      * @param ?int $decimals the number of decimals the declarer fixes for a number field; none when null
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws: `RuleViolation` when the key is
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws: `FieldKeyHeld` when the key is
      *     held by a staff or system field or with another type
      */
     public function declareExtensionField(
@@ -143,7 +142,7 @@ final class ParticipantFields
      *
      * [UNAPPROVED N5]
      *
-     * @throws \Kalaka\Foundation\Api\Error\RuleViolation when the key is not free
+     * @throws FieldKeyHeld when the key is not free
      */
     public function checkDeclarable(
         int $eventId,
@@ -153,8 +152,8 @@ final class ParticipantFields
         ?int $decimals = null,
     ): void {
         foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
-            if ($record->key === $key && !$record->declarableBy($type, $declarer)) {
-                throw new RuleViolation();
+            if ($record->key === $key) {
+                $record->requireDeclarableBy($type, $declarer);
             }
         }
     }

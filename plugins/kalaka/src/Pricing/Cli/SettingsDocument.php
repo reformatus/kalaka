@@ -8,8 +8,8 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
@@ -107,7 +107,7 @@ final class SettingsDocument
             } catch (InvalidInput $invalid) {
                 $error = new CommandFailure('The settings of "' . $id . '" are not valid.', $invalid);
                 throw $error;
-            } catch (RuleViolation $refused) {
+            } catch (FieldKeyHeld $refused) {
                 $error = new CommandFailure(
                     'The settings of "' . $id . '" are refused: a key they declare is held by a participant field of '
                     . 'the event that code may not take over (a staff or system field, or one of another type).',

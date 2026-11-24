@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
@@ -248,6 +249,7 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
             self::fail('Refused.');
         } catch (CommandFailure $failure) {
             self::assertStringStartsWith('The settings of "extras" are refused: ', $failure->getMessage());
+            self::assertInstanceOf(FieldKeyHeld::class, $failure->getPrevious());
         }
     }
 
