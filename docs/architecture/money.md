@@ -176,9 +176,9 @@ one seat rule
   is full.
 - **Released** on withdrawal or removal, and when an answer refuses the
   offer (a partner approves or refuses through the same act as staff).
-- **A restored or admitted registration** gets a place only if one is free. A
-  registration whose price tier is full keeps its tier and takes its seat over
-  the limit, with the "full" warning to staff.
+- **A restored or admitted registration** keeps what it chose and takes its
+  places, over the limit where a pool is full, with the "full" warning to
+  staff, as the one seat rule says for every staff act.
 
 ## Withdrawal, removal and substitution
 
@@ -248,9 +248,10 @@ such as lunch or a donation.
   selects them: amount, whether it needs a request (answered by staff or by
   the body, where a partner approves, through the one "answer a request" act;
   while the selection awaits an answer, no payment is asked and no due date is
-  shown), and an optional limit of places (people only). Availability is set
-  up on the form, as for price tiers and extra charges. A selected offer with
-  a limit takes a place ([Quota places](#quota-places)).
+  shown), and an optional limit of places (people only). Who sees an offer is
+  set up on the form, as for price tiers and extra charges: an offer carries
+  no condition of its own. A selected offer with a limit takes a place
+  ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.

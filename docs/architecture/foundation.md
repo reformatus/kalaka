@@ -569,7 +569,11 @@ sort on the first two ([Views and grants](#views-and-grants)).
     a limited tier's or offer's places. A seat is a fact. The form only
     controls visibility; the backend takes the seat under a lock, inside the
     registration's own act. Leaving frees it, and only another act can take
-    it again; a seat never moves by itself.
+    it again; a seat never moves by itself. A full pool turns away only the
+    registrant's own submit (a full event waitlists it). A staff act
+    (placing, admission, restore, answering a request, an admin's submit)
+    takes the seat even over the limit, with a "full" warning, and leaves the
+    event's "full" latch as it is.
 - **Decisions** are made by the system: confirmation in core
   ([Money](money.md#confirmation)), and the late fee, price-tier place and
   support place from extensions ([Money](money.md#quota-places)).
