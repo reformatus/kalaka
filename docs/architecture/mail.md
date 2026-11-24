@@ -10,9 +10,10 @@ title: Mail
   **body**, one to one. There are no "templates".
 - A **delivery** is one row in the send log: one mail to one registration (or
   address) on one occurrence: pending, sending, sent or failed. A pending
-  delivery may carry the error of an earlier attempt. **Nothing reads the deliveries
-  table except the sender:** no decision, condition or view depends on
-  whether a mail was sent.
+  delivery may carry the error of an earlier attempt. **Only the sender
+  decides on the deliveries table:** no decision, condition or view depends on
+  whether a mail was sent. Staff reads of it, such as the counts and the
+  listing of failed deliveries (`wp kalaka mail failed`), only show it.
 
 ## Five kinds of mail
 
