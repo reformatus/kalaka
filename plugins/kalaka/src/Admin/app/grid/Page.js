@@ -35,6 +35,7 @@ import SumRow from './SumRow';
 import ColumnMenu from './ColumnMenu';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import DetailPanel from './DetailPanel';
+import { manualMailAction } from '../mail/bulk';
 import { GRID, PANEL, SUM } from './texts';
 
 /**
@@ -85,6 +86,9 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
+	// The ticked rows' keys (the codes), for the bulk action „Levél küldése”: of this page only (DataViews drops
+	// the ones not on the page), and cleared with the tab, the page, the order and the filters. [UNAPPROVED N288]
+	const [ selection, setSelection ] = useState( [] );
 	// The code of the registration in the panel, or null. [UNAPPROVED N3]
 	const [ open, setOpen ] = useState( null );
 	const openRef = useRef( null );
@@ -257,6 +261,10 @@ export default function Page( { config } ) {
 		return () => {
 			live = false;
 		};
+	}, [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
+
+	useEffect( () => {
+		setSelection( [] );
 	}, [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 
 	useEffect( () => {
@@ -440,6 +448,21 @@ export default function Page( { config } ) {
 		// A view with no registrations at all. [UNAPPROVED N10]
 		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
 	}
+	// The bulk action „Levél küldése”, only on a tab that carries the manual mail. [UNAPPROVED N287, N289]
+	const actions = useMemo(
+		() =>
+			tab.manualMail
+				? [
+						manualMailAction( {
+							eligible: true,
+							event: config.event,
+							previewPath: `${ config.rest }/mail/manual/preview`,
+							onSent: () => setSelection( [] ),
+						} ),
+				  ]
+				: [],
+		[ tab.manualMail, config.event, config.rest ]
+	);
 	const copyButton = (
 		<Button
 			variant="secondary"
@@ -496,7 +519,9 @@ export default function Page( { config } ) {
 					} }
 					defaultLayouts={ { table: {} } }
 					getItemId={ ( item ) => item.key }
-					actions={ [] }
+					actions={ actions }
+					selection={ selection }
+					onChangeSelection={ setSelection }
 					search={ false }
 					config={ { perPageSizes: config.perPages } }
 					empty={ empty }
@@ -521,6 +546,7 @@ export default function Page( { config } ) {
 						</div>
 					</div>
 					<DataViews.Layout />
+					<DataViews.BulkActionToolbar />
 					<div className="kg-dv-foot">
 						{ perPage }
 						<DataViews.Pagination />
