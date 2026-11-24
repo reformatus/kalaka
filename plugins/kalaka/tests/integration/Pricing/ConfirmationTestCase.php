@@ -16,6 +16,7 @@ use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\ConfirmationThreshold;
 use Kalaka\Pricing\Api\FeeComponent;
@@ -75,7 +76,7 @@ abstract class ConfirmationTestCase extends PricingTestCase
             $this->runner,
             $components,
             confirmation: new ConfirmationRule($money->composition(), $this->threshold),
-            decisions: new Decisions(rules: $this->rules)
+            confirmations: new Confirmations(new Decisions(rules: $this->rules))
         );
     }
 
