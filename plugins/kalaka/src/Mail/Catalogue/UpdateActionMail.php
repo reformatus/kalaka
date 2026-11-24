@@ -9,6 +9,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Mail\Api\ActionMail;
@@ -42,12 +43,12 @@ final class UpdateActionMail implements AdminUseCase
     /**
      * The pre-read facts of the body; refused without them, since they cannot be read here.
      *
-     * @throws RuleViolation when they were not read for this body
+     * @throws SystemFailure when they were not read for this body: the caller's programming error
      */
     private function body(int $id): MailBody
     {
         if ($this->body === null || $this->body->id !== $id) {
-            $error = new RuleViolation();
+            $error = new SystemFailure(null, new \LogicException('The body was not read before the run.'));
             throw $error;
         }
 
@@ -137,8 +138,7 @@ final class UpdateActionMail implements AdminUseCase
         // (the layout switch) of a mail that is on passes.
         $changed = $entry->bodyId !== $storedBody || ($entry->enabled && !$wasEnabled);
         if ($changed && $entry->bodyId !== null && !$this->body($entry->bodyId)->published) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
-            throw new RuleViolation(self::BODY_UNPUBLISHED);
+            throw new BodyUnpublished();
         }
         // S15: while the event has accounts, "Jelentkezés rögzítve" carries the set-password link (`AccountLinkRule`).
         if ($action === ActionMail::Registered && $event->accountMode !== AccountMode::Off) {

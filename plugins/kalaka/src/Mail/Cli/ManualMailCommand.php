@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Cli;
 
 use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Manual\SendManualMail;
+use Kalaka\Mail\Manual\UnknownRegistrationCode;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -29,7 +28,6 @@ final class ManualMailCommand
      */
     public function __construct(
         private readonly ManualMails $mails = new ManualMails(),
-        private readonly Events $events = new Events(),
         private readonly ?\Closure $confirm = null,
     ) {
     }
@@ -82,7 +80,7 @@ final class ManualMailCommand
     public function __invoke(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
+            $eventId = CliInput::existingEventId($args);
             $input = [
                 'event_id' => $eventId,
                 'body_id' => self::body($assocArgs),
@@ -95,7 +93,7 @@ final class ManualMailCommand
                 $input['request_key'] = (string) $assocArgs['key'];
             }
             // The access check first: a user holding a grant learns nothing about codes outside their views.
-            $actor = self::actor();
+            $actor = CliActor::current();
             AdminAccess::check(new SendManualMail(), $input, $actor);
 
             $preview = $this->mails->preview($eventId, $input['codes']);
@@ -113,7 +111,10 @@ final class ManualMailCommand
 
                 return;
             }
-            if ($preview['unknown'] !== []) {
+            try {
+                SendManualMail::refuseUnknown($preview);
+            } catch (UnknownRegistrationCode) {
+                // The use case's own check, run ahead so the refusal comes before the question.
                 throw new CommandFailure('Nothing was queued: a code is no registration of the event.');
             }
             $this->ask(
@@ -149,18 +150,6 @@ final class ManualMailCommand
         // WP-CLI's helper, not in the stubs for the static analysis.
         // @phpstan-ignore staticMethod.notFound
         \WP_CLI::confirm($question, $assocArgs);
-    }
-
-    /** @param list<string> $args */
-    private function event(array $args): int
-    {
-        $given = $args[0] ?? '';
-        if (preg_match('/\A[1-9][0-9]*\z/', $given) !== 1) {
-            throw new CommandFailure('The event ID must be a positive whole number.');
-        }
-        $this->events->find((int) $given) ?? throw new NotFound();
-
-        return (int) $given;
     }
 
     /** @param array<string, mixed> $assocArgs */
@@ -212,18 +201,7 @@ final class ManualMailCommand
         if ($codes === []) {
             throw new CommandFailure('No registration codes were given.');
         }
-        if (count($codes) > SendManualMail::MAX_CODES) {
-            $error = new CommandFailure('At most ' . SendManualMail::MAX_CODES . ' codes in one batch.');
-            throw $error;
-        }
 
         return array_map('strval', array_keys($codes));
-    }
-
-    private static function actor(): CliActor
-    {
-        $current = get_current_user_id();
-
-        return new CliActor($current > 0 ? $current : null);
     }
 }
