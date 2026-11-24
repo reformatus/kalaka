@@ -10,11 +10,9 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\PriceLadder\LadderInput;
 use Kalaka\PriceLadder\PriceLadderComponent;
-use Kalaka\PriceLadder\TierLimitGuard;
-use Kalaka\PriceLadder\TierSeatPool;
+use Kalaka\PriceLadder\LadderSaveGuard;
 use Kalaka\PriceLadder\TierRecord;
 use Kalaka\PriceLadder\TierRepository;
-use Kalaka\Registrations\Api\Seats;
 
 /**
  * The price ladder for every other module and the settings screen (S72): an event's tiers, and a proposed
@@ -27,8 +25,7 @@ final class PriceLadder
         private readonly TierRepository $tiers = new TierRepository(),
         private readonly Events $events = new Events(),
         private readonly LadderInput $ladder = new LadderInput(),
-        private readonly Seats $seats = new Seats(),
-        private readonly TierLimitGuard $guard = new TierLimitGuard(),
+        private readonly LadderSaveGuard $guard = new LadderSaveGuard(),
     ) {
     }
 
@@ -43,36 +40,16 @@ final class PriceLadder
     }
 
     /**
-     * The seats left in each limited tier's pool, by the form-condition variable that reads it
-     * (`seats_left.price_tier.<tier key>`: the field `price_tier` and the tier's key as its option value). A tier
-     * with no limit has no variable. A plain read, never below zero.
-     *
-     * @return array<string, int>
-     */
-    public function seatsLeft(int $eventId): array
-    {
-        $left = [];
-        foreach ($this->tiers->forEvent($eventId) as $record) {
-            if ($record->limit !== null) {
-                $left['seats_left.' . PriceLadderComponent::FIELD . '.' . $record->key] = $this->seats->left(
-                    new TierSeatPool($eventId, $record->key, $this->tiers)
-                ) ?? 0;
-            }
-        }
-
-        return $left;
-    }
-
-    /**
      * A proposed ladder, the whole list of tiers in ladder order (an empty list removes the ladder), each
-     * `{key, label, amount}` and an optional `limit` (a positive integer: the people the tier takes): `amount` a
+     * `{key, label, amount}` and an optional `limit` (an integer of 0 or more: the people the tier takes): `amount` a
      * decimal string in the event's currency.
      *
      * @param list<array<string, mixed>> $tiers
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the ladder is not valid; `kalaka/set-price-ladder` checks its schema again
-     * @throws RuleViolation when a tier would gain a limit that an open registration has already chosen
-     *     (`TierLimitGuard`): the preview and the apply refuse before anything is saved
+     * @throws RuleViolation when a tier an open registration has chosen would be removed, or when `price_tier` is
+     *     a field another declarer holds (`LadderSaveGuard`): the preview and the apply refuse before anything is
+     *     saved
      */
     public function propose(int $eventId, array $tiers): ProposedLadder
     {
