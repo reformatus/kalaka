@@ -102,7 +102,7 @@ final class DeclarableFieldTest extends FormsTestCase
     {
         $fields = new ParticipantFields();
         $this->seedFieldRow('form_key', 'form');
-        $this->seedFieldRow('mine', 'extension', 'kalaka-aid');
+        $this->seedFieldRow('mine', 'extension', 'aid');
         $this->seedFieldRow('older', 'extension', null);
         $this->seedFieldRow('retired_form', 'form');
         global $wpdb;
@@ -113,13 +113,13 @@ final class DeclarableFieldTest extends FormsTestCase
         );
 
         foreach (['free', 'form_key', 'mine', 'older', 'retired_form'] as $key) {
-            $fields->checkDeclarable(self::EVENT, $key, self::TEXT, 'kalaka-aid');
+            $fields->checkDeclarable(self::EVENT, $key, self::TEXT, 'aid');
         }
     }
 
     public function testAnyOtherHolderRefusesTheCheckAndTheDeclarationAlike(): void
     {
-        $this->seedFieldRow('another_declarer', 'extension', 'kalaka-aid');
+        $this->seedFieldRow('another_declarer', 'extension', 'aid');
         $this->seedFieldRow('staff_key', 'staff');
         $this->seedFieldRow('system_key', 'system');
         $this->seedFieldRow('form_key', 'form');
@@ -134,14 +134,14 @@ final class DeclarableFieldTest extends FormsTestCase
 
         foreach ($cases as [$key, $type]) {
             try {
-                (new ParticipantFields())->checkDeclarable(self::EVENT, $key, $type, 'kalaka-extras');
+                (new ParticipantFields())->checkDeclarable(self::EVENT, $key, $type, 'extras');
                 self::fail('The check accepted ' . $key);
             } catch (FieldKeyHeld $held) {
                 self::assertSame('kalaka_field_key_held', $held->errorCode());
                 self::assertTrue(true);
             }
             try {
-                $this->declareAs($key, 'kalaka-extras', $type);
+                $this->declareAs($key, 'extras', $type);
                 self::fail('The declaration accepted ' . $key);
             } catch (FieldKeyHeld $held) {
                 self::assertSame('kalaka_field_key_held', $held->errorCode());
@@ -152,22 +152,22 @@ final class DeclarableFieldTest extends FormsTestCase
 
     public function testADeclarationStoresItsDeclarerAndAdoptingOrTakingAnOlderFieldRecordsIt(): void
     {
-        $this->declareAs('first', 'kalaka-extras');
-        self::assertSame('kalaka-extras', $this->declarerOf('first'));
+        $this->declareAs('first', 'extras');
+        self::assertSame('extras', $this->declarerOf('first'));
 
         $this->seedFieldRow('older', 'extension', null);
-        $this->declareAs('older', 'kalaka-support');
-        self::assertSame('kalaka-support', $this->declarerOf('older'));
+        $this->declareAs('older', 'support');
+        self::assertSame('support', $this->declarerOf('older'));
 
         $this->seedFieldRow('form_key', 'form');
-        $this->declareAs('form_key', 'kalaka-aid');
-        self::assertSame('kalaka-aid', $this->declarerOf('form_key'));
+        $this->declareAs('form_key', 'aid');
+        self::assertSame('aid', $this->declarerOf('form_key'));
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->storedField('form_key')->source);
     }
 
     public function testAFormSaveLeavesAnExtensionFieldsFlagAndDeclarerAlone(): void
     {
-        $this->declareAs('joined', 'kalaka-extras', self::TEXT, true);
+        $this->declareAs('joined', 'extras', self::TEXT, true);
         $this->insertChecked(
             $this->block(self::TEXT, ['key' => 'joined', 'label' => 'Csatlakozó']),
             ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
@@ -176,14 +176,14 @@ final class DeclarableFieldTest extends FormsTestCase
         $field = $this->storedField('joined');
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $field->source);
         self::assertTrue($field->moneyRelevant);
-        self::assertSame('kalaka-extras', $this->declarerOf('joined'));
+        self::assertSame('extras', $this->declarerOf('joined'));
     }
 
     public function testMoneyRelevanceIsTheFlagTheDeclarationSetsAndIsTheLockRead(): void
     {
         $fields = new ParticipantFields();
-        $this->declareAs('locked', 'kalaka-extras', self::TEXT, true);
-        $this->declareAs('open', 'kalaka-extras');
+        $this->declareAs('locked', 'extras', self::TEXT, true);
+        $this->declareAs('open', 'extras');
         $this->seedFieldRow('plain_form', 'form');
 
         self::assertTrue($this->storedField('locked')->moneyRelevant);
@@ -191,7 +191,7 @@ final class DeclarableFieldTest extends FormsTestCase
         self::assertFalse($fields->lockedAfterFirstWrite($this->storedField('open')));
         self::assertFalse($fields->lockedAfterFirstWrite($this->storedField('plain_form')));
 
-        $this->declareAs('locked', 'kalaka-extras');
+        $this->declareAs('locked', 'extras');
         self::assertTrue(
             $fields->lockedAfterFirstWrite($this->storedField('locked')),
             'A redeclaration never lowers the claim.'

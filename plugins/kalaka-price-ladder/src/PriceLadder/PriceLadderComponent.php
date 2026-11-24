@@ -30,6 +30,9 @@ final class PriceLadderComponent implements ProvidesBase, ConfigurableFeeCompone
 {
     public const ID = 'price_ladder';
 
+    /** The declarer the ladder's participant field stores (`declared_by`): the module's ID. [UNAPPROVED N300] */
+    public const DECLARER = 'price_ladder';
+
     /** The participant field the ladder declares, a choice of its tiers (the owner's ruling 2026-11-19). */
     public const FIELD = 'price_tier';
 
