@@ -66,7 +66,7 @@ final class MoneySettingsCommandTest extends ExtrasTestCase
             [
                 'donation participant 5000 charge:donation:participant:1',
                 'fixed_price participant 30000 charge:fixed_price:participant:1',
-                'extras.ebed participant 2000 charge:extras.ebed:participant:1',
+                'extras:ebed participant 2000 charge:extras:ebed:participant:1',
             ],
             $this->charges($key)
         );
