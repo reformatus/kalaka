@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\PriceLadder;
 
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\PriceLadder\Api\Tier;
@@ -15,7 +16,8 @@ use Kalaka\Registrations\Api\Registrations;
  * - a tier an open (`registered` or `waitlisted`) registration has chosen is not removed ([UNAPPROVED N129], as
  *   #237's `OfferChangeGuard` does for a selected offer): the registration would have no price to owe, and the
  *   re-price would fail only after the save. A removed tier no open registration chose is removed as before, and
- *   its option is retired. A plain read: one `Registrations::openHolds()` per removed tier.
+ *   its option is retired. A plain read: one `Registrations::refuseRemovingChosen()` per removed tier, which
+ *   refuses with `ItemChosen` (`kalaka_item_chosen`).
  * - `price_tier` is free for the ladder to declare (`ParticipantFields::checkDeclarable()`, the one check the
  *   declaration makes too) whenever the event has a ladder, stored or proposed ([UNAPPROVED N130]).
  *
@@ -36,7 +38,7 @@ final class LadderSaveGuard
      * saves anything.
      *
      * @param list<Tier> $proposed
-     * @throws RuleViolation when a removed tier is chosen on an open registration
+     * @throws \Kalaka\Registrations\Api\ItemChosen when a removed tier is chosen on an open registration
      */
     public function checkAgainstStored(int $eventId, array $proposed): void
     {
@@ -58,17 +60,15 @@ final class LadderSaveGuard
             $this->fields->checkDeclarable(
                 $eventId,
                 PriceLadderComponent::FIELD,
-                PriceLadderComponent::CHOICE_TYPE,
-                'kalaka-price-ladder'
+                FieldKind::CHOICE,
+                PriceLadderComponent::DECLARER
             );
         }
         foreach ($proposed as $tier) {
             unset($stored[$tier->key]);
         }
         foreach (array_keys($stored) as $key) {
-            if ($this->registrations->openHolds($eventId, PriceLadderComponent::FIELD, (string) $key)) {
-                throw new RuleViolation();
-            }
+            $this->registrations->refuseRemovingChosen($eventId, PriceLadderComponent::FIELD, (string) $key);
         }
     }
 }
