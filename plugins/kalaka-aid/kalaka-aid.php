@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: Kaláka – Ösztöndíj
+ * Plugin Name: Kaláka – Támogatási kérelmek
  * Plugin URI: https://kalaka.dev
  * Version: 0.1.0
  * Requires at least: 7.0
@@ -11,7 +11,7 @@
  * Requires Plugins: kalaka
  */
 
-// The plugin name is UI text: [UNAPPROVED T51].
+// The plugin name is UI text: [UNAPPROVED T54].
 
 declare(strict_types=1);
 

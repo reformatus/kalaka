@@ -20,16 +20,16 @@ use Kalaka\Pricing\Api\ProposedComponentSettings;
  * still owes after the tier, support and share stages and before the extras (Q-B0-8: capped, never refused). No
  * award, or an award of 0 (the answer "no"), writes no line; while the request awaits its answer the award field
  * is empty, so there is no reduction. It reads only the registration's facts and the event's settings (or the
- * proposed ones in a preview), never a charge line. [UNAPPROVED N105, N108, N109]
+ * proposed ones in a preview), never a charge line. [UNAPPROVED N115, N118, N119]
  */
 final class AidComponent implements ConfigurableFeeComponent
 {
     public const ID = 'aid';
 
-    /** The award participant field, extension-only. [UNAPPROVED N105] */
+    /** The award participant field, extension-only. [UNAPPROVED N115] */
     public const AWARD_FIELD = 'aid_award';
 
-    /** The item key of the aid line, so its source is `aid:award`. [UNAPPROVED N108] */
+    /** The item key of the aid line, so its source is `aid:award`. [UNAPPROVED N118] */
     public const ITEM = 'award';
 
     /**
@@ -99,7 +99,8 @@ final class AidComponent implements ConfigurableFeeComponent
             return null;
         }
         $data = $input->facts->get(self::AWARD_FIELD)->data;
-        if (!is_string($data) || preg_match('/^[0-9]{1,18}(\.[0-9]{1,8})?$/', $data) !== 1) {
+        $shape = '/^[0-9]{1,' . AidRequests::MAX_INTEGER_DIGITS . '}(\.[0-9]{1,8})?$/';
+        if (!is_string($data) || preg_match($shape, $data) !== 1) {
             return null;
         }
 
