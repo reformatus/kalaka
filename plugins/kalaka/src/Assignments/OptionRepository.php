@@ -60,7 +60,7 @@ final class OptionRepository extends EntityRepository
             'version' => $entity->version,
             'position' => $entity->position,
             'label' => $entity->label,
-            'capacity' => $entity->capacity,
+            'capacity' => $entity->limit,
             'leaders' => $entity->leaders,
             'place' => $entity->place,
             'eligibility' => $condition,

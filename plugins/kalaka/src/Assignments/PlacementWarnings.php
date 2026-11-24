@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Seats;
 
 /**
@@ -23,8 +24,9 @@ use Kalaka\Registrations\Api\Seats;
  * the command to ask before the act, and only after the same checks the placing makes (`PlacementLookup`): a
  * placement the placing would refuse gives no warnings.
  *
- * Full: the option has a capacity, and the seats held in it (one per confirmed assignment), not counting this
- * registration's own (it may already hold the option), have reached it. A proposed assignment holds no seat
+ * Full: the registration would take a seat (it is `registered`), the option has a limit, and the seats held in
+ * it (one per confirmed assignment), not counting this registration's own (it may already hold the option),
+ * have reached it. A registration that takes no seat is not warned. A proposed assignment holds no seat
  * until staff confirm it. Eligible: the option's condition read against the registration's current field
  * values and the event's keys, the facts the condition was saved against (`SaveAssignmentOption`); a
  * condition that cannot be read is not held against the registration, and gives no warning here.
@@ -58,7 +60,10 @@ final class PlacementWarnings
         $option = $target->option;
         $warnings = [];
         $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
-        if ($this->seats->wouldOverfill($pool, $registration)) {
+        if (
+            $this->registrations->find($registration)?->status === RegistrationStatus::Registered
+            && $this->seats->wouldOverfill($pool, $registration)
+        ) {
             $warnings[] = self::FULL;
         }
         if ($option->condition !== null && !$this->eligible($registration, $option->condition)) {
