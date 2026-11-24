@@ -35,8 +35,8 @@ final class Aid
      * event's aid off.
      *
      * @throws NotFound when there is no such event
-     * @throws InvalidInput when the label is not valid, or a field key aid needs is held by another field;
-     *     `kalaka/set-aid` checks its schema again
+     * @throws InvalidInput when the label is not valid or is „Kedvezmény”, or a field key aid needs is held by
+     *     another field; `kalaka/set-aid` checks its schema again
      */
     public function propose(int $eventId, ?string $label): ProposedAid
     {
@@ -48,6 +48,7 @@ final class Aid
             if ($trimmed === '' || mb_strlen($trimmed, 'UTF-8') > AidInput::MAX_LABEL) {
                 throw new InvalidInput();
             }
+            $this->input->assertLabelAllowed($trimmed);
             $label = $trimmed;
             $this->input->assertKeysFree($eventId);
         }

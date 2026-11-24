@@ -11,7 +11,10 @@ use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\LineName;
+use Kalaka\Pricing\Api\NamedFeeComponent;
 use Kalaka\Pricing\Api\ProposedComponentSettings;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * The adjudicated aid's fee component, at the aid stage (money.md, "Core money scope"). The award is the number
@@ -20,9 +23,10 @@ use Kalaka\Pricing\Api\ProposedComponentSettings;
  * still owes after the tier, support and share stages and before the extras (Q-B0-8: capped, never refused). No
  * award, or an award of 0 (the answer "no"), writes no line; while the request awaits its answer the award field
  * is empty, so there is no reduction. It reads only the registration's facts and the event's settings (or the
- * proposed ones in a preview), never a charge line. [UNAPPROVED N115, N118, N119]
+ * proposed ones in a preview), never a charge line. The line is named by the event's aid label
+ * (`NamedFeeComponent`). [UNAPPROVED N115, N118, N119, N123]
  */
-final class AidComponent implements ConfigurableFeeComponent
+final class AidComponent implements ConfigurableFeeComponent, NamedFeeComponent
 {
     public const ID = 'aid';
 
@@ -64,6 +68,20 @@ final class AidComponent implements ConfigurableFeeComponent
         $amount = $award->isGreaterThan($part) ? $part : $award;
 
         return FeeTargets::ofItems([self::ITEM => [Payer::PARTICIPANT => $amount->negated()]]);
+    }
+
+    /**
+     * The aid line is named by the event's aid label, the organizers' text (`LineName::COMPONENT`). An event with
+     * no label has no aid and so no line. [UNAPPROVED N123]
+     */
+    public function lineNames(RegistrationKey $registration, array $items): array
+    {
+        $label = $this->settings->find($registration->eventId)?->label;
+        if ($label === null || !in_array(self::ITEM, $items, true)) {
+            return [];
+        }
+
+        return [self::ITEM => new LineName(LineName::COMPONENT, $label)];
     }
 
     public function settingsToArray(int $eventId): array
