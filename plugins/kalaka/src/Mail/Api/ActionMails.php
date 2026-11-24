@@ -7,7 +7,6 @@ namespace Kalaka\Mail\Api;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\RecordedLine;
 use Kalaka\Mail\Catalogue\ActionMailRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -66,7 +65,7 @@ final class ActionMails
     public function lineRecorded(Context $context, RecordedLine $recorded): bool
     {
         $line = $recorded->line;
-        if (!$recorded->inserted || !Payer::isParticipantMovement($line->kind, $line->payer, $line->correction)) {
+        if (!$recorded->inserted || !PaymentRecordedLines::announces($line->kind, $line->payer, $line->correction)) {
             return false;
         }
 

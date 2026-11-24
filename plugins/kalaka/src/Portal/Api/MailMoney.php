@@ -7,7 +7,7 @@ namespace Kalaka\Portal\Api;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Ledger\Api\Ledger;
-use Kalaka\Ledger\Api\Payer;
+use Kalaka\Mail\Api\PaymentRecordedLines;
 use Kalaka\Portal\MailMarkup;
 use Kalaka\Portal\MoneyWords;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -57,7 +57,7 @@ final class MailMoney
             if ($entry->id !== $lineId) {
                 continue;
             }
-            if (!Payer::isParticipantMovement($entry->kind, $entry->payer, $entry->correction)) {
+            if (!PaymentRecordedLines::announces($entry->kind, $entry->payer, $entry->correction)) {
                 return null;
             }
             $row = MoneyRead::movement($entry);
