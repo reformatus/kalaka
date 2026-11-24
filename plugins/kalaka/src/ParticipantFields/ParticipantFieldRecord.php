@@ -6,6 +6,7 @@ namespace Kalaka\ParticipantFields;
 
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Time\Instant;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 
 /**
@@ -64,20 +65,22 @@ final class ParticipantFieldRecord
     }
 
     /**
-     * Whether the module `$declarer` may declare this key as a field of `$type`: a `form` field of the same type
-     * (it will be adopted), or an `extension` field of the same type that this declarer declared or no one is
+     * Refuses unless the module `$declarer` may declare this key as a field of `$type`: a `form` field of the same
+     * type (it will be adopted), or an `extension` field of the same type that this declarer declared or no one is
      * recorded for. The one rule `ParticipantFields::checkDeclarable()` and `DeclareExtensionField` share.
      * [UNAPPROVED N5]
+     *
+     * @throws FieldKeyHeld when the key is held by another kind of field, another type or another declarer
      */
-    public function declarableBy(string $type, string $declarer): bool
+    public function requireDeclarableBy(string $type, string $declarer): void
     {
-        if ($this->type !== $type) {
-            return false;
+        $declarable = $this->type === $type
+            && ($this->source === self::SOURCE_FORM
+                || ($this->source === self::SOURCE_EXTENSION
+                    && ($this->declaredBy === null || $this->declaredBy === $declarer)));
+        if (!$declarable) {
+            throw new FieldKeyHeld();
         }
-
-        return $this->source === self::SOURCE_FORM
-            || ($this->source === self::SOURCE_EXTENSION
-                && ($this->declaredBy === null || $this->declaredBy === $declarer));
     }
 
     /** @param array<string, ?string> $row a `kalaka_participant_fields` row */
