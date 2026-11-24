@@ -133,11 +133,13 @@ the waitlist and reference codes
   fails the run with the guard's `SystemFailure`: the pool's lock cannot be taken after the registration's. Any
   other pool is locked inside `take*()`, once the registration row is in.
 - A full pool refuses `take()` and `kalaka-portal/submit-registration` (the form comes back with the refusal on
-  the choice's field, nothing saved). Admission, restore and staff placing take the seat with `takeOver()`:
-  over the limit when the pool is full, with the "full" warning; only a submit is refused by a full pool.
-  `retake()` is the one entry for admission and restore: per pool it reports `held`, `over` or `none` and
-  never refuses, and never touches the event's "full" latch. Only a `registered` submit takes its claims' seats:
-  a waitlisted one holds none and is not refused. [UNAPPROVED R40]
+  the choice's field, nothing saved). Admission, restore and staff placing take the seat with `retake()`
+  (`takeOver()` is private to `Seats`): over the limit when the pool is full, with the "full" warning; only a
+  submit is refused by a full pool. `retake()` is the one entry for admission, restore and staff placing: per
+  pool it reports `held`, `over` or `none` and never refuses, and never touches the event's "full" latch. A staff
+  act reads the "full" warning from that outcome; the preview before the act reads `wouldOverfill()`. Only a
+  `registered` submit takes its claims' seats: a waitlisted one holds none and is not refused.
+  [UNAPPROVED R40, R100]
 - A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
   refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
   from one registration to another, and a count never hands a place on.
@@ -152,4 +154,7 @@ the waitlist and reference codes
   [UNAPPROVED R6].
 - The event's pool has no rows: its seats are the counted `registered` statuses, and the latch decides the
   waitlist as it always did. `Seats::left()` and `over()` are computed on read, never stored.
+- Removing a chosen item (a tier, an option, an offer) is refused through one call,
+  `Registrations::refuseRemovingChosen()`, which throws `Api\ItemChosen` (`kalaka_item_chosen`); a module's own
+  removal guard calls it and does not throw its own refusal. [UNAPPROVED R101]
 - Only Registrations writes its tables.

@@ -158,7 +158,7 @@ final class SeatsTest extends RegistrationsTestCase
     {
         $pool = $this->pool(1);
         $this->by('00A0', 'take', $pool);
-        $this->by('00A2', 'takeOver', $pool, SeatAct::Placement);
+        self::assertSame(SeatOutcome::Over, $this->by('00A2', 'retake', $pool, SeatAct::Placement));
 
         self::assertSame(2, $this->seats->held($pool));
         self::assertSame(0, $this->seats->left($pool));

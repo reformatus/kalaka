@@ -10,6 +10,7 @@ use Kalaka\Events\EventRepository;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Forms\Api\EventValues;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -81,6 +82,15 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         self::assertTrue($registrations->openHolds($event->id, 'tier', 'b'));
         self::assertFalse($registrations->openHolds($event->id, 'tier', 'c'));
         self::assertFalse($registrations->openHolds($event->id, 'other', 'b'));
+
+        $registrations->refuseRemovingChosen($event->id, 'tier', 'a');
+        try {
+            $registrations->refuseRemovingChosen($event->id, 'tier', 'b');
+            self::fail('A value an open registration holds cannot be removed.');
+        } catch (ItemChosen $error) {
+            self::assertSame('kalaka_item_chosen', $error->errorCode());
+            self::assertSame('A művelet nem hajtható végre.', $error->getMessage());
+        }
     }
 
     private function event(): \Kalaka\Events\Api\Event

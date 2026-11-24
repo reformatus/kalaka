@@ -91,7 +91,7 @@ final class PlaceRegistration implements AdminUseCase
             $this->seats->release($held, $registration, $context);
         }
         if ($this->registrations->find($registration)?->status === RegistrationStatus::Registered) {
-            $this->seats->takeOver(
+            $this->seats->retake(
                 new OptionSeatPool($registration->eventId, $target->setId, $target->option->key),
                 $registration,
                 SeatAct::Placement,

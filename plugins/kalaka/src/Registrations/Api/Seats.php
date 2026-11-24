@@ -188,13 +188,17 @@ final class Seats
             return $limit !== null && $this->held($pool) > $limit ? SeatOutcome::Over : SeatOutcome::Held;
         }
 
-        return $this->claim($pool, $registration, $act, $context, true);
+        return $this->takeOver($pool, $registration, $act, $context);
     }
 
-    /** Takes a seat for staff placing the registration by hand: it may go over the limit. */
-    public function takeOver(SeatPool $pool, RegistrationKey $registration, SeatAct $act, Context $context): void
-    {
-        $this->claim($pool, $registration, $act, $context, true);
+    /** Takes a seat in a pool of the event's own set or tiers for a staff act: it may go over the limit. */
+    private function takeOver(
+        SeatPool $pool,
+        RegistrationKey $registration,
+        SeatAct $act,
+        Context $context,
+    ): SeatOutcome {
+        return $this->claim($pool, $registration, $act, $context, true);
     }
 
     /**

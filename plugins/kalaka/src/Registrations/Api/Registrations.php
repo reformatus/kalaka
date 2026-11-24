@@ -127,6 +127,19 @@ final class Registrations
     }
 
     /**
+     * Refuses removing a chosen item: `ItemChosen` when an open registration of the event holds the value in the
+     * field. Staff and settings saves that remove a tier, an option or an offer call it, so one refusal and one
+     * code reach every surface. A plain read.
+     */
+    public function refuseRemovingChosen(int $eventId, string $fieldKey, ?string $value): void
+    {
+        // CF4 adds `openChose` for a null value (a charge's field chosen at all); until then `openHolds` alone.
+        if ($this->openHolds($eventId, $fieldKey, (string) $value)) {
+            throw new ItemChosen();
+        }
+    }
+
+    /**
      * Reads the registration `FOR UPDATE` at `LockLevel::Registration`, so the run holds it
      * (`Context::holdsRegistration()`).
      *
