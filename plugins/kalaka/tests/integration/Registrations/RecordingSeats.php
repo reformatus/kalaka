@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Registrations;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\SeatPool;
 
 /** A test double of slice A's seat rule: records what the answer act asks of it, and can say the pool is full. */
 final class RecordingSeats implements OfferSeats
@@ -16,24 +17,24 @@ final class RecordingSeats implements OfferSeats
 
     public bool $full = false;
 
-    public function lockPool(string $pool, Context $context): void
+    public function lockPool(SeatPool $pool, Context $context): void
     {
-        $this->calls[] = 'lock:' . $pool;
+        $this->calls[] = 'lock:' . $pool->key();
     }
 
-    public function release(RegistrationKey $registration, string $pool, Context $context): void
+    public function release(RegistrationKey $registration, SeatPool $pool, Context $context): void
     {
-        $this->calls[] = 'release:' . $pool;
+        $this->calls[] = 'release:' . $pool->key();
     }
 
-    public function take(RegistrationKey $registration, string $pool, Context $context): bool
+    public function take(RegistrationKey $registration, SeatPool $pool, Context $context): bool
     {
-        $this->calls[] = 'take:' . $pool;
+        $this->calls[] = 'take:' . $pool->key();
 
         return !$this->full;
     }
 
-    public function isFull(RegistrationKey $registration, string $pool): bool
+    public function isFull(RegistrationKey $registration, SeatPool $pool): bool
     {
         return $this->full;
     }
