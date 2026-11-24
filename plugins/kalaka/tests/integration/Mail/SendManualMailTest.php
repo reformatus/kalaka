@@ -185,6 +185,20 @@ final class SendManualMailTest extends MailBodyTestCase
         self::assertSame(1, $this->batchCount());
     }
 
+    public function testARepeatIsAnsweredAsOneEvenWhenTheBodyWasUnpublishedSince(): void
+    {
+        [$event, $body] = $this->ready();
+        $input = $this->input($event, $body, ['00A0'], ['request_key' => 'abcdefgh-1']);
+        $first = $this->send($input);
+        wp_update_post(['ID' => $body, 'post_status' => 'draft']);
+
+        $again = $this->send($input);
+
+        self::assertTrue($again['repeat']);
+        self::assertSame($first['batch_id'], $again['batch_id']);
+        self::assertCount(1, $this->deliveries());
+    }
+
     public function testTheSameKeyWithOtherCodesOrAnotherBodyIsRefusedNeverMerged(): void
     {
         [$event, $body] = $this->ready();

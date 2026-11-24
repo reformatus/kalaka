@@ -9,10 +9,10 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Catalogue\MailBody;
+use Kalaka\Mail\Manual\MailBatchMember;
 use Kalaka\Mail\Manual\SendManualMail;
 use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\RegistrationStatus;
 
 /** Sends a chosen mail to chosen registrations (`kalaka/send-manual-mail`) and previews who would get it. */
 final class ManualMails
@@ -64,10 +64,10 @@ final class ManualMails
             $status = $statuses[$code] ?? null;
             if ($status === null) {
                 $preview['unknown'][] = $code;
-            } elseif ($status === RegistrationStatus::Withdrawn || $status === RegistrationStatus::Removed) {
-                $preview['skipped'][] = ['code' => $code, 'reason' => $status->value];
-            } else {
+            } elseif (MailBatchMember::outcomeOf($status) === MailBatchMember::QUEUED) {
                 $preview['queue'][] = $code;
+            } else {
+                $preview['skipped'][] = ['code' => $code, 'reason' => $status->value];
             }
         }
 
