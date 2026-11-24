@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\ParticipantFields;
 
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 
 /**
  * An extension declares one participant field of an event, source `extension` (events-and-forms.md,
@@ -88,7 +88,7 @@ final class DeclareExtensionField implements AdminUseCase
      * `decimals`, when given, is the number of decimals the declarer fixes for a number field: a form field that
      * joins it holds that many and no other (`SharedKeyCheck`'s `extension_decimals`).
      *
-     * @throws RuleViolation when the key is not free for the declarer (`ParticipantFieldRecord::declarableBy()`):
+     * @throws FieldKeyHeld when the key is not free for the declarer (`ParticipantFieldRecord::requireDeclarableBy()`):
      *     a staff or system field, another type, or another declarer's extension field
      */
     public function execute(array $input, Context $context): null
@@ -131,9 +131,7 @@ final class DeclareExtensionField implements AdminUseCase
 
             return null;
         }
-        if (!$record->declarableBy((string) $input['type'], $declarer)) {
-            throw new RuleViolation();
-        }
+        $record->requireDeclarableBy((string) $input['type'], $declarer);
 
         $before = $record->toRow();
         $record->title = (string) $input['title'];

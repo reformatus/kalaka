@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Pricing;
 
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Cli\MoneySettingsCommand;
@@ -245,6 +248,20 @@ final class MoneySettingsCommandTest extends PricingTestCase
 
         self::assertSame($lines, $this->lineCount());
         self::assertSame('200', $this->extra->amount);
+    }
+
+    public function testARuleViolationThatIsNotAHeldFieldKeyPassesThroughWithoutTheKeyWording(): void
+    {
+        $components = new CoreFeeComponents([$this->extra]);
+        $document = new SettingsDocument(new MoneySettings($this->runner, $components), $components);
+
+        try {
+            $document->proposed($this->event, ['components' => ['extra' => ['amount' => 'violation']]]);
+            self::fail('Refused.');
+        } catch (RuleViolation $violation) {
+            self::assertNotInstanceOf(FieldKeyHeld::class, $violation);
+            self::assertNotInstanceOf(CommandFailure::class, $violation);
+        }
     }
 
     public function testAMissingOrUnreadableFileAndABadEventAreRefused(): void

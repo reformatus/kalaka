@@ -57,7 +57,8 @@ keeps of what it knows about its participants
   declaration, a form field takes it from its block type (`MoneyRelevantFieldType`, passed in by Forms), and no
   declaration lowers it. `lockedAfterFirstWrite()` is that flag or the type's own capability, so a row from before
   the column needs no backfill. `checkDeclarable()` and the declaration share one rule
-  (`ParticipantFieldRecord::declarableBy()`). A declared field is never retired by its declarer: a removed
+  (`ParticipantFieldRecord::requireDeclarableBy()`, which throws `Api\FieldKeyHeld`, a `RuleViolation` with the code
+  `kalaka_field_key_held`). A declared field is never retired by its declarer: a removed
   item leaves it declared. [UNAPPROVED N3, N5, N300, N301 of #231]
 - A field's `type` is a block name. The module reads only that block's
   registered title from WordPress's block registry (the type label) and

@@ -7,7 +7,7 @@ namespace Kalaka\Extras\Charges;
 use Kalaka\Extras\Api\Charge;
 use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\ParticipantFields\Api\FieldKeyHeld;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
@@ -54,7 +54,7 @@ final class ChargeField
      * @param string $block the block type the code declares under the key
      * @param bool $multiplier whether the field multiplies the charge's amount (a number field then holds whole
      *     numbers only; the donation's number field does not multiply)
-     * @throws RuleViolation when `ParticipantFields::checkDeclarable()` refuses the key
+     * @throws FieldKeyHeld when `ParticipantFields::checkDeclarable()` refuses the key
      * @throws InvalidInput when the event's number field with that key allows decimals and multiplies
      */
     public function check(int $eventId, string $key, string $block, bool $multiplier = true): void
