@@ -13,8 +13,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 final class UnknownRegistrationCode extends RuleViolation
 {
     // [UNAPPROVED T518]
-    public const TEXT = 'Van olyan kód, amely nem ennek az eseménynek a jelentkezése. '
-        . 'Egy levél sem került a küldési sorba.';
+    public const TEXT = 'Van olyan kód, amelyhez nem található jelentkezés. Egy levél sem került a küldési sorba.';
 
     public function __construct()
     {

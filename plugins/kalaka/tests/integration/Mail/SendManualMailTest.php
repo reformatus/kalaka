@@ -131,7 +131,7 @@ final class SendManualMailTest extends MailBodyTestCase
         } catch (UnknownRegistrationCode $e) {
             self::assertSame('kalaka_mail_unknown_code', $e->errorCode());
             self::assertSame(
-                'A művelet nem hajtható végre. Van olyan kód, amely nem ennek az eseménynek a jelentkezése. '
+                'A művelet nem hajtható végre. Van olyan kód, amelyhez nem található jelentkezés. '
                 . 'Egy levél sem került a küldési sorba.',
                 $e->getMessage()
             );

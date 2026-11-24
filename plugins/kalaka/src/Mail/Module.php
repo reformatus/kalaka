@@ -226,7 +226,8 @@ SQL;
         Abilities::register(
             new UpdateActionMail(),
             'Levél beállítása',
-            'Egy esemény levelének be- vagy kikapcsolása, sablonjának és levélkeretének beállítása.',
+            'Egy esemény valamelyik levelének be- vagy kikapcsolása, levélsablonjának kiválasztása, '
+                . 'és annak beállítása, hogy a levélkeret körülvegye-e.',
             UpdateActionMail::prepared(...)
         );
         Abilities::register(
@@ -251,7 +252,7 @@ SQL;
         );
         Abilities::register(
             new ClearEventMail(),
-            'Esemény várakozó leveleinek törlése',
+            'Esemény küldésre váró leveleinek törlése',
             'Egy nem közzétett esemény küldésre váró leveleinek törlése.'
         );
         Abilities::register(

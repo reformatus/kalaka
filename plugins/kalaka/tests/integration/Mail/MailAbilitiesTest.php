@@ -24,7 +24,8 @@ final class MailAbilitiesTest extends MailAdminTestCase
             'update-action-mail' => [
                 new UpdateActionMail(),
                 'Levél beállítása',
-                'Egy esemény levelének be- vagy kikapcsolása, sablonjának és levélkeretének beállítása.',
+                'Egy esemény valamelyik levelének be- vagy kikapcsolása, levélsablonjának kiválasztása, '
+                    . 'és annak beállítása, hogy a levélkeret körülvegye-e.',
             ],
             'set-event-mail-layout' => [
                 new SetEventMailLayout(),
@@ -48,7 +49,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
             ],
             'clear-event-mail' => [
                 new ClearEventMail(),
-                'Esemény várakozó leveleinek törlése',
+                'Esemény küldésre váró leveleinek törlése',
                 'Egy nem közzétett esemény küldésre váró leveleinek törlése.',
             ],
             'send-manual-mail' => [
@@ -242,7 +243,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
         self::assertSame(422, $response->get_status());
         self::assertSame('kalaka_mail_not_held', $response->get_data()['code'] ?? null);
         self::assertSame(
-            'A művelet nem hajtható végre. Közzétett esemény várakozó levelei nem törölhetők: ezek küldésre várnak.',
+            'A művelet nem hajtható végre. Csak nem közzétett esemény küldésre váró levelei törölhetők.',
             $response->get_data()['message'] ?? null
         );
     }

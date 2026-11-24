@@ -13,7 +13,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 final class EventMailNotHeld extends RuleViolation
 {
     // [UNAPPROVED T517]
-    public const TEXT = 'Közzétett esemény várakozó levelei nem törölhetők: ezek küldésre várnak.';
+    public const TEXT = 'Csak nem közzétett esemény küldésre váró levelei törölhetők.';
 
     public function __construct()
     {
