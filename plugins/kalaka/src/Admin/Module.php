@@ -6,6 +6,7 @@ namespace Kalaka\Admin;
 
 use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Cli\FullAccessCommand;
+use Kalaka\Admin\Cli\RegistrationCommand;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
@@ -119,6 +120,7 @@ SQL;
 
         if (defined('WP_CLI') && WP_CLI) {
             FullAccessCommand::register();
+            RegistrationCommand::register();
         }
     }
 
