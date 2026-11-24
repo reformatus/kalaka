@@ -7,7 +7,7 @@ namespace Kalaka\Foundation\Api\Money;
 /**
  * The text of an amount: `48 000 Ft`, with a no-break space between the groups of thousands and before the
  * currency, fillérs after a comma only when there are any (`1 234,50 Ft`), and U+2212 before a negative
- * amount. [UNAPPROVED N10]
+ * amount.
  */
 final class MoneyText
 {
