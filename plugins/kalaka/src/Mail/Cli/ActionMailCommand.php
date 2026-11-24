@@ -5,19 +5,15 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Cli;
 
 use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
-use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSetting;
 use Kalaka\Mail\Api\ActionMailSettings;
-use Kalaka\Mail\Body\AccountLinkRule;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\MailPosts;
-use Kalaka\Mail\Body\MailValues;
 use Kalaka\Mail\Catalogue\SetEventMailLayout;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 
@@ -25,9 +21,9 @@ use Kalaka\Mail\Catalogue\UpdateActionMail;
  * `wp kalaka action-mail list|show|on|off|body|layout <event_id> …`: an event's action mails from the command
  * line (mail.md, "Configuration", "Content"), through the use cases `UpdateActionMail` and `SetEventMailLayout`
  * and their checks. It runs as the command line without a user (full access), or, with WP-CLI's `--user`, checked
- * as that user, and is audited like the use cases it runs. `body` writes the `kalaka_mail` post itself, under the
- * same save check as the editor (`BodyCheck`, `AccountLinkRule`), then assigns it through `UpdateActionMail`.
- * The screen for the same is S34's/S41's.
+ * as that user, and is audited like the use cases it runs; `list` and `show` read for full access only.
+ * `body` writes the `kalaka_mail` post itself, under the same save check as the editor (`BodyCheck::refusal()`),
+ * then assigns it through `UpdateActionMail`. The screen for the same is S34's/S41's.
  */
 final class ActionMailCommand
 {
@@ -36,7 +32,6 @@ final class ActionMailCommand
     /** @param ?\Closure(string, list<array<string, string>>, list<string>): void $print prints rows in a format */
     public function __construct(
         private readonly ActionMailSettings $settings = new ActionMailSettings(),
-        private readonly Events $events = new Events(),
         private readonly MailPosts $posts = new MailPosts(),
         private readonly ?\Closure $print = null,
     ) {
@@ -71,12 +66,13 @@ final class ActionMailCommand
     public function listMails(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
+            $eventId = CliInput::existingEventId($args);
+            CliInput::fullAccess();
             $rows = array_map(
                 static fn (ActionMailSetting $mail): array => self::row($mail),
                 $this->settings->ofEvent($eventId)->mails
             );
-            $format = self::format($assocArgs);
+            $format = CliInput::format($assocArgs);
             if ($this->print !== null) {
                 ($this->print)($format, $rows, self::FIELDS);
 
@@ -105,7 +101,8 @@ final class ActionMailCommand
     public function show(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args): void {
-            $eventId = $this->event($args);
+            $eventId = CliInput::existingEventId($args);
+            CliInput::fullAccess();
             $mail = $this->settings->ofEvent($eventId)->mail(self::kind($args));
             $post = $mail->bodyId === null ? null : get_post($mail->bodyId);
             $data = $mail->toArray() + [
@@ -186,11 +183,11 @@ final class ActionMailCommand
     public function body(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
+            $eventId = CliInput::existingEventId($args);
             $action = self::kind($args);
             $content = self::file($assocArgs);
             $title = self::title($assocArgs);
-            $actor = self::actor();
+            $actor = CliActor::current();
             AdminAccess::check(
                 new UpdateActionMail(),
                 ['event_id' => $eventId, 'mail' => $action->value, 'body_id' => null],
@@ -202,7 +199,11 @@ final class ActionMailCommand
             if ($existing === null && $title === null) {
                 throw new CommandFailure('The mail has no body yet: give its subject with --title=<subject>.');
             }
-            self::refuseBody($content, $eventId, $action);
+            $message = BodyCheck::refusal($existing ?? 0, $content, $eventId, $action);
+            if ($message !== null) {
+                $error = new CommandFailure($message);
+                throw $error;
+            }
 
             $id = self::save($existing, $eventId, $content, $title);
             if ($existing === null) {
@@ -236,11 +237,11 @@ final class ActionMailCommand
     public function layout(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
+            $eventId = CliInput::eventId($args);
             Runner::current()->run(
                 new SetEventMailLayout(),
                 ['event_id' => $eventId, 'html' => self::file($assocArgs)],
-                self::actor()
+                CliActor::current()
             );
             \WP_CLI::success('The layout of event ' . $eventId . ' is saved.');
         });
@@ -249,33 +250,11 @@ final class ActionMailCommand
     /** @param list<string> $args */
     private function switch(array $args, bool $enabled): void
     {
-        $eventId = $this->event($args);
+        $eventId = CliInput::eventId($args);
         $action = self::kind($args);
         $input = ['event_id' => $eventId, 'mail' => $action->value, 'enabled' => $enabled];
-        $this->settings->update($input, self::actor());
+        $this->settings->update($input, CliActor::current());
         \WP_CLI::success($action->value . ' is ' . ($enabled ? 'on' : 'off') . '.');
-    }
-
-    /**
-     * The editor's save check, ahead of the save, so a refusal prints its own text.
-     *
-     * @throws CommandFailure when the body's content is refused
-     */
-    private static function refuseBody(string $content, int $eventId, ActionMail $action): void
-    {
-        $problem = BodyCheck::problem($content, $eventId);
-        if ($problem !== null) {
-            $error = new CommandFailure(BodyCheck::message($problem));
-            throw $error;
-        }
-        if (
-            $action === ActionMail::Registered
-            && (new AccountLinkRule())->applies($eventId)
-            && !MailValues::readsPasswordLink($content)
-        ) {
-            $error = new CommandFailure(AccountLinkRule::NEEDS_LINK);
-            throw $error;
-        }
     }
 
     /**
@@ -321,18 +300,6 @@ final class ActionMailCommand
         }
 
         return $result;
-    }
-
-    /** @param list<string> $args */
-    private function event(array $args): int
-    {
-        $given = $args[0] ?? '';
-        if (preg_match('/\A[1-9][0-9]*\z/', $given) !== 1) {
-            throw new CommandFailure('The event ID must be a positive whole number.');
-        }
-        $this->events->find((int) $given) ?? throw new NotFound();
-
-        return (int) $given;
     }
 
     /**
@@ -394,13 +361,6 @@ final class ActionMailCommand
         return $title;
     }
 
-    private static function actor(): CliActor
-    {
-        $current = get_current_user_id();
-
-        return new CliActor($current > 0 ? $current : null);
-    }
-
     /** @return array<string, string> */
     private static function row(ActionMailSetting $mail): array
     {
@@ -411,16 +371,5 @@ final class ActionMailCommand
             'body_id' => $mail->bodyId === null ? '' : (string) $mail->bodyId,
             'layout' => $mail->layout ? 'yes' : 'no',
         ];
-    }
-
-    /** @param array<string, mixed> $assocArgs */
-    private static function format(array $assocArgs): string
-    {
-        $format = $assocArgs['format'] ?? 'table';
-        if (!in_array($format, ['table', 'json', 'csv'], true)) {
-            throw new CommandFailure('The format must be table, json or csv.');
-        }
-
-        return $format;
     }
 }

@@ -119,11 +119,13 @@ bodies, the renderer and the per-event action-mail catalogue.
 - `wp kalaka action-mail list|show|on|off|body|layout <event_id> …` (`Cli/`) is a
   thin entry point: it changes only through `UpdateActionMail` and
   `SetEventMailLayout`, as the command line or as WP-CLI's `--user`, and prints
-  the use case's own refusal. `body` is the one write outside a use case: the
-  `kalaka_mail` post, saved published under the editor's check (`BodyCheck`,
-  `AccountLinkRule`, checked ahead so its text is printed) and only after the
+  the use case's own refusal; `list` and `show` read for full access only. `body`
+  is the one write outside a use case: the `kalaka_mail` post, saved published
+  under the editor's check (`BodyCheck::refusal()`, the one function the editor's
+  filters call too, checked ahead so its text is printed) and only after the
   actor passed the use case's access check; it assigns a first body through
-  `UpdateActionMail` and never switches a mail on.
+  `UpdateActionMail` and never switches a mail on. The mail commands share
+  `Cli\CliInput` (event ID, format, the read guard) and `CliActor::current()`.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.

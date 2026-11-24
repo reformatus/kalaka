@@ -303,9 +303,18 @@ final class ActionMailCommandTest extends MailBodyTestCase
         $this->fails(fn () => $this->command()->layout([(string) $event], ['file' => $this->file('{{content}}!')]));
         self::assertSame('{{content}}', (new ActionMailSettings())->ofEvent($event)->layoutHtml);
 
+        \WP_CLI::reset();
+        $this->fails(fn () => $this->command()->listMails([(string) $event], []));
+        self::assertSame([], $this->printed);
+        \WP_CLI::reset();
+        $this->fails(fn () => $this->command()->show([(string) $event, 'confirmed'], []));
+
         $user = self::factory()->user->create();
         get_userdata($user)->add_cap(AdminAccess::FULL_ACCESS);
         wp_set_current_user($user);
+        \WP_CLI::reset();
+        $this->command()->listMails([(string) $event], []);
+        self::assertCount(1, $this->printed);
         \WP_CLI::reset();
         $this->command()->body([(string) $event, 'confirmed'], $options);
         $this->command()->on([(string) $event, 'confirmed'], []);
