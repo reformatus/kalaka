@@ -4,10 +4,10 @@
  * dialog does not close. A refused "yes" over the limit is not refused: the warning stands above the buttons and
  * the answer may be given. [UNAPPROVED N7]
  */
-import { useRef, useState } from '@wordpress/element';
+import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl, TextareaControl } from '@wordpress/components';
 import * as api from './api';
-import { asksAmount, asksReason, buildAnswer, savedText, validateAnswer, validateNote, warnsFull } from './requests';
+import { asksAmount, buildAnswer, savedText, validateAnswer, warnsFull } from './requests';
 import { MONEY, REQUESTS } from './texts';
 
 /**
@@ -23,10 +23,21 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 	const [ amount, setAmount ] = useState( '' );
 	const [ note, setNote ] = useState( '' );
 	const [ error, setError ] = useState( '' );
-	const [ noteError, setNoteError ] = useState( '' );
 	const [ failed, setFailed ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const sending = useRef( false );
+	const form = useRef();
+
+	// Focus lands on the first field, not on the dialog frame, as the panel's other dialogs.
+	useEffect( () => {
+		const timer = setTimeout( () => {
+			const input = form.current && form.current.querySelector( 'input' );
+			if ( input ) {
+				input.focus();
+			}
+		}, 60 );
+		return () => clearTimeout( timer );
+	}, [] );
 
 	const submit = async ( event ) => {
 		event.preventDefault();
@@ -36,9 +47,14 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 		setFailed( false );
 		const found = answer === '' ? REQUESTS.answerEmpty : validateAnswer( item, answer, amount );
 		setError( found );
-		const noteFound = validateNote( item, answer, note );
-		setNoteError( noteFound );
-		if ( found || noteFound ) {
+		if ( found ) {
+			// After React has drawn the message: focus the field it is about (the choice, or the amount).
+			setTimeout( () => {
+				const bad = form.current && form.current.querySelector( answer === '' ? 'input' : '[aria-invalid="true"]' );
+				if ( bad ) {
+					bad.focus();
+				}
+			}, 50 );
 			return;
 		}
 		sending.current = true;
@@ -61,7 +77,7 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
 		>
-			<form onSubmit={ submit } noValidate>
+			<form ref={ form } onSubmit={ submit } noValidate>
 				<p>{ item.label }</p>
 				<RadioControl
 					label={ REQUESTS.answerField }
@@ -86,13 +102,11 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 					/>
 				) }
 				<TextareaControl
-					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
+					label={ REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }
 					rows={ 3 }
 					maxLength={ 500 }
-					aria-invalid={ noteError ? 'true' : undefined }
-					help={ noteError && <span className="kg-err">{ noteError }</span> }
 					__nextHasNoMarginBottom
 				/>
 				{ warnsFull( item, answer ) && (
