@@ -1,0 +1,344 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Mail\Cli;
+
+use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Events\Api\Events;
+use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Entry\CommandFailure;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Mail\Api\ManualMails;
+use Kalaka\Mail\Body\MailPosts;
+use Kalaka\Mail\Manual\MailBatch;
+use Kalaka\Mail\Manual\MailBatchQuery;
+use Kalaka\Mail\Manual\SendManualMail;
+use Kalaka\Registrations\Api\RegistrationKey;
+
+/**
+ * `wp kalaka mail send|batches`: sends a chosen mail body to chosen registrations of an event, and lists what
+ * was sent (mail.md, "Five kinds of mail", Manual). A thin entry point: `send` changes only through the use case
+ * `SendManualMail` (`ManualMails::send()`), as the command line (full access) or as WP-CLI's `--user`, checked
+ * by that user's grants on the codes before anything about them is printed. Registered beside `MailCommand`'s
+ * commands, so either can merge first. Mail is never sent here: the batch only queues deliveries.
+ */
+final class ManualMailCommand
+{
+    private const BATCH_FIELDS = ['batch', 'created_at_utc', 'by', 'body', 'layout', 'queued', 'skipped'];
+
+    private const MEMBER_FIELDS = ['code', 'outcome'];
+
+    /**
+     * @param ?\Closure(string, list<array<string, mixed>>, list<string>): void $print prints rows in a format
+     * @param ?\Closure(string, array<string, mixed>): void $confirm asks to go on; ends the command when declined
+     */
+    public function __construct(
+        private readonly ManualMails $mails = new ManualMails(),
+        private readonly MailBatchQuery $batches = new MailBatchQuery(),
+        private readonly Events $events = new Events(),
+        private readonly MailPosts $posts = new MailPosts(),
+        private readonly ?\Closure $print = null,
+        private readonly ?\Closure $confirm = null,
+    ) {
+    }
+
+    public static function register(): void
+    {
+        $command = new self();
+        \WP_CLI::add_command('kalaka mail send', $command->send(...));
+        \WP_CLI::add_command('kalaka mail batches', $command->batches(...));
+    }
+
+    /**
+     * Sends a chosen mail body to chosen registrations of an event.
+     *
+     * Queues the body (a published `kalaka_mail` post of the event, an action mail's included) for each
+     * registration code, as one send batch. The sender sends it later, under the pause and the throttle, and a
+     * mail of an unpublished event waits until it is published. A withdrawn or removed registration is
+     * skipped and listed; a code that is no registration of the event refuses the whole send. Shows what it
+     * would do and asks first (`--yes` skips); `--dry-run` only shows. A rerun with the same `--key` queues
+     * nothing and names the first batch; without a key every run is a new batch, a second copy. At most 1000
+     * codes. With `--user` the user's grants must hold every code.
+     *
+     * ## OPTIONS
+     *
+     * <event_id>
+     * : The event ID.
+     *
+     * --body=<post_id>
+     * : The `kalaka_mail` post to send.
+     *
+     * [--codes=<codes>]
+     * : Registration codes, comma-separated.
+     *
+     * [--codes-file=<path>]
+     * : A file of codes, one per line or comma-separated (the code column of the grid's copy).
+     *
+     * [--no-layout]
+     * : Send without the event's layout.
+     *
+     * [--key=<token>]
+     * : The repeat guard: 8 to 64 letters, digits, dashes and underscores.
+     *
+     * [--dry-run]
+     * : Show what would happen and stop.
+     *
+     * [--yes]
+     * : Answer yes to the confirmation.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assocArgs
+     */
+    public function send(array $args, array $assocArgs): void
+    {
+        Boundary::cli(function () use ($args, $assocArgs): void {
+            $eventId = $this->event($args);
+            $input = [
+                'event_id' => $eventId,
+                'body_id' => self::body($assocArgs),
+                'codes' => self::codes($assocArgs, $eventId),
+            ];
+            if (($assocArgs['layout'] ?? true) === false) {
+                $input['layout'] = false;
+            }
+            if (isset($assocArgs['key'])) {
+                $input['request_key'] = (string) $assocArgs['key'];
+            }
+            // The access check first: a user holding a grant learns nothing about codes outside their views.
+            $actor = self::actor();
+            AdminAccess::check(new SendManualMail(), $input, $actor);
+
+            $preview = $this->mails->preview($eventId, $input['codes']);
+            $skipped = array_map(
+                static fn (array $row): string => $row['code'] . ' (' . $row['reason'] . ')',
+                $preview['skipped']
+            );
+            \WP_CLI::line(
+                count($preview['queue']) . ' to queue, ' . count($preview['skipped']) . ' skipped (withdrawn/removed)'
+                . ($skipped === [] ? '' : ': ' . implode(', ', $skipped))
+                . ', unknown: ' . ($preview['unknown'] === [] ? 'none' : implode(', ', $preview['unknown']))
+            );
+            if (isset($assocArgs['dry-run'])) {
+                \WP_CLI::line('Dry run: nothing was queued.');
+
+                return;
+            }
+            if ($preview['unknown'] !== []) {
+                throw new CommandFailure('Nothing was queued: a code is no registration of the event.');
+            }
+            $this->ask(
+                'Queue this mail for ' . count($preview['queue']) . ' registrations of event ' . $eventId . '?',
+                $assocArgs
+            );
+
+            $result = $this->mails->send($input, $actor);
+            \WP_CLI::success(
+                ($result['repeat'] ? 'The same key was used before: batch ' : 'Batch ')
+                . $result['batch_id'] . ($result['repeat'] ? ' was kept, nothing new was queued.' : ' queued.')
+                . ' Queued: ' . $result['queued'] . ', skipped: ' . count($result['skipped']) . '.'
+            );
+            if ($result['paused']) {
+                \WP_CLI::warning(
+                    'Sending is paused: the mail waits until a person resumes it (wp kalaka mail status).'
+                );
+            }
+            if ($result['held']) {
+                \WP_CLI::warning('Event ' . $eventId . ' is not published: its mail is held until it is published.');
+            }
+        });
+    }
+
+    /**
+     * Lists the manual mail batches of an event, or one batch's registrations.
+     *
+     * Newest batch first; with a batch ID, the registrations of that batch and what became of each. It reads the batch's own record, not the deliveries: `wp kalaka mail failed`
+     * shows what a delivery did.
+     *
+     * ## OPTIONS
+     *
+     * <event_id>
+     * : The event ID.
+     *
+     * [<batch_id>]
+     * : One batch.
+     *
+     * [--format=<format>]
+     * : table, json or csv.
+     * ---
+     * default: table
+     * ---
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assocArgs
+     */
+    public function batches(array $args, array $assocArgs): void
+    {
+        Boundary::cli(function () use ($args, $assocArgs): void {
+            $eventId = $this->event($args);
+            $format = self::format($assocArgs);
+            if (!AdminAccess::isFull(self::actor())) {
+                throw new PermissionDenied();
+            }
+            if (isset($args[1])) {
+                if (preg_match('/\A[1-9][0-9]*\z/', $args[1]) !== 1) {
+                    throw new CommandFailure('The batch ID must be a positive whole number.');
+                }
+                $batch = $this->batches->find($eventId, (int) $args[1]) ?? throw new NotFound();
+                $rows = array_map(static fn ($member): array => [
+                    'code' => $member->code,
+                    'outcome' => $member->outcome,
+                ], $this->batches->members($batch->id));
+                $this->show($format, $rows, self::MEMBER_FIELDS);
+
+                return;
+            }
+            $rows = array_map(fn (MailBatch $batch): array => [
+                'batch' => $batch->id,
+                'created_at_utc' => $batch->createdAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+                'by' => self::who($batch->createdBy),
+                'body' => $batch->bodyId . ' ' . $this->subject($batch->bodyId),
+                'layout' => $batch->layout ? 'yes' : 'no',
+                'queued' => $batch->queued,
+                'skipped' => $batch->skipped,
+            ], $this->batches->ofEvent($eventId));
+            $this->show($format, $rows, self::BATCH_FIELDS);
+        });
+    }
+
+    /** @param array<string, mixed> $assocArgs */
+    private function ask(string $question, array $assocArgs): void
+    {
+        if ($this->confirm !== null) {
+            ($this->confirm)($question, $assocArgs);
+
+            return;
+        }
+        // WP-CLI's helper, not in the stubs for the static analysis.
+        // @phpstan-ignore staticMethod.notFound
+        \WP_CLI::confirm($question, $assocArgs);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     * @param list<string> $fields
+     */
+    private function show(string $format, array $rows, array $fields): void
+    {
+        if ($this->print !== null) {
+            ($this->print)($format, $rows, $fields);
+
+            return;
+        }
+        // WP-CLI's helper, not installed for the static analysis.
+        // @phpstan-ignore function.notFound
+        \WP_CLI\Utils\format_items($format, $rows, $fields);
+    }
+
+    /** @param list<string> $args */
+    private function event(array $args): int
+    {
+        $given = $args[0] ?? '';
+        if (preg_match('/\A[1-9][0-9]*\z/', $given) !== 1) {
+            throw new CommandFailure('The event ID must be a positive whole number.');
+        }
+        $this->events->find((int) $given) ?? throw new NotFound();
+
+        return (int) $given;
+    }
+
+    /** @param array<string, mixed> $assocArgs */
+    private static function body(array $assocArgs): int
+    {
+        $given = $assocArgs['body'] ?? '';
+        if (!is_string($given) || preg_match('/\A[1-9][0-9]*\z/', $given) !== 1) {
+            throw new CommandFailure('Give the mail body with --body=<post_id>.');
+        }
+
+        return (int) $given;
+    }
+
+    /**
+     * The codes of `--codes` or `--codes-file`, each once, in the order given.
+     *
+     * @param array<string, mixed> $assocArgs
+     * @return list<string>
+     * @throws CommandFailure when none or too many are given, or one is not a reference code
+     */
+    private static function codes(array $assocArgs, int $eventId): array
+    {
+        $text = $assocArgs['codes'] ?? null;
+        $path = $assocArgs['codes-file'] ?? null;
+        if (is_string($text) === is_string($path)) {
+            throw new CommandFailure('Give the codes with --codes=<a,b,c> or --codes-file=<path>, not both.');
+        }
+        if (is_string($path)) {
+            if (!is_file($path) || !is_readable($path)) {
+                $error = new CommandFailure('The file cannot be read: ' . $path);
+                throw $error;
+            }
+            // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local file given on the command line
+            $text = (string) file_get_contents($path);
+        }
+        $codes = [];
+        $invalid = [];
+        foreach (preg_split('/[\s,;]+/', (string) $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $code) {
+            try {
+                $codes[(new RegistrationKey($eventId, $code))->code] = true;
+            } catch (InvalidInput) {
+                $invalid[] = $code;
+            }
+        }
+        if ($invalid !== []) {
+            $error = new CommandFailure('Not a registration code: ' . implode(', ', $invalid) . '.');
+            throw $error;
+        }
+        if ($codes === []) {
+            throw new CommandFailure('No registration codes were given.');
+        }
+        if (count($codes) > SendManualMail::MAX_CODES) {
+            $error = new CommandFailure('At most ' . SendManualMail::MAX_CODES . ' codes in one batch.');
+            throw $error;
+        }
+
+        return array_map('strval', array_keys($codes));
+    }
+
+    private static function actor(): CliActor
+    {
+        $current = get_current_user_id();
+
+        return new CliActor($current > 0 ? $current : null);
+    }
+
+    private static function who(?int $userId): string
+    {
+        if ($userId === null) {
+            return 'the system or the command line';
+        }
+        $user = get_userdata($userId);
+
+        return $user === false ? 'user ' . $userId : $user->user_login . ' (user ' . $userId . ')';
+    }
+
+    private function subject(int $bodyId): string
+    {
+        $post = $this->posts->eventOf($bodyId) === null ? null : get_post($bodyId);
+
+        return $post instanceof \WP_Post ? $post->post_title : '(gone)';
+    }
+
+    /** @param array<string, mixed> $assocArgs */
+    private static function format(array $assocArgs): string
+    {
+        $format = $assocArgs['format'] ?? 'table';
+        if (!in_array($format, ['table', 'json', 'csv'], true)) {
+            throw new CommandFailure('The format must be table, json or csv.');
+        }
+
+        return $format;
+    }
+}
