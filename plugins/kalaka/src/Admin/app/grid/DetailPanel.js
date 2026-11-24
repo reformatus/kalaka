@@ -14,7 +14,7 @@ import * as api from './api';
 import { confirmationOf, markOf, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import Requests from './Requests';
+import RequestsBlock from './RequestsBlock';
 import StatusMark from './StatusMark';
 import { PANEL } from './texts';
 
@@ -155,7 +155,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				/>
 			) }
 			{ detail && (
-				<Requests
+				<RequestsBlock
 					config={ config }
 					code={ code }
 					detail={ detail }

@@ -22,7 +22,7 @@ const SNACKBAR_MS = 5000;
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {Function} props.onSaved tells the grid something changed
  */
-export default function Requests( { config, code, detail, stale, reload, onSaved } ) {
+export default function RequestsBlock( { config, code, detail, stale, reload, onSaved } ) {
 	const [ open, setOpen ] = useState( null ); // the request being answered
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
