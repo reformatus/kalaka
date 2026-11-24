@@ -157,6 +157,8 @@ abstract class OffersTestCase extends PricingTestCase
             'code' => $key->code,
             'request' => 'offer:' . $offer,
             'answer' => $answer,
+            // A "yes" to an offer is a partner's approval and carries its reason.
+            'note' => $answer === 'yes' ? 'Teszt indok' : '',
         ], new UserActor($this->fullAccessUser()));
         self::assertIsArray($result);
 

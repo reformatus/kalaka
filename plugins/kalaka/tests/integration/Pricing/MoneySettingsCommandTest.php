@@ -202,7 +202,7 @@ final class MoneySettingsCommandTest extends PricingTestCase
     }
 
     /** The CLI names a refusal by its code: an offer selected by open registrations has its own reason. */
-    public function testARuleViolationIsNamedByItsCodeAndAnotherOneIsLeftToTheBoundary(): void
+    public function testARuleViolationIsNamedByItsCodeAndAnotherOneGetsTheKeyRefusalText(): void
     {
         $this->setPrice('1000');
         $this->register('00A0');
@@ -226,7 +226,7 @@ final class MoneySettingsCommandTest extends PricingTestCase
                 ['file' => $other, 'yes' => true]
             ));
             self::assertStringNotContainsString('offer is selected', $text);
-            self::assertStringNotContainsString('participant field', $text);
+            self::assertStringContainsString('held by a participant field', $text);
         }
     }
 

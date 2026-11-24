@@ -21,9 +21,10 @@ use Kalaka\Registrations\Api\Seats;
  * this source being its only writer. It reads only the registration's field values and, for a limited offer, the
  * seats it holds.
  *
- * A limited offer is a request only while the registration holds its seat, or has been answered: a selection that
- * got no seat (an admission into a full offer) owes the price without the offer, and a refused offer, which gave
- * its seat back, can still be answered "yes" again. [UNAPPROVED N101]
+ * A limited offer is a request only while the registration holds its seat, or has been answered: a refused offer,
+ * which gave its seat back, can still be answered "yes" again. A selection admitted or restored takes its seat
+ * over the limit like every pool, so it is a request. The answer is the offer's own field: `isAnswered()` reads
+ * `<key>_answer` from the values it is given. [UNAPPROVED N101, N356]
  */
 final class OfferRequests implements RequestSource
 {
@@ -56,14 +57,17 @@ final class OfferRequests implements RequestSource
         return $requests;
     }
 
+    public function isAnswered(Request $request, array $values): bool
+    {
+        return self::answered($values, self::keyOf($request));
+    }
+
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
         $key = self::keyOf($request);
         $offer = $this->offers->find(['eventId' => $registration->eventId, 'key' => $key]);
 
-        return $offer === null || $offer->limit === null
-            ? null
-            : new OfferSeatPool($registration->eventId, $key, $this->offers);
+        return $offer === null ? null : new OfferSeatPool($registration->eventId, $key, $this->offers);
     }
 
     public function writeAnswer(
@@ -76,7 +80,8 @@ final class OfferRequests implements RequestSource
             $registration,
             self::keyOf($request) . SetSupportOffers::ANSWER_SUFFIX,
             $answer->approved ? 'approved' : 'refused',
-            $context
+            $context,
+            SetSupportOffers::DECLARER
         );
     }
 

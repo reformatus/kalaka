@@ -113,13 +113,11 @@ final class Registrations
      * one writer rule, a field is written by its declarer's own code only. The field must be one the event
      * declares, and not a "system" field, which stores nothing (foundation.md, "Facts, decisions and computed
      * values"). The caller owns the field's type: this does not check it. [UNAPPROVED N11] [UNAPPROVED N137]
-     *
-     * TODO(CF3, #231): refuse a field whose `declared_by` is another declarer. The column and
-     * `ParticipantField::$declaredBy` arrive with CF3; until then the declarer is required but not compared, so
-     * this completes at the restack onto CF3.
+     * A field another declarer holds (`declared_by`, CF3) is refused: a field is written by its declarer's own code
+     * only. [UNAPPROVED N357]
      *
      * @throws SystemFailure when the run does not hold the registration, the declarer is empty, the event has no
-     *                       such active field, or the field is a "system" one
+     *                       such active field, the field is a "system" one, or another declarer holds it
      */
     public function writeValue(
         RegistrationKey $key,
@@ -149,6 +147,10 @@ final class Registrations
         }
         if ($declared->source === ParticipantField::SOURCE_SYSTEM) {
             $error = new SystemFailure(null, new \LogicException('A system field stores no value.'));
+            throw $error;
+        }
+        if ($declared->declaredBy !== null && $declared->declaredBy !== $declarer) {
+            $error = new SystemFailure(null, new \LogicException('Another declarer holds the participant field.'));
             throw $error;
         }
         $stored = $this->values->findForUpdate(
