@@ -28,6 +28,7 @@ final class Module extends AbstractModule
         add_action('init', [$this, 'resolveActiveRegistration'], 0);
         add_action('wp_logout', [$this, 'logout']);
         add_action('init', [$this, 'register']);
+        add_action('rest_api_init', [new Rest\CardPaymentRoute(), 'register']);
         add_action('template_redirect', [$this, 'preventCaching']);
         add_shortcode(ParticipantBlocks::STATUS_SHORTCODE, [ParticipantBlocks::class, 'status']);
         add_shortcode(ParticipantBlocks::TRANSFER_SHORTCODE, [ParticipantBlocks::class, 'transfer']);

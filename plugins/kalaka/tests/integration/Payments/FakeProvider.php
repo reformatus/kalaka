@@ -31,6 +31,12 @@ final class FakeProvider extends AbstractPaymentProvider
     /** @var ?callable(): void run inside `payUrl()` */
     public $whilePaying = null;
 
+    /** What `payUrl()` throws, as a provider that fails would. */
+    public ?\Throwable $payThrows = null;
+
+    /** Whether `latestOf()` throws, as a provider that fails would. */
+    public bool $failsToRead = false;
+
     public function __construct(private readonly string $id = 'fake', public bool $accepts = true)
     {
     }
@@ -54,6 +60,9 @@ final class FakeProvider extends AbstractPaymentProvider
         if ($this->whilePaying !== null) {
             ($this->whilePaying)();
         }
+        if ($this->payThrows !== null) {
+            throw $this->payThrows;
+        }
         $this->requests[] = $input->request();
         $this->returnUrls[] = $input->returnUrl();
 
@@ -63,6 +72,9 @@ final class FakeProvider extends AbstractPaymentProvider
     public function latestOf(PaymentProviderInput $input): ?OpenPayment
     {
         $this->insideARun['latestOf'] = Runner::activeRun() !== null;
+        if ($this->failsToRead) {
+            throw new \RuntimeException('The provider cannot be read.');
+        }
 
         return $this->latest;
     }

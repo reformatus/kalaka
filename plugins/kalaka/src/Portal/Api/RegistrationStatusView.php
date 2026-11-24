@@ -16,7 +16,9 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * transfer block may show (SB-4: registered, the event open, not awaiting an answer, a participant balance above zero
  * after rounding, and the event's bank details set). `money` is the participant's money table, set for every
  * status (a withdrawn or removed registration keeps its rows and movements); it is read beside `payment`,
- * whose `lines` go when the blocks switch to it.
+ * whose `lines` go when the blocks switch to it. `can` is what the registrant may do now, and `cardPayment` the
+ * latest card payment request (null for none, for a registration that is not registered, and while no provider
+ * is contributed).
  */
 final readonly class RegistrationStatusView
 {
@@ -30,6 +32,8 @@ final readonly class RegistrationStatusView
         public ?PaymentView $payment,
         public ?TransferDetails $transfer,
         public ParticipantMoney $money,
+        public RegistrationCan $can = new RegistrationCan(),
+        public ?CardPaymentView $cardPayment = null,
     ) {
     }
 

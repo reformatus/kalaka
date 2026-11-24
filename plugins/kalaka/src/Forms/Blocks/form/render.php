@@ -16,10 +16,10 @@
 declare(strict_types=1);
 
 use Kalaka\Forms\Api\ElementRole;
+use Kalaka\Forms\Api\ThemeStyle;
 use Kalaka\Forms\Engine\FieldMarkup;
 use Kalaka\Forms\Engine\FormPage;
 use Kalaka\Forms\Engine\FormPageView;
-use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
@@ -49,11 +49,11 @@ echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (F
         }
     } else {
         // The theme adapter's error colour, for the stylesheet: `--kalaka-error-color` on the form.
-        $kalakaColour = ThemeAdapters::current()->errorColour;
+        $kalakaColour = ThemeStyle::errorColor();
         $kalakaStyle = $kalakaColour === null
             ? ''
             : 'style="' . esc_attr('--kalaka-error-color: ' . $kalakaColour) . '"';
-        $kalakaButtonClass = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
+        $kalakaButtonClass = FieldMarkup::classAttribute(ElementRole::SubmitButton, ThemeStyle::BUTTON_CLASS);
         $kalakaFormClass = FieldMarkup::classAttribute(ElementRole::Form);
         ?>
 <noscript><p><?php echo esc_html('Az űrlap kitöltéséhez kapcsold be a JavaScriptet a böngésződben.'); ?></p></noscript>
