@@ -41,7 +41,7 @@ SQL;
      * money.md, "Sponsor and church support": an event's support offers, one row per offer, keyed by (event ID,
      * offer key); `position` is the order that caps them. The row is the offer's seat pool, locked `FOR UPDATE`
      * at the quota level. `node_id` is the granting directory node. The amounts are read as they are now: there
-     * is no tariff snapshot. [UNAPPROVED N3]
+     * is no tariff snapshot. [UNAPPROVED N93]
      */
     private const OFFERS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_support_offers (
