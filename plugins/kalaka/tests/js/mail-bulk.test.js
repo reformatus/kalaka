@@ -91,3 +91,36 @@ describe( 'the grid\'s bulk action', () => {
 		expect( apiFetch.mock.calls[ 0 ][ 0 ].data ).toEqual( { codes: [ 'Q1', 'Q2' ] } );
 	} );
 } );
+
+test( 'the selection is cleared when the dialog closes after a send, not while the answer is on screen', async () => {
+	apiFetch.mockImplementation( ( options ) =>
+		Promise.resolve(
+			options.path.endsWith( '/preview' )
+				? { queue: [ 'Q1' ], skipped: [], unknown: [], bodies: [ { id: 5, subject: 'Levél' } ] }
+				: { batch_id: 1, queued: 1, skipped: [], repeat: false, paused: false, held: false }
+		)
+	);
+	const done = jest.fn();
+	const closeModal = jest.fn();
+	const action = manualMailAction( { eligible: true, event: 1, previewPath: '/kalaka-admin/v1/events/1/mail/manual/preview', onSent: done } );
+	host = document.createElement( 'div' );
+	document.body.appendChild( host );
+	root = createRoot( host );
+	await act( async () => {
+		root.render( createElement( action.RenderModal, { items: [ { key: 'Q1' } ], closeModal } ) );
+	} );
+	await act( async () => {
+		const select = host.querySelector( 'select' );
+		Object.getOwnPropertyDescriptor( window.HTMLSelectElement.prototype, 'value' ).set.call( select, '5' );
+		select.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+	} );
+	await act( async () => {
+		host.querySelector( 'form' ).dispatchEvent( new Event( 'submit', { bubbles: true, cancelable: true } ) );
+	} );
+	expect( done ).not.toHaveBeenCalled();
+	await act( async () => {
+		host.querySelector( 'button' ).click();
+	} );
+	expect( closeModal ).toHaveBeenCalled();
+	expect( done ).toHaveBeenCalledTimes( 1 );
+} );

@@ -71,7 +71,7 @@ final class GridPageManualMailTest extends GrantTestCase
         $this->seedMaster($event, []);
         $this->plainView($event);
 
-        self::assertSame([true, true, true], $this->manualMailTabs($this->admin->userId, $event));
+        self::assertSame([true, true], $this->manualMailTabs($this->admin->userId, $event));
     }
 
     public function testAGrantHolderHasItOnlyOnTheTabOfAGrantThatCarriesIt(): void

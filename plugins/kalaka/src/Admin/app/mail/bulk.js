@@ -9,10 +9,32 @@
  * @param {boolean}  options.eligible    whether the tab carries the manual mail
  * @param {number}   options.event       the event
  * @param {string}   options.previewPath the preview route after the site's REST root
- * @param {Function} options.onSent      called once a send is made
+ * @param {Function} options.onSent      called when the dialog closes after a send was made (not before: clearing the
+ *                                       selection earlier would unmount the action's modal and the answer in it)
  */
+import { useRef } from '@wordpress/element';
 import { ManualMailForm } from './ManualMailDialog';
 import { GRIDACTION, MANUAL } from './texts';
+
+function BulkDialog( { event, previewPath, items, closeModal, onSent } ) {
+	const sent = useRef( false );
+	return (
+		<ManualMailForm
+			event={ event }
+			previewPath={ previewPath }
+			codes={ items.map( ( item ) => item.key ) }
+			onClose={ () => {
+				closeModal();
+				if ( sent.current ) {
+					onSent();
+				}
+			} }
+			onSent={ () => {
+				sent.current = true;
+			} }
+		/>
+	);
+}
 
 export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 	return {
@@ -22,13 +44,7 @@ export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 		supportsBulk: true,
 		isEligible: () => eligible,
 		RenderModal: ( { items, closeModal } ) => (
-			<ManualMailForm
-				event={ event }
-				previewPath={ previewPath }
-				codes={ items.map( ( item ) => item.key ) }
-				onClose={ closeModal }
-				onSent={ onSent }
-			/>
+			<BulkDialog event={ event } previewPath={ previewPath } items={ items } closeModal={ closeModal } onSent={ onSent } />
 		),
 	};
 }
