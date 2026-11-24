@@ -134,10 +134,6 @@ export const MONEY = {
 	entryCharge: 'Díj',
 	entryDiscount: 'Kedvezmény',
 	typeEmpty: 'Válassz típust.',
-	// The owed-side type words of the entries, used only where the read gives no label for a manual line (the
-	// read's `kind_label` wins).
-	manualCharge: 'Kézi díj',
-	manualDiscount: 'Kézi kedvezmény',
 	// The correction dialog's direction (the lektor's form, approved by the owner, topic 10) and its message.
 	directionField: 'Irány',
 	directionIn: 'Befizetett összeg növelése',

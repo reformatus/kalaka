@@ -56,23 +56,15 @@ export const formatBalanceMinor = ( minor, currency ) =>
 export const formatBalance = ( value, currency ) => formatBalanceMinor( toMinor( value ) ?? 0, currency );
 
 /*
- * SEAM (Backend #209, design note §9): everything the panel has to know about the server's money lines sits in
- * this block, so Backend's rework changes one place. #209's head is not pushed yet, so the panel is built
- * against today's server and tested with stubs. The new read gives each line `type` (`fee`, `manual_charge`,
+ * SEAM (Backend #209, #213, design note §9): everything the panel has to know about the server's money lines sits in
+ * this block, so Backend's rework changes one place. The read gives each line `type` (`fee`, `manual_charge`,
  * `manual_discount`, `component`, `payment`, `refund`, `manual_payment`, `manual_refund`), `side` (`owed` or
- * `paid`) and `title` (set on manual rows only). `can.record_money`, `can.record_charge` and
- * `can.record_discount` are the money flags. Until it lands today's read has `kind` (and `kind_label`), and the
- * panel falls back to it for the line's type.
+ * `paid`), `kind_label` and `title` (set on manual rows only), always. `can.record_money`, `can.record_charge` and
+ * `can.record_discount` are the money flags.
  */
 
-/** The kinds on the paid side: money that moved. Every other kind (the fee, a manual charge or discount, a named
- * component, and later the support lines) is owed-side, shown as stored. Used only while the read has no `side`.
- */
-const PAID_SIDE = new Set( [ 'payment', 'manual_payment', 'refund', 'manual_refund' ] );
-export const sideOf = ( kind ) => ( PAID_SIDE.has( kind ) ? 'paid' : 'owed' );
-
-/** A line's side: the read's own `side`, else (today's server) the side of its kind. */
-export const lineSide = ( line ) => line.side || sideOf( line.kind );
+/** A line's side: the read's own `side`. */
+export const lineSide = ( line ) => line.side;
 
 /**
  * A stored amount as the panel shows it, in minor units: an owed-side line as stored (a charge positive, a
@@ -89,19 +81,8 @@ export function entryColumns( line, currency ) {
 	return side === 'paid' ? { owed: '', paid: shown } : { owed: shown, paid: '' };
 }
 
-/** The type word of a line: the read's own label (a named component under its own name), and for the fee and the
- * two manual owed-side types the owner's words when the read gives none. */
-export function typeWord( line ) {
-	const own = line.kind_label || '';
-	if ( own ) {
-		return own;
-	}
-	return (
-		{ fee: MONEY.entryCharge, manual_charge: MONEY.manualCharge, manual_discount: MONEY.manualDiscount }[
-			line.type || line.kind
-		] || ''
-	);
-}
+/** The type word of a line: the read's own label (a named component under its own name). */
+export const typeWord = ( line ) => line.kind_label || '';
 
 /** The „Megjegyzés” cell: a manual charge or discount shows its participant-visible `title`, the others their
  * note. */

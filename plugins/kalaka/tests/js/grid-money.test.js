@@ -4,7 +4,7 @@ import {
 	balanceAfter,
 	buildCall,
 	canCorrect,
-	entryColumns,
+	entryColumns as columnsOf,
 	formatBalance,
 	formatBalanceMinor,
 	formatDay,
@@ -17,7 +17,6 @@ import {
 	previewAfter,
 	raisesDebt,
 	savedText,
-	sideOf,
 	toMinor,
 	today,
 	typeWord,
@@ -26,6 +25,11 @@ import {
 import { MONEY } from '../../src/Admin/app/grid/texts';
 
 const NBSP = ' ';
+
+// The read always sends `side`; a test line that names only its kind gets the side the server gives that kind.
+const PAID_KINDS = [ 'payment', 'manual_payment', 'refund', 'manual_refund' ];
+const entryColumns = ( line, currency ) =>
+	columnsOf( { ...line, side: line.side || ( PAID_KINDS.includes( line.kind ) ? 'paid' : 'owed' ) }, currency );
 
 describe( 'amounts in fillér', () => {
 	test( 'the read\'s eight decimals become whole fillér, signed', () => {
@@ -152,23 +156,19 @@ describe( 'the two sides of the entries', () => {
 		expect( line( '-35000.00000000', 'manual_payment', 'paid' ) ).toEqual( { owed: '', paid: `35${ NBSP }000${ NBSP }Ft` } );
 		expect( line( '1000.00000000', 'refund', 'paid' ).paid ).toBe( `−1${ NBSP }000${ NBSP }Ft` );
 		expect( lineSide( { side: 'paid', kind: 'charge' } ) ).toBe( 'paid' );
-		expect( lineSide( { kind: 'manual_refund' } ) ).toBe( 'paid' );
 	} );
 
-	test( 'a kind the panel does not know (extra, support lines) is owed-side, as stored', () => {
-		expect( sideOf( 'extra_charge' ) ).toBe( 'owed' );
+	test( 'a line with a kind the panel does not know (extra, support lines) is placed by the read\'s side, as stored', () => {
 		expect( c( '-10000.00000000', 'support' ) ).toEqual( { owed: `−10${ NBSP }000${ NBSP }Ft`, paid: '' } );
 		expect( c( '5000.00000000', 'adjustment' ).owed ).toBe( `5${ NBSP }000${ NBSP }Ft` );
+		expect( columnsOf( { amount: '-5000.00000000', kind: 'extra_charge', side: 'paid' } ).paid ).toBe( `5${ NBSP }000${ NBSP }Ft` );
 	} );
 
-	test( 'the type word is the read\'s own, with the owner\'s words for the manual kinds as a fallback', () => {
+	test( 'the type word is the read\'s own label, and nothing is guessed when it gives none', () => {
 		expect( typeWord( { kind: 'charge', kind_label: 'Díj' } ) ).toBe( 'Díj' );
 		expect( typeWord( { kind: 'extra_charge', kind_label: 'Étkezés' } ) ).toBe( 'Étkezés' );
-		expect( typeWord( { type: 'fee' } ) ).toBe( 'Díj' );
-		expect( typeWord( { type: 'manual_charge' } ) ).toBe( 'Kézi díj' );
-		expect( typeWord( { kind: 'manual_charge' } ) ).toBe( 'Kézi díj' );
-		expect( typeWord( { kind: 'manual_discount' } ) ).toBe( 'Kézi kedvezmény' );
-		expect( typeWord( { kind: 'manual_charge', kind_label: 'Kézi díj' } ) ).toBe( 'Kézi díj' );
+		expect( typeWord( { type: 'fee' } ) ).toBe( '' );
+		expect( typeWord( { kind: 'manual_charge' } ) ).toBe( '' );
 	} );
 
 	test( '„Megjegyzés” shows a charge\'s title, else the note', () => {

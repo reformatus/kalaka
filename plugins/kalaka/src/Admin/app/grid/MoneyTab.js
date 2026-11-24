@@ -10,10 +10,8 @@ import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import RecordDialog from './RecordDialog';
 import { allowedTypes, canCorrect, entryColumns, formatBalance, formatDay, formatMoney, lineNote, typeWord } from './money';
+import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import { MONEY } from './texts';
-
-/** How long the success snackbar stays. [UNAPPROVED N19] */
-const SNACKBAR_MS = 5000;
 
 /**
  * @param {Object}   props
@@ -64,8 +62,9 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 		onSaved();
 		setDialog( null );
 		const id = String( Date.now() );
-		setNotices( ( list ) => list.concat( { id, content: text, status: 'success', spokenMessage: text } ) );
-		timers.current.push( setTimeout( () => setNotices( ( list ) => list.filter( ( n ) => n.id !== id ) ), SNACKBAR_MS ) );
+		// The success snackbar stays for SNACKBAR_MS. [UNAPPROVED N19]
+		setNotices( ( list ) => withNotice( list, id, text, 'success' ) );
+		timers.current.push( setTimeout( () => setNotices( ( list ) => withoutNotice( list, id ) ), SNACKBAR_MS ) );
 		focusOpener();
 	};
 
@@ -76,7 +75,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 		<div className="kg-snacks">
 			<SnackbarList
 				notices={ notices }
-				onRemove={ ( id ) => setNotices( ( list ) => list.filter( ( n ) => n.id !== id ) ) }
+				onRemove={ ( id ) => setNotices( ( list ) => withoutNotice( list, id ) ) }
 			/>
 		</div>
 	);

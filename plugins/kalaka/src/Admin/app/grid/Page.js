@@ -206,7 +206,7 @@ export default function Page( { config } ) {
 	const queryKey = JSON.stringify( [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 	const queryRef = useRef( queryKey );
 	queryRef.current = queryKey;
-	const sumsKey = JSON.stringify( [ tab.key, narrowKey ] );
+	const sumsKey = JSON.stringify( [ tab.key, narrowKey, countsKey ] );
 	const sumsRef = useRef( sumsKey );
 	sumsRef.current = sumsKey;
 	// Activating the open row again re-reads the panel when its read had failed.
@@ -217,9 +217,9 @@ export default function Page( { config } ) {
 			( result ) => queryRef.current === asked && setData( result ),
 			() => {}
 		);
-		// The sums depend only on the tab and the narrowing, not on the page or the sort.
+		// The sums depend on the tab, the narrowing and the viewer's counting picks, not on the page or the sort.
 		const sumsAsked = sumsKey;
-		api.fetchSums( config, tab, narrow ).then(
+		api.fetchSums( config, tab, narrow, counts ).then(
 			( result ) => sumsRef.current === sumsAsked && setSums( result ),
 			() => {}
 		);
