@@ -283,11 +283,13 @@ final class SaveDirectoryNodeTest extends SupportTestCase
         $checked = 0;
         foreach ($files as $file) {
             $path = $file->getPathname();
-            // The offers are settings, saved as a whole list: an offer left out is deleted, by these two files only.
+            // The offers are settings, saved as a whole list: an offer left out is deleted, by these two files only;
+            // the share's row is deleted when it is turned off, by `SetShare`.
             if (
                 !str_ends_with($path, '.php') || str_contains($path, '/vendor/') || str_contains($path, '/tests/')
                 || str_ends_with($path, '/Support/Offers/OfferRepository.php')
                 || str_ends_with($path, '/Support/Offers/SetSupportOffers.php')
+                || str_ends_with($path, '/Support/Share/SetShare.php')
             ) {
                 continue;
             }

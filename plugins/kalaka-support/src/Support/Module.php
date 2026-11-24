@@ -13,7 +13,9 @@ use Kalaka\Support\Directory\Rest\NodesController;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\SupportComponent;
+use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Support\Picker\CongregationFieldType;
+use Kalaka\Support\Share\ShareComponent;
 
 final class Module extends AbstractModule
 {
@@ -59,6 +61,21 @@ CREATE TABLE {prefix}kalaka_support_offers (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * money.md, "Congregation share": an event's share is on when it has a row here, keyed by the event. There is
+     * nothing else to store: the mode and the amount are the registrant's answers. [UNAPPROVED N2]
+     */
+    private const SHARE = <<<'SQL'
+CREATE TABLE {prefix}kalaka_support_share (
+  event_id bigint(20) unsigned NOT NULL,
+  version int(10) unsigned NOT NULL,
+  PRIMARY KEY  (event_id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
+    /** The congregation's payer-kind label. [UNAPPROVED T6] */
+    public const CONGREGATION_LABEL = 'Gyülekezet';
+
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(
         private readonly CongregationFieldType $congregationField = new CongregationFieldType()
@@ -78,13 +95,15 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(2, [self::NODES, self::OFFERS]);
+        return new Schema(3, [self::NODES, self::OFFERS, self::SHARE]);
     }
 
     public function contribute(Contributions $to): void
     {
         $to->fieldType($this->congregationField);
         $to->feeComponent(new SupportComponent());
+        $to->feeComponent(new ShareComponent());
+        $to->payerKind(new PayerKind(ShareComponent::CONGREGATION, self::CONGREGATION_LABEL));
         $to->requestSource(new OfferRequests());
         $to->seatClaimSource(new OfferClaims());
     }

@@ -272,13 +272,18 @@ price** (the chosen tier, or the fixed price without a ladder), never extras
 such as lunch or a donation.
 
 - **The ladder sets only the base price;** the share between payers is
-  decided by the registrant's answers, never by the tier. The share is
-  zero, the amount the registrant declares, or the base price. A fee component writes a zero-sum
-  pair, participant −X′ and congregation +X′, where
+  decided by the registrant's answers, never by the tier. The share
+  extension declares two participant fields, `share_mode` (none, shared or
+  full) and `share_amount`, which forms join by key; a form may offer any
+  subset of the modes. A missing answer is none. The share is zero, the
+  amount the registrant declares (`share_amount`, read only when the mode is
+  shared), or the base price. A fee component writes a zero-sum pair of
+  `share` lines, participant −X′ and congregation +X′, where
   X′ = max(0, min(share, base price − support)). Support thus reduces
   the participant's part first, and the congregation's only below zero.
-- It reads the share, its current settings and, at its fixed stage in the
-  [fee sequence](#materializer), the base price after support.
+- It reads the two answers, a per-event on/off switch in the money settings
+  and, at its fixed stage in the [fee sequence](#materializer), the base
+  price after support.
 - The congregation's payments carry the congregation payer, so its
   overpayment never settles the participant's extras.
 - The congregation's part is always needed for confirmation

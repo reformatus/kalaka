@@ -48,6 +48,8 @@ corrections
   time zone at recording; a correction (a manual row flagged `correction`,
   the owner's ruling 2026-11-19, with no method) has no entered date and
   stores the time it is recorded. A `charge` carries neither.
+- The payer kinds are the participant and the kinds modules declare through `Contributions::payerKind()`
+  (`PayerKinds` reads them): a declared kind only has an ID and a label and runs no code.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - A manual charge or discount is a fact in `kalaka_manual_fees`: inserted

@@ -39,6 +39,8 @@ require_once $testsDir . '/includes/functions.php';
 tests_add_filter('muplugins_loaded', static function (): void {
     require dirname(__DIR__, 3) . '/kalaka/kalaka.php';
     require dirname(__DIR__, 2) . '/kalaka-support.php';
+    // The share tests compose with aid; its plugin sits beside the others.
+    require dirname(__DIR__, 3) . '/kalaka-aid/kalaka-aid.php';
 });
 
 require $testsDir . '/includes/bootstrap.php';

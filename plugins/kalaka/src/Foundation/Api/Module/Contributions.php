@@ -11,6 +11,8 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Ledger\Api\Payer;
+use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Pricing\Api\FeeComponent;
@@ -48,6 +50,9 @@ final class Contributions
     private array $seatClaimSources = [];
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
+
+    /** @var array<string, PayerKind> */
+    private array $payerKinds = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -261,5 +266,34 @@ final class Contributions
     public function feeComponents(): array
     {
         return array_values($this->feeComponents);
+    }
+
+    /**
+     * A payer kind is only declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): an
+     * ID of the form `Payer::isValid()` and a Hungarian label; it runs no code and applies site-wide while its
+     * module is active. The participant is core's and cannot be declared again; a repeated ID fails the
+     * contributing module.
+     */
+    public function payerKind(PayerKind $kind): void
+    {
+        if (!Payer::isValid($kind->id) || $kind->id === Payer::PARTICIPANT || $kind->label === '') {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
+            throw new \InvalidArgumentException('Invalid payer kind ' . $kind->id . '.');
+        }
+        if (isset($this->payerKinds[$kind->id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
+            throw new \InvalidArgumentException('Payer kind already contributed: ' . $kind->id . '.');
+        }
+        $this->payerKinds[$kind->id] = $kind;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<PayerKind>
+     */
+    public function payerKinds(): array
+    {
+        return array_values($this->payerKinds);
     }
 }

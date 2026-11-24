@@ -23,8 +23,9 @@ title: Modules and extensions
   site, the WooCommerce extension lets anyone who may reach Kaláka's admin
   (full access or any grant) into wp-admin.
 - **Sponsor and church support is one extension plugin, `kalaka-support`:**
-  the organization directory, the congregation picker and the support offers
-  ([Money](money.md#sponsor-and-church-support)). Core holds no organization
+  the organization directory, the congregation picker, the support offers
+  ([Money](money.md#sponsor-and-church-support)) and the congregation share
+  ([Money](money.md#congregation-share)). Core holds no organization
   data.
 
 ```mermaid
@@ -330,7 +331,9 @@ flowchart LR
   - A **slot requirement** names participant fields the event's registration
     form must hold, required and outside any condition (the price ladder
     requires `price_tier`); a form without one is closed until fixed.
-  - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
+  - A **payer kind** is only declared (e.g. "congregation"), with an ID and a
+    label, through `Contributions::payerKind()`; it runs no code and applies
+    to every event while its module is active.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
     block editor context. Forms gates its blocks by post type and lets a host

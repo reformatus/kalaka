@@ -1,10 +1,11 @@
 # Support
 
-Support is the organization directory, the congregation picker and the
-support offers: one feature plugin, `kalaka-support` (module `support`), an
+Support is the organization directory, the congregation picker, the support
+offers and the congregation share: one feature plugin, `kalaka-support` (module `support`), an
 extension that uses only core's public API
 ([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
-It holds the directory, the congregation picker and the support offers.
+It holds the directory, the congregation picker, the support offers and the
+congregation share.
 
 ## Sections it implements
 
@@ -18,6 +19,7 @@ It holds the directory, the congregation picker and the support offers.
   snapshot),
   [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
   (a congregation level matches the answer's stored path snapshot).
+- money.md: [Congregation share](../../../../docs/architecture/money.md#congregation-share).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),
@@ -106,3 +108,29 @@ It holds the directory, the congregation picker and the support offers.
   until the offer is answered (D2), so the grid's `registered` condition already holds the seat test.
 - Only this module writes `kalaka_support_offers`. Offers are settings, so an offer left out is deleted; the
   directory's nodes are never deleted.
+
+## Congregation share (`Share/`)
+
+- The share is on for an event when it has a row in `kalaka_support_share`, written only through `kalaka/set-share`,
+  which the money settings apply runs (`Api\Share::propose()`, the component `share`'s settings document
+  `{"on": bool}`; any other shape is refused). On, the save declares the two participant fields in the same
+  transaction through core's `declareExtensionField()`: `share_mode`, a choice of the fixed values `none`, `shared`
+  and `full`, and `share_amount`, a number with no declared minimum, maximum or decimals; both extension-sourced and
+  form-writable. The form links to them by key, and any subset of the modes may be offered, never an added one.
+  The save refuses (the preview too) when a form, staff or system field, or an extension field of another type,
+  already holds either key: turn the share on before the form joins the keys. Off, the row is deleted; the fields
+  and their values stay, and the apply takes the pairs away. [UNAPPROVED N2, N3, N14, N15]
+- The component reads the registration's facts (its two answers), its own setting and the stage totals; never a
+  charge line. A missing answer, a form without the field or `none` is no share; `share_amount` is read only for
+  `shared`, and an empty, zero, negative or non-numeric amount is no share (no refusal). `share_mode` is not a slot
+  requirement. X' = max(0, min(share, base - support)), with the base the tier stage's participant total and the
+  support the support stage's; an X' of zero returns `FeeTargets::none()`, so an earlier pair is reversed and no
+  zero line is written. The pair is one undivided `share` line per payer, participant -X' and congregation +X'.
+  [UNAPPROVED N5, N6, N11]
+- Nothing re-checks `share_mode` against the tier at evaluation: the form's option conditions are the judge at
+  submit. An additional form that holds one of `price_tier` and `share_mode` but not the other can still make a
+  mismatch; author both together. [UNAPPROVED N7]
+- The module declares the payer kind `congregation` (label „Gyülekezet”) through `Contributions::payerKind()`, so a
+  congregation payment can be recorded by hand and is credited to the congregation alone. The kind is site-wide while
+  the plugin is active. [UNAPPROVED N8, T6]
+- Only this module writes `kalaka_support_share`.
