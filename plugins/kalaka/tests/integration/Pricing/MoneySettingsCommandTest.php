@@ -201,6 +201,35 @@ final class MoneySettingsCommandTest extends PricingTestCase
         self::assertSame('1200', $this->balance($key));
     }
 
+    /** The CLI names a refusal by its code: an offer selected by open registrations has its own reason. */
+    public function testARuleViolationIsNamedByItsCodeAndAnotherOneIsLeftToTheBoundary(): void
+    {
+        $this->setPrice('1000');
+        $this->register('00A0');
+        $named = $this->file(['components' => ['extra' => ['amount' => 'refused-offer']]]);
+        $other = $this->file(['components' => ['extra' => ['amount' => 'refused']]]);
+
+        foreach (['preview', 'apply'] as $verb) {
+            \WP_CLI::reset();
+            $text = $this->fails(fn () => $this->command()->$verb(
+                [(string) $this->event],
+                ['file' => $named, 'yes' => true]
+            ));
+            self::assertSame(
+                'The settings of "extra" are refused: an offer is selected by open registrations.',
+                $text
+            );
+
+            \WP_CLI::reset();
+            $text = $this->fails(fn () => $this->command()->$verb(
+                [(string) $this->event],
+                ['file' => $other, 'yes' => true]
+            ));
+            self::assertStringNotContainsString('offer is selected', $text);
+            self::assertStringNotContainsString('participant field', $text);
+        }
+    }
+
     /** @return iterable<string, array{string|array<string, mixed>, string}> */
     public static function badFiles(): iterable
     {
