@@ -51,12 +51,7 @@ final class Requests
         foreach ($this->values->forRegistration($registration) as $value) {
             $values[$value->fieldKey] = $value->value;
         }
-        $owned = [];
-        foreach ($sources as $source) {
-            foreach ($source->requestsOf($registration, $values) as $request) {
-                $owned[$request->id] ??= [$request, $source];
-            }
-        }
+        $owned = $this->requestsOf($registration, $values, $sources);
         if ($owned === []) {
             return [];
         }
@@ -76,16 +71,81 @@ final class Requests
     /** Whether the registration has a request with no answer; false for a withdrawn or removed registration. */
     public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
     {
-        if ($status === RegistrationStatus::Withdrawn || $status === RegistrationStatus::Removed) {
-            return false;
+        return $this->awaitsOf($registration->eventId, [$registration->code => $status])[$registration->code];
+    }
+
+    /**
+     * "Awaits an answer" for several of one event's registrations at once, by the one rule of `awaits()`: the
+     * cost is fixed whatever the count: with no source, or when every registration is withdrawn or removed, no
+     * statement; otherwise the field values and then (only if some registration has a request) the answers, one
+     * statement each. (Shapes) grid rows carry awaits_answer: bool, PHP-computed per page; not filterable,
+     * sortable or summable (alt: a per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
+     *
+     * @param array<string, RegistrationStatus> $statusByCode the registrations' codes with their statuses
+     * @return array<string, bool> by code, every given code
+     */
+    public function awaitsOf(int $eventId, array $statusByCode): array
+    {
+        $awaits = array_fill_keys(array_map('strval', array_keys($statusByCode)), false);
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        $live = [];
+        foreach ($statusByCode as $code => $status) {
+            if ($status !== RegistrationStatus::Withdrawn && $status !== RegistrationStatus::Removed) {
+                $live[] = (string) $code;
+            }
         }
-        foreach ($this->states($registration) as $state) {
-            if ($state->awaits()) {
-                return true;
+        if ($sources === [] || $live === []) {
+            return $awaits;
+        }
+
+        $values = [];
+        foreach ($this->values->forRegistrations($eventId, $live) as $value) {
+            $values[$value->registration->code][$value->fieldKey] = $value->value;
+        }
+        $owned = [];
+        foreach ($live as $code) {
+            $key = new RegistrationKey($eventId, $code);
+            foreach ($this->requestsOf($key, $values[$code] ?? [], $sources) as $request) {
+                $owned[$code][] = $request[0]->id;
+            }
+        }
+        if ($owned === []) {
+            return $awaits;
+        }
+
+        $answered = [];
+        foreach ($this->answers->forRegistrations($eventId, array_map('strval', array_keys($owned))) as $answer) {
+            $answered[$answer->registration->code][$answer->request] = true;
+        }
+        foreach ($owned as $code => $ids) {
+            foreach ($ids as $id) {
+                if (!isset($answered[$code][$id])) {
+                    $awaits[(string) $code] = true;
+                    break;
+                }
             }
         }
 
-        return false;
+        return $awaits;
+    }
+
+    /**
+     * The requests the sources name for a registration, by request ID (the first source to name one owns it).
+     *
+     * @param array<string, string> $values
+     * @param list<RequestSource> $sources
+     * @return array<string, array{Request, RequestSource}>
+     */
+    private function requestsOf(RegistrationKey $registration, array $values, array $sources): array
+    {
+        $owned = [];
+        foreach ($sources as $source) {
+            foreach ($source->requestsOf($registration, $values) as $request) {
+                $owned[$request->id] ??= [$request, $source];
+            }
+        }
+
+        return $owned;
     }
 
     /**

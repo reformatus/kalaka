@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationTables;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\Serials;
 
 /**
@@ -38,6 +39,7 @@ final class ViewQuery extends Query
     public function __construct(
         private readonly Serials $serials = new Serials(),
         private readonly Decisions $decisions = new Decisions(),
+        private readonly Requests $requests = new Requests(),
     ) {
         parent::__construct();
     }
@@ -198,6 +200,9 @@ final class ViewQuery extends Query
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
             $submitted = $shape->lists('submitted_at') ? $this->firstSubmissionTimes($eventId, $codes) : [];
 
+            // [UNAPPROVED N351] a row value, not a column: read for the page's codes at a fixed cost.
+            $awaits = $this->requests->awaitsOf($eventId, $statuses);
+
             $rows = [];
             foreach ($registrations as $registration) {
                 $code = (string) $registration['code'];
@@ -217,7 +222,7 @@ final class ViewQuery extends Query
                         default => $decisions[$code][substr($column, 9)] ?? null,
                     };
                 }
-                $rows[] = new ViewRow(new RegistrationKey($eventId, $code), $values);
+                $rows[] = new ViewRow(new RegistrationKey($eventId, $code), $values, $awaits[$code] ?? false);
             }
 
             return new ViewPage($shape->columns, $rows, $total);
