@@ -78,10 +78,11 @@ answers (the share extension, S29), never by a tier.
   with the existing "full" warning to staff [UNAPPROVED N3].
   `TierClaims::pools()` serves the form variable `seats_left.price_tier.<tier key>` (the form host reads it).
 - A tier an open (`registered` or `waitlisted`) registration has chosen is not removed
-  (`LadderSaveGuard`, in the preview and in `SetPriceLadder`, through `Registrations::openHolds()`), not by the
-  re-price that would fail afterwards [UNAPPROVED N2, N129]. A tier's limit may be given, changed or removed at
-  any time. The preview also checks, before the save, that `price_tier` is free to declare
-  (`ParticipantFields::checkDeclarable()`) [UNAPPROVED N130].
+  (`LadderSaveGuard`, in the preview and in `SetPriceLadder`, through `Registrations::refuseRemovingChosen()`,
+  which refuses with the typed `ItemChosen`, the one refusal for a chosen item), not by the re-price that would
+  fail afterwards [UNAPPROVED N2, N129]. A tier's limit may be given, changed or removed at any time. The preview also checks, before the save, that
+  `price_tier` is free to declare (`ParticipantFields::checkDeclarable()`, with the ladder's declarer `PriceLadderComponent::DECLARER`, the
+  module's ID, as the declaration itself uses) [UNAPPROVED N130].
 - Only this module writes `kalaka_price_ladder_tiers`; `TierRepository` is
   its only writer.
 - No UI. The refusal of a full tier is core's text (`SeatsFull`). Its Hungarian texts are the plugin name,

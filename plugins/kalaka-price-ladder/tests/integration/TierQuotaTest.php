@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\PriceLadder;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\PriceLadder\Api\PriceLadder;
@@ -59,7 +60,7 @@ final class TierQuotaTest extends PriceLadderTestCase
             $this->seats->lock($this->pool(), $context);
             $this->lockRegistrations($context, $key);
             if ($over) {
-                $this->seats->takeOver($this->pool(), $key, SeatAct::Placement, $context);
+                $this->seats->retake($this->pool(), $key, SeatAct::Placement, $context);
 
                 return;
             }
@@ -189,20 +190,23 @@ final class TierQuotaTest extends PriceLadderTestCase
         try {
             $this->ladder->propose($this->event, [self::tier('alap', 'Alap ár', '49500')]);
             self::fail('The proposal went through.');
-        } catch (RuleViolation) {
+        } catch (ItemChosen $refusal) {
+            self::assertSame('kalaka_item_chosen', $refusal->errorCode());
             self::assertCount(2, $this->ladder->tiers($this->event));
         }
         try {
             $this->settings->apply($this->event, $stale, new CliActor(null));
             self::fail('The apply went through.');
-        } catch (RuleViolation) {
+        } catch (ItemChosen $refusal) {
+            self::assertSame('kalaka_item_chosen', $refusal->errorCode());
             self::assertCount(2, $this->ladder->tiers($this->event));
         }
         // Dropping every tier is the same removal.
         try {
             $this->ladder->propose($this->event, []);
             self::fail('The empty proposal went through.');
-        } catch (RuleViolation) {
+        } catch (ItemChosen $refusal) {
+            self::assertSame('kalaka_item_chosen', $refusal->errorCode());
             self::assertCount(2, $this->ladder->tiers($this->event));
         }
 
@@ -243,7 +247,7 @@ final class TierQuotaTest extends PriceLadderTestCase
         $this->inRun(function (array $input, Context $context) use ($late): void {
             $this->seats->lock($this->pool(), $context);
             $this->lockRegistrations($context, $late);
-            $this->seats->takeOver($this->pool(), $late, SeatAct::Admission, $context);
+            $this->seats->retake($this->pool(), $late, SeatAct::Admission, $context);
         });
 
         self::assertTrue($this->seats->holds($this->pool(), $late));
