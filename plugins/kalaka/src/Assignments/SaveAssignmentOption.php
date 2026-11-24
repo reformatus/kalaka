@@ -58,13 +58,13 @@ final class SaveAssignmentOption implements AdminUseCase
                 'key' => ['type' => 'string'],
                 'version' => ['type' => 'integer', 'minimum' => 1],
                 'label' => ['type' => 'string'],
-                'capacity' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 50000],
+                'limit' => ['type' => ['integer', 'null'], 'minimum' => 0, 'maximum' => 50000],
                 'leaders' => ['type' => 'string'],
                 'place' => ['type' => 'string'],
                 'condition' => ['type' => ['object', 'null']],
                 'position' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 65535],
             ],
-            'required' => ['set_id', 'label', 'capacity', 'leaders', 'place', 'condition', 'position'],
+            'required' => ['set_id', 'label', 'limit', 'leaders', 'place', 'condition', 'position'],
             'additionalProperties' => false,
         ];
     }
@@ -123,7 +123,7 @@ final class SaveAssignmentOption implements AdminUseCase
             throw new VersionConflict();
         }
         $record->label = $label;
-        $record->capacity = $input['capacity'] === null ? null : (int) $input['capacity'];
+        $record->capacity = $input['limit'] === null ? null : (int) $input['limit'];
         $record->leaders = self::text($input['leaders'], false);
         $record->place = self::text($input['place'], false);
         $record->condition = $condition;

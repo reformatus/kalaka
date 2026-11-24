@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Assignments;
 
-use Kalaka\Assignments\Api\AssignmentState;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\Availability;
 use Kalaka\Forms\Api\EventValues;
@@ -15,6 +14,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * What staff are told before they place a registration into an option by hand (`PlaceRegistration`): the
@@ -23,11 +23,11 @@ use Kalaka\Registrations\Api\Registrations;
  * the command to ask before the act, and only after the same checks the placing makes (`PlacementLookup`): a
  * placement the placing would refuse gives no warnings.
  *
- * Full: the option has a capacity, and the confirmed assignments to it, not counting this registration's own
- * (it may already hold the option), have reached it. A proposed assignment holds no place until staff confirm
- * it. Eligible: the option's condition read against the registration's current field values and the event's
- * keys, the facts the condition was saved against (`SaveAssignmentOption`); a condition that cannot be read
- * is not held against the registration, and gives no warning here.
+ * Full: the option has a capacity, and the seats held in it (one per confirmed assignment), not counting this
+ * registration's own (it may already hold the option), have reached it. A proposed assignment holds no seat
+ * until staff confirm it. Eligible: the option's condition read against the registration's current field
+ * values and the event's keys, the facts the condition was saved against (`SaveAssignmentOption`); a
+ * condition that cannot be read is not held against the registration, and gives no warning here.
  */
 final class PlacementWarnings
 {
@@ -36,7 +36,7 @@ final class PlacementWarnings
 
     public function __construct(
         private readonly PlacementLookup $lookup = new PlacementLookup(),
-        private readonly AssignmentRepository $assignments = new AssignmentRepository(),
+        private readonly Seats $seats = new Seats(),
         private readonly Registrations $registrations = new Registrations(),
     ) {
     }
@@ -57,9 +57,8 @@ final class PlacementWarnings
         }
         $option = $target->option;
         $warnings = [];
-        $full = $option->capacity !== null
-            && $this->confirmedOthers($registration, $setId, $optionKey) >= $option->capacity;
-        if ($full) {
+        $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
+        if ($this->seats->wouldOverfill($pool, $registration)) {
             $warnings[] = self::FULL;
         }
         if ($option->condition !== null && !$this->eligible($registration, $option->condition)) {
@@ -67,18 +66,6 @@ final class PlacementWarnings
         }
 
         return $warnings;
-    }
-
-    private function confirmedOthers(RegistrationKey $registration, int $setId, string $optionKey): int
-    {
-        $count = 0;
-        foreach ($this->assignments->holding($registration->eventId, $setId, $optionKey) as $held) {
-            if ($held->state === AssignmentState::Confirmed && $held->registration->code !== $registration->code) {
-                $count++;
-            }
-        }
-
-        return $count;
     }
 
     /** @param array<array-key, mixed> $condition */

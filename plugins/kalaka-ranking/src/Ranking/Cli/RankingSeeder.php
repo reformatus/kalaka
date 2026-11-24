@@ -79,7 +79,7 @@ final class RankingSeeder implements Seeder
         $this->sets->saveOption([
             'set_id' => $setId,
             'label' => $label,
-            'capacity' => $capacity,
+            'limit' => $capacity,
             'leaders' => '',
             'place' => '',
             'condition' => $track === null ? null : [

@@ -33,10 +33,20 @@ mode (S65) and the screens (S72/S48) come later.
   replacing what the registration held in that set; neither capacity nor
   eligibility stops it (staff override), but staff are warned first
   (`Api\AssignmentSets::placementWarnings()`, a plain read): the option is
-  full (the confirmed assignments to it, not counting the registration's own,
-  have reached its capacity), or the registration does not meet its
-  condition. The option must be the set's and the set the
-  registration's event's.
+  full (the seats held in it, not counting the registration's own, have reached
+  its capacity), or the registration does not meet its condition. The option
+  must be the set's and the set the registration's event's.
+- A `registered` registration holds a seat in the pool of each option it is
+  confirmed into (`OptionSeatPool`, `option.<set ID>.<option key>`, under the
+  one seat rule of `Registrations\Api\Seats`): staff placing takes it under a
+  lock on the option row, over the capacity if need be, and frees the seat of
+  the option the registration held in the set before. A registration that is
+  not `registered` (waitlisted, withdrawn, removed) is placed without a seat.
+  Leaving frees the seats and the confirmed assignment stays as a record; an
+  admission or a restore takes the seats again through `Seats::retake()`
+  (`Api\AssignmentSeats::retake()`, which returns the options that went over
+  the limit so the use case can warn staff). A proposed assignment holds none. The option's capacity
+  is the pool's limit; nobody is moved into a freed seat.
 - An option's eligibility is one condition in the one format, decided only
   through `Forms\Api\Availability` (an option is a `Forms\Api\Conditional`);
   this module never evaluates a condition. It is checked when saved against

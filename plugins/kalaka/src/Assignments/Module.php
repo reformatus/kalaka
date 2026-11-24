@@ -7,6 +7,7 @@ namespace Kalaka\Assignments;
 use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\Rest\AssignmentSetsRoute;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -88,6 +89,11 @@ SQL;
     public function schema(): Schema
     {
         return new Schema(1, [self::SETS, self::OPTIONS, self::ASSIGNMENTS]);
+    }
+
+    public function contribute(Contributions $to): void
+    {
+        $to->seatClaimSource(new SetOptionClaimSource());
     }
 
     public function boot(): void
