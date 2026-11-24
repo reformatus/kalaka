@@ -92,6 +92,7 @@ final class Registrations
             $registration->registeredAt,
             $event,
             $this->requests->awaits($key, $registration->status),
+            $this->requests->lastAnsweredAt($key),
         );
     }
 

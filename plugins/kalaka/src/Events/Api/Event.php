@@ -67,11 +67,12 @@ final readonly class Event
      * midnight, in UTC; null without N, without the registration's instant, and while a request awaits an
      * answer (no due date is shown then). Not stored: computed on every read. [UNAPPROVED N83]
      *
-     * The caller passes the instant the registration last became `registered`: its `registered_at`, set
-     * only by submit, admission and restore (Registrations/AGENTS.md), so an admission from the waitlist or
-     * a restore restarts the clock; the last answer (`Requests::lastAnsweredAt()`), which restarts it too
-     * when it is later (an answer given while waitlisted counts only from the admission [UNAPPROVED N87]);
-     * and whether a request awaits an answer now (`Requests::awaits()`).
+     * `RegistrationFacts::paymentDue()` passes the inputs, so every caller gets the same date: the instant the
+     * registration last became `registered` (its `registered_at`, set only by submit, admission and restore, so
+     * an admission from the waitlist or a restore restarts the clock); the last answer
+     * (`Requests::lastAnsweredAt()`), which restarts it too when it is later (an answer given while waitlisted
+     * counts only from the admission [UNAPPROVED N87]); and whether a request awaits an answer now
+     * (`Requests::awaits()`).
      */
     public function paymentDue(
         ?\DateTimeImmutable $lastRegistered,
