@@ -138,10 +138,14 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   its transaction (the body's facts come from `Api\ManualMails::send()`). The
   optional `request_key` makes a repeat in the same event return the first
   batch and queue nothing; the same key for another body or other codes is
-  refused. Any published body of the event may be sent, an action mail's
-  included. A paused site or an unpublished event still queues: the deliveries
-  wait. The batch's own record is read through `Manual\MailBatchQuery`, never
-  through the deliveries.
+  refused. A send's plan (which codes queue, which are skipped and why, which
+  are no registration of the event) is the one `SendManualMail::plan()`, which
+  the use case runs and the command line's preview shows; a code that is no
+  registration of the event refuses the batch (`UnknownRegistrationCode`). Any
+  published body of the event may be sent, an action mail's included. A
+  paused site or an unpublished event still queues: the deliveries wait. The
+  batch's own record is read through `Manual\MailBatchQuery`, never through the
+  deliveries.
 - A manual delivery is composed from its batch at send time
   (`Body\ManualMailComposer`, through `MailRenderer::renderBody()`); a batch
   that is gone is `BodyUnusable` (`no_batch <id>`), failed with no attempt and
@@ -150,8 +154,8 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   point beside `MailCommand`: `send` checks the actor's grants on the codes
   (`AdminAccess::check()`) before it prints anything about them, shows what it
   would do, asks first (`--yes` skips; `--dry-run` only shows) and changes only
-  through `SendManualMail`; `batches` reads the batch's own record for full
-  access only.
+  through `SendManualMail`, whose `refuseUnknown()` it runs ahead of the question;
+  `batches` reads the batch's own record for full access only.
 - `wp kalaka action-mail list|show|on|off|body|layout <event_id> …` (`Cli/`) is a
   thin entry point: it changes only through `UpdateActionMail` and
   `SetEventMailLayout`, as the command line or as WP-CLI's `--user`, and prints
