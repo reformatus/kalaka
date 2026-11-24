@@ -8,12 +8,12 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockOrder;
-use Kalaka\Registrations\EventSeatPool;
 use Kalaka\Registrations\RegistrationCount;
 use Kalaka\Registrations\RegistrationRepository;
-use Kalaka\Registrations\SeatCount;
-use Kalaka\Registrations\SeatRecord;
-use Kalaka\Registrations\SeatRepository;
+use Kalaka\Registrations\Seats\EventSeatPool;
+use Kalaka\Registrations\Seats\SeatCount;
+use Kalaka\Registrations\Seats\SeatRecord;
+use Kalaka\Registrations\Seats\SeatRepository;
 
 /**
  * The one seat rule (foundation.md, "Facts, decisions and computed values"; money.md, "Quota places"). A seat

@@ -123,7 +123,7 @@ final class SaveAssignmentOption implements AdminUseCase
             throw new VersionConflict();
         }
         $record->label = $label;
-        $record->capacity = $input['limit'] === null ? null : (int) $input['limit'];
+        $record->limit = $input['limit'] === null ? null : (int) $input['limit'];
         $record->leaders = self::text($input['leaders'], false);
         $record->place = self::text($input['place'], false);
         $record->condition = $condition;

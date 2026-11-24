@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Seats;
 
 use Kalaka\Foundation\Api\Query\Query;
 
