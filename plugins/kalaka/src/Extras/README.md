@@ -16,7 +16,9 @@ it). There is no tariff snapshot.
 
 `Charges/` holds `ChargeRecord` and `ChargeRepository`, `ChargesInput` (reads the charges as sent, for the preview
 and the save; a key holds at most 40 characters), `ChargeField` (the check of the field a key already has: no other
-staff or system field, no other type, and a number multiplier takes whole numbers) `ChargeRemovalGuard` (no charge an open registration chose is taken out) and the admin use case `SetExtraCharges` (`kalaka/set-extra-charges`; full access only). `ExtrasComponent`
+staff or system field, no other type, and a number multiplier takes whole numbers),
+`ChargeRemovalGuard` (no charge an open registration chose is taken out) and the admin use case `SetExtraCharges`
+(`kalaka/set-extra-charges`; full access only). `ExtrasComponent`
 and `Donation/DonationComponent` are the fee components.
 
 `Api/` holds `Extras` (`charges()`, and `propose()`, which gives a `ProposedExtras` for

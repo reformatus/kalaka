@@ -27,6 +27,7 @@ use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Portal\Api\ActiveRegistration;
@@ -68,6 +69,9 @@ final class EventFormHost implements FormHost
         private ?Seats $seats = null,
     ) {
     }
+
+    /** @var array<int, array<string, PoolEntry>> the listed pools by event ID (`poolEntries()`) */
+    private array $pools = [];
 
     /** Built on first use: `Registrations` constructs `Forms`, which constructs this host. */
     private function registrations(): Registrations
@@ -120,6 +124,7 @@ final class EventFormHost implements FormHost
                 $gone[$key] = ValueType::Date;
             } elseif (
                 str_starts_with($key, EventValues::POOL_SEATS_PREFIX)
+                && ValueContext::isKey($key)
                 && !isset($this->poolTypes($event)[$key])
             ) {
                 $gone[$key] = ValueType::Number;
@@ -155,29 +160,61 @@ final class EventFormHost implements FormHost
      * `seats_left.<field key>.<option value>`, a number. One path for a set option's, a tier's and an offer's
      * places (`Registrations\Api\SeatClaimSource::pools()`). [UNAPPROVED N305]
      *
+     * A source is an outside point (modules-and-extensions.md, "Failure isolation"): one that throws is logged and
+     * skipped, so the form keeps working without its variables, and a stored revision that reads one of its keys
+     * reads 0 like a removed pool (`goneTypes()`). An entry that is no key a condition could read is left out. The
+     * list is read once per event in a host's life, so `goneTypes()` and the values reuse it.
+     *
      * @return array<string, PoolEntry> variable key → entry
      */
     private function poolEntries(Event $event): array
     {
+        if (isset($this->pools[$event->id])) {
+            return $this->pools[$event->id];
+        }
         $entries = [];
         foreach (Contributions::current()->seatClaimSources() as $source) {
-            foreach ($source->pools($event) as $entry) {
+            $listed = [];
+            $ask = static function () use ($source, $event, &$listed): void {
+                $listed = $source->pools($event);
+            };
+            Boundary::background('seat claim source ' . $source::class, $ask);
+            foreach ($listed as $entry) {
                 $key = EventValues::POOL_SEATS_PREFIX . $entry->fieldKey . '.' . $entry->optionValue;
-                // A pool whose names are no key a condition could read is left out: one source's slip never
-                // closes every form of the event.
-                if (preg_match('/\A[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z0-9_]+\z/', $key) === 1) {
+                if (substr_count($key, '.') === 2 && ValueContext::isKey($key)) {
                     $entries[$key] = $entry;
                 }
             }
         }
 
-        return $entries;
+        return $this->pools[$event->id] = $entries;
     }
 
     /** @return array<string, ValueType> */
     private function poolTypes(Event $event): array
     {
         return array_map(static fn (PoolEntry $entry): ValueType => ValueType::Number, $this->poolEntries($event));
+    }
+
+    /**
+     * The places left of every listed pool, as values. A pool whose read throws is logged and reads 0 (closed),
+     * as a removed one does.
+     *
+     * @return array<string, Value>
+     */
+    private function poolValues(Event $event): array
+    {
+        $seats = $this->seats();
+        $values = [];
+        foreach ($this->poolEntries($event) as $key => $entry) {
+            $left = 0;
+            Boundary::background('places left of ' . $key, static function () use ($seats, $entry, &$left): void {
+                $left = $seats->left($entry->pool);
+            });
+            $values[$key] = EventValues::places($left);
+        }
+
+        return $values;
     }
 
     /**
@@ -236,14 +273,9 @@ final class EventFormHost implements FormHost
         foreach ($this->requestSets($event->id) as $key => $set) {
             $open[$key] = $set->windowContains($now);
         }
-        $seats = $this->seats();
-        $pools = [];
-        foreach ($this->poolEntries($event) as $key => $entry) {
-            $pools[$key] = EventValues::places($seats->left($entry->pool));
-        }
         $values = $this->goneValues($form) + EventValues::form($event, $loggedIn, $now)
-            + EventValues::volatile($event, $seats->left($seats->eventPool($event->id)), $open)
-            + $pools;
+            + EventValues::volatile($event, $this->seats()->left($this->seats()->eventPool($event->id)), $open)
+            + $this->poolValues($event);
         if ($form->placement === FormPlacement::Additional) {
             foreach (RegistrationFacts::formTypes($event) as $key => $type) {
                 $values[$key] = Value::none($type);

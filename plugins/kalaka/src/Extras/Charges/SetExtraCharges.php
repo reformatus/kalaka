@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Extras\Charges;
 
+use Kalaka\Events\Api\EventCapacity;
 use Kalaka\Events\Api\Events;
 use Kalaka\Extras\Api\Charge;
 use Kalaka\Extras\Donation\DonationComponent;
@@ -34,6 +35,7 @@ final class SetExtraCharges implements AdminUseCase
         private readonly ChargesInput $input = new ChargesInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
         private readonly ChargeRemovalGuard $guard = new ChargeRemovalGuard(),
+        private readonly EventCapacity $capacity = new EventCapacity(),
     ) {
     }
 
@@ -74,6 +76,9 @@ final class SetExtraCharges implements AdminUseCase
     public function execute(array $input, Context $context): null
     {
         $eventId = (int) $input['event_id'];
+        // The event row first, as a registration submit takes it: a submit that chooses a charge has committed or
+        // waits, so the guard below reads what the save may not take out (D3).
+        $this->capacity->lockForRegistration($context, $eventId);
         $event = $this->events->find($eventId) ?? throw new NotFound();
         if (Currency::tryFrom((string) $input['currency']) !== $event->currency) {
             throw new InvalidInput();

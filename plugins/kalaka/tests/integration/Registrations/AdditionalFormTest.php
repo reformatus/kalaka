@@ -620,9 +620,20 @@ final class AdditionalFormTest extends FormsTestCase
 
     public function testAWaitlistedRegistrationHoldsNoSeatSoOnlyAChangedClaimIsNew(): void
     {
-        [, $source] = $this->tierSource();
+        [$set, $source] = $this->tierSource();
         $this->registerInTierA($source);
         $this->setStatus('waitlisted');
+        // A real waitlisting holds no seat: the row goes, the stored tier still claims its pool.
+        global $wpdb;
+        $wpdb->delete($wpdb->prefix . 'kalaka_seats', [
+            'event_id' => $this->registration->eventId,
+            'code' => $this->registration->code,
+        ]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        self::assertFalse((new Seats())->holds(
+            new OptionSeatPool($this->event, $set, 'a'),
+            $this->registration
+        ));
         $form = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
 
         $this->sendWith($source, $form, ['tier' => 'a', 'note' => 'x']);

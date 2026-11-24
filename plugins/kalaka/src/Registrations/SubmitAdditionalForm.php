@@ -48,7 +48,7 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * (the same token with the same answers, for the same registration) writes nothing; the event must still be
  * the version the answers were checked against; the form's requirements at this moment (its open period
  * among them); then the registration row `FOR UPDATE`, which must be `registered` or `waitlisted`, and whose
- * values and status must be what the walk read (else `VersionConflict`: the submit is run again).
+ * values and facts must be what the walk read (else `VersionConflict`: the submit is run again).
  *
  * An additional form takes no new seat (D7): if the registration's values as they would be after the submit make a
  * seat claim (`SeatClaimSource`) in a pool it does not hold, the submit is refused and nothing is written, so a
@@ -352,7 +352,7 @@ final class SubmitAdditionalForm implements PortalUseCase
      */
     private static function claimsOf(array $sources, Event $event, array $values): array
     {
-        $answers = new ValidatedAnswers($values, $values);
+        $answers = new ValidatedAnswers($values, $values, array_keys($values));
         $claims = [];
         foreach ($sources as $source) {
             array_push($claims, ...$source->claims($event, $answers));

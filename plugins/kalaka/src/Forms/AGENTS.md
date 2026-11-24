@@ -226,7 +226,8 @@ values and conditions, prefill and form links
   `RegistrationFacts` also read. `event.seats_left` is the one computation
   `Seats::left()` of the event's pool (0 while the latch is set, none without a
   capacity), given in. So is `seats_left.<field key>.<option value>`, one number
-  per pool that a contributed `SeatClaimSource::pools()` lists (set options
+  per pool that a contributed `SeatClaimSource::pools()` lists (a source that throws is logged and
+  skipped, its keys then read 0 like a removed pool; an option value may hold `-`) (set options
   today; tiers and offers with no code here once they list theirs): none for a
   pool with no limit. An additional form also reads
   the `registration.*` keys `RegistrationFacts::formTypes()` declares (the one

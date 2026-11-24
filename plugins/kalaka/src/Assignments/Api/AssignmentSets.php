@@ -64,9 +64,9 @@ final class AssignmentSets
     }
 
     /**
-     * The seat pool of an option (`option.<set ID>.<option key>`), for `Registrations\Api\Seats::left()`, such as
-     * the form-condition variable `seats_left.<field key>.<option value>` (the set's request field key). A plain
-     * read; null when the set or its option is not there.
+     * The seat pool of an option (`option.<set ID>.<option key>`), for `Registrations\Api\Seats`: a plain read; null
+     * when the set or its option is not there. It is not the source of the form variable
+     * `seats_left.<field key>.<option value>`: that comes from `SetOptionClaimSource::pools()` alone.
      */
     public function seatPool(int $setId, string $optionKey): ?SeatPool
     {

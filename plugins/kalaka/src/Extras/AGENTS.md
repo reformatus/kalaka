@@ -48,7 +48,8 @@ plugin. It holds two fee components at the extras stage and is core money
   one check `ParticipantFields::checkDeclarable()` (`ChargeField` calls it) [UNAPPROVED N5]. A charge taken out
   leaves its declared field in place, as every kind of item does, but a charge an open (`registered` or
   `waitlisted`) registration chose is not taken out: the preview and the save refuse it (`ChargeRemovalGuard`, through
-  `Registrations::openChose()`: a consent's `1` or a quantity of one or more) [UNAPPROVED N3, N302]. The
+  `Registrations::openChose()`: a consent's `1` or a quantity of one or more; the save takes the event row
+  first, as a submit does, before it reads) [UNAPPROVED N3, N302]. The
   participant field whose key equals the charge's key calls it, **by the field's type**: a consent counts the
   amount once (a `1`), a number field whose stored decimals are 0 counts it a
   positive whole `n` times, and every other type charges nobody. A charge key
