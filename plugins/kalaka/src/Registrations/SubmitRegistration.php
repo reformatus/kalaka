@@ -9,12 +9,14 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
@@ -22,6 +24,10 @@ use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Registrations\Account\AccountOutcome;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
@@ -62,6 +68,8 @@ final class SubmitRegistration implements PublicUseCase
      * @param AccountOutcome|null $account the owner account; null for none
      * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
      *     until the token's repeat rule has been applied under the lock, then thrown
+     * @param list<SeatClaim> $seatClaims the limited choices of the answers, each a pool whose seat a
+     *     `registered` submit takes (a waitlisted one holds none)
      * @param string|null $fingerprint of the answers as sent (`fingerprint()`); null (not given) never matches an
      *     earlier submit's, so a repeat is refused
      */
@@ -80,10 +88,11 @@ final class SubmitRegistration implements PublicUseCase
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
-        private readonly RegistrationCount $count = new RegistrationCount(),
+        private readonly Seats $seats = new Seats(),
         private readonly ActionMails $mails = new ActionMails(),
         private readonly ?AccountOutcome $account = null,
         private readonly ?\Throwable $walkFailure = null,
+        private readonly array $seatClaims = [],
         private readonly ?string $fingerprint = null,
     ) {
     }
@@ -180,11 +189,14 @@ final class SubmitRegistration implements PublicUseCase
         $status = RegistrationStatus::Registered;
         if ($event->isFull) {
             $status = RegistrationStatus::Waitlisted;
-        } elseif ($this->count->registered($eventId) >= $event->capacity) {
+        } elseif ($this->seats->held($this->seats->eventPool($eventId)) >= $event->capacity) {
             // The first counted registration that does not fit sets the latch, before any lower lock.
             $this->capacity->markFull($context, $eventId);
             $status = RegistrationStatus::Waitlisted;
         }
+
+        // The pool rows come before the registration row in the lock order; a full pool refuses the submit.
+        $claims = $status === RegistrationStatus::Registered ? $this->lockedClaims($context) : [];
 
         $now = $context->now();
         $key = new RegistrationKey($eventId, $this->codes->generate($eventId));
@@ -209,6 +221,15 @@ final class SubmitRegistration implements PublicUseCase
         foreach ($values as $fieldKey => $value) {
             $this->values->upsert(new FieldValue($key, $fieldKey, $value), $context);
         }
+        foreach ($claims as $claim) {
+            try {
+                $this->seats->take($claim->pool, $key, SeatAct::Submit, $context);
+            } catch (SeatsFull) {
+                // A pool whose row sits after the registration's in the lock order: the run rolls back.
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a field key and a fixed text
+                throw new InvalidAnswers([$claim->fieldKey => SeatsFull::TEXT]);
+            }
+        }
         $this->mails->due(
             $context,
             $status === RegistrationStatus::Registered ? ActionMail::Registered : ActionMail::Waitlisted,
@@ -217,6 +238,33 @@ final class SubmitRegistration implements PublicUseCase
         );
 
         return SubmitResult::created($key, $status);
+    }
+
+    /**
+     * Orders the submit's seat claims as their pool rows may be locked (`Seats::inLockOrder()`: by level, table
+     * and key as the runner's lock guard compares them), locks the pool rows that sit before the registration row
+     * in the lock order (quota rows), and refuses the submit when one of them is full: the form comes back with
+     * the message on that choice and nothing is saved. The other pools are locked and checked by `Seats::take()`
+     * once the registration row is in, in the same order.
+     *
+     * @return list<SeatClaim>
+     * @throws InvalidAnswers
+     */
+    private function lockedClaims(Context $context): array
+    {
+        $claims = $this->seats->inLockOrder($this->seatClaims);
+        foreach ($claims as $claim) {
+            if ($claim->pool->lockLevel()->value >= LockLevel::Registration->value) {
+                continue;
+            }
+            $left = $this->seats->lock($claim->pool, $context);
+            if ($left !== null && $left < 1) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a field key and a fixed text
+                throw new InvalidAnswers([$claim->fieldKey => SeatsFull::TEXT]);
+            }
+        }
+
+        return $claims;
     }
 
     /**

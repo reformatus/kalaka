@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Assignments;
 
-use Kalaka\Assignments\Api\AssignmentState;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Seats;
 
 /**
  * What staff are told before they place a registration into an option by hand (`PlaceRegistration`): the
@@ -16,9 +18,10 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * after the same checks the placing makes (`PlacementLookup`): a placement the placing would refuse gives no
  * warnings.
  *
- * Full: the option has a capacity, and the confirmed assignments to it, not counting this registration's own
- * (it may already hold the option), have reached it. A proposed assignment holds no place until staff confirm
- * it. Who may pick an option is decided in the form, so nothing here reads a condition.
+ * Full: the registration would take a seat (it is `registered`), the option has a limit, and the seats held in
+ * it (one per confirmed assignment), not counting this registration's own (it may already hold the option),
+ * have reached it. A registration that takes no seat is not warned. A proposed assignment holds no seat
+ * until staff confirm it. Who may pick an option is decided in the form, so nothing here reads a condition.
  */
 final class PlacementWarnings
 {
@@ -26,7 +29,8 @@ final class PlacementWarnings
 
     public function __construct(
         private readonly PlacementLookup $lookup = new PlacementLookup(),
-        private readonly AssignmentRepository $assignments = new AssignmentRepository(),
+        private readonly Seats $seats = new Seats(),
+        private readonly Registrations $registrations = new Registrations(),
     ) {
     }
 
@@ -40,30 +44,19 @@ final class PlacementWarnings
     public function of(RegistrationKey $registration, int $setId, string $optionKey): array
     {
         try {
-            $target = $this->lookup->find($registration, $setId, $optionKey);
+            $this->lookup->find($registration, $setId, $optionKey);
         } catch (NotFound | InvalidInput) {
             return [];
         }
-        $option = $target->option;
         $warnings = [];
-        $full = $option->capacity !== null
-            && $this->confirmedOthers($registration, $setId, $optionKey) >= $option->capacity;
-        if ($full) {
+        $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
+        if (
+            $this->registrations->find($registration)?->status === RegistrationStatus::Registered
+            && $this->seats->wouldOverfill($pool, $registration)
+        ) {
             $warnings[] = self::FULL;
         }
 
         return $warnings;
-    }
-
-    private function confirmedOthers(RegistrationKey $registration, int $setId, string $optionKey): int
-    {
-        $count = 0;
-        foreach ($this->assignments->holding($registration->eventId, $setId, $optionKey) as $held) {
-            if ($held->state === AssignmentState::Confirmed && $held->registration->code !== $registration->code) {
-                $count++;
-            }
-        }
-
-        return $count;
     }
 }
