@@ -3,7 +3,17 @@
  * and the ability's input. Every string is unapproved until the owner ticks its box: [UNAPPROVED T3] to
  * [UNAPPROVED T11], see `REQUESTS`.
  */
-import { asksAmount, buildAnswer, itemsOf, savedText, stateText, validateAnswer, warnsFull } from '../../src/Admin/app/grid/requests';
+import {
+	asksAmount,
+	asksReason,
+	buildAnswer,
+	itemsOf,
+	savedText,
+	stateText,
+	validateAnswer,
+	validateNote,
+	warnsFull,
+} from '../../src/Admin/app/grid/requests';
 import { MONEY, REQUESTS } from '../../src/Admin/app/grid/texts';
 
 const offer = { id: 'offer:church', kind: 'offer', label: 'Egyházi támogatás', state: 'awaiting', amount: null };
@@ -52,6 +62,17 @@ describe( 'the dialog', () => {
 		expect( validateAnswer( aid, 'yes', '12 000' ) ).toBe( '' );
 		expect( validateAnswer( aid, 'no', '' ) ).toBe( '' );
 		expect( validateAnswer( offer, 'yes', '' ) ).toBe( '' );
+	} );
+
+	test( 'needs the reason, the note, for a yes to an offer and for nothing else', () => {
+		expect( asksReason( offer, 'yes' ) ).toBe( true );
+		expect( asksReason( offer, 'no' ) ).toBe( false );
+		expect( asksReason( aid, 'yes' ) ).toBe( false );
+		expect( validateNote( offer, 'yes', '' ) ).toBe( MONEY.noteRequired );
+		expect( validateNote( offer, 'yes', '   ' ) ).toBe( MONEY.noteRequired );
+		expect( validateNote( offer, 'yes', 'Telefonon megerősítve' ) ).toBe( '' );
+		expect( validateNote( offer, 'no', '' ) ).toBe( '' );
+		expect( validateNote( aid, 'yes', '' ) ).toBe( '' );
 	} );
 
 	test( 'builds the ability input: the amount for an aid yes, the note only with text', () => {

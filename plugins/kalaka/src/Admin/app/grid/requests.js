@@ -43,6 +43,16 @@ export function validateAnswer( item, answer, amount ) {
 	return minor === null || minor <= 0 ? MONEY.amountBad : '';
 }
 
+/**
+ * A "yes" to an offer is a partner's approval, recorded with its reason: the dialog's note is then required
+ * (release-plan.md, "Support and decisions"). A refusal and aid take it optionally. [UNAPPROVED N162]
+ */
+export const asksReason = ( item, answer ) => item.kind === 'offer' && answer === 'yes';
+
+/** The note's check: the existing "give the reason" message when a reason is required and empty, else none. */
+export const validateNote = ( item, answer, note ) =>
+	asksReason( item, answer ) && String( note ).trim() === '' ? MONEY.noteRequired : '';
+
 /** The input of `kalaka/answer-request`: the note only when it has text, the amount only for an aid "yes". */
 export function buildAnswer( event, code, item, answer, amount, note ) {
 	const input = { event_id: event, code, request: item.id, answer };

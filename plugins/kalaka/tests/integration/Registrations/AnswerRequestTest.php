@@ -123,6 +123,21 @@ final class AnswerRequestTest extends ManualEntryTestCase
     /** @return array<string, mixed> */
     private function answer(string $request, string $answer, array $overrides = [], ?UserActor $actor = null): array
     {
+        // A "yes" to an offer needs its reason; the tests give one unless they say otherwise.
+        if ($request === TestRequestSource::OFFER && $answer === 'yes' && !array_key_exists('note', $overrides)) {
+            $overrides['note'] = 'Teszt indok';
+        }
+
+        return $this->answerAsGiven($request, $answer, $overrides, $actor);
+    }
+
+    /** @return array<string, mixed> */
+    private function answerAsGiven(
+        string $request,
+        string $answer,
+        array $overrides = [],
+        ?UserActor $actor = null
+    ): array {
         $result = $this->exec($this->useCase(), $this->input($request, $answer, $overrides), $actor);
         self::assertIsArray($result);
 
@@ -482,6 +497,28 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame([], $this->seats->calls);
     }
 
+    /** release-plan.md: a partner's approval is recorded with a reason; a refusal and aid take a note optionally. */
+    public function testAYesToAnOfferNeedsAReasonButARefusalAndAidDoNot(): void
+    {
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        foreach ([[], ['note' => null], ['note' => ''], ['note' => '   ']] as $overrides) {
+            try {
+                $this->answerAsGiven(TestRequestSource::OFFER, 'yes', $overrides);
+                self::fail('A yes to an offer without a reason was recorded.');
+            } catch (InvalidInput) {
+                self::assertSame([], $this->answerRows());
+            }
+        }
+
+        self::assertTrue($this->answerAsGiven(TestRequestSource::OFFER, 'no')['changed'], 'A refusal needs none.');
+        $this->addValue($this->event, self::KEY, 'aid_asked', '12000');
+        $aid = $this->answerAsGiven(TestRequestSource::AID, 'yes', ['amount' => '12000']);
+        self::assertTrue($aid['changed'], 'Aid needs none.');
+        $given = $this->answerAsGiven(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
+        self::assertTrue($given['changed']);
+        self::assertSame('Telefonon megerősítve', array_column($this->answerRows(), 'note')[2]);
+    }
+
     public function testAnAnswerWhoseOnlyChangeIsANewNoteIsANewAct(): void
     {
         $this->addValue($this->event, self::KEY, 'support', 'church');
@@ -489,7 +526,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
         $same = $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Első']);
         self::assertFalse($same['changed'], 'the same note is a repeat');
-        $none = $this->answer(TestRequestSource::OFFER, 'yes');
+        $none = $this->answerAsGiven(TestRequestSource::OFFER, 'yes', ['note' => null]);
         self::assertFalse($none['changed'], 'an empty note adds nothing');
         $noted = $this->answer(TestRequestSource::OFFER, 'yes', ['note' => 'Telefonon megerősítve']);
 

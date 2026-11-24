@@ -128,7 +128,8 @@ the waitlist and reference codes
     "system" field.
   - The latest row per request is the answer. An identical repeat (same yes or no, same amount, no new note)
     writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an award of 0 Ft: an
-    absent answer awaits, a zero is an answer.
+    absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a non-empty
+    note, its reason; a refusal and aid take a note optionally.
   - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request with no answer, for a
     registration that is not withdrawn or removed. It is `registration.awaits_answer` in the fact source, and it
     hides the due date and the transfer block in Portal. It never blocks confirmation.
