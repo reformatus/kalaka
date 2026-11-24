@@ -270,9 +270,7 @@ final class AdditionalFormTest extends FormsTestCase
                 $this->readForm($form)->version,
                 ['note' => 'más'],
                 SubmitToken::generate(),
-                [],
-                false,
-                $this->registration
+                target: $this->registration
             ),
             new SecretLinkActor($other)
         );

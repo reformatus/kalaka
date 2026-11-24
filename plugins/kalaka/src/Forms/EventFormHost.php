@@ -52,9 +52,15 @@ final class EventFormHost implements FormHost
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
         private readonly AssignmentSets $sets = new AssignmentSets(),
-        private readonly Registrations $registrations = new Registrations(),
+        private ?Registrations $registrations = null,
         private readonly ?\Closure $active = null,
     ) {
+    }
+
+    /** Built on first use: `Registrations` constructs `Forms`, which constructs this host. */
+    private function registrations(): Registrations
+    {
+        return $this->registrations ??= new Registrations();
     }
 
     public function factTypes(Form $form): array
@@ -89,7 +95,7 @@ final class EventFormHost implements FormHost
         $target = $this->target($form);
         if ($target === null) {
             $refusals[] = AccessRefusal::NoActiveRegistration;
-        } elseif (!self::maySubmit($this->registrations->find($target)?->status)) {
+        } elseif (!self::maySubmit($this->registrations()->find($target)?->status)) {
             $refusals[] = AccessRefusal::RegistrationMayNotSubmit;
         }
 
@@ -183,7 +189,7 @@ final class EventFormHost implements FormHost
     {
         $target = $this->target($form);
         if ($target !== null) {
-            return $this->registrations->values($target);
+            return $this->registrations()->values($target);
         }
         $event = $this->event($form);
         if ($event === null || self::accountStepOf($form, $event) === null || !is_user_logged_in()) {
