@@ -37,12 +37,26 @@ namespace {
             /** @var bool whether confirm() answers no, as an operator declining does */
             public static bool $decline = false;
 
-            /** @param array<string, mixed> $assoc */
+            /** @var bool whether an operator who is asked and has not passed --yes says yes (else the command exits) */
+            public static bool $answersYes = false;
+
+            /**
+             * Like the real WP_CLI::confirm(): `--yes` skips the question; otherwise the operator declines
+             * (`$decline`: a RuntimeException), says yes (`$answersYes`) or the command exits.
+             *
+             * @param array<string, mixed> $assoc
+             */
             public static function confirm(string $question, array $assoc = []): void
             {
                 self::$calls[] = ['confirm', $question];
-                if (!isset($assoc['yes']) && self::$decline) {
+                if (!empty($assoc['yes'])) {
+                    return;
+                }
+                if (self::$decline) {
                     throw new \RuntimeException('WP_CLI::confirm declined');
+                }
+                if (!self::$answersYes) {
+                    throw new \WP_CLI\ExitException(0, 'WP_CLI::confirm');
                 }
             }
 
@@ -54,15 +68,6 @@ namespace {
             public static function warning(string $message, bool $group = false): void
             {
                 self::$calls[] = ['warning', $message];
-            }
-
-            /** @param array<string, mixed> $assocArgs */
-            public static function confirm(string $question, array $assocArgs = []): void
-            {
-                self::$calls[] = ['confirm', $question];
-                if (empty($assocArgs['yes'])) {
-                    throw new \WP_CLI\ExitException(0, 'WP_CLI::confirm');
-                }
             }
 
             public static function error(string $message, int $exitCode = 1): void
