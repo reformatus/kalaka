@@ -94,6 +94,7 @@ final class SetAid implements AdminUseCase
         if ($label !== trim($label) || $label === '') {
             throw new InvalidInput();
         }
+        $this->input->assertLabelAllowed($label);
         $this->input->assertKeysFree($eventId);
         if ($stored === null) {
             $this->settings->upsert(new AidSettings($eventId, $label), $context);
