@@ -8,4 +8,4 @@ At the module root: `AidComponent` (the fee component, at the aid stage), `AidRe
 
 `Api/` holds `Aid` (`label()`, and `propose()`, which gives a `ProposedAid` for `Pricing\Api\MoneySettings::preview()` and `apply()`).
 
-Entry points: none. The money settings file carries it as `"aid": {"label": "<the organizers' name for the aid>"}` (`{"label": null}` turns it off; the component's settings must be a JSON object, so `"aid": null` is refused). The label must not be „Kedvezmény”, the manual adjustment's approved word.
+Entry points: none. The money settings file carries it as `"aid": {"label": "<the organizers' name for the aid>"}` (`{"label": null}` turns it off; the component's settings must be a JSON object, so `"aid": null` is refused). The label must not be „Kedvezmény” (any case, trimmed), the manual adjustment's approved word; `propose()` and `kalaka/set-aid` refuse it with `InvalidInput`. The aid line is named by the label (`NamedFeeComponent`), so the money tables show the reduction under it.
