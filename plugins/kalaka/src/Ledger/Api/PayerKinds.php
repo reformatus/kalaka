@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Ledger\Api;
 
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * The payer kinds that apply to an event (money.md, "Ledger": "extensions register other payer kinds"), the
@@ -16,6 +17,11 @@ use Kalaka\Foundation\Api\Module\Contributions;
  */
 final class PayerKinds
 {
+    /** @param ?Ledger $ledger read lazily: the kinds alone need no database */
+    public function __construct(private ?Ledger $ledger = null)
+    {
+    }
+
     /** The participant's label: approved by the owner 2026-11-18 („Jelentkező” for a person everywhere). */
     private const PARTICIPANT_LABEL = 'Jelentkező';
 
@@ -30,6 +36,30 @@ final class PayerKinds
             new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL),
             ...Contributions::current()->payerKindsFor($eventId),
         ];
+    }
+
+    /**
+     * Whether money may be recorded against the payer on the registration with a payment, a refund or a
+     * correction: the payer's kind applies to the event, or the payer already has lines on this registration
+     * (the same rule the admin detail read uses to keep showing it, so what the dialog shows is what the server
+     * accepts). A kind that no longer applies still has its lines refunded and corrected. A plain read.
+     * [UNAPPROVED N147]
+     */
+    public function mayRecordFor(RegistrationKey $registration, string $payer): bool
+    {
+        foreach ($this->of($registration->eventId) as $kind) {
+            if ($kind->id === $payer) {
+                return true;
+            }
+        }
+        $this->ledger ??= new Ledger();
+        foreach ($this->ledger->entriesOf($registration) as $entry) {
+            if ($entry->payer === $payer) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** The label of a payer-kind ID, for an event or not: a kind that no longer applies still names its lines. */

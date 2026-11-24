@@ -8,8 +8,8 @@ namespace Kalaka\Ledger\Api;
  * Where a payer kind comes from: a module that has a payer other than the participant contributes one
  * (`Contributions::payerKindSource()`), and `PayerKinds` asks it per event (modules-and-extensions.md, "The
  * extension surface"; money.md, "Ledger"). A kind is only declared: it has an ID and a Hungarian label, and the
- * source says per event whether it applies there, from a plain read of the module's own setting; it runs no
- * other code.
+ * source says per event whether it applies there, from a plain read of the module's own setting that runs inside
+ * the record use cases (`PayerKinds`); it runs no other code.
  */
 interface PayerKindSource
 {

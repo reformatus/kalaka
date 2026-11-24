@@ -17,7 +17,6 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
-use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -144,11 +143,7 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
-        $declared = array_map(
-            static fn (PayerKind $kind): string => $kind->id,
-            $this->payerKinds->of($event->id)
-        );
-        if (!in_array($payer, $declared, true)) {
+        if (!$this->payerKinds->mayRecordFor($key, $payer)) {
             throw new InvalidInput();
         }
         $correction = $this->isCorrection();

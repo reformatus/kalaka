@@ -50,8 +50,11 @@ corrections
   stores the time it is recorded. A `charge` carries neither.
 - The payer kinds are the participant and the kinds modules declare through a `PayerKindSource`
   (`Contributions::payerKindSource()`; `PayerKinds` reads them): a source gives a kind (an ID and a label) and
-  says per event whether it applies (`appliesTo(PayerKindInput)`), and runs no other code; a
-  payer with lines stays shown after its kind stops applying.
+  says per event whether it applies (`appliesTo(PayerKindInput)`, a plain read that runs inside the record use
+  cases), and runs no other code. What the dialog shows is what the server accepts: a payment, refund or
+  correction is accepted for a payer whose kind applies to the event or who already has lines on the
+  registration (`PayerKinds::mayRecordFor()`), so a payer shown with lines after its kind stops applying can still
+  be refunded and corrected; a new Díj or Kedvezmény (`RecordManualFee`) needs a kind that applies.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
 - A manual charge or discount is a fact in `kalaka_manual_fees`: inserted

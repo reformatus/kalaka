@@ -8,8 +8,12 @@ use Kalaka\Aid\Api\Aid;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Ledger\Api\PayerKinds;
+use Kalaka\Ledger\RecordCharge;
+use Kalaka\Ledger\RecordCorrection;
 use Kalaka\Ledger\RecordPayment;
+use Kalaka\Ledger\RecordRefund;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Pricing\Api\FeeStage;
@@ -90,7 +94,7 @@ final class ShareTest extends ShareTestCase
             'event_id' => $this->event,
             'field_key' => 'share_amount',
             'version' => 1,
-            'type' => 'kalaka/number-field',
+            'type' => 'kalaka/text-field',
             'title' => 'Összeg',
             'options' => null,
             'settings' => wp_json_encode(['decimals' => 0]),
@@ -104,7 +108,7 @@ final class ShareTest extends ShareTestCase
         try {
             $this->share->propose($this->event, true);
             self::fail('The proposal should be refused.');
-        } catch (InvalidInput) {
+        } catch (RuleViolation) {
             self::assertFalse($this->share->isOn($this->event));
             self::assertArrayNotHasKey('share_mode', $this->declared());
         }
@@ -116,12 +120,62 @@ final class ShareTest extends ShareTestCase
                 new CliActor(null)
             );
             self::fail('The save should be refused.');
-        } catch (InvalidInput) {
+        } catch (RuleViolation) {
             self::assertFalse($this->share->isOn($this->event));
             self::assertArrayNotHasKey('share_mode', $this->declared());
         }
         // Turning it off needs no free keys.
         self::assertFalse($this->share->propose($this->event, false)->on);
+    }
+
+    public function testAFormsFieldOfTheRightTypeIsAdoptedAndTheSharesFieldsAreMoneyRelevantUnderTheModule(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => 'share_amount',
+            'version' => 1,
+            'type' => 'kalaka/number-field',
+            'title' => 'Összeg',
+            'options' => null,
+            'settings' => wp_json_encode(['decimals' => 0]),
+            'source' => 'form',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 1,
+            'form_writable' => 1,
+        ]);
+
+        $this->applyShare();
+
+        $declared = $this->declared();
+        foreach (['share_mode', 'share_amount'] as $key) {
+            self::assertSame(ParticipantField::SOURCE_EXTENSION, $declared[$key]->source);
+            self::assertSame('kalaka-support', $declared[$key]->declaredBy);
+            self::assertTrue($declared[$key]->moneyRelevant);
+        }
+    }
+
+    public function testAKeyAnotherDeclarerHoldsRefusesTheShare(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => 'share_mode',
+            'version' => 1,
+            'type' => 'kalaka/choice-field',
+            'title' => 'Mód',
+            'options' => wp_json_encode([]),
+            'source' => 'extension',
+            'declared_by' => 'kalaka-aid',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 1,
+            'form_writable' => 0,
+        ]);
+
+        $this->expectException(RuleViolation::class);
+        $this->share->propose($this->event, true);
     }
 
     public function testTheSettingsDocumentShowsAndRefusesOtherShapes(): void
@@ -434,10 +488,47 @@ final class ShareTest extends ShareTestCase
         $payers = array_column($money['payers'], 'label', 'payer');
         self::assertSame(['participant', 'congregation'], array_keys($payers));
         self::assertSame('Gyülekezet', $payers['congregation']);
-        // It is no longer a kind to record against.
+        self::assertSame(['participant'], array_map(
+            static fn ($kind): string => $kind->id,
+            (new PayerKinds())->of($this->event)
+        ));
+    }
+
+    public function testAPayerWithLinesIsStillRefundedAndCorrectedAfterTheShareIsOffButNewMoneyIsRefused(): void
+    {
+        $this->applyShare();
+        $key = $this->registerSharing('00A0', 'shared', '20000');
+        $this->congregationEntry($key, '20000', 'k_gyul_4');
+        $other = $this->register('01A6');
+        $this->applyShare(false);
+        $actor = new UserActor($this->fullAccessUser());
+
+        // What the money tab shows (the congregation, with lines) is what the server accepts.
+        $this->runner->run(new RecordRefund(), [
+            'event_id' => $key->eventId, 'code' => $key->code, 'payer' => 'congregation', 'amount' => '5000',
+            'currency' => 'HUF', 'method' => 'bank_transfer', 'value_date' => '2026-11-30',
+            'idempotency_key' => 'k_gyul_refund',
+        ], $actor);
+        $this->runner->run(new RecordCorrection(), [
+            'event_id' => $key->eventId, 'code' => $key->code, 'payer' => 'congregation', 'amount' => '1000',
+            'currency' => 'HUF', 'direction' => 'in', 'reason' => 'Teszt indok', 'idempotency_key' => 'k_gyul_corr',
+        ], $actor);
+        self::assertSame('-16000', $this->congregationBalance($key));
+
+        // A new payment to a congregation with no lines is refused: the kind no longer applies there.
         try {
-            $this->congregationEntry($key, '1000', 'k_gyul_3');
-            self::fail('Recording should be refused once the share is off.');
+            $this->congregationEntry($other, '1000', 'k_gyul_5');
+            self::fail('A payment to a payer without lines should be refused.');
+        } catch (InvalidInput) {
+            self::assertSame('0', $this->congregationBalance($other));
+        }
+        // A new Díj against the payer that no longer applies keeps being refused (RecordManualFee).
+        try {
+            $this->runner->run(new RecordCharge(), [
+                'event_id' => $key->eventId, 'code' => $key->code, 'payer' => 'congregation', 'amount' => '1000',
+                'currency' => 'HUF', 'title' => 'Teszt díj', 'idempotency_key' => 'k_gyul_fee',
+            ], $actor);
+            self::fail('A new fee against a payer whose kind no longer applies should be refused.');
         } catch (InvalidInput) {
             self::addToAssertionCount(1);
         }
