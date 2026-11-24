@@ -114,12 +114,14 @@ congregation share.
 - The share is on for an event when it has a row in `kalaka_support_share`, written only through `kalaka/set-share`,
   which the money settings apply runs (`Api\Share::propose()`, the component `share`'s settings document
   `{"on": bool}`; any other shape is refused). On, the save declares the two participant fields in the same
-  transaction through core's `declareExtensionField()`: `share_mode`, a choice of the fixed values `none`, `shared`
-  and `full`, and `share_amount`, a number with no declared minimum, maximum or decimals; both extension-sourced and
-  form-writable. The form links to them by key, and any subset of the modes may be offered, never an added one.
-  The save refuses (the preview too) when a form, staff or system field, or an extension field of another type,
-  already holds either key: turn the share on before the form joins the keys. Off, the row is deleted; the fields
-  and their values stay, and the apply takes the pairs away. [UNAPPROVED N141, N142, N153, N154]
+  transaction through core's `declareExtensionField()` as declarer `kalaka-support`, money relevant: `share_mode`,
+  a choice of the fixed values `none`, `shared` and `full`, and `share_amount`, a number with no declared minimum,
+  maximum or decimals; both extension-sourced and form-writable. The form links to them by key, and any subset of
+  the modes may be offered, never an added one. Their keys are judged by core's
+  `ParticipantFields::checkDeclarable()` in the proposal and the save: a form's field of the type is adopted (the
+  setup order does not matter); a staff or system field, another type or another declarer's field refuses with
+  `RuleViolation`. Off, the row is deleted; the fields and their values stay, and the apply takes the pairs away.
+  [UNAPPROVED N141, N142, N152, N153, N154]
 - The component reads the registration's facts (its two answers), its own setting and the stage totals; never a
   charge line. A missing answer, a form without the field or `none` is no share; `share_amount` is read only for
   `shared`, and an empty, zero, negative or non-numeric amount is no share (no refusal). `share_mode` is not a slot
@@ -128,10 +130,14 @@ congregation share.
   zero line is written. The pair is one undivided `share` line per payer, participant -X' and congregation +X'.
   [UNAPPROVED N144, N145, N150]
 - Nothing re-checks `share_mode` against the tier at evaluation: the form's option conditions are the judge at
-  submit. An additional form that holds one of `price_tier` and `share_mode` but not the other can still make a
-  mismatch; author both together. [UNAPPROVED N146]
+  submit. Both answers are money relevant, so once written an additional form cannot overwrite them (the lock
+  after the first write is CF4's, not this module's); a mismatch is reachable only where one of the two was never
+  written, through an additional form that holds one of `price_tier` and `share_mode` but not the other. Author
+  both together. [UNAPPROVED N146]
 - The module declares the payer kind `congregation` (label „Gyülekezet”) through a `PayerKindSource` (`Share/SharePayerKind`), so a
   congregation payment can be recorded by hand and is credited to the congregation alone. The kind applies per event, only
-  where the share is on (`Share::isOn()`); a payer that already has lines stays shown, and recording against the
-  kind is refused where it does not apply. [UNAPPROVED N147, T65]
+  where the share is on (`Share::isOn()`). One rule for the money tab and the server (`PayerKinds::payersOf()` and
+  `mayRecordFor()`): a payment, refund, correction, Díj or Kedvezmény is accepted for the congregation where the
+  share is on or where it already has lines on the registration, and a payer that already has lines stays shown.
+  [UNAPPROVED N147, T65]
 - Only this module writes `kalaka_support_share`.

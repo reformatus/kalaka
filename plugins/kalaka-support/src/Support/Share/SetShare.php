@@ -17,7 +17,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * share's two participant fields in the same transaction (the owner's rulings 2026-11-23, topic 14: the code
  * defines the field, the form's field links to it by key). Off, it deletes the row only: the fields and their
  * values stay, and the apply takes the pairs away (the component writes none for an event without the share).
- * [UNAPPROVED N142, N153, N364, N365]
+ * [UNAPPROVED N142, N143, N152, N153, N154]
  */
 final class SetShare implements AdminUseCase
 {

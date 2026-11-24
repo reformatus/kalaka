@@ -19,7 +19,6 @@ use Kalaka\Ledger\Api\ManualFee;
 use Kalaka\Ledger\Api\ManualFeeType;
 use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
-use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PaymentMethod;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -111,10 +110,6 @@ abstract class RecordManualFee implements AdminUseCase
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
-        $declared = array_map(static fn (PayerKind $kind): string => $kind->id, $this->payerKinds->of($event->id));
-        if (!in_array($payer, $declared, true)) {
-            throw new InvalidInput();
-        }
         $title = trim((string) $input['title']);
         if ($title === '' || mb_strlen($title, 'UTF-8') > self::TITLE_MAX) {
             throw new InvalidInput();
@@ -136,6 +131,11 @@ abstract class RecordManualFee implements AdminUseCase
 
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
+        }
+        // The one payer rule of the money tab, under the registration's lock: the payer's kind applies or it has
+        // lines on this registration.
+        if (!$this->payerKinds->mayRecordFor($key, $payer)) {
+            throw new InvalidInput();
         }
         $type = $this->type();
         $userId = ManualEntryParts::userIdOf($context->actor());

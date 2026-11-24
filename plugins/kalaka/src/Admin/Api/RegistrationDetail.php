@@ -379,13 +379,7 @@ final class RegistrationDetail
         // The participant first, then the event's other payer kinds (with or without lines), then payers that
         // have lines but no declared kind, in the order the lines are shown. Each payer's totals are the
         // Ledger's, never recomputed here.
-        $order = [];
-        foreach ($this->payerKinds->of($key->eventId) as $kind) {
-            $order[$kind->id] = $kind->label;
-        }
-        foreach ($entries as $entry) {
-            $order[$entry->payer] ??= $this->payerKinds->label($entry->payer);
-        }
+        $order = $this->payerKinds->payersOf($key, $entries);
 
         $payers = [];
         $charged = $zero;

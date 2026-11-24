@@ -39,27 +39,39 @@ final class PayerKinds
     }
 
     /**
-     * Whether money may be recorded against the payer on the registration with a payment, a refund or a
-     * correction: the payer's kind applies to the event, or the payer already has lines on this registration
-     * (the same rule the admin detail read uses to keep showing it, so what the dialog shows is what the server
-     * accepts). A kind that no longer applies still has its lines refunded and corrected. A plain read.
+     * The payers of one registration, in the order the money tab shows them: the participant first, then the
+     * event's other payer kinds that apply (with or without lines), then payers that have lines but no applying
+     * kind, in the order the lines are shown. The label is null for a payer no kind declares. This is the one rule
+     * for who is listed and who is accepted (`mayRecordFor()`): what the dialog shows is what the server accepts.
+     * A plain read of the entries it is given. [UNAPPROVED N147]
+     *
+     * @param list<LedgerEntry> $entries the registration's lines (`Ledger::entriesOf()`)
+     * @return array<string, ?string> payer ID → label
+     */
+    public function payersOf(RegistrationKey $registration, array $entries): array
+    {
+        $order = [];
+        foreach ($this->of($registration->eventId) as $kind) {
+            $order[$kind->id] = $kind->label;
+        }
+        foreach ($entries as $entry) {
+            $order[$entry->payer] ??= $this->label($entry->payer);
+        }
+
+        return $order;
+    }
+
+    /**
+     * Whether money may be recorded against the payer on the registration (a payment, a refund, a correction, a
+     * Díj or a Kedvezmény): it is one of the registration's payers (`payersOf()`), so a payer whose kind no
+     * longer applies, but has lines, can still be refunded, corrected, charged and discounted. A plain read.
      * [UNAPPROVED N147]
      */
     public function mayRecordFor(RegistrationKey $registration, string $payer): bool
     {
-        foreach ($this->of($registration->eventId) as $kind) {
-            if ($kind->id === $payer) {
-                return true;
-            }
-        }
         $this->ledger ??= new Ledger();
-        foreach ($this->ledger->entriesOf($registration) as $entry) {
-            if ($entry->payer === $payer) {
-                return true;
-            }
-        }
 
-        return false;
+        return array_key_exists($payer, $this->payersOf($registration, $this->ledger->entriesOf($registration)));
     }
 
     /** The label of a payer-kind ID, for an event or not: a kind that no longer applies still names its lines. */

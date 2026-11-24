@@ -307,7 +307,7 @@ flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer ·<br/>request source"]
   REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source · slot requirement"]
-  REG --> DECL["Declarations<br/>payer kind (its <code>appliesTo()</code> read runs inside) · block host"]
+  REG --> DECL["Declarations<br/>payer kind (its appliesTo read runs inside) · block host"]
 ```
 
 - **Extensions declare core in their `Requires Plugins` header,** so WordPress
@@ -335,8 +335,9 @@ flowchart LR
     label, through a `PayerKindSource` (`Contributions::payerKindSource()`),
     which also says per event whether the kind applies: its `appliesTo()` is a
     plain read of the module's own setting that runs inside the record use
-    cases (it fires no hooks and writes nothing); the source runs no other
-    code.
+    cases and in the admin detail read (it fires no hooks and writes nothing;
+    a throw fails the use case or the read like any error); the source runs no
+    other code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
     block editor context. Forms gates its blocks by post type and lets a host

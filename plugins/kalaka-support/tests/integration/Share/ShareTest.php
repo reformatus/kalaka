@@ -8,10 +8,12 @@ use Kalaka\Aid\Api\Aid;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\RecordCharge;
 use Kalaka\Ledger\RecordCorrection;
+use Kalaka\Ledger\RecordDiscount;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Ledger\RecordRefund;
 use Kalaka\ParticipantFields\Api\ParticipantField;
@@ -87,7 +89,37 @@ final class ShareTest extends ShareTestCase
         ));
     }
 
-    public function testAKeyHeldByAnotherFieldRefusesTheApplyWhole(): void
+    public function testAKeyHeldAfterTheProposalRefusesTheWholeApplyAndNothingIsSaved(): void
+    {
+        $proposed = new ProposedMoneySettings(components: [
+            $this->offers->propose($this->event, [self::offer('keret', '8000', limit: 2)]),
+            $this->share->propose($this->event, true),
+        ]);
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => 'share_mode',
+            'version' => 1,
+            'type' => 'kalaka/text-field',
+            'title' => 'Mód',
+            'options' => null,
+            'source' => 'staff',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 1,
+            'form_writable' => 0,
+        ]);
+
+        try {
+            $this->settings->apply($this->event, $proposed, new CliActor(null));
+            self::fail('The apply should be refused whole.');
+        } catch (RuleViolation) {
+            self::assertFalse($this->share->isOn($this->event));
+            self::assertSame([], $this->offers->offers($this->event));
+        }
+    }
+
+    public function testAKeyHeldByAnotherFieldRefusesTheProposalAndTheSave(): void
     {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
@@ -112,7 +144,7 @@ final class ShareTest extends ShareTestCase
             self::assertFalse($this->share->isOn($this->event));
             self::assertArrayNotHasKey('share_mode', $this->declared());
         }
-        // The apply refuses it whole too: the save itself checks, with nothing declared or saved.
+        // The save itself checks too, with nothing declared or saved.
         try {
             $this->runner->run(
                 new \Kalaka\Support\Share\SetShare(),
@@ -174,8 +206,67 @@ final class ShareTest extends ShareTestCase
             'form_writable' => 0,
         ]);
 
-        $this->expectException(RuleViolation::class);
-        $this->share->propose($this->event, true);
+        try {
+            $this->share->propose($this->event, true);
+            self::fail('The proposal should be refused.');
+        } catch (RuleViolation) {
+            self::assertFalse($this->share->isOn($this->event));
+        }
+        try {
+            $this->runner->run(
+                new \Kalaka\Support\Share\SetShare(),
+                ['event_id' => $this->event, 'on' => true],
+                new CliActor(null)
+            );
+            self::fail('The save should be refused.');
+        } catch (RuleViolation) {
+            self::assertFalse($this->share->isOn($this->event));
+            self::assertArrayNotHasKey('share_amount', $this->declared());
+        }
+    }
+
+    public function testAFormsShareModeFieldWithItsOwnOptionsIsAdoptedAndTheExtraOptionIsRetired(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => 'share_mode',
+            'version' => 1,
+            'type' => 'kalaka/choice-field',
+            'title' => 'Saját mód',
+            'options' => wp_json_encode([
+                ['value' => 'none', 'label' => 'Saját nem', 'retired_at' => null],
+                ['value' => 'shared', 'label' => 'Saját részben', 'retired_at' => null],
+                ['value' => 'half', 'label' => 'Saját fél', 'retired_at' => null],
+            ]),
+            'source' => 'form',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 1,
+            'form_writable' => 1,
+        ]);
+
+        $this->applyShare();
+
+        $mode = $this->declared()['share_mode'];
+        self::assertSame(ParticipantField::SOURCE_EXTENSION, $mode->source);
+        self::assertSame('kalaka-support', $mode->declaredBy);
+        $options = array_column($mode->options, null, 'value');
+        self::assertTrue($options['half']['retired']);
+        foreach (['none', 'shared', 'full'] as $value) {
+            self::assertFalse($options[$value]['retired']);
+        }
+        self::assertSame(
+            [
+                'none' => \Kalaka\Support\Share\SetShare::NONE_LABEL,
+                'shared' => \Kalaka\Support\Share\SetShare::SHARED_LABEL,
+                'full' => \Kalaka\Support\Share\SetShare::FULL_LABEL,
+            ],
+            array_combine(
+                ['none', 'shared', 'full'],
+                array_map(static fn (string $value): string => $options[$value]['label'], ['none', 'shared', 'full'])
+            )
+        );
     }
 
     public function testTheSettingsDocumentShowsAndRefusesOtherShapes(): void
@@ -249,7 +340,8 @@ final class ShareTest extends ShareTestCase
     {
         $this->applyShare();
 
-        foreach (['00A0' => null, '00A2' => '0', '00A5' => '-5', '01A1' => 'sok', '01A3' => ''] as $code => $amount) {
+        $amounts = ['00A0' => null, '00A2' => '0', '00A5' => '-5', '01A1' => 'sok', '01A3' => '', '01A9' => "20000\n"];
+        foreach ($amounts as $code => $amount) {
             $key = $this->registerSharing($code, 'shared', $amount);
             self::assertSame([], $this->shareLines($key), $code);
             self::assertSame('44500', $this->balance($key), $code);
@@ -494,7 +586,7 @@ final class ShareTest extends ShareTestCase
         ));
     }
 
-    public function testAPayerWithLinesIsStillRefundedAndCorrectedAfterTheShareIsOffButNewMoneyIsRefused(): void
+    public function testAPayerWithLinesIsStillAcceptedForEveryEntryAfterTheShareIsOffAndOneWithoutLinesIsRefused(): void
     {
         $this->applyShare();
         $key = $this->registerSharing('00A0', 'shared', '20000');
@@ -504,6 +596,8 @@ final class ShareTest extends ShareTestCase
         $actor = new UserActor($this->fullAccessUser());
 
         // What the money tab shows (the congregation, with lines) is what the server accepts.
+        $money = (new \Kalaka\Admin\Api\RegistrationDetail())->of($actor, $this->event, '00A0')['money'];
+        self::assertSame(['participant', 'congregation'], array_column($money['payers'], 'payer'));
         $this->runner->run(new RecordRefund(), [
             'event_id' => $key->eventId, 'code' => $key->code, 'payer' => 'congregation', 'amount' => '5000',
             'currency' => 'HUF', 'method' => 'bank_transfer', 'value_date' => '2026-11-30',
@@ -514,23 +608,50 @@ final class ShareTest extends ShareTestCase
             'currency' => 'HUF', 'direction' => 'in', 'reason' => 'Teszt indok', 'idempotency_key' => 'k_gyul_corr',
         ], $actor);
         self::assertSame('-16000', $this->congregationBalance($key));
+        // A new payment on the same registration is accepted too: the payer has lines here.
+        $this->congregationEntry($key, '2000', 'k_gyul_again');
+        self::assertSame('-18000', $this->congregationBalance($key));
+        // So are a new Díj and Kedvezmény: one rule for the whole dialog (RecordManualFee too).
+        foreach ([[new RecordCharge(), 'k_gyul_fee'], [new RecordDiscount(), 'k_gyul_disc']] as [$useCase, $id]) {
+            $this->runner->run($useCase, [
+                'event_id' => $key->eventId, 'code' => $key->code, 'payer' => 'congregation', 'amount' => '1000',
+                'currency' => 'HUF', 'title' => 'Teszt tétel', 'idempotency_key' => $id,
+            ], $actor);
+        }
 
-        // A new payment to a congregation with no lines is refused: the kind no longer applies there.
+        // A congregation with no lines on another registration is refused for every entry.
         try {
             $this->congregationEntry($other, '1000', 'k_gyul_5');
             self::fail('A payment to a payer without lines should be refused.');
         } catch (InvalidInput) {
             self::assertSame('0', $this->congregationBalance($other));
         }
-        // A new Díj against the payer that no longer applies keeps being refused (RecordManualFee).
         try {
             $this->runner->run(new RecordCharge(), [
-                'event_id' => $key->eventId, 'code' => $key->code, 'payer' => 'congregation', 'amount' => '1000',
-                'currency' => 'HUF', 'title' => 'Teszt díj', 'idempotency_key' => 'k_gyul_fee',
+                'event_id' => $other->eventId, 'code' => $other->code, 'payer' => 'congregation', 'amount' => '1000',
+                'currency' => 'HUF', 'title' => 'Teszt díj', 'idempotency_key' => 'k_gyul_fee2',
             ], $actor);
-            self::fail('A new fee against a payer whose kind no longer applies should be refused.');
+            self::fail('A fee against a payer without lines should be refused.');
         } catch (InvalidInput) {
             self::addToAssertionCount(1);
+        }
+    }
+
+    public function testAMissingRegistrationIsNotFoundWhateverThePayerIsAndTheKindIsJudgedUnderTheLock(): void
+    {
+        $actor = new UserActor($this->fullAccessUser());
+
+        foreach (['participant', 'congregation'] as $payer) {
+            try {
+                $this->runner->run(new RecordPayment(), [
+                    'event_id' => $this->event, 'code' => '02A2', 'payer' => $payer, 'amount' => '1000',
+                    'currency' => 'HUF', 'method' => 'bank_transfer', 'value_date' => '2026-11-29',
+                    'idempotency_key' => 'k_none_' . $payer,
+                ], $actor);
+                self::fail('The registration does not exist.');
+            } catch (NotFound) {
+                self::addToAssertionCount(1);
+            }
         }
     }
 

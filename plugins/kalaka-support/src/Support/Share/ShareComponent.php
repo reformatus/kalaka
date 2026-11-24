@@ -26,7 +26,8 @@ use Kalaka\Support\Api\Share;
  * the base is the tier stage's total and the support the support stage's, so support lowers the participant's
  * part first and the congregation's only below zero. An X' of zero writes nothing, so an earlier pair is
  * reversed. It reads only the registration's facts (its two answers), its own setting and the stage totals,
- * never a charge line. The pair's lines are named by `NamedFeeComponent`. [UNAPPROVED N144, N145, N150, T66]
+ * never a charge line, and it does not check the congregation picker. The pair's lines are named by
+ * `NamedFeeComponent`. [UNAPPROVED N144, N145, N150, N151, T66]
  */
 final class ShareComponent implements ConfigurableFeeComponent, NamedFeeComponent
 {
@@ -136,7 +137,7 @@ final class ShareComponent implements ConfigurableFeeComponent, NamedFeeComponen
             return null;
         }
         $data = $input->facts->get(self::AMOUNT_FIELD)->data;
-        $shape = '/^[0-9]{1,' . self::MAX_INTEGER_DIGITS . '}(\.[0-9]{1,8})?$/';
+        $shape = '/\A[0-9]{1,' . self::MAX_INTEGER_DIGITS . '}(\.[0-9]{1,8})?\z/';
         if (!is_string($data) || preg_match($shape, $data) !== 1) {
             return null;
         }

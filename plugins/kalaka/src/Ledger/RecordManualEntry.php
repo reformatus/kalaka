@@ -143,9 +143,6 @@ abstract class RecordManualEntry implements AdminUseCase
             throw new InvalidInput();
         }
         $payer = isset($input['payer']) ? (string) $input['payer'] : Payer::PARTICIPANT;
-        if (!$this->payerKinds->mayRecordFor($key, $payer)) {
-            throw new InvalidInput();
-        }
         $correction = $this->isCorrection();
         $method = null;
         $valueDate = null;
@@ -166,6 +163,10 @@ abstract class RecordManualEntry implements AdminUseCase
 
         if (!$this->registrations->lock($key, $context)) {
             throw new NotFound();
+        }
+        // The payer is judged under the registration's lock: its kind applies or it has lines here.
+        if (!$this->payerKinds->mayRecordFor($key, $payer)) {
+            throw new InvalidInput();
         }
         $kind = $this->kind($input);
         $line = new NewLine(
