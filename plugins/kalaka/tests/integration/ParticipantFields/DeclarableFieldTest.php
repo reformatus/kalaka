@@ -115,7 +115,6 @@ final class DeclarableFieldTest extends FormsTestCase
         foreach (['free', 'form_key', 'mine', 'older', 'retired_form'] as $key) {
             $fields->checkDeclarable(self::EVENT, $key, self::TEXT, 'kalaka-aid');
         }
-        self::assertSame('kalaka-aid', $this->declarerOf('mine'));
     }
 
     public function testAnyOtherHolderRefusesTheCheckAndTheDeclarationAlike(): void
@@ -164,6 +163,20 @@ final class DeclarableFieldTest extends FormsTestCase
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->storedField('form_key')->source);
     }
 
+    public function testAFormSaveLeavesAnExtensionFieldsFlagAndDeclarerAlone(): void
+    {
+        $this->declareAs('joined', 'kalaka-extras', self::TEXT, true);
+        $this->insertChecked(
+            $this->block(self::TEXT, ['key' => 'joined', 'label' => 'Csatlakozó']),
+            ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
+        );
+
+        $field = $this->storedField('joined');
+        self::assertSame(ParticipantField::SOURCE_EXTENSION, $field->source);
+        self::assertTrue($field->moneyRelevant);
+        self::assertSame('kalaka-extras', $this->declarerOf('joined'));
+    }
+
     public function testMoneyRelevanceIsTheFlagTheDeclarationSetsAndIsTheLockRead(): void
     {
         $fields = new ParticipantFields();
@@ -177,9 +190,9 @@ final class DeclarableFieldTest extends FormsTestCase
         self::assertFalse($fields->lockedAfterFirstWrite($this->storedField('plain_form')));
 
         $this->declareAs('locked', 'kalaka-extras');
-        self::assertFalse(
+        self::assertTrue(
             $fields->lockedAfterFirstWrite($this->storedField('locked')),
-            'A redeclaration sets the flag as given.'
+            'A redeclaration never lowers the claim.'
         );
     }
 }

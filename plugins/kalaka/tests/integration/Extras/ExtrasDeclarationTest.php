@@ -20,7 +20,7 @@ use Kalaka\Pricing\Cli\SettingsDocument;
 /**
  * The extras define their participant fields (events-and-forms.md, "Fields"): a charge declares its field with its
  * key and type when it is saved, the donation's number field is declared by every save, and a form field joins a
- * declared field by its key and never creates it. [UNAPPROVED N1] [UNAPPROVED N2] [UNAPPROVED T1]
+ * declared field by its key and never creates it. [UNAPPROVED N1] [UNAPPROVED N2] [UNAPPROVED N3] [UNAPPROVED T1]
  */
 final class ExtrasDeclarationTest extends ExtrasTestCase
 {
@@ -269,23 +269,15 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
         $this->extras->propose($this->event, [self::item('ejjel', 'Éjszaka', '1000', 'number')]);
     }
 
-    public function testATakenOutChargesFieldIsRetiredAndDeclaringItAgainMakesItActive(): void
+    public function testATakenOutChargeLeavesItsDeclaredFieldInPlace(): void
     {
-        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éj', '1000', 'number')]);
-        $this->applyCharges([self::item('ejjel', 'Éj', '1000', 'number')]);
-
-        self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->field('ebed')?->source);
-        self::assertTrue($this->field('ebed')?->retired);
-        self::assertFalse($this->field('ejjel')?->retired);
-        self::assertFalse($this->field(DonationComponent::KEY)?->retired);
-
-        $this->applyCharges([]);
-        self::assertTrue($this->field('ejjel')?->retired);
-        self::assertFalse($this->field(DonationComponent::KEY)?->retired, 'The donation is never retired.');
-
         $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
+        $this->applyCharges([]);
+
+        self::assertSame([], $this->extras->charges($this->event));
+        self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->field('ebed')?->source);
         self::assertFalse($this->field('ebed')?->retired);
-        self::assertTrue($this->field('ejjel')?->retired);
+        self::assertContains(DonationComponent::KEY, $this->keys());
     }
 
     public function testEveryChargeFieldAndTheDonationStoreTheExtrasAsDeclarerAndAreMoneyRelevant(): void

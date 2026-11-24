@@ -365,7 +365,8 @@ flowchart TB
   field already holds the key, with the same type, the declaration adopts
   it: the field becomes an `extension` field with the declarer's title, and
   its values stay. A key a `staff` or `system` field holds, or a field of
-  another type, refuses the declaration.
+  another type, refuses the declaration. A key another code declarer holds
+  is refused.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins, or declared

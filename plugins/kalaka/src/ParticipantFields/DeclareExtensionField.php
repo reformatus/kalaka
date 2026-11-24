@@ -21,7 +21,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * it active), its values untouched (a form created the key first, as a convenience; events-and-forms.md,
  * "Fields"). The declaration stores the declarer's slug and whether the field's value is money relevant (locked
  * after its first write). Run nested in the declarer's own
- * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save. [UNAPPROVED, #200 N10]
+ * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save.
+ * [UNAPPROVED, #200 N10, N5, N301]
  */
 final class DeclareExtensionField implements AdminUseCase
 {
@@ -141,7 +142,8 @@ final class DeclareExtensionField implements AdminUseCase
         $record->source = ParticipantFieldRecord::SOURCE_EXTENSION;
         $record->settings = self::settings($record->settings, $input['decimals'] ?? null);
         $record->declaredBy = $declarer;
-        $record->moneyRelevant = $moneyRelevant;
+        // The flag records claims only: an adoption or a redeclaration never lowers it.
+        $record->moneyRelevant = $record->moneyRelevant || $moneyRelevant;
         $record->retiredAt = null;
         if ($record->toRow() !== $before) {
             $record->updatedAt = $now;

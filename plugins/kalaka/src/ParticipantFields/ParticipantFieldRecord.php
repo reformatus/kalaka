@@ -67,6 +67,7 @@ final class ParticipantFieldRecord
      * Whether the module `$declarer` may declare this key as a field of `$type`: a `form` field of the same type
      * (it will be adopted), or an `extension` field of the same type that this declarer declared or no one is
      * recorded for. The one rule `ParticipantFields::checkDeclarable()` and `DeclareExtensionField` share.
+     * [UNAPPROVED N5]
      */
     public function declarableBy(string $type, string $declarer): bool
     {
