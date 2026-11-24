@@ -9,6 +9,18 @@ use Kalaka\Aid\AidRequests;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\Payer;
+use Kalaka\Pricing\Api\FeeStage;
+use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\PlainAmount;
+use Kalaka\Pricing\Api\ProposedMoneySettings;
+use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\Request;
+use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Tests\Integration\Pricing\ClosureComponent;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\Api\StatusRead;
@@ -109,6 +121,86 @@ final class AidTest extends AidTestCase
         self::assertSame([], $this->aidLines($key));
     }
 
+    public function testTheCapReadsThePartAfterSupportAndShareAndLeavesTheCongregationsAmountAlone(): void
+    {
+        $this->useComponents(
+            new ClosureComponent('support_probe', FeeStage::Support, static fn (): FeeTargets => FeeTargets::ofItems(
+                ['standin' => [Payer::PARTICIPANT => Money::of('-10000', Currency::HUF)]]
+            )),
+            new ClosureComponent('share_probe', FeeStage::Share, static fn (): FeeTargets => FeeTargets::ofItems(
+                ['standin' => [
+                    Payer::PARTICIPANT => Money::of('-4000', Currency::HUF),
+                    'congregation' => Money::of('4000', Currency::HUF),
+                ]]
+            )),
+        );
+        $this->applyAid();
+        $key = $this->registerAsking('00A0', '0');
+
+        $this->answer($key, 'yes', '50000');
+
+        // 30 000 less support 10 000 and share 4 000 leaves 16 000 for the aid to take.
+        self::assertSame(['aid:award participant -16000'], $this->aidLines($key));
+        self::assertContains('share_probe:standin congregation 4000', array_map(
+            static fn (string $line): string => implode(' ', array_slice(explode(' ', $line), 0, 3)),
+            $this->charges($key)
+        ));
+        self::assertSame('0', $this->balance($key));
+    }
+
+    public function testAnAwardTheNumberFieldCannotHoldIsRefusedAndTheRequestStaysOpen(): void
+    {
+        $this->applyAid();
+        $key = $this->registerAsking('00A0', '10000');
+
+        try {
+            $this->answer($key, 'yes', '1000000000000');
+            self::fail('Accepted.');
+        } catch (InvalidInput) {
+            self::assertTrue($this->awaits($key));
+            self::assertArrayNotHasKey('aid_award', (new Registrations())->values($key));
+        }
+
+        $this->answer($key, 'yes', '999999999999');
+        self::assertSame(['aid:award participant -30000'], $this->aidLines($key));
+    }
+
+    public function testTheRequestSourceRefusesAYesWithoutAnAmountAboveZeroOnItsOwn(): void
+    {
+        $this->applyAid();
+        $key = $this->registerAsking('00A0', '10000');
+        $request = new Request(AidRequests::ID, RequestKind::Aid, 'Teszt ösztöndíj');
+        $context = (new \ReflectionClass(Context::class))->newInstanceWithoutConstructor();
+        $source = new AidRequests();
+
+        foreach ([null, Money::zero(Currency::HUF)] as $amount) {
+            try {
+                $source->writeAnswer($key, $request, new Answer(true, $amount), $context);
+                self::fail('Accepted.');
+            } catch (InvalidInput) {
+                self::assertArrayNotHasKey('aid_award', (new Registrations())->values($key));
+            }
+        }
+    }
+
+    public function testThePreviewShowsTheProposedAidForAnAnsweredRegistration(): void
+    {
+        $this->applyAid();
+        $key = $this->registerAsking('00A0', '10000');
+        $this->answer($key, 'yes', '12000');
+        $this->applyAid(null);
+        self::assertSame('30000', $this->balance($key));
+
+        $rows = $this->settings->preview(
+            $this->event,
+            new ProposedMoneySettings(components: [$this->aid->propose($this->event, 'Teszt ösztöndíj')])
+        );
+
+        self::assertCount(1, $rows);
+        self::assertSame('30000', PlainAmount::of($rows[0]->before[Payer::PARTICIPANT]));
+        self::assertSame('18000', PlainAmount::of($rows[0]->after[Payer::PARTICIPANT]));
+    }
+
     public function testAChangedAnswerReprices(): void
     {
         $this->applyAid();
@@ -177,6 +269,35 @@ final class AidTest extends AidTestCase
         self::assertSame('30000', $this->balance($key));
         self::assertFalse($this->awaits($key));
         self::assertSame('10000', (new Registrations())->values($key)['aid_award']);
+    }
+
+    public function testTurningTheAidOffReleasesAnUnansweredRequestAndTurningItOnAwaitsItAgain(): void
+    {
+        $this->applyAid();
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['payment_due_days' => 7], ['id' => $this->event]);
+        $waiting = $this->registerAsking('00A0', '10000');
+        $answered = $this->registerAsking('00A2', '10000');
+        $this->answer($answered, 'yes', '10000');
+        $read = new StatusRead();
+        self::assertTrue($this->awaits($waiting));
+        self::assertNull($read->of($waiting)?->payment->paymentDue);
+
+        $this->applyAid(null);
+
+        // The request stops awaiting at once: the full price and the due date from the registration apply.
+        self::assertFalse($this->awaits($waiting));
+        self::assertSame('30000', $this->balance($waiting));
+        self::assertNotNull($read->of($waiting)?->payment->paymentDue);
+        self::assertSame('30000', $this->balance($answered));
+
+        $this->applyAid();
+
+        // The stored answer's line is back, and the unanswered request awaits again.
+        self::assertTrue($this->awaits($waiting));
+        self::assertNull($read->of($waiting)?->payment->paymentDue);
+        self::assertSame(['aid:award participant -10000'], $this->aidLines($answered));
+        self::assertSame('20000', $this->balance($answered));
     }
 
     public function testTheSaveDeclaresTheTwoFieldsOnlyTheRequestFormWritable(): void
