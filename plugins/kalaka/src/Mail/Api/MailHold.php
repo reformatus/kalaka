@@ -10,7 +10,8 @@ use Kalaka\Events\Api\Events;
 /**
  * Whether an event's pending mail is held: the one read of it (mail.md, "Pausing"). The sender sends the
  * deliveries of the events whose stored state is `published`, and an event whose state is anything else holds
- * its mail. The sender, the manual send's warning and the clearing of a held event's mail all read it here.
+ * its mail. The sender, the clearing of a held event's mail and, from #244, the manual send's warning read it
+ * here.
  */
 final class MailHold
 {

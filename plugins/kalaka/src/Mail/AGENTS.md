@@ -174,7 +174,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   (`ResumeNeedsPerson`), and `resume` adds the hint to give `--user`. The clears ask first
   (`--yes` skips), after the access check; `clear-event` runs the use case's own `ClearEventMail::refuse()`
   ahead of the question. Whether an event's mail is held is read once, in `Api\MailHold`, by the sender,
-  the clear and the manual send's warning.
+  the clear and, from #244, the manual send's warning.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.

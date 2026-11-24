@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Time\Instant;
 /**
  * Reads the deliveries: the sender's candidates and its claim counts, the counts of `MailStats`, and the staff
  * listing of `wp kalaka mail status` and `failed` (`eventIds()`, `troubled()`). Only the sender decides on what it
- * reads here; the staff reads only list (mail.md, "Words", is reworded in B4's R box).
+ * reads here; the staff reads only list (mail.md, "Words", is reworded in #244's R58).
  */
 final class DeliveryQuery extends Query
 {
