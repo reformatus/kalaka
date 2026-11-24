@@ -535,7 +535,10 @@ final class ParticipantMoneyTest extends PortalTestCase
         }
 
         self::assertSame($counts[0], $counts[1]);
-        // The registration, the event, the decisions, the summary, the statement and the manual fees.
+        // The registration, the event, the decisions, the summary, the statement and the manual fees. The fact source
+        // (`factsOf()`, for awaits-an-answer and the due date) adds none while no request source is contributed: this
+        // base has none. Once one is (a support offer, a church-aid plugin), `awaits()` and `lastAnsweredAt()` each
+        // read the field values, so the count there is higher, but it still does not grow with the line count.
         self::assertSame(6, $counts[0]);
     }
 

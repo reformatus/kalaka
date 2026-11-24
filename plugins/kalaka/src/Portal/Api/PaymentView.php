@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Kalaka\Portal\Api;
 
 /**
- * The money of one `registered` registration, the participant payer first (SB-6): the totals, the other payers, the
- * hold and the due time. The itemised table is `ParticipantMoney`, read beside it.
+ * The money of one `registered` registration, the participant payer first (SB-6): the totals, the other payers,
+ * whether a request awaits an answer and the due time. The itemised table is `ParticipantMoney`, read beside it.
  *
  * - `otherPayers`: the other payers with lines (e.g. the congregation), by payer ID.
  * - `awaitsAnswer`: a request awaits an answer (computed, never stored): no due date, no transfer block
