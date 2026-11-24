@@ -41,16 +41,21 @@ is asked until decided. Sponsor and church support is the other extension
   registration); turning aid on again revives stored awards and unanswered
   requests.
 - The save declares two participant fields of source `extension` (number
-  fields): `aid_can_pay`, form-writable, where the participant states what
-  they can pay, and `aid_award`, never form-writable. A form links to
-  `aid_can_pay` by key; who sees it is a condition on the form. Their keys
-  are refused while another source holds them.
+  fields) as declarer `kalaka-aid`, money relevant: `aid_can_pay`,
+  form-writable, where the participant states what they can pay, and
+  `aid_award`, never form-writable. A form links to `aid_can_pay` by key; who
+  sees it is a condition on the form. Their keys are judged by core's
+  `ParticipantFields::checkDeclarable()` (a form's number field is adopted; a
+  staff or system field, another type or another declarer's field refuses
+  with `RuleViolation`), never by a check of this module.
 - An aid request, `aid`, exists while the registration holds a value in
   `aid_can_pay` and the event has aid. Staff answer 0 when nothing is
   needed. The request source reads only the field values and the settings.
 - The award is written only by `AidRequests::writeAnswer()`, called by the
   answer act: the amount for a yes (above zero, and no more than the number
-  field holds), 0 for a no. An emptied `aid_can_pay` ends the request but
+  field holds), 0 for a no, under the declarer `kalaka-aid`. The award field
+  is the truth of the answer (`isAnswered()`): empty is awaiting, `0` is
+  refused, an amount is granted. An emptied `aid_can_pay` ends the request but
   leaves the award's line. Nothing else
   sets `aid_award`; nobody sets a derived fact directly.
 - The fee component `aid` composes at the aid stage, returns a value and

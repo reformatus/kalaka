@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Kalaka\Aid;
 
 use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
- * What aid needs checked before it is proposed or saved, for the preview and the save alike: its two field keys
- * must not be held by a form, staff or system field of the event, or by an extension's field of another type.
+ * What aid needs checked before it is proposed or saved, for the preview and the save alike: the label, and the
+ * two field keys, which core's `ParticipantFields::checkDeclarable()` judges as declarer `kalaka-aid` (the one rule
+ * for every extension: a form's number field is adopted; a staff or system field, another type or another
+ * declarer's field refuses). [UNAPPROVED N361]
  */
 final class AidInput
 {
@@ -32,18 +34,11 @@ final class AidInput
         }
     }
 
-    /** @throws InvalidInput when another field holds `aid_can_pay` or `aid_award` */
-    public function assertKeysFree(int $eventId): void
+    /** @throws RuleViolation when a field of the event holds `aid_can_pay` or `aid_award` that aid may not declare */
+    public function checkKeysDeclarable(int $eventId): void
     {
-        $wanted = [
-            AidRequests::CAN_PAY_FIELD => SetAid::NUMBER_TYPE,
-            AidComponent::AWARD_FIELD => SetAid::NUMBER_TYPE,
-        ];
-        foreach ($this->fields->of($eventId, true) as $field) {
-            $type = $wanted[$field->key] ?? null;
-            if ($type !== null && ($field->source !== ParticipantField::SOURCE_EXTENSION || $field->type !== $type)) {
-                throw new InvalidInput();
-            }
+        foreach ([AidRequests::CAN_PAY_FIELD, AidComponent::AWARD_FIELD] as $key) {
+            $this->fields->checkDeclarable($eventId, $key, SetAid::NUMBER_TYPE, SetAid::DECLARER);
         }
     }
 }
