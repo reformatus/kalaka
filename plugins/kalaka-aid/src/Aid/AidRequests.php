@@ -20,15 +20,21 @@ use Kalaka\Registrations\Api\SeatPool;
  * registration holds a value in `aid_can_pay`, the amount the participant states they can pay, and the event has
  * aid (Q-B0-7: any stored value; staff answer 0 when nothing is needed). The one answer act writes the answer
  * through `writeAnswer()`, which writes the award `aid_award`: 0 for a "no", the amount for a "yes". This source
- * is the award's only writer. It refuses nothing about the amount's size: the component caps it (Q-B0-8). It
- * reads only the registration's field values and the event's settings. [UNAPPROVED N105, N106, N107]
+ * is the award's only writer. It refuses nothing about the amount's size but what the field cannot hold: the
+ * component caps it (Q-B0-8). It reads only the registration's field values and the event's settings. Once
+ * `aid_can_pay` is emptied the request is gone, so the award stays on its line with no way to answer until
+ * additional-form edits arrive.
+ * [UNAPPROVED N115, N116, N117, N124]
  */
 final class AidRequests implements RequestSource
 {
     public const ID = 'aid';
 
-    /** The participant field the participant states what they can pay in, form-writable. [UNAPPROVED N105] */
+    /** The participant field the participant states what they can pay in, form-writable. [UNAPPROVED N115] */
     public const CAN_PAY_FIELD = 'aid_can_pay';
+
+    /** What the number field `aid_award` can hold: core's number field takes at most this many integer digits. */
+    public const MAX_INTEGER_DIGITS = 12;
 
     public function __construct(
         private readonly AidSettingsRepository $settings = new AidSettingsRepository(),
@@ -60,11 +66,11 @@ final class AidRequests implements RequestSource
         if ($answer->amount === null || ($answer->approved && !$answer->amount->isPositive())) {
             throw new InvalidInput();
         }
-        $this->registrations->writeValue(
-            $registration,
-            AidComponent::AWARD_FIELD,
-            $answer->approved ? PlainAmount::of($answer->amount) : '0',
-            $context
-        );
+        $award = $answer->approved ? PlainAmount::of($answer->amount) : '0';
+        // An award the number field cannot hold would be stored but read as no award: refuse it here.
+        if (strlen(explode('.', $award)[0]) > self::MAX_INTEGER_DIGITS) {
+            throw new InvalidInput();
+        }
+        $this->registrations->writeValue($registration, AidComponent::AWARD_FIELD, $award, $context);
     }
 }
