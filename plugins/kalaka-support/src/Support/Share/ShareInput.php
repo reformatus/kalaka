@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Support\Share;
 
-use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * What the share needs checked before it is proposed or saved, for the preview and the save alike: its two field
- * keys must not be held by a form, staff or system field of the event, or by an extension's field of another
- * type (the setup order: turn the share on before the form joins the keys). [UNAPPROVED N154]
+ * keys are judged by core's `ParticipantFields::checkDeclarable()` as declarer `kalaka-support` (the one rule for
+ * every extension: a form's field of the type is adopted; a staff or system field, another type or another
+ * declarer's field refuses). [UNAPPROVED N154, N364]
  */
 final class ShareInput
 {
@@ -19,18 +19,20 @@ final class ShareInput
     {
     }
 
-    /** @throws InvalidInput when another field holds `share_mode` or `share_amount` */
-    public function assertKeysFree(int $eventId): void
+    /** @throws RuleViolation when another field holds `share_mode` or `share_amount` (not declarable by the share) */
+    public function checkKeysDeclarable(int $eventId): void
     {
-        $wanted = [
-            ShareComponent::MODE_FIELD => SetShare::CHOICE_TYPE,
-            ShareComponent::AMOUNT_FIELD => SetShare::NUMBER_TYPE,
-        ];
-        foreach ($this->fields->of($eventId, true) as $field) {
-            $type = $wanted[$field->key] ?? null;
-            if ($type !== null && ($field->source !== ParticipantField::SOURCE_EXTENSION || $field->type !== $type)) {
-                throw new InvalidInput();
-            }
-        }
+        $this->fields->checkDeclarable(
+            $eventId,
+            ShareComponent::MODE_FIELD,
+            SetShare::CHOICE_TYPE,
+            SetShare::DECLARER
+        );
+        $this->fields->checkDeclarable(
+            $eventId,
+            ShareComponent::AMOUNT_FIELD,
+            SetShare::NUMBER_TYPE,
+            SetShare::DECLARER
+        );
     }
 }

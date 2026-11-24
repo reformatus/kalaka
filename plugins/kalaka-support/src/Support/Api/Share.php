@@ -42,7 +42,7 @@ final class Share
             throw new NotFound();
         }
         if ($on) {
-            $this->input->assertKeysFree($eventId);
+            $this->input->checkKeysDeclarable($eventId);
         }
 
         return new ProposedShare($on, ['event_id' => $eventId, 'on' => $on]);

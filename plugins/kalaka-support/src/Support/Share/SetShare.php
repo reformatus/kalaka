@@ -90,7 +90,7 @@ final class SetShare implements AdminUseCase
 
             return null;
         }
-        $this->input->assertKeysFree($eventId);
+        $this->input->checkKeysDeclarable($eventId);
         if ($stored === null) {
             $this->settings->upsert(new ShareSettings($eventId), $context);
         }
@@ -106,6 +106,8 @@ final class SetShare implements AdminUseCase
                 ['value' => ShareComponent::FULL, 'label' => self::FULL_LABEL],
             ],
             true,
+            self::DECLARER,
+            moneyRelevant: true,
         );
         $this->fields->declareExtensionField(
             $context,
@@ -115,6 +117,8 @@ final class SetShare implements AdminUseCase
             self::AMOUNT_TITLE,
             null,
             true,
+            self::DECLARER,
+            moneyRelevant: true,
         );
 
         return null;
