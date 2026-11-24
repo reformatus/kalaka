@@ -275,6 +275,7 @@ describe( 'the save', () => {
 		apiFetch.mockReturnValue( new Promise( ( resolve ) => ( release = resolve ) ) );
 		await render( offer );
 		await choose( 'yes' );
+		await typeNote( 'Telefonon megerősítve' );
 		await submit();
 		await submit();
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
