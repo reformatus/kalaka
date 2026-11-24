@@ -248,7 +248,9 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **Reassigned only by a staff act:** staff give a freed place to a requester
   from a list in registration order, so nobody's money changes
   automatically.
-- **A restored registration** gets a place only if one is free.
+- **An admitted or restored registration** takes its places again over the
+  limit when a pool is full, with the "full" warning: a staff act is never
+  refused by a full pool (only the registrant's own submit is).
 
 ## Withdrawal, removal and substitution
 
