@@ -195,16 +195,4 @@ final class FeeComposer
 
         return $owed;
     }
-
-    /** @param array<string, Money> $owed */
-    private static function owesAny(array $owed): bool
-    {
-        foreach ($owed as $amount) {
-            if ($amount->isPositive() || $amount->isNegative()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }
