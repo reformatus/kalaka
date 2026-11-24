@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\PriceLadder;
 
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Money\Currency;
@@ -105,7 +106,7 @@ final class SetPriceLadder implements AdminUseCase
                 $context,
                 $eventId,
                 PriceLadderComponent::FIELD,
-                PriceLadderComponent::CHOICE_TYPE,
+                FieldKind::CHOICE,
                 PriceLadderComponent::FIELD_TITLE,
                 array_map(static fn (Tier $tier): array => ['value' => $tier->key, 'label' => $tier->label], $proposed),
                 true,
