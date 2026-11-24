@@ -704,6 +704,42 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame(0, $seats->left($pool));
     }
 
+    public function testTheStatusActsFreeAnOptionSeatAndTakeItAgainOverTheLimitWhileTheAssignmentStays(): void
+    {
+        $set = $this->newSet();
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
+        $key = new RegistrationKey($this->event, '00A0');
+        $other = new RegistrationKey($this->event, '00A2');
+        $this->seedRegistrations($key, $other);
+        $seats = new Seats();
+        $pool = $this->sets->seatPool($set, 'modul_a');
+        self::assertNotNull($pool);
+        $this->place($key, $set, 'modul_a');
+        $input = ['event_id' => $this->event, 'code' => '00A0'];
+        $actor = new CliActor(null);
+
+        $this->runner->run(new \Kalaka\Registrations\Status\WithdrawRegistration([]), $input, $actor);
+
+        self::assertFalse($seats->holds($pool, $key));
+        self::assertSame(1, $this->sets->assignment($key, $set)?->optionKey === 'modul_a' ? 1 : 0);
+        // The freed seat goes to nobody; another registration takes it by its own act.
+        $this->place($other, $set, 'modul_a');
+        self::assertTrue($seats->holds($pool, $other));
+
+        $result = $this->runner->run(new \Kalaka\Registrations\Status\RestoreRegistration([]), $input, $actor);
+
+        self::assertIsArray($result);
+        self::assertTrue($seats->holds($pool, $key));
+        self::assertSame(1, $seats->over($pool));
+        self::assertContains(['pool' => $pool->key(), 'field' => null, 'outcome' => 'over'], $result['seats']);
+        $preview = $this->runner->run(
+            new \Kalaka\Registrations\Status\WithdrawRegistration([]),
+            $input + ['preview' => true],
+            $actor
+        );
+        self::assertSame([], $preview['seats']);
+    }
+
     private function place(RegistrationKey $key, int $set, string $option): void
     {
         $this->runner->run(new PlaceRegistration(), [

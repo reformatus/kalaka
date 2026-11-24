@@ -1,0 +1,605 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Tests\Integration\Registrations;
+
+use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Api\Module\ActionCatalogue;
+use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Ledger\RecordPayment;
+use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Pricing\Api\FeeComponentInput;
+use Kalaka\Pricing\Api\FeeStage;
+use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\Materializer;
+use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Registrations\Api\RegisteredBy;
+use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Registrations\Api\SeatPool;
+use Kalaka\Registrations\Api\StatusAct;
+use Kalaka\Registrations\Api\StatusActRefused;
+use Kalaka\Registrations\Api\StatusActs;
+use Kalaka\Registrations\Status\AdmitRegistration;
+use Kalaka\Registrations\Status\RemoveRegistration;
+use Kalaka\Registrations\Status\RestoreRegistration;
+use Kalaka\Registrations\Status\StatusChange;
+use Kalaka\Registrations\Status\WithdrawRegistration;
+use Kalaka\Tests\Integration\Admin\FieldEdit\StaffEditTestCase;
+use Kalaka\Tests\Integration\Admin\FieldEdit\TierClaimSource;
+
+/**
+ * The status acts (S23): admit from the waitlist, withdraw, remove and restore. Each writes only its facts; the
+ * seats go through `Seats::retake()` (held or over, never refused) and `releaseAll()`; the evaluation follows.
+ */
+final class StatusActsTest extends StaffEditTestCase
+{
+    private ActionCatalogue $catalogue;
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
+    public function set_up(): void
+    {
+        parent::set_up();
+
+        $this->catalogue = ActionCatalogue::current();
+        ActionCatalogue::record(new ActionCatalogue([
+            'kalaka_withdraw_registration',
+            'kalaka_remove_registration',
+            'kalaka_admit_registration',
+            'kalaka_restore_registration',
+        ]));
+        $this->runner = $this->moneyRunner();
+        $this->exec(new SetFixedPrice(), ['event_id' => $this->event, 'amount' => '8000', 'currency' => 'HUF']);
+        $this->addRegistration($this->event, '00A0');
+        $this->addRegistration($this->event, '00A2');
+        $this->addRegistration($this->event, '00A5', 'waitlisted');
+        $this->mailOn('registered');
+        $this->mailOn('confirmed');
+    }
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
+    public function tear_down(): void
+    {
+        ActionCatalogue::record($this->catalogue);
+
+        parent::tear_down();
+    }
+
+    /** @param list<FeeComponent> $components */
+    private function moneyRunner(array $components = []): Runner
+    {
+        $money = new Materializer(new CoreFeeComponents($components));
+        $rules = new DecisionRules();
+        $rules->add(new ConfirmationRule($money->composition()), true);
+
+        return new Runner($this->clockAt('2026-12-01 10:00:00'), true, new Evaluation($rules, money: $money));
+    }
+
+    private function mailOn(string $mail): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => $mail,
+            'version' => 1,
+            'enabled' => 1,
+            'layout' => 1,
+        ]);
+    }
+
+    /** @return list<string> the mails queued for the registration, oldest first */
+    private function deliveries(string $code): array
+    {
+        global $wpdb;
+
+        return array_map('strval', $wpdb->get_col($wpdb->prepare(
+            'SELECT mail FROM %i WHERE event_id = %d AND code = %s ORDER BY id',
+            $wpdb->prefix . 'kalaka_deliveries',
+            $this->event,
+            $code
+        )));
+    }
+
+    /** @return list<string> the confirmation states of the registration, oldest first */
+    private function confirmations(string $code): array
+    {
+        global $wpdb;
+
+        return array_map('strval', $wpdb->get_col($wpdb->prepare(
+            "SELECT state FROM %i WHERE event_id = %d AND code = %s AND kind = 'confirmation' ORDER BY id",
+            $wpdb->prefix . 'kalaka_decisions',
+            $this->event,
+            $code
+        )));
+    }
+
+    private function pay(string $code, string $amount = '8000'): void
+    {
+        $this->exec(new RecordPayment(), [
+            'event_id' => $this->event,
+            'code' => $code,
+            'amount' => $amount,
+            'currency' => 'HUF',
+            'method' => 'bank_transfer',
+            'value_date' => '2026-11-29',
+            'idempotency_key' => 'k-' . strtolower($code) . '-' . $amount,
+        ]);
+    }
+
+    private function capacity(?int $capacity): void
+    {
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['capacity' => $capacity], ['id' => $this->event]);
+    }
+
+    private function isFull(): bool
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            'SELECT is_full FROM %i WHERE id = %d',
+            $wpdb->prefix . 'kalaka_events',
+            $this->event
+        )) === 1;
+    }
+
+    /** @return array<string, ?string> */
+    private function row(string $code): array
+    {
+        $row = $this->rowOf('kalaka_registrations', $this->event, $code);
+        self::assertNotNull($row);
+
+        return $row;
+    }
+
+    private function rowOf(string $table, int $event, string $code): ?array
+    {
+        global $wpdb;
+        $row = $wpdb->get_row($wpdb->prepare(
+            'SELECT * FROM %i WHERE event_id = %d AND code = %s',
+            $wpdb->prefix . $table,
+            $event,
+            $code
+        ), ARRAY_A);
+
+        return is_array($row) ? $row : null;
+    }
+
+    /** @param list<SeatClaimSource>|null $sources */
+    private function useCase(StatusAct $act, ?array $sources = null): StatusChange
+    {
+        $sources ??= [new TierClaimSource(['a' => $this->poolA, 'b' => $this->poolB])];
+
+        return match ($act) {
+            StatusAct::Admit => new AdmitRegistration($sources),
+            StatusAct::Withdraw => new WithdrawRegistration($sources),
+            StatusAct::Remove => new RemoveRegistration($sources),
+            StatusAct::Restore => new RestoreRegistration($sources),
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $more
+     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     */
+    private function act(StatusAct $act, string $code, array $more = [], ?UserActor $actor = null): array
+    {
+        $result = $this->exec(
+            $this->useCase($act),
+            ['event_id' => $this->event, 'code' => $code] + $more,
+            $actor
+        );
+        self::assertIsArray($result);
+
+        /** @var array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>} $result */
+        return $result;
+    }
+
+    /** @return array<string, string> pool → outcome */
+    private function outcomes(array $result): array
+    {
+        $out = [];
+        foreach ($result['seats'] as $seat) {
+            $out[(string) $seat['pool']] = (string) $seat['outcome'];
+        }
+
+        return $out;
+    }
+
+    // --- leaving ---
+
+    public function testWithdrawingFreesEverySeatAndLeavesTheStampsAndSendsNoMail(): void
+    {
+        $this->addValue($this->event, '00A0', 'tier', 'a');
+        $this->seat('00A0', $this->poolA);
+        $before = $this->row('00A0');
+
+        $result = $this->act(StatusAct::Withdraw, '00A0', ['reason' => 'Telefonon lemondta']);
+
+        self::assertTrue($result['changed']);
+        self::assertSame('withdrawn', $result['status']);
+        $after = $this->row('00A0');
+        self::assertSame('withdrawn', $after['status']);
+        self::assertSame((int) $before['version'] + 1, (int) $after['version']);
+        self::assertSame($before['registered_at'], $after['registered_at']);
+        self::assertSame($before['registered_by'], $after['registered_by']);
+        self::assertSame(0, $this->seats->held($this->poolA));
+        self::assertFalse($this->seats->holds($this->poolA, $this->key('00A0')));
+        self::assertSame([], $this->deliveries('00A0'));
+        self::assertSame('Telefonon lemondta', $this->lastEntry()['reason']);
+        self::assertSame('kalaka/withdraw-registration', $this->lastEntry()['action']);
+    }
+
+    public function testALeavingNeverAdmitsAnyoneAndKeepsTheFullLatch(): void
+    {
+        $this->capacity(2);
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['is_full' => 1], ['id' => $this->event]);
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertSame('waitlisted', $this->row('00A5')['status']);
+        self::assertTrue($this->isFull());
+    }
+
+    public function testRemovingNeedsAReasonAndWorksFromTheWaitlist(): void
+    {
+        try {
+            $this->act(StatusAct::Remove, '00A5');
+            self::fail('A removal needs a reason.');
+        } catch (InvalidInput) {
+            self::assertSame('waitlisted', $this->row('00A5')['status']);
+        }
+        try {
+            $this->act(StatusAct::Remove, '00A5', ['reason' => '   ']);
+            self::fail('A blank reason is no reason.');
+        } catch (InvalidInput) {
+            self::assertSame('waitlisted', $this->row('00A5')['status']);
+        }
+
+        $result = $this->act(StatusAct::Remove, '00A5', ['reason' => 'Dupla jelentkezés']);
+
+        self::assertSame('removed', $result['status']);
+        self::assertSame('removed', $this->row('00A5')['status']);
+        self::assertSame('Dupla jelentkezés', $this->lastEntry()['reason']);
+    }
+
+    public function testARepeatChangesNothingAndAWrongStatusIsRefused(): void
+    {
+        $this->act(StatusAct::Withdraw, '00A0');
+        $entries = count($this->entries());
+        $version = $this->row('00A0')['version'];
+
+        $repeat = $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertFalse($repeat['changed']);
+        self::assertSame('withdrawn', $repeat['status']);
+        self::assertSame($version, $this->row('00A0')['version']);
+        self::assertSame([], $this->entriesWithChanges($entries));
+
+        foreach ([
+            [StatusAct::Remove, '00A0'],
+            [StatusAct::Admit, '00A0'],
+            [StatusAct::Restore, '00A5'],
+        ] as [$act, $code]) {
+            try {
+                $this->act($act, $code, ['reason' => 'x']);
+                self::fail('Refused: ' . $act->value . ' ' . $code);
+            } catch (StatusActRefused $e) {
+                self::assertInstanceOf(RuleViolation::class, $e);
+                self::assertSame('kalaka_status_act_refused', $e->errorCode());
+            }
+        }
+        self::assertSame(RegistrationStatus::Withdrawn->value, $this->row('00A0')['status']);
+    }
+
+    /** @return list<array<string, ?string>> */
+    private function entriesWithChanges(int $since): array
+    {
+        return array_values(array_filter(
+            array_slice($this->entries(), $since),
+            static fn (array $entry): bool => $entry['changes'] !== null && $entry['changes'] !== '[]'
+                && $entry['changes'] !== '{}'
+        ));
+    }
+
+    public function testAnUnknownRegistrationIsNotFound(): void
+    {
+        $this->expectException(NotFound::class);
+
+        $this->act(StatusAct::Withdraw, '00A8');
+    }
+
+    public function testLeavingSucceedsWhileAFeeComponentThrows(): void
+    {
+        $throwing = new class () implements FeeComponent {
+            public function id(): string
+            {
+                return 'boom';
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Extras;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                throw new \RuntimeException('A component failed.');
+            }
+        };
+        $this->runner = $this->moneyRunner([$throwing]);
+
+        $result = $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertSame('withdrawn', $result['status']);
+    }
+
+    // --- coming back ---
+
+    public function testAdmittingTakesTheSeatsStampsTheFactsAndQueuesTheRegisteredMail(): void
+    {
+        $this->addValue($this->event, '00A5', 'tier', 'a');
+
+        $result = $this->act(StatusAct::Admit, '00A5', ['reason' => 'Lett hely']);
+
+        self::assertTrue($result['changed']);
+        self::assertFalse($result['over_capacity']);
+        self::assertSame('held', $this->outcomes($result)['tier.a']);
+        $row = $this->row('00A5');
+        self::assertSame('registered', $row['status']);
+        self::assertSame('admission', $row['registered_by']);
+        self::assertSame('2026-12-01 09:00:00.000000', $row['registered_at']);
+        self::assertTrue($this->seats->holds($this->poolA, $this->key('00A5')));
+        self::assertSame(['registered'], $this->deliveries('00A5'));
+        self::assertSame(
+            RegisteredBy::Admission,
+            (new \Kalaka\Registrations\Api\Registrations())->find($this->key('00A5'))?->registeredBy
+        );
+    }
+
+    public function testAnAdmissionWhenEveryPoolIsFullGoesOverWithoutRefusingAndKeepsTheLatch(): void
+    {
+        $this->capacity(2);
+        $this->addValue($this->event, '00A5', 'tier', 'b');
+        $this->seat('00A2', $this->poolB);
+
+        $result = $this->act(StatusAct::Admit, '00A5');
+
+        $outcomes = $this->outcomes($result);
+        self::assertSame('over', $outcomes['tier.b']);
+        self::assertSame('over', $outcomes['event']);
+        self::assertTrue($result['over_capacity']);
+        self::assertSame('registered', $this->row('00A5')['status']);
+        self::assertSame(1, $this->seats->over($this->poolB));
+        self::assertFalse($this->isFull());
+    }
+
+    public function testBothOutcomesAreReportedExactlyAsTheSeatRuleGivesThem(): void
+    {
+        // A free tier gives held, a full one over: the act reports each, whatever the limits are.
+        $this->addValue($this->event, '00A5', 'tier', 'a');
+        $this->seat('00A0', $this->poolA);
+        $this->seat('00A2', $this->poolA);
+        $over = $this->outcomes($this->act(StatusAct::Admit, '00A5'));
+        self::assertSame('over', $over['tier.a']);
+        self::assertSame('held', $over['event']);
+
+        $this->act(StatusAct::Withdraw, '00A5');
+        $this->act(StatusAct::Withdraw, '00A0');
+        $held = $this->outcomes($this->act(StatusAct::Restore, '00A5'));
+        self::assertSame('held', $held['tier.a']);
+    }
+
+    public function testAClaimThatIsGoneIsNotTakenAndANewPoolRefusesTheActAsAConflict(): void
+    {
+        $scripted = static fn (array $calls): SeatClaimSource => new class ($calls) implements SeatClaimSource {
+            private int $call = 0;
+
+            /** @param list<list<SeatClaim>> $calls */
+            public function __construct(private readonly array $calls)
+            {
+            }
+
+            public function claims(Event $event, ValidatedAnswers $answers): array
+            {
+                return $this->calls[min($this->call++, count($this->calls) - 1)];
+            }
+
+            public function pools(Event $event): array
+            {
+                return [];
+            }
+        };
+        $claim = static fn (SeatPool $pool): SeatClaim => new SeatClaim('tier', $pool);
+
+        // Claimed at the plain read, gone under the lock: no seat.
+        $this->exec(
+            $this->useCase(StatusAct::Admit, [$scripted([[$claim($this->poolA)], []])]),
+            ['event_id' => $this->event, 'code' => '00A5']
+        );
+        self::assertSame('registered', $this->row('00A5')['status']);
+        self::assertSame(0, $this->seats->held($this->poolA));
+
+        // Not claimed at the plain read, a quota pool under the lock: refused, nothing written.
+        $this->addRegistration($this->event, '00K1', 'waitlisted');
+        try {
+            $this->exec(
+                $this->useCase(StatusAct::Admit, [$scripted([[], [$claim($this->poolB)]])]),
+                ['event_id' => $this->event, 'code' => '00K1']
+            );
+            self::fail('A pool that was not locked refuses the act.');
+        } catch (VersionConflict) {
+            self::assertSame('waitlisted', $this->row('00K1')['status']);
+            self::assertSame(0, $this->seats->held($this->poolB));
+        }
+    }
+
+    public function testARestoreIsRegisteredAgainWithItsOwnStampAndNoRegisteredMail(): void
+    {
+        $this->addValue($this->event, '00A0', 'tier', 'a');
+        $this->seat('00A0', $this->poolA);
+        $this->act(StatusAct::Remove, '00A0', ['reason' => 'Tévedés']);
+        self::assertSame(0, $this->seats->held($this->poolA));
+
+        $result = $this->act(StatusAct::Restore, '00A0');
+
+        self::assertSame('registered', $result['status']);
+        $row = $this->row('00A0');
+        self::assertSame('registered', $row['status']);
+        self::assertSame('restore', $row['registered_by']);
+        self::assertSame('2026-12-01 09:00:00.000000', $row['registered_at']);
+        self::assertSame(1, $this->seats->held($this->poolA));
+        self::assertNotContains('registered', $this->deliveries('00A0'));
+    }
+
+    public function testAWaitlistedRegistrationThatLeftIsRestoredToRegistered(): void
+    {
+        $this->act(StatusAct::Withdraw, '00A5');
+
+        $this->act(StatusAct::Restore, '00A5');
+
+        self::assertSame('registered', $this->row('00A5')['status']);
+        self::assertSame('restore', $this->row('00A5')['registered_by']);
+    }
+
+    public function testRestoringAPaidRegistrationWritesANewConfirmationAndItsMail(): void
+    {
+        $this->pay('00A0');
+        self::assertSame(['confirmed'], $this->confirmations('00A0'));
+
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame(['confirmed', 'unconfirmed'], $this->confirmations('00A0'));
+
+        $this->act(StatusAct::Restore, '00A0');
+
+        self::assertSame(['confirmed', 'unconfirmed', 'confirmed'], $this->confirmations('00A0'));
+        self::assertSame(['confirmed', 'confirmed'], $this->deliveries('00A0'));
+    }
+
+    public function testARestoreWithoutEnoughPaidIsNotConfirmed(): void
+    {
+        $this->pay('00A0', '3000');
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        $this->act(StatusAct::Restore, '00A0');
+
+        self::assertNotContains('confirmed', $this->confirmations('00A0'));
+        self::assertSame([], $this->deliveries('00A0'));
+    }
+
+    public function testAdmittingAPaidWaitlistedRegistrationConfirmsItAtOnceWithBothMails(): void
+    {
+        $this->exec(new SetFixedPrice(), ['event_id' => $this->event, 'amount' => '0', 'currency' => 'HUF']);
+
+        $this->act(StatusAct::Admit, '00A5');
+
+        self::assertSame(['registered', 'confirmed'], $this->deliveries('00A5'));
+    }
+
+    // --- preview ---
+
+    public function testThePreviewWritesNothingAndAgreesWithTheAct(): void
+    {
+        $this->addValue($this->event, '00A5', 'tier', 'b');
+        $this->seat('00A2', $this->poolB);
+        $this->capacity(2);
+        $entries = count($this->entries());
+
+        $preview = $this->act(StatusAct::Admit, '00A5', ['preview' => true]);
+
+        self::assertSame('waitlisted', $this->row('00A5')['status']);
+        self::assertSame(1, $this->seats->held($this->poolB));
+        self::assertSame([], $this->deliveries('00A5'));
+        self::assertSame([], $this->entriesWithChanges($entries));
+        $result = $this->act(StatusAct::Admit, '00A5');
+        self::assertSame($preview['seats'], $result['seats']);
+        self::assertSame($preview['over_capacity'], $result['over_capacity']);
+        self::assertTrue($result['over_capacity']);
+    }
+
+    public function testThePreviewRefusesWhatTheActRefuses(): void
+    {
+        $this->expectException(StatusActRefused::class);
+
+        $this->act(StatusAct::Restore, '00A5', ['preview' => true]);
+    }
+
+    public function testTheAllowedActsFollowTheStatus(): void
+    {
+        $acts = new StatusActs();
+        self::assertSame([StatusAct::Withdraw, StatusAct::Remove], $acts->allowedFor($this->key('00A0')));
+        self::assertSame(
+            [StatusAct::Admit, StatusAct::Withdraw, StatusAct::Remove],
+            $acts->allowedFor($this->key('00A5'))
+        );
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame([StatusAct::Restore], $acts->allowedFor($this->key('00A0')));
+        self::assertSame([], $acts->allowedFor($this->key('00A8')));
+    }
+
+    // --- permission ---
+
+    public function testAGrantNeedsTheActsActionAndTheTargetInItsViewNow(): void
+    {
+        $user = $this->plainUser();
+        $actor = new UserActor($user);
+        $this->saveGrant($this->event, $user, ['actions' => ['kalaka_withdraw_registration']]);
+
+        try {
+            $this->act(StatusAct::Remove, '00A0', ['reason' => 'x'], $actor);
+            self::fail('The grant does not carry remove.');
+        } catch (PermissionDenied) {
+            self::assertSame('registered', $this->row('00A0')['status']);
+        }
+        $this->act(StatusAct::Withdraw, '00A0', [], $actor);
+        self::assertSame('withdrawn', $this->row('00A0')['status']);
+
+        // A restore through a view that holds only `registered` registrations: the target is outside it now.
+        $view = $this->viewWithColumns(
+            [['column' => 'code', 'write' => false]],
+            [['column' => 'status', 'in' => ['registered']]]
+        );
+        $other = $this->plainUser();
+        $this->saveGrant($this->event, $other, ['view_id' => $view, 'actions' => ['kalaka_restore_registration']]);
+        try {
+            $this->act(StatusAct::Restore, '00A0', [], new UserActor($other));
+            self::fail('The withdrawn target is outside the view.');
+        } catch (PermissionDenied) {
+            self::assertSame('withdrawn', $this->row('00A0')['status']);
+        }
+        $third = $this->plainUser();
+        $this->saveGrant($this->event, $third, ['actions' => ['kalaka_restore_registration']]);
+        $this->act(StatusAct::Restore, '00A0', [], new UserActor($third));
+        self::assertSame('registered', $this->row('00A0')['status']);
+    }
+
+    public function testNoMoneyIsEverRefundedByALeaving(): void
+    {
+        $this->pay('00A0');
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        global $wpdb;
+        $kinds = array_map('strval', $wpdb->get_col($wpdb->prepare(
+            'SELECT DISTINCT kind FROM %i WHERE event_id = %d AND code = %s',
+            $wpdb->prefix . 'kalaka_ledger_lines',
+            $this->event,
+            '00A0'
+        )));
+        self::assertNotContains('refund', $kinds);
+    }
+}
