@@ -73,7 +73,9 @@ It holds the directory, the congregation picker and the support offers.
   registration. The save refuses a duplicate or malformed key (`[a-z][a-z0-9_]*`, at most 40 characters: the key
   is also an item key, `support:<key>`), an unknown node, a label outside 1 to 191 characters, an amount that is
   not positive, a limit under 1, more than 50 offers and any unknown property. It also refuses to remove an
-  offer, or to give an unlimited one a limit, while an open registration has selected it.
+  offer, to give an unlimited one a limit, or to flip its "must be requested" flag, while an open registration
+  has selected it (`OfferChangeGuard`): in the preview (`Api\Offers::propose()`) and before any save of an
+  apply, so an apply never half-saves; the use case checks again as a guard.
 - The save declares the offer's fields in the same transaction, through core's `declareExtensionField()`: the
   selection, a consent field whose key is the offer's key (form-writable, titled with the offer's label), and for
   an offer that must be requested its answer `<key>_answer` (a choice of `approved` and `refused`, not
@@ -82,12 +84,16 @@ It holds the directory, the congregation picker and the support offers.
   declared: core has no way to retire a field.
 - An offer applies, in the settings' order, when its consent holds `1`, it needs no request or its answer is
   `approved`, and it has no limit or the registration holds its seat. Each applying offer is one participant-side
-  `support:<key>` line, negative, and all together are capped at the base price (the tier stage), the earlier
+  `support:<key>` line, named by the offer's own label (`NamedFeeComponent`; a removed offer's line reads as
+  „Díj”), negative, and all together are capped at the base price (the tier stage), the earlier
   offers first; an offer awaiting its answer, refused, or without its seat gives no line. The component reads
   facts, its own settings and the seats; never a charge line or an answer row.
 - An offer's seats are `Seats` under the pool `offer.<key>`, at the quota lock level (`OfferSeatPool`, the row
   of the offer): `OfferClaims` gives a submit's claims; the answer act frees and takes the seat through core's
   `SeatOfferSeats`. This module takes and frees a seat nowhere else, and writes nothing of `kalaka_seats`.
+- A selection is written only by a submit (which takes the seat of a limited offer) and by the answer act. An
+  additional form or staff placing must not write an offer's key until a seat-aware path exists: a ticked offer
+  with no seat gives no line, and an unticked one would leave a seat held (N104).
 - `OfferRequests` is the request source of the offers that must be requested: a selected offer is the request
   `offer:<key>` until somebody answers it. A limited one is a request only while the registration holds its
   seat or has an answer (so a refused offer, which gave its seat back, can be answered "yes" again).

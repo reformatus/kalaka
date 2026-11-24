@@ -95,11 +95,19 @@ final class MoneySettings
      * never stops the others.
      *
      * @throws \Kalaka\Foundation\Api\Error\KalakaException when a setting cannot be saved; no registration
-     *                                                       is touched
+     *                                                       is touched. A component's refusal in advance
+     *                                                       (`ProposedComponentSettings::save()`) stops the apply
+     *                                                       before anything is saved
      */
     public function apply(int $eventId, ProposedMoneySettings $proposed, Actor $actor): ApplyReport
     {
         $this->check($proposed);
+        // Every save is asked for before any runs: settings that refuse (`ProposedComponentSettings::save()`)
+        // stop the apply before the fixed price or any component is saved.
+        $saves = array_map(
+            static fn (ProposedComponentSettings $settings): SettingsSave => $settings->save(),
+            $proposed->components
+        );
         if ($proposed->fixedPrice !== null) {
             $this->runner()->run(
                 new SetFixedPrice(),
@@ -112,8 +120,7 @@ final class MoneySettings
             );
         }
 
-        foreach ($proposed->components as $settings) {
-            $save = $settings->save();
+        foreach ($saves as $save) {
             $this->runner()->run($save->useCase, $save->input, $actor);
         }
 

@@ -18,10 +18,10 @@ use Kalaka\Registrations\SeatRepository;
 /**
  * The one seat rule (foundation.md, "Facts, decisions and computed values"; money.md, "Quota places"). A seat
  * is a fact: one place in one pool (`SeatPool`), held by one registration. It is taken only inside an act on
- * that registration (submit, admission, restore, staff placing), which holds the registration's row, and
- * under a lock on the pool's own row, taken before the seats are counted. It is released only by leaving
- * (`release()`, `releaseAll()`). A freed seat stays free until some registration's own act takes it: nothing
- * here moves a seat from one registration to another.
+ * that registration (submit, admission, restore, staff placing, the answer to a request), which holds the
+ * registration's row, and under a lock on the pool's own row, taken before the seats are counted. It is released
+ * only by leaving (`release()`, `releaseAll()`). A freed seat stays free until some registration's own act takes
+ * it: nothing here moves a seat from one registration to another.
  *
  * The event's pool has no seat rows: its seats are the counted `registered` registrations (the status is the
  * stored fact), and a submit decides its status by the latch, not by this API. Every other pool's seats are

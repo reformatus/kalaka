@@ -7,12 +7,10 @@ namespace Kalaka\Support\Offers;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
-use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Support\Api\Offer;
 use Kalaka\Support\Directory\NodeRepository;
 
@@ -22,9 +20,10 @@ use Kalaka\Support\Directory\NodeRepository;
  * registration. Offers left out are deleted; an empty list removes them. Saving alone touches no registration.
  * Site-level, like core's fixed price: full access only. The currency must be the event's.
  *
- * It refuses to remove an offer, or to give an unlimited one a limit, while an open (registered or waitlisted)
- * registration has selected it: a seat or a line would be taken from somebody by a settings change. A lower limit
- * is allowed, and only makes the pool stand over: nobody loses a seat.
+ * It refuses to remove an offer, to give an unlimited one a limit, or to flip its "must be requested" flag, while
+ * an open (registered or waitlisted) registration has selected it (`OfferChangeGuard`, which the preview runs
+ * too): a seat, a line or a refusal would be taken or overridden by a settings change. A lower limit is allowed,
+ * and only makes the pool stand over: nobody loses a seat.
  *
  * In the same transaction it declares the participant fields of each offer (the owner's rulings 2026-11-23, topic
  * 14: the code defines the field, the form's field links to it by key): the selection, a consent whose key is the
@@ -42,7 +41,7 @@ final class SetSupportOffers implements AdminUseCase
     /** The answer field's key, after the offer's key. */
     public const ANSWER_SUFFIX = '_answer';
 
-    /** The title of an offer's answer field, after the offer's label. [UNAPPROVED T48] */
+    /** The title of an offer's answer field, after the offer's label without a trailing colon or space. [UNAPPROVED T48] */
     public const ANSWER_TITLE = '%s: válasz';
 
     /** The labels of the answer's two options. [UNAPPROVED T49, T50] */
@@ -54,7 +53,7 @@ final class SetSupportOffers implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly OffersInput $input = new OffersInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
-        private readonly Registrations $registrations = new Registrations(),
+        private readonly OfferChangeGuard $guard = new OfferChangeGuard(),
         private readonly NodeRepository $nodes = new NodeRepository(),
     ) {
     }
@@ -110,7 +109,7 @@ final class SetSupportOffers implements AdminUseCase
         foreach ($this->offers->forEvent($eventId, $context) as $record) {
             $stored[$record->key] = $record;
         }
-        $this->refuseWhatWouldStripASeat($eventId, $stored, $proposed);
+        $this->guard->check($eventId, $stored, $proposed);
 
         foreach ($proposed as $position => $offer) {
             $nodeId = $this->nodes->findByExternalId($offer->node)->id ?? throw new InvalidInput();
@@ -166,44 +165,13 @@ final class SetSupportOffers implements AdminUseCase
                 $eventId,
                 $offer->key . self::ANSWER_SUFFIX,
                 self::CHOICE_TYPE,
-                sprintf(self::ANSWER_TITLE, $offer->label),
+                sprintf(self::ANSWER_TITLE, rtrim($offer->label, ": \t")),
                 [
                     ['value' => 'approved', 'label' => self::APPROVED_LABEL],
                     ['value' => 'refused', 'label' => self::REFUSED_LABEL],
                 ],
                 false,
             );
-        }
-    }
-
-    /**
-     * @param array<string, OfferRecord> $stored by key
-     * @param list<Offer> $proposed
-     * @throws RuleViolation when a removed offer, or one given a limit, is selected on an open registration
-     */
-    private function refuseWhatWouldStripASeat(int $eventId, array $stored, array $proposed): void
-    {
-        $kept = [];
-        foreach ($proposed as $offer) {
-            $kept[$offer->key] = $offer;
-        }
-        $watched = [];
-        foreach ($stored as $key => $record) {
-            $next = $kept[$key] ?? null;
-            if ($next === null || ($record->limit === null && $next->limit !== null)) {
-                $watched[] = $key;
-            }
-        }
-        if ($watched === []) {
-            return;
-        }
-        foreach ($this->registrations->openOf($eventId) as $registration) {
-            $values = $this->registrations->values($registration);
-            foreach ($watched as $key) {
-                if (($values[$key] ?? '') === '1') {
-                    throw new RuleViolation();
-                }
-            }
         }
     }
 }

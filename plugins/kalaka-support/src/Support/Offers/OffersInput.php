@@ -64,16 +64,21 @@ final class OffersInput
                 throw new InvalidInput();
             }
             $key = (string) $item['key'];
+            // The answer key is held only by an offer that must be requested: it declares no answer field otherwise.
+            $request = (bool) $item['request'];
             $answerKey = $key . SetSupportOffers::ANSWER_SUFFIX;
             if (
-                isset($seen[$key]) || isset($seen[$answerKey])
+                isset($seen[$key])
+                || ($request && (isset($seen[$answerKey])
+                    || self::clashes($held, $answerKey, SetSupportOffers::CHOICE_TYPE)))
                 || self::clashes($held, $key, SetSupportOffers::CONSENT_TYPE)
-                || self::clashes($held, $answerKey, SetSupportOffers::CHOICE_TYPE)
             ) {
                 throw new InvalidInput();
             }
             $seen[$key] = true;
-            $seen[$answerKey] = true;
+            if ($request) {
+                $seen[$answerKey] = true;
+            }
             $amount = Money::of((string) $item['amount'], $event->currency);
             if (!$amount->isPositive() || $this->nodes->findByExternalId((string) $item['node']) === null) {
                 throw new InvalidInput();
@@ -83,7 +88,7 @@ final class OffersInput
                 (string) $item['label'],
                 (string) $item['node'],
                 $amount,
-                (bool) $item['request'],
+                $request,
                 $item['limit'] === null ? null : (int) $item['limit'],
             );
         }
