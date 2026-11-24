@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Pricing\Cli;
 
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
@@ -13,13 +14,15 @@ use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\PreviewRow;
+use Kalaka\Pricing\SetFixedPrice;
 
 /**
  * `wp kalaka money-settings show|preview|apply <event_id>`: an event's money settings as JSON, and a change
  * of them, preview → confirm → apply, through `Api\MoneySettings` (money.md, "Money settings apply"). It runs
  * as the command line without a user (full access), or, with WP-CLI's `--user`, checked as that user, and is
- * audited like the use cases it runs. The check is the apply's (its use cases); `show` and `preview` are plain
- * reads. The screen for the same is S72's. [UNAPPROVED N3]
+ * audited like the use cases it runs. Every verb is checked as the write of the same data, the fixed price's
+ * save (`SetFixedPrice`, full access only), before it reads or writes anything. The screen for the same is
+ * S72's. [UNAPPROVED N3]
  */
 final class MoneySettingsCommand
 {
@@ -54,7 +57,9 @@ final class MoneySettingsCommand
     public function show(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args): void {
-            \WP_CLI::line(self::json($this->document->show(self::eventId($args))));
+            $eventId = self::eventId($args);
+            self::check($eventId, self::actor());
+            \WP_CLI::line(self::json($this->document->show($eventId)));
         });
     }
 
@@ -82,6 +87,7 @@ final class MoneySettingsCommand
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
             $eventId = self::eventId($args);
+            self::check($eventId, self::actor());
             $rows = $this->settings->preview($eventId, $this->document->proposed($eventId, self::file($assocArgs)));
             $this->printRows($rows, self::format($assocArgs));
         });
@@ -115,13 +121,14 @@ final class MoneySettingsCommand
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
             $eventId = self::eventId($args);
+            $actor = self::actor();
+            self::check($eventId, $actor);
             $proposed = $this->document->proposed($eventId, self::file($assocArgs));
             $rows = $this->settings->preview($eventId, $proposed);
             $this->printRows($rows, self::format($assocArgs));
             \WP_CLI::confirm('Apply these settings to ' . count($rows) . ' registrations?', $assocArgs);
 
-            $current = get_current_user_id();
-            $report = $this->settings->apply($eventId, $proposed, new CliActor($current > 0 ? $current : null));
+            $report = $this->settings->apply($eventId, $proposed, $actor);
 
             \WP_CLI::line('Re-evaluated: ' . count($report->done()) . '. Failed: ' . count($report->failed()) . '.');
             foreach ($report->failed() as $item) {
@@ -170,6 +177,25 @@ final class MoneySettingsCommand
             return;
         }
         \WP_CLI\Utils\format_items($format, $items, self::FIELDS);
+    }
+
+    /** The command line without a user, or WP-CLI's `--user`. */
+    private static function actor(): CliActor
+    {
+        $current = get_current_user_id();
+
+        return new CliActor($current > 0 ? $current : null);
+    }
+
+    /**
+     * The same permission check the apply's first use case makes, before anything is read (a refused actor
+     * learns nothing): the fixed price's save, full access only.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\PermissionDenied
+     */
+    private static function check(int $eventId, CliActor $actor): void
+    {
+        AdminAccess::check(new SetFixedPrice(), ['event_id' => $eventId], $actor);
     }
 
     /** The operator's text of an error: a Kaláka error's own, anything else as a system failure with its ID. */
