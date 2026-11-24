@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Kalaka\ParticipantFields\Api;
 
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\DeclareExtensionField;
 use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\ParticipantFields\ParticipantFieldQuery;
 use Kalaka\ParticipantFields\RenameParticipantField;
+use Kalaka\ParticipantFields\RetireExtensionField;
 
 /**
  * The event's participant fields, for every other module: the read, and the two writes, each run as its
@@ -60,6 +62,7 @@ final class ParticipantFields
                 $record->writableFromForms(),
                 [],
                 $record->settings ?? [],
+                $record->moneyRelevant,
             );
         }
 
@@ -95,7 +98,8 @@ final class ParticipantFields
      * An extension declares one field of the event, source `extension` (`kalaka/declare-extension-field`), nested
      * in the extension's own use case: its type, title and choice options (the declarer's texts; an option it no
      * longer declares is retired, its label kept) and whether forms may hold its key. A `form` field of the same
-     * type under the key is adopted. [UNAPPROVED, #200 N10]
+     * type under the key is adopted. `$declarer` is the declaring module's slug, stored as `declared_by`;
+     * `$moneyRelevant` locks the field's value after its first write. [UNAPPROVED, #200 N10]
      *
      * @param ?list<array{value: string, label: string}> $options null for a field without options
      * @param ?int $decimals the number of decimals the declarer fixes for a number field; none when null
@@ -110,7 +114,9 @@ final class ParticipantFields
         string $title,
         ?array $options,
         bool $formWritable,
+        string $declarer,
         ?int $decimals = null,
+        bool $moneyRelevant = false,
     ): void {
         $context->run(new DeclareExtensionField(), [
             'event_id' => $eventId,
@@ -120,7 +126,51 @@ final class ParticipantFields
             'options' => $options,
             'form_writable' => $formWritable,
             'decimals' => $decimals,
+            'declarer' => $declarer,
+            'money_relevant' => $moneyRelevant,
         ]);
+    }
+
+    /**
+     * An extension takes its field out of use (`kalaka/retire-extension-field`), nested in the extension's own use
+     * case: the field is retired as a form field is, its values and texts kept; a declaration of the key makes it
+     * active again. Only an `extension` field this declarer declared (or no one is recorded for) is retired;
+     * any other, and a key no field holds, is left alone.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
+     */
+    public function retireExtensionField(Context $context, int $eventId, string $key, string $declarer): void
+    {
+        $context->run(new RetireExtensionField(), ['event_id' => $eventId, 'key' => $key, 'declarer' => $declarer]);
+    }
+
+    /**
+     * Whether the key is free for this declarer to declare as a field of this type, as `DeclareExtensionField`
+     * would judge it: no field holds it, a `form` field of the same type does (it will be adopted, retired or
+     * not), or an `extension` field of the same type does that this declarer declared or no one is recorded for.
+     * A `staff` or `system` field, another type and another declarer's field refuse. `$decimals` is the declarer's
+     * fixed decimals for a number field; the key rule does not read it.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\RuleViolation when the key is not free
+     */
+    public function checkDeclarable(
+        int $eventId,
+        string $key,
+        string $type,
+        string $declarer,
+        ?int $decimals = null,
+    ): void {
+        foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
+            if ($record->key === $key && !$record->declarableBy($type, $declarer)) {
+                throw new RuleViolation();
+            }
+        }
+    }
+
+    /** Whether the field's value is locked after its first write (the flag its declaration or block type set). */
+    public function lockedAfterFirstWrite(ParticipantField $field): bool
+    {
+        return $field->moneyRelevant;
     }
 
     /**

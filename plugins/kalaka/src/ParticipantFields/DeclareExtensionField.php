@@ -15,9 +15,12 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * declarer's, so a declaration sets the title and the option labels as given; an option it no longer
  * declares is retired with its label kept, and one declared again is active again. A key no row has yet
  * is added after every field declared before. A key that is held by a staff or system field, or by a field of
- * another type, is refused. A `form` field of the same type is adopted: it becomes an `extension` field with the
- * declarer's title, retired or not (a declaration makes it active), its values untouched (a form created the key
- * first, as a convenience; events-and-forms.md, "Fields"). Run nested in the declarer's own
+ * another type, is refused, and so is one an extension field of another declarer holds (`declared_by`; a field
+ * declared before the column existed is taken by the first declarer that declares it). A `form` field of the same
+ * type is adopted: it becomes an `extension` field with the declarer's title, retired or not (a declaration makes
+ * it active), its values untouched (a form created the key first, as a convenience; events-and-forms.md,
+ * "Fields"). The declaration stores the declarer's slug and whether the field's value is money relevant (locked
+ * after its first write). Run nested in the declarer's own
  * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save. [UNAPPROVED, #200 N10]
  */
 final class DeclareExtensionField implements AdminUseCase
@@ -55,8 +58,12 @@ final class DeclareExtensionField implements AdminUseCase
                 ],
                 'form_writable' => ['type' => 'boolean'],
                 'decimals' => ['type' => ['integer', 'null'], 'minimum' => 0],
+                'declarer' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9-]{0,63}$'],
+                'money_relevant' => ['type' => 'boolean'],
             ],
-            'required' => ['event_id', 'key', 'type', 'title', 'options', 'form_writable'],
+            'required' => [
+                'event_id', 'key', 'type', 'title', 'options', 'form_writable', 'declarer', 'money_relevant',
+            ],
             'additionalProperties' => false,
         ];
     }
@@ -80,12 +87,15 @@ final class DeclareExtensionField implements AdminUseCase
      * `decimals`, when given, is the number of decimals the declarer fixes for a number field: a form field that
      * joins it holds that many and no other (`SharedKeyCheck`'s `extension_decimals`).
      *
-     * @throws RuleViolation when the key is held by a staff or system field, or with another type
+     * @throws RuleViolation when the key is not free for the declarer (`ParticipantFieldRecord::declarableBy()`):
+     *     a staff or system field, another type, or another declarer's extension field
      */
     public function execute(array $input, Context $context): null
     {
         $eventId = (int) $input['event_id'];
         $key = (string) $input['key'];
+        $declarer = (string) $input['declarer'];
+        $moneyRelevant = (bool) $input['money_relevant'];
         $now = $context->now();
         /** @var ?list<array{value: string, label: string}> $declared */
         $declared = $input['options'];
@@ -114,13 +124,13 @@ final class DeclareExtensionField implements AdminUseCase
                 (bool) $input['form_writable'],
                 0,
                 self::settings(null, $input['decimals'] ?? null),
+                $declarer,
+                $moneyRelevant,
             ), $context);
 
             return null;
         }
-        $adoptable = $record->source === ParticipantFieldRecord::SOURCE_FORM
-            || $record->source === ParticipantFieldRecord::SOURCE_EXTENSION;
-        if (!$adoptable || $record->type !== $input['type']) {
+        if (!$record->declarableBy((string) $input['type'], $declarer)) {
             throw new RuleViolation();
         }
 
@@ -130,6 +140,8 @@ final class DeclareExtensionField implements AdminUseCase
         $record->formWritable = (bool) $input['form_writable'];
         $record->source = ParticipantFieldRecord::SOURCE_EXTENSION;
         $record->settings = self::settings($record->settings, $input['decimals'] ?? null);
+        $record->declaredBy = $declarer;
+        $record->moneyRelevant = $moneyRelevant;
         $record->retiredAt = null;
         if ($record->toRow() !== $before) {
             $record->updatedAt = $now;
