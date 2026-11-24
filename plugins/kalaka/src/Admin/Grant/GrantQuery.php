@@ -17,11 +17,11 @@ final class GrantQuery extends Query
     /**
      * The user's grants on the event in one statement on `event_user`, each with its id, its view's name
      * and the stored filter and columns of its view (all three null for the master view, and for a view
-     * that is missing).
+     * that is missing), and its stored counts.
      *
      * @return list<array{
      *     id: int, view_id: ?int, bound_value: ?string, actions: list<string>, name: ?string,
-     *     filter: ?string, columns: ?string
+     *     filter: ?string, columns: ?string, counts: ?string
      * }>
      */
     public function forUser(int $eventId, int $userId): array
@@ -30,8 +30,8 @@ final class GrantQuery extends Query
             $rows = $this->select(
                 'grant',
                 'SELECT g.id, g.view_id, g.bound_value, g.actions, v.name AS view_name, v.filter AS view_filter,'
-                . ' v.columns AS view_columns'
-                . ' FROM %i g LEFT JOIN %i v ON v.event_id = g.event_id AND v.id = g.view_id'
+                . ' v.columns AS view_columns, v.counts AS view_counts'
+                . ' FROM %i g LEFT JOIN %i v ON v.event_id = g.event_id AND v.id = g.view_id AND v.master = 0'
                 . ' WHERE g.event_id = %d AND g.user_id = %d ORDER BY g.id',
                 [$this->table('kalaka_grants'), $this->table('kalaka_views'), $eventId, $userId]
             );
@@ -46,6 +46,7 @@ final class GrantQuery extends Query
                     'name' => $row['view_name'],
                     'filter' => $row['view_filter'],
                     'columns' => $row['view_columns'],
+                    'counts' => $row['view_counts'],
                 ];
             }
 
@@ -93,18 +94,22 @@ final class GrantQuery extends Query
     /**
      * Every grant of the event, by id: one statement on the event's rows.
      *
-     * @return list<array{user_id: int, view_id: ?int, bound_value: ?string, actions: list<string>}>
+     * @return list<array{
+     *     id: int, version: int, user_id: int, view_id: ?int, bound_value: ?string, actions: list<string>
+     * }>
      */
     public function ofEvent(int $eventId): array
     {
         return $this->scope(function () use ($eventId): array {
             $rows = $this->select(
                 'grant',
-                'SELECT user_id, view_id, bound_value, actions FROM %i WHERE event_id = %d ORDER BY id',
+                'SELECT id, version, user_id, view_id, bound_value, actions FROM %i WHERE event_id = %d ORDER BY id',
                 [$this->table('kalaka_grants'), $eventId]
             );
 
             return array_map(static fn (array $row): array => [
+                'id' => (int) $row['id'],
+                'version' => (int) $row['version'],
                 'user_id' => (int) $row['user_id'],
                 'view_id' => isset($row['view_id']) ? (int) $row['view_id'] : null,
                 'bound_value' => $row['bound_value'],

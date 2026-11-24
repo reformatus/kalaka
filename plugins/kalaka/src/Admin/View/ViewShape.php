@@ -12,6 +12,13 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * A validated filter and column list: foundation.md, "Views and grants". The filter is a list of terms
  * that must all hold; a term is a column with the strings it may hold, or the one parameter term
  * (`in` null) that is bound when access is checked. The stored JSON is always the canonical form.
+ *
+ * `counts` are the members the grid's sum row counts per column (S37): a listed `status`, `field:` or `decision:`
+ * column with the values to count, each once. A column without an entry counts its default. Whether a
+ * value is a member of the column is the saver's check (`SaveView`), which knows the field's options.
+ *
+ * The master row's shape (`forMaster()`) has no filter and no columns, only counts, whose columns are
+ * `status` or any `field:` column: the master view lists every column of the event.
  */
 final readonly class ViewShape
 {
@@ -26,30 +33,66 @@ final readonly class ViewShape
     /**
      * @param list<array{column: string, in: ?list<string>}> $filter
      * @param list<array{column: string, write: bool}> $columns
+     * @param array<string, list<string>> $counts by column, in column order
      */
-    private function __construct(public array $filter, public array $columns)
+    private function __construct(public array $filter, public array $columns, public array $counts = [])
     {
     }
 
     /**
+     * @param mixed $counts null or an object of column → list of member values
      * @throws InvalidInput
      */
-    public static function of(mixed $filter, mixed $columns): self
+    public static function of(mixed $filter, mixed $columns, mixed $counts = null): self
     {
-        return new self(self::terms($filter), self::columnList($columns));
+        $list = self::columnList($columns);
+
+        return new self(self::terms($filter), $list, self::countMap($counts, $list));
     }
 
     /**
      * The shape of a stored view.
      *
+     * @param ?string $counts null or empty: nothing stored
      * @throws SystemFailure when the stored JSON is not a valid shape
      */
-    public static function fromStored(string $filter, string $columns): self
+    public static function fromStored(string $filter, string $columns, ?string $counts = null): self
     {
         try {
-            return self::of(json_decode($filter, true), json_decode($columns, true));
+            return self::of(
+                json_decode($filter, true),
+                json_decode($columns, true),
+                $counts === null || $counts === '' ? null : json_decode($counts, true)
+            );
         } catch (InvalidInput $e) {
             $error = new SystemFailure(null, new \UnexpectedValueException('A stored view is malformed.', 0, $e));
+            throw $error;
+        }
+    }
+
+    /**
+     * The shape of the event's master row (S37): only the counts.
+     *
+     * @param mixed $counts null or an object of column → list of member values
+     * @throws InvalidInput
+     */
+    public static function forMaster(mixed $counts): self
+    {
+        return new self([], [], self::countMap($counts, null));
+    }
+
+    /**
+     * The shape of a stored master row.
+     *
+     * @throws SystemFailure when the stored counts are malformed
+     */
+    public static function fromStoredMaster(?string $counts): self
+    {
+        try {
+            return self::forMaster($counts === null || $counts === '' ? null : json_decode($counts, true));
+        } catch (InvalidInput $e) {
+            $cause = new \UnexpectedValueException('A stored master view is malformed.', 0, $e);
+            $error = new SystemFailure(null, $cause);
             throw $error;
         }
     }
@@ -94,6 +137,39 @@ final readonly class ViewShape
     public function columnsJson(): string
     {
         return self::encode($this->columns);
+    }
+
+    /** The counts as stored: a JSON object, `{}` when there are none. */
+    public function countsJson(): string
+    {
+        if ($this->counts === []) {
+            return '{}';
+        }
+
+        return self::encode($this->counts);
+    }
+
+    /**
+     * The same shape with the counted members of one listed column replaced; an empty list drops the entry,
+     * so the column counts its default again.
+     *
+     * @param list<string> $members
+     * @throws InvalidInput when the column cannot carry counts
+     */
+    public function withCounts(string $column, array $members): self
+    {
+        $counts = $this->counts;
+        $counts[$column] = $members;
+        if ($members === []) {
+            unset($counts[$column]);
+        }
+
+        // Only a master row's shape has no columns: every view lists at least one.
+        return new self(
+            $this->filter,
+            $this->columns,
+            self::countMap($counts, $this->columns === [] ? null : $this->columns)
+        );
     }
 
     public function hasParameter(): bool
@@ -178,7 +254,7 @@ final readonly class ViewShape
                 throw new InvalidInput();
             }
             $column = $term['column'];
-            if ($column === 'code' || $column === 'serial') {
+            if (in_array($column, ['code', 'serial', 'registered_at', 'submitted_at'], true)) {
                 throw new InvalidInput();
             }
 
@@ -251,6 +327,73 @@ final readonly class ViewShape
         return $list;
     }
 
+    /**
+     * The counts in column order (for the master row, whose columns are not listed: `status` first, then the
+     * field columns by key); an empty member list is dropped.
+     *
+     * @param ?list<array{column: string, write: bool}> $columns null: the master row's, every column
+     * @return array<string, list<string>>
+     * @throws InvalidInput
+     */
+    private static function countMap(mixed $counts, ?array $columns): array
+    {
+        if ($counts === null || $counts === []) {
+            return [];
+        }
+        if (!is_array($counts) || array_is_list($counts)) {
+            throw new InvalidInput();
+        }
+
+        if ($columns === null) {
+            $listed = array_map('strval', array_keys($counts));
+            usort($listed, static fn (string $a, string $b): int => [$a !== 'status', $a] <=> [$b !== 'status', $b]);
+        } else {
+            $listed = array_column($columns, 'column');
+        }
+        foreach (array_keys($counts) as $column) {
+            $column = (string) $column;
+            if (
+                !in_array($column, $listed, true)
+                || !self::validColumn($column)
+                || (!in_array($column, ['status'], true) && !str_starts_with($column, 'field:')
+                    && !str_starts_with($column, 'decision:'))
+            ) {
+                throw new InvalidInput();
+            }
+        }
+
+        $map = [];
+        foreach ($listed as $column) {
+            if (!array_key_exists($column, $counts)) {
+                continue;
+            }
+            $members = $counts[$column];
+            if (!is_array($members) || !array_is_list($members)) {
+                throw new InvalidInput();
+            }
+            $seen = [];
+            foreach ($members as $member) {
+                if (
+                    !is_string($member)
+                    || $member === ''
+                    || !mb_check_encoding($member, 'UTF-8')
+                    || isset($seen[$member])
+                ) {
+                    throw new InvalidInput();
+                }
+                if ($column === 'status' && RegistrationStatus::tryFrom($member) === null) {
+                    throw new InvalidInput();
+                }
+                $seen[$member] = true;
+            }
+            if ($members !== []) {
+                $map[$column] = $members;
+            }
+        }
+
+        return $map;
+    }
+
     /** @param array<mixed> $item */
     private static function hasExactly(array $item, string ...$keys): bool
     {
@@ -259,7 +402,7 @@ final readonly class ViewShape
 
     private static function validColumn(string $column): bool
     {
-        if (in_array($column, ['code', 'status', 'serial'], true)) {
+        if (in_array($column, ['code', 'status', 'serial', 'registered_at', 'submitted_at'], true)) {
             return true;
         }
         if (str_starts_with($column, 'field:')) {
@@ -274,7 +417,7 @@ final readonly class ViewShape
         return false;
     }
 
-    /** @param list<array<string, mixed>> $list */
+    /** @param array<array-key, mixed> $list */
     private static function encode(array $list): string
     {
         $json = wp_json_encode($list, self::JSON_FLAGS);

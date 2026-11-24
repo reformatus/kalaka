@@ -80,9 +80,32 @@ final class DecisionRulesTest extends WP_UnitTestCase
         self::assertSame(['b' => 'Bé', 'a' => 'Á'], $rules->all()[0]->states());
     }
 
-    public function testTheBootPublishesTheRegistryTheEvaluationUses(): void
+    public function testTheBootPublishesTheRegistryTheEvaluationUsesWithCoresConfirmation(): void
     {
         self::assertSame(DecisionRules::current(), DecisionRules::current());
-        self::assertSame([], DecisionRules::current()->all());
+        self::assertSame(
+            ['confirmation'],
+            array_map(static fn ($rule): string => $rule->kind(), DecisionRules::current()->all())
+        );
+        self::assertSame(['confirmation'], array_map(
+            static fn ($rule): string => $rule->kind(),
+            DecisionRules::current()->core()
+        ));
+    }
+
+    public function testTheRulesAreDeclaredCoreFirstThenExtensionsEachAsAdded(): void
+    {
+        $rules = new DecisionRules();
+        $extFirst = new TestRule('ext_first');
+        $coreFirst = new TestRule('core_first');
+        $extSecond = new TestRule('ext_second');
+        $coreSecond = new TestRule('core_second');
+
+        $rules->add($extFirst, false);
+        $rules->add($coreFirst, true);
+        $rules->add($extSecond, false);
+        $rules->add($coreSecond, true);
+
+        self::assertSame([$coreFirst, $coreSecond, $extFirst, $extSecond], $rules->all());
     }
 }

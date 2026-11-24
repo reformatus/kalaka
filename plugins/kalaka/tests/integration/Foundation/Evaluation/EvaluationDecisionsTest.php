@@ -77,6 +77,52 @@ final class EvaluationDecisionsTest extends EvaluationTestCase
         self::assertStringNotContainsString('test_state', (string) $entries[1]['changes']);
     }
 
+    /** [N16] A rule returns its transitions in order; core writes each one that changes the running state. */
+    public function testARuleReturningSeveralTransitionsHasEachWrittenInOrderAndIsAskedOnce(): void
+    {
+        $rule = new TestRule('test_state');
+        $rule->sequence = ['on', 'off', 'on'];
+        $this->rules->add($rule, true);
+        $key = new RegistrationKey(12, '00A0');
+        $this->seedRegistration(12, '00A0');
+
+        $this->exec($this->touching($key));
+
+        self::assertCount(1, $rule->inputs, 'Asked once; nothing re-enters the evaluation.');
+        self::assertSame(['on', 'off', 'on'], array_column($this->decisionRows(), 'state'));
+    }
+
+    public function testATransitionThatDoesNotChangeTheRunningStateWritesNothing(): void
+    {
+        $rule = new TestRule('test_state');
+        $rule->sequence = ['on', 'on', 'off', 'off'];
+        $this->rules->add($rule, true);
+        $key = new RegistrationKey(12, '00A0');
+        $this->seedRegistration(12, '00A0');
+        $this->exec($this->touching($key));
+        self::assertSame(['on', 'off'], array_column($this->decisionRows(), 'state'));
+
+        $rule->sequence = ['off'];
+        $this->exec($this->touching(new RegistrationKey(12, '00A0')));
+        self::assertSame(['on', 'off'], array_column($this->decisionRows(), 'state'));
+    }
+
+    public function testAnUndeclaredStateInTheListFailsTheRuleAndWritesNothing(): void
+    {
+        $rule = new TestRule('test_state');
+        $rule->sequence = ['on', 'nope'];
+        $this->rules->add($rule, true);
+        $key = new RegistrationKey(12, '00A0');
+        $this->seedRegistration(12, '00A0');
+
+        $this->expectException(SystemFailure::class);
+        try {
+            $this->exec($this->touching($key));
+        } finally {
+            self::assertSame([], $this->decisionRows(), 'The earlier transition of the list was rolled back too.');
+        }
+    }
+
     public function testADecisionIsNeverRecomputedOnlyAChangedStateIsWritten(): void
     {
         $rule = new TestRule('test_state');

@@ -15,7 +15,9 @@ the waitlist and reference codes
   and [Quota places](../../../../docs/architecture/money.md#quota-places) (`Api\Seats`),
   the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
   the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
-- foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
+- foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order),
+  the answer to a request of [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values).
+- money.md: the answer act of [Sponsor and church support](../../../../docs/architecture/money.md#sponsor-and-church-support).
 
 ## Invariants
 
@@ -75,7 +77,8 @@ the waitlist and reference codes
   compared in SQL: on its own it names an earlier submit, and a repeat reveals
   that submit's after-submit content only with the same answers' fingerprint.
 - `Api\RegistrationFacts` is a registration's fact source after submit (the
-  one availability base): the event's values, the code, the status and when
+  one availability base), built only by `Registrations::factsOf()`: the event's values, the code, the status
+  (with its word, `RegistrationStatus::word()`, the text a mail shows too), `registration.awaits_answer` and when
   it last became `registered` (`registered_at`, null while it is not), which
   every time-dependent rule counts from, never the submit. It
   holds values only; field values join in S25, over #181's participant-field
@@ -123,6 +126,41 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
+  computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
+  ships none, so with no source every read is empty and costs no statement.
+  - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
+    `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
+    holds only their registrations); the runner checks the target against the view. The one action gates every
+    request kind: a holder may answer any offer and award aid of any amount on the registrations in the view.
+  - An answer is a fact with two writes in one act: one `kalaka_answers` row per answering act (append-only,
+    never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`; it records who, when,
+    the note), and the answer as the source's own participant field value, written by the source
+    (`RequestSource::writeAnswer()`, called by the act) through `Registrations::writeValue()`, so the source
+    stays that field's only writer. `writeValue()` takes the writing module's declarer (`kalaka-aid`,
+    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (the refusal of
+    another declarer's field completes when CF3 #231 stores `declared_by`). It refuses a run that does not hold
+    the registration, a key the event does not declare and a "system" field.
+  - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
+    amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
+    award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
+    non-empty note, its reason; a refusal and aid take a note optionally.
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
+    source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
+    offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
+    withdrawn or removed. The field is the truth: the `kalaka_answers` rows record the act (who, when, the note,
+    `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
+    answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
+    hides the due date and the transfer block in Portal. It never blocks confirmation.
+  - On a registered registration a refusing offer answer frees the offer's seat and a "yes" after a refusal
+    takes one; a waitlisted registration holds no place, so it takes and frees none (its seat is decided at
+    admission). Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands) with
+    the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat call). The
+    pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
+    `over_limit`.
+  - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
+    confirmation, then mail) follows in the same run.
+
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
   and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
   staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken

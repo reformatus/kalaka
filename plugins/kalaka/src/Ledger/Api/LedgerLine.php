@@ -22,6 +22,8 @@ final readonly class LedgerLine
         public ?\DateTimeImmutable $valueDate,
         public ?\DateTimeImmutable $paidAt,
         public \DateTimeImmutable $recordedAt,
+        public ?PaymentMethod $method = null,
+        public bool $correction = false,
     ) {
     }
 }

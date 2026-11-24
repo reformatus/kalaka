@@ -1,7 +1,7 @@
 # Ledger
 
-Ledger is lines, payers, balances, organizer-recorded payments and refunds,
-and moving payments
+Ledger is lines, payers, balances, organizer-recorded payments, refunds and
+corrections
 ([Core modules](../../../../docs/architecture/modules-and-extensions.md#core-modules)).
 
 ## Sections it implements
@@ -33,19 +33,35 @@ and moving payments
   line it is an error. A duplicate key on a line is never retried (only the
   registration insert's is).
 - Balances and totals are computed from the lines and never stored.
-- Payment facts are the lines of kinds `payment`, `refund`, `manual_payment`,
-  `manual_refund` and `transfer`; `charge` and `adjustment` lines are not
-  payment facts. Rules never read charge lines: the Ledger `Api` gives them
-  payment facts, read from payment lines only. `Ledger::summaryOf()` reads
-  every line for display (the participant blocks); no rule calls it.
+- Every line kind declares one side, owed or paid (`LineKind::side()`).
+  Payment facts are the lines of the paid side: kinds `payment`, `refund`,
+  `manual_payment` and `manual_refund`; `charge` lines are owed, not payment
+  facts. Rules never read charge lines: the Ledger `Api` gives them
+  payment facts, read from payment lines only. `Ledger::summaryOf()` (every line)
+  and `Ledger::statementOf()` (one payer's lines with their notes) are display
+  reads; no rule calls either.
   `chargeTotalsOf()` is the materializer's read of its own lines, and only
   `Pricing\Api\Materializer` calls it (a test checks this).
 - A payment-fact line carries exactly one time, a UTC instant: `paid_at` on
-  `payment` and `refund`; `value_date` on `manual_payment`, `manual_refund`
-  and `transfer`, entered as a day and stored as 00:00 of it in the site
-  time zone at recording. A `charge` or `adjustment` carries neither.
+  `payment` and `refund`; `value_date` on `manual_payment` and
+  `manual_refund`, entered as a day and stored as 00:00 of it in the site
+  time zone at recording; a correction (a manual row flagged `correction`,
+  the owner's ruling 2026-11-19, with no method) has no entered date and
+  stores the time it is recorded. A `charge` carries neither.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.
+- A manual charge or discount is a fact in `kalaka_manual_fees`: inserted
+  once, never updated except by the erase, which sets its title to null; only
+  Ledger writes the table. Its title is free text the registrant sees, so it
+  is erased like a note and never reaches the audit. The amount is typed
+  positive and the type gives the sign. Nobody writes its `charge` line but
+  the materializer.
+- Recording a manual charge or discount needs a `registered` registration,
+  and marked as completed it writes the fact and the paid entry in one run
+  under one audit row; the paid entry is never a correction and nothing links
+  the two.
+- One grant action, `kalaka_record_money`, carries every manual money use
+  case: payment, refund, correction, charge and discount.
 - `record()` refuses unless the run holds the registration's lock
   (`Context::holdsRegistration()`).
 - Ledger lines survive erasure and are kept at least 8 years, so a line holds

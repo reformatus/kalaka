@@ -67,7 +67,7 @@ final class StatusMarkup
             return $html . '</section>';
         }
         $confirmed = $view->confirmation !== null && $view->confirmation->confirmed;
-        if ($payment->held) {
+        if ($payment->awaitsAnswer) {
             $state = self::box(
                 '<p><strong>Elbírálás alatt.</strong> Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges'
                 . ' összeget.</p>',
@@ -123,7 +123,7 @@ final class StatusMarkup
 
         $balance = $participant->balance;
         $due = $balance->roundedUpToPayableUnit();
-        $payableNow = $due->isPositive() && !$payment->held;
+        $payableNow = $due->isPositive() && !$payment->awaitsAnswer;
         if ($balance->isNegative() && !$balance->countsAsZero()) {
             $html .= self::moneyRow('Túlfizetés', '', $balance->negated(), false, 'kalaka-rule');
         } else {

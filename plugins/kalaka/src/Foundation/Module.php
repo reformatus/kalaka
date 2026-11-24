@@ -21,6 +21,7 @@ use Kalaka\Foundation\Periodic\PeriodicRun;
 use Kalaka\Foundation\Periodic\PeriodicSchedule;
 use Kalaka\Foundation\Periodic\TimeRules;
 use Kalaka\Foundation\Seed\Seed;
+use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Materializer;
 
 final class Module extends AbstractModule
@@ -152,9 +153,14 @@ SQL;
     {
         $clock = new WordPressClock();
         $binlog = new BinlogCheck();
+        // Core's decision rules, added here as the materializer is built: confirmation, which reads every
+        // payer's target through the materializer's own composition. Extensions get the decision point with
+        // the first extension rule (the late fee). [UNAPPROVED N4]
+        $money = new Materializer();
         $rules = new DecisionRules();
+        $rules->add(new ConfirmationRule($money->composition()), core: true);
         DecisionRules::publish($rules);
-        $evaluation = new Evaluation($rules, money: new Materializer());
+        $evaluation = new Evaluation($rules, money: $money);
         $runner = new Runner($clock, evaluation: $evaluation, binlog: $binlog);
         Runner::publish($runner);
 

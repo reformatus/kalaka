@@ -6,9 +6,12 @@ namespace Kalaka\Admin\Api;
 
 use Kalaka\Admin\Grant\Grant;
 use Kalaka\Admin\Grant\GrantQuery;
+use Kalaka\Admin\View\ViewList;
+use Kalaka\Admin\View\ViewRepository;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -27,6 +30,8 @@ final class Access
     public function __construct(
         private readonly GrantQuery $grants = new GrantQuery(),
         private readonly ViewQuery $views = new ViewQuery(),
+        private readonly ViewRepository $viewRepository = new ViewRepository(),
+        private readonly ViewList $viewList = new ViewList(),
     ) {
     }
 
@@ -96,11 +101,52 @@ final class Access
                 $grant['view_id'],
                 $grant['name'],
                 $shape,
-                $grant['bound_value']
+                $grant['bound_value'],
+                $shape === null ? $this->viewList->masterCounts($eventId) : []
             );
         }
 
         return $held;
+    }
+
+    /**
+     * The views the actor holds through grants that contain the registration now, each with the actions its
+     * grant carries: for the detail read, where a grant's view decides what is shown and its actions what
+     * the holder may do. One statement for the grants, and one for each grant's filter. Full access holds
+     * the master view (`master()`) and needs no grant; its own grants are listed too.
+     *
+     * @return list<array{view: HeldView, actions: list<string>}>
+     */
+    public function holding(Actor $actor, RegistrationKey $key): array
+    {
+        $userId = self::userIdOf($actor);
+        if ($userId === null) {
+            return [];
+        }
+
+        $holding = [];
+        foreach ($this->grants->forUser($key->eventId, $userId) as $grant) {
+            $shape = Grant::viewShape($grant);
+            if ($shape === false) {
+                continue;
+            }
+            if (!$this->views->filterHolds($key->eventId, $shape, $grant['bound_value'], [$key])) {
+                continue;
+            }
+            $holding[] = [
+                'view' => new HeldView(
+                    $key->eventId,
+                    $grant['id'],
+                    $grant['view_id'],
+                    $grant['name'],
+                    $shape,
+                    $grant['bound_value']
+                ),
+                'actions' => $grant['actions'],
+            ];
+        }
+
+        return $holding;
     }
 
     /**
@@ -114,7 +160,28 @@ final class Access
             throw new PermissionDenied();
         }
 
-        return new HeldView($eventId, null, null, null, null, null);
+        return new HeldView($eventId, null, null, null, null, null, $this->viewList->masterCounts($eventId));
+    }
+
+    /**
+     * A stored view of the event as full access opens it, for the grid's tabs (S37): its filter and columns,
+     * with no bound value, so a parameter term does not apply and the whole view shows, as for a grant
+     * without one (S36-4).
+     *
+     * @throws PermissionDenied without full access
+     * @throws NotFound when the view is not one of the event's
+     */
+    public function fullView(Actor $actor, int $eventId, int $viewId): HeldView
+    {
+        if (!$this->isFull($actor)) {
+            throw new PermissionDenied();
+        }
+        $view = $this->viewRepository->find($viewId);
+        if ($view === null || $view->eventId !== $eventId || $view->master) {
+            throw new NotFound();
+        }
+
+        return new HeldView($eventId, null, $view->id, $view->name, $view->shape, null);
     }
 
     /**

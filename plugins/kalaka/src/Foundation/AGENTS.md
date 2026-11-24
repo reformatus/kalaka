@@ -150,11 +150,24 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   and nobody sets a decision directly. The current state of a kind is its
   latest record.
 - A decision kind is declared with a Hungarian label and its states, each
-  with a Hungarian label; the grid shows those labels for every kind.
-- A decision rule returns a transition or nothing and never writes; core
-  writes the record, and only when the state changes. A core rule reads its
-  own kind and the core kinds decided before it; an extension rule reads its
-  own kind and every core kind, never another extension's.
+  with a Hungarian label; the grid shows those labels for every kind. A kind
+  may declare a base state (`DecisionDefault`) for the statuses it is defined
+  for: no record reads as it there, and any other status reads no state. It
+  is never written; `Decisions` applies it in PHP and
+  `DecisionTables::stateOf()` in SQL, the one read every view column, filter,
+  sort and aggregate uses. The evaluation's rules read the records.
+- A decision rule returns its transitions (none, one, or more in order) and
+  never writes; core writes each one that changes the state. The evaluation
+  runs money, then the decision rules (core first, then extensions, each as
+  declared), then the mail step, which queues the confirmed mail for every
+  `confirmed` record the pass wrote
+  (`Mail\Api\ActionMails::due()`, keyed by the record). A core rule reads its
+  own kind and earlier core kinds; an extension rule its own and every core
+  kind, never another extension's.
+- The decision rule contract (`DecisionRule`, `DecisionInput`, `Decision`,
+  `Transition`) is `Api`; the registry `DecisionRules` is not. Foundation's
+  boot adds core's rules (Pricing's confirmation, over the materializer's own
+  composition) and publishes the registry.
 - The runner evaluates each touched registration once, at the outermost use
   case, after `execute` and before the audit entry; a rule failure rolls back
   the whole use case.

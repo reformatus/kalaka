@@ -304,8 +304,8 @@ never our prefix.
 ```mermaid
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
-  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · slot requirement · seat claim source"]
+  REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer ·<br/>request source"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source · slot requirement"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -319,10 +319,10 @@ flowchart LR
   - **Inside** (fee component, payment guard, ledger line source (only the
     deferred wallet's), rule or mail condition, date type, confirmation
     threshold, retention rule,
-    decision, action-mail act, assignment proposer): fires no WordPress
-    hooks.
+    decision, action-mail act, assignment proposer, request source): fires no
+    WordPress hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, slot requirement, seat claim source). A field type's value type
+    view column, filterable fact, theme adapter, seat claim source, slot requirement). A field type's value type
     and its reading of a stored answer as a value fire no WordPress hooks
     and write nothing (they may read, e.g. a congregation's name), so the
     evaluation reads a registration's field values with them inside the
@@ -338,15 +338,21 @@ flowchart LR
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).
-- **A decision** is an inside point: a transition rule in, a transition
-  record or nothing out; core writes the record. It reads facts and core
-  decisions only, never another extension's decision. Late fee, price-tier
-  place and support place are decisions
-  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+- **A decision** is an inside point: a transition rule in, its transitions
+  (none, one or more, in order) out; core writes the records. It reads facts
+  and core decisions only, never another extension's decision. The late fee
+  is the one extension decision foreseen; price-tier and support places are
+  seats, facts ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **An action-mail act** is an inside point: an extension's act (e.g. a
   check-in) that can cause an action mail, keyed by the act's record
   ([Mail](mail.md#five-kinds-of-mail)). It is built with the check-in
   extension.
+- **A request source** is an inside point: a module's requests on a
+  registration that need an answer (a support offer that needs approval, an
+  aid request), read from its field values, and the writer of its own field
+  when the one "answer a request" act answers one. Core keeps the answer
+  record and the computed "awaits an answer"
+  ([Money](money.md#sponsor-and-church-support)).
 - **A seat claim source** is an outside point: a submit's validated answers
   in, the seat claims of the limited choices made in them out (the field and
   the pool of each). It locks, counts and writes nothing; the submit locks the

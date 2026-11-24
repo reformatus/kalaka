@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Foundation\Evaluation;
 
 use Kalaka\Foundation\Api\Audit\Subject;
-use Kalaka\Foundation\Decision\DecisionInput;
-use Kalaka\Foundation\Decision\DecisionRule;
-use Kalaka\Foundation\Decision\Transition;
+use Kalaka\Foundation\Api\Decision\DecisionDefault;
+use Kalaka\Foundation\Api\Decision\DecisionInput;
+use Kalaka\Foundation\Api\Decision\DecisionRule;
+use Kalaka\Foundation\Api\Decision\Transition;
 
 /** A rule the test steers: it answers with `answer`, or throws `throws`, and records the inputs it gets. */
 final class TestRule implements DecisionRule
@@ -18,6 +19,12 @@ final class TestRule implements DecisionRule
     public ?string $answer = null;
 
     public ?\Throwable $throws = null;
+
+    /** @var list<string> when not empty, the states returned together, in order, as one answer */
+    public array $sequence = [];
+
+    /** @var list<?string> when not empty, the answers in the order asked, instead of `answer` */
+    public array $answers = [];
 
     /** @var ?\Closure(DecisionInput): void */
     public ?\Closure $onDecide = null;
@@ -31,6 +38,7 @@ final class TestRule implements DecisionRule
         private readonly array $states = ['on' => 'Be', 'off' => 'Ki'],
         private readonly ?\ArrayObject $asked = null,
         private readonly string $label = 'Teszt',
+        private readonly ?DecisionDefault $default = null,
     ) {
     }
 
@@ -49,7 +57,12 @@ final class TestRule implements DecisionRule
         return $this->states;
     }
 
-    public function decide(DecisionInput $input): ?Transition
+    public function defaultState(): ?DecisionDefault
+    {
+        return $this->default;
+    }
+
+    public function decide(DecisionInput $input): array
     {
         $this->inputs[] = $input;
         $this->asked?->append($this->kind);
@@ -60,10 +73,16 @@ final class TestRule implements DecisionRule
             throw $this->throws;
         }
 
-        return $this->answer === null ? null : new Transition(
-            $this->answer,
+        $states = $this->sequence;
+        if ($states === []) {
+            $answer = $this->answers === [] ? $this->answer : array_shift($this->answers);
+            $states = $answer === null ? [] : [$answer];
+        }
+
+        return array_map(static fn (string $state): Transition => new Transition(
+            $state,
             new \DateTimeImmutable('2026-11-29 23:59:59', new \DateTimeZone('Europe/Budapest')),
             new Subject('test_record', 12, '7'),
-        );
+        ), $states);
     }
 }

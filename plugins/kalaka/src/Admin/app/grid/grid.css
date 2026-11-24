@@ -1,0 +1,140 @@
+/* The grid page (S37). Structural, in WordPress admin's own colours. */
+.kalaka-grid-wrap { max-width: none; }
+.kg-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-variant-ligatures: none; letter-spacing: 0.02em; text-decoration: none; border-bottom: 0; }
+
+/* Above the table: the tab row. */
+.kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.kg-tabrow { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid #c3c4c7; min-width: 0; }
+.kg-tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; }
+.kg-tabs-measure { position: absolute; visibility: hidden; white-space: nowrap; height: 0; overflow: hidden; display: flex; }
+.kg-tabs.nav-tab-wrapper { border-bottom: 0; padding-top: 0; display: flex; flex-wrap: nowrap; white-space: nowrap; }
+.kg-tabs .nav-tab, .kg-tabs-measure .nav-tab { float: none; margin-left: 0; margin-right: 6px; flex: none; }
+.kg-tabs .nav-tab { margin-bottom: -1px; }
+.kg-tabs .kg-more-toggle { cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.71428571; }
+.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px 0; min-height: 32px; }
+.kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kg-spacer { flex: 1 1 auto; }
+.kg-bulkbar .dataviews-search { width: 240px; max-width: 100%; }
+.kg-filters { flex: 0 1 auto; min-width: 0; }
+/* The view's own condition is DataViews' locked chip; the padlock is the one addition. */
+.kg-bulkbar .dataviews-filters__summary-chip.is-not-clickable::before { font-family: dashicons; content: "\f160"; font-size: 14px; width: 14px; height: 14px; margin-right: 4px; line-height: 1; }
+@media (max-width: 600px) { .kg-bulkbar .dataviews-search { width: 100%; flex: 1 1 100%; } }
+.kg-dv-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
+.kg-dv-foot .kg-perpage { margin-right: auto; }
+.kg-perpage select { min-width: 72px; }
+@media (max-width: 600px) { .kg-dv-foot { justify-content: flex-start; } }
+
+/* The table fills the window (owner's walk, topic 6a G9): the title and the controls stay at the top,
+   the rows scroll inside, and the header row, the horizontal scrollbar and the paging stay in view. */
+body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
+.kalaka-grid-wrap { display: flex; flex-direction: column; min-height: 0; }
+#kalaka-grid { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+#kalaka-grid .kg-dv { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+#kalaka-grid .dataviews-wrapper { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+#kalaka-grid .dataviews-layout__container { flex: 1 1 auto; min-height: 0; overflow: auto; }
+#kalaka-grid thead { position: sticky; top: 0; z-index: 3; }
+#kalaka-grid .kg-dv-foot { flex: none; padding: 8px 0; }
+@media (max-width: 600px) { .kg-above { margin-top: 4px; } }
+
+/* The table's own empty texts and a failed load. */
+.kg-load-fail { margin: 0; color: #d63638; }
+.kg-no-match { margin: 0; }
+
+/* Status and decisions. */
+.kg-mark { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.kg-mark .dashicons { font-size: 16px; width: 16px; height: 16px; }
+.kg-ok { color: #00a32a; }
+.kg-warn { color: #996800; }
+.kg-off { color: #787c82; }
+
+/* Rows look clickable (owner's walk, topic 6a G2): the hover highlight, and the open row's own colour that the
+   hover does not paint over; the repeated class keeps the open colour above the hover by specificity, not by
+   source order. The cell's button keeps its keyboard focus ring and nothing else. [UNAPPROVED N43] */
+#kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
+#kalaka-grid tbody tr.dataviews-view-table__row.kg-row-open.kg-row-open > td { background-color: #f0f6fc; }
+
+/* An inactive registration (waitlisted, withdrawn, removed) is dimmed; it still opens (S38) and still counts.
+   An active row keeps DataViews' own table text colour; only an inactive row is set apart, in the design
+   system's own disabled foreground token (lighter than the table text, about 3.3:1 on white; the choice and its
+   alternative, a reduced opacity, are N25's). [UNAPPROVED N25] */
+#kalaka-grid .kg-inactive { color: var(--wpds-color-foreground-interactive-neutral-disabled, #8d8d8d); }
+
+/* A long field is one line, cut with „…”. */
+.kg-long { display: block; max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* DataViews inside wp-admin. */
+#kalaka-grid .dataviews-wrapper { background: #fff; border: 1px solid #dcdcde; }
+#kalaka-grid .dataviews-view-table td, #kalaka-grid .dataviews-view-table th { vertical-align: top; }
+#kalaka-grid .dataviews-view-table thead th { vertical-align: middle; }
+
+/* Sorszám and Kód: narrow, aligned to the start. */
+#kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-serial),
+#kalaka-grid .dataviews-view-table__cell-content-wrapper:has(.kg-code) { min-width: 0; }
+#kalaka-grid .kg-serial { font-variant-numeric: tabular-nums; }
+
+/* The sum row inside DataViews' <thead>. */
+#kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
+#kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
+.kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
+.kg-sumtd .kg-sumopen { vertical-align: middle; }
+
+/* The snackbar of the copy result, at the bottom of the window. */
+.kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
+.kg-grid-snacks .components-snackbar-list { position: static; }
+
+/* While filtered or searched: the sums follow the filter (italics), and a filtered column's header is shaded
+   with the neutral surface token. */
+#kalaka-grid thead tr.kg-sumtr.is-narrowed td { font-style: italic; }
+#kalaka-grid thead th:has(.kg-hd.is-filtered) { background-color: var(--wpds-color-background-surface-neutral-weak, #f0f0f1); }
+
+/* The detail panel (S38): a fixed side panel over the grid, 540 px, the full width on a phone. The look is
+   structural and in WordPress admin's own colours; the open row's highlight and the panel's shadow are mine. */
+#kalaka-grid .kg-open { all: unset; cursor: pointer; font: inherit; color: inherit; box-sizing: border-box; }
+#kalaka-grid .kg-open:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
+#kalaka-grid tbody tr.kg-row-click { cursor: pointer; }
+#kalaka-grid tbody tr.kg-row-open { box-shadow: inset 3px 0 0 var(--wp-admin-theme-color, #3858e9); }
+.kg-panel { position: fixed; top: var(--wp-admin--admin-bar--height, 32px); right: 0; bottom: 0; width: min(540px, 100vw); z-index: 9995; background: #fff; border-left: 1px solid #c3c4c7; box-shadow: -6px 0 18px rgba(0, 0, 0, .12); overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px 72px; box-sizing: border-box; }
+.kg-panel:focus { outline: none; }
+.kg-panel:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: -2px; }
+.kg-panel-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+.kg-panel-id { flex: 1; min-width: 0; }
+.kg-panel-close { margin-left: auto; flex: none; }
+.kg-panel-name { font-size: 1.3em; margin: 0 0 4px; overflow-wrap: anywhere; }
+.kg-panel-meta { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; color: #50575e; }
+.kg-panel-email { overflow-wrap: anywhere; }
+.kg-none { color: #50575e; margin: 8px 0; }
+.kg-tabs-money .components-tab-panel__tabs { border-bottom: 1px solid #dcdcde; margin-bottom: 12px; }
+.kg-tabs-money .components-tab-panel__tab-content { padding: 0; }
+.kg-table-wrap { overflow-x: auto; margin: 0 0 12px; }
+table.kg-money { border-collapse: collapse; width: 100%; font-size: 13px; }
+table.kg-money th, table.kg-money td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+table.kg-money thead th { font-weight: 600; border-bottom: 1px solid #c3c4c7; white-space: nowrap; }
+table.kg-money .is-num { text-align: right; font-variant-numeric: tabular-nums; }
+table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600; border-top: 1px solid #c3c4c7; }
+.kg-nowrap { white-space: nowrap; }
+.kg-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid #996800; border-radius: 3px; color: #996800; font-size: 11px; line-height: 16px; }
+.kg-manual { margin: 8px 0 4px; }
+.kg-manual p { margin: 0 0 4px; overflow-wrap: anywhere; }
+
+.kg-sub { font-size: 14px; margin: 20px 0 6px; }
+.kg-requests { margin: 8px 0 4px; }
+.kg-requests-title { margin: 0 0 4px; font-size: 13px; }
+.kg-requests ul { margin: 0; padding: 0; list-style: none; }
+.kg-requests li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 6px; overflow-wrap: anywhere; }
+.kg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
+.kg-snacks { position: fixed; left: auto; right: 12px; bottom: 12px; z-index: 9996; }
+.kg-dialog .components-base-control, .kg-dialog .components-radio-control, .kg-dialog .components-notice.is-warning { margin-bottom: 16px; }
+.kg-dialog .kg-err { color: #cc1818; display: block; margin-top: 4px; font-size: 12px; }
+.kg-dialog [aria-invalid="true"] { border-color: #cc1818; }
+.kg-bal { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0 0 16px; padding: 8px 12px; background: #f6f7f7; }
+.kg-bal dt { color: #50575e; }
+.kg-bal dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kg-dialog-actions { display: flex; gap: 8px; margin-top: 8px; }
+@media (max-width: 600px) { .kg-panel { top: var(--wp-admin--admin-bar--height, 46px); width: 100vw; padding: 12px 16px 72px; } .kg-snacks { left: 12px; right: 12px; } }
+.kg-snacks { width: min(400px, calc(100vw - 24px)); }
+.kg-snacks .components-snackbar-list { position: static; }
+.kg-table-wrap:focus-visible { outline: 2px solid var(--wp-admin-theme-color, #3858e9); outline-offset: 2px; }
+/* On a phone the admin bar scrolls away, so the panel covers the whole screen above it and above WordPress's menu
+   button, below core's modal layer; the opened WordPress menu goes over it. */
+@media (max-width: 600px) { .kg-panel { top: 0; z-index: 99999; } .kg-snacks { z-index: 100001; } }
+.wp-responsive-open .kg-panel { z-index: 99; }

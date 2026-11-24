@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Ledger;
 
+use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\LedgerLineRepository;
+use Kalaka\Ledger\PaymentNoteRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Foundation\PerEventCostTestCase;
 
@@ -62,6 +64,19 @@ final class LedgerCostTest extends PerEventCostTestCase
         );
     }
 
+    public function testTheStatementStaysInsideItsEvent(): void
+    {
+        wp_timezone(); // WordPress loads its options once; that read is not the ledger's
+        $this->assertPerEventCost(
+            fn (int $event) => $this->seedEvent($event),
+            fn (int $event) => (new Ledger())->statementOf(
+                new RegistrationKey($event, '00A0'),
+                'participant',
+                Currency::HUF
+            )
+        );
+    }
+
     public function testTheChargeTotalsStayInsideTheirEvent(): void
     {
         $this->assertPerEventCost(
@@ -110,5 +125,42 @@ final class LedgerCostTest extends PerEventCostTestCase
         }
 
         return $statements;
+    }
+
+    public function testTheEntriesStayInsideTheirEvent(): void
+    {
+        $this->assertPerEventCost(
+            function (int $event): void {
+                global $wpdb;
+                $this->seedEvent($event);
+                $wpdb->query($wpdb->prepare(
+                    "INSERT INTO %i (event_id, line_id, code, version, note)"
+                    . " SELECT event_id, id, code, 1, 'Teszt' FROM %i WHERE event_id = %d AND kind = 'manual_payment'",
+                    $wpdb->prefix . 'kalaka_payment_notes',
+                    $wpdb->prefix . 'kalaka_ledger_lines',
+                    $event
+                ));
+            },
+            fn (int $event) => (new Ledger())->entriesOf(new RegistrationKey($event, '00A0'))
+        );
+    }
+
+    public function testTheNotesStayInsideTheirEvent(): void
+    {
+        $this->assertPerEventCost(
+            function (int $event): void {
+                global $wpdb;
+                for ($line = 1; $line <= 5; $line++) {
+                    $wpdb->insert($wpdb->prefix . 'kalaka_payment_notes', [
+                        'event_id' => $event,
+                        'line_id' => $line,
+                        'code' => '00A0',
+                        'version' => 1,
+                        'note' => 'Teszt',
+                    ]);
+                }
+            },
+            fn (int $event) => (new PaymentNoteRepository())->forRegistration(new RegistrationKey($event, '00A0'))
+        );
     }
 }

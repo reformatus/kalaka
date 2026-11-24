@@ -17,9 +17,10 @@ use Kalaka\Forms\Api\ValueType;
  * one availability base, S76): the event's values, the registration's field values by participant-field
  * key, its code and status, and when it last became `registered` (null while it is not; a waitlisted
  * registration is not registered). Every time-dependent rule counts from it, never from the submit: payment
- * due, price-tier deadlines, everything.
+ * due, everything.
  * Read by the fee components and, later, by every rule that reads registration facts. Built by
- * `Registrations::factsOf()`; it holds values only and reads nothing.
+ * `Registrations::factsOf()`; it holds values only and reads nothing. `registration.awaits_answer` is computed
+ * there (`Requests::awaits()`), never stored.
  *
  * The field values are typed by `Forms\Api\Forms::participantFacts()` (S25): every participant field of
  * the event is declared, an unanswered or retired one as `Value::none()` of its type, and each field's kind
@@ -30,8 +31,11 @@ final readonly class RegistrationFacts implements Facts
 {
     public const CODE = 'registration.code';
 
-    /** A choice of one: the status's value. Its display text is empty until a label is approved. */
+    /** A choice of one: the status's value; its display text is the status's word, the one a mail shows too. */
     public const STATUS = 'registration.status';
+
+    /** A choice of one, `yes` or `no`: a request has no answer yet. It has no display text. */
+    public const AWAITS_ANSWER = 'registration.awaits_answer';
 
     private ValueContext $values;
 
@@ -51,10 +55,12 @@ final readonly class RegistrationFacts implements Facts
         private array $fieldValues = [],
         private array $computed = [],
         private array $fieldKinds = [],
+        private bool $awaitsAnswer = false,
     ) {
         $this->values = new ValueContext($fieldValues + EventValues::of($event) + EventValues::now($now) + [
             self::CODE => Value::text($registration->code, $registration->code),
-            self::STATUS => Value::choice([$status->value], ''),
+            self::STATUS => Value::choice([$status->value], $status->word()),
+            self::AWAITS_ANSWER => Value::choice([$awaitsAnswer ? 'yes' : 'no'], ''),
         ] + $computed);
     }
 
@@ -83,6 +89,7 @@ final readonly class RegistrationFacts implements Facts
             $this->fieldValues,
             [...$this->computed, ...$computed],
             $this->fieldKinds,
+            $this->awaitsAnswer,
         );
     }
 

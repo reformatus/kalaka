@@ -11,8 +11,9 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
-use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Pricing\Api\FeeComponent;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -40,10 +41,13 @@ final class Contributions
     /** @var list<PeriodicStep> */
     private array $periodicSteps = [];
 
-    /** @var array<string, FeeComponent> */
-    private array $feeComponents = [];
+    /** @var list<RequestSource> */
+    private array $requestSources = [];
+
     /** @var list<SeatClaimSource> */
     private array $seatClaimSources = [];
+    /** @var array<string, FeeComponent> */
+    private array $feeComponents = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -192,6 +196,25 @@ final class Contributions
     }
 
     /**
+     * Where requests come from: an inside point (modules-and-extensions.md, "The extension surface"). A module
+     * that has requests to answer (support offers, aid) says which a registration has and writes the answer to
+     * its own field.
+     */
+    public function requestSource(RequestSource $source): void
+    {
+        $this->requestSources[] = $source;
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
+    }
+
+    /**
      * A fee component is an inside point (modules-and-extensions.md, "The extension surface"; money.md,
      * "Materializer"). Its ID is `[a-z][a-z0-9_]*`, at most 50 characters, and unique: a malformed or repeated
      * ID fails the contributing module (Pricing refuses one that is core's own).
@@ -213,20 +236,11 @@ final class Contributions
     /**
      * In contribution order.
      *
-     * @return list<FeeComponent>
+     * @return list<RequestSource>
      */
-    public function feeComponents(): array
+    public function requestSources(): array
     {
-        return array_values($this->feeComponents);
-    }
-
-    /**
-     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
-     * only: the source locks and writes nothing, the submit's use case takes the seats.
-     */
-    public function seatClaimSource(SeatClaimSource $source): void
-    {
-        $this->seatClaimSources[] = $source;
+        return $this->requestSources;
     }
 
     /**
@@ -237,5 +251,15 @@ final class Contributions
     public function seatClaimSources(): array
     {
         return $this->seatClaimSources;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<FeeComponent>
+     */
+    public function feeComponents(): array
+    {
+        return array_values($this->feeComponents);
     }
 }

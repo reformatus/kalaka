@@ -48,7 +48,8 @@ bodies, the renderer and the per-event action-mail catalogue.
   A mail's version is the latest
   non-autosave revision ID; revisions of mail documents are never pruned.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
-  acting use case, which queues it only when the event has it switched on and
+  acting use case, or inside the evaluation that use case runs (confirmed),
+  which queues it only when the event has it switched on and
   looks at nothing else (not the event's state).
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
