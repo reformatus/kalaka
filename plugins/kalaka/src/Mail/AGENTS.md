@@ -94,8 +94,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   count toward pausing. Any other throw is an error, recorded after the claim.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):
   REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
-  gracefully (a published body keeps its content, another stays unpublished)
-  and tells the saving user in an admin notice.
+  gracefully (a published body keeps its content, another stays unpublished),
+  tells the saving user in an admin notice, writes a log line and, on
+  WP-CLI, warns and fails the command.
 - The catalogue has six action mails ("answered", keyed by the answer record of Registrations' answer act, is the
   sixth, and a body may branch on `registration.awaits_answer`, a yes/no choice with no display text). The mail
   context takes `registration.code`, `registration.status` (with its word) and `registration.awaits_answer` from

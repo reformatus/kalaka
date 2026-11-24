@@ -137,6 +137,20 @@ describe('a multi-page form', () => {
 		expect(document.activeElement).toBe(root().querySelector('[name="name"]'));
 	});
 
+	test('a page error clears on an edit, and the next Tovább shows the check’s message again', async () => {
+		await load(markup);
+		await clickNext();
+		expect(slot('name').textContent).toBe(REQUIRED);
+
+		type(root(), 'name', 'Minta Anna');
+		expect(slot('name').textContent).toBe('');
+		type(root(), 'name', '');
+		expect(slot('name').textContent).toBe('');
+
+		await clickNext();
+		expect(slot('name').textContent).toBe(REQUIRED);
+	});
+
 	test('a re-fetch on a change sends no page, so no error shows while typing', async () => {
 		await load(markup);
 
