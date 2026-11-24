@@ -19,21 +19,28 @@ final class ParticipantFieldsSchemaTest extends PerEventCostTestCase
         'type' => 'varchar(191)',
         'title' => 'text',
         'options' => 'longtext null',
+        'settings' => 'longtext null',
         'source' => 'varchar(16)',
         'retired_at' => 'datetime(6) null',
         'created_at' => 'datetime(6)',
         'updated_at' => 'datetime(6)',
         'position' => 'int(10) unsigned',
         'form_writable' => 'tinyint(1)',
+        'declared_by' => 'varchar(64) null',
+        'money_relevant' => 'tinyint(1)',
     ];
 
-    private const EXACT = ['field_key' => 'utf8mb4_nopad_bin', 'type' => 'utf8mb4_nopad_bin'];
+    private const EXACT = [
+        'field_key' => 'utf8mb4_nopad_bin',
+        'type' => 'utf8mb4_nopad_bin',
+        'declared_by' => 'utf8mb4_nopad_bin',
+    ];
 
     public function testTheTableHasItsColumnsAndTheDeclaredCollations(): void
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_participant_fields'));
+        self::assertSame(3, (int) get_option('kalaka_schema_participant_fields'));
         $columns = $wpdb->get_results($wpdb->prepare(
             'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, CHARACTER_SET_NAME, COLLATION_NAME'
             . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s'

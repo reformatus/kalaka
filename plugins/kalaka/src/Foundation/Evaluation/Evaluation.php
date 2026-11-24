@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Foundation\Evaluation;
 
+use Kalaka\Foundation\Api\Actor\Side;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Decision\Decision;
@@ -14,6 +15,8 @@ use Kalaka\Foundation\Decision\DecisionRepository;
 use Kalaka\Foundation\Decision\DecisionRule;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\Api\FeeRefusal;
+use Kalaka\Pricing\Api\FeeRefused;
 use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -80,7 +83,8 @@ final class Evaluation
 
     /**
      * The money phase, after the decisions phase, so the fee reads the decisions recorded in this pass
-     * (money.md, "Materializer"). A failing fee component fails the use case as the rule `money/<id>`.
+     * (money.md, "Materializer"). A failing fee component fails the use case as the rule `money/<id>`; one that
+     * refuses (`FeeRefusal`) refuses it with its text for the actor's side (`FeeRefused`, a 422).
      */
     private function materialize(RegistrationKey $key, Context $context): void
     {
@@ -90,7 +94,19 @@ final class Evaluation
         try {
             $this->money->materialize($key, $context);
         } catch (FeeComponentFailed $failed) {
-            $error = new SystemFailure(null, new RuleFailed('money/' . $failed->componentId, $failed));
+            $rule = new RuleFailed('money/' . $failed->componentId, $failed);
+            $refusal = $failed->getPrevious();
+            if ($refusal instanceof FeeRefusal) {
+                // The component's own refusal, which says why: the text for the actor's side. [UNAPPROVED, #200 N11]
+                $portal = $context->actor()->side() === Side::Portal;
+                if ($portal && $refusal->portalText === null) {
+                    $error = new SystemFailure(null, $rule);
+                    throw $error;
+                }
+                $error = new FeeRefused($portal ? (string) $refusal->portalText : $refusal->adminText, $rule);
+                throw $error;
+            }
+            $error = new SystemFailure(null, $rule);
             throw $error;
         }
     }

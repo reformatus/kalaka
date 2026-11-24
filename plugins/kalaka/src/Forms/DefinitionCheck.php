@@ -9,6 +9,7 @@ use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Engine\Condition\ConditionKeys;
 use Kalaka\Forms\Engine\DefinitionParser;
 use Kalaka\Forms\Engine\FormPosts;
+use Kalaka\Forms\Engine\SlotRules;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
@@ -327,7 +328,16 @@ final class DefinitionCheck
         }
 
         // S15 (owner ruling 2026-11-18): a registration form of an event with accounts holds the account block.
-        return AccountBlock::problem($definition, $placement, $eventId);
+        $account = AccountBlock::problem($definition, $placement, $eventId);
+        if ($account !== null || $eventId === null) {
+            return $account;
+        }
+
+        // An extension's requirement (the owner's ruling 2026-11-19): a registration form of an event with a
+        // price ladder holds `price_tier`, required.
+        $required = (new EventFormHost())->slotRequiredKeys(new Form($formId, $eventId, $placement, null, false, 0));
+
+        return (new SlotRules())->requiredFieldProblem($definition, $required);
     }
 
     /** The first `event.points.<id>` the content reads that the event has no custom point for; null for none. */

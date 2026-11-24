@@ -146,7 +146,7 @@ final class EventFormHost implements FormHost
      * The values of `factTypes()` on a form's page and re-fetch: the active registration's status and field
      * values for an additional form, as they are now.
      */
-    public function facts(Form $form): ?ValueContext
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         $event = $this->event($form);
         if ($event === null) {
@@ -157,7 +157,7 @@ final class EventFormHost implements FormHost
         $stored = $target === null ? null : $this->registrations()->values($target);
         $status = $target === null ? null : $this->registrations()->find($target)?->status->value;
 
-        return $this->factsFor($form, $event, $loggedIn, Runner::current()->clock()->now(), $stored, $status);
+        return $this->factsFor($form, $event, $loggedIn, $now, $stored, $status);
     }
 
     /**
@@ -183,7 +183,7 @@ final class EventFormHost implements FormHost
         $values = array_map(
             static fn (ValueType $type): Value => Value::none($type),
             array_fill_keys($this->gonePoints($form), ValueType::Date)
-        ) + EventValues::form($event, $loggedIn)
+        ) + EventValues::form($event, $loggedIn, $now)
             + EventValues::volatile($event, $this->registrations()->registeredCount($event->id), $open);
         if ($form->placement === FormPlacement::Additional) {
             $values[RegistrationFacts::STATUS] = $status === null
@@ -426,6 +426,19 @@ final class EventFormHost implements FormHost
             AccountMode::Optional => AccountStep::Offered,
             AccountMode::Off => null,
         };
+    }
+
+    public function slotRequiredKeys(Form $form): array
+    {
+        if ($form->placement !== FormPlacement::Registration) {
+            return [];
+        }
+        $keys = [];
+        foreach (Contributions::current()->slotRequirements() as $requirement) {
+            array_push($keys, ...$requirement->requiredKeys($form->eventId));
+        }
+
+        return array_values(array_unique($keys));
     }
 
     private function event(Form $form): ?Event

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
@@ -25,6 +26,7 @@ final class Registrations
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
         private readonly RegistrationCount $count = new RegistrationCount(),
+        private readonly Forms $forms = new Forms(),
     ) {
     }
 
@@ -82,17 +84,30 @@ final class Registrations
     }
 
     /**
-     * The registration's fact source, from a plain read without a lock (inside the evaluation the run already
-     * holds the row). Null when there is no such registration.
+     * The registration's fact source, from plain reads without a lock (inside the evaluation the run already
+     * holds the row): the row, its field values (`values()`, one statement) typed over the event's participant
+     * fields (`Forms::participantFacts()`: one statement and the block registry, no post). Null when there is
+     * no such registration. `$now` is the moment of the act that reads (`time.now`): the caller's one clock.
      */
-    public function factsOf(RegistrationKey $key, Event $event): ?RegistrationFacts
+    public function factsOf(RegistrationKey $key, Event $event, \DateTimeImmutable $now): ?RegistrationFacts
     {
         $registration = $this->repository->find($key);
         if ($registration === null) {
             return null;
         }
 
-        return new RegistrationFacts($key, $registration->status, $registration->registeredAt, $event);
+        $fields = $this->forms->participantFacts($key->eventId, $this->values($key));
+
+        return new RegistrationFacts(
+            $key,
+            $registration->status,
+            $registration->registeredAt,
+            $event,
+            $now,
+            $fields->values,
+            [],
+            $fields->kinds,
+        );
     }
 
     /**

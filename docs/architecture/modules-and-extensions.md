@@ -10,10 +10,11 @@ title: Modules and extensions
   with one version number and one CI pipeline that builds a zip per plugin.
   Extensions use only core's public API.
 - **Core itself is internally modular** with strict boundaries.
-- **Core money is minimal:** a fixed price per registration and full payment.
-  Deposits, the price ladder, financial aid, sponsor and church support, the
-  congregation share, late fees and the wallet are plugins; core keeps full
-  support for extending it in these ways ([Money](money.md#core-money-scope)).
+- **Core money is minimal:** a fixed price per registration, full payment,
+  an event's extra charges and its donation. Deposits, the price ladder,
+  financial aid, sponsor and church support, the congregation share, late
+  fees and the wallet are plugins; core keeps full support for extending it
+  in these ways ([Money](money.md#core-money-scope)).
 - **Core keeps the base concepts that organizations extend,** such as
   assignment sets ([Assignment sets](#assignment-sets)), not a general system
   that could build either organization's logic.
@@ -38,7 +39,7 @@ flowchart LR
     SP["Sponsor / church support"]
     CS["Congregation share"]
     REC["Module ranking"]
-    MORE["Wallet · attendance sheets · check-in ·<br/>donations · settlement"]
+    MORE["Wallet · attendance sheets · check-in · settlement"]
   end
   subgraph CORE["Core plugin"]
     direction TB
@@ -49,6 +50,7 @@ flowchart LR
     AS["Assignments"]
     RE["Registrations"]
     RU["Pricing"]
+    EX["Extras"]
     LE["Ledger"]
     PA["Payments"]
     MA["Mail"]
@@ -72,6 +74,7 @@ flowchart LR
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
+| Extras | extra charges and the donation: generic per-event charges, each declaring the participant field with its key for forms to join, and the donation, the number field with the key `adomany`, declared by the same save |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
@@ -302,7 +305,7 @@ never our prefix.
 flowchart LR
   EP["Extension plugin<br/>Requires Plugins: kalaka"] -->|"registers its Module"| REG["Core registry"]
   REG --> IN["Inside the transaction<br/>fee component · payment guard ·<br/>ledger line source · condition · date type ·<br/>confirmation threshold · retention rule ·<br/>decision · action-mail act · assignment proposer"]
-  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source"]
+  REG --> OUT["Outside the transaction<br/>field type · payment method ·<br/>portal / admin section ·<br/>view · view column · filterable fact ·<br/>theme adapter · seat claim source · slot requirement"]
   REG --> DECL["Declarations<br/>payer kind · block host"]
 ```
 
@@ -319,7 +322,14 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, seat claim source).
+    view column, filterable fact, theme adapter, seat claim source, slot requirement). A field type's value type
+    and its reading of a stored answer as a value fire no WordPress hooks
+    and write nothing (they may read, e.g. a congregation's name), so the
+    evaluation reads a registration's field values with them inside the
+    transaction.
+  - A **slot requirement** names participant fields the event's registration
+    form must hold, required and outside any condition (the price ladder
+    requires `price_tier`); a form without one is closed until fixed.
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a

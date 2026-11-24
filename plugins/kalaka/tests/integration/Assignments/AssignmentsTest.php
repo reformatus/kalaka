@@ -255,11 +255,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
-        $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings(
-            $key,
-            $set,
-            $option
-        );
+        $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings($key, $set, $option);
 
         // Nobody holds Modul A yet: nothing to warn about, and a registration's own place never makes it full.
         self::assertSame([], $warn($second, 'modul_a'));
@@ -334,7 +330,10 @@ final class AssignmentsTest extends RegistrationsTestCase
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
         $this->place($first, $set, 'modul_a');
-        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+        self::assertNotSame(
+            [],
+            $this->sets->placementWarnings($second, $set, 'modul_a')
+        );
 
         wp_set_current_user(self::factory()->user->create());
         try {

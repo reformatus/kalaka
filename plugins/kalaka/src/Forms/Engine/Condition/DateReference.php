@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Condition;
 
+use Kalaka\Forms\Api\Facts;
+
 /**
  * A date a comparison of a date compares with, read from a date key of the fact source and moved by
  * whole years and days (events-and-forms.md, "Conditions", the condition format):
- * `{"key": "event.start", "years": -16}` is the day sixteen years before the event's start. Pure: no clock.
+ * `{"key": "event.start", "years": -16}` is the day sixteen years before the event's start. The reference
+ * `{"ref": "now", "years": 0, "days": 0}` reads the fact source's `Facts::NOW`, the evaluation's day. Pure: no clock.
  */
 final readonly class DateReference
 {
@@ -22,6 +25,17 @@ final readonly class DateReference
         public int $years = 0,
         public int $days = 0,
     ) {
+    }
+
+    /** A reference to "now": the fact source's `Facts::NOW` moved. */
+    public static function now(int $years = 0, int $days = 0): self
+    {
+        return new self(Facts::NOW, $years, $days);
+    }
+
+    public function isNow(): bool
+    {
+        return $this->key === Facts::NOW;
     }
 
     /**

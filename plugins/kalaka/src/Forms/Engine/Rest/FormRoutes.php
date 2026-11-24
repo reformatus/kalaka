@@ -176,7 +176,8 @@ final class FormRoutes
         }
 
         $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
-        $values = $this->host->facts($form) ?? throw new NotFound();
+        $now = Runner::current()->clock()->now();
+        $values = $this->host->facts($form, $now) ?? throw new NotFound();
         $post = get_post($form->id);
         if (!$post instanceof \WP_Post) {
             $error = new NotFound();
@@ -184,7 +185,7 @@ final class FormRoutes
         }
         $all = $this->host->refusals(
             $form,
-            Runner::current()->clock()->now(),
+            $now,
             FormsPage::currentRoles(),
             !post_password_required($post)
         );

@@ -35,6 +35,7 @@ final class MailRenderer
 
     /**
      * @param string $mail the mail's key: an action mail's key
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the sender's, passed down
      * @throws SystemFailure an unknown mail (`unknown_mail`), a body without a revision, a stored layout
      *         without its one placeholder (`layout`), or
      *         what `Values::render()` and the context throw
@@ -42,8 +43,12 @@ final class MailRenderer
      *         event (`MailPosts::published()`), or, checked against the mail's keys (`Values::check()`), an
      *         undeclared key, an invalid condition, a misplaced branch
      */
-    public function render(int $eventId, string $mail, RegistrationKey $registration): RenderedMail
-    {
+    public function render(
+        int $eventId,
+        string $mail,
+        RegistrationKey $registration,
+        \DateTimeImmutable $now
+    ): RenderedMail {
         $action = ActionMail::tryFrom($mail);
         if ($action === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
@@ -63,7 +68,7 @@ final class MailRenderer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
         }
-        $context = $this->values->context($registration, MailValues::readsPasswordLink($body->content));
+        $context = $this->values->context($registration, $now, MailValues::readsPasswordLink($body->content));
         $html = $this->renderer->render($body->content, $context);
         $version = 'b' . $body->revision;
         $layout = $setting->layout ? $this->layouts->of($eventId) : null;

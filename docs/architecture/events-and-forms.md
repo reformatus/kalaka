@@ -106,7 +106,8 @@ flowchart TB
     set's choice window instead
     ([Modules](modules-and-extensions.md#assignment-sets)).
 - **The slot adds one more rule:** every form in it must contain the
-  required fields and functionality (e.g. exactly one contact email).
+  required fields and functionality (e.g. exactly one contact email, or the
+  field an extension requires, such as the price ladder's `price_tier`).
   Otherwise all forms share the same primitives.
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
@@ -277,8 +278,8 @@ flowchart TB
 
 | Concept | What it is |
 |---|---|
-| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
-| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, choice, scale, …) |
+| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, its type's settings, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
+| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, number, choice, scale, …) |
 | **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Created by a single switch on a form field |
 | **Form field** | A block in a form that asks for one participant field, standalone or copied from a definition (keeping the definition's ID and version) |
 
@@ -295,7 +296,9 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key;
+    then may a form hold its key. A form that joins an extension's choice
+    field offers only options the extension declared, any subset of them,
+    and never adds one;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -350,14 +353,28 @@ flowchart TB
   when the type is the same; with another type the save is refused.
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
-  keeping its label, so stored values still read.
+  keeping its label, so stored values still read. An extension field's
+  options are its declarer's, not the forms' union.
+- **Who defines a participant field.** A field that only holds data is
+  created by the form field that first asks for it. A field that code acts
+  on (the price tier, an extra charge, the donation, a share or support
+  answer) is defined by that code, which declares it with its key and type
+  when its setting is saved (`extension` source); a form field joins it by
+  taking its key and never creates it. The field with that key is what the
+  code reads; a declared key no form field holds does nothing. When a form
+  field already holds the key, with the same type, the declaration adopts
+  it: the field becomes an `extension` field with the declarer's title, and
+  its values stay. A key a `staff` or `system` field holds, or a field of
+  another type, refuses the declaration. A key another code declarer holds
+  is refused.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name. They stay on the registration
   form's blocks and do not move to the participant-field list.
 - **An additional form holds neither explicit marking;** the save refuses it,
   as the slot's rule does. A "change my e-mail" form waits for its own design.
-- **Money-relevance is a type capability** supplied by plugins; core ships no
-  money field types. Values are stored like any other, **locked after their
+- **Money-relevance is a type capability** supplied by plugins, or declared
+  by an extension for a field it declares; core ships no money field types.
+  Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
   only through use cases that re-materialize the money.
 
@@ -441,7 +458,7 @@ is no other participant-side edit.
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
   field's options (the options a ranking takes from an assignment set
-  included), price-ladder tiers, offers and the adjudicated aid. An
+  included), offers and the adjudicated aid. An
   assignment-set option carries no condition of its own: the form's ranking
   field decides who may pick it. In a form it reads the draft answers and
   the event's values, on every render and again at submit; in the fee components and the materializer it reads the
@@ -504,6 +521,16 @@ is no other participant-side edit.
   years for "under 16 at the event's start". A day the moved month does not
   have becomes its last day (29 February to 28 February), so the age rule
   holds for an event starting on 29 February.
+- **A date reference can be "now":** the day of the clock's time in the site's
+  time zone, moved by whole years and days like any date reference (e.g. "now
+  + 0 days"). While a form is filled in it is the render time (the page render
+  and every re-fetch), at submit the submit time, and after submit (mails,
+  participant blocks, views) the clock time of the read that renders them (the
+  runner's `Clock`); the evaluator reads it from the fact source like any
+  value, never from a clock of its own. It is a reference only, never a key a
+  condition names. A branch that reads it is held server-side like one that
+  reads an event value, and the page re-fetches it with the form's other
+  re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice

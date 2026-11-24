@@ -50,6 +50,32 @@
 
 import { store, getContext, getElement, withSyncEvent } from '@wordpress/interactivity';
 import { readAnswer } from './answers';
+import {
+	BAD_NUMBER,
+	firstBadNumber,
+	guardNumberSeparators,
+	guardNumberWheel,
+	measureNumberAffixes,
+} from './number';
+
+// A focused number field never changes on the mouse wheel (topic 7), and its affixes get the room they
+// need (A3).
+guardNumberWheel();
+guardNumberSeparators(document, (control, message) => {
+	const key = control.closest('[data-kalaka-field]')?.getAttribute('data-kalaka-field');
+	const form = control.closest('form');
+	if (key !== undefined && key !== null && form !== null) {
+		showFieldMessages(form, { [key]: message });
+	}
+}, (control) => {
+	const wrapper = control.closest('[data-kalaka-field]');
+	if (wrapper !== null) {
+		clearFieldMessage(wrapper);
+	}
+});
+measureNumberAffixes();
+window.addEventListener('resize', () => measureNumberAffixes());
+document.fonts?.ready?.then(() => measureNumberAffixes());
 
 /**
  * What each form on the page started from (its context and its submit token), with its state: the
@@ -942,6 +968,14 @@ async function checkPage(form) {
 	}
 	clearMessages(form);
 	const current = started.page;
+	const refused = firstBadNumber(form);
+	if (refused !== null && refused.control.validity.customError && pageOf(refused.wrapper) === current) {
+		showFieldMessages(form, {
+			[refused.wrapper.getAttribute('data-kalaka-field')]: refused.control.validationMessage,
+		});
+		refused.control.focus();
+		return null;
+	}
 	const availability = await refetch(form, current);
 	if (availability === null || started.page !== current) {
 		return null;
@@ -1151,6 +1185,16 @@ async function send(form) {
 	}
 
 	clearMessages(form);
+	const bad = firstBadNumber(form);
+	if (bad !== null) {
+		showFieldMessages(form, {
+			[bad.wrapper.getAttribute('data-kalaka-field')]: bad.control.validity.customError
+				? bad.control.validationMessage
+				: BAD_NUMBER,
+		});
+		bad.control.focus();
+		return;
+	}
 	const answers = answersOf(form);
 	started.sending = true;
 	reflect(form);

@@ -12,7 +12,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Brings an event's participant fields in line with the fields its forms hold. The input is
  * the union over every form of the event that is not trashed, the saved form's fields marked `latest`:
  *
- * - a key no row has yet is declared, source `form`;
+ * - a key no row has yet is declared, source `form`, money relevant when the block's field type is (the input's
+ *   `money_relevant`, which a `form` field's held key refreshes);
  * - a held key keeps its row and type; one held with a different type, or a field forms may not hold
  *   (`system`, or `extension` not declared form-writable), is skipped and
  *   returned (the save check lets neither through, so only a form written around it gets here) and the
@@ -23,7 +24,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  *   kept (owner ruling 2026-11-13, B3(a)), and one held again is active again;
  * - a `form` field no form holds any more is retired. Its key is never derived again (`FieldKeys`).
  *
- * `staff`, `extension` and `system` fields are not retired here, and neither are their options.
+ * `staff`, `extension` and `system` fields are not retired here, and neither are their options; an
+ * `extension` field's options are not in the union either, since they are its declarer's.
  * Site-level: forms are edited by full access only.
  */
 final class DeclareParticipantFields implements AdminUseCase
@@ -65,6 +67,11 @@ final class DeclareParticipantFields implements AdminUseCase
                                 ],
                             ],
                             'latest' => ['type' => 'boolean'],
+                            // Whether the block's field type is money relevant (Forms knows the type).
+                            'money_relevant' => ['type' => 'boolean'],
+                            // A type's own settings: open, because each type validates them at the form
+                            // definition; ParticipantFields only keeps them.
+                            'settings' => ['type' => ['object', 'null']],
                         ],
                         'required' => ['key', 'type', 'title', 'options', 'latest'],
                         'additionalProperties' => false,
@@ -108,7 +115,7 @@ final class DeclareParticipantFields implements AdminUseCase
 
         $held = [];
         $skipped = [];
-        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool}> $fields */
+        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool, settings?: ?array<string, mixed>, money_relevant?: bool}> $fields */
         $fields = $input['fields'];
         foreach ($fields as $field) {
             $key = $field['key'];
@@ -126,6 +133,11 @@ final class DeclareParticipantFields implements AdminUseCase
                     $now,
                     $now,
                     ++$position,
+                    false,
+                    0,
+                    self::settings($field['settings'] ?? null),
+                    null,
+                    $field['money_relevant'] ?? false,
                 ), $context);
                 continue;
             }
@@ -137,14 +149,27 @@ final class DeclareParticipantFields implements AdminUseCase
 
             $before = $record->toRow();
             $record->retiredAt = null;
+            if ($record->source === ParticipantFieldRecord::SOURCE_FORM) {
+                $record->moneyRelevant = $field['money_relevant'] ?? false;
+            }
             // The title is the participant field's own: set when it is declared, changed only by
             // `RenameParticipantField` (owner ruling 2026-11-13).
-            $record->options = self::merged(
-                $record->options,
-                $field['options'],
-                $record->source === ParticipantFieldRecord::SOURCE_FORM,
-                $now,
-            );
+            $declared = $record->settings['declared'] ?? null;
+            $record->settings = self::settings($field['settings'] ?? null);
+            // What an extension declared for its field (the number of decimals) outlives the form's settings.
+            if ($record->source === ParticipantFieldRecord::SOURCE_EXTENSION && is_array($declared)) {
+                $record->settings = ($record->settings ?? []) + ['declared' => $declared];
+            }
+            // An extension field's options are its declarer's: a form offers a subset of them, never adds one
+            // (`SharedKeyCheck`'s `extension_option`). [UNAPPROVED, #200 N9]
+            if ($record->source !== ParticipantFieldRecord::SOURCE_EXTENSION) {
+                $record->options = self::merged(
+                    $record->options,
+                    $field['options'],
+                    $record->source === ParticipantFieldRecord::SOURCE_FORM,
+                    $now,
+                );
+            }
             $this->save($record, $before, $now, $context);
         }
 
@@ -177,6 +202,17 @@ final class DeclareParticipantFields implements AdminUseCase
         }
         $record->updatedAt = $now;
         $this->repository->upsert($record, $context);
+    }
+
+    /**
+     * The type's settings as stored: an empty or null object is none.
+     *
+     * @param mixed $settings
+     * @return ?array<string, mixed>
+     */
+    private static function settings(mixed $settings): ?array
+    {
+        return is_array($settings) && $settings !== [] ? $settings : null;
     }
 
     /**
