@@ -67,6 +67,8 @@ final class StaffTierPlacementTest extends PriceLadderTestCase
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names it
     public function tear_down(): void
     {
+        // A queued confirmed mail schedules the sender; leave no event behind for other tests.
+        wp_unschedule_hook(\Kalaka\Mail\Api\MailQueue::SEND_HOOK);
         Runner::publish($this->production);
         wp_set_current_user(0);
         Access::forget();
@@ -239,6 +241,39 @@ final class StaffTierPlacementTest extends PriceLadderTestCase
 
         self::assertTrue($confirmations->isConfirmed($anna));
         self::assertSame('20000', $this->balance($anna));
+    }
+
+    public function testACheaperTierOnAnUnconfirmedRegistrationThatHasPaidEnoughConfirmsItAndQueuesTheMail(): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'confirmed',
+            'version' => 1,
+            'enabled' => 1,
+            'layout' => 1,
+        ]);
+        $anna = $this->choosing('00A2', 'teljes');
+        $this->pay($anna, '49500');
+        $confirmations = new Confirmations();
+        self::assertFalse($confirmations->isConfirmed($anna));
+        self::assertSame(0, $this->deliveryCount());
+
+        $this->edit($anna, 'alap', ['expected' => 'teljes']);
+
+        self::assertTrue($confirmations->isConfirmed($anna));
+        self::assertSame('0', $this->balance($anna));
+        self::assertSame(1, $this->deliveryCount(), 'The „Jelentkezés véglegesítve” mail is queued.');
+    }
+
+    private function deliveryCount(): int
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM %i WHERE mail = 'confirmed'",
+            $wpdb->prefix . 'kalaka_deliveries'
+        ));
     }
 
     public function testClearingTheTierIsRefusedByTheLaddersStaffTextAndNothingIsWritten(): void
