@@ -24,7 +24,7 @@ use Kalaka\Registrations\Api\SeatPool;
  * component caps it (Q-B0-8). It reads only the registration's field values and the event's settings. Once
  * `aid_can_pay` is emptied the request is gone, so the award stays on its line with no way to answer until
  * additional-form edits arrive.
- * [UNAPPROVED N115, N116, N117, N124]
+ * [UNAPPROVED N115, N116, N117, N124, N363]
  */
 final class AidRequests implements RequestSource
 {
@@ -52,6 +52,12 @@ final class AidRequests implements RequestSource
         return $settings === null ? [] : [new Request(self::ID, RequestKind::Aid, $settings->label)];
     }
 
+    /** The award is the truth: empty is awaiting, `0` is a refusal, an amount is granted. [UNAPPROVED N363] */
+    public function isAnswered(Request $request, array $values): bool
+    {
+        return ($values[AidComponent::AWARD_FIELD] ?? '') !== '';
+    }
+
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
         return null;
@@ -71,6 +77,12 @@ final class AidRequests implements RequestSource
         if (strlen(explode('.', $award)[0]) > self::MAX_INTEGER_DIGITS) {
             throw new InvalidInput();
         }
-        $this->registrations->writeValue($registration, AidComponent::AWARD_FIELD, $award, $context);
+        $this->registrations->writeValue(
+            $registration,
+            AidComponent::AWARD_FIELD,
+            $award,
+            $context,
+            SetAid::DECLARER
+        );
     }
 }

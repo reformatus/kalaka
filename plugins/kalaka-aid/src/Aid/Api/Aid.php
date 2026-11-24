@@ -9,6 +9,7 @@ use Kalaka\Aid\AidSettingsRepository;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 
 /**
  * The event's adjudicated aid for every other module and the settings screen (S72): the label the organizers gave
@@ -35,8 +36,9 @@ final class Aid
      * event's aid off.
      *
      * @throws NotFound when there is no such event
-     * @throws InvalidInput when the label is not valid or is „Kedvezmény”, or a field key aid needs is held by
-     *     another field; `kalaka/set-aid` checks its schema again
+     * @throws InvalidInput when the label is not valid or is „Kedvezmény”; `kalaka/set-aid` checks its schema again
+     * @throws RuleViolation when a field key aid needs is held by a field it may not declare [UNAPPROVED N361]
+     *     (`ParticipantFields::checkDeclarable()`: a staff or system field, another type, another declarer)
      */
     public function propose(int $eventId, ?string $label): ProposedAid
     {
@@ -50,7 +52,7 @@ final class Aid
             }
             $this->input->assertLabelAllowed($trimmed);
             $label = $trimmed;
-            $this->input->assertKeysFree($eventId);
+            $this->input->checkKeysDeclarable($eventId);
         }
 
         return new ProposedAid($label, ['event_id' => $eventId, 'label' => $label]);
