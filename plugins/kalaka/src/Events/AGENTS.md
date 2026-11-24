@@ -38,3 +38,15 @@ Events is events, their states, timeline points, date types, capacity and the
   `kalaka/reopen-event` write the latch.
 - Only a published event takes the full latch.
 - `currency` is `utf8mb4_nopad_bin`: compared exactly.
+- The payment and account settings (`account_mode`, `payment_due_days`, the three
+  transfer texts) are written only by `kalaka/update-event`, as optional keys; the
+  readers take the texts as entered, so no shape beyond the column's length is checked.
+- A change of the account mode to one with accounts is refused while a published
+  registration form of the event lacks the account block
+  ([Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation)).
+  The forms are read before the run (`Api\Events::update()`; a use case reads no
+  post) and the broken-form list is refreshed after it.
+- `wp kalaka event` (`Cli/`) is a thin entry point: it changes only through the
+  module's use cases, as the command line or as WP-CLI's `--user`, and prints a use
+  case's own refusal. Nothing it does re-evaluates a registration, so it asks nothing
+  except that `archive` (read-only for good) needs `--yes`.

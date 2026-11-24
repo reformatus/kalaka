@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
@@ -121,6 +123,45 @@ final class Forms
         bool $loggedIn
     ): array {
         return EventFormHost::refusalsOf($form, $event, $now, $roles, $passwordGiven, $loggedIn);
+    }
+
+    /**
+     * The published registration forms of the event that hold no account block, though the given account mode
+     * wants one (`EventFormHost::stepFor()`): what a change of the event's account mode to that mode is
+     * refused for (events-and-forms.md, "Forms implementation"). A form that does not parse is left out, as it
+     * is closed and named in the broken-form warning already. Reads WordPress posts, so it runs before a use
+     * case's transaction.
+     *
+     * @return list<int> the forms' IDs, ascending
+     */
+    public function withoutAccountBlock(int $eventId, AccountMode $mode): array
+    {
+        $lacking = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            $form = $this->form($post->ID);
+            if ($form === null || EventFormHost::stepFor($form->placement, $mode) === null) {
+                continue;
+            }
+            try {
+                $definition = $this->definition($form);
+            } catch (SystemFailure) {
+                continue;
+            }
+            if ($definition->account === null) {
+                $lacking[] = $post->ID;
+            }
+        }
+
+        return $lacking;
+    }
+
+    /**
+     * Recomputes the broken-form list, which reads each event's account mode: after a mode changed. A plain
+     * option write, so it runs after the use case has committed.
+     */
+    public function refreshBrokenList(): void
+    {
+        BrokenForms::refresh();
     }
 
     /**

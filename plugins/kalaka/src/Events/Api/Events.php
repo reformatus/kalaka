@@ -6,12 +6,17 @@ namespace Kalaka\Events\Api;
 
 use Kalaka\Events\EventQuery;
 use Kalaka\Events\EventRepository;
+use Kalaka\Events\UpdateEvent;
+use Kalaka\Forms\Api\Forms;
+use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\UseCase\Runner;
 
 final class Events
 {
     public function __construct(
         private readonly EventRepository $repository = new EventRepository(),
         private readonly EventQuery $query = new EventQuery(),
+        private readonly ?Runner $runner = null,
     ) {
     }
 
@@ -29,5 +34,39 @@ final class Events
     public function published(): array
     {
         return $this->query->published();
+    }
+
+    /**
+     * Every event in any state, ascending by id, in one statement.
+     *
+     * @return list<Event>
+     */
+    public function all(): array
+    {
+        return $this->query->all();
+    }
+
+    /**
+     * Replaces the editable record of an event (`kalaka/update-event`; the input is passed on as given). When
+     * the input gives an account mode with accounts, the event's published registration forms are read first
+     * and passed in, so the use case refuses a mode that would leave one without its account block; after the
+     * run the broken-form list is refreshed when the mode was given, as it reads the mode.
+     *
+     * @param array<string, mixed> $input
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
+     */
+    public function update(array $input, Actor $actor): void
+    {
+        $mode = is_string($input['account_mode'] ?? null) ? AccountMode::tryFrom($input['account_mode']) : null;
+        $forms = new Forms();
+        $lacking = $mode === null || $mode === AccountMode::Off || !is_int($input['id'] ?? null)
+            ? []
+            : $forms->withoutAccountBlock($input['id'], $mode);
+
+        ($this->runner ?? Runner::current())->run(new UpdateEvent(formsWithoutAccountBlock: $lacking), $input, $actor);
+
+        if ($mode !== null) {
+            $forms->refreshBrokenList();
+        }
     }
 }
