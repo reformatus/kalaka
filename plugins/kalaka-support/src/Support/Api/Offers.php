@@ -7,8 +7,10 @@ namespace Kalaka\Support\Api;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Support\Directory\NodeRepository;
+use Kalaka\Support\Offers\OfferChangeGuard;
 use Kalaka\Support\Offers\OfferRecord;
 use Kalaka\Support\Offers\OfferRepository;
 use Kalaka\Support\Offers\OfferSeatPool;
@@ -27,6 +29,7 @@ final class Offers
         private readonly OffersInput $input = new OffersInput(),
         private readonly Seats $seats = new Seats(),
         private readonly NodeRepository $nodes = new NodeRepository(),
+        private readonly OfferChangeGuard $guard = new OfferChangeGuard(),
     ) {
     }
 
@@ -76,6 +79,8 @@ final class Offers
      * @param list<array<string, mixed>> $offers
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the offers are not valid; `kalaka/set-support-offers` checks its schema again
+     * @throws RuleViolation when the save would refuse (`OfferChangeGuard`): the preview and the apply refuse
+     *     before anything is saved
      */
     public function propose(int $eventId, array $offers): ProposedOffers
     {
@@ -87,6 +92,9 @@ final class Offers
         }
         $input = ['event_id' => $eventId, 'currency' => $event->currency->value, 'offers' => $offers];
 
-        return new ProposedOffers($this->input->offers($event, $offers), $input);
+        $proposed = $this->input->offers($event, $offers);
+        $this->guard->checkAgainstStored($eventId, $proposed);
+
+        return new ProposedOffers($proposed, $input);
     }
 }

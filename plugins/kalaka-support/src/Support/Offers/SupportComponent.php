@@ -10,9 +10,12 @@ use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\LineName;
+use Kalaka\Pricing\Api\NamedFeeComponent;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedComponentSettings;
 use Kalaka\Registrations\Api\RegistrationFacts;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Support\Api\Offer;
 use Kalaka\Support\Api\Offers;
@@ -28,7 +31,7 @@ use Kalaka\Support\Api\Offers;
  * line. It reads only the registration's facts, its own current settings (or the proposed ones in a preview)
  * and the seats the registration holds, never a charge line. [UNAPPROVED N96, N97]
  */
-final class SupportComponent implements ConfigurableFeeComponent
+final class SupportComponent implements ConfigurableFeeComponent, NamedFeeComponent
 {
     public const ID = 'support';
 
@@ -78,6 +81,22 @@ final class SupportComponent implements ConfigurableFeeComponent
         }
 
         return $items === [] ? FeeTargets::none() : FeeTargets::ofItems($items);
+    }
+
+    /**
+     * A line is named by its offer's own label, the organizers' text (`LineName::COMPONENT`); a line of an offer
+     * that was removed is left out and reads as „Díj”. [UNAPPROVED N98]
+     */
+    public function lineNames(RegistrationKey $registration, array $items): array
+    {
+        $names = [];
+        foreach ($this->offers->forEvent($registration->eventId) as $record) {
+            if (in_array($record->key, $items, true)) {
+                $names[$record->key] = new LineName(LineName::COMPONENT, $record->label);
+            }
+        }
+
+        return $names;
     }
 
     public function settingsToArray(int $eventId): array

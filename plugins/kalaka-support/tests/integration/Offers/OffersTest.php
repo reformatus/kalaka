@@ -4,7 +4,18 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Support\Offers;
 
+use Kalaka\Admin\Api\RegistrationDetail;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Portal\Api\MoneyRead;
+use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Pricing\Api\FeeComponentInput;
+use Kalaka\Pricing\Api\FeeStage;
+use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ProposedMoneySettings;
+use Kalaka\Ledger\Api\Payer;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Error\RuleViolation;
@@ -151,7 +162,7 @@ final class OffersTest extends OffersTestCase
             ],
             'the answer field first' => [
                 self::offer('egyhaz_answer', '2000'),
-                self::offer('egyhaz', '1000'),
+                self::offer('egyhaz', '1000', request: true),
             ],
             'a key a form field holds' => [self::offer('gyulekezet', '1000')],
             'an answer key a form field holds' => [self::offer('tamogatas', '1000', request: true)],
@@ -216,7 +227,7 @@ final class OffersTest extends OffersTestCase
         self::assertSame('22000', $this->balance($anna));
     }
 
-    public function testALeavingRegistrationReleasesItsOfferSeat(): void
+    public function testReleaseAllFreesAnOfferSeat(): void
     {
         $this->applyOffers([self::offer('keret', '8000', limit: 1)]);
         $key = $this->register('00A0');
@@ -267,6 +278,165 @@ final class OffersTest extends OffersTestCase
             [null, 4],
             array_map(static fn ($offer): ?int => $offer->limit, $this->offers->offers($this->event))
         );
+    }
+
+    public function testTheRefusalOfASelectedOfferIsInThePreviewAndAnApplyThatIsStaleSavesNothing(): void
+    {
+        $this->applyOffers([self::offer('diak', '5000'), self::offer('csalad', '3000')]);
+        $stale = $this->offers->propose($this->event, [self::offer('csalad', '3000')]);
+        $key = $this->registerSelecting('00A0', 'diak');
+
+        // The preview's proposal already refuses.
+        try {
+            $this->offers->propose($this->event, [self::offer('csalad', '3000')]);
+            self::fail('The proposal went through.');
+        } catch (RuleViolation) {
+            self::assertCount(2, $this->offers->offers($this->event));
+        }
+
+        // A proposal made before the selection is refused by the apply before the fixed price is saved.
+        try {
+            $this->settings->apply(
+                $this->event,
+                new ProposedMoneySettings($this->huf('40000'), [$stale]),
+                new CliActor(null)
+            );
+            self::fail('The apply went through.');
+        } catch (RuleViolation) {
+            self::assertTrue($this->huf('30000')->isEqualTo($this->settings->fixedPrice($this->event) ?? $this->huf('0')));
+            self::assertCount(2, $this->offers->offers($this->event));
+            self::assertSame('25000', $this->balance($key));
+        }
+    }
+
+    public function testFlippingTheRequestOfASelectedOfferIsRefusedLikeRemovingItAndAnUnselectedOneCanFlip(): void
+    {
+        $this->applyOffers([
+            self::offer('egyhaz', '10000', request: true),
+            self::offer('diak', '5000'),
+            self::offer('szabad', '1000'),
+        ]);
+        $anna = $this->registerSelecting('00A0', 'egyhaz', 'diak');
+        $this->answer($anna, 'egyhaz', 'no');
+        self::assertSame('25000', $this->balance($anna));
+
+        // true -> false would turn Anna's refusal into support; false -> true would take a line from her.
+        foreach (
+            [
+                [self::offer('egyhaz', '10000'), self::offer('diak', '5000'), self::offer('szabad', '1000')],
+                [
+                    self::offer('egyhaz', '10000', request: true),
+                    self::offer('diak', '5000', request: true),
+                    self::offer('szabad', '1000'),
+                ],
+            ] as $offers
+        ) {
+            try {
+                $this->applyOffers($offers);
+                self::fail('The save went through.');
+            } catch (RuleViolation) {
+                self::assertSame('25000', $this->balance($anna));
+            }
+        }
+
+        $report = $this->applyOffers([
+            self::offer('egyhaz', '10000', request: true),
+            self::offer('diak', '5000'),
+            self::offer('szabad', '1000', request: true),
+        ]);
+        self::assertSame([], $report->failed());
+    }
+
+    public function testASupportLineIsNamedByItsOffersOwnLabelOnTheParticipantAndTheAdminSide(): void
+    {
+        $this->applyOffers([self::offer('diak', '5000')]);
+        $key = $this->registerSelecting('00A0', 'diak');
+        $label = 'Teszt támogatás diak';
+
+        $labels = array_map(
+            static fn ($row): string => $row->label,
+            (new MoneyRead())->of($key, Currency::HUF)->owed
+        );
+        self::assertContains($label, $labels);
+        self::assertNotContains('Díj', $labels);
+
+        $read = (new RegistrationDetail())->of(new SystemActor(), $this->event, $key->code);
+        $support = array_values(array_filter(
+            $read['money']['lines'],
+            static fn (array $line): bool => $line['kind_label'] === $label
+        ));
+        self::assertCount(1, $support);
+        self::assertSame('component', $support[0]['type']);
+        self::assertSame('-5000', rtrim(rtrim($support[0]['amount'], '0'), '.'));
+    }
+
+    public function testTheAnswerFieldTitleDropsATrailingColonOrSpaceOfTheLabel(): void
+    {
+        $this->applyOffers([['label' => 'Kérsz támogatást: '] + self::offer('egyhaz', '10000', request: true)]);
+
+        foreach ((new ParticipantFields())->of($this->event) as $field) {
+            if ($field->key === 'egyhaz_answer') {
+                self::assertSame('Kérsz támogatást: válasz', $field->title);
+
+                return;
+            }
+        }
+        self::fail('The answer field is not declared.');
+    }
+
+    public function testAnOfferThatNeedsNoRequestMayHoldAKeyThatLooksLikeAnAnswerKey(): void
+    {
+        $this->declareParticipantField($this->event, 'diak_answer');
+
+        $report = $this->applyOffers([self::offer('diak', '5000')]);
+
+        self::assertSame([], $report->failed());
+    }
+
+    public function testSupportIsComposedBeforeAShareOfTheBasePriceAndNothingGoesBelowZero(): void
+    {
+        $this->useComponents($this->shareStandIn('20000'));
+        $this->applyOffers([self::offer('nagy', '25000')]);
+        $anna = $this->registerSelecting('00A0', 'nagy');
+        $bela = $this->register('00A2');
+
+        // The base after support is 5 000: the share finds that much left, never more.
+        self::assertSame('0', $this->balance($anna));
+        self::assertSame(['support:nagy participant -25000'], $this->lineSources($anna));
+        // Without support the share takes 20 000 of 30 000.
+        self::assertSame('10000', $this->balance($bela));
+    }
+
+    /** A stand-in for the share (S29, unbuilt): `min(share, base after support)` off the participant's fee. */
+    private function shareStandIn(string $amount): FeeComponent
+    {
+        $share = $this->huf($amount);
+
+        return new class ($share) implements FeeComponent {
+            public function __construct(private readonly Money $share)
+            {
+            }
+
+            public function id(): string
+            {
+                return 'share_standin';
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Share;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                $left = $input->before->total(Payer::PARTICIPANT);
+                $taken = $this->share->isGreaterThan($left) ? $left : $this->share;
+
+                return $taken->isPositive()
+                    ? FeeTargets::ofItems(['share' => [Payer::PARTICIPANT => $taken->negated()]])
+                    : FeeTargets::none();
+            }
+        };
     }
 
     public function testTheSaveDeclaresTheOffersConsentFieldAndItsAnswerFieldByKey(): void

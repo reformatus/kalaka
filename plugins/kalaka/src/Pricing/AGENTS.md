@@ -30,7 +30,8 @@ retention and the materializer
 - Rules never read charge lines. Only `Api\Materializer` calls
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
   `FeeComponentInput` (facts, earlier-stage totals, the event's currency) and
-  reads its own current settings, never lines.
+  reads its own current settings and the seat facts (`Registrations\Api\Seats`),
+  never lines.
 - Lines of components not registered now are never touched. A line of a
   registered component that the composition no longer names (a withdrawal)
   owes zero, so the materializer reverses it. A component that owes per item
