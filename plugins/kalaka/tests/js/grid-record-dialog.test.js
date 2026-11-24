@@ -97,7 +97,7 @@ let host;
 let root;
 let done;
 
-async function render( can, mode = 'entry', moneyRead = money, status = 'registered' ) {
+async function render( can, mode = 'entry', moneyRead = money ) {
 	host = document.createElement( 'div' );
 	document.body.appendChild( host );
 	root = createRoot( host );
@@ -108,7 +108,6 @@ async function render( can, mode = 'entry', moneyRead = money, status = 'registe
 				config: { timezone: 'Europe/Budapest', rest: '', event: 1 },
 				mode,
 				can,
-				status,
 				code: 'X1',
 				money: moneyRead,
 				onClose: () => {},
@@ -161,38 +160,43 @@ afterEach( async () => {
 	}
 } );
 
-const ALL = { record_money: true };
+const ALL = { record_money: true, record_charge: true, record_discount: true };
+const MONEY_ONLY = { record_money: true };
 
 describe( 'the types the dialog offers', () => {
-	test( 'on today\'s server there are only „Befizetés” and „Visszafizetés”, none preselected', async () => {
-		await render( { record_payment: true, record_refund: true, record_correction: true } );
+	test( 'with only the money-recording flag there are „Befizetés” and „Visszafizetés”, none preselected', async () => {
+		await render( MONEY_ONLY );
 		expect( typeRadios().map( ( r ) => r.value ) ).toEqual( [ 'payment', 'refund' ] );
 		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés' ] );
 		expect( typeRadios().some( ( r ) => r.checked ) ).toBe( false );
 	} );
 
-	test( 'the money-recording permission offers all four, none preselected', async () => {
+	test( 'the three money flags offer all four, none preselected', async () => {
 		await render( ALL );
 		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés', 'Díj', 'Kedvezmény' ] );
 		expect( typeRadios().some( ( r ) => r.checked ) ).toBe( false );
 	} );
 
-	test( 'Díj and Kedvezmény are not offered on a registration that is not registered', async () => {
-		await render( ALL, 'entry', money, 'waitlisted' );
-		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés' ] );
+	test( 'the server\'s flags decide: a row with record_charge false offers no Díj, record_discount false no Kedvezmény', async () => {
+		await render( { ...ALL, record_charge: false } );
+		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés', 'Kedvezmény' ] );
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { ...ALL, record_discount: false } );
+		expect( typeLabels() ).toEqual( [ 'Befizetés', 'Visszafizetés', 'Díj' ] );
 	} );
 
 	test( 'exactly one offered type is preselected', async () => {
-		await render( { record_payment: true } );
-		expect( typeRadios().map( ( r ) => [ r.value, r.checked ] ) ).toEqual( [ [ 'payment', true ] ] );
+		await render( { record_charge: true } );
+		expect( typeRadios().map( ( r ) => [ r.value, r.checked ] ) ).toEqual( [ [ 'charge', true ] ] );
 		await act( async () => root.unmount() );
 		host.remove();
-		await render( { record_refund: true } );
-		expect( typeRadios().map( ( r ) => [ r.value, r.checked ] ) ).toEqual( [ [ 'refund', true ] ] );
+		await render( { record_discount: true } );
+		expect( typeRadios().map( ( r ) => [ r.value, r.checked ] ) ).toEqual( [ [ 'discount', true ] ] );
 	} );
 
 	test( 'a holder of none is offered no type', async () => {
-		await render( { record_payment: false, record_refund: false } );
+		await render( { record_money: false, record_charge: false, record_discount: false } );
 		expect( typeRadios() ).toEqual( [] );
 	} );
 
@@ -313,7 +317,7 @@ describe( '„Azonnal befizetve” / „Azonnal visszafizetve”', () => {
 	} );
 
 	test( 'a holder who is not offered Díj or Kedvezmény never sees it', async () => {
-		await render( { record_payment: true, record_refund: true } ); // today's server
+		await render( MONEY_ONLY );
 		await pick( typeRadios()[ 0 ] );
 		expect( checkbox() ).toBeNull();
 	} );
@@ -471,7 +475,7 @@ describe( 'the note fields carry the participant-visible hint (topic 11, T36)', 
 	} );
 
 	test( 'Indoklás of the Korrekció, also while its message shows', async () => {
-		await render( { record_correction: true }, 'correction' );
+		await render( MONEY_ONLY, 'correction' );
 		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
 		await pick( radios( MONEY.directionField )[ 0 ] );
 		await setValue( field( MONEY.amountField ), '500' );
@@ -516,7 +520,7 @@ describe( 'the preview: „Tartozás”', () => {
 
 describe( 'the Korrekció dialog', () => {
 	test( 'its direction is „Befizetett összeg növelése” / „Befizetett összeg csökkentése”, with no default', async () => {
-		await render( { record_correction: true }, 'correction' );
+		await render( MONEY_ONLY, 'correction' );
 		const dir = radios( MONEY.directionField );
 		expect( dir.map( ( r ) => r.parentElement.textContent.trim() ) ).toEqual( [
 			'Befizetett összeg növelése',
@@ -529,7 +533,7 @@ describe( 'the Korrekció dialog', () => {
 	} );
 
 	test( 'a correction out raises „Tartozás” in the preview, one in lowers it; „Válassz irányt.” without one', async () => {
-		await render( { record_correction: true }, 'correction' );
+		await render( MONEY_ONLY, 'correction' );
 		await setValue( field( MONEY.amountField ), '10 000' );
 		await submit();
 		expect( host.textContent ).toContain( 'Válassz irányt.' );
@@ -540,7 +544,7 @@ describe( 'the Korrekció dialog', () => {
 	} );
 
 	test( 'it records through kalaka/record-correction with its reason', async () => {
-		await render( { record_correction: true }, 'correction' );
+		await render( MONEY_ONLY, 'correction' );
 		await pick( radios( MONEY.directionField )[ 0 ] );
 		await setValue( field( MONEY.amountField ), '500' );
 		await setValue( field( MONEY.reasonField ), 'Téves összeg' );

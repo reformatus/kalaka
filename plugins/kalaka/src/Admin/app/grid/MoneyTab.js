@@ -21,12 +21,11 @@ const SNACKBAR_MS = 5000;
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.money   the read's money part
  * @param {Object}   props.can     the read's `can`
- * @param {string}   props.status  the registration's status (Díj and Kedvezmény only while `registered`)
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {boolean}  props.stale   the last re-read failed: the figures are hidden, the snackbar stays
  * @param {Function} props.onSaved tells the grid an entry was saved
  */
-export default function MoneyTab( { config, code, money, can, status, reload, stale, onSaved } ) {
+export default function MoneyTab( { config, code, money, can, reload, stale, onSaved } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -123,9 +122,9 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 				</table>
 			</div>
 			{ /* Two buttons, „Tétel rögzítése” and the correction's own, for the owner's G12. [UNAPPROVED N14] [UNAPPROVED T17] */ }
-			{ ( allowedTypes( can, status ).length > 0 || canCorrect( can ) ) && (
+			{ ( allowedTypes( can ).length > 0 || canCorrect( can ) ) && (
 				<div className="kg-actions">
-					{ allowedTypes( can, status ).length > 0 && (
+					{ allowedTypes( can ).length > 0 && (
 						<Button variant="primary" onClick={ ( e ) => open( 'entry', e ) }>
 							{ MONEY.recordEntry }
 						</Button>
@@ -194,7 +193,6 @@ export default function MoneyTab( { config, code, money, can, status, reload, st
 					config={ config }
 					mode={ dialog }
 					can={ can }
-					status={ status }
 					code={ code }
 					money={ money }
 					onClose={ close }

@@ -60,9 +60,9 @@ export const formatBalance = ( value, currency ) => formatBalanceMinor( toMinor(
  * this block, so Backend's rework changes one place. #209's head is not pushed yet, so the panel is built
  * against today's server and tested with stubs. The new read gives each line `type` (`fee`, `manual_charge`,
  * `manual_discount`, `component`, `payment`, `refund`, `manual_payment`, `manual_refund`), `side` (`owed` or
- * `paid`) and `title` (set on manual rows only), and `can.record_money` replaces `can.record_payment`,
- * `can.record_refund` and `can.record_correction`. Until it lands today's read has `kind` (and `kind_label`) and
- * the three old flags, and the panel falls back to them.
+ * `paid`) and `title` (set on manual rows only). `can.record_money`, `can.record_charge` and
+ * `can.record_discount` are the money flags. Until it lands today's read has `kind` (and `kind_label`), and the
+ * panel falls back to it for the line's type.
  */
 
 /** The kinds on the paid side: money that moved. Every other kind (the fee, a manual charge or discount, a named
@@ -108,30 +108,27 @@ export function typeWord( line ) {
 export const lineNote = ( line ) => line.title || line.note || '';
 
 /**
- * The types the „Tétel rögzítése” dialog offers, in the fixed order. The one money-recording permission
- * (`can.record_money`) offers all four, but Díj and Kedvezmény only while the registration is `registered`
- * (Backend boxes that for the owner). TEMPORARY, until #209 lands: today's server sends `can.record_payment`
- * and `can.record_refund`, which offer Befizetés and Visszafizetés only.
+ * The types the „Tétel rögzítése” dialog offers, in the fixed order. The server's `can` decides each one:
+ * Befizetés and Visszafizetés from `can.record_money`, Díj from `can.record_charge` and Kedvezmény from
+ * `can.record_discount` (the server sends the last two true only while the registration is registered and the
+ * holder may record money). The client keeps no status logic.
  *
- * @param {Object} can    the read's `can`
- * @param {string} status the registration's status (`registered`, …)
+ * @param {Object} can the read's `can`
  */
-export function allowedTypes( can, status ) {
+export function allowedTypes( can ) {
 	const c = can || {};
-	const owed = !! c.record_money && status === 'registered';
 	return [
-		[ 'payment', c.record_money || c.record_payment ],
-		[ 'refund', c.record_money || c.record_refund ],
-		[ 'charge', owed ],
-		[ 'discount', owed ],
+		[ 'payment', c.record_money ],
+		[ 'refund', c.record_money ],
+		[ 'charge', c.record_charge ],
+		[ 'discount', c.record_discount ],
 	]
 		.filter( ( [ , on ] ) => !! on )
 		.map( ( [ type ] ) => type );
 }
 
-/** Whether the „Korrekció rögzítése” button is offered: the money-recording permission, or (temporary, today's
- * server) its own old flag. */
-export const canCorrect = ( can ) => !! ( can && ( can.record_money || can.record_correction ) );
+/** Whether the „Korrekció rögzítése” button is offered: the money-recording permission. */
+export const canCorrect = ( can ) => !! ( can && can.record_money );
 
 /** The ability each kind of entry runs. */
 export const ABILITIES = {
@@ -145,7 +142,7 @@ export const ABILITIES = {
 };
 
 /**
- * The ability and its input for one entry, with `can` and the registration's status checked first: a type the
+ * The ability and its input for one entry, with `can` checked first: a type the
  * read does not allow is never called. `completed` makes the call also record the matching paid-side line (a
  * Befizetés for a Díj, a Visszafizetés for a Kedvezmény), its method, value date and Közlemény (`note`). The two
  * rows have no link.
@@ -154,11 +151,10 @@ export const ABILITIES = {
  * @param {Object} entry  { kind, code, currency, payer, amount, valueDate, method, note, direction, title,
  *                        completed, key }; with `completed`, `note` is the paid-side line's „Közlemény”
  * @param {Object} can    the read's `can`
- * @param {string} status the registration's status
  */
-export function buildCall( event, entry, can, status ) {
+export function buildCall( event, entry, can ) {
 	const { kind } = entry;
-	const allowed = kind === 'correction' ? canCorrect( can ) : allowedTypes( can, status ).includes( kind );
+	const allowed = kind === 'correction' ? canCorrect( can ) : allowedTypes( can ).includes( kind );
 	if ( ! allowed ) {
 		throw new Error( 'not allowed: ' + kind );
 	}

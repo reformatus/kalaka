@@ -38,20 +38,19 @@ function newKey() {
  * @param {Object}   props.config  window.kalakaGrid
  * @param {string}   props.mode    'entry' (a payment, a refund, a charge or a discount) or 'correction'
  * @param {Object}   props.can     the read's `can`: which types may be recorded (`allowedTypes`), and the correction
- * @param {string}   props.status  the registration's status (Díj and Kedvezmény only while `registered`)
  * @param {string}   props.code    the registration's code
  * @param {Object}   props.money   the read's money part
  * @param {Function} props.onClose closes the dialog
  * @param {Function} props.onDone  called with the snackbar text once the entry is saved
  */
-export default function RecordDialog( { config, mode, can, status, code, money, onClose, onDone } ) {
+export default function RecordDialog( { config, mode, can, code, money, onClose, onDone } ) {
 	const several = money.payers.length > 1;
 	// A refund uses the same methods as a payment, the card terminal included (the owner's ruling 2026-11-19).
 	const methods = money.methods;
 	const correction = mode === 'correction';
 	// The types the dialog offers by the holder's grants; none is the default unless exactly one is allowed.
 	// [UNAPPROVED N40]
-	const types = allowedTypes( can, status );
+	const types = allowedTypes( can );
 	const [ type, setType ] = useState( () => ( types.length === 1 ? types[ 0 ] : '' ) );
 	const [ direction, setDirection ] = useState( '' ); // the correction's, 'in' or 'out'
 	// A correction is its own kind; an entry's kind is the type the user picked.
@@ -146,7 +145,7 @@ export default function RecordDialog( { config, mode, can, status, code, money, 
 		}
 		setBusy( true );
 		try {
-			await api.recordEntry( config, { ...entry, key: attempt.current.key }, can, status );
+			await api.recordEntry( config, { ...entry, key: attempt.current.key }, can );
 			await onDone( savedText( kind, paired ) );
 		} catch {
 			// Whatever the server refused or lost, the dialog stays with the values. [UNAPPROVED N22]

@@ -135,7 +135,6 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 							money={ detail.money }
 							stale={ stale }
 							can={ detail.can }
-							status={ registration.status }
 							reload={ reload }
 							onSaved={ onSaved }
 						/>

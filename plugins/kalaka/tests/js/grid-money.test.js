@@ -267,51 +267,52 @@ describe( '„Tartozás” before and after', () => {
 
 describe( 'which types the „Tétel rögzítése” dialog offers', () => {
 	const ALL4 = [ 'payment', 'refund', 'charge', 'discount' ];
+	const money = { record_money: true, record_charge: true, record_discount: true };
 
-	test( 'the one money-recording permission offers all four types on a registered registration', () => {
-		expect( allowedTypes( { record_money: true }, 'registered' ) ).toEqual( ALL4 );
+	test( 'the server\'s flags offer all four types', () => {
+		expect( allowedTypes( money ) ).toEqual( ALL4 );
 	} );
 
-	test( 'Díj and Kedvezmény are offered only while the registration is registered', () => {
-		[ 'waitlisted', 'withdrawn', 'removed', 'pending', '', undefined ].forEach( ( status ) => {
-			expect( allowedTypes( { record_money: true }, status ) ).toEqual( [ 'payment', 'refund' ] );
-		} );
+	test( 'a registered row with record_charge false offers no Díj, with record_discount false no Kedvezmény', () => {
+		expect( allowedTypes( { ...money, record_charge: false } ) ).toEqual( [ 'payment', 'refund', 'discount' ] );
+		expect( allowedTypes( { ...money, record_discount: false } ) ).toEqual( [ 'payment', 'refund', 'charge' ] );
+		expect( allowedTypes( { record_money: true } ) ).toEqual( [ 'payment', 'refund' ] );
 	} );
 
-	test( 'TEMPORARY: today\'s server\'s old flags offer Befizetés and Visszafizetés only, never Díj or Kedvezmény', () => {
-		expect( allowedTypes( { record_payment: true }, 'registered' ) ).toEqual( [ 'payment' ] );
-		expect( allowedTypes( { record_refund: true }, 'registered' ) ).toEqual( [ 'refund' ] );
-		expect( allowedTypes( { record_payment: true, record_refund: true, record_correction: true }, 'registered' ) ).toEqual( [
-			'payment',
-			'refund',
-		] );
-		expect( allowedTypes( { record_correction: true }, 'registered' ) ).toEqual( [] );
+	test( 'Díj and Kedvezmény follow only their own flags, whatever the rest says', () => {
+		expect( allowedTypes( { record_charge: true } ) ).toEqual( [ 'charge' ] );
+		expect( allowedTypes( { record_discount: true } ) ).toEqual( [ 'discount' ] );
 	} );
 
-	test( 'every combination of the old flags and the new one offers exactly the right types', () => {
-		const flags = [ 'record_payment', 'record_refund', 'record_money' ];
+	test( 'the old flags are not read', () => {
+		expect( allowedTypes( { record_payment: true, record_refund: true, record_correction: true } ) ).toEqual( [] );
+	} );
+
+	test( 'every combination of the three flags offers exactly the right types', () => {
+		const flags = [ 'record_money', 'record_charge', 'record_discount' ];
 		for ( let mask = 0; mask < 8; mask++ ) {
 			const can = {};
 			flags.forEach( ( f, i ) => {
 				can[ f ] = !! ( mask & ( 1 << i ) );
 			} );
-			const money = !! ( mask & 4 );
-			expect( allowedTypes( can, 'registered' ) ).toEqual(
-				ALL4.filter( ( t, i ) => ( i < 2 ? money || !! ( mask & ( 1 << i ) ) : money ) )
+			const m = !! ( mask & 1 );
+			expect( allowedTypes( can ) ).toEqual(
+				ALL4.filter( ( t ) => ( { payment: m, refund: m, charge: can.record_charge, discount: can.record_discount }[ t ] ) )
 			);
 		}
 	} );
 
 	test( 'a holder of none is offered nothing', () => {
-		expect( allowedTypes( {}, 'registered' ) ).toEqual( [] );
-		expect( allowedTypes( undefined, 'registered' ) ).toEqual( [] );
-		expect( allowedTypes( { record_money: false }, 'registered' ) ).toEqual( [] );
+		expect( allowedTypes( {} ) ).toEqual( [] );
+		expect( allowedTypes( undefined ) ).toEqual( [] );
+		expect( allowedTypes( { record_money: false } ) ).toEqual( [] );
 	} );
 
-	test( 'the correction is allowed by the money-recording permission or, temporarily, its old flag', () => {
+	test( 'the correction is allowed by the money-recording permission only', () => {
 		expect( canCorrect( { record_money: true } ) ).toBe( true );
-		expect( canCorrect( { record_correction: true } ) ).toBe( true );
+		expect( canCorrect( { record_correction: true } ) ).toBe( false );
 		expect( canCorrect( { record_payment: true } ) ).toBe( false );
+		expect( canCorrect( { record_charge: true } ) ).toBe( false );
 		expect( canCorrect( undefined ) ).toBe( false );
 	} );
 } );
@@ -330,22 +331,21 @@ describe( 'the call for each kind of entry', () => {
 		completed: false,
 		key: 'ui-k',
 	};
-	const all = { record_money: true };
-	const reg = 'registered';
+	const all = { record_money: true, record_charge: true, record_discount: true };
 
 	test( 'a charge or a discount is never called unless the read declares it', () => {
 		const old = { record_payment: true, record_refund: true, record_correction: true };
-		expect( () => buildCall( 7, { ...entry, kind: 'charge', title: 'X' }, old, reg ) ).toThrow();
-		expect( () => buildCall( 7, { ...entry, kind: 'discount', title: 'X' }, old, reg ) ).toThrow();
-		// Not on a registration that is not registered.
-		expect( () => buildCall( 7, { ...entry, kind: 'charge', title: 'X' }, all, 'waitlisted' ) ).toThrow();
-		expect( () => buildCall( 7, { ...entry, kind: 'discount', title: 'X' }, all, undefined ) ).toThrow();
-		expect( () => buildCall( 7, { ...entry, kind: 'payment' }, {}, reg ) ).toThrow();
-		expect( () => buildCall( 7, { ...entry, kind: 'correction', direction: 'in', note: 'x' }, {}, reg ) ).toThrow();
+		expect( () => buildCall( 7, { ...entry, kind: 'charge', title: 'X' }, old ) ).toThrow();
+		expect( () => buildCall( 7, { ...entry, kind: 'discount', title: 'X' }, old ) ).toThrow();
+		// The server's flags decide: a row whose read says no is never called.
+		expect( () => buildCall( 7, { ...entry, kind: 'charge', title: 'X' }, { record_money: true } ) ).toThrow();
+		expect( () => buildCall( 7, { ...entry, kind: 'discount', title: 'X' }, { record_money: true, record_charge: true } ) ).toThrow();
+		expect( () => buildCall( 7, { ...entry, kind: 'payment' }, {} ) ).toThrow();
+		expect( () => buildCall( 7, { ...entry, kind: 'correction', direction: 'in', note: 'x' }, {} ) ).toThrow();
 	} );
 
 	test( 'a charge and a discount carry a title and no method or date', () => {
-		expect( buildCall( 7, { ...entry, kind: 'charge', title: 'Pótdíj' }, all, reg ) ).toEqual( {
+		expect( buildCall( 7, { ...entry, kind: 'charge', title: 'Pótdíj' }, all ) ).toEqual( {
 			ability: 'kalaka/record-charge',
 			input: {
 				event_id: 7,
@@ -357,7 +357,7 @@ describe( 'the call for each kind of entry', () => {
 				title: 'Pótdíj',
 			},
 		} );
-		expect( buildCall( 7, { ...entry, kind: 'discount', title: 'Elengedés' }, all, reg ).ability ).toBe(
+		expect( buildCall( 7, { ...entry, kind: 'discount', title: 'Elengedés' }, all ).ability ).toBe(
 			'kalaka/record-discount'
 		);
 	} );
@@ -366,8 +366,7 @@ describe( 'the call for each kind of entry', () => {
 		const call = buildCall(
 			7,
 			{ ...entry, kind: 'discount', title: 'Elengedés', completed: true, method: 'transfer', valueDate: '2026-11-21', note: 'Elengedés' },
-			all,
-			reg
+			all
 		);
 		expect( call.ability ).toBe( 'kalaka/record-discount' );
 		expect( call.input ).toMatchObject( {

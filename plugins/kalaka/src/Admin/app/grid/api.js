@@ -133,16 +133,15 @@ export function detailProblem( error ) {
  * Records one entry through the abilities, and answers `{ id }`: a payment (`kalaka/record-payment`), a refund
  * (`kalaka/record-refund`), a correction (`kalaka/record-correction`), or a charge or discount
  * (`kalaka/record-charge`, `kalaka/record-discount`; SEAM, Backend #209's design note §9). Which ability
- * and which input is `buildCall`'s (money.js), which also refuses a type the read's `can` and the registration's
- * status do not allow, so a charge or discount is never called unless it is offered. The idempotency key makes a retry of the same entry
+ * and which input is `buildCall`'s (money.js), which also refuses a type the read's `can` does not allow, so a
+ * charge or discount is never called unless it is offered. The idempotency key makes a retry of the same entry
  * safe.
  *
  * @param {Object} config window.kalakaGrid
  * @param {Object} entry  see `buildCall`
  * @param {Object} can    the read's `can`
- * @param {string} status the registration's status
  */
-export const recordEntry = ( config, entry, can, status ) => {
-	const { ability, input } = buildCall( config.event, entry, can, status );
+export const recordEntry = ( config, entry, can ) => {
+	const { ability, input } = buildCall( config.event, entry, can );
 	return runAbility( ability, input );
 };
