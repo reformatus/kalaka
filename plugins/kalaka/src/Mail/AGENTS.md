@@ -86,7 +86,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   gracefully (a published body keeps its content, another stays unpublished)
   and tells the saving user in an admin notice.
 - The catalogue has six action mails ("answered", keyed by the answer record of Registrations' answer act, is the
-  sixth, and a body may branch on `registration.awaits_answer`, a yes/no choice with no display text).
+  sixth, and a body may branch on `registration.awaits_answer`, a yes/no choice with no display text). The mail
+  context takes `registration.code`, `registration.status` (with its word) and `registration.awaits_answer` from
+  the one source, `Registrations::factsOf()`, and adds only the mail's own keys.
   Admission from the waitlist sends "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.

@@ -12,6 +12,7 @@ use Kalaka\Mail\BodyUnusable;
 use Kalaka\Mail\Body\MailValues;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
@@ -116,7 +117,7 @@ final class MailRendererTest extends MailBodyTestCase
         $event = $this->create();
         $asking = $this->registration($event, '12A3', ['email' => 'teszt@example.test', 'support' => 'church']);
         $plain = $this->registration($event, '00B0');
-        $values = new MailValues(requests: new Requests([new TestRequestSource()]));
+        $values = new MailValues(new Registrations(requests: new Requests([new TestRequestSource()])));
 
         self::assertSame(
             ['yes'],

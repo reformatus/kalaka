@@ -20,7 +20,6 @@ use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
-use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\SecretLinks;
 
 /**
@@ -72,7 +71,6 @@ final class MailValues
         private readonly Forms $forms = new Forms(),
         private readonly Events $events = new Events(),
         private readonly Accounts $accounts = new Accounts(),
-        private readonly Requests $requests = new Requests(),
     ) {
     }
 
@@ -169,6 +167,12 @@ final class MailValues
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
             throw new SystemFailure('no_event ' . $key->eventId);
         }
+        // The registration's own facts (code, status and its word, awaits_answer) come from the one builder.
+        $facts = $this->registrations->factsOf($key, $event);
+        if ($facts === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
+            throw new SystemFailure('no_registration ' . $key->eventId . ' ' . $key->code);
+        }
         $definition = $this->definition($record);
         $email = $this->marked($definition, true);
         $name = $this->marked($definition, false);
@@ -191,14 +195,11 @@ final class MailValues
             ...EventValues::of($event),
             self::RECIPIENT_EMAIL => self::text($email === null ? '' : ($record['values'][$email] ?? '')),
             self::RECIPIENT_NAME => self::text($name === null ? '' : ($record['values'][$name] ?? '')),
-            self::CODE => self::text($key->code),
-            self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
+            self::CODE => $facts->get(RegistrationFacts::CODE),
+            self::STATUS => $facts->get(RegistrationFacts::STATUS),
             self::LINK => self::text($link),
             self::FROM_WAITLIST => Value::choice(['no'], ''),
-            self::AWAITS_ANSWER => Value::choice(
-                [$this->requests->awaits($key, $record['status']) ? 'yes' : 'no'],
-                ''
-            ),
+            self::AWAITS_ANSWER => $facts->get(RegistrationFacts::AWAITS_ANSWER),
             self::ACCOUNT_UNVERIFIED => $unverified === null
                 ? Value::none(ValueType::Choice)
                 : EventValues::yesNo($unverified),
