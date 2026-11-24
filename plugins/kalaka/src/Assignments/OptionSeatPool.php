@@ -46,12 +46,12 @@ final class OptionSeatPool implements SeatPool
 
     public function limit(): ?int
     {
-        return ($this->options->find($this->row()) ?? throw new NotFound())->capacity;
+        return ($this->options->find($this->row()) ?? throw new NotFound())->limit;
     }
 
     public function lock(Context $context): ?int
     {
-        return ($this->options->findForUpdate($this->row(), $context) ?? throw new NotFound())->capacity;
+        return ($this->options->findForUpdate($this->row(), $context) ?? throw new NotFound())->limit;
     }
 
     /** @return array{setId: int, key: string} */

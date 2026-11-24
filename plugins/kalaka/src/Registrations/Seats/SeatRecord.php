@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Registrations;
+namespace Kalaka\Registrations\Seats;
 
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\SeatAct;
