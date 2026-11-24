@@ -48,5 +48,6 @@ Events is events, their states, timeline points, date types, capacity and the
   post) and the broken-form list is refreshed after it.
 - `wp kalaka event` (`Cli/`) is a thin entry point: it changes only through the
   module's use cases, as the command line or as WP-CLI's `--user`, and prints a use
-  case's own refusal. Nothing it does re-evaluates a registration, so it asks nothing
-  except that `archive` (read-only for good) needs `--yes`.
+  case's own refusal. It checks nothing itself (no state, field or value rule): it runs
+  the permission check first, then the use case. Nothing it does re-evaluates a
+  registration, so it asks nothing except that `archive` (read-only for good) needs `--yes`.

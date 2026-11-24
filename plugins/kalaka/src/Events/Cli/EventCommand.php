@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace Kalaka\Events\Cli;
 
-use Kalaka\Events\Api\AccountMode;
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
-use Kalaka\Events\Api\EventState;
 use Kalaka\Events\ArchiveEvent;
 use Kalaka\Events\CreateEvent;
 use Kalaka\Events\PublishEvent;
 use Kalaka\Events\UnpublishEvent;
-use Kalaka\Forms\Api\Forms;
+use Kalaka\Events\UpdateEvent;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
+use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Foundation\Api\UseCase\UseCase;
 
 /**
  * `wp kalaka event create|update|show|list|publish|unpublish|archive`: an event's setup from the command line
@@ -64,11 +63,7 @@ final class EventCommand
     public function create(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $name = trim($args[0] ?? '');
-            if ($name === '') {
-                throw new CommandFailure('Give the event\'s name.');
-            }
-            $id = (int) Runner::current()->run(new CreateEvent(), ['name' => $name], self::actor());
+            $id = (int) Runner::current()->run(new CreateEvent(), ['name' => $args[0] ?? ''], self::actor());
             if (!empty($assocArgs['porcelain'])) {
                 \WP_CLI::line((string) $id);
 
@@ -102,6 +97,8 @@ final class EventCommand
     public function update(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
+            $actor = self::actor();
+            $this->allow(new UpdateEvent(), $args, $actor);
             $event = $this->event($args);
             $current = EventDocument::of($event);
             [$proposed, $given] = EventDocument::proposed($current, self::file($assocArgs));
@@ -111,7 +108,6 @@ final class EventCommand
 
                 return;
             }
-            $this->refuseWithoutAccountBlock($event, $proposed);
             foreach ($changes as $key => [$before, $after]) {
                 \WP_CLI::line($key . ': ' . self::text($before) . ' -> ' . self::text($after));
             }
@@ -121,7 +117,7 @@ final class EventCommand
                 return;
             }
 
-            $this->events->update(EventDocument::input($proposed, $given, $event->id, $event->version), self::actor());
+            $this->events->update(EventDocument::input($proposed, $given, $event->id, $event->version), $actor);
             \WP_CLI::success('The event is saved (version ' . ($event->version + 1) . ').');
         });
     }
@@ -198,8 +194,8 @@ final class EventCommand
     }
 
     /**
-     * Publishes a draft or unpublished event. It needs a name, the four core points and a capacity; a form opens
-     * at the registration point by itself.
+     * Publishes a draft or unpublished event (it needs a name, the four core points and a capacity); a form opens
+     * at the registration point by itself. The use case's refusal is printed as it is.
      *
      * ## OPTIONS
      *
@@ -212,22 +208,7 @@ final class EventCommand
     public function publish(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args): void {
-            $event = $this->event($args);
-            if (!in_array($event->state(), [EventState::Draft, EventState::Unpublished], true)) {
-                throw new CommandFailure('Only a draft or unpublished event can be published.');
-            }
-            $document = EventDocument::of($event);
-            $missing = array_keys(array_filter(
-                array_intersect_key($document, array_flip([
-                    'capacity', 'registration_opens_at', 'registration_closes_at', 'starts_at', 'ends_at',
-                ])),
-                static fn (mixed $value): bool => $value === null
-            ));
-            if ($missing !== []) {
-                $error = new CommandFailure('The event cannot be published without: ' . implode(', ', $missing) . '.');
-                throw $error;
-            }
-            $this->transition(new PublishEvent(), $event);
+            $this->transition(new PublishEvent(), $args);
             \WP_CLI::success('The event is published.');
         });
     }
@@ -247,11 +228,7 @@ final class EventCommand
     public function unpublish(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args): void {
-            $event = $this->event($args);
-            if ($event->state() !== EventState::Published) {
-                throw new CommandFailure('Only a published event can be unpublished.');
-            }
-            $this->transition(new UnpublishEvent(), $event);
+            $this->transition(new UnpublishEvent(), $args);
             \WP_CLI::success('The event is unpublished.');
         });
     }
@@ -273,46 +250,42 @@ final class EventCommand
     public function archive(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $event = $this->event($args);
-            if ($event->state() !== EventState::Unpublished) {
-                throw new CommandFailure('Only an unpublished event can be archived.');
-            }
             if (empty($assocArgs['yes'])) {
                 $error = new CommandFailure(
                     'Archiving makes the event read-only for good. Run it again with --yes to archive it.'
                 );
                 throw $error;
             }
-            $this->transition(new ArchiveEvent(), $event);
+            $this->transition(new ArchiveEvent(), $args);
             \WP_CLI::success('The event is archived.');
         });
     }
 
-    private function transition(UseCase $useCase, Event $event): void
+    /**
+     * Runs a state change of the event: the permission check first, then the use case, whose refusal the
+     * boundary prints.
+     *
+     * @param list<string> $args
+     */
+    private function transition(AdminUseCase $useCase, array $args): void
     {
-        Runner::current()->run($useCase, ['id' => $event->id, 'version' => $event->version], self::actor());
+        $actor = self::actor();
+        $this->allow($useCase, $args, $actor);
+        $event = $this->event($args);
+        Runner::current()->run($useCase, ['id' => $event->id, 'version' => $event->version], $actor);
     }
 
     /**
-     * Names the forms that would stop the mode change, ahead of the run, so the refusal says which.
+     * The permission check the run makes, ahead of anything that tells the actor about the event: a refused
+     * actor learns nothing.
      *
-     * @param array<string, mixed> $proposed
-     * @throws CommandFailure when the mode changes to one with accounts and a published form lacks the block
+     * @param list<string> $args
      */
-    private function refuseWithoutAccountBlock(Event $event, array $proposed): void
+    private function allow(AdminUseCase $useCase, array $args, CliActor $actor): void
     {
-        $mode = AccountMode::from((string) $proposed['account_mode']);
-        if ($mode === $event->accountMode || $mode === AccountMode::Off) {
-            return;
-        }
-        $lacking = (new Forms())->withoutAccountBlock($event->id, $mode);
-        if ($lacking !== []) {
-            $error = new CommandFailure(
-                'The account mode stays as it is: these published registration forms have no account block: '
-                . implode(', ', $lacking) . '. Add the block in the form editor first.'
-            );
-            throw $error;
-        }
+        $given = $args[0] ?? '';
+        $id = preg_match('/\A[1-9][0-9]*\z/', $given) === 1 ? (int) $given : 0;
+        AdminAccess::check($useCase, ['id' => $id], $actor);
     }
 
     /** @param list<string> $args */

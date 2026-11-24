@@ -8,11 +8,16 @@ use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Cli\EventCommand;
 use Kalaka\Events\UnpublishEvent;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /** `wp kalaka event create|update|show|list|publish|unpublish|archive` (go-live G1, G2, G8). */
 final class EventCommandTest extends FormsTestCase
 {
+    private const INVALID = 'Hibás vagy hiányzó adat.';
+
+    private const REFUSED = 'A művelet nem hajtható végre.';
+
     /** @var list<string> */
     private array $files = [];
 
@@ -136,7 +141,7 @@ final class EventCommandTest extends FormsTestCase
 
     public function testCreateWithoutANameFails(): void
     {
-        self::assertSame('Give the event\'s name.', $this->fails(fn () => $this->command()->create(['  '], [])));
+        self::assertSame(self::INVALID, $this->fails(fn () => $this->command()->create(['  '], [])));
     }
 
     public function testUpdateFromAFileSetsTheWholeSetupAndShowPrintsItBack(): void
@@ -210,42 +215,29 @@ final class EventCommandTest extends FormsTestCase
     /** @return iterable<string, array{array<string, mixed>|string, string}> */
     public static function badFiles(): iterable
     {
+        // The file's shape is the command's; every value is the use case's to refuse.
         yield 'unknown key' => [['colour' => 'red'], 'Unknown key "colour" in the file.'];
         yield 'a list' => ['[1, 2]', 'The file must hold one JSON object.'];
         yield 'not json' => ['{nope', 'The file is not valid JSON: Syntax error'];
-        $days = '"payment_due_days" must be a whole number from 0 to 65535, or null.';
-        yield 'bad mode' => [
-            ['account_mode' => 'required'],
-            '"account_mode" must be one of: mandatory, optional, off.',
-        ];
-        yield 'negative days' => [['payment_due_days' => -2], $days];
-        yield 'days as text' => [['payment_due_days' => '7'], $days];
-        yield 'long account' => [
-            ['transfer_account' => str_repeat('1', 65)],
-            '"transfer_account" is longer than 64 characters.',
-        ];
-        yield 'time with seconds' => [
-            ['starts_at' => '2027-03-25 12:00:00'],
-            '"starts_at" must be a local time like 2026-11-30 09:00, or null.',
-        ];
-        yield 'empty name' => [['name' => ' '], '"name" must be a text of 1 to 191 characters.'];
-        yield 'capacity text' => [['capacity' => 'sok'], '"capacity" must be a whole number from 0 to 50000, or null.'];
-        yield 'a point without a time' => [
-            ['points' => [['name' => 'X']]],
-            'A point must be {"name": text, "at": time} and may carry its "id".',
-        ];
         yield 'another state' => [
             ['state' => 'published'],
             '"state" cannot be changed here, or the file is out of date.',
         ];
         yield 'a stale version' => [['version' => 9], '"version" cannot be changed here, or the file is out of date.'];
+        yield 'bad mode' => [['account_mode' => 'required'], self::INVALID];
+        yield 'negative days' => [['payment_due_days' => -2], self::INVALID];
+        yield 'long account' => [['transfer_account' => str_repeat('1', 65)], self::INVALID];
+        yield 'time with seconds' => [['starts_at' => '2027-03-25 12:00:00'], self::INVALID];
+        yield 'empty name' => [['name' => ' '], self::INVALID];
+        yield 'capacity text' => [['capacity' => 'sok'], self::INVALID];
+        yield 'a point without a time' => [['points' => [['name' => 'X']]], self::INVALID];
     }
 
     /**
      * @dataProvider badFiles
      * @param array<string, mixed>|string $document
      */
-    public function testABadFileIsRefusedInEnglishAndNothingChanges(array|string $document, string $message): void
+    public function testABadFileIsRefusedAndNothingChanges(array|string $document, string $message): void
     {
         $id = $this->newId();
         $before = $this->row($id);
@@ -283,31 +275,50 @@ final class EventCommandTest extends FormsTestCase
         );
     }
 
-    public function testTheModeIsRefusedWithTheFormsNamedWhileAPublishedFormLacksTheBlock(): void
+    public function testTheModeIsRefusedByTheUseCaseWhileAPublishedFormLacksTheBlock(): void
     {
         $id = $this->newId();
         $registration = ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'];
-        $form = $this->insertForm($this->slotFields(), $registration);
+        $this->insertForm($this->slotFields(), $registration);
+        $path = $this->file(['account_mode' => 'mandatory']);
 
-        $error = $this->fails(
-            fn () => $this->command()->update([(string) $id], ['file' => $this->file(['account_mode' => 'mandatory'])])
-        );
-
-        self::assertSame(
-            'The account mode stays as it is: these published registration forms have no account block: '
-            . $form . '. Add the block in the form editor first.',
-            $error
-        );
-        // The dry run says the same.
-        self::assertStringContainsString('no account block', $this->fails(
-            fn () => $this->command()->update(
-                [(string) $id],
-                ['file' => $this->file(['account_mode' => 'mandatory']), 'dry-run' => true]
-            )
-        ));
+        $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
+        self::assertSame(self::REFUSED, $error);
         $event = $this->events->find($id);
         self::assertNotNull($event);
         self::assertSame(AccountMode::Off, $event->accountMode);
+    }
+
+    public function testTheModeChangesOnAFormWithTheBlockAndTheBrokenListIsRefreshed(): void
+    {
+        $id = $this->newId();
+        $registration = ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'];
+        $this->insertForm('<!-- wp:kalaka/account /-->' . $this->slotFields(), $registration);
+        update_option(BrokenForms::OPTION, ['#0 stale: old'], false);
+
+        $this->command()->update([(string) $id], ['file' => $this->file(['account_mode' => 'optional'])]);
+
+        $event = $this->events->find($id);
+        self::assertNotNull($event);
+        self::assertSame(AccountMode::Optional, $event->accountMode);
+        self::assertSame([], BrokenForms::stored());
+    }
+
+    public function testAnActorWithoutAccessLearnsNothing(): void
+    {
+        $id = $this->newId();
+        $user = self::factory()->user->create(['role' => 'administrator']);
+        wp_set_current_user($user);
+        $path = $this->file(['capacity' => 5]);
+        $denied = $this->fails(fn () => $this->command()->update(['99999'], ['file' => $path]));
+        // The same refusal for an event that exists and one that does not, and for the transitions.
+        self::assertSame($denied, $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path])));
+        self::assertSame($denied, $this->fails(fn () => $this->command()->publish([(string) $id], [])));
+        self::assertSame($denied, $this->fails(fn () => $this->command()->unpublish(['99999'], [])));
+        self::assertSame($denied, $this->fails(fn () => $this->command()->archive([(string) $id], ['yes' => true])));
+        self::assertStringNotContainsString('no event', $denied);
+        wp_set_current_user(0);
+        self::assertSame(1, $this->versionOf($id));
     }
 
     public function testShowPrintsATableAndTheJsonDocument(): void
@@ -371,15 +382,11 @@ final class EventCommandTest extends FormsTestCase
         );
     }
 
-    public function testPublishNamesWhatIsMissingAndThenPublishes(): void
+    public function testPublishIsRefusedByTheUseCaseUntilTheEventIsComplete(): void
     {
         $id = $this->newId();
 
-        self::assertSame(
-            'The event cannot be published without: capacity, registration_opens_at, registration_closes_at,'
-            . ' starts_at, ends_at.',
-            $this->fails(fn () => $this->command()->publish([(string) $id], []))
-        );
+        self::assertSame(self::REFUSED, $this->fails(fn () => $this->command()->publish([(string) $id], [])));
 
         $this->command()->update([(string) $id], ['file' => $this->file(self::ivkLike())]);
         \WP_CLI::reset();
@@ -387,10 +394,7 @@ final class EventCommandTest extends FormsTestCase
 
         self::assertSame(['success: The event is published.'], $this->lines());
         self::assertSame('published', $this->shown($id)['state']);
-        self::assertSame(
-            'Only a draft or unpublished event can be published.',
-            $this->fails(fn () => $this->command()->publish([(string) $id], []))
-        );
+        self::assertSame(self::REFUSED, $this->fails(fn () => $this->command()->publish([(string) $id], [])));
     }
 
     public function testUnpublishAndArchiveFollowTheLifecycle(): void
@@ -398,16 +402,13 @@ final class EventCommandTest extends FormsTestCase
         $id = $this->published();
 
         self::assertSame(
-            'Only an unpublished event can be archived.',
+            self::REFUSED,
             $this->fails(fn () => $this->command()->archive([(string) $id], ['yes' => true]))
         );
         \WP_CLI::reset();
         $this->command()->unpublish([(string) $id], []);
         self::assertSame(['success: The event is unpublished.'], $this->lines());
-        self::assertSame(
-            'Only a published event can be unpublished.',
-            $this->fails(fn () => $this->command()->unpublish([(string) $id], []))
-        );
+        self::assertSame(self::REFUSED, $this->fails(fn () => $this->command()->unpublish([(string) $id], [])));
 
         // Archiving is for good: it needs --yes.
         self::assertSame(
@@ -430,7 +431,7 @@ final class EventCommandTest extends FormsTestCase
         $path = $this->file(['capacity' => 5]);
         $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
 
-        self::assertStringStartsNotWith('Unknown', $error);
+        self::assertSame(self::REFUSED, $error);
         self::assertSame(41, $this->events->find($id)?->capacity);
     }
 

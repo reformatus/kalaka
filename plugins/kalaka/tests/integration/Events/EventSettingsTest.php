@@ -27,7 +27,7 @@ final class EventSettingsTest extends FormsTestCase
     /** @param array<string, mixed> $more */
     private function save(int $id, array $more): void
     {
-        $this->events->update($this->updateInput($id, $this->versionOf($id)) + $more, $this->admin);
+        $this->events->update($more + $this->updateInput($id, $this->versionOf($id)), $this->admin);
     }
 
     public function testTheSettingsAreWrittenAndReadBackThroughTheApi(): void
@@ -60,6 +60,7 @@ final class EventSettingsTest extends FormsTestCase
         $this->save($id, ['name' => 'Más név']);
         $event = $this->events->find($id);
         self::assertNotNull($event);
+        self::assertSame('Más név', $event->name);
         self::assertSame(7, $event->paymentDueDays);
         self::assertSame('TESZT26', $event->transferReferencePrefix);
 
@@ -197,7 +198,7 @@ final class EventSettingsTest extends FormsTestCase
         $id = $this->filled();
 
         try {
-            $input = $this->updateInput($id, $this->versionOf($id)) + ['account_mode' => 'mandatory'];
+            $input = ['account_mode' => 'mandatory'] + $this->updateInput($id, $this->versionOf($id));
             $this->exec(new UpdateEvent(), $input);
             self::fail('The mode was accepted without reading the forms.');
         } catch (KalakaException $e) {
