@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AwaitingRule;
 use Kalaka\Registrations\Api\FieldTest;
@@ -14,6 +15,7 @@ use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * A test source of requests, standing for the offers and aid of slice B0: the field `support` holding `church`
@@ -74,9 +76,47 @@ final class TestRequestSource implements RequestSource
         ]);
     }
 
-    public function seatPool(Request $request): ?string
+    public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
     {
-        return $request->kind === RequestKind::Offer ? self::POOL : null;
+        if ($request->kind !== RequestKind::Offer) {
+            return null;
+        }
+
+        return new class ($registration->eventId) implements SeatPool {
+            public function __construct(private readonly int $event)
+            {
+            }
+
+            public function eventId(): int
+            {
+                return $this->event;
+            }
+
+            public function key(): string
+            {
+                return TestRequestSource::POOL;
+            }
+
+            public function lockLevel(): LockLevel
+            {
+                return LockLevel::Other;
+            }
+
+            public function lockRow(): array
+            {
+                return ['kalaka_test_pool', [TestRequestSource::POOL]];
+            }
+
+            public function limit(): ?int
+            {
+                return null;
+            }
+
+            public function lock(Context $context): ?int
+            {
+                return null;
+            }
+        };
     }
 
     public function writeAnswer(
