@@ -9,7 +9,6 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
-use Kalaka\Registrations\RegistrationCount;
 use Kalaka\Registrations\RegistrationList;
 use Kalaka\Registrations\RegistrationRepository;
 use Kalaka\Registrations\Submission\SubmissionRepository;
@@ -25,7 +24,6 @@ final class Registrations
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
         private readonly RegistrationList $list = new RegistrationList(),
-        private readonly RegistrationCount $count = new RegistrationCount(),
         private readonly Forms $forms = new Forms(),
     ) {
     }
@@ -72,15 +70,6 @@ final class Registrations
         }
 
         return $values;
-    }
-
-    /**
-     * The event's `registered` registrations: the places taken (waitlisted ones take none). A plain read,
-     * without a lock; a form's `event.seats_left` is computed from it.
-     */
-    public function registeredCount(int $eventId): int
-    {
-        return $this->count->registered($eventId);
     }
 
     /**
@@ -154,15 +143,45 @@ final class Registrations
 
     /**
      * Refuses removing a chosen item: `ItemChosen` when an open registration of the event holds the value in the
-     * field. Staff and settings saves that remove a tier, an option or an offer call it, so one refusal and one
-     * code reach every surface. A plain read.
+     * field, or, with no value, has chosen the field at all (a positive number: a charge's consent or quantity,
+     * `openChose()`). Staff and settings saves that remove a tier, an option, an offer or a charge call it, so one
+     * refusal and one code reach every surface. A plain read.
      */
     public function refuseRemovingChosen(int $eventId, string $fieldKey, ?string $value): void
     {
-        // CF4 adds `openChose` for a null value (a charge's field chosen at all); until then `openHolds` alone.
-        if ($this->openHolds($eventId, $fieldKey, (string) $value)) {
+        $chosen = $value === null
+            ? $this->openChose($eventId, $fieldKey)
+            : $this->openHolds($eventId, $fieldKey, $value);
+        if ($chosen) {
             throw new ItemChosen();
         }
+    }
+
+    /**
+     * Whether an open (`registered` or `waitlisted`) registration of the event chose the field: holds a positive
+     * number in it, which is a consent's `1` and a quantity of one or more (an unticked consent is `0`). The read
+     * for a charge, whose "yes" is any positive value where `openHolds()` names one value; two statements however
+     * many registrations there are. A plain read. [UNAPPROVED N307]
+     */
+    public function openChose(int $eventId, string $fieldKey): bool
+    {
+        $rows = $this->values->ofField($eventId, $fieldKey);
+        $chosen = [];
+        foreach ($rows as $row) {
+            if (is_numeric($row->value) && (float) $row->value > 0) {
+                $chosen[$row->registration->code] = true;
+            }
+        }
+        if ($chosen === []) {
+            return false;
+        }
+        foreach ($this->openOf($eventId) as $key) {
+            if (isset($chosen[$key->code])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

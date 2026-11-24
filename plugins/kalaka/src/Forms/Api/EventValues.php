@@ -35,7 +35,8 @@ final class EventValues
      * `FORM_TYPES`' values: the event's, and `account.logged_in`: `yes` or `no` where the form has an account
      * step (`$loggedIn` says whether someone is logged in), none where it has none (`$loggedIn` null: account
      * mode off, or an additional form). True, false and null stay apart, never conflated (owner ruling
-     * 2026-11-18). The text of yes and no is „Igen” and „Nem” (`yesNo()`).
+     * 2026-11-18). The text of yes and no is „Igen” and „Nem” (`yesNo()`). `now` is the day of `$at`, else of the
+     * runner's clock (`now()`).
      *
      * @return array<string, Value>
      */
@@ -73,6 +74,12 @@ final class EventValues
 
     /** The places left (a number); a form's condition reads it, no mail or document does (`volatile()`). */
     public const SEATS_LEFT = 'event.seats_left';
+
+    /**
+     * Before a pool's field key and option value: the places left in a set option, price tier or support offer
+     * (`seats_left.<field key>.<option value>`), for a form's conditions only (`EventFormHost`).
+     */
+    public const POOL_SEATS_PREFIX = 'seats_left.';
 
     /** Before a custom point's ID: the point's date (`event.points.<id>`), for a form's conditions only. */
     public const POINT_PREFIX = 'event.points.';
@@ -121,19 +128,18 @@ final class EventValues
     }
 
     /**
-     * The values of `volatileTypes()`. `event.seats_left` is `max(0, capacity - registered)` and 0 while the
-     * event's "full" latch is set; none while the event is a draft without a capacity. A custom point is a day
-     * in the site's time zone, like the event's other points.
+     * The values of `volatileTypes()`. `event.seats_left` is the event pool's places left, given in
+     * (`Registrations\Api\Seats::left()`, the one computation: 0 while the event's "full" latch is set, none while
+     * the event has no capacity, a draft without one included). A custom point is a day in the site's time zone,
+     * like the event's other points. `choice_open.<key>` is yes or no.
      *
-     * @param int $registered the event's `registered` registrations
+     * @param int|null $seatsLeft the event pool's places left; null for no limit
+     * @param array<string, bool> $choiceOpen request field key → whether its set's window holds now
      * @return array<string, Value>
      */
-    public static function volatile(Event $event, int $registered): array
+    public static function volatile(Event $event, ?int $seatsLeft, array $choiceOpen): array
     {
-        $left = $event->capacity === null
-            ? Value::none(ValueType::Number)
-            : self::count($event->isFull ? 0 : max(0, $event->capacity - $registered));
-        $values = [self::SEATS_LEFT => $left];
+        $values = [self::SEATS_LEFT => self::places($seatsLeft)];
         foreach ($event->customPoints as $point) {
             /** @var EventPoint $point */
             $values[self::POINT_PREFIX . $point->id] = self::day($point->at);
@@ -142,9 +148,12 @@ final class EventValues
         return $values;
     }
 
-    private static function count(int $number): Value
+    /** The places left of a pool as a number value; none for a pool with no limit. */
+    public static function places(?int $left): Value
     {
-        return Value::number((string) $number, (string) $number);
+        return $left === null
+            ? Value::none(ValueType::Number)
+            : Value::number((string) $left, (string) $left);
     }
 
     private static function day(?\DateTimeImmutable $point): Value

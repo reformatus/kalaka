@@ -47,7 +47,7 @@ final class ExtrasTest extends ExtrasTestCase
         self::assertSame('3500', $this->balance($anna));
     }
 
-    public function testEveryChargeIsItsOwnLineAndRemovingOneReversesOnlyItsLine(): void
+    public function testEveryChargeIsItsOwnLineAndAnAnswerOfNoneReversesOnlyItsLine(): void
     {
         $this->applyCharges([
             self::item('ebed', 'Ebéd', '3500'),
@@ -65,6 +65,10 @@ final class ExtrasTest extends ExtrasTestCase
         $this->evaluate($anna);
         self::assertSame('4500', $this->balance($anna));
 
+        // A charge an open registration chose is not taken out (D3): the quantity goes to 0 first, which
+        // reverses that charge's line alone, and only then may the charge go.
+        $this->writeValue($anna, 'ejjel', '0');
+        $this->evaluate($anna);
         $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
         self::assertSame('3500', $this->balance($anna));
         self::assertSame([
@@ -72,7 +76,7 @@ final class ExtrasTest extends ExtrasTestCase
             'extras:ejjel participant 2000 charge:extras:ejjel:participant:1',
             'extras:ejjel participant -1000 charge:extras:ejjel:participant:2',
             'extras:ejjel participant -1000 charge:extras:ejjel:participant:3',
-        ], $this->charges($anna), 'The removed charge reverses its own line; the other is untouched.');
+        ], $this->charges($anna), 'The unchosen charge reverses its own line; the other is untouched.');
     }
 
     public function testAWithdrawnRegistrationReversesEveryChargeLine(): void
@@ -145,6 +149,9 @@ final class ExtrasTest extends ExtrasTestCase
         $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
         self::assertCount(2, $this->charges($anna), 'A second apply writes nothing.');
 
+        // A chosen charge is not taken out (D3): the registrant's answer goes to no first.
+        $this->writeValue($anna, 'ebed', '0');
+        $this->evaluate($anna);
         $this->applyCharges([]);
         self::assertSame([], $this->extras->charges($this->event));
         self::assertSame('40000', $this->balance($anna));

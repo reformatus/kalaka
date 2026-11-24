@@ -350,9 +350,13 @@ flowchart LR
   extension.
 - **A seat claim source** is an outside point: a submit's validated answers
   in, the seat claims of the limited choices made in them out (the field and
-  the pool of each). It locks, counts and writes nothing; the submit locks the
+  the pool of each). It also lists its pools (the field, the option value and
+  the pool of each), from which a form's `seats_left.<field key>.<option
+  value>` is served. It locks, counts and writes nothing; the submit locks the
   pools and takes the seats when the registration becomes `registered`
-  ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+  ([Foundation](foundation.md#facts-decisions-and-computed-values)). An
+  additional form takes no new seat: a submit that would claim a pool the
+  registration does not hold is refused.
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it

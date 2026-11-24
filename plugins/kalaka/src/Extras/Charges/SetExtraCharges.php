@@ -33,6 +33,7 @@ final class SetExtraCharges implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly ChargesInput $input = new ChargesInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
+        private readonly ChargeRemovalGuard $guard = new ChargeRemovalGuard(),
     ) {
     }
 
@@ -83,6 +84,12 @@ final class SetExtraCharges implements AdminUseCase
         foreach ($this->charges->forEvent($eventId, $context) as $record) {
             $stored[$record->key] = $record;
         }
+        // A charge an open registration chose is not taken out (D3): refused before anything is written.
+        $this->guard->check(
+            $eventId,
+            array_keys($stored),
+            array_map(static fn (Charge $charge): string => $charge->key, $proposed)
+        );
         foreach ($proposed as $position => $charge) {
             $record = $stored[$charge->key] ?? null;
             unset($stored[$charge->key]);
@@ -106,8 +113,8 @@ final class SetExtraCharges implements AdminUseCase
             $this->charges->delete($record, $context);
         }
         // The code defines its fields (events-and-forms.md, "Fields"); a form field joins one by its key. A charge
-        // taken out leaves its field declared, as for every kind of item; refusing the removal of a charge an open
-        // registration chose comes with CF4.
+        // taken out (one no open registration chose: the guard above refuses the others) leaves its field declared,
+        // as for every kind of item. [UNAPPROVED N3]
         foreach ($proposed as $charge) {
             $this->fields->declareExtensionField(
                 $context,

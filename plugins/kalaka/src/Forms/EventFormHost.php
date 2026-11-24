@@ -30,11 +30,13 @@ use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 
@@ -63,6 +65,7 @@ final class EventFormHost implements FormHost
         private readonly AssignmentSets $sets = new AssignmentSets(),
         private ?Registrations $registrations = null,
         private readonly ?\Closure $active = null,
+        private ?Seats $seats = null,
     ) {
     }
 
@@ -72,11 +75,20 @@ final class EventFormHost implements FormHost
         return $this->registrations ??= new Registrations();
     }
 
+    /** Built on first use, like `registrations()`. */
+    private function seats(): Seats
+    {
+        return $this->seats ??= new Seats();
+    }
+
     /**
-     * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for every
-     * form the event's places left and its custom points (`EventValues::volatileTypes()`); for an additional form
-     * also the registration's status and the stored values of the event's participant fields, by their keys
-     * (`typesOf()`). A key the form holds as a field is read from the answers: the parser drops it from this list.
+     * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for
+     * every form the event's places left, its custom points and whether each request field's choice window is
+     * open (`EventValues::volatileTypes()`), and the places left of every pool a seat claim source lists
+     * (`seats_left.<field key>.<option value>`, `poolTypes()`); for an additional form also the registration's
+     * `registration.*` facts (`RegistrationFacts::formTypes()`) and the stored values of the event's participant
+     * fields, by their keys (`typesOf()`). A key the form holds as a field is read from the answers: the parser
+     * drops it from this list.
      */
     public function factTypes(Form $form): array
     {
@@ -86,25 +98,31 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * A key that a revision's conditions read and no longer exists is gone and reads as empty, so no revision
-     * closes over it, as none closes over a removed set option (CF1): a custom point the event no longer has
-     * (staff removed it; a date), and `choice_open.<key>` (a set's choice window, dropped by the owner's ruling
-     * 2026-11-25; a choice). Any other unknown key stays an error. A save refuses a gone point
-     * (`DefinitionCheck`, `unknown_point`), and a `choice_open.*` key as any unknown key.
+     * A custom point or a pool's places left that a revision's conditions read and the event no longer has (staff
+     * removed the point, the option, tier or offer) is gone: a date that reads as empty, and a number that reads
+     * 0, so no revision closes over it, as none closes over a removed set option (CF1). A pool reads 0, never
+     * none, so "empty or more than 0" never reads a removed pool as open. Only such a key counts; any other
+     * unknown key stays an error. A save refuses it: a point by `DefinitionCheck` (`unknown_point`), a pool's
+     * places left as any key the form may not read.
      */
     public function goneTypes(Form $form, array $keys): array
     {
         $event = $this->event($form);
         $gone = [];
         foreach ($keys as $key) {
+            if ($event === null) {
+                continue;
+            }
             if (
-                $event !== null
-                && preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
-                && !isset(EventValues::volatileTypes($event)[$key])
+                preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
+                && !isset(EventValues::volatileTypes($event, [])[$key])
             ) {
                 $gone[$key] = ValueType::Date;
-            } elseif (str_starts_with($key, self::CHOICE_OPEN_PREFIX)) {
-                $gone[$key] = ValueType::Choice;
+            } elseif (
+                str_starts_with($key, EventValues::POOL_SEATS_PREFIX)
+                && !isset($this->poolTypes($event)[$key])
+            ) {
+                $gone[$key] = ValueType::Number;
             }
         }
 
@@ -112,23 +130,54 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * The gone keys (`goneTypes()`) that the revision being walked (`Form::$version`) reads, each valued as none
-     * in the facts. A revision that is not readable has none.
+     * The gone keys (`goneTypes()`) that the revision being walked (`Form::$version`) reads, with the value each
+     * reads as: none for a point, 0 for a pool's places left. A revision that is not readable has none.
      *
      * @return array<string, Value>
      */
-    private function goneKeys(Form $form): array
+    private function goneValues(Form $form): array
     {
         try {
             $content = (new FormPosts())->content($form, $form->version);
         } catch (SystemFailure) {
             return [];
         }
+        $values = [];
+        foreach ($this->goneTypes($form, ConditionKeys::in(parse_blocks($content))) as $key => $type) {
+            $values[$key] = $type === ValueType::Number ? EventValues::places(0) : Value::none($type);
+        }
 
-        return array_map(
-            static fn (ValueType $type): Value => Value::none($type),
-            $this->goneTypes($form, ConditionKeys::in(parse_blocks($content)))
-        );
+        return $values;
+    }
+
+    /**
+     * The pools every contributed seat claim source lists for the event, as the form variables over them:
+     * `seats_left.<field key>.<option value>`, a number. One path for a set option's, a tier's and an offer's
+     * places (`Registrations\Api\SeatClaimSource::pools()`). [UNAPPROVED N305]
+     *
+     * @return array<string, PoolEntry> variable key → entry
+     */
+    private function poolEntries(Event $event): array
+    {
+        $entries = [];
+        foreach (Contributions::current()->seatClaimSources() as $source) {
+            foreach ($source->pools($event) as $entry) {
+                $key = EventValues::POOL_SEATS_PREFIX . $entry->fieldKey . '.' . $entry->optionValue;
+                // A pool whose names are no key a condition could read is left out: one source's slip never
+                // closes every form of the event.
+                if (preg_match('/\A[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*\.[a-z0-9_]+\z/', $key) === 1) {
+                    $entries[$key] = $entry;
+                }
+            }
+        }
+
+        return $entries;
+    }
+
+    /** @return array<string, ValueType> */
+    private function poolTypes(Event $event): array
+    {
+        return array_map(static fn (PoolEntry $entry): ValueType => ValueType::Number, $this->poolEntries($event));
     }
 
     /**
@@ -139,9 +188,10 @@ final class EventFormHost implements FormHost
     public function typesOf(Event $event, FormPlacement $placement): array
     {
         $types = EventValues::FORM_TYPES
-            + EventValues::volatileTypes($event);
+            + EventValues::volatileTypes($event, array_keys($this->requestSets($event->id)))
+            + $this->poolTypes($event);
         if ($placement === FormPlacement::Additional) {
-            $types[RegistrationFacts::STATUS] = ValueType::Choice;
+            $types += RegistrationFacts::formTypes($event);
             $types += (new Forms())->storedTypes($event->id);
         }
 
@@ -149,8 +199,8 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * The values of `factTypes()` on a form's page and re-fetch: the active registration's status and field
-     * values for an additional form, as they are now.
+     * The values of `factTypes()` on a form's page and re-fetch: the active registration's facts and field values
+     * for an additional form, as they are now.
      */
     public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
@@ -160,37 +210,49 @@ final class EventFormHost implements FormHost
         }
         $loggedIn = self::accountStepOf($form, $event) === null ? null : is_user_logged_in();
         $target = $this->target($form);
-        $stored = $target === null ? null : $this->registrations()->values($target);
-        $status = $target === null ? null : $this->registrations()->find($target)?->status->value;
+        $registration = $target === null ? null : $this->registrations()->factsOf($target, $event, $now);
 
-        return $this->factsFor($form, $event, $loggedIn, $now, $stored, $status);
+        return $this->factsFor($form, $event, $loggedIn, $now, $registration);
     }
 
     /**
      * The values of `typesOf()` for the form, from what the caller read: the one builder behind the page, the
-     * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued; an additional
-     * form with no registration (`$stored` null) reads its registration keys as none, never fails.
+     * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued, and every time
+     * value (`now` among them) is read at `$now`. An additional form takes the registration's `registration.*`
+     * keys and its stored values from `$registration`, the one builder the mails read too
+     * (`Registrations::factsOf()`); with no registration (null) it reads them as none, never fails. The places
+     * left are read now, unlocked: the submit's lock decides them again.
      *
-     * @param array<string, string>|null $stored the registration's field values by key (an additional form)
-     * @param string|null $status the registration's status (an additional form)
+     * @param RegistrationFacts|null $registration the registration's facts (an additional form)
      */
     public function factsFor(
         Form $form,
         Event $event,
         ?bool $loggedIn,
         \DateTimeImmutable $now,
-        ?array $stored,
-        ?string $status
+        ?RegistrationFacts $registration
     ): ValueContext {
-        $values = $this->goneKeys($form) + EventValues::form($event, $loggedIn, $now)
-            + EventValues::volatile($event, $this->registrations()->registeredCount($event->id));
+        $open = [];
+        foreach ($this->requestSets($event->id) as $key => $set) {
+            $open[$key] = $set->windowContains($now);
+        }
+        $seats = $this->seats();
+        $pools = [];
+        foreach ($this->poolEntries($event) as $key => $entry) {
+            $pools[$key] = EventValues::places($seats->left($entry->pool));
+        }
+        $values = $this->goneValues($form) + EventValues::form($event, $loggedIn, $now)
+            + EventValues::volatile($event, $seats->left($seats->eventPool($event->id)), $open)
+            + $pools;
         if ($form->placement === FormPlacement::Additional) {
-            $values[RegistrationFacts::STATUS] = $status === null
-                ? Value::none(ValueType::Choice)
-                : Value::choice([$status], '');
-            $typed = $stored === null ? [] : (new Forms())->participantValues($event->id, $stored);
+            foreach (RegistrationFacts::formTypes($event) as $key => $type) {
+                $values[$key] = Value::none($type);
+            }
+            $values = ($registration?->formValues() ?? []) + $values;
             foreach ((new Forms())->storedTypes($event->id) as $key => $type) {
-                $values[$key] = $typed[$key] ?? Value::none($type);
+                $values[$key] = $registration !== null && $registration->has($key)
+                    ? $registration->get($key)
+                    : Value::none($type);
             }
         }
 

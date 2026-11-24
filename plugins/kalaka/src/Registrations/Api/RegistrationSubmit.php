@@ -123,11 +123,14 @@ final class RegistrationSubmit
             // One moment for the attempt's form facts and its after-submit section (`time.now`).
             $now = $runner->clock()->now();
             $target = $request->target;
-            // One read of the registration's values and status, per attempt: the walk's facts are built from it,
-            // and an additional form's submit compares it with the rows under the registration lock.
-            $read = $form->placement === FormPlacement::Additional && $target !== null
-                ? $this->readOf($target)
-                : null;
+            // One read of the registration's facts and values, per attempt: the walk's facts are built from it,
+            // and an additional form's submit compares it with a new read under the registration lock.
+            $registration = null;
+            $read = null;
+            if ($form->placement === FormPlacement::Additional && $target !== null) {
+                $registration = $this->registrations->factsOf($target, $event, $now);
+                $read = $registration === null ? null : $this->readOf($target, $registration);
+            }
             // The walk's failure is not acted on here: the use case checks the token's repeat rule first, under
             // the lock (the one owner of that rule), and only then throws it. A resend whose walk now fails or
             // keeps other answers (the places left changed since) is still a repeat.
@@ -141,8 +144,7 @@ final class RegistrationSubmit
                         $event,
                         $loggedIn,
                         $now,
-                        $read['values'] ?? null,
-                        $read['status'] ?? null
+                        $registration
                     )
                 );
             } catch (InvalidAnswers | FormTerminal $walk) {
@@ -157,6 +159,7 @@ final class RegistrationSubmit
                 foreach ($this->values->forRegistration($target) as $value) {
                     $current[$value->fieldKey] = $value;
                 }
+                $clearable = SubmitAdditionalForm::clearable($definition, $answers, $current);
                 $useCase = new SubmitAdditionalForm(
                     $form,
                     $definition,
@@ -166,9 +169,16 @@ final class RegistrationSubmit
                     $request->passwordGiven,
                     $fieldTypes,
                     $this->participantFields->of($form->eventId),
-                    SubmitAdditionalForm::clearable($definition, $answers, $current),
+                    $clearable,
                     $read,
                     $failure,
+                    newClaims: SubmitAdditionalForm::newClaims(
+                        $this->seatClaimSources ?? Contributions::current()->seatClaimSources(),
+                        $event,
+                        $answers,
+                        $current,
+                        $clearable
+                    ),
                     fingerprint: $fingerprint,
                 );
                 $input = [
@@ -213,18 +223,15 @@ final class RegistrationSubmit
     }
 
     /**
-     * The registration's field values and status, one read: what an additional form's walk reads for its
-     * conditions (`Forms::submitFacts()`) and what its submit checks again under the registration lock.
-     * A registration that is gone reads as no values and no status.
+     * What an additional form's submit checks again under the registration lock: the registration's stored field
+     * values and the facts its conditions read (`RegistrationFacts::formRead()`: the `registration.*` keys, the
+     * status among them). The places left of any pool are not in it: a seat count moving is not a changed read.
      *
-     * @return array{values: array<string, string>, status: string|null}
+     * @return array{values: array<string, string>, facts: array<string, string>}
      */
-    private function readOf(RegistrationKey $target): array
+    private function readOf(RegistrationKey $target, RegistrationFacts $registration): array
     {
-        return [
-            'values' => $this->registrations->values($target),
-            'status' => $this->registrations->find($target)?->status->value,
-        ];
+        return ['values' => $this->registrations->values($target), 'facts' => $registration->formRead()];
     }
 
     /**

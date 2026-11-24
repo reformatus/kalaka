@@ -6,6 +6,7 @@ namespace Kalaka\Extras\Api;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Extras\Charges\ChargeField;
+use Kalaka\Extras\Charges\ChargeRemovalGuard;
 use Kalaka\Extras\Charges\ChargeRecord;
 use Kalaka\Extras\Charges\ChargeRepository;
 use Kalaka\Extras\Charges\ChargesInput;
@@ -26,6 +27,7 @@ final class Extras
         private readonly Events $events = new Events(),
         private readonly ChargesInput $input = new ChargesInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
+        private readonly ChargeRemovalGuard $guard = new ChargeRemovalGuard(),
     ) {
     }
 
@@ -60,7 +62,8 @@ final class Extras
      *
      * @param list<array<string, mixed>> $charges
      * @throws NotFound when there is no such event
-     * @throws RuleViolation when a field another source defined holds a charge's key
+     * @throws RuleViolation when a field another source defined holds a charge's key, or a charge an open
+     *     registration chose is taken out (`ChargeRemovalGuard`)
      * @throws InvalidInput when the charges are not valid; `kalaka/set-extra-charges` checks its schema again
      */
     public function propose(int $eventId, array $charges): ProposedExtras
@@ -73,6 +76,13 @@ final class Extras
         }
         $input = ['event_id' => $eventId, 'currency' => $event->currency->value, 'charges' => $charges];
 
-        return new ProposedExtras($this->input->charges($event, $charges), $input);
+        $proposed = $this->input->charges($event, $charges);
+        $this->guard->check(
+            $eventId,
+            array_map(static fn (ChargeRecord $record): string => $record->key, $this->charges->forEvent($eventId)),
+            array_map(static fn (Charge $charge): string => $charge->key, $proposed)
+        );
+
+        return new ProposedExtras($proposed, $input);
     }
 }

@@ -79,14 +79,19 @@ the waitlist and reference codes
   `registered` or `waitlisted`. It appends a submission with the next number
   and writes only the fields that showed: an answer replaces the value, a
   shown field left blank deletes a value the form showed (one its type
-  prefills), and a money-relevant field's value is never changed once
+  prefills), and a field its participant field locks after its first write
+  (`ParticipantFields::lockedAfterFirstWrite()`) is never changed once
   written. It never writes the registration row, its status or
   `registered_at`, and never changes capacity or the latch (its walk reads
-  `event.seats_left` unlocked, before the transaction). The
-  registration's status and field values are read once per attempt before the
+  `event.seats_left` unlocked, before the transaction), and it takes no new
+  seat: the registration's values as they would be after the submit are asked of
+  every `SeatClaimSource`, and a claim in a pool the registration does not hold
+  and did not already claim refuses the submit with nothing written. The
+  registration's facts (`RegistrationFacts::formRead()`, built by the one builder `Registrations::factsOf()`)
+  and field values are read once per attempt before the
   transaction, for the walk's conditions, and read again under the registration
   lock: if either differs, the use case throws `VersionConflict` and the walk is
-  run again.
+  run again. A pool's places left are no part of that read.
 - An additional form's submit sends no action mail; the page shows the
   form's after-submit text.
 - The submit token is a secret: masked in the audit, never in a log. It is

@@ -92,9 +92,15 @@ final class ValueTest extends TestCase
 
     public function testAKeyIsAFieldKeyOrADottedGroupAndName(): void
     {
-        new ValueContext(['a' => Value::text('', ''), 'registration.status' => Value::text('', '')]);
+        // A third part is a custom point's ID or a pool's option value (`seats_left.<field key>.<option value>`).
+        new ValueContext([
+            'a' => Value::text('', ''),
+            'registration.status' => Value::text('', ''),
+            'event.points.1' => Value::text('', ''),
+            'seats_left.tier.a_1' => Value::text('', ''),
+        ]);
 
-        foreach (['A', '1a', 'a.', 'a.b.c', 'a-b', ''] as $bad) {
+        foreach (['A', '1a', 'a.', 'a.b.', 'a.b.C', 'a.b.c.d', 'a-b', ''] as $bad) {
             try {
                 new ValueContext([$bad => Value::text('', '')]);
                 self::fail('The key ' . $bad . ' was accepted.');

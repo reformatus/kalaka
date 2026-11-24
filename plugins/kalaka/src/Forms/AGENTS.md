@@ -194,10 +194,13 @@ values and conditions, prefill and form links
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
   branches, pages, choice options, the options a request field takes from a
-  set, offers, aid) is decided by one condition through
+  set) is decided by one condition through
   `Engine\Condition\ConditionEvaluator`, reached for a form's elements through
-  `FormWalk`. Set options carry no condition of their own: the ranking block
-  that names the set holds one per option. No second evaluator anywhere, and JavaScript never evaluates a
+  `FormWalk`. Set options, price tiers, support offers, extra charges and aid
+  carry no condition of their own: the form decides who sees them (the ranking
+  block that names a set holds one per option) and the server re-walks the
+  form at submit; the backend keeps only the hard rules (seats, windows,
+  locked fields). No second evaluator anywhere, and JavaScript never evaluates a
   condition (the editor only checks one against the server's rules to show
   problems).
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
@@ -220,8 +223,14 @@ values and conditions, prefill and form links
 - The keys only a form's conditions read (`event.seats_left`,
   `event.points.<id>`) are `EventValues::volatile()`,
   never in `EventValues::of()`, which mails, the after-submit section and
-  `RegistrationFacts` also read. An additional form also reads
-  `registration.status` and, by key, the stored values of the event's
+  `RegistrationFacts` also read. `event.seats_left` is the one computation
+  `Seats::left()` of the event's pool (0 while the latch is set, none without a
+  capacity), given in. So is `seats_left.<field key>.<option value>`, one number
+  per pool that a contributed `SeatClaimSource::pools()` lists (set options
+  today; tiers and offers with no code here once they list theirs): none for a
+  pool with no limit. An additional form also reads
+  the `registration.*` keys `RegistrationFacts::formTypes()` declares (the one
+  builder the mails read; `registration.code` is left out) and, by key, the stored values of the event's
   participant fields it does not hold (a field the form holds is read from its
   answers: `DefinitionParser` drops its key from the host's list, and
   `FormScope` prefers the form's own field). `EventFormHost::typesOf()` and
@@ -230,10 +239,10 @@ values and conditions, prefill and form links
   editor lists the same keys (`Module::editorData()`). A branch that reads any
   of them is withheld. The submit's walk reads them as they are then.
 - A key a revision's conditions read that the host says is gone (`FormHost::goneTypes()`: a custom point staff
-  removed, and `choice_open.<field key>`, the dropped set choice window of an older revision, owner ruling
-  2026-11-25) is declared as its type with value none when a definition is read, for every revision, so a removed
-  point or key never closes a form or an older revision; the save check refuses a point (`unknown_point`) and
-  a `choice_open.*` key (as any unknown key). Only conditions
+  removed, or a pool that no source lists now) is declared as its type when a definition is read, for every
+  revision: a point with value none, a pool's `seats_left.*` with value 0 (never none, so "empty or more than 0"
+  never reads a removed pool as open), so a removed one never closes a form or an older revision; the save check
+  refuses a point (`unknown_point`) and a pool's key, as any key the form may not read. Only conditions
   count: text that mentions a key declares nothing (`Engine\Condition\ConditionKeys`).
 - A form's chains are numbered once, by `Engine\Condition\ChainMarks`, on the parsed
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
