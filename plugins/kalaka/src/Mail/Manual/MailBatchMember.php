@@ -26,7 +26,7 @@ final readonly class MailBatchMember
 
     /**
      * The one rule of who a manual mail skips: a withdrawn or removed registration; every other status is sent
-     * to, a waitlisted one included. The use case and the command line's preview both ask it.
+     * to, a waitlisted one included. `SendManualMail::plan()` asks it, for the use case and the preview alike.
      */
     public static function outcomeOf(RegistrationStatus $status): string
     {
@@ -35,5 +35,11 @@ final readonly class MailBatchMember
             RegistrationStatus::Removed => self::SKIPPED_REMOVED,
             default => self::QUEUED,
         };
+    }
+
+    /** The reason a skipped registration is listed with: `withdrawn`, or `removed`. */
+    public static function reasonOf(string $outcome): string
+    {
+        return $outcome === self::SKIPPED_WITHDRAWN ? 'withdrawn' : 'removed';
     }
 }

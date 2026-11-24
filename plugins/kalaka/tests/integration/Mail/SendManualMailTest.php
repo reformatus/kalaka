@@ -6,12 +6,14 @@ namespace Kalaka\Tests\Integration\Mail;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
-use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Api\ManualMails;
+use Kalaka\Mail\Catalogue\BodyUnpublished;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
+use Kalaka\Mail\Manual\UnknownRegistrationCode;
 use Kalaka\Mail\Manual\MailBatchQuery;
 use Kalaka\Mail\Manual\SendManualMail;
+use Kalaka\Registrations\Api\RegistrationStatus;
 
 /** `kalaka/send-manual-mail`: the batch, its members and its deliveries. mail.md, "Five kinds of mail", Manual. */
 final class SendManualMailTest extends MailBodyTestCase
@@ -126,11 +128,32 @@ final class SendManualMailTest extends MailBodyTestCase
         try {
             $this->send($this->input($event, $body, ['00A0', '00A5']));
             self::fail('An unknown code should refuse the batch.');
-        } catch (NotFound) {
+        } catch (UnknownRegistrationCode $e) {
+            self::assertSame('kalaka_mail_unknown_code', $e->errorCode());
             self::assertSame([], $this->deliveries());
             self::assertSame(0, $this->batchCount());
             self::assertSame(0, $this->memberCount());
         }
+    }
+
+    public function testThePlanSplitsTheCodesIntoQueuedSkippedWithItsReasonAndUnknown(): void
+    {
+        $plan = SendManualMail::plan(
+            ['00A0', '00A2', '00A5', '00A8', '00A9'],
+            [
+                '00A0' => RegistrationStatus::Withdrawn,
+                '00A2' => RegistrationStatus::Removed,
+                '00A5' => RegistrationStatus::Waitlisted,
+                '00A8' => RegistrationStatus::Registered,
+            ]
+        );
+
+        self::assertSame(['00A5', '00A8'], $plan['queue']);
+        $skipped = [['code' => '00A0', 'reason' => 'withdrawn'], ['code' => '00A2', 'reason' => 'removed']];
+        self::assertSame($skipped, $plan['skipped']);
+        self::assertSame(['00A9'], $plan['unknown']);
+        $this->expectException(UnknownRegistrationCode::class);
+        SendManualMail::refuseUnknown($plan);
     }
 
     public function testACodeOfAnotherEventIsUnknown(): void
@@ -139,7 +162,7 @@ final class SendManualMailTest extends MailBodyTestCase
         $other = $this->published();
         $this->registration($other, '00A5');
 
-        $this->expectException(NotFound::class);
+        $this->expectException(UnknownRegistrationCode::class);
         $this->send($this->input($event, $body, ['00A5']));
     }
 
@@ -160,12 +183,13 @@ final class SendManualMailTest extends MailBodyTestCase
         try {
             $this->send($this->input($event, $draft, ['00A0']));
             self::fail('A body that is not published is refused.');
-        } catch (RuleViolation $e) {
+        } catch (BodyUnpublished $e) {
+            self::assertSame('kalaka_mail_body_unpublished', $e->errorCode());
             self::assertStringContainsString(UpdateActionMail::BODY_UNPUBLISHED, $e->getMessage());
         }
 
         $body = $this->document($event, $this->paragraph('Szia'));
-        $this->expectException(RuleViolation::class);
+        $this->expectException(SystemFailure::class);
         $this->runner->run(new SendManualMail(), $this->input($event, $body, ['00A0']), new CliActor(null));
     }
 

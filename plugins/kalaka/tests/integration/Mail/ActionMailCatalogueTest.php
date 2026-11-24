@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
@@ -139,8 +140,9 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
             try {
                 $this->exec(new UpdateActionMail(), ['event_id' => $event, 'mail' => 'registered'] + $change);
                 self::fail('Expected a refusal.');
-            } catch (RuleViolation $e) {
-                self::assertSame('A művelet nem hajtható végre.', $e->getMessage());
+            } catch (SystemFailure $e) {
+                self::assertSame('Váratlan hiba történt. Próbáld újra később.', $e->getMessage());
+                self::assertInstanceOf(\LogicException::class, $e->getPrevious());
             }
         }
         // A body of another post's facts does not count either.
@@ -150,7 +152,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
                 ['event_id' => $event, 'mail' => 'registered', 'enabled' => true]
             );
             self::fail('Expected a refusal.');
-        } catch (RuleViolation) {
+        } catch (SystemFailure) {
             self::assertFalse((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled']);
         }
 

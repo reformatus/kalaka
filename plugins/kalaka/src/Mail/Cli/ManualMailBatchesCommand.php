@@ -4,13 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Cli;
 
-use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Events\Api\Events;
-use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Manual\MailBatch;
 use Kalaka\Mail\Manual\MailBatchQuery;
@@ -28,7 +24,6 @@ final class ManualMailBatchesCommand
     /** @param ?\Closure(string, list<array<string, mixed>>, list<string>): void $print prints rows in a format */
     public function __construct(
         private readonly MailBatchQuery $batches = new MailBatchQuery(),
-        private readonly Events $events = new Events(),
         private readonly MailPosts $posts = new MailPosts(),
         private readonly ?\Closure $print = null,
     ) {
@@ -66,11 +61,9 @@ final class ManualMailBatchesCommand
     public function __invoke(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = $this->event($args);
-            $format = self::format($assocArgs);
-            if (!AdminAccess::isFull(self::actor())) {
-                throw new PermissionDenied();
-            }
+            $eventId = CliInput::existingEventId($args);
+            $format = CliInput::format($assocArgs);
+            CliInput::fullAccess();
             if (isset($args[1])) {
                 if (preg_match('/\A[1-9][0-9]*\z/', $args[1]) !== 1) {
                     throw new CommandFailure('The batch ID must be a positive whole number.');
@@ -113,25 +106,6 @@ final class ManualMailBatchesCommand
         \WP_CLI\Utils\format_items($format, $rows, $fields);
     }
 
-    /** @param list<string> $args */
-    private function event(array $args): int
-    {
-        $given = $args[0] ?? '';
-        if (preg_match('/\A[1-9][0-9]*\z/', $given) !== 1) {
-            throw new CommandFailure('The event ID must be a positive whole number.');
-        }
-        $this->events->find((int) $given) ?? throw new NotFound();
-
-        return (int) $given;
-    }
-
-    private static function actor(): CliActor
-    {
-        $current = get_current_user_id();
-
-        return new CliActor($current > 0 ? $current : null);
-    }
-
     private static function who(?int $userId): string
     {
         if ($userId === null) {
@@ -147,16 +121,5 @@ final class ManualMailBatchesCommand
         $post = $this->posts->eventOf($bodyId) === null ? null : get_post($bodyId);
 
         return $post instanceof \WP_Post ? $post->post_title : '(gone)';
-    }
-
-    /** @param array<string, mixed> $assocArgs */
-    private static function format(array $assocArgs): string
-    {
-        $format = $assocArgs['format'] ?? 'table';
-        if (!in_array($format, ['table', 'json', 'csv'], true)) {
-            throw new CommandFailure('The format must be table, json or csv.');
-        }
-
-        return $format;
     }
 }
