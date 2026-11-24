@@ -11,6 +11,9 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   [Extensions in view](../../../../docs/architecture/modules-and-extensions.md#extensions-in-view),
   [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Failure isolation](../../../../docs/architecture/modules-and-extensions.md#failure-isolation).
+- money.md: [Payments](../../../../docs/architecture/money.md#payments) (the WooCommerce extension implements
+  core's payments port: orders through WooCommerce's own API, one hidden product line per registration line,
+  paid and refunded events written exactly once, keyed by order and refund).
 - foundation.md: [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
   (a grant holder reaches the admin side).
 
@@ -30,4 +33,27 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   throw inside, returns the incoming value, so WooCommerce's own decision
   stands and the admin stays up. A throw is logged through
   `Boundary::report()` on each failing request.
-- The plugin stores nothing of its own. Payments are not part of this slice.
+- The plugin stores only order and item meta, written and read through WooCommerce's own order API
+  (`wc_get_order()`, `wc_get_orders()`, the CRUD methods; never post meta or SQL, so both order-storage modes
+  work), and one option, `kalaka_woocommerce_product_id`, the ID of the one hidden product. It has no table.
+- A payment request is one guest order (billing email only, no name, address or country) with one item of the
+  hidden product per request line: quantity 1, subtotal and total the amount, name the line's label, item meta
+  `_kalaka_registration` (`12:47K3`, composed and parsed only through `Payments\Api\RegistrationRef`) and
+  `_kalaka_payer`. The order carries `_kalaka`, one `_kalaka_registration` row per line, `_kalaka_return_url`
+  and, once recorded, `_kalaka_recorded`. No tax is added.
+- Only an unpaid order (pending, failed) is reused or cancelled; a paid order is never touched. An unpaid order
+  with the same registrations, payers and amounts is reused; any other unpaid order of those registrations is
+  cancelled and a new one created.
+- A paid order is recorded by one function, `PaymentReporter::recordPaidIfPaid()`, from
+  `woocommerce_payment_complete` and the move to processing or completed: it acts only on one of its own orders
+  that `is_paid()` and has a paid date, writes one line per item for what the item actually charged, and then
+  sets `_kalaka_recorded`. A later move to pending, failed, cancelled or trash writes nothing and is reported to
+  the error log; only refund objects reverse money.
+- A refund (`woocommerce_order_refunded`) records its item amounts. One that names no item goes to the one item
+  of a one-item order, and on an order of several is split in item order up to what each item has left; core
+  writes that on the audit entry.
+- Nothing here throws into WooCommerce's payment flow: a failure is reported through `Boundary::report()`, and
+  the periodic reconcile step records a paid order of the last 30 days that no report recorded (one still
+  unrecorded an hour after payment is reported to the log on every run).
+- `uninstall.php` deletes the option and leaves the hidden product, the orders and their meta: they belong to
+  WooCommerce's records of money.
