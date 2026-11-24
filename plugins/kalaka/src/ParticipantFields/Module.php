@@ -15,7 +15,7 @@ final class Module extends AbstractModule
 {
     /**
      * The event's participant fields, keyed by (event ID, field key). `field_key` and `type`
-     * are compared exactly (`utf8mb4_nopad_bin`); `options` and `settings` are JSON; times are UTC
+     * and `declared_by` are compared exactly (`utf8mb4_nopad_bin`); `options` and `settings` are JSON; times are UTC
      * `datetime(6)`.
      */
     private const PARTICIPANT_FIELDS = <<<'SQL'
@@ -33,6 +33,8 @@ CREATE TABLE {prefix}kalaka_participant_fields (
   updated_at datetime(6) NOT NULL,
   position int(10) unsigned NOT NULL,
   form_writable tinyint(1) NOT NULL,
+  declared_by varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  money_relevant tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY  (event_id,field_key)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
@@ -44,7 +46,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(2, [self::PARTICIPANT_FIELDS]);
+        return new Schema(3, [self::PARTICIPANT_FIELDS]);
     }
 
     public function requiresApi(): string

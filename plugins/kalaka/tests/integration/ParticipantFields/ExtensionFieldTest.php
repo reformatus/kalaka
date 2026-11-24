@@ -53,7 +53,7 @@ final class ExtensionFieldTest extends FormsTestCase
         $this->runner->run(
             new AdminProbe(static function (array $input, Context $context) use ($key, $options, $title, $type): void {
                 (new ParticipantFields())
-                    ->declareExtensionField($context, self::EVENT, $key, $type, $title, $options, true);
+                    ->declareExtensionField($context, self::EVENT, $key, $type, $title, $options, true, 'kalaka-test');
             }),
             [],
             new CliActor(null)
@@ -154,6 +154,7 @@ final class ExtensionFieldTest extends FormsTestCase
                     'Éjszaka',
                     null,
                     true,
+                    'kalaka-test',
                     0
                 );
             }),
