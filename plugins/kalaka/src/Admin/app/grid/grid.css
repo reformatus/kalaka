@@ -141,3 +141,14 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 
 /* S39 on #247: the status acts row. */
 .kg-status-acts { margin: 8px 0 4px; }
+
+/* B5-2 on #249: the field list and its edit buttons. */
+.kg-fields { margin: 8px 0 12px; }
+.kg-field-list { margin: 0; }
+.kg-field { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center; }
+.kg-field dt { color: #50575e; overflow-wrap: anywhere; }
+.kg-field dd { margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; overflow-wrap: anywhere; min-width: 0; }
+.kg-field-value { min-width: 0; }
+.kg-multi { border: 0; margin: 0 0 16px; padding: 0; }
+.kg-multi .components-base-control { margin-bottom: 8px; }
+@media (max-width: 600px) { .kg-field { grid-template-columns: minmax(0, 1fr); } }

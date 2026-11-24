@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
 import { confirmationOf, markOf, warningOf } from './confirmation';
+import FieldsBlock from './FieldsBlock';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import RequestsBlock from './RequestsBlock';
@@ -167,6 +168,16 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 			) }
 			{ detail && (
 				<RequestsBlock
+					config={ config }
+					code={ code }
+					detail={ detail }
+					stale={ !! problem }
+					reload={ reload }
+					onSaved={ onSaved }
+				/>
+			) }
+			{ detail && (
+				<FieldsBlock
 					config={ config }
 					code={ code }
 					detail={ detail }

@@ -190,3 +190,12 @@ export const answerRequest = ( input ) => runAbility( 'kalaka/answer-request', i
  */
 export const runStatusAct = ( config, act, code, reason, preview = false ) =>
 	runAbility( abilityOf( act ), inputOf( config.event, code, reason, preview ) );
+
+/**
+ * Changes one field's value by staff (`kalaka/edit-field-value`, #249). Answers `{ changed, over_limit }`: a
+ * value equal to the stored one answers `{ changed: false }`; a stored value other than `expected` is a 409
+ * `kalaka_version_conflict`. `input` is `inputOf`'s (fieldEdit.js).
+ *
+ * @param {Object} input see `inputOf`
+ */
+export const editFieldValue = ( input ) => runAbility( 'kalaka/edit-field-value', input );

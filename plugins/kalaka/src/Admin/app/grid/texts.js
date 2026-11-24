@@ -255,3 +255,23 @@ export const STATUS_ACTS = {
 	// PlacementWarnings::FULL, verbatim (reused, #216). Shown when the preview says a pool is over.
 	full: 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.',
 };
+
+/**
+ * Staff editing of a registration's field values (B5-2 on #249). Every string is unapproved until the owner ticks
+ * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and its two messages
+ * (CONFIRM), the generic failure (MONEY.saveFail), „Nincs válasz” (GRID.unanswered), „–” (an empty value, MONEY's
+ * preview dash) and the „full” warning (PlacementWarnings::FULL, STATUS_ACTS.full). Server refusals are shown
+ * with the server's own text.
+ */
+export const FIELDS = {
+	// The block's heading. [UNAPPROVED T230]
+	heading: 'Adatok',
+	// The button of a writable field. [UNAPPROVED T231]
+	edit: 'Szerkesztés',
+	// The button's screen-reader name, „<mező> szerkesztése”. [UNAPPROVED T233]
+	editLabel: '%s szerkesztése',
+	// The snackbar after a save, also after an answer that changed nothing. [UNAPPROVED T232]
+	saved: 'Az adat mentve.',
+	// An empty value in the list (reused: the preview's dash).
+	empty: '–',
+};
