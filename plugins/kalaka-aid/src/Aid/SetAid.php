@@ -23,15 +23,21 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * With a label it declares the aid's two participant fields in the same transaction (the owner's rulings
  * 2026-11-23, topic 14: the code defines the field, the form's field links to it by key): `aid_can_pay`, a number
  * the participant states what they can pay in, form-writable, and `aid_award`, a number written only by the aid
- * request source (the answer act), never by a form. [UNAPPROVED N115]
+ * request source (the answer act), never by a form. [UNAPPROVED N115, N361, N362]
+ *
+ * The two fields are declared as declarer `kalaka-aid`, money relevant (locked after their first write), and their
+ * keys are judged by core's `ParticipantFields::checkDeclarable()`.
  */
 final class SetAid implements AdminUseCase
 {
     /** The block type of a number field, core's. */
     public const NUMBER_TYPE = 'kalaka/number-field';
 
+    /** The slug this module declares its fields with (`declared_by`) and writes them under. */
+    public const DECLARER = 'kalaka-aid';
+
     /** The title of `aid_can_pay`, the declarer's text. [UNAPPROVED T55] */
-    public const CAN_PAY_TITLE = 'Vállalt összeg';
+    public const CAN_PAY_TITLE = 'Befizetni vállalt összeg';
 
     /** The title of `aid_award`, the declarer's text. [UNAPPROVED T56] */
     public const AWARD_TITLE = 'Megítélt összeg';
@@ -95,7 +101,7 @@ final class SetAid implements AdminUseCase
             throw new InvalidInput();
         }
         $this->input->assertLabelAllowed($label);
-        $this->input->assertKeysFree($eventId);
+        $this->input->checkKeysDeclarable($eventId);
         if ($stored === null) {
             $this->settings->upsert(new AidSettings($eventId, $label), $context);
         } else {
@@ -110,6 +116,8 @@ final class SetAid implements AdminUseCase
             self::CAN_PAY_TITLE,
             null,
             true,
+            self::DECLARER,
+            moneyRelevant: true,
         );
         $this->fields->declareExtensionField(
             $context,
@@ -119,6 +127,8 @@ final class SetAid implements AdminUseCase
             self::AWARD_TITLE,
             null,
             false,
+            self::DECLARER,
+            moneyRelevant: true,
         );
 
         return null;

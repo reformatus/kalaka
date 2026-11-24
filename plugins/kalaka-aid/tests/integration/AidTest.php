@@ -10,6 +10,8 @@ use Kalaka\Admin\Api\RegistrationDetail;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
@@ -323,15 +325,83 @@ final class AidTest extends AidTestCase
         self::assertSame('Teszt ösztöndíj', $this->aid->label($this->event));
     }
 
-    public function testAKeyAnotherFieldHoldsIsRefusedWhileTheAidIsProposed(): void
+    public function testAKeyAnotherFieldHoldsIsRefusedWhileTheAidIsProposedByTheOneDeclarableCheck(): void
     {
         $this->declareParticipantField($this->event, 'aid_award');
 
         try {
             $this->aid->propose($this->event, 'Teszt ösztöndíj');
             self::fail('Accepted.');
-        } catch (InvalidInput) {
+        } catch (RuleViolation) {
             self::assertNull($this->aid->label($this->event));
+        }
+    }
+
+    public function testAKeyAnotherDeclarerHoldsIsRefusedAndAFormsNumberFieldIsAdopted(): void
+    {
+        global $wpdb;
+        $row = [
+            'event_id' => $this->event,
+            'version' => 1,
+            'type' => 'kalaka/number-field',
+            'title' => 'Teszt mező',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 0,
+            'form_writable' => 0,
+        ];
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', $row + [
+            'field_key' => 'aid_award',
+            'source' => 'extension',
+            'declared_by' => 'kalaka-support',
+        ]);
+        try {
+            $this->aid->propose($this->event, 'Teszt ösztöndíj');
+            self::fail('Accepted.');
+        } catch (RuleViolation) {
+            self::assertNull($this->aid->label($this->event));
+        }
+        $table = $wpdb->prefix . 'kalaka_participant_fields';
+        $wpdb->delete($table, ['event_id' => $this->event, 'field_key' => 'aid_award']);
+
+        $wpdb->insert($table, $row + ['field_key' => 'aid_can_pay', 'source' => 'form']);
+        $this->applyAid();
+
+        $fields = [];
+        foreach ((new ParticipantFields())->of($this->event, true) as $field) {
+            $fields[$field->key] = $field;
+        }
+        foreach ([AidRequests::CAN_PAY_FIELD, AidComponent::AWARD_FIELD] as $key) {
+            self::assertSame(ParticipantField::SOURCE_EXTENSION, $fields[$key]->source);
+            self::assertSame('kalaka-aid', $fields[$key]->declaredBy);
+            self::assertTrue($fields[$key]->moneyRelevant);
+        }
+    }
+
+    public function testTheAwardFieldIsTheTruthEmptyAwaitsZeroIsRefusedAnAmountIsGranted(): void
+    {
+        $source = new AidRequests();
+        $request = new Request(AidRequests::ID, RequestKind::Aid, 'Teszt ösztöndíj');
+
+        self::assertFalse($source->isAnswered($request, ['aid_can_pay' => '10000']));
+        self::assertFalse($source->isAnswered($request, ['aid_can_pay' => '10000', 'aid_award' => '']));
+        self::assertTrue($source->isAnswered($request, ['aid_can_pay' => '10000', 'aid_award' => '0']));
+        self::assertTrue($source->isAnswered($request, ['aid_can_pay' => '10000', 'aid_award' => '12000']));
+    }
+
+    public function testAnotherDeclarerCannotWriteTheAwardField(): void
+    {
+        $this->applyAid();
+        $key = $this->registerAsking('00A0', '10000');
+
+        try {
+            $this->inRun(function (array $input, Context $context) use ($key): void {
+                $this->lockRegistrations($context, $key);
+                (new Registrations())->writeValue($key, 'aid_award', '5', $context, 'kalaka-support');
+            });
+            self::fail('Another declarer wrote the award.');
+        } catch (SystemFailure) {
+            self::assertArrayNotHasKey('aid_award', (new Registrations())->values($key));
         }
     }
 
