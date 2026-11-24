@@ -294,38 +294,6 @@ final class Contributions
     }
 
     /**
-     * Every declared payer kind, applying or not, in contribution order.
-     *
-     * @return list<PayerKind>
-     */
-    public function payerKinds(): array
-    {
-        return array_values(array_map(
-            static fn (PayerKindSource $source): PayerKind => $source->kind(),
-            $this->payerKindSources
-        ));
-    }
-
-    /**
-     * The declared payer kinds that apply to the event, in contribution order. A source that throws propagates, so
-     * a record use case rolls back; the admin detail read (outside any transaction) asks the sources one by one
-     * through `payerKindSources()` and contains each (`Ledger\Api\PayerKinds`).
-     *
-     * @return list<PayerKind>
-     */
-    public function payerKindsFor(int $eventId): array
-    {
-        $input = new PayerKindInput($eventId);
-
-        $applying = array_filter(
-            $this->payerKindSources,
-            static fn (PayerKindSource $source): bool => $source->appliesTo($input)
-        );
-
-        return array_values(array_map(static fn (PayerKindSource $source): PayerKind => $source->kind(), $applying));
-    }
-
-    /**
      * Every contributed payer-kind source, in contribution order.
      *
      * @return list<PayerKindSource>

@@ -41,15 +41,24 @@ final class PayerKindDeclarationTest extends TestCase
         $to->payerKindSource(self::source('congregation', 'Gyülekezet', 5));
         $to->payerKindSource(self::source('sponsor', 'Támogató'));
 
+        $kinds = static fn (Contributions $to): array => array_map(
+            static fn (PayerKindSource $source): PayerKind => $source->kind(),
+            $to->payerKindSources()
+        );
+        $applying = static fn (Contributions $to, int $event): array => array_map(
+            static fn (PayerKindSource $source): string => $source->kind()->id,
+            array_values(array_filter(
+                $to->payerKindSources(),
+                static fn (PayerKindSource $source): bool => $source->appliesTo(new PayerKindInput($event))
+            ))
+        );
+
         self::assertEquals(
             [new PayerKind('congregation', 'Gyülekezet'), new PayerKind('sponsor', 'Támogató')],
-            $to->payerKinds()
+            $kinds($to)
         );
-        self::assertEquals(
-            [new PayerKind('congregation', 'Gyülekezet'), new PayerKind('sponsor', 'Támogató')],
-            $to->payerKindsFor(5)
-        );
-        self::assertEquals([new PayerKind('sponsor', 'Támogató')], $to->payerKindsFor(6));
+        self::assertSame(['congregation', 'sponsor'], $applying($to, 5));
+        self::assertSame(['sponsor'], $applying($to, 6));
     }
 
     public function testAMalformedRepeatedOrParticipantKindFailsTheContributor(): void
@@ -63,7 +72,7 @@ final class PayerKindDeclarationTest extends TestCase
                 $to->payerKindSource(self::source($id, $label));
                 self::fail($id . ' should be refused.');
             } catch (\InvalidArgumentException) {
-                self::assertCount(1, $to->payerKinds());
+                self::assertCount(1, $to->payerKindSources());
             }
         }
     }

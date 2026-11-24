@@ -16,8 +16,8 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * Core declares the participant; an extension declares another through a `PayerKindSource` (the
  * congregation share, S29), and this read adds the kinds that apply to the event. A source that throws fails the
  * record use case (inside the transaction, so the run rolls back); in the detail read (`$contained`) that kind is
- * treated as not applying and the failure is logged, as "Failure isolation" says of a contribution outside the
- * transaction. [UNAPPROVED N366]
+ * treated as not applying and the failure is only logged, as `ThemeAdapters` does (the stored failure record of
+ * "Failure isolation" is not built yet for any contribution). [UNAPPROVED N366]
  */
 final class PayerKinds
 {
@@ -37,19 +37,19 @@ final class PayerKinds
      */
     public function of(int $eventId, bool $contained = false): array
     {
-        $participant = new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL);
-        if (!$contained) {
-            return [$participant, ...Contributions::current()->payerKindsFor($eventId)];
-        }
-        // As `ThemeAdapters` asks each adapter: a source that throws is logged and its kind does not apply.
-        $kinds = [$participant];
+        $kinds = [new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL)];
         $input = new PayerKindInput($eventId);
         foreach (Contributions::current()->payerKindSources() as $source) {
             $applies = false;
             $ask = static function () use ($source, $input, &$applies): void {
                 $applies = $source->appliesTo($input);
             };
-            Boundary::background('payer kind ' . $source->kind()->id, $ask);
+            if ($contained) {
+                // As `ThemeAdapters` asks each adapter: a source that throws is logged and its kind does not apply.
+                Boundary::background('payer kind ' . $source->kind()->id, $ask);
+            } else {
+                $ask();
+            }
             if ($applies) {
                 $kinds[] = $source->kind();
             }
@@ -98,13 +98,12 @@ final class PayerKinds
     /** The label of a payer-kind ID, for an event or not: a kind that no longer applies still names its lines. */
     public function label(string $id): ?string
     {
-        $declared = [
-            new PayerKind(Payer::PARTICIPANT, self::PARTICIPANT_LABEL),
-            ...Contributions::current()->payerKinds(),
-        ];
-        foreach ($declared as $kind) {
-            if ($kind->id === $id) {
-                return $kind->label;
+        if ($id === Payer::PARTICIPANT) {
+            return self::PARTICIPANT_LABEL;
+        }
+        foreach (Contributions::current()->payerKindSources() as $source) {
+            if ($source->kind()->id === $id) {
+                return $source->kind()->label;
             }
         }
 

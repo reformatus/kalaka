@@ -338,9 +338,10 @@ flowchart LR
     cases and in the admin detail read (it fires no hooks and writes nothing).
     In a record use case, inside the transaction, a throw rolls the use case
     back; in the detail read, outside it, a throw is caught: that kind is
-    treated as not applying and the failure is logged, as for any outside
-    contribution ([Failure isolation](#failure-isolation)). The source runs no
-    other code.
+    treated as not applying and the failure is only logged, as `ThemeAdapters`
+    does; the stored failure record of
+    [Failure isolation](#failure-isolation) is not built yet for any
+    contribution. The source runs no other code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
     block editor context. Forms gates its blocks by post type and lets a host

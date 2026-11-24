@@ -681,7 +681,7 @@ final class ShareTest extends ShareTestCase
         }
     }
 
-    public function testAMissingRegistrationIsNotFoundWhateverThePayerIsAndTheKindIsJudgedUnderTheLock(): void
+    public function testAMissingRegistrationIsNotFoundWhateverThePayerIs(): void
     {
         $actor = new UserActor($this->fullAccessUser());
 
