@@ -13,6 +13,8 @@ final readonly class RefundedRequest
      * @param string $refundRef the provider's ID of the refund, `[A-Za-z0-9_.-]`, at most 40
      * @param \DateTimeImmutable $refundedAt when the refund was made, the same on every report of it
      * @param list<OnlineItem> $items at least one, the amount given back for each item
+     * @param bool $allocated whether the provider split a refund that named no item over the items (it is
+     *                        written on the audit entry, for staff)
      * @throws \InvalidArgumentException
      */
     public function __construct(
@@ -21,6 +23,7 @@ final readonly class RefundedRequest
         public string $refundRef,
         public \DateTimeImmutable $refundedAt,
         public array $items,
+        public bool $allocated = false,
     ) {
         OnlineRefs::check($providerId, $requestRef, $items);
         OnlineRefs::checkRef($refundRef);

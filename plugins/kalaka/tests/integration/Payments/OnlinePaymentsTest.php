@@ -191,6 +191,30 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
         self::assertSame('confirmed', $this->confirmationState($anna));
     }
 
+    public function testARefundTheProviderAllocatedIsMarkedOnTheAuditEntry(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->online->recordPaid($this->paid('501', $this->item($anna, '10000')));
+        $refund = new RefundedRequest(
+            'fake',
+            '501',
+            '9',
+            $this->utc('2026-12-01 10:00:00'),
+            [$this->item($anna, '3000')],
+            true
+        );
+
+        $this->online->recordRefunded($refund);
+
+        global $wpdb;
+        $changes = (string) $wpdb->get_var(
+            "SELECT GROUP_CONCAT(changes) FROM {$wpdb->prefix}kalaka_audit_entries"
+            . " WHERE action = 'kalaka/record-online-refund'"
+        );
+        self::assertStringContainsString('"allocated":true', $changes);
+    }
+
     public function testAReplayWithOtherContentIsAFailureNeverASecondLine(): void
     {
         $this->setPrice('10000');
