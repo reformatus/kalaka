@@ -8,6 +8,7 @@ use Kalaka\Ledger\Api\ChargeLine;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\LineLabels;
+use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Registrations\Api\RegistrationStatus;
 
 /** The status block and the transfer block over every state of the frozen spec (2026-11-13). */
@@ -168,7 +169,7 @@ final class StatusBlockTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
-        $this->decide($key, StatusRead::CONFIRMATION, 'confirmed');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
         $this->activate($key);
 
         $html = $this->statusBlock();
@@ -192,7 +193,7 @@ final class StatusBlockTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
         $this->pay($key, '50000');
-        $this->decide($key, StatusRead::CONFIRMATION, 'confirmed');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
         $this->activate($key);
 
         $html = $this->statusBlock();
@@ -214,7 +215,7 @@ final class StatusBlockTest extends PortalTestCase
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
         $this->pay($key, '48000');
-        $this->decide($key, StatusRead::CONFIRMATION, 'confirmed');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
         $this->charge($key, '3000');
         $this->activate($key);
 

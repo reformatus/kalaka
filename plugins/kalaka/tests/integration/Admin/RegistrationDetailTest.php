@@ -116,6 +116,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
+                'confirmed' => false,
                 'manual_confirmation' => null,
             ],
             $detail['registration']
@@ -219,6 +220,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             [
                 'view_money' => true,
                 'record_money' => true,
+                'record_charge' => true,
+                'record_discount' => true,
                 'confirm_manually' => true,
                 'unconfirm' => false,
             ],
@@ -336,6 +339,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'state_label' => 'Nincs visszaigazolva',
                     'effective_at' => '2026-11-30T08:00:00Z',
                 ]],
+                'confirmed' => false,
             ],
             $detail['registration']
         );
@@ -354,6 +358,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             [
                 'view_money' => false,
                 'record_money' => false,
+                'record_charge' => false,
+                'record_discount' => false,
                 'confirm_manually' => false,
                 'unconfirm' => false,
             ],
@@ -514,6 +520,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             [
                 'view_money' => false,
                 'record_money' => false,
+                'record_charge' => false,
+                'record_discount' => false,
                 'confirm_manually' => false,
                 'unconfirm' => false,
             ],
@@ -531,6 +539,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             [
                 'view_money' => true,
                 'record_money' => false,
+                'record_charge' => false,
+                'record_discount' => false,
                 'confirm_manually' => false,
                 'unconfirm' => false,
             ],
@@ -547,6 +557,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'kalaka_record_money' => [
                 'view_money' => true,
                 'record_money' => true,
+                'record_charge' => true,
+                'record_discount' => true,
                 'confirm_manually' => false,
                 'unconfirm' => false,
             ],
@@ -742,6 +754,53 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertSame($status === 'registered', $this->detail($confirmer)['can']['confirm_manually']);
         self::assertSame($status === 'registered', $this->detail($this->admin->userId)['can']['confirm_manually']);
         self::assertFalse($this->detail($viewer)['can']['confirm_manually'], 'No action.');
+    }
+
+    /**
+     * D15: `can.record_charge` and `can.record_discount` hold only while the registration is registered and the
+     * holder may record money; the money-write action alone says `record_money` whatever the status.
+     *
+     * @dataProvider statuses
+     */
+    public function testRecordChargeAndDiscountFollowTheStatusAndTheMoneyRight(string $status): void
+    {
+        $this->addRegistration('00A0', $status);
+        $writer = $this->plainUser();
+        $this->grant($writer, [], [['column' => 'code', 'write' => false]], ['kalaka_record_money']);
+        $viewer = $this->plainUser();
+        $this->grant($viewer, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+        $registered = $status === 'registered';
+
+        foreach ([$writer, $this->admin->userId] as $user) {
+            $can = $this->detail($user)['can'];
+            self::assertTrue($can['record_money']);
+            self::assertSame($registered, $can['record_charge']);
+            self::assertSame($registered, $can['record_discount']);
+        }
+        $can = $this->detail($viewer)['can'];
+        self::assertFalse($can['record_money']);
+        self::assertFalse($can['record_charge'], 'No right.');
+        self::assertFalse($can['record_discount'], 'No right.');
+        foreach (['record_payment', 'record_refund', 'record_correction'] as $dropped) {
+            self::assertArrayNotHasKey($dropped, $can);
+        }
+    }
+
+    /** D14: `registration.confirmed` is always there, for a holder without the money-view too. */
+    public function testTheDetailAlwaysCarriesWhetherTheRegistrationIsConfirmed(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addRegistration('00A2');
+        $this->addRegistration('00A5', 'withdrawn');
+        $this->addDecision('00A0', 'confirmation', 'confirmed');
+        $plain = $this->plainUser();
+        $this->grant($plain, [], [['column' => 'code', 'write' => false]], []);
+
+        foreach ([$plain, $this->admin->userId] as $user) {
+            self::assertTrue($this->detail($user)['registration']['confirmed']);
+            self::assertFalse($this->detail($user, '00A2')['registration']['confirmed']);
+            self::assertFalse($this->detail($user, '00A5')['registration']['confirmed']);
+        }
     }
 
     /**

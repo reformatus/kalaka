@@ -24,6 +24,7 @@ use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Pricing\Api\LineName;
 use Kalaka\Pricing\Api\LineNames;
+use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -48,6 +49,7 @@ final class RegistrationDetail
         private readonly LineNames $lineNames = new LineNames(),
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
         private readonly ActionMails $actionMails = new ActionMails(),
+        private readonly Confirmations $confirmations = new Confirmations(),
     ) {
     }
 
@@ -105,14 +107,16 @@ final class RegistrationDetail
         // The owner's topic 1 ruling, H3: confirmation applies only to a registered registration.
         $confirmManually = $carried(ManualConfirmations::CONFIRM_MANUALLY);
         // The status is read from the registration itself: the view may not list the status column.
-        $confirmable = $confirmManually && $this->manualConfirmations->canSet($key);
-
-        $canUnconfirm = $confirmManually && $this->manualConfirmations->isConfirmed($key);
+        $registered = $this->manualConfirmations->canSet($key);
+        $confirmable = $confirmManually && $registered;
+        $confirmed = $this->confirmations->isConfirmed($key);
+        $canUnconfirm = $confirmManually && $confirmed;
 
         $read = [
             'registration' => $this->registrationPart($registration),
             'fields' => $this->fieldsPart($registration),
         ];
+        $read['registration']['confirmed'] = $confirmed;
         if ($canUnconfirm) {
             $reconfirms = $this->unconfirmReconfirms($key);
             $read['registration']['unconfirm_reconfirms'] = $reconfirms === null ? null
@@ -126,6 +130,9 @@ final class RegistrationDetail
         $read['can'] = [
             'view_money' => $viewMoney,
             'record_money' => $record,
+            // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
+            'record_charge' => $record && $registered,
+            'record_discount' => $record && $registered,
             'confirm_manually' => $confirmable,
             'unconfirm' => $canUnconfirm,
         ];

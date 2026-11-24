@@ -79,6 +79,8 @@ retention and the materializer
   registration and no state for any other. Leaving `registered` closes a
   confirmed sequence with an `unconfirmed` record, so a restore writes a new
   record.
+- Whether a registration is confirmed is read only through `Api\Confirmations` (`isConfirmed()`, or `confirmedOf()`
+  for a batch of one event); nobody else names the decision's kind or state.
 - The manual flag is a fact in `kalaka_manual_confirmations`, set only by
   `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per

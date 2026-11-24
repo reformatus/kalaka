@@ -13,8 +13,10 @@ use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\RecordCharge;
 use Kalaka\Ledger\RecordDiscount;
 use Kalaka\Pricing\Api\ConfirmationThreshold;
+use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\ConfirmationThresholdInput;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
@@ -262,6 +264,35 @@ final class ConfirmationTest extends ConfirmationTestCase
         self::assertSame('confirmed', $this->confirmationState($anna));
     }
 
+    /** D14: the batch answers as `isConfirmed()` does for each registration. */
+    public function testConfirmedOfMatchesIsConfirmedForABatch(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $bert = $this->register('00A2');
+        $cili = $this->register('00A5');
+        $dora = $this->register('00A8', RegistrationStatus::Waitlisted);
+        $this->payOn($anna, '10000', '2026-11-20');
+        $this->payOn($cili, '10000', '2026-11-20');
+        $this->setStatus($cili, RegistrationStatus::Withdrawn);
+        $unknown = new RegistrationKey($this->event, '00B0');
+        $keys = [$anna, $bert, $cili, $dora, $unknown];
+
+        $confirmations = new Confirmations();
+        $batch = $confirmations->confirmedOf($this->event, $keys);
+
+        self::assertSame(
+            ['00A0' => true, '00A2' => false, '00A5' => false, '00A8' => false, '00B0' => false],
+            $batch
+        );
+        foreach ($keys as $key) {
+            self::assertSame($confirmations->isConfirmed($key), $batch[$key->code], $key->code);
+        }
+        self::assertSame([], $confirmations->confirmedOf($this->event, []));
+        $this->expectException(\InvalidArgumentException::class);
+        $confirmations->confirmedOf($this->event, [new RegistrationKey($this->event + 1, '00A0')]);
+    }
+
     public function testWithdrawalClosesTheSequenceAndARestoreWritesANewRecord(): void
     {
         $this->setPrice('10000');
@@ -475,7 +506,7 @@ final class ConfirmationTest extends ConfirmationTestCase
         $this->refundOn($anna, '3000', '2026-11-25');
         self::assertSame('confirmed', $this->confirmationState($anna));
         $now = $this->utc('2026-12-01 08:00:00');
-        self::assertTrue((new ManualConfirmations())->isConfirmed($anna));
+        self::assertTrue((new Confirmations())->isConfirmed($anna));
         self::assertNull((new ManualConfirmations())->reconfirmsOnUnconfirm($anna, $now), 'Below: no warning.');
 
         self::assertSame(['changed' => true], $this->unconfirm($anna, 'Teszt indok'));
@@ -563,12 +594,12 @@ final class ConfirmationTest extends ConfirmationTestCase
         self::assertNull($confirmations->reconfirmsOnUnconfirm($anna, $now), 'Not confirmed.');
 
         $this->setFlag($anna);
-        self::assertTrue($confirmations->isConfirmed($anna));
+        self::assertTrue((new Confirmations())->isConfirmed($anna));
         self::assertNull($confirmations->reconfirmsOnUnconfirm($anna, $now), 'The flag does not count.');
 
         $this->unconfirm($anna);
         self::assertSame('unconfirmed', $this->confirmationState($anna));
-        self::assertFalse($confirmations->isConfirmed($anna));
+        self::assertFalse((new Confirmations())->isConfirmed($anna));
     }
 
     /** A retry after an at-once re-confirm is a new act: a second pair of records. */
