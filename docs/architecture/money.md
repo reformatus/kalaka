@@ -176,7 +176,9 @@ one seat rule
   is full.
 - **Released** on withdrawal or removal, and when an answer refuses the
   offer (a partner approves or refuses through the same act as staff).
-- **A restored or admitted registration** gets a place only if one is free.
+- **A restored or admitted registration** gets a place only if one is free. A
+  registration whose price tier is full keeps its tier and takes its seat over
+  the limit, with the "full" warning to staff.
 
 ## Withdrawal, removal and substitution
 
