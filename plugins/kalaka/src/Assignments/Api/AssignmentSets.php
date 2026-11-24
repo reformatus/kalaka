@@ -67,11 +67,17 @@ final class AssignmentSets
      * registration does not meet its condition (`Assignments\PlacementWarnings`). Placing never refuses for
      * either; a plain read for a screen or the command to ask first.
      *
+     * @param \DateTimeImmutable $now the act's moment, for a condition that compares with "now"
      * @return list<string> the warnings' texts, none when there is nothing to warn about
+     * @throws \Kalaka\Foundation\Api\Error\SystemFailure a stored condition that cannot be read
      */
-    public function placementWarnings(RegistrationKey $registration, int $setId, string $optionKey): array
-    {
-        return (new PlacementWarnings())->of($registration, $setId, $optionKey);
+    public function placementWarnings(
+        RegistrationKey $registration,
+        int $setId,
+        string $optionKey,
+        \DateTimeImmutable $now
+    ): array {
+        return (new PlacementWarnings())->of($registration, $setId, $optionKey, $now);
     }
 
     /**

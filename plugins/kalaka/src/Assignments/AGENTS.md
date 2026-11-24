@@ -36,7 +36,10 @@ mode (S65) and the screens (S72/S48) come later.
   full (the confirmed assignments to it, not counting the registration's own,
   have reached its capacity), or the registration does not meet its
   condition. The option must be the set's and the set the
-  registration's event's.
+  registration's event's. The read takes the act's moment (`$now`, spread as
+  `EventValues::now()` into its facts, for a condition that compares with
+  "now"); a condition that cannot be read fails the read, it is never taken
+  as a pass.
 - An option's eligibility is one condition in the one format, decided only
   through `Forms\Api\Availability` (an option is a `Forms\Api\Conditional`);
   this module never evaluates a condition. It is checked when saved against

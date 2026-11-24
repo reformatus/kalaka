@@ -10,6 +10,7 @@ use Kalaka\Assignments\Api\AssignmentState;
 use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\PlaceRegistration;
 use Kalaka\Events\CreateEvent;
+use Kalaka\Events\UpdateEvent;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -248,7 +249,8 @@ final class AssignmentsTest extends RegistrationsTestCase
         $warn = fn (RegistrationKey $key, string $option): array => $this->sets->placementWarnings(
             $key,
             $set,
-            $option
+            $option,
+            $this->runner->clock()->now()
         );
 
         // Nobody holds Modul A yet: nothing to warn about, and a registration's own place never makes it full.
@@ -275,13 +277,49 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame([], $warn($second, 'nincs'));
     }
 
+    public function testAConditionOnNowReadsTheMomentTheActPassesDown(): void
+    {
+        global $wpdb;
+        $this->runner->run(new UpdateEvent(), [
+            'id' => $this->event,
+            'version' => (int) $wpdb->get_var(
+                $wpdb->prepare('SELECT version FROM ' . $wpdb->prefix . 'kalaka_events WHERE id = %d', $this->event)
+            ),
+            'name' => 'Tábor',
+            'capacity' => 41,
+            'registration_opens_at' => '2026-11-30 08:00',
+            'registration_closes_at' => '2026-12-15 20:00',
+            'starts_at' => '2027-07-05 10:00',
+            'ends_at' => '2027-07-12 14:00',
+            'points' => [],
+        ], new CliActor(null));
+        $set = $this->newSet();
+        $this->newOption($set, 'Korai', [
+            'match' => 'all',
+            'items' => [['key' => 'event.start', 'operator' => 'greaterThan', 'value' => ['ref' => 'now']]],
+        ]);
+        $first = new RegistrationKey($this->event, '00A0');
+        $this->seedRegistrations($first);
+        $utc = new \DateTimeZone('UTC');
+
+        // The event starts on 2027-07-05: a condition on the event's start meets a moment before it, not after.
+        self::assertSame(
+            [],
+            $this->sets->placementWarnings($first, $set, 'korai', new \DateTimeImmutable('2026-11-30 08:00', $utc))
+        );
+        self::assertSame(
+            ['A jelentkező nem felel meg a lehetőség feltételeinek.'],
+            $this->sets->placementWarnings($first, $set, 'korai', new \DateTimeImmutable('2027-08-01 08:00', $utc))
+        );
+    }
+
     public function testAWarningIsNotComputedForARegistrationThePlacingWouldRefuse(): void
     {
         $set = $this->newSet();
         $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
         $missing = new RegistrationKey($this->event, '00A0');
 
-        self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a', $this->runner->clock()->now()));
 
         $this->expectException(NotFound::class);
         $this->place($missing, $set, 'modul_a');
@@ -294,7 +332,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $other = new RegistrationKey($this->event + 1, '00A0');
         $this->seedRegistrations($other);
 
-        self::assertSame([], $this->sets->placementWarnings($other, $set, 'modul_a'));
+        self::assertSame([], $this->sets->placementWarnings($other, $set, 'modul_a', $this->runner->clock()->now()));
 
         $this->expectException(NotFound::class);
         $this->place($other, $set, 'modul_a');
@@ -314,7 +352,10 @@ final class AssignmentsTest extends RegistrationsTestCase
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
         $this->place($first, $set, 'modul_a');
-        self::assertNotSame([], $this->sets->placementWarnings($second, $set, 'modul_a'));
+        self::assertNotSame(
+            [],
+            $this->sets->placementWarnings($second, $set, 'modul_a', $this->runner->clock()->now())
+        );
 
         wp_set_current_user(self::factory()->user->create());
         try {

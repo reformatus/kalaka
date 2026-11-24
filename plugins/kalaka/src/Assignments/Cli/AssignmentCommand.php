@@ -60,7 +60,12 @@ final class AssignmentCommand
             AdminAccess::check(new PlaceRegistration(), $input, $actor);
             // Staff override: the placing goes ahead, but they are told first when the option is full or the
             // registration does not meet its condition.
-            $warnings = (new AssignmentSets())->placementWarnings($registration, (int) $args[2], $args[3]);
+            $warnings = (new AssignmentSets())->placementWarnings(
+                $registration,
+                (int) $args[2],
+                $args[3],
+                Runner::current()->clock()->now()
+            );
             foreach ($warnings as $warning) {
                 \WP_CLI::warning($warning);
             }
