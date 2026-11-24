@@ -43,6 +43,11 @@ final class OfferSeatPool implements SeatPool
         return ['kalaka_support_offers', [$this->eventId, $this->offerKey]];
     }
 
+    public function label(): string
+    {
+        return ($this->offers->find($this->row()) ?? throw new NotFound())->label;
+    }
+
     public function limit(): ?int
     {
         return ($this->offers->find($this->row()) ?? throw new NotFound())->limit;

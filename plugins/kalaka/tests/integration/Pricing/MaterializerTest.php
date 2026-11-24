@@ -64,7 +64,7 @@ final class MaterializerTest extends PricingTestCase
         self::assertSame(['fixed_price participant 45000 charge:fixed_price:participant:1'], $this->charges($bence));
     }
 
-    public function testAWithdrawalOwesZeroAndShowsTheOverpayment(): void
+    public function testAWithdrawalKeepsWhatWasPaidAndOwesNothingMore(): void
     {
         $this->setPrice('40000');
         $dora = $this->register('00A5');
@@ -75,8 +75,10 @@ final class MaterializerTest extends PricingTestCase
         self::assertSame([
             'fixed_price participant 40000 charge:fixed_price:participant:1',
             'fixed_price participant -40000 charge:fixed_price:participant:2',
+            'retention participant 15000 charge:retention:participant:1',
         ], $this->charges($dora));
-        self::assertSame('-15000', $this->balance($dora));
+        // The default retention keeps everything paid: owes what was paid, so the balance is zero.
+        self::assertSame('0', $this->balance($dora));
     }
 
     public function testStagesComposeInOrderAndASecondPayerHasItsOwnBalance(): void

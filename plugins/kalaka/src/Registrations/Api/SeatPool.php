@@ -44,6 +44,12 @@ interface SeatPool
      */
     public function lockRow(): array;
 
+    /**
+     * The pool's own display label, by a plain read: the event's name, a set option's, a price tier's or a support
+     * offer's label as its owner stored it. Never a new text; for a staff dialog that names the pool.
+     */
+    public function label(): string;
+
     /** The pool's limit by a plain read, without a lock; null when it has none. */
     public function limit(): ?int;
 

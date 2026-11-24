@@ -12,7 +12,8 @@ retention and the materializer
   the split per payer that [Ledger](../../../../docs/architecture/money.md#ledger)'s invoices show,
   the composition order that [Congregation share](../../../../docs/architecture/money.md#congregation-share)
   relies on, [Confirmation](../../../../docs/architecture/money.md#confirmation).
-  Retention comes later (S23).
+  [Withdrawal, removal and substitution](../../../../docs/architecture/money.md#withdrawal-removal-and-substitution)'s
+  retention.
 - foundation.md: the money phase of [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Bulk changes](../../../../docs/architecture/foundation.md#bulk-changes) for money settings.
 - modules-and-extensions.md: the fee component of
@@ -70,7 +71,12 @@ retention and the materializer
   place of the registered one; the apply runs its `save()` use case before
   re-evaluating anything.
 - Only a `registered` registration composes; every other status owes zero
-  (retention is an empty step until S23).
+  except retention: a `withdrawn` or `removed` registration owes, per payer, what the event's rule
+  (`Api\Retention`, in `kalaka_retention`, set by `kalaka/set-retention` or a money settings apply; default
+  "everything paid", the alternative "nothing") keeps of that payer's own net payments, read from payment facts
+  only (`Api\FeeComposition`), as one `retention` line per payer (label `Retention::LABEL`). It never owes more
+  than was paid and refunds nothing. A restore makes the line read zero and the materializer reverses it; a
+  change of the rule re-evaluates the registrations that left too. [UNAPPROVED N526, T505]
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;

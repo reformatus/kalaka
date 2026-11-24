@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace Kalaka\Pricing\Api;
 
 use Kalaka\Events\Api\Events;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
+use Kalaka\Ledger\Api\Ledger;
+use Kalaka\Pricing\RetentionRepository;
+use Kalaka\Registrations\Api\RegistrationFacts;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -23,30 +29,37 @@ final class FeeComposition
         private readonly FeeComposer $composer = new FeeComposer(),
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
+        private readonly Ledger $ledger = new Ledger(),
+        private readonly RetentionRepository $retention = new RetentionRepository(),
     ) {
     }
 
     /**
-     * The IDs of the components registered now: the materializer reverses a recorded line of one of them that the
+     * The IDs of the components registered now, and the retention line's: the materializer reverses a recorded
+     * line of one of them that the
      * composition no longer names.
      *
      * @return list<string>
      */
     public function componentIds(): array
     {
-        return array_map(
-            static fn (FeeComponent $component): string => $component->id(),
-            $this->components->list()
-        );
+        return [
+            ...array_map(static fn (FeeComponent $component): string => $component->id(), $this->components->list()),
+            Retention::LINE,
+        ];
     }
 
     /**
-     * What the registration owes now, or null when it or its event does not exist. Reads no ledger line.
+     * What the registration owes now, or null when it or its event does not exist. Reads no ledger line. With
+     * `$becoming`, what it would owe once it has that status: the staff dialogs' preview, the same composition.
      *
      * @throws FeeComponentFailed when a component throws or returns something invalid
      */
-    public function of(RegistrationKey $key, \DateTimeImmutable $now): ?ComposedFee
-    {
+    public function of(
+        RegistrationKey $key,
+        \DateTimeImmutable $now,
+        ?RegistrationStatus $becoming = null,
+    ): ?ComposedFee {
         $event = $this->events->find($key->eventId);
         if ($event === null) {
             return null;
@@ -55,11 +68,53 @@ final class FeeComposition
         if ($facts === null) {
             return null;
         }
+        if ($becoming !== null) {
+            $facts = $facts->becoming($becoming, $now);
+        }
 
         return new ComposedFee(
             $facts,
             $event->currency,
-            $this->composer->compose($facts, $event->currency, $now, $this->components->list())
+            $this->withRetention(
+                $facts,
+                $event->currency,
+                $this->composer->compose($facts, $event->currency, $now, $this->components->list())
+            )
         );
+    }
+
+    /**
+     * Retention (money.md, "Withdrawal, removal and substitution"): a registration that withdrew or was removed owes,
+     * per payer, what the event's rule keeps of that payer's own net payments, read from payment facts only, so
+     * nobody owes more than they paid and nothing is refunded. A registration that is `registered` or `waitlisted`
+     * has none; its line, if one was recorded, reads zero and the materializer reverses it.
+     *
+     * @param array<string, array<string, Money>> $composed
+     * @return array<string, array<string, Money>>
+     */
+    private function withRetention(RegistrationFacts $facts, Currency $currency, array $composed): array
+    {
+        if ($facts->status !== RegistrationStatus::Withdrawn && $facts->status !== RegistrationStatus::Removed) {
+            return $composed;
+        }
+        $record = $this->retention->find($facts->registration->eventId);
+        $rule = $record === null ? Retention::default() : $record->rule;
+        $paid = [];
+        foreach ($this->ledger->paymentFactsOf($facts->registration) as $fact) {
+            $paid[$fact->payer] = ($paid[$fact->payer] ?? Money::zero($currency))->minus($fact->amount);
+        }
+        $kept = [];
+        ksort($paid, SORT_STRING);
+        foreach ($paid as $payer => $amount) {
+            $keep = $rule->kept($amount);
+            if ($keep->isPositive()) {
+                $kept[(string) $payer] = $keep;
+            }
+        }
+        if ($kept !== []) {
+            $composed[Retention::LINE] = $kept;
+        }
+
+        return $composed;
     }
 }

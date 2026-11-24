@@ -25,7 +25,7 @@ final class StatusActions
 
     /**
      * @param bool $preview true: what the act would do, nothing written
-     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     * @return array<string, mixed>
      * @throws \Kalaka\Foundation\Api\Error\KalakaException as the use case throws it
      */
     public function run(
@@ -42,7 +42,7 @@ final class StatusActions
         if ($preview) {
             $input['preview'] = true;
         }
-        /** @var array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>} $result */
+        /** @var array<string, mixed> $result */
         $result = ($this->runner ?? Runner::current())->run(self::useCase($act), $input, $actor);
 
         return $result;

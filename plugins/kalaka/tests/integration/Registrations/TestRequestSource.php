@@ -86,6 +86,11 @@ final class TestRequestSource implements RequestSource
                 return ['kalaka_test_pool', [TestRequestSource::POOL]];
             }
 
+            public function label(): string
+            {
+                return 'Teszt ' . $this->key();
+            }
+
             public function limit(): ?int
             {
                 return null;

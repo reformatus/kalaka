@@ -99,6 +99,7 @@ final class MoneySettingsCommandTest extends PricingTestCase
         self::assertSame(
             [
                 'fixed_price' => '1500',
+                'retention' => 'everything_paid',
                 'components' => [
                     'extras' => ['charges' => []],
                     'extra' => ['amount' => '200'],

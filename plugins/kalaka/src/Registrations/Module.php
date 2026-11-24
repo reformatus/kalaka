@@ -171,22 +171,23 @@ SQL;
         Abilities::register(
             new Status\AdmitRegistration(),
             'Jelentkező felvétele a várólistáról',
-            'Egy várólistás jelentkező rögzített állapotba léptetése; a helyeit újra elfoglalja.'
+            'Egy várólistás jelentkezés rögzített állapotba helyezése; lefoglalja a helyeit, '
+            . 'akár a létszámkereten felül is.'
         );
         Abilities::register(
             new Status\WithdrawRegistration(),
             'Jelentkezés visszavonása',
-            'Egy jelentkezés visszavonásának rögzítése; a helyei felszabadulnak.'
+            'Egy jelentkezés visszavont állapotba helyezése, mert a jelentkező visszalépett; a helyei felszabadulnak.'
         );
         Abilities::register(
             new Status\RemoveRegistration(),
             'Jelentkezés törlése',
-            'Egy jelentkezés törlése indoklással; a helyei felszabadulnak.'
+            'Egy jelentkezés törölt állapotba helyezése indoklással; a helyei felszabadulnak, az adatai megmaradnak.'
         );
         Abilities::register(
             new Status\RestoreRegistration(),
             'Jelentkezés visszaállítása',
-            'Egy visszavont vagy törölt jelentkezés visszaállítása rögzített állapotba; a helyeit újra elfoglalja.'
+            'Egy visszavont vagy törölt jelentkezés visszaállítása rögzített állapotba; újra lefoglalja a helyeit.'
         );
     }
 }

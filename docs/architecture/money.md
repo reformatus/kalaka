@@ -260,7 +260,8 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
   more after leaving. Core offers "retain nothing" and "retain everything
   paid"; the deposit extension adds "retain up to the deposit", which counts
   against the participant first. A surplus shows as an overpayment; refunds
-  are never automatic.
+  are never automatic. The rule is chosen per event in its money settings,
+  "retain everything paid" by default.
 - **Moving a payment is not handled in code** (a substitute takes someone's
   place): staff record a refund, remove the registration, and
   record the payment on the other. A transfer helper is deferred.

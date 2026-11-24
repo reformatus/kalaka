@@ -731,7 +731,10 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertIsArray($result);
         self::assertTrue($seats->holds($pool, $key));
         self::assertSame(1, $seats->over($pool));
-        self::assertContains(['pool' => $pool->key(), 'field' => null, 'outcome' => 'over'], $result['seats']);
+        self::assertContains(
+            ['pool' => $pool->key(), 'label' => 'Modul A', 'field' => null, 'outcome' => 'over'],
+            $result['seats']
+        );
         $preview = $this->runner->run(
             new \Kalaka\Registrations\Status\WithdrawRegistration([]),
             $input + ['preview' => true],

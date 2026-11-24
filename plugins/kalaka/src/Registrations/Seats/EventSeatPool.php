@@ -46,6 +46,11 @@ final class EventSeatPool implements SeatPool
         return ['kalaka_events', [$this->eventId]];
     }
 
+    public function label(): string
+    {
+        return ($this->events->find($this->eventId) ?? throw new NotFound())->name;
+    }
+
     public function limit(): ?int
     {
         return ($this->events->find($this->eventId) ?? throw new NotFound())->capacity;

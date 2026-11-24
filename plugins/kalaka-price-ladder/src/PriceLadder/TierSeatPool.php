@@ -44,6 +44,11 @@ final class TierSeatPool implements SeatPool
         return ['kalaka_price_ladder_tiers', [$this->eventId, $this->tierKey]];
     }
 
+    public function label(): string
+    {
+        return ($this->tiers->find($this->row()) ?? throw new NotFound())->label;
+    }
+
     public function limit(): ?int
     {
         return ($this->tiers->find($this->row()) ?? throw new NotFound())->limit;

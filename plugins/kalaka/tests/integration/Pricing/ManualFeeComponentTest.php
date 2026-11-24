@@ -98,7 +98,8 @@ final class ManualFeeComponentTest extends PricingTestCase
 
         $this->setStatus($anna, RegistrationStatus::Withdrawn);
 
-        self::assertSame('-1000', $this->balance($anna));
+        // The default retention keeps what was paid: nobody owes more, nothing shows as overpaid.
+        self::assertSame('0', $this->balance($anna));
         self::assertContains('manual:1 participant -3000 charge:manual:1:participant:2', $this->normalised($anna));
         self::assertContains('manual:2 participant 500 charge:manual:2:participant:2', $this->normalised($anna));
 

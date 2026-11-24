@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Status;
 
+use Kalaka\Admin\Api\Access;
 use Kalaka\Assignments\Api\AssignmentSeats;
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventCapacity;
 use Kalaka\Events\Api\Events;
@@ -13,12 +15,16 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
+use Kalaka\Pricing\Api\FeeComponentFailed;
+use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -57,8 +63,10 @@ use Kalaka\Registrations\RegistrationRepository;
  * - Admission queues the "registered" mail (caused by the registration, as the submit's mail was); a restore, a
  *   withdrawal and a removal queue none. [UNAPPROVED N517]
  *
- * Returns `{changed, status, over_capacity, seats}`: `seats` lists each pool the act took again (a claimed pool, the
- * event's places, an assignment's option) with `held` or `over`.
+ * Returns `{changed, status, over_capacity, seats, warnings}`: `seats` lists each pool the act took again (a claimed
+ * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
+ * warning when any went over. The preview adds, per seat, `taken` and `limit`, and for withdraw, remove and restore
+ * `money`: per payer `paid`, `balance_now` and `balance_after`, null without money-view. [UNAPPROVED N530-N533]
  */
 abstract class StatusChange implements AdminUseCase
 {
@@ -73,6 +81,9 @@ abstract class StatusChange implements AdminUseCase
         private readonly Seats $seats = new Seats(),
         private readonly AssignmentSeats $assignmentSeats = new AssignmentSeats(),
         private readonly ActionMails $mails = new ActionMails(),
+        private readonly Access $access = new Access(),
+        private readonly FeeComposition $composition = new FeeComposition(),
+        private readonly Ledger $ledger = new Ledger(),
         private readonly Registrations $reads = new Registrations(),
     ) {
     }
@@ -112,7 +123,7 @@ abstract class StatusChange implements AdminUseCase
 
     /**
      * @param array<string, mixed> $input
-     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     * @return array<string, mixed>
      */
     public function execute(array $input, Context $context): array
     {
@@ -135,7 +146,7 @@ abstract class StatusChange implements AdminUseCase
         }
 
         if (($input['preview'] ?? false) === true) {
-            return $this->preview($act, $key, $event);
+            return $this->preview($act, $key, $event, $context);
         }
 
         return $act->enters() ? $this->enter($act, $key, $event, $context) : $this->leave($act, $key, $context);
@@ -146,24 +157,103 @@ abstract class StatusChange implements AdminUseCase
      * are the pools the act would take again, each `over` when the pool is full now (`Seats::wouldOverfill()`, the one
      * "would go over" read), so a dialog warns before the act. [UNAPPROVED N513]
      *
-     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     * @return array<string, mixed>
      */
-    private function preview(StatusAct $act, RegistrationKey $key, Event $event): array
+    private function preview(StatusAct $act, RegistrationKey $key, Event $event, Context $context): array
     {
-        if (!$act->enters()) {
-            return self::result($act->target(), false, []);
-        }
         $taken = [];
-        foreach ($this->seats->inLockOrder($this->claims($event, $key)) as $claim) {
-            $taken[] = self::seat($claim->pool->key(), $claim->fieldKey, $this->previewOutcome($claim->pool, $key));
+        $eventOutcome = SeatOutcome::Held;
+        if ($act->enters()) {
+            foreach ($this->seats->inLockOrder($this->claims($event, $key)) as $claim) {
+                $taken[] = $this->previewSeat($claim->pool, $claim->fieldKey, $key);
+            }
+            $eventPool = $this->seats->eventPool($key->eventId);
+            $taken[] = $this->previewSeat($eventPool, null, $key);
+            $eventOutcome = $this->previewOutcome($eventPool, $key);
+            foreach ($this->assignmentSeats->pools($key) as $pool) {
+                $taken[] = $this->previewSeat($pool, null, $key);
+            }
         }
-        $eventOutcome = $this->previewOutcome($this->seats->eventPool($key->eventId), $key);
-        $taken[] = self::seat(SeatPool::EVENT, null, $eventOutcome);
-        foreach ($this->assignmentSeats->pools($key) as $pool) {
-            $taken[] = self::seat($pool->key(), null, $this->previewOutcome($pool, $key));
+        $result = self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
+        if ($act !== StatusAct::Admit) {
+            $result['money'] = $this->previewMoney($act, $key, $context);
         }
 
-        return self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
+        return $result;
+    }
+
+    /**
+     * One pool the act would take again, as a dialog needs it: its own label, the seats the registrations other
+     * than this one hold (`taken`, the count `wouldOverfill()` compares) and its limit (null when it has none).
+     *
+     * @return array<string, mixed>
+     */
+    private function previewSeat(SeatPool $pool, ?string $field, RegistrationKey $key): array
+    {
+        $taken = $this->seats->held($pool) - ($this->seats->holds($pool, $key) ? 1 : 0);
+
+        return self::seat($pool, $field, $this->previewOutcome($pool, $key)) + [
+            'taken' => $taken,
+            'limit' => $pool->limit(),
+        ];
+    }
+
+    /**
+     * What the act does to each payer's money, for a holder who may view it: what was paid, the balance now and the
+     * balance once the act's own composition (the materializer's, retention included) is recorded. Signed amounts as
+     * the money reads give them (above zero owed, below zero overpaid). Null for a holder without money-view, or when
+     * a fee component cannot say what is owed. Nothing is written or refunded.
+     *
+     * @return list<array{payer: string, paid: string, balance_now: string, balance_after: string}>|null
+     */
+    private function previewMoney(StatusAct $act, RegistrationKey $key, Context $context): ?array
+    {
+        if (!$this->mayViewMoney($key, $context)) {
+            return null;
+        }
+        try {
+            $after = $this->composition->of($key, $context->now(), $act->target());
+        } catch (FeeComponentFailed) {
+            return null;
+        }
+        $event = $this->events->find($key->eventId);
+        if ($after === null || $event === null) {
+            return null;
+        }
+        $summary = $this->ledger->summaryOf($key);
+        $targets = $after->targets();
+        $payers = array_unique([...array_keys($summary->payers()), ...array_keys($targets)]);
+        sort($payers, SORT_STRING);
+        $rows = [];
+        foreach ($payers as $payer) {
+            $payer = (string) $payer;
+            $now = $summary->of($payer, $event->currency);
+            $target = $targets[$payer] ?? Money::zero($event->currency);
+            $rows[] = [
+                'payer' => $payer,
+                'paid' => $now->paid->amount(),
+                'balance_now' => $now->balance->amount(),
+                'balance_after' => $target->minus($now->paid)->amount(),
+            ];
+        }
+
+        return $rows;
+    }
+
+    private function mayViewMoney(RegistrationKey $key, Context $context): bool
+    {
+        $actor = $context->actor();
+        if ($this->access->isFull($actor)) {
+            return true;
+        }
+        foreach ($this->access->holding($actor, $key) as $held) {
+            $actions = $held['actions'];
+            if (in_array(Ledger::VIEW_MONEY, $actions, true) || in_array(Ledger::RECORD_MONEY, $actions, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function previewOutcome(SeatPool $pool, RegistrationKey $key): SeatOutcome
@@ -172,7 +262,7 @@ abstract class StatusChange implements AdminUseCase
     }
 
     /**
-     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     * @return array<string, mixed>
      */
     private function leave(StatusAct $act, RegistrationKey $key, Context $context): array
     {
@@ -188,7 +278,7 @@ abstract class StatusChange implements AdminUseCase
     }
 
     /**
-     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     * @return array<string, mixed>
      */
     private function enter(StatusAct $act, RegistrationKey $key, Event $event, Context $context): array
     {
@@ -226,20 +316,21 @@ abstract class StatusChange implements AdminUseCase
         $taken = [];
         foreach ($this->seats->inLockOrder($claims) as $claim) {
             $taken[] = self::seat(
-                $claim->pool->key(),
+                $claim->pool,
                 $claim->fieldKey,
                 $this->seats->retake($claim->pool, $key, $seatAct, $context)
             );
         }
-        $eventOutcome = $this->seats->retake($this->seats->eventPool($key->eventId), $key, $seatAct, $context);
-        $taken[] = self::seat(SeatPool::EVENT, null, $eventOutcome);
+        $eventPool = $this->seats->eventPool($key->eventId);
+        $eventOutcome = $this->seats->retake($eventPool, $key, $seatAct, $context);
+        $taken[] = self::seat($eventPool, null, $eventOutcome);
         $over = [];
         foreach ($this->assignmentSeats->retake($key, $seatAct, $context) as $assignment) {
             $over['option.' . $assignment->setId . '.' . $assignment->optionKey] = true;
         }
         foreach ($this->assignmentSeats->pools($key) as $pool) {
             $outcome = isset($over[$pool->key()]) ? SeatOutcome::Over : SeatOutcome::Held;
-            $taken[] = self::seat($pool->key(), null, $outcome);
+            $taken[] = self::seat($pool, null, $outcome);
         }
 
         if ($act === StatusAct::Admit) {
@@ -287,24 +378,44 @@ abstract class StatusChange implements AdminUseCase
         return array_values($byPool);
     }
 
-    /** @return array{pool: string, field: ?string, outcome: string} */
-    private static function seat(string $pool, ?string $field, SeatOutcome $outcome): array
+    /** @return array{pool: string, label: string, field: ?string, outcome: string} */
+    private static function seat(SeatPool $pool, ?string $field, SeatOutcome $outcome): array
     {
-        return ['pool' => $pool, 'field' => $field, 'outcome' => $outcome->value];
+        return ['pool' => $pool->key(), 'label' => $pool->label(), 'field' => $field, 'outcome' => $outcome->value];
     }
 
     /**
      * @param list<array<string, mixed>> $seats
-     * @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>}
+     * @return array<string, mixed>
      */
     private static function result(RegistrationStatus $status, bool $over, array $seats): array
     {
-        return ['changed' => true, 'status' => $status->value, 'over_capacity' => $over, 'seats' => $seats];
+        // The "full" warning (B5-2's edit preview has the same shape) when any pool went, or would go, over.
+        $warnings = [];
+        foreach ($seats as $seat) {
+            if ($seat['outcome'] === SeatOutcome::Over->value) {
+                $warnings = [AssignmentSets::FULL_WARNING];
+            }
+        }
+
+        return [
+            'changed' => true,
+            'status' => $status->value,
+            'over_capacity' => $over,
+            'seats' => $seats,
+            'warnings' => $warnings,
+        ];
     }
 
-    /** @return array{changed: bool, status: string, over_capacity: bool, seats: list<array<string, mixed>>} */
+    /** @return array<string, mixed> */
     private static function unchanged(RegistrationStatus $status): array
     {
-        return ['changed' => false, 'status' => $status->value, 'over_capacity' => false, 'seats' => []];
+        return [
+            'changed' => false,
+            'status' => $status->value,
+            'over_capacity' => false,
+            'seats' => [],
+            'warnings' => [],
+        ];
     }
 }

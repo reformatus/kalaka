@@ -245,13 +245,14 @@ final class RegistrationCommand
         $reason = isset($assoc['reason']) && is_string($assoc['reason']) ? $assoc['reason'] : null;
         $actor = new CliActor(get_current_user_id() ?: null);
         $result = $this->actions->run($act, new RegistrationKey((int) $args[0], $args[1]), $reason, $actor);
-        $line = $args[1] . ($result['changed'] ? ': ' : ' is already ') . $result['status'] . '.';
-        if ($result['over_capacity']) {
+        $line = $args[1] . ($result['changed'] === true ? ': ' : ' is already ') . (string) $result['status'] . '.';
+        if ($result['over_capacity'] === true) {
             \WP_CLI::warning(AssignmentSets::FULL_WARNING);
             $line .= ' The event is over its capacity now.';
         }
         \WP_CLI::success($line);
-        foreach ($result['seats'] as $seat) {
+        foreach ((array) $result['seats'] as $seat) {
+            $seat = (array) $seat;
             $outcome = (string) $seat['outcome'];
             $note = $outcome === SeatOutcome::Over->value ? ' (over the limit)' : '';
             \WP_CLI::line(' - ' . (string) $seat['pool'] . ': ' . $outcome . $note);

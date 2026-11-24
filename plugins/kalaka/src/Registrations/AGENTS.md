@@ -46,7 +46,10 @@ the waitlist and reference codes
   `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
   and queue the "registered" mail on admission only. Withdraw and remove free
   seats only through `Seats::releaseAll()`. The preview (`preview: true`)
-  reads with `Seats::wouldOverfill()`, locks and writes nothing.
+  reads with `Seats::wouldOverfill()`, locks and writes nothing; it gives each seat its pool's own `label()`, `taken`
+  (held by others) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
+  effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`), only to a holder
+  of money-view.
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list

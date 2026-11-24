@@ -16,7 +16,10 @@ use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Pricing\FixedPrice;
 use Kalaka\Pricing\FixedPriceRepository;
+use Kalaka\Pricing\RetentionRepository;
 use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Pricing\SetRetention;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
@@ -41,6 +44,7 @@ final class MoneySettings
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly FixedPriceRepository $prices = new FixedPriceRepository(),
+        private readonly RetentionRepository $retention = new RetentionRepository(),
     ) {
     }
 
@@ -48,6 +52,14 @@ final class MoneySettings
     public function fixedPrice(int $eventId): ?Money
     {
         return $this->prices->find($eventId)?->amount;
+    }
+
+    /** The event's retention rule: what it keeps when a registration leaves; the default when none is saved. */
+    public function retention(int $eventId): Retention
+    {
+        $record = $this->retention->find($eventId);
+
+        return $record === null ? Retention::default() : $record->rule;
     }
 
     /**
@@ -88,7 +100,8 @@ final class MoneySettings
     }
 
     /**
-     * Saves the proposed settings, the fixed price first, then each component's settings in its own use case
+     * Saves the proposed settings, the fixed price and the retention rule first, then each component's settings in
+     * its own use case
      * in the order given; a failing save stops the apply before any registration is touched, and the saves
      * before it stay. Then it re-evaluates each open registration in a use case of its own. Registrations
      * submitted since the preview are included: the list is read after the save. One failing registration
@@ -120,12 +133,29 @@ final class MoneySettings
             );
         }
 
+        if ($proposed->retention !== null) {
+            $this->runner()->run(
+                new SetRetention(),
+                ['event_id' => $eventId, 'retention' => $proposed->retention->value],
+                $actor
+            );
+        }
+
         foreach ($saves as $save) {
             $this->runner()->run($save->useCase, $save->input, $actor);
         }
 
+        // A new retention rule changes what the registrations that left owe, so they are evaluated too.
+        $keys = $this->registrations->openOf($eventId);
+        if ($proposed->retention !== null) {
+            foreach ($this->registrations->statusesOf($eventId) as $code => $status) {
+                if ($status === RegistrationStatus::Withdrawn || $status === RegistrationStatus::Removed) {
+                    $keys[] = new RegistrationKey($eventId, (string) $code);
+                }
+            }
+        }
         $items = [];
-        foreach ($this->registrations->openOf($eventId) as $key) {
+        foreach ($keys as $key) {
             $items[] = $this->retry($key, $actor);
         }
 

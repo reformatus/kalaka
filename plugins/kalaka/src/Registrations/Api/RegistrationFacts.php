@@ -93,6 +93,25 @@ final readonly class RegistrationFacts implements Facts
         );
     }
 
+    /**
+     * The same facts as they would be once the registration has the status (`registered` from now on, for a restore
+     * or an admission): what a staff dialog previews. Computed values are not carried over; they are never stored.
+     */
+    public function becoming(RegistrationStatus $status, \DateTimeImmutable $now): self
+    {
+        return new self(
+            $this->registration,
+            $status,
+            $status === RegistrationStatus::Registered ? $now : $this->registeredAt,
+            $this->event,
+            $this->now,
+            $this->fieldValues,
+            [],
+            $this->fieldKinds,
+            $this->awaitsAnswer,
+        );
+    }
+
     /** Whether the source declares the key: a reader of an optional computed value asks first. */
     public function has(string $key): bool
     {

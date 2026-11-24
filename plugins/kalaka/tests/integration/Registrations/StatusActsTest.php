@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Admin\Cli\RegistrationCommand;
+use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\UserActor;
@@ -17,7 +18,14 @@ use Kalaka\Foundation\Api\Module\ActionCatalogue;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\RecordPayment;
+use Kalaka\Pricing\Api\MoneySettings;
+use Kalaka\Pricing\Api\ProposedMoneySettings;
+use Kalaka\Pricing\Api\Retention;
+use Kalaka\Pricing\SetRetention;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
@@ -62,6 +70,8 @@ final class StatusActsTest extends StaffEditTestCase
             'kalaka_remove_registration',
             'kalaka_admit_registration',
             'kalaka_restore_registration',
+            'kalaka_view_money',
+            'kalaka_record_money',
         ]));
         $this->runner = $this->moneyRunner();
         $this->exec(new SetFixedPrice(), ['event_id' => $this->event, 'amount' => '8000', 'currency' => 'HUF']);
@@ -525,7 +535,11 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame([], $this->deliveries('00A5'));
         self::assertSame([], $this->entriesWithChanges($entries));
         $result = $this->act(StatusAct::Admit, '00A5');
-        self::assertSame($preview['seats'], $result['seats']);
+        $columns = static fn (array $seats): array => array_map(
+            static fn (array $seat): array => [$seat['pool'], $seat['label'], $seat['outcome']],
+            $seats
+        );
+        self::assertSame($columns($preview['seats']), $columns($result['seats']));
         self::assertSame($preview['over_capacity'], $result['over_capacity']);
         self::assertTrue($result['over_capacity']);
     }
@@ -535,6 +549,105 @@ final class StatusActsTest extends StaffEditTestCase
         $this->expectException(StatusActRefused::class);
 
         $this->act(StatusAct::Restore, '00A5', ['preview' => true]);
+    }
+
+    public function testThePreviewGivesEachSeatItsLabelItsFiguresAndTheWarning(): void
+    {
+        $this->capacity(2);
+        $this->addValue($this->event, '00A5', 'tier', 'b');
+        $this->seat('00A2', $this->poolB);
+
+        $preview = $this->act(StatusAct::Admit, '00A5', ['preview' => true]);
+
+        $bySeat = [];
+        foreach ($preview['seats'] as $seat) {
+            $bySeat[(string) $seat['pool']] = $seat;
+        }
+        // The tier is full (1 of 1 taken by another): over, with its own label and figures.
+        self::assertSame(
+            ['pool' => 'tier.b', 'label' => 'Teszt tier.b', 'field' => 'tier', 'outcome' => 'over', 'taken' => 1,
+                'limit' => 1],
+            $bySeat['tier.b']
+        );
+        // The event's places: the event's own name, the registered registrations, the capacity.
+        self::assertSame(
+            ['pool' => 'event', 'label' => 'Tábor', 'field' => null, 'outcome' => 'over', 'taken' => 2, 'limit' => 2],
+            $bySeat['event']
+        );
+        self::assertSame([AssignmentSets::FULL_WARNING], $preview['warnings']);
+        $real = $this->act(StatusAct::Admit, '00A5');
+        self::assertSame([AssignmentSets::FULL_WARNING], $real['warnings']);
+    }
+
+    public function testThePreviewHasNoWarningAndAnUnlimitedPoolHasNoLimit(): void
+    {
+        $this->addValue($this->event, '00A5', 'tier', 'a');
+
+        $preview = $this->act(StatusAct::Admit, '00A5', ['preview' => true]);
+
+        self::assertSame([], $preview['warnings']);
+        $event = array_values(array_filter(
+            $preview['seats'],
+            static fn (array $seat): bool => $seat['pool'] === 'event'
+        ));
+        self::assertNull($event[0]['limit']);
+        self::assertArrayNotHasKey('money', $preview);
+    }
+
+    public function testThePreviewShowsEachPayersMoneyAsTheActWillLeaveIt(): void
+    {
+        $this->pay('00A0', '3000');
+
+        $withdraw = $this->act(StatusAct::Withdraw, '00A0', ['preview' => true]);
+
+        // Retention keeps what was paid: balance 0 after, as it is now.
+        self::assertSame(
+            [['payer' => 'participant', 'paid' => '3000.00000000', 'balance_now' => '5000.00000000',
+                'balance_after' => '0.00000000']],
+            $withdraw['money']
+        );
+        self::assertSame('registered', $this->row('00A0')['status']);
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame('0.00000000', $this->money()[2]);
+
+        $restore = $this->act(StatusAct::Restore, '00A0', ['preview' => true]);
+
+        self::assertSame(
+            [['payer' => 'participant', 'paid' => '3000.00000000', 'balance_now' => '0.00000000',
+                'balance_after' => '5000.00000000']],
+            $restore['money']
+        );
+        $this->act(StatusAct::Restore, '00A0');
+        self::assertSame('5000.00000000', $this->money()[2]);
+    }
+
+    public function testThePreviewOfKeepNothingShowsTheOverpaymentAndASecondPayer(): void
+    {
+        $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'nothing']);
+        $this->pay('00A0');
+
+        $remove = $this->act(StatusAct::Remove, '00A0', ['preview' => true, 'reason' => 'x']);
+
+        self::assertSame('-8000.00000000', $remove['money'][0]['balance_after']);
+    }
+
+    public function testTheMoneyOfThePreviewIsOnlyForAHolderOfMoneyView(): void
+    {
+        $this->pay('00A0');
+        $plain = $this->plainUser();
+        $this->saveGrant($this->event, $plain, ['actions' => ['kalaka_withdraw_registration']]);
+        $moneyUser = $this->plainUser();
+        $this->saveGrant(
+            $this->event,
+            $moneyUser,
+            ['actions' => ['kalaka_withdraw_registration', 'kalaka_view_money']]
+        );
+
+        $without = $this->act(StatusAct::Withdraw, '00A0', ['preview' => true], new UserActor($plain));
+        $with = $this->act(StatusAct::Withdraw, '00A0', ['preview' => true], new UserActor($moneyUser));
+
+        self::assertNull($without['money']);
+        self::assertSame('0.00000000', $with['money'][0]['balance_after']);
     }
 
     public function testTheAllowedActsFollowTheStatus(): void
@@ -619,6 +732,127 @@ final class StatusActsTest extends StaffEditTestCase
         }
         $command->withdraw([(string) $this->event, '00A2'], ['reason' => 'Telefon']);
         self::assertSame('withdrawn', $this->row('00A2')['status']);
+    }
+
+    // --- retention ---
+
+    /** @return array{string, string, string} the payer's charged, paid and balance, as the money table reads them */
+    private function money(string $code = '00A0', string $payer = 'participant'): array
+    {
+        $summary = (new Ledger())->summaryOf($this->key($code))->of($payer, Currency::HUF);
+
+        return [$summary->charged->amount(), $summary->paid->amount(), $summary->balance->amount()];
+    }
+
+    private function retentionLines(string $code = '00A0'): float
+    {
+        global $wpdb;
+
+        return (float) $wpdb->get_var($wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM %i WHERE event_id = %d AND code = %s AND source_key = 'retention'",
+            $wpdb->prefix . 'kalaka_ledger_lines',
+            $this->event,
+            $code
+        ));
+    }
+
+    public function testALeavingKeepsEverythingPaidByDefaultAndOwesNothingMore(): void
+    {
+        $this->pay('00A0');
+        self::assertSame(['8000.00000000', '8000.00000000', '0.00000000'], $this->money());
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        // The fee is reversed and the retention line keeps what was paid: nobody owes more, nothing is overpaid.
+        self::assertSame(['8000.00000000', '8000.00000000', '0.00000000'], $this->money());
+        self::assertSame(8000.0, $this->retentionLines());
+    }
+
+    public function testARemovedRegistrationKeepsWhatItPaidToo(): void
+    {
+        $this->pay('00A0', '3000');
+
+        $this->act(StatusAct::Remove, '00A0', ['reason' => 'Tévedés']);
+
+        self::assertSame(['3000.00000000', '3000.00000000', '0.00000000'], $this->money());
+    }
+
+    public function testAnUnpaidLeavingOwesNothingAndHasNoRetentionLine(): void
+    {
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertSame(['0.00000000', '0.00000000', '0.00000000'], $this->money());
+        self::assertSame(0.0, $this->retentionLines());
+    }
+
+    public function testKeepNothingShowsEverythingPaidAsAnOverpaymentAndRefundsNothing(): void
+    {
+        $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'nothing']);
+        $this->pay('00A0');
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertSame(['0.00000000', '8000.00000000', '-8000.00000000'], $this->money());
+        self::assertSame(0.0, $this->retentionLines());
+    }
+
+    public function testEachPayerKeepsUpToItsOwnPayments(): void
+    {
+        $this->pay('00A0', '3000');
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_ledger_lines', [
+            'event_id' => $this->event,
+            'code' => '00A0',
+            'kind' => 'payment',
+            'payer' => 'congregation',
+            'amount' => '-2000',
+            'currency' => 'HUF',
+            'source_type' => 'system',
+            'source_event_id' => null,
+            'source_key' => 'system',
+            'idempotency_key' => 'gyulekezet-1',
+            'value_date' => '2026-11-29 23:00:00.000000',
+            'paid_at' => null,
+            'recorded_at' => '2026-11-30 08:00:00.000000',
+            'method' => 'bank_transfer',
+            'correction' => 0,
+        ]);
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        self::assertSame(['3000.00000000', '3000.00000000', '0.00000000'], $this->money());
+        self::assertSame(['2000.00000000', '2000.00000000', '0.00000000'], $this->money('00A0', 'congregation'));
+    }
+
+    public function testARestoreTakesTheRetentionLineBackAndTheFullFeeReturns(): void
+    {
+        $this->pay('00A0', '3000');
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame(3000.0, $this->retentionLines());
+
+        $this->act(StatusAct::Restore, '00A0');
+
+        self::assertSame(0.0, $this->retentionLines());
+        self::assertSame(['8000.00000000', '3000.00000000', '5000.00000000'], $this->money());
+    }
+
+    public function testChangingTheRuleReEvaluatesTheRegistrationsThatLeft(): void
+    {
+        $this->pay('00A0');
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame(['8000.00000000', '8000.00000000', '0.00000000'], $this->money());
+
+        $settings = new MoneySettings($this->runner);
+        self::assertSame(Retention::EverythingPaid, $settings->retention($this->event));
+        $report = $settings->apply(
+            $this->event,
+            new ProposedMoneySettings(retention: Retention::Nothing),
+            new CliActor(null)
+        );
+
+        self::assertSame(Retention::Nothing, $settings->retention($this->event));
+        self::assertSame(['0.00000000', '8000.00000000', '-8000.00000000'], $this->money());
+        self::assertNotSame([], $report->items);
     }
 
     public function testNoMoneyIsEverRefundedByALeaving(): void
