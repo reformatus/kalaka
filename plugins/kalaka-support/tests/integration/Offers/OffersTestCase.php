@@ -173,7 +173,7 @@ abstract class OffersTestCase extends PricingTestCase
             $this->seats->lock($pool, $context);
             $this->lockRegistrations($context, $key);
             if ($over) {
-                $this->seats->takeOver($pool, $key, SeatAct::Submit, $context);
+                $this->seats->retake($pool, $key, SeatAct::Submit, $context);
 
                 return;
             }

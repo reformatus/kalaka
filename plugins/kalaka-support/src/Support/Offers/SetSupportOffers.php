@@ -38,8 +38,8 @@ final class SetSupportOffers implements AdminUseCase
     public const CONSENT_TYPE = 'kalaka/consent-field';
     public const CHOICE_TYPE = 'kalaka/choice-field';
 
-    /** The slug this module declares its fields with (`declared_by`) and writes them under. */
-    public const DECLARER = 'kalaka-support';
+    /** The declarer this module declares its fields with (`declared_by`) and writes them under: its module ID. */
+    public const DECLARER = 'support';
 
     /** The answer field's key, after the offer's key. */
     public const ANSWER_SUFFIX = '_answer';

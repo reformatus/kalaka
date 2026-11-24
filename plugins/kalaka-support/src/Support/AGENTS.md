@@ -77,7 +77,7 @@ It holds the directory, the congregation picker and the support offers.
   selected it (`OfferChangeGuard`, through the shared `Registrations::openHolds()`): in the preview (`Api\Offers::propose()`) and before any save of an
   apply, so an apply never half-saves; the use case checks again as a guard.
 - The save declares the offer's fields in the same transaction, through core's `declareExtensionField()` as
-  declarer `kalaka-support`, money relevant: the selection, a consent field whose key is the offer's key
+  declarer `support` (the module's ID, `SetSupportOffers::DECLARER`), money relevant: the selection, a consent field whose key is the offer's key
   (form-writable, titled with the offer's label), and for an offer that must be requested its answer
   `<key>_answer` (a choice of `approved` and `refused`, not form-writable, written only by `OfferRequests`).
   The keys are judged by core's `ParticipantFields::checkDeclarable()` (a form's field of the type is adopted;
