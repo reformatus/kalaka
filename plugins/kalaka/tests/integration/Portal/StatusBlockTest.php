@@ -10,6 +10,7 @@ use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Portal\StatusMarkup;
+use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Requests;
@@ -237,7 +238,7 @@ final class StatusBlockTest extends PortalTestCase
             'value' => 'church',
         ]);
 
-        return new StatusRead(requests: new Requests([new TestRequestSource()]));
+        return new StatusRead(registrations: new Registrations(requests: new Requests([new TestRequestSource()])));
     }
 
     /** An answering act's record, written behind the use case. */
