@@ -23,7 +23,7 @@ use Kalaka\Registrations\Api\Seats;
  *
  * A limited offer is a request only while the registration holds its seat, or has been answered: a selection that
  * got no seat (an admission into a full offer) owes the price without the offer, and a refused offer, which gave
- * its seat back, can still be answered "yes" again. [UNAPPROVED N11]
+ * its seat back, can still be answered "yes" again. [UNAPPROVED N101]
  */
 final class OfferRequests implements RequestSource
 {
