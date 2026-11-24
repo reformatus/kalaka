@@ -68,12 +68,7 @@ final class ClaimDraft implements PortalUseCase
             throw $error;
         }
         $guest = $this->drafts->ofClaim((string) $input['claim_hash'], $context);
-        if (
-            $guest === null
-            || $guest->userId !== null
-            || $guest->expiresAt === null
-            || $guest->expiresAt <= $context->now()
-        ) {
+        if ($guest === null || !$guest->isUsableGuest($context->now())) {
             return DraftClaimOutcome::Gone;
         }
         if ($guest->formId !== (int) $input['form_id']) {

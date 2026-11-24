@@ -71,6 +71,12 @@ const OWN_CODE = /^kalaka_/;
 const SESSION_ENDED = 'kalaka_session_ended';
 
 /**
+ * The refusal of a draft save from before a claim changed the draft (`VersionConflict`): the page's answers are
+ * older than the draft. Another 409 (an edited form, `kalaka_form_outdated`) does not end the autosave.
+ */
+const VERSION_CONFLICT = 'kalaka_version_conflict';
+
+/**
  * The refusal of a send over the rate limit (S14, `RateLimited`): too many sends from this person or
  * address in a short time. It shows its own message, or its code while the message is empty; the answers
  * stay, and a later send may go through.
@@ -694,7 +700,7 @@ function applyAccount(form, account) {
  * the page opened with (`draftClaims`).
  *
  * The autosave stops for good once the person's choice on a link's answers is sent
- * (`resolveDraftClaim()`), or once the server refuses a save as from before a claim (409): the page's
+ * (`resolveDraftClaim()`), or once the server refuses a save as from before a claim (`kalaka_version_conflict`): the page's
  * answers are then older than the draft, and nothing waiting or sent when the page is left may bring them
  * back.
  */
@@ -746,10 +752,19 @@ function saveDraft(form, keepalive = false) {
 				claims: started.draftClaims ?? 0,
 			}),
 		})
-			.then((response) => {
-				if (response.status === 409) {
+			.then(async (response) => {
+				if (response.ok) {
+					return;
+				}
+				let body = null;
+				try {
+					body = await response.json();
+				} catch {
+					body = null;
+				}
+				if (body?.code === VERSION_CONFLICT) {
 					stopDraft(form);
-				} else if (!response.ok) {
+				} else {
 					started.draftDirty = true;
 				}
 			})

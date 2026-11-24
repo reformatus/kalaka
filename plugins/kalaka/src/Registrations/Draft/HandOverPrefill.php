@@ -53,7 +53,8 @@ final class HandOverPrefill implements PublicUseCase
         return [];
     }
 
-    public function execute(array $input, Context $context): null
+    /** @return \DateTimeImmutable when the guest draft expires: the one instant the cookie's expiry follows too */
+    public function execute(array $input, Context $context): \DateTimeImmutable
     {
         if (isset($input['replaces'])) {
             $earlier = $this->drafts->ofClaim((string) $input['replaces'], $context);
@@ -62,6 +63,7 @@ final class HandOverPrefill implements PublicUseCase
             }
         }
         $now = $context->now();
+        $expires = $now->modify('+' . DraftClaim::LIFETIME_DAYS . ' days');
         $this->drafts->upsert(new Draft(
             (int) $input['event_id'],
             (int) $input['form_id'],
@@ -72,9 +74,9 @@ final class HandOverPrefill implements PublicUseCase
             0,
             $now,
             $now,
-            $now->modify('+' . DraftClaim::LIFETIME_DAYS . ' days'),
+            $expires,
         ), $context);
 
-        return null;
+        return $expires;
     }
 }

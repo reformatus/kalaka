@@ -87,7 +87,7 @@ final class DraftsTest extends FormsTestCase
             new AnswerSet($answers),
             $earlier,
             new GuestActor()
-        );
+        )[0];
     }
 
     /** @return list<array<string, ?string>> */

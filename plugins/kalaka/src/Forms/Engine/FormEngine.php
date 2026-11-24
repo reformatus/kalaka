@@ -309,12 +309,12 @@ final class FormEngine
             }
             $sent = $answers->answers[$field->key];
             try {
-                $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
+                $stored = FormWalk::storedOf($field, $type, $sent);
             } catch (InvalidInput) {
                 continue;
             }
-            if ($answer->error === null && $answer->value !== null) {
-                $checked[$field->key] = [$sent, $answer->value];
+            if ($stored !== null) {
+                $checked[$field->key] = [$sent, $stored];
             }
         }
 

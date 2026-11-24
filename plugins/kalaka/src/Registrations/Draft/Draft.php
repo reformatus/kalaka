@@ -41,4 +41,22 @@ final class Draft
         public ?string $resolvedChoice = null,
     ) {
     }
+
+    /** A guest draft of that form, expired or not: what the submit's deletion of the cookie's draft asks. */
+    public function isGuestOf(int $formId): bool
+    {
+        return $this->userId === null && $this->formId === $formId;
+    }
+
+    /** A guest draft that has not expired at `$now`. */
+    public function isUsableGuest(\DateTimeImmutable $now): bool
+    {
+        return $this->userId === null && $this->expiresAt !== null && $this->expiresAt > $now;
+    }
+
+    /** A guest draft of that form that has not expired at `$now`: the one usable under a claim token. */
+    public function isUsableGuestOf(int $formId, \DateTimeImmutable $now): bool
+    {
+        return $this->isGuestOf($formId) && $this->isUsableGuest($now);
+    }
 }

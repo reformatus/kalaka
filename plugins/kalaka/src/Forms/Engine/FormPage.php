@@ -118,9 +118,18 @@ final class FormPage
      */
     private function refusals(Form $form, \WP_Post $post, \DateTimeImmutable $now): array
     {
-        return self::withoutAccount(
-            $this->host->refusals($form, $now, self::currentRoles(), !post_password_required($post))
-        );
+        return self::withoutAccount(self::refusalsOf($this->host, $form, $post, $now));
+    }
+
+    /**
+     * The one "can this form be used now" check, for the form's page, its routes and the draft handoff: the
+     * host's refusals for the current user's roles and whether the post's password was given.
+     *
+     * @return list<AccessRefusal>
+     */
+    public static function refusalsOf(FormHost $host, Form $form, \WP_Post $post, \DateTimeImmutable $now): array
+    {
+        return $host->refusals($form, $now, self::currentRoles(), !post_password_required($post));
     }
 
     /**

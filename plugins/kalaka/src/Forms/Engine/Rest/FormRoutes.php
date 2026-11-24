@@ -16,6 +16,7 @@ use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\SignUp;
+use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\AccountMarkup;
 use Kalaka\Forms\Engine\ChoiceParts;
 use Kalaka\Forms\Engine\FormEngine;
@@ -199,19 +200,7 @@ final class FormRoutes
             throw $error;
         }
 
-        $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
-        $values = $this->host->facts($form) ?? throw new NotFound();
-        $post = get_post($form->id);
-        if (!$post instanceof \WP_Post) {
-            $error = new NotFound();
-            throw $error;
-        }
-        $all = $this->host->refusals(
-            $form,
-            Runner::current()->clock()->now(),
-            FormsPage::currentRoles(),
-            !post_password_required($post)
-        );
+        [$form, $values, $all] = $this->lookup($request);
         $refusals = FormsPage::withoutAccount($all);
         if ($refusals !== []) {
             $error = new FormRefused($refusals);
@@ -378,24 +367,33 @@ final class FormRoutes
      */
     private function usableForm(\WP_REST_Request $request): Form
     {
-        $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
-        $post = get_post($form->id);
-        if ($this->host->facts($form) === null || !$post instanceof \WP_Post) {
-            $error = new NotFound();
-            throw $error;
-        }
-        $refusals = $this->host->refusals(
-            $form,
-            Runner::current()->clock()->now(),
-            FormsPage::currentRoles(),
-            !post_password_required($post)
-        );
+        [$form, , $refusals] = $this->lookup($request);
         if ($refusals !== []) {
             $error = new FormRefused($refusals);
             throw $error;
         }
 
         return $form;
+    }
+
+    /**
+     * The form of the route with its facts and every refusal that keeps it from being used now
+     * (`FormPage::refusalsOf()`).
+     *
+     * @return array{Form, ValueContext, list<AccessRefusal>}
+     * @throws NotFound when the form, what it belongs to or its post is gone
+     */
+    private function lookup(\WP_REST_Request $request): array
+    {
+        $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
+        $values = $this->host->facts($form) ?? throw new NotFound();
+        $post = get_post($form->id);
+        if (!$post instanceof \WP_Post) {
+            $error = new NotFound();
+            throw $error;
+        }
+
+        return [$form, $values, FormsPage::refusalsOf($this->host, $form, $post, Runner::current()->clock()->now())];
     }
 
     /**

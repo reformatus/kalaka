@@ -183,4 +183,21 @@ describe('the autosave and the claim', () => {
 
 		expect(draftCalls()).toHaveLength(1);
 	});
+
+	test('keeps saving after another 409, an edited form (kalaka_form_outdated)', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValue(
+			respond(409, { code: 'kalaka_form_outdated', message: 'x' })
+		);
+		await load(form(text('name'), { draftUrl: DRAFT_URL }));
+
+		type(root(), 'name', 'Teszt Anna');
+		window.dispatchEvent(new Event('pagehide'));
+		await settle();
+		expect(draftCalls()).toHaveLength(1);
+
+		type(root(), 'name', 'Teszt Anna Mária');
+		window.dispatchEvent(new Event('pagehide'));
+
+		expect(draftCalls()).toHaveLength(2);
+	});
 });

@@ -11,6 +11,7 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Draft\ClaimDraft;
 use Kalaka\Registrations\Draft\Draft;
@@ -104,10 +105,8 @@ final class Drafts
     {
         $found = $this->drafts->ofClaim(DraftClaim::hash($claimToken));
         $now = $this->runner()->clock()->now();
-        $usable = $found !== null && $found->userId === null && $found->formId === $formId
-            && $found->expiresAt !== null && $found->expiresAt > $now;
 
-        return $usable ? $found : null;
+        return $found !== null && $found->isUsableGuestOf($formId, $now) ? $found : null;
     }
 
     /**
@@ -167,9 +166,11 @@ final class Drafts
 
     /**
      * Keeps a link's or the quiz's answers as a guest draft under a new claim token, replacing the earlier
-     * one of the same browser, and returns the token for the cookie.
+     * one of the same browser, and returns the token for the cookie with the instant the draft expires (the
+     * cookie's expiry, from the run's own clock).
      *
      * @param ?string $earlierToken the token of the request's cookie
+     * @return array{string, \DateTimeImmutable} the token and the expiry
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
     public function handOver(
@@ -179,7 +180,7 @@ final class Drafts
         AnswerSet $answers,
         ?string $earlierToken,
         Actor $actor
-    ): string {
+    ): array {
         $token = DraftClaim::generate();
         $input = [
             'event_id' => $eventId,
@@ -190,9 +191,13 @@ final class Drafts
         if ($earlierToken !== null) {
             $input['replaces'] = DraftClaim::hash($earlierToken);
         }
-        $this->runner()->run(new HandOverPrefill($answers), $input, $actor);
+        $expires = $this->runner()->run(new HandOverPrefill($answers), $input, $actor);
+        if (!$expires instanceof \DateTimeImmutable) {
+            $error = new SystemFailure(null, new \LogicException('The hand-over gave no expiry.'));
+            throw $error;
+        }
 
-        return $token;
+        return [$token, $expires];
     }
 
     /**

@@ -22,7 +22,7 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
-use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\DraftClaimRefused;
@@ -193,7 +193,7 @@ final class EventFormHost implements FormHost
         Actor $actor
     ): void {
         if ($form->placement !== FormPlacement::Registration) {
-            $error = new RuleViolation();
+            $error = new NotFound();
             throw $error;
         }
         $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
@@ -226,7 +226,7 @@ final class EventFormHost implements FormHost
         Actor $actor
     ): array {
         $claim = DraftClaim::current();
-        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven, $claim);
+        $request = new SubmitRequest($formId, $version, $answers, $token, $roles, $passwordGiven, draftClaim: $claim);
         $result = ($this->registrationSubmit ?? new RegistrationSubmit())->submit($request, $actor)->toArray();
         // The submit deleted the cookie's guest draft when it was this form's (S74): the cookie is done then.
         if ($claim !== null && !$this->drafts->holds($claim)) {

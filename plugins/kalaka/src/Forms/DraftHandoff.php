@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Engine\FormPage as FormsPage;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
@@ -145,7 +146,7 @@ final class DraftHandoff
         if ($accepted->isEmpty()) {
             return;
         }
-        $token = $this->drafts->handOver(
+        [$token, $expires] = $this->drafts->handOver(
             $form->eventId,
             $form->id,
             $definition->version,
@@ -153,7 +154,6 @@ final class DraftHandoff
             DraftClaim::current(),
             $actor
         );
-        $expires = Runner::current()->clock()->now()->modify('+' . DraftClaim::LIFETIME_DAYS . ' days');
         DraftClaim::setCookie($token, $expires);
         // A logged-in person claims it at once, on the page the 303 leads to.
     }
@@ -193,7 +193,7 @@ final class DraftHandoff
             return null;
         }
         $found = null;
-        foreach (PlacedForms::in($post->post_content) as $id) {
+        foreach (FormCaching::formIds($post->post_content) as $id) {
             $form = $this->forms->form($id);
             if ($form === null || $form->placement !== FormPlacement::Registration) {
                 continue;
@@ -206,12 +206,7 @@ final class DraftHandoff
         if ($found === null) {
             return null;
         }
-        $refusals = $this->host->refusals(
-            $found,
-            Runner::current()->clock()->now(),
-            array_values(wp_get_current_user()->roles),
-            !post_password_required($post)
-        );
+        $refusals = FormsPage::refusalsOf($this->host, $found, $post, Runner::current()->clock()->now());
 
         return $refusals === [] ? $found : null;
     }

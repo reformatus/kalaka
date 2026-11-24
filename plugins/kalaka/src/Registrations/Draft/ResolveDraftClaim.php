@@ -69,14 +69,7 @@ final class ResolveDraftClaim implements PortalUseCase
         $hash = (string) $input['claim_hash'];
         $choice = DraftClaimChoice::from((string) $input['choice']);
         $guest = $this->drafts->ofClaim($hash, $context);
-        if (
-            $guest === null
-            || $guest->userId !== null
-            || $guest->formId !== (int) $input['form_id']
-            || $guest->eventId !== (int) $input['event_id']
-            || $guest->expiresAt === null
-            || $guest->expiresAt <= $context->now()
-        ) {
+        if ($guest === null || !$guest->isUsableGuestOf((int) $input['form_id'], $context->now())) {
             // A repeat of the choice that settled this claim answers as the first did; anything else is refused.
             $own = $this->drafts->ofUser((int) $input['event_id'], (int) $input['form_id'], $actor->userId, $context);
             if ($own !== null && $own->resolvedClaim === $hash && $own->resolvedChoice === $choice->value) {

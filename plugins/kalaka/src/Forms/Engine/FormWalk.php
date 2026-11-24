@@ -218,12 +218,7 @@ final class FormWalk
     ): ?Value {
         $sent = $answers[$field->key] ?? null;
         // a consent sent as false is an answer, "no" (stored `0`), unless the consent is required
-        $isConsent = $field->blockName === ConsentFieldType::BLOCK_NAME;
-        if (
-            !array_key_exists($field->key, $answers)
-            || $this->isBlank($sent, $isConsent)
-            || ($isConsent && $sent === false && $field->isRequired())
-        ) {
+        if (!array_key_exists($field->key, $answers) || self::noAnswer($field, $sent)) {
             if ($field->isRequired()) {
                 $errors[$field->key] = $field->blockName === ConsentFieldType::BLOCK_NAME
                     ? ConsentFieldType::NOT_GIVEN
@@ -253,11 +248,32 @@ final class FormWalk
         return null;
     }
 
-    /** `""`, whitespace only and `[]` are no answer, and `false` for any field but a consent (where it is "no"). */
-    private function isBlank(mixed $value, bool $isConsent): bool
+    /**
+     * The value a sent answer stores, by the one rule a walk and every other reader of answers share: null for no
+     * answer (see `noAnswer()`) or for an answer its type refuses.
+     *
+     * @throws InvalidInput
+     */
+    public static function storedOf(FormField $field, FieldType $type, mixed $sent): ?string
     {
-        return ($value === false && !$isConsent)
-            || $value === []
-            || (is_string($value) && preg_match('/\A[\s\p{Z}]*\z/u', $value) === 1);
+        if (self::noAnswer($field, $sent)) {
+            return null;
+        }
+        $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
+
+        return $answer->error === null ? $answer->value : null;
+    }
+
+    /**
+     * `""`, whitespace only and `[]` are no answer, and `false` for any field but a consent (where it is "no",
+     * unless the consent is required).
+     */
+    private static function noAnswer(FormField $field, mixed $sent): bool
+    {
+        $isConsent = $field->blockName === ConsentFieldType::BLOCK_NAME;
+
+        return ($sent === false && (!$isConsent || $field->isRequired()))
+            || $sent === []
+            || (is_string($sent) && preg_match('/\A[\s\p{Z}]*\z/u', $sent) === 1);
     }
 }

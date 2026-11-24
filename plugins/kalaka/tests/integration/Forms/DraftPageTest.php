@@ -23,6 +23,7 @@ use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
@@ -371,6 +372,21 @@ final class DraftPageTest extends FormsTestCase
         self::assertSame([], $this->draftRows());
     }
 
+    public function testALinkAnswerThatIsBlankIsNoAnswerForTheRestoreTheCountAndTheHandoff(): void
+    {
+        $engine = new FormEngine(new EventFormHost());
+        $form = $engine->form($this->form);
+        self::assertNotNull($form);
+        $definition = $engine->definition($form);
+        $draft = new AnswerSet(['note' => 'Teszt Anna']);
+        $link = new AnswerSet(['note' => '   ', 'size' => 'm']);
+
+        // The walk's rule: whitespace only is no answer, so it neither restores nor counts as a change.
+        self::assertSame(['size' => 'm'], $engine->acceptedValues($definition, $link));
+        self::assertSame(['size'], $engine->changedKeys($definition, $draft, $link));
+        self::assertSame(['size' => 'm'], $engine->linkAnswers($definition, $link)->answers);
+    }
+
     public function testALoggedInPagesClaimMakesTheGuestDraftThePersonsAndClearsTheCookie(): void
     {
         (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
@@ -466,6 +482,24 @@ final class DraftPageTest extends FormsTestCase
         self::assertSame((string) $user, $rows[0]['user_id']);
         self::assertSame(['name' => 'Teszt Anna'], AnswerSet::fromJson((string) $rows[0]['answers'])->answers);
         self::assertSame(FormCaching::CACHE_CONTROL, $response->get_headers()['Cache-Control'] ?? null);
+    }
+
+    public function testASaveForAnAdditionalFormIsNotFoundAndKeepsNothing(): void
+    {
+        $additional = $this->insertForm(
+            $this->field('text', 'note'),
+            ['kalaka_event_id' => $this->event, 'kalaka_placement' => 'additional']
+        );
+        $form = (new Forms())->form($additional);
+        self::assertNotNull($form);
+
+        try {
+            $actor = new AccountActor($this->logIn());
+            (new EventFormHost())->saveDraft($form, $form->version, new AnswerSet(['note' => 'x']), 0, 0, $actor);
+            self::fail('The save was accepted.');
+        } catch (NotFound) {
+            self::assertSame([], $this->draftRows());
+        }
     }
 
     public function testTheAutosaveRouteRefusesAGuestAndATooLargeBody(): void

@@ -219,7 +219,7 @@ final class SubmitRegistration implements PublicUseCase
         // The guest draft first, then the person's own: the order every draft writer locks them in.
         if ($this->draftClaimHash !== null) {
             $guest = $this->drafts->ofClaim($this->draftClaimHash, $context);
-            if ($guest !== null && $guest->userId === null && $guest->formId === $this->form->id) {
+            if ($guest !== null && $guest->isGuestOf($this->form->id)) {
                 $this->drafts->delete($guest, $context);
             }
         }
