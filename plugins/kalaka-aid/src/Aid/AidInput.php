@@ -10,7 +10,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * What aid needs checked before it is proposed or saved, for the preview and the save alike: the label, and the
- * two field keys, which core's `ParticipantFields::checkDeclarable()` judges as declarer `kalaka-aid` (the one rule
+ * two field keys, which core's `ParticipantFields::checkDeclarable()` judges as declarer `aid` (the one rule
  * for every extension: a form's number field is adopted; a staff or system field, another type or another
  * declarer's field refuses). [UNAPPROVED N361]
  */
