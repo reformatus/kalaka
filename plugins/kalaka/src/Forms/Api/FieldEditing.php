@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
+use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
+use Kalaka\Forms\Engine\FieldType\DateFieldType;
+use Kalaka\Forms\Engine\FieldType\EmailFieldType;
+use Kalaka\Forms\Engine\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\NumberFieldType;
+use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
+use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
+use Kalaka\Forms\Engine\FieldType\TextFieldType;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -17,6 +26,9 @@ use Kalaka\ParticipantFields\Api\ParticipantField;
  */
 final class FieldEditing
 {
+    /** @var array<int, list<ParticipantField>> the event's fields with their forms, by event */
+    private array $held = [];
+
     public function __construct(private readonly Forms $forms = new Forms())
     {
     }
@@ -61,13 +73,24 @@ final class FieldEditing
     }
 
     /**
-     * The editor of the stored value (null: none stored); null when the field's type is not installed.
+     * The editor of the stored value (null: none stored); null when the field's type is not installed. The field
+     * may come without the forms that hold it (`ParticipantFields::of()`): they are looked up for the event, once.
      */
-    public function editor(ParticipantField $field, ?string $stored): ?FieldEditor
+    public function editor(int $eventId, ParticipantField $field, ?string $stored): ?FieldEditor
     {
         $type = $this->type($field);
         if ($type === null) {
             return null;
+        }
+        // Only a choice needs its form (whether it takes several); other types read their settings from the field.
+        if ($field->forms === [] && $type instanceof ChoiceFieldType) {
+            $this->held[$eventId] ??= $this->forms->participantFields($eventId, true);
+            foreach ($this->held[$eventId] as $held) {
+                if ($held->key === $field->key) {
+                    $field = $held;
+                    break;
+                }
+            }
         }
         $attributes = $this->attributes($field, $type);
         $options = null;
@@ -80,11 +103,28 @@ final class FieldEditing
             }
         }
 
+        $multiple = $type instanceof ChoiceFieldType && ($attributes['multiple'] ?? false) === true;
+
         return new FieldEditor(
             $type->blockName(),
             $stored === null ? null : $type->prefill(new FieldTypeInput($stored, $attributes)),
-            $options
+            $options,
+            $multiple,
+            self::control($type, $multiple)
         );
+    }
+
+    /** The simple control of the core types; null for any other (a ranking, a picker, an extension's own). */
+    private static function control(FieldType $type, bool $multiple): ?string
+    {
+        return match (true) {
+            $type instanceof ChoiceFieldType => $multiple ? FieldEditor::MULTI_CHOICE : FieldEditor::CHOICE,
+            $type instanceof ConsentFieldType => FieldEditor::CONSENT,
+            $type instanceof NumberFieldType, $type instanceof ScaleFieldType => FieldEditor::NUMBER,
+            $type instanceof TextFieldType, $type instanceof EmailFieldType, $type instanceof NameFieldType,
+                $type instanceof PhoneFieldType, $type instanceof DateFieldType => FieldEditor::TEXT,
+            default => null,
+        };
     }
 
     private function type(ParticipantField $field): ?FieldType
@@ -152,7 +192,11 @@ final class FieldEditing
     {
         $holders = [];
         foreach ($field->forms as $held) {
-            $form = $this->forms->form($held['form_id']);
+            try {
+                $form = $this->forms->form($held['form_id']);
+            } catch (SystemFailure) {
+                continue;
+            }
             if ($form !== null) {
                 $holders[] = $form;
             }

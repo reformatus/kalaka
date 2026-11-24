@@ -114,6 +114,30 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
         self::assertCount($before, $this->entries(), 'A refused input is not audited.');
     }
 
+    public function testAPreviewNeedsNoReasonButASaveDoes(): void
+    {
+        wp_set_current_user($this->admin->userId);
+        $without = $this->input('name', 'Új Név');
+        unset($without['reason']);
+
+        foreach ([$without, ['reason' => ''] + $without, ['reason' => '  '] + $without] as $input) {
+            self::assertSame(
+                ['changed' => true, 'over_limit' => [], 'warnings' => []],
+                $this->call($input + ['preview' => true])
+            );
+            $entry = $this->lastEntry();
+            self::assertNull($entry['reason'], 'A preview with no reason is audited with none.');
+
+            $save = $this->call($input);
+            self::assertInstanceOf(\WP_Error::class, $save);
+            self::assertSame(400, $save->get_error_data()['status']);
+        }
+        self::assertSame('Teszt Elek', $this->valueOf('00A0', 'name'));
+        // A too long reason is refused for a preview as well.
+        $long = $this->call($this->input('name', 'Új Név', ['preview' => true, 'reason' => str_repeat('a', 501)]));
+        self::assertInstanceOf(\WP_Error::class, $long);
+    }
+
     public function testASystemFieldIsRefused(): void
     {
         wp_set_current_user($this->admin->userId);

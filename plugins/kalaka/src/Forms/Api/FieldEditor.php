@@ -11,11 +11,28 @@ namespace Kalaka\Forms\Api;
  */
 final readonly class FieldEditor
 {
-    /** @param list<array{value: string, label: string}>|null $options null for a type without options */
+    public const CHOICE = 'choice';
+
+    public const MULTI_CHOICE = 'multi_choice';
+
+    public const CONSENT = 'consent';
+
+    public const TEXT = 'text';
+
+    public const NUMBER = 'number';
+
+    /**
+     * @param list<array{value: string, label: string}>|null $options null for a type without options
+     * @param bool $multiple a choice that takes several options
+     * @param string|null $control one of the constants above, or null when the type has no simple control
+     *     (a ranking, the congregation picker, a type of an extension)
+     */
     public function __construct(
         public string $kind,
         public mixed $answer,
         public ?array $options,
+        public bool $multiple = false,
+        public ?string $control = null,
     ) {
     }
 }

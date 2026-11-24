@@ -138,6 +138,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'edit' => [
                         'answer' => ['kind' => 'kalaka/name-field', 'value' => 'Teszt Elek'],
                         'expected' => 'Teszt Elek',
+                        'control' => 'text',
                     ],
                 ],
                 [
@@ -150,6 +151,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'edit' => [
                         'answer' => ['kind' => 'kalaka/email-field', 'value' => 'teszt.elek@example.com'],
                         'expected' => 'teszt.elek@example.com',
+                        'control' => 'text',
                     ],
                 ],
                 [
@@ -162,6 +164,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'edit' => [
                         'answer' => ['kind' => 'kalaka/date-field', 'value' => '2009-04-17'],
                         'expected' => '2009-04-17',
+                        'control' => 'text',
                     ],
                 ],
             ],

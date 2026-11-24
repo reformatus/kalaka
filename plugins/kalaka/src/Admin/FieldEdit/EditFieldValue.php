@@ -65,7 +65,8 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
 
     /**
      * `value` is the answer in the shape the field type takes (null clears), `expected` the stored value the
-     * screen showed (null: none; leave it out to skip the check), `reason` 1 to 500 characters.
+     * screen showed (null: none; leave it out to skip the check), `reason` 1 to 500
+     * characters, required for a save and optional for a preview.
      */
     public function inputSchema(): array
     {
@@ -77,10 +78,10 @@ final class EditFieldValue implements AdminUseCase, PreviewableUseCase
                 'field' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 64],
                 'value' => ['type' => ['string', 'number', 'boolean', 'array', 'null']],
                 'expected' => ['type' => ['string', 'null']],
-                'reason' => ['type' => 'string', 'minLength' => 1, 'maxLength' => FieldEditInput::REASON_MAX],
+                'reason' => ['type' => 'string', 'maxLength' => FieldEditInput::REASON_MAX],
                 'preview' => ['type' => 'boolean'],
             ],
-            'required' => ['event_id', 'code', 'field', 'reason'],
+            'required' => ['event_id', 'code', 'field'],
             'additionalProperties' => false,
         ];
     }

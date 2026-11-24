@@ -133,7 +133,11 @@ final class RegistrationDetailEditTest extends StaffEditTestCase
         $fields = $this->fields();
 
         self::assertSame(
-            ['answer' => ['kind' => 'kalaka/text-field', 'value' => 'Teszt Elek'], 'expected' => 'Teszt Elek'],
+            [
+                'answer' => ['kind' => 'kalaka/text-field', 'value' => 'Teszt Elek'],
+                'expected' => 'Teszt Elek',
+                'control' => 'text',
+            ],
             $fields['name']['edit']
         );
         self::assertSame('kalaka/choice-field', $fields['tier']['edit']['answer']['kind']);
@@ -141,7 +145,12 @@ final class RegistrationDetailEditTest extends StaffEditTestCase
         self::assertSame('a', $fields['tier']['edit']['expected']);
         // A field with no stored value opens empty and expects none.
         self::assertSame(
-            ['answer' => ['kind' => 'kalaka/consent-field', 'value' => null], 'expected' => null, 'full' => false],
+            [
+                'answer' => ['kind' => 'kalaka/consent-field', 'value' => null],
+                'expected' => null,
+                'control' => 'consent',
+                'full' => false,
+            ],
             $fields['consent']['edit']
         );
     }

@@ -94,12 +94,13 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   writes nothing, and a stored value other than `expected` is a `VersionConflict`. Admin never runs a field type:
   the stored form and the editor's data come from `Forms\Api\FieldEditing`. The ability registers with `$prepare`
   (`EditFieldValue::prepared()`) and takes `preview`, which does everything but the write and returns the
-  `warnings` (the approved "full" text, `AssignmentSets::FULL_WARNING`) beside `changed` and `over_limit`.
+  `warnings` (the approved "full" text, `AssignmentSets::FULL_WARNING`) beside `changed` and `over_limit`. A preview needs no
+  `reason` (the panel asks for the warning before staff type one); a save does.
 - The detail read tells, for each field it lists, whether staff may edit it (`writable`: the field is one staff
   edit and the actor's held view lists its column read-write while holding the registration, the same rule as
   `Access::mayWrite()` as a plain read, read once for all columns with `Access::writer()`; the act re-checks). A
   writable field carries `edit`: `answer` (`kind`, the field type's block name, and `value`, its prefill),
-  `expected` (the stored value exactly as the act compares it) and, for a type with options, `options` (each
+  `expected` (the stored value exactly as the act compares it), `control` (`choice`, `multi_choice`, `consent`, `text`, `number`, or null when the type has no simple control; from `Forms\Api\FieldEditing`, never a list in Admin), `multiple` for a choice and, for a type with options, `options` (each
   with `full`) and, for a consent, `full`. `full` is `FieldCorrections::fullValues()`: the choice's pool would
   go over for this registration, true only for a `registered` one. Reading it writes no audit entry and moves no
   seat. Placing into a tier or an offer by hand is this same act on `price_tier` or the offer's key.

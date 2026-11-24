@@ -400,14 +400,18 @@ final class RegistrationDetail
      */
     private function editPart(RegistrationKey $key, ParticipantField $field, ?string $stored): ?array
     {
-        $editor = $this->editing->editor($field, $stored);
+        $editor = $this->editing->editor($key->eventId, $field, $stored);
         if ($editor === null) {
             return null;
         }
         $edit = [
             'answer' => ['kind' => $editor->kind, 'value' => $editor->answer],
             'expected' => $stored,
+            'control' => $editor->control,
         ];
+        if ($editor->kind === FieldKind::CHOICE) {
+            $edit['multiple'] = $editor->multiple;
+        }
         if ($editor->options !== null) {
             $full = $this->corrections->fullValues($key, $field->key, array_column($editor->options, 'value'));
             $edit['options'] = array_map(
