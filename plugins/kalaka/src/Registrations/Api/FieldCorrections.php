@@ -77,6 +77,38 @@ final class FieldCorrections
     }
 
     /**
+     * Which of the stored values a field could take would put the registration over a pool's limit (the staff
+     * "full" warning before a save): for each, the seats it would take are planned as `plan()` does and the pool
+     * counted as `Seats::wouldOverfill()` does, the registration's own seat not counted. A plain read with no
+     * lock and no audit. Only a `registered` registration holds a seat, so none is full for any other status; a
+     * value the registration already holds takes nothing, so it is never reported.
+     *
+     * @param list<string> $candidates stored values (a choice's option value, `1` for a consent)
+     * @return list<string> the candidates that would go over
+     */
+    public function fullValues(RegistrationKey $key, string $field, array $candidates): array
+    {
+        if ($this->registrations->find($key)?->status !== RegistrationStatus::Registered) {
+            return [];
+        }
+        $event = $this->events->find($key->eventId) ?? throw new NotFound();
+        if (!$this->limits($event, $field)) {
+            return [];
+        }
+        $full = [];
+        foreach ($candidates as $candidate) {
+            foreach ($this->plan($key, $field, $candidate)->take as $claim) {
+                if ($this->seats->wouldOverfill($claim->pool, $key)) {
+                    $full[] = $candidate;
+                    break;
+                }
+            }
+        }
+
+        return $full;
+    }
+
+    /**
      * The check under the registration's lock, before anything is written: the values must still be the ones the
      * plan saw (else `VersionConflict`: the claims must be planned again); the field's value being the new one
      * already means there is nothing to do (the result is true, checked before `$expected`); otherwise, when
@@ -233,6 +265,20 @@ final class FieldCorrections
         }
 
         return array_map(strval(...), array_keys($over));
+    }
+
+    /** Whether any claim source has a pool for the field: a field with none never takes a seat. */
+    private function limits(Event $event, string $field): bool
+    {
+        foreach ($this->seatClaimSources ?? Contributions::current()->seatClaimSources() as $source) {
+            foreach ($source->pools($event) as $entry) {
+                if ($entry->fieldKey === $field) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

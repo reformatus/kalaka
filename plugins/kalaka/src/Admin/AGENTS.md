@@ -91,7 +91,18 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   walked (staff override). Staff never edit a `system` field, an `extension` field only its own act writes, or a
   retired field. The edit is not a submission; the write goes through `Registrations\Api\FieldCorrections`, and the
   runner's evaluation (money, confirmation, mail) follows it; the edit sends no mail of its own. An identical value
-  writes nothing, and a stored value other than `expected` is a `VersionConflict`.
+  writes nothing, and a stored value other than `expected` is a `VersionConflict`. Admin never runs a field type:
+  the stored form and the editor's data come from `Forms\Api\FieldEditing`. The ability registers with `$prepare`
+  (`EditFieldValue::prepared()`) and takes `preview`, which does everything but the write and returns the
+  `warnings` (the approved "full" text, `AssignmentSets::FULL_WARNING`) beside `changed` and `over_limit`.
+- The detail read tells, for each field it lists, whether staff may edit it (`writable`: the field is one staff
+  edit and the actor's held view lists its column read-write while holding the registration, the same rule as
+  `Access::mayWrite()` as a plain read, read once for all columns with `Access::writer()`; the act re-checks). A
+  writable field carries `edit`: `answer` (`kind`, the field type's block name, and `value`, its prefill),
+  `expected` (the stored value exactly as the act compares it) and, for a type with options, `options` (each
+  with `full`) and, for a consent, `full`. `full` is `FieldCorrections::fullValues()`: the choice's pool would
+  go over for this registration, true only for a `registered` one. Reading it writes no audit entry and moves no
+  seat. Placing into a tier or an offer by hand is this same act on `price_tier` or the offer's key.
 - The detail read's `can.admit`, `can.withdraw`, `can.remove` and `can.restore` are the act's grant action carried and
   the status allowing it now (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
   command line runs them through `Registrations\Api\StatusActions` without a rule of its own: it previews first, prints

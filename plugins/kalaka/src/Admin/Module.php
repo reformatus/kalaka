@@ -8,6 +8,7 @@ use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Cli\AdminSeeder;
 use Kalaka\Admin\Cli\FullAccessCommand;
 use Kalaka\Admin\Cli\RegistrationCommand;
+use Kalaka\Admin\FieldEdit\EditFieldValue;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
@@ -116,6 +117,12 @@ SQL;
             'Nézet mentése',
             'Egy esemény nézetének létrehozása vagy módosítása.',
             SaveView::prepared(...)
+        );
+        Abilities::register(
+            new EditFieldValue(),
+            'Mezőérték javítása',
+            'Egy jelentkezés egy mezőértékének javítása okkal.',
+            EditFieldValue::prepared(...)
         );
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
         Abilities::register(

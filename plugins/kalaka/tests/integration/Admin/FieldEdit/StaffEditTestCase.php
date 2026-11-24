@@ -148,6 +148,32 @@ abstract class StaffEditTestCase extends AdminTestCase
         return $result;
     }
 
+    /** @param list<array{value: string, label: string, retired_at: ?string}>|null $options */
+    protected function declareField(
+        string $key,
+        string $type,
+        string $source = 'form',
+        ?array $options = null,
+        bool $writable = false,
+        ?string $retired = null,
+    ): void {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => $key,
+            'version' => 1,
+            'type' => $type,
+            'title' => $key,
+            'options' => $options === null ? null : wp_json_encode($options),
+            'source' => $source,
+            'retired_at' => $retired,
+            'created_at' => '2026-11-01 07:00:00.000000',
+            'updated_at' => '2026-11-01 07:00:00.000000',
+            'position' => 1,
+            'form_writable' => $writable ? 1 : 0,
+        ]);
+    }
+
     protected function valueOf(string $code, string $field): ?string
     {
         return (new \Kalaka\Registrations\Api\Registrations())->values($this->key($code))[$field] ?? null;

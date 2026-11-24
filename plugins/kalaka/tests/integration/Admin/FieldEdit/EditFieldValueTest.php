@@ -140,12 +140,16 @@ final class EditFieldValueTest extends StaffEditTestCase
         $entries = count($this->entries());
         $result = $this->edit('00A0', 'b', 'tier', ['preview' => true]);
 
-        self::assertSame(['changed' => true, 'over_limit' => ['tier']], $result);
+        self::assertSame([
+            'changed' => true,
+            'over_limit' => ['tier'],
+            'warnings' => [\Kalaka\Assignments\Api\AssignmentSets::FULL_WARNING],
+        ], $result);
         self::assertSame('a', $this->valueOf('00A0', 'tier'));
         self::assertTrue($this->seats->holds($this->poolA, $this->key('00A0')));
         self::assertSame(1, $this->seats->held($this->poolB));
         $same = $this->edit('00A0', 'a', 'tier', ['preview' => true]);
-        self::assertSame(['changed' => false, 'over_limit' => []], $same);
+        self::assertSame(['changed' => false, 'over_limit' => [], 'warnings' => []], $same);
         self::assertCount($entries, $this->entries(), 'A preview writes no audit entry.');
         // A real run is audited, an unchanged one too.
         $this->edit('00A0', 'b', 'tier');
@@ -188,7 +192,7 @@ final class EditFieldValueTest extends StaffEditTestCase
 
         foreach (['00A5', '00A8'] as $code) {
             self::assertSame(
-                ['changed' => true, 'over_limit' => []],
+                ['changed' => true, 'over_limit' => [], 'warnings' => []],
                 $this->edit($code, 'b', 'tier', ['preview' => true])
             );
             self::assertSame(['changed' => true, 'over_limit' => []], $this->edit($code, 'b'));

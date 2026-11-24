@@ -281,7 +281,7 @@ values and conditions, prefill and form links
 - The form engine is `Forms\Engine` (parse, walk, validate, conditions, field
   types, values and markup, theme adapters, `BlockGate`, `ChainMarks`, the form
   posts, the form page and its two routes) with its contract, every
-  `Forms\Api` type but the facade `Forms`, `EventValues` and `AfterSubmit`,
+  `Forms\Api` type but the facade `Forms`, `EventValues`, `AfterSubmit` and `FieldEditing`,
   which stay at their names (deptrac: the layers `Forms Engine` and
   `Forms Engine Api`). It may use only Foundation Api, its own Api, WordPress
   and brick/math: never Events, Registrations, ParticipantFields, Admin or
@@ -358,3 +358,7 @@ values and conditions, prefill and form links
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.
+- A field type runs for a hand edit only through `Api\FieldEditing`, outside any transaction: `stored()` turns a
+  typed value into the field's stored form (the form field's attributes, the field's active options, the shapes a
+  plain text may stand for) and `editor()` gives an edit control's data (`FieldEditor`: the type's block name, the
+  `prefill()` of the stored answer, the active options). Admin never runs a field type itself.

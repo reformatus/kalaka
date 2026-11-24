@@ -6,7 +6,6 @@ namespace Kalaka\Admin\Cli;
 
 use Kalaka\Admin\FieldEdit\EditFieldValue;
 use Kalaka\Admin\FieldEdit\FieldEditInput;
-use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
@@ -117,8 +116,8 @@ final class RegistrationCommand
 
                 return;
             }
-            if (($preview['over_limit'] ?? []) !== []) {
-                \WP_CLI::warning(AssignmentSets::FULL_WARNING);
+            foreach ((array) ($preview['warnings'] ?? []) as $warning) {
+                \WP_CLI::warning((string) $warning);
             }
             \WP_CLI::confirm('Set ' . $args[2] . ' of ' . $args[1] . '?', $assoc);
 

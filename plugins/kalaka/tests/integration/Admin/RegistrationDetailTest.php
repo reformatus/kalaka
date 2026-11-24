@@ -134,6 +134,11 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'type' => 'kalaka/name-field',
                     'value' => 'Teszt Elek',
                     'text' => 'Teszt Elek',
+                    'writable' => true,
+                    'edit' => [
+                        'answer' => ['kind' => 'kalaka/name-field', 'value' => 'Teszt Elek'],
+                        'expected' => 'Teszt Elek',
+                    ],
                 ],
                 [
                     'key' => 'email',
@@ -141,6 +146,11 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'type' => 'kalaka/email-field',
                     'value' => 'teszt.elek@example.com',
                     'text' => 'teszt.elek@example.com',
+                    'writable' => true,
+                    'edit' => [
+                        'answer' => ['kind' => 'kalaka/email-field', 'value' => 'teszt.elek@example.com'],
+                        'expected' => 'teszt.elek@example.com',
+                    ],
                 ],
                 [
                     'key' => 'szuletesi_datum',
@@ -148,6 +158,11 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'type' => 'kalaka/date-field',
                     'value' => '2009-04-17',
                     'text' => '2009. április 17.',
+                    'writable' => true,
+                    'edit' => [
+                        'answer' => ['kind' => 'kalaka/date-field', 'value' => '2009-04-17'],
+                        'expected' => '2009-04-17',
+                    ],
                 ],
             ],
             $detail['fields']
@@ -359,6 +374,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 'type' => 'kalaka/name-field',
                 'value' => 'Teszt Elek',
                 'text' => 'Teszt Elek',
+                'writable' => false,
             ]],
             $detail['fields']
         );

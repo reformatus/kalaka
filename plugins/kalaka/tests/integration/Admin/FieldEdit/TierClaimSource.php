@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Admin\FieldEdit;
 
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\SeatPool;
@@ -35,6 +36,11 @@ final class TierClaimSource implements SeatClaimSource
 
     public function pools(Event $event): array
     {
-        return [];
+        $entries = [];
+        foreach ($this->pools as $value => $pool) {
+            $entries[] = new PoolEntry(self::FIELD, (string) $value, $pool);
+        }
+
+        return $entries;
     }
 }

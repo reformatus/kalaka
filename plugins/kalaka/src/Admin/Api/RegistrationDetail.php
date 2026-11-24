@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Admin\Api;
 
+use Kalaka\Admin\FieldEdit\FieldEditInput;
 use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\FieldEditing;
+use Kalaka\Forms\Api\FieldKind;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Decision\Decisions;
@@ -27,6 +30,7 @@ use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Registrations\Api\FieldCorrections;
 use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\SeatOfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -61,6 +65,8 @@ final class RegistrationDetail
         private readonly Requests $requests = new Requests(),
         private readonly OfferSeats $seats = new SeatOfferSeats(),
         private readonly StatusActs $statusActs = new StatusActs(),
+        private readonly FieldEditing $editing = new FieldEditing(),
+        private readonly FieldCorrections $corrections = new FieldCorrections(),
     ) {
     }
 
@@ -125,7 +131,7 @@ final class RegistrationDetail
 
         $read = [
             'registration' => $this->registrationPart($registration),
-            'fields' => $this->fieldsPart($registration),
+            'fields' => $this->fieldsPart($registration, $this->access->writer($actor, $key)),
         ];
         $read['registration']['confirmed'] = $confirmed;
         if ($canUnconfirm) {
@@ -333,8 +339,21 @@ final class RegistrationDetail
         return ['set_at' => self::instant($flag->setAt), 'reason' => $flag->reason, 'set_by' => $by];
     }
 
-    /** @return list<array<string, mixed>> */
-    private function fieldsPart(ViewRegistration $registration): array
+    /**
+     * The fields the views list. Each says `writable`: staff may edit the field (a field staff edit at all, whose
+     * type is installed) and the actor's held view lists its column read-write while holding the registration
+     * (`Access::writer()`: a plain read for display, the act re-checks under the lock). A writable field carries
+     * what the edit control needs, `edit`: `answer` (`kind`, the field type's block name, and `value`, its
+     * `prefill()` of the stored answer), `expected` (the stored answer exactly as the act compares it, null for
+     * none; sent back unchanged), `options` for a type with options (each `{value, label, full}`) and `full` for a
+     * consent. `full` is true when taking that choice's seat would put its pool over the limit for this
+     * registration (`FieldCorrections::fullValues()`): the "full" warning before a save, only for a registered
+     * registration. Staff placing is never stopped by it. [UNAPPROVED N620, N621, N622]
+     *
+     * @param \Closure(string): bool $writes
+     * @return list<array<string, mixed>>
+     */
+    private function fieldsPart(ViewRegistration $registration, \Closure $writes): array
     {
         $stored = [];
         foreach ($registration->fields as $key => $value) {
@@ -353,16 +372,54 @@ final class RegistrationDetail
                 continue;
             }
             // The value's data and text are the field type's own: the formatter the grid and the mails use.
-            $fields[] = [
+            $item = [
                 'key' => $field->key,
                 'label' => $field->title,
                 'type' => $field->type,
                 'value' => $pair['value']->data ?? $answer,
                 'text' => $pair['value']->text !== '' ? $pair['value']->text : ($answer ?? ''),
             ];
+            $edit = FieldEditInput::editable($field) && $writes('field:' . $field->key)
+                ? $this->editPart($registration->key, $field, $answer)
+                : null;
+            $item['writable'] = $edit !== null;
+            if ($edit !== null) {
+                $item['edit'] = $edit;
+            }
+            $fields[] = $item;
         }
 
         return $fields;
+    }
+
+    /**
+     * The edit control's data of one writable field; null when the field's type is not installed (nothing to edit
+     * it with).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function editPart(RegistrationKey $key, ParticipantField $field, ?string $stored): ?array
+    {
+        $editor = $this->editing->editor($field, $stored);
+        if ($editor === null) {
+            return null;
+        }
+        $edit = [
+            'answer' => ['kind' => $editor->kind, 'value' => $editor->answer],
+            'expected' => $stored,
+        ];
+        if ($editor->options !== null) {
+            $full = $this->corrections->fullValues($key, $field->key, array_column($editor->options, 'value'));
+            $edit['options'] = array_map(
+                static fn (array $option): array => $option + ['full' => in_array($option['value'], $full, true)],
+                $editor->options
+            );
+        }
+        if ($editor->kind === FieldKind::CONSENT) {
+            $edit['full'] = $this->corrections->fullValues($key, $field->key, ['1']) !== [];
+        }
+
+        return $edit;
     }
 
     /**

@@ -696,25 +696,4 @@ final class OffersTest extends OffersTestCase
             self::assertSame('approved', (new Registrations())->values($key)['egyhaz_answer'] ?? null);
         }
     }
-
-    /** @return list<string> the net of each support item's charge lines as "source payer amount", nets of zero left out */
-    private function lineSources(RegistrationKey $key): array
-    {
-        $net = [];
-        foreach ($this->charges($key) as $line) {
-            [$source, $payer, $amount] = explode(' ', $line);
-            if (str_starts_with($source, 'support:')) {
-                $net[$source . ' ' . $payer] = ($net[$source . ' ' . $payer] ?? 0) + (int) $amount;
-            }
-        }
-        $lines = [];
-        foreach ($net as $item => $amount) {
-            if ($amount !== 0) {
-                $lines[] = $item . ' ' . $amount;
-            }
-        }
-        sort($lines);
-
-        return $lines;
-    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Admin;
 
 use Kalaka\Admin\Api\Access;
+use Kalaka\Admin\FieldEdit\EditFieldValue;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\Grant\DeleteGrant;
@@ -46,6 +47,11 @@ final class AbilitiesTest extends GrantTestCase
     {
         return [
             'save-view' => [new SaveView(), 'Nézet mentése', 'Egy esemény nézetének létrehozása vagy módosítása.'],
+            'edit-field-value' => [
+                new EditFieldValue(),
+                'Mezőérték javítása',
+                'Egy jelentkezés egy mezőértékének javítása okkal.',
+            ],
             'delete-view' => [new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.'],
             'save-grant' => [
                 new SaveGrant(),
