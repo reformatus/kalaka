@@ -146,7 +146,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   (`Body\ManualMailComposer`, through `MailRenderer::renderBody()`); a batch
   that is gone is `BodyUnusable` (`no_batch <id>`), failed with no attempt and
   never counted toward pausing.
-- `wp kalaka mail send|batches` (`Cli/ManualMailCommand`) is a thin entry
+- `wp kalaka mail send|batches` (`Cli/ManualMailCommand`, `Cli/ManualMailBatchesCommand`) is a thin entry
   point beside `MailCommand`: `send` checks the actor's grants on the codes
   (`AdminAccess::check()`) before it prints anything about them, shows what it
   would do, asks first (`--yes` skips; `--dry-run` only shows) and changes only
