@@ -131,8 +131,11 @@ bodies, the renderer and the per-event action-mail catalogue.
 - `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
   thin entry point: it changes only through `PauseMail`, `ResumeMail`, `ClearMailQueue` and
   `ClearEventMail`, as the command line or as WP-CLI's `--user`; `status` and `failed` read for
-  full access only. Only a person resumes: `resume` is refused without `--user`. The clears ask
-  first (`--yes` skips), after the access check.
+  full access only. Only a person resumes: `ResumeMail` refuses any actor that is no person
+  (`ResumeNeedsPerson`), and `resume` adds the hint to give `--user`. The clears ask first
+  (`--yes` skips), after the access check; `clear-event` runs the use case's own `ClearEventMail::refuse()`
+  ahead of the question. Whether an event's mail is held is read once, in `Api\MailHold`, by the sender,
+  the clear and the manual send's warning.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.
