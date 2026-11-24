@@ -147,11 +147,11 @@ final class StatusMarkup
                 $row->label,
                 MoneyWords::sign($row->amount),
                 MoneyWords::absolute($row->amount),
-                false,
+                '',
                 'kalaka-owed'
             );
         }
-        $html .= self::moneyRow('Fizetendő összesen', '', $money->owedTotal, false, 'kalaka-total');
+        $html .= self::moneyRow('Fizetendő összesen', '', $money->owedTotal, 'em', 'kalaka-total');
         foreach ($money->movements as $movement) {
             $html .= self::movementRow($movement, $movement === $money->movements[0]);
         }
@@ -159,12 +159,12 @@ final class StatusMarkup
             'Befizetve összesen',
             '',
             $money->paidTotal,
-            false,
+            'em',
             $money->movements === [] ? 'kalaka-total kalaka-rule' : 'kalaka-total'
         );
         $html .= $money->overpaid !== null
-            ? self::moneyRow('Túlfizetés', '', $money->overpaid, true, 'kalaka-rule kalaka-due')
-            : self::moneyRow('Még fizetendő', '', $money->due ?? $money->balance, true, 'kalaka-rule kalaka-due');
+            ? self::moneyRow('Túlfizetés', '', $money->overpaid, 'strong', 'kalaka-rule kalaka-due')
+            : self::moneyRow('Még fizetendő', '', $money->due ?? $money->balance, 'strong', 'kalaka-rule kalaka-due');
 
         return $html . '</tbody></table>';
     }
@@ -176,20 +176,28 @@ final class StatusMarkup
             . ' has-black-color">' . $inner . '</div>';
     }
 
-    /** An owed or total row: the label spans the type and method columns; no day, no info button. */
+    /**
+     * An owed or total row: the label spans the type and method columns; no day, no info button. `$emphasis` is
+     * the element that carries the row's emphasis in the markup, so it reads without any CSS: `em` for the totals
+     * (owner topic 10), `strong` for the last row (always bold), `''` for an owed line.
+     */
     private static function moneyRow(
         string $label,
         string $sign,
         Money $amount,
-        bool $strong = false,
+        string $emphasis = '',
         string $class = '',
     ): string {
-        $text = esc_html(MoneyText::of($amount));
-
         return '<tr' . ($class === '' ? '' : ' class="' . esc_attr($class) . '"') . '><th scope="row" colspan="2">'
-            . esc_html($label) . '</th><td class="kalaka-sign">' . esc_html($sign)
-            . '</td><td class="kalaka-amount">' . ($strong ? '<strong>' . $text . '</strong>' : $text)
+            . self::emphasised($emphasis, esc_html($label)) . '</th><td class="kalaka-sign">' . esc_html($sign)
+            . '</td><td class="kalaka-amount">' . self::emphasised($emphasis, esc_html(MoneyText::of($amount)))
             . '</td><td class="kalaka-date"></td><td class="kalaka-info"></td></tr>';
+    }
+
+    /** Escaped HTML inside the emphasis element (`em` or `strong`), or as it is for no emphasis or no content. */
+    private static function emphasised(string $element, string $html): string
+    {
+        return $element === '' || $html === '' ? $html : '<' . $element . '>' . $html . '</' . $element . '>';
     }
 
     /**
@@ -218,11 +226,12 @@ final class StatusMarkup
             . ($note === null ? '' : '<p>' . esc_html(MoneyWords::quoted($note)) . '</p>');
 
         return '<tr class="' . $classes . '"><th scope="row">' . esc_html(MoneyWords::typeOf($movement->type))
-            . '</th><td class="kalaka-method">' . $cell . '</td><td class="kalaka-sign">'
+            . '</th><td class="kalaka-method">' . self::emphasised('em', $cell) . '</td><td class="kalaka-sign">'
             . esc_html(MoneyWords::sign($movement->amount)) . '</td><td class="kalaka-amount">'
             . esc_html(MoneyText::of(MoneyWords::absolute($movement->amount))) . '</td><td class="kalaka-date">'
-            . esc_html($day) . '</td><td class="kalaka-info"><button type="button" class="kalaka-info-button"'
-            . ' popovertarget="' . $id . '" aria-label="Részletek"><span aria-hidden="true">ⓘ</span></button>'
+            . self::emphasised('em', esc_html($day)) . '</td><td class="kalaka-info">'
+            . '<button type="button" class="kalaka-info-button" popovertarget="' . $id . '" aria-label="Részletek">'
+            . '<span aria-hidden="true">ⓘ</span></button>'
             . '<div id="' . $id . '" class="kalaka-info-pop" popover>' . $popover . '</div></td></tr>';
     }
 

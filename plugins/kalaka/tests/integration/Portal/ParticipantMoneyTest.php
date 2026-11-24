@@ -597,6 +597,26 @@ final class ParticipantMoneyTest extends PortalTestCase
         ], $this->tableRows($key));
     }
 
+    public function testTheEmphasisIsInTheMarkupTheMethodAndTheDayAndTheTotalsAreEmAndTheLastRowIsStrong(): void
+    {
+        $key = $this->stored('12A3');
+        $this->source($key, '60000', 'fixed_price');
+        $this->manual($key, LineKind::ManualPayment, '-8000', '2026-11-27', PaymentMethod::CardTerminal);
+        $this->manual($key, LineKind::ManualPayment, '-15000', '2026-11-28', PaymentMethod::BankTransfer, 'TAB27 12A3');
+        $view = $this->read()->of($key);
+        self::assertNotNull($view);
+        $html = StatusMarkup::status($view, false);
+
+        self::assertStringContainsString('<td class="kalaka-method"><em>Bankkártya</em></td>', $html);
+        self::assertStringContainsString('<td class="kalaka-method"><em>Átutalás · „TAB27 12A3”</em></td>', $html);
+        self::assertStringContainsString('<td class="kalaka-date"><em>2026. 11. 27.</em></td>', $html);
+        self::assertStringContainsString('<th scope="row" colspan="2"><em>Fizetendő összesen</em></th>', $html);
+        self::assertStringContainsString('<th scope="row" colspan="2"><strong>Még fizetendő</strong></th>', $html);
+        // An owed line, a movement's type and its amount carry no emphasis.
+        self::assertStringContainsString('<th scope="row" colspan="2">Részvételi díj</th>', $html);
+        self::assertStringContainsString('<th scope="row">Befizetés</th>', $html);
+    }
+
     public function testAPaidTableEndsInABoldZeroAndAnOverpaidOneInAnUnsignedOverpayment(): void
     {
         $paid = $this->stored('12A3');
@@ -648,9 +668,9 @@ final class ParticipantMoneyTest extends PortalTestCase
 
         self::assertSame(36, mb_strlen(mb_substr($long, 0, 36)));
         self::assertMatchesRegularExpression(
-            '/<td class="kalaka-method">Átutalás · <button type="button" class="kalaka-note"'
+            '/<td class="kalaka-method"><em>Átutalás · <button type="button" class="kalaka-note"'
             . ' popovertarget="(kalaka-info-\d+)">'
-            . '„közlemény helytelen volt: nem volt b…”<\/button><\/td>/u',
+            . '„közlemény helytelen volt: nem volt b…”<\/button><\/em><\/td>/u',
             $html
         );
         preg_match('/popovertarget="(kalaka-info-\d+)">„közlemény/u', $html, $id);
@@ -664,7 +684,7 @@ final class ParticipantMoneyTest extends PortalTestCase
         self::assertStringContainsString('<tr class="kalaka-move">', $html);
         self::assertSame(1, substr_count($html, '<button type="button" class="kalaka-note"'));
         self::assertSame(2, substr_count($html, 'aria-label="Részletek"'));
-        self::assertStringContainsString('<td class="kalaka-method">Készpénz · „rövid”</td>', $html);
+        self::assertStringContainsString('<td class="kalaka-method"><em>Készpénz · „rövid”</em></td>', $html);
     }
 
     public function testEveryPopoverHasItsOwnIdAcrossTwoTablesOnOnePage(): void

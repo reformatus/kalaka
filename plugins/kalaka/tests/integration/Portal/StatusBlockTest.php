@@ -59,7 +59,7 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('wp-block-group', $html);
         self::assertStringContainsString(
-            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2">Még fizetendő</th>'
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
             . '<td class="kalaka-sign"></td>'
             . "<td class=\"kalaka-amount\"><strong>31\u{00A0}000\u{00A0}Ft</strong></td>"
             . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
@@ -74,7 +74,11 @@ final class StatusBlockTest extends PortalTestCase
             . self::NOTE,
             self::text($html)
         );
-        self::assertSame(1, substr_count($html, '<strong>') - 1, 'only the state word and the amount are bold');
+        // The state word, and the last row's label and amount: the bold is in the markup, not in the CSS.
+        self::assertSame(2, substr_count($html, '<strong>') - 1, 'only the state word and the last row are bold');
+        self::assertStringContainsString('<th scope="row" colspan="2"><em>Fizetendő összesen</em></th>', $html);
+        self::assertStringContainsString('<th scope="row" colspan="2"><em>Befizetve összesen</em></th>', $html);
+        self::assertStringContainsString('<td class="kalaka-date"><em>2026. 11. 29.</em></td>', $html);
 
         self::assertSame(
             '<section class="kalaka-transfer"><p>Az átutaláshoz ezeket az adatokat add meg:</p>'
@@ -162,7 +166,7 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('Lejárt', $html);
         self::assertStringContainsString(
-            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2">Még fizetendő</th>'
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
             . '<td class="kalaka-sign"></td>'
             . "<td class=\"kalaka-amount\"><strong>48\u{00A0}000\u{00A0}Ft</strong></td>"
             . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
@@ -281,7 +285,7 @@ final class StatusBlockTest extends PortalTestCase
             $html
         );
         self::assertStringContainsString(
-            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2">Még fizetendő</th>'
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
             . '<td class="kalaka-sign"></td>'
             . "<td class=\"kalaka-amount\"><strong>0\u{00A0}Ft</strong></td>"
             . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
@@ -303,7 +307,7 @@ final class StatusBlockTest extends PortalTestCase
         $html = $this->statusBlock();
         self::assertStringContainsString('<strong>Visszaigazolva.</strong></p></div>', $html);
         self::assertStringContainsString(
-            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2">Túlfizetés</th>'
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Túlfizetés</strong></th>'
             . '<td class="kalaka-sign"></td>'
             . "<td class=\"kalaka-amount\"><strong>2\u{00A0}000\u{00A0}Ft</strong></td>"
             . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
@@ -439,7 +443,8 @@ final class StatusBlockTest extends PortalTestCase
         $this->activate($key);
 
         $html = $this->statusBlock();
-        $pattern = '/<tr[^>]*><th scope="row"[^>]*>([^<]*)<\/th><td class="kalaka-sign">([^<]*)<\/td>/u';
+        $pattern = '/<tr[^>]*><th scope="row"[^>]*>(?:<(?:em|strong)>)?([^<]*)(?:<\/(?:em|strong)>)?<\/th>'
+            . '<td class="kalaka-sign">([^<]*)<\/td>/u';
         preg_match_all($pattern, $html, $rows);
         self::assertSame(['Részvételi díj', 'Fizetendő összesen', 'Befizetve összesen', 'Még fizetendő'], $rows[1]);
         self::assertSame(['+', '', '', ''], $rows[2]);

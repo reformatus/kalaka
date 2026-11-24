@@ -1,9 +1,7 @@
 /* The participant blocks: structural only (status-block spec, 2026-11-13). No colours or fonts; one neutral separator rule (currentColor at 45%). */
 .kalaka-status{margin-bottom:1.5em}.kalaka-status td,.kalaka-transfer td{overflow-wrap:anywhere}.kalaka-status .wp-block-group>:last-child{margin-bottom:0}.kalaka-status .wp-block-group{margin-bottom:1em}section.kalaka-status table.kalaka-money,section.kalaka-transfer table.kalaka-transfer-details{width:auto;max-width:100%}.kalaka-status .kalaka-money td.kalaka-amount{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:0}.kalaka-status .kalaka-money td.kalaka-sign{width:1ch;padding-left:.5em;white-space:nowrap;text-align:center;font-variant-numeric:tabular-nums;padding-right:.25em}.kalaka-status table.kalaka-money th,.kalaka-transfer table.kalaka-transfer-details th{font-weight:inherit}section.kalaka-status table.kalaka-money.kalaka-money{margin-bottom:.4em}.kalaka-status p.kalaka-deadline{margin-top:0}.kalaka-status table.kalaka-money tr.kalaka-rule>*{border-top:1px solid rgba(0,0,0,.3);border-top:1px solid color-mix(in srgb,currentColor 45%,transparent)}@media (max-width:480px){.kalaka-transfer tr,.kalaka-transfer th,.kalaka-transfer td{display:block}.kalaka-transfer table tr td{border-top:0}.kalaka-transfer th{padding-bottom:0}}
-/* The money table (owner topics 10 and 11): italic totals, method and day cells, a bold last row, the info button and its popover. Divi's own table style (padding, row lines) is kept; the one rule below gives the first column Divi's row line. */
-.kalaka-status table.kalaka-money tr.kalaka-total>*,.kalaka-status table.kalaka-money td.kalaka-method{font-style:italic}
-.kalaka-status table.kalaka-money tr.kalaka-due>*{font-weight:bold}
-.kalaka-status table.kalaka-money td.kalaka-date{white-space:nowrap;font-variant-numeric:tabular-nums;font-style:italic}
+/* The money table (owner topics 10 and 11): neutral structure only. The emphasis (italic totals, method and day cells; a bold last row) is `em` and `strong` in the markup, and the row lines and colours of a theme belong to that theme's adapter (`kalaka-divi4` for Divi 4). The columns, the info button and its popover are below. */
+.kalaka-status table.kalaka-money td.kalaka-date{white-space:nowrap;font-variant-numeric:tabular-nums}
 .kalaka-status table.kalaka-money td.kalaka-info{padding-left:.25em;padding-right:0}
 .kalaka-status .kalaka-info-button{display:none;font:inherit;color:inherit;background:none;border:0;padding:0 .25em;cursor:pointer;line-height:1}
 .kalaka-status tr.kalaka-more .kalaka-info-button{display:inline-block}
@@ -16,5 +14,4 @@
 @media (max-width:1160px){.kalaka-status table.kalaka-money td.kalaka-date{display:none}.kalaka-status tr.kalaka-move .kalaka-info-button{display:inline-block}}
 @media (max-width:680px){.kalaka-status table.kalaka-money td.kalaka-method{visibility:hidden;width:0;max-width:0;padding:0;border:0;overflow:hidden;font-size:0;line-height:0}}
 .kalaka-status table.kalaka-money td.kalaka-method{overflow-wrap:break-word}
-.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}
 .kalaka-status table.kalaka-money tr.kalaka-owed>th{overflow-wrap:anywhere}

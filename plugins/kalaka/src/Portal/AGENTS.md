@@ -52,7 +52,9 @@ page, and the account area
   later of the two counts) and whether a request awaits an answer (then there
   is no due date). Portal assembles none of these itself.
 - The blocks have no look of their own: core preset classes and `portal.css`,
-  which is structural only; the texts read correctly without either. Every
-  text is the frozen spec's or approved.
+  which is structural only (the money table's emphasis is `em` and `strong` in
+  its markup; a theme's row lines and colours are the theme adapter's); the
+  texts read correctly without either. Every text is the frozen spec's or
+  approved.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
