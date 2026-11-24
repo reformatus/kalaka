@@ -5,11 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Api;
 
 use Kalaka\Events\Api\Events;
-use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Catalogue\MailBody;
-use Kalaka\Mail\Manual\MailBatchMember;
 use Kalaka\Mail\Manual\SendManualMail;
 use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Registrations\Api\Registrations;
@@ -46,31 +44,22 @@ final class ManualMails
 
         return $result + [
             'paused' => $this->state->current()->pausedAt !== null,
-            'held' => $event !== null && $event->state() !== EventState::Published,
+            'held' => $event !== null && MailHold::isHeld($event, $this->events),
         ];
     }
 
     /**
-     * What a send of these codes would do, read outside any use case and writing nothing.
+     * What a send of these codes would do, read outside any use case and writing nothing: the use case's own
+     * plan (`SendManualMail::plan()`).
      *
      * @param list<string> $codes
-     * @return array{queue: list<string>, skipped: list<array{code: string, reason: string}>, unknown: list<string>}
+     * @return array{
+     *     queue: list<string>, skipped: list<array{code: string, reason: string}>, unknown: list<string>,
+     *     outcomes: array<string, string>,
+     * }
      */
     public function preview(int $eventId, array $codes): array
     {
-        $statuses = $this->registrations->statusesOf($eventId, $codes);
-        $preview = ['queue' => [], 'skipped' => [], 'unknown' => []];
-        foreach ($codes as $code) {
-            $status = $statuses[$code] ?? null;
-            if ($status === null) {
-                $preview['unknown'][] = $code;
-            } elseif (MailBatchMember::outcomeOf($status) === MailBatchMember::QUEUED) {
-                $preview['queue'][] = $code;
-            } else {
-                $preview['skipped'][] = ['code' => $code, 'reason' => $status->value];
-            }
-        }
-
-        return $preview;
+        return SendManualMail::plan($codes, $this->registrations->statusesOf($eventId, $codes));
     }
 }

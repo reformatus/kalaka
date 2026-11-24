@@ -11,14 +11,15 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
-use Kalaka\Foundation\Api\Error\RuleViolation;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Mail\Api\MailKind;
 use Kalaka\Mail\Api\MailQueue;
+use Kalaka\Mail\Catalogue\BodyUnpublished;
 use Kalaka\Mail\Catalogue\MailBody;
-use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Registrations;
 
 /**
@@ -33,7 +34,7 @@ use Kalaka\Registrations\Api\Registrations;
  * `Api\ManualMails::send()`; run without them it refuses.
  *
  * - A withdrawn or removed registration is skipped and listed; a waitlisted one is sent to.
- * - A code that is no registration of the event refuses the whole batch (`NotFound`).
+ * - A code that is no registration of the event refuses the whole batch (`UnknownRegistrationCode`).
  * - The optional `request_key` is the repeat guard: the same key in the same event returns the first batch and
  *   queues nothing; the same key with another body or other codes is refused, never merged.
  * - It runs no evaluation: it writes no registration, and a delivery maps to no registration lock.
@@ -102,9 +103,11 @@ final class SendManualMail implements AdminUseCase
 
     /**
      * @return array{batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool}
-     * @throws NotFound no such event, or a code that is no registration of it
+     * @throws NotFound no such event
+     * @throws UnknownRegistrationCode a code is no registration of the event
      * @throws InvalidInput the body is of another event, or the request key was used with another body or codes
-     * @throws RuleViolation the body is not published, or its facts were not read before the run
+     * @throws BodyUnpublished the body is not published
+     * @throws SystemFailure the body's facts were not read before the run
      */
     public function execute(array $input, Context $context): array
     {
@@ -128,24 +131,13 @@ final class SendManualMail implements AdminUseCase
             }
         }
         if (!$body->published) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
-            throw new RuleViolation(UpdateActionMail::BODY_UNPUBLISHED);
+            throw new BodyUnpublished();
         }
 
-        $statuses = $this->registrations->statusesOf($eventId, $codes);
-        foreach ($codes as $code) {
-            if (!isset($statuses[$code])) {
-                throw new NotFound();
-            }
-        }
-        $outcomes = [];
-        foreach ($codes as $code) {
-            $outcomes[$code] = MailBatchMember::outcomeOf($statuses[$code]);
-        }
-        $queued = count(array_filter(
-            $outcomes,
-            static fn (string $outcome): bool => $outcome === MailBatchMember::QUEUED
-        ));
+        $plan = self::plan($codes, $this->registrations->statusesOf($eventId, $codes));
+        self::refuseUnknown($plan);
+        $outcomes = $plan['outcomes'];
+        $queued = count($plan['queue']);
 
         $batch = $this->batches->insert(new MailBatch(
             $eventId,
@@ -190,6 +182,53 @@ final class SendManualMail implements AdminUseCase
     }
 
     /**
+     * The one plan of a send: which of the codes are queued, which are skipped and why, and which are no
+     * registration of the event. The use case runs it, and the command line's preview shows it.
+     *
+     * @param list<string> $codes
+     * @param array<string, RegistrationStatus> $statuses the status of each code that is a registration of the event
+     * @return array{
+     *     queue: list<string>, skipped: list<array{code: string, reason: string}>, unknown: list<string>,
+     *     outcomes: array<string, string>,
+     * }
+     */
+    public static function plan(array $codes, array $statuses): array
+    {
+        $plan = ['queue' => [], 'skipped' => [], 'unknown' => [], 'outcomes' => []];
+        foreach ($codes as $code) {
+            $status = $statuses[$code] ?? null;
+            if ($status === null) {
+                $plan['unknown'][] = $code;
+
+                continue;
+            }
+            $outcome = MailBatchMember::outcomeOf($status);
+            $plan['outcomes'][$code] = $outcome;
+            if ($outcome === MailBatchMember::QUEUED) {
+                $plan['queue'][] = $code;
+            } else {
+                $plan['skipped'][] = ['code' => $code, 'reason' => MailBatchMember::reasonOf($outcome)];
+            }
+        }
+
+        return $plan;
+    }
+
+    /**
+     * The one refusal of a plan with a code that is no registration of the event: the use case runs it, and the
+     * command line before it asks.
+     *
+     * @param array{unknown: list<string>} $plan
+     * @throws UnknownRegistrationCode
+     */
+    public static function refuseUnknown(array $plan): void
+    {
+        if ($plan['unknown'] !== []) {
+            throw new UnknownRegistrationCode();
+        }
+    }
+
+    /**
      * The first batch of a request key, when this call asks for the same thing.
      *
      * @param list<string> $codes
@@ -227,10 +266,7 @@ final class SendManualMail implements AdminUseCase
         $skipped = [];
         foreach ($outcomes as $code => $outcome) {
             if ($outcome !== MailBatchMember::QUEUED) {
-                $skipped[] = [
-                    'code' => (string) $code,
-                    'reason' => $outcome === MailBatchMember::SKIPPED_WITHDRAWN ? 'withdrawn' : 'removed',
-                ];
+                $skipped[] = ['code' => (string) $code, 'reason' => MailBatchMember::reasonOf($outcome)];
             }
         }
 
@@ -246,12 +282,12 @@ final class SendManualMail implements AdminUseCase
     /**
      * The pre-read facts of the body; refused without them, since they cannot be read here.
      *
-     * @throws RuleViolation when they were not read for this body
+     * @throws SystemFailure when they were not read for this body: the caller's programming error
      */
     private function body(int $id): MailBody
     {
         if ($this->body === null || $this->body->id !== $id) {
-            $error = new RuleViolation();
+            $error = new SystemFailure(null, new \LogicException('The body was not read before the run.'));
             throw $error;
         }
 
