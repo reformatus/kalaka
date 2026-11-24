@@ -19,6 +19,7 @@ use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Cli\ActionMailCommand;
 use Kalaka\Mail\Cli\MailCommand;
+use Kalaka\Mail\Cli\ManualMailBatchesCommand;
 use Kalaka\Mail\Cli\ManualMailCommand;
 use Kalaka\Mail\Pause\PauseCause;
 use Kalaka\Mail\Pause\PauseWarning;
@@ -201,6 +202,7 @@ SQL;
             ActionMailCommand::register();
             MailCommand::register();
             ManualMailCommand::register();
+            ManualMailBatchesCommand::register();
         }
     }
 
