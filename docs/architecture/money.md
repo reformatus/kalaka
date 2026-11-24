@@ -371,8 +371,8 @@ flowchart LR
 
 - **Payments is a port in core.** Core defines what it needs from a payment
   method:
-  - create a payment request for N registration lines, each for one payer's
-    balance;
+  - create a payment request for N registration lines, each for one payer, up
+    to that payer's balance;
   - return the pay URL;
   - reuse an open request;
   - report paid, refunded and failed.

@@ -10,6 +10,8 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Payments\Api\OnlineRefs;
+use Kalaka\Payments\Api\PaymentProvider;
 use Kalaka\Registrations\Api\RequestSource;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
@@ -37,6 +39,9 @@ final class Contributions
 
     /** @var list<RequestSource> */
     private array $requestSources = [];
+
+    /** @var array<string, PaymentProvider> */
+    private array $paymentProviders = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -183,5 +188,30 @@ final class Contributions
     public function requestSources(): array
     {
         return $this->requestSources;
+    }
+
+    /**
+     * A payment provider is an outside point, the payments port (money.md, "Payments"). Which one a site uses is
+     * `Payments\Api\PaymentProviders::active()`: the first contributed. One ID per provider; a second
+     * contribution with the same ID fails the contributing module.
+     */
+    public function paymentProvider(PaymentProvider $provider): void
+    {
+        $id = $provider->id();
+        if (preg_match(OnlineRefs::PROVIDER_PATTERN, $id) !== 1 || isset($this->paymentProviders[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a provider ID, never output
+            throw new \InvalidArgumentException('Payment provider ID invalid or already contributed: ' . $id . '.');
+        }
+        $this->paymentProviders[$id] = $provider;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<PaymentProvider>
+     */
+    public function paymentProviders(): array
+    {
+        return array_values($this->paymentProviders);
     }
 }

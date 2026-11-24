@@ -43,7 +43,8 @@ page, and the account area
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank
-  details are set.
+  details are set. The first four are one rule, `Api\PayableNow`, which starting a
+  card payment (Payments) reads too.
 - Payment due and overdue are computed on every read, never stored. Payment
   due is Events' date type (`Events\Api\Event::paymentDue()`), read through the
   registration's fact source (`RegistrationFacts::paymentDue()`), which holds
