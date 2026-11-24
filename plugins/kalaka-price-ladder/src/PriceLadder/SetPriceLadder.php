@@ -26,9 +26,10 @@ use Kalaka\PriceLadder\Api\Tier;
  * retired with its label kept, and a renamed tier renames its option (the declarer's text). An event that
  * never had a ladder gets no field from an empty one (#200 N13, approved).
  *
- * It refuses to give a tier a limit it had not while an open (registered or waitlisted) registration has chosen
- * it (`TierLimitGuard`, which the preview runs too): those registrations hold no seat, so the pool would
- * under-count. A lower limit and removing a limit are allowed. [UNAPPROVED N2]
+ * It refuses to remove a tier an open (registered or waitlisted) registration has chosen, and to declare
+ * `price_tier` over another declarer's field (`LadderSaveGuard`, which the preview runs too). A tier's
+ * limit may be given, changed or removed at any time: every chooser of a tier holds a seat row, limited or not.
+ * [UNAPPROVED N2, N129, N130]
  */
 final class SetPriceLadder implements AdminUseCase
 {
@@ -37,7 +38,7 @@ final class SetPriceLadder implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly LadderInput $ladder = new LadderInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
-        private readonly TierLimitGuard $guard = new TierLimitGuard(),
+        private readonly LadderSaveGuard $guard = new LadderSaveGuard(),
     ) {
     }
 
