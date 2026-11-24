@@ -39,14 +39,14 @@ plugin. It holds two fee components at the extras stage and is core money
   component reads each field's type and decimals from the registration's
   facts (`RegistrationFacts::fieldKind()`), never `ParticipantFields::of()`.
 - The save refuses: a key given twice, a key that is the donation's, a key
-  that does not match `^[a-z][a-z0-9_]*$` or holds more than 57 characters,
+  that does not match `^[a-z][a-z0-9_]*$` or holds more than 40 characters,
   a label outside 1 to 191 characters, a malformed amount, more than 50
   charges, a property besides `key`, `label` and `amount`, and a number
   field with the charge's key that allows decimals.
 - An extra charge has no condition. Each charge is **its own** ledger line,
-  `extras.<key>` (the materializer keeps one line source per component line
-  and payer, `FeeTargets::ofLines()`); a charge key holds at most 57
-  characters so the source key fits 64. Removing a charge, or a registration
+  `extras:<key>` (the materializer keeps one line source per item and payer,
+  `FeeTargets::ofItems()`); a charge key holds at most 40 characters, the
+  most an item key takes. Removing a charge, or a registration
   that no longer owes it, reverses that charge's line alone. The line's name
   is the charge's label, read from its source key by whoever shows the line;
   this stack names no line yet (S24), and a removed charge's lines carry no

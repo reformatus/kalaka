@@ -31,7 +31,7 @@ final class CoreFeeComponents
         $seen = [FixedPrice::ID => true];
         foreach ([...Contributions::current()->feeComponents(), ...$this->more] as $component) {
             $id = $component->id();
-            // A dot would make `<id>.<line key>` another component's ledger source (`Materializer`).
+            // A colon would make `<id>:<item>` another component's ledger source (`Materializer`).
             if (preg_match('/\A[a-z][a-z0-9_]*\z/', $id) !== 1) {
                 // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
                 throw new \LogicException('A fee component ID must match [a-z][a-z0-9_]*: ' . $id . '.');

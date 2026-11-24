@@ -18,10 +18,10 @@ use Kalaka\Foundation\Api\Money\Money;
 final class ChargesInput
 {
     /**
-     * The longest a charge key can be: its ledger line source is `extras.<key>`, and a source key holds 64
-     * characters.
+     * The longest a charge key can be: it is an item key of the Extras component (`extras:<key>`),
+     * which `FeeComposer` holds to 40 characters.
      */
-    public const MAX_KEY_LENGTH = 57;
+    public const MAX_KEY_LENGTH = 40;
 
     /** The JSON schema of one charge as sent. */
     public const ITEM_SCHEMA = [

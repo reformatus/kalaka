@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Module\Schema;
 /**
  * Extra charges and the donation (money.md, "Core money scope"): two fee components at the extras stage. An
  * event's extra charges are a key, a label and an amount; the participant field with the same key calls one,
- * and each charge is its own `extras.<key>` line. The donation is the event's number field with the fixed
+ * and each charge is its own `extras:<key>` line. The donation is the event's number field with the fixed
  * key `adomany`, as its own `donation` line, with no setting. Core, not a plugin.
  */
 final class Module extends AbstractModule

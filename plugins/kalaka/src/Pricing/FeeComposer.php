@@ -31,7 +31,8 @@ final class FeeComposer
      * removed registration owes nothing. Default; re-asked in S23, which fills the step.
      *
      * @param list<FeeComponent> $components
-     * @return array<string, array<string, Money>> component ID → payer → amount owed
+     * @return array<string, array<string, Money>> line source key → payer → amount owed: the component's ID, or
+     *     `<ID>:<item>` for each item of a component that owes per item
      * @throws FeeComponentFailed when a component throws or returns a malformed payer or another currency
      */
     public function compose(
@@ -64,18 +65,20 @@ final class FeeComposer
                 if ($component instanceof FixedPrice && self::owesAny($stageOwed)) {
                     continue;
                 }
-                [$owed, $lines] = $this->owedBy(
+                $owed = $this->owedBy(
                     $component,
                     new FeeComponentInput($facts->registration, $facts->status, $facts, $before, $currency, $now),
                     $currency
                 );
-                if ($lines === []) {
-                    $composed[$component->id()] = $owed;
+                if ($owed['items'] === null) {
+                    $composed[$component->id()] = $owed['owed'];
+                } else {
+                    unset($composed[$component->id()]);
+                    foreach ($owed['items'] as $item => $payers) {
+                        $composed[$component->id() . ':' . $item] = $payers;
+                    }
                 }
-                foreach ($lines as $key => $payers) {
-                    $composed[$component->id() . '.' . $key] = $payers;
-                }
-                foreach ($owed as $payer => $amount) {
+                foreach ($owed['owed'] as $payer => $amount) {
                     $stageOwed[$payer] = isset($stageOwed[$payer]) ? $stageOwed[$payer]->plus($amount) : $amount;
                 }
             }
@@ -85,21 +88,9 @@ final class FeeComposer
         return $composed;
     }
 
-    /** @param array<string, Money> $owed */
-    private static function owesAny(array $owed): bool
-    {
-        foreach ($owed as $amount) {
-            if ($amount->isPositive() || $amount->isNegative()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /**
-     * @return array{array<string, Money>, array<string, array<string, Money>>} what each payer owes in all, and
-     *     the lines kept apart, if the component returned any
+     * @return array{owed: array<string, Money>, items: ?array<string, array<string, Money>>} what each payer
+     *     owes for the component in all, and per item when the component owes per item
      */
     private function owedBy(FeeComponent $component, FeeComponentInput $input, Currency $currency): array
     {
@@ -116,34 +107,32 @@ final class FeeComposer
             $error = new FeeComponentFailed($component->id());
             throw $error;
         }
-        $lines = [];
-        foreach ($targets->lines as $key => $payers) {
-            $key = (string) $key;
-            // A line's source key is the component's ID, a dot and the line key, at most 64 characters.
-            if (preg_match('/\A[a-z][a-z0-9_]*\z/', $key) !== 1 || strlen($component->id() . '.' . $key) > 64) {
+        if ($targets->items === []) {
+            return ['owed' => $this->checked($component, $targets->owed, $currency), 'items' => null];
+        }
+        $items = [];
+        $owed = [];
+        foreach ($targets->items as $item => $payers) {
+            $item = (string) $item;
+            // The line's source key (`<component>:<item>`) is stored in 64 characters.
+            if (
+                preg_match('/\A[a-z0-9_]{1,40}\z/', $item) !== 1
+                || strlen($component->id()) + 1 + strlen($item) > 64
+            ) {
                 $error = new FeeComponentFailed($component->id());
                 throw $error;
             }
-            $lines[$key] = $this->checked($component, $payers, $currency);
-        }
-
-        if ($lines === []) {
-            return [$this->checked($component, $targets->owed, $currency), []];
-        }
-        // Lines given: what is owed in all is their sum, whatever `owed` says (the constructor takes both).
-        // [UNAPPROVED N18]
-        $owed = [];
-        foreach ($lines as $payers) {
-            foreach ($payers as $payer => $amount) {
+            $items[$item] = $this->checked($component, $payers, $currency);
+            foreach ($items[$item] as $payer => $amount) {
                 $owed[$payer] = isset($owed[$payer]) ? $owed[$payer]->plus($amount) : $amount;
             }
         }
 
-        return [$owed, $lines];
+        return ['owed' => $owed, 'items' => $items];
     }
 
     /**
-     * @param array<array-key, mixed> $payers
+     * @param array<string, Money> $payers
      * @return array<string, Money>
      */
     private function checked(FeeComponent $component, array $payers, Currency $currency): array
@@ -152,7 +141,7 @@ final class FeeComposer
         foreach ($payers as $payer => $amount) {
             $payer = (string) $payer;
             // Currency has one case today, so the last check cannot fail yet; it guards a second currency.
-            // @phpstan-ignore notIdentical.alwaysFalse
+            // @phpstan-ignore instanceof.alwaysTrue, notIdentical.alwaysFalse
             if (!Payer::isValid($payer) || !$amount instanceof Money || $amount->currency() !== $currency) {
                 $error = new FeeComponentFailed($component->id());
                 throw $error;
@@ -161,5 +150,17 @@ final class FeeComposer
         }
 
         return $owed;
+    }
+
+    /** @param array<string, Money> $owed */
+    private static function owesAny(array $owed): bool
+    {
+        foreach ($owed as $amount) {
+            if ($amount->isPositive() || $amount->isNegative()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * amount in the event's currency. The participant field whose key equals the charge's key calls it, and the
  * amount is multiplied by the answer's whole value: a consent's `1` charges it once, and a number answer of
  * a positive whole `n` charges it `n` times. It has no condition of its own, and a key no field uses charges
- * nobody. It is its own ledger line, `extras.<key>`.
+ * nobody. It is its own ledger line, `extras:<key>`.
  */
 final readonly class Charge
 {

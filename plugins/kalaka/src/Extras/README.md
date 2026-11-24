@@ -1,7 +1,7 @@
 # Extras
 
 Extra charges and the donation: a core module (`extras`). Two fee components at the extras stage, `extras` (each
-charge a registration owes is its own line, `extras.<key>`) and `donation` (the value of the event's number field
+charge a registration owes is its own line, `extras:<key>`) and `donation` (the value of the event's number field
 with the fixed key `adomany`, on its own line, with no setting).
 
 A charge is linked by key: the participant field whose key equals the charge's key calls it (a consent charges
@@ -11,7 +11,7 @@ The table, created by the schema in `Module.php`: `kalaka_extras_charges` (only 
 it). There is no tariff snapshot.
 
 `Charges/` holds `ChargeRecord` and `ChargeRepository`, `ChargesInput` (reads the charges as sent, for the preview
-and the save; a key holds at most 57 characters), `ChargeField` (a number field with a charge's key must take whole
+and the save; a key holds at most 40 characters), `ChargeField` (a number field with a charge's key must take whole
 numbers) and the admin use case `SetExtraCharges` (`kalaka/set-extra-charges`; full access only). `ExtrasComponent`
 and `Donation/DonationComponent` are the fee components.
 

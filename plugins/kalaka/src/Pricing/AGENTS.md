@@ -30,11 +30,12 @@ retention and the materializer
   `Ledger::chargeTotalsOf()` (a unit test checks it); a fee component gets its
   `FeeComponentInput` (facts, earlier-stage totals, the event's currency) and
   reads its own current settings, never lines.
-- A component may keep its lines apart (`FeeTargets::ofLines()`): each is
+- A component may owe per item (`FeeTargets::ofItems()`): each item is
   recorded and reversed on its own under the source key
-  `<component ID>.<line key>` (at most 64 characters), and a line the
-  component no longer returns is reversed. A component ID matches
-  `[a-z][a-z0-9_]*` (no dot, which would be another component's line).
+  `<component ID>:<item>` (item `[a-z0-9_]{1,40}`, at most 64 characters),
+  and an item the component no longer returns is reversed. A component ID
+  matches `[a-z][a-z0-9_]*` (no colon, which would be another component's
+  item).
 - Lines of components not registered now are never touched, and
   `adjustment` lines never count as recorded.
 - A fee component returns a value and writes nothing. Core composes the

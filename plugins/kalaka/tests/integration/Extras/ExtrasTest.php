@@ -11,7 +11,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * Extra charges (topic 14): a charge is linked by key to the participant field with the same key, the amount is
- * multiplied by its whole answer, and each charge is its own `extras.<key>` line.
+ * multiplied by its whole answer, and each charge is its own `extras:<key>` line.
  */
 final class ExtrasTest extends ExtrasTestCase
 {
@@ -23,7 +23,7 @@ final class ExtrasTest extends ExtrasTestCase
         $bence = $this->registerWith('00A2', ['ebed' => '0']);
         $csilla = $this->registerWith('00A5', []);
 
-        self::assertSame(['extras.ebed participant 3500 charge:extras.ebed:participant:1'], $this->charges($anna));
+        self::assertSame(['extras:ebed participant 3500 charge:extras:ebed:participant:1'], $this->charges($anna));
         self::assertSame([], $this->charges($bence));
         self::assertSame([], $this->charges($csilla));
     }
@@ -34,7 +34,7 @@ final class ExtrasTest extends ExtrasTestCase
 
         $anna = $this->registerWith('00A0', ['ejjel' => '3']);
 
-        self::assertSame(['extras.ejjel participant 3000 charge:extras.ejjel:participant:1'], $this->charges($anna));
+        self::assertSame(['extras:ejjel participant 3000 charge:extras:ejjel:participant:1'], $this->charges($anna));
     }
 
     public function testAChargeKeyNoFieldUsesChargesNobodyAndRaisesNothing(): void
@@ -43,7 +43,7 @@ final class ExtrasTest extends ExtrasTestCase
 
         $anna = $this->registerWith('00A0', ['ebed' => '1']);
 
-        self::assertSame(['extras.ebed participant 3500 charge:extras.ebed:participant:1'], $this->charges($anna));
+        self::assertSame(['extras:ebed participant 3500 charge:extras:ebed:participant:1'], $this->charges($anna));
         self::assertSame('3500', $this->balance($anna));
     }
 
@@ -57,8 +57,8 @@ final class ExtrasTest extends ExtrasTestCase
         $anna = $this->registerWith('00A0', ['ebed' => '1', 'ejjel' => '2']);
         self::assertSame('5500', $this->balance($anna));
         self::assertSame([
-            'extras.ebed participant 3500 charge:extras.ebed:participant:1',
-            'extras.ejjel participant 2000 charge:extras.ejjel:participant:1',
+            'extras:ebed participant 3500 charge:extras:ebed:participant:1',
+            'extras:ejjel participant 2000 charge:extras:ejjel:participant:1',
         ], $this->charges($anna), 'One line for each charge.');
 
         $this->writeValue($anna, 'ejjel', '1');
@@ -68,10 +68,10 @@ final class ExtrasTest extends ExtrasTestCase
         $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
         self::assertSame('3500', $this->balance($anna));
         self::assertSame([
-            'extras.ebed participant 3500 charge:extras.ebed:participant:1',
-            'extras.ejjel participant 2000 charge:extras.ejjel:participant:1',
-            'extras.ejjel participant -1000 charge:extras.ejjel:participant:2',
-            'extras.ejjel participant -1000 charge:extras.ejjel:participant:3',
+            'extras:ebed participant 3500 charge:extras:ebed:participant:1',
+            'extras:ejjel participant 2000 charge:extras:ejjel:participant:1',
+            'extras:ejjel participant -1000 charge:extras:ejjel:participant:2',
+            'extras:ejjel participant -1000 charge:extras:ejjel:participant:3',
         ], $this->charges($anna), 'The removed charge reverses its own line; the other is untouched.');
     }
 
@@ -86,10 +86,10 @@ final class ExtrasTest extends ExtrasTestCase
 
         self::assertSame('0', $this->balance($anna));
         self::assertSame([
-            'extras.ebed participant 3500 charge:extras.ebed:participant:1',
-            'extras.ejjel participant 2000 charge:extras.ejjel:participant:1',
-            'extras.ebed participant -3500 charge:extras.ebed:participant:2',
-            'extras.ejjel participant -2000 charge:extras.ejjel:participant:2',
+            'extras:ebed participant 3500 charge:extras:ebed:participant:1',
+            'extras:ejjel participant 2000 charge:extras:ejjel:participant:1',
+            'extras:ebed participant -3500 charge:extras:ebed:participant:2',
+            'extras:ejjel participant -2000 charge:extras:ejjel:participant:2',
         ], $this->charges($anna), 'Each charge line is reversed.');
 
         $this->setStatus($anna, RegistrationStatus::Registered);
@@ -117,7 +117,7 @@ final class ExtrasTest extends ExtrasTestCase
 
         $anna = $this->registerWith('00A0', ['ejjel' => '999999999999', 'ebed' => '1']);
 
-        self::assertSame(['extras.ebed participant 3500 charge:extras.ebed:participant:1'], $this->charges($anna));
+        self::assertSame(['extras:ebed participant 3500 charge:extras:ebed:participant:1'], $this->charges($anna));
     }
 
     public function testThePreviewWritesNothingThenTheApplyConverges(): void
@@ -152,14 +152,14 @@ final class ExtrasTest extends ExtrasTestCase
 
     public function testTheLongestChargeKeyFitsTheLedgersSourceKey(): void
     {
-        $key = 'a' . str_repeat('b', 56);
+        $key = 'a' . str_repeat('b', 39);
         $this->declareField($key, 'kalaka/consent-field', null, 3);
         $this->applyCharges([self::item($key, 'Hosszú', '1000')]);
 
         $anna = $this->registerWith('00A0', [$key => '1']);
 
         self::assertSame('1000', $this->balance($anna));
-        self::assertSame(64, strlen('extras.' . $key));
+        self::assertSame(47, strlen('extras:' . $key));
     }
 
     public function testOnlyAConsentAndAWholeNumberFieldChargeAndEveryOtherTypeChargesNobody(): void
@@ -210,7 +210,7 @@ final class ExtrasTest extends ExtrasTestCase
             [self::item('ebed', 'Ebéd', '3500'), self::item('ebed', 'Ebéd', '3000')],
             [self::item('tizedes', 'Tizedes', '3500')],
             [self::item('adomany', 'Adomány', '3500')],
-            [self::item('a' . str_repeat('b', 57), 'Hosszú', '3500')],
+            [self::item('a' . str_repeat('b', 40), 'Hosszú', '3500')],
             [['key' => 'ebed', 'label' => 'Ebéd', 'amount' => '3500', 'field' => 'ebed']],
             [['key' => 'ebed', 'label' => 'Ebéd', 'amount' => '3500', 'condition' => []]],
         ];

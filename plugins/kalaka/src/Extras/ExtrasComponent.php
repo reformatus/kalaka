@@ -20,11 +20,11 @@ use Kalaka\Registrations\Api\RegistrationFacts;
  * The extra charges' fee component, at the extras stage. A charge is linked by key: the participant field whose
  * key equals the charge's key calls it, by the field's type: a consent counts the amount once (a `1`), a number
  * field whose stored decimals are 0 counts it a positive whole `n` times, and every other type charges
- * nobody. Each charge is its own ledger line, `extras.<charge key>`
- * [UNAPPROVED N15]. A charge has no condition of its own; anything else (no field with the key, empty, 0,
- * negative, a field that allows decimals) charges nothing, with no warning. It reads only the registration's
- * facts and its own current settings, or the proposed ones in a preview. Support and the congregation share
- * compose earlier and never cover it.
+ * nobody. Each charge is its own ledger line, `extras:<charge key>` (one item per charge,
+ * `FeeTargets::ofItems()`) [UNAPPROVED N15]. A charge has no condition of its own; anything else (no field with
+ * the key, empty, 0, negative, a field that allows decimals) charges nothing, with no warning. It reads only the
+ * registration's facts and its own current settings, or the proposed ones in a preview. Support and the
+ * congregation share compose earlier and never cover it.
  */
 final class ExtrasComponent implements FeeComponent
 {
@@ -53,7 +53,7 @@ final class ExtrasComponent implements FeeComponent
             static fn (ChargeRecord $record): Charge => $record->charge(),
             $this->charges->forEvent($input->registration->eventId)
         );
-        $lines = [];
+        $items = [];
         $total = Money::zero($input->currency);
         foreach ($charges as $charge) {
             $quantity = self::quantity($input->facts, $charge->key);
@@ -66,11 +66,11 @@ final class ExtrasComponent implements FeeComponent
                 } catch (SystemFailure) {
                     continue;
                 }
-                $lines[$charge->key] = [Payer::PARTICIPANT => $line];
+                $items[$charge->key] = [Payer::PARTICIPANT => $line];
             }
         }
 
-        return $lines === [] ? FeeTargets::none() : FeeTargets::ofLines($lines);
+        return $items === [] ? FeeTargets::none() : FeeTargets::ofItems($items);
     }
 
     /**

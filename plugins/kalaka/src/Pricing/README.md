@@ -16,6 +16,6 @@ price, then the contributed ones, core's Extras among them. A module's proposed 
 first). The fixed price is the base only without a ladder: `FeeComposer` composes it last in the tier stage and
 skips it once another tier-stage component owes something.
 
-A component that owes several things apart (Extras: one line per charge) returns `FeeTargets::ofLines()`; each line is
-its own source `<component ID>.<line key>` in the ledger, and the materializer reverses a recorded line the component
+A component that owes several things apart (Extras: one item per charge) returns `FeeTargets::ofItems()`; each item is
+its own source `<component ID>:<item>` in the ledger, and the materializer reverses a recorded item the component
 no longer returns.

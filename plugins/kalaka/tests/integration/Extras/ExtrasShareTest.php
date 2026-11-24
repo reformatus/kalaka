@@ -25,7 +25,7 @@ final class ExtrasShareTest extends ExtrasTestCase
             'share congregation 32000 charge:share:congregation:1',
             'share participant -32000 charge:share:participant:1',
             'support participant -8000 charge:support:participant:1',
-            'extras.ebed participant 3500 charge:extras.ebed:participant:1',
+            'extras:ebed participant 3500 charge:extras:ebed:participant:1',
             'donation participant 5000 charge:donation:participant:1',
         ], $this->charges($anna));
         self::assertSame('8500', $this->balance($anna));

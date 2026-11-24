@@ -20,9 +20,9 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * The money phase of the evaluation (money.md, "Materializer"; foundation.md, "Evaluation"): composes the
  * fee from the current settings and the registration's facts, and writes, per component and payer, what it
- * owes minus what is recorded as one `charge` line. It converges: a second run writes nothing. Lines of
- * components not registered now are left alone. A component's lines kept apart (`FeeTargets::ofLines()`) are
- * recorded under `<component ID>.<line key>`. The run holds the registration's row lock.
+ * owes minus what is recorded as one `charge` line (per item too, for a component that owes per item: each
+ * manual charge or discount is its own line). It converges: a second run writes nothing. Lines of
+ * components not registered now are left alone. The run holds the registration's row lock.
  */
 final class Materializer
 {
@@ -63,16 +63,13 @@ final class Materializer
             }
         }
 
-        // A component that keeps lines apart owns every recorded `<component ID>.<line key>`; one it no longer
-        // returns (a removed charge) is owed nothing now, so its line is reversed. [UNAPPROVED N18]
-        $registered = [];
-        foreach ($components as $component) {
-            $registered[$component->id()] = true;
-        }
-        foreach (array_keys($recorded) as $source) {
-            $owner = strstr((string) $source, '.', true);
-            if ($owner !== false && isset($registered[$owner])) {
-                $owed[(string) $source] ??= [];
+        // A line of a registered component that the composition no longer names (a withdrawal, a removed item)
+        // owes zero now, so it is reversed. A source key is `<component>` or `<component>:<item>`; lines of a
+        // component not registered now are left alone.
+        $ids = array_map(static fn (FeeComponent $component): string => $component->id(), $components);
+        foreach (array_keys($recorded) as $sourceKey) {
+            if (!isset($owed[$sourceKey]) && in_array(explode(':', (string) $sourceKey, 2)[0], $ids, true)) {
+                $owed[$sourceKey] = [];
             }
         }
 
