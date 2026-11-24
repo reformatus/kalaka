@@ -17,6 +17,7 @@ use Kalaka\Ledger\Api\NewLine;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Payments\Api\OnlineItem;
+use Kalaka\Payments\Api\RegistrationRef;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 
@@ -64,7 +65,7 @@ abstract class RecordOnline implements AdminUseCase
             'type' => 'object',
             'properties' => [
                 'provider' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]{0,31}\\z'],
-                'request' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_.-]{1,40}\\z'],
+                'request' => ['type' => 'string', 'pattern' => '^[a-z0-9_.-]{1,40}\\z'],
             ],
             'required' => ['provider', 'request'],
             'additionalProperties' => false,
@@ -130,7 +131,7 @@ abstract class RecordOnline implements AdminUseCase
             if (!$held[$key->eventId . "\0" . $key->code]) {
                 Boundary::report(
                     'Recording an online ' . $this->kind()->value,
-                    new NotFound('Registration ' . $key->eventId . ':' . $key->code . ' of ' . $this->requestRef())
+                    new NotFound('Registration ' . RegistrationRef::compose($key) . ' of ' . $this->requestRef())
                 );
                 continue;
             }
@@ -148,6 +149,18 @@ abstract class RecordOnline implements AdminUseCase
             $error = new SystemFailure(null, new \LogicException('The event of a held registration is gone.'));
             throw $error;
         }
+        // Currency has one case today, so the comparison is constant until a second currency is added.
+        // @phpstan-ignore notIdentical.alwaysFalse
+        if ($item->amount->currency() !== $event->currency) {
+            $error = new SystemFailure(
+                null,
+                new \LogicException(
+                    'An item of ' . $this->requestRef() . ' is in ' . $item->amount->currency()->value
+                    . ', the event\'s currency is ' . $event->currency->value . '.'
+                )
+            );
+            throw $error;
+        }
         $amount = $this->kind() === LineKind::Payment ? $item->amount->negated() : $item->amount;
         $line = new NewLine(
             $key,
@@ -155,7 +168,7 @@ abstract class RecordOnline implements AdminUseCase
             $item->payer,
             $amount,
             new Subject($this->providerId() . '_order', $key->eventId, $this->requestRef()),
-            strtolower('online:' . $this->providerId() . ':' . $this->keyPart() . ':' . $item->itemRef),
+            'online:' . $this->providerId() . ':' . $this->keyPart() . ':' . $item->itemRef,
             null,
             $this->at(),
         );

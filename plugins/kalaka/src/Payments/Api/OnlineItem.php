@@ -13,7 +13,7 @@ final readonly class OnlineItem
 {
     /**
      * @param Money $amount above zero, in either direction
-     * @param string $itemRef the provider's ID of the item within its request, `[A-Za-z0-9_.-]`, at most 40
+     * @param string $itemRef the provider's ID of the item within its request, `[a-z0-9_.-]`, at most 40
      * @throws \InvalidArgumentException
      */
     public function __construct(
@@ -24,7 +24,7 @@ final readonly class OnlineItem
     ) {
         if (
             !Payer::isValid($payer) || !$amount->isPositive()
-            || preg_match('/\A[A-Za-z0-9_.-]{1,40}\z/', $itemRef) !== 1
+            || preg_match('/\A[a-z0-9_.-]{1,40}\z/', $itemRef) !== 1
         ) {
             throw new \InvalidArgumentException('An online item has a payer, a positive amount and an item ref.');
         }

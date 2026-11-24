@@ -262,6 +262,12 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
         }
     }
 
+    public function testARefThatDiffersOnlyInCaseIsRefusedSoTheKeyStaysUnique(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->item($this->register('00A0'), '1000', 'AbC');
+    }
+
     public function testAReportOfNoItemsOrABadRefIsRefusedAtConstruction(): void
     {
         $this->expectException(\InvalidArgumentException::class);

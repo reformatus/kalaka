@@ -9,7 +9,7 @@ final readonly class PaidRequest
 {
     /**
      * @param string $providerId the provider's `id()`
-     * @param string $requestRef the provider's ID of the request (a WooCommerce order ID), `[A-Za-z0-9_.-]`, at most 40
+     * @param string $requestRef the provider's ID of the request (a WooCommerce order ID), `[a-z0-9_.-]`, at most 40
      * @param \DateTimeImmutable $paidAt when the request was paid, the same on every report of it
      * @param list<OnlineItem> $items at least one, each the amount the item actually charged
      * @throws \InvalidArgumentException

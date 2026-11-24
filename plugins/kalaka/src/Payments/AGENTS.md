@@ -30,6 +30,11 @@ use cases that record what it reports
   in key order before any line is written.
 - Starting a card payment writes nothing and re-checks what is payable now with the one rule of the transfer block
   (`Portal\Api\PayableNow`); its refusals are typed with their own codes, and their texts are the portal's.
+  Every call to a provider (`latestOf()`, `accepts()`, `payUrl()`) is made in `Api\CardPayments`, outside the
+  transaction, never in the use case; a start holds a named lock per registration from the read of the latest
+  request until the pay URL is made, and is refused as `CardPaymentInFlight` while the latest request is in flight
+  at the provider or another start of the registration holds the lock.
+- An item or request ref is `[a-z0-9_.-]`, so the idempotency key is never lowercased and two refs never share one.
 - The registration as `12:47K3` (event ID, a colon, the reference code) is composed and parsed only here
   (`Api\RegistrationRef`).
 - One provider is used per site, the first contributed.
