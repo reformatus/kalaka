@@ -20,7 +20,6 @@ use Kalaka\Mail\Catalogue\MailBody;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
-use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * Sends a chosen mail body to chosen registrations of an event (mail.md, "Five kinds of mail", Manual): one send
@@ -121,16 +120,16 @@ final class SendManualMail implements AdminUseCase
         if ($body->eventId !== $eventId) {
             throw new InvalidInput();
         }
-        if (!$body->published) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
-            throw new RuleViolation(UpdateActionMail::BODY_UNPUBLISHED);
-        }
-
+        // A repeat is answered as one even when the body was unpublished since the first send.
         if ($requestKey !== null) {
             $stored = $this->query->ofRequestKey($eventId, $requestKey);
             if ($stored !== null) {
                 return $this->repeat($stored, $bodyId, $codes);
             }
+        }
+        if (!$body->published) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a fixed text, no input
+            throw new RuleViolation(UpdateActionMail::BODY_UNPUBLISHED);
         }
 
         $statuses = $this->registrations->statusesOf($eventId, $codes);
@@ -141,11 +140,7 @@ final class SendManualMail implements AdminUseCase
         }
         $outcomes = [];
         foreach ($codes as $code) {
-            $outcomes[$code] = match ($statuses[$code]) {
-                RegistrationStatus::Withdrawn => MailBatchMember::SKIPPED_WITHDRAWN,
-                RegistrationStatus::Removed => MailBatchMember::SKIPPED_REMOVED,
-                default => MailBatchMember::QUEUED,
-            };
+            $outcomes[$code] = MailBatchMember::outcomeOf($statuses[$code]);
         }
         $queued = count(array_filter(
             $outcomes,
