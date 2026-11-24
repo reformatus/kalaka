@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * values"; money.md, "Quota places"). `SeatOfferSeats` is the default of the answer act: it maps each call to
  * the one seat rule (`Seats`), for the pool the request source names (`RequestSource::seatPool()`). The pool
  * is the offer's own: an aid request, and an offer with no limit, have none, and the act makes no seat call.
- * [UNAPPROVED N5]
+ * [UNAPPROVED N95]
  */
 interface OfferSeats
 {

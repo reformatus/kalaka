@@ -20,7 +20,7 @@ use Kalaka\Support\Directory\NodeRepository;
  */
 final class OffersInput
 {
-    /** The longest an offer key can be: an item key of the `support` component. [UNAPPROVED N1] */
+    /** The longest an offer key can be: an item key of the `support` component. [UNAPPROVED N91] */
     public const MAX_KEY_LENGTH = 40;
 
     /** The most offers an event has. */
