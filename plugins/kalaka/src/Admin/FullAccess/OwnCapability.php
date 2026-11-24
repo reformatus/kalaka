@@ -27,11 +27,20 @@ final class OwnCapability
      */
     public static function filter(array $allcaps, array $caps, array $args, \WP_User $user): array
     {
-        $own = $user->caps[AdminAccess::FULL_ACCESS] ?? false;
-        if (in_array(AdminAccess::FULL_ACCESS, $caps, true) && true !== $own) {
+        if (in_array(AdminAccess::FULL_ACCESS, $caps, true) && !self::owns($user)) {
             unset($allcaps[AdminAccess::FULL_ACCESS]);
         }
 
         return $allcaps;
+    }
+
+    /**
+     * The user-object form of the rule: the capability is the user's own, a true boolean in their `caps`, not any
+     * truthy value and not a role's. The filter, the profile checkbox and the Users column ask this; the SQL form
+     * is `FullAccessQuery`.
+     */
+    public static function owns(\WP_User $user): bool
+    {
+        return true === ($user->caps[AdminAccess::FULL_ACCESS] ?? false);
     }
 }

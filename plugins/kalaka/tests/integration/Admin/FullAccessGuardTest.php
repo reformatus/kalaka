@@ -8,6 +8,8 @@ use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Admin\FullAccess\FullAccessQuery;
 use Kalaka\Admin\FullAccess\LastHolderGuard;
+use Kalaka\Admin\FullAccess\ProfileField;
+use Kalaka\Admin\FullAccess\UsersColumn;
 
 /**
  * D4 and D3: full access is the user's own capability, never a role's, and WordPress cannot delete its
@@ -78,6 +80,24 @@ final class FullAccessGuardTest extends AdminTestCase
         } finally {
             remove_role('kalaka_teszt_role');
         }
+    }
+
+    public function testTheProfileAndTheUsersColumnHoldTheSameRuleAsTheCapabilityCheck(): void
+    {
+        $other = self::factory()->user->create(['role' => 'subscriber']);
+        // Another plugin wrote a truthy value that is not the boolean true.
+        update_user_meta($other, $GLOBALS['wpdb']->get_blog_prefix() . 'capabilities', [AdminAccess::FULL_ACCESS => 1]);
+        $user = new \WP_User($other);
+
+        self::assertFalse(user_can($user, AdminAccess::FULL_ACCESS));
+        self::assertNotContains($other, (new FullAccessQuery())->holders());
+        self::assertFalse(ProfileField::holds($user));
+        self::assertSame('', UsersColumn::cell('', 'kalaka', $other));
+
+        (new \WP_User($other))->add_cap(AdminAccess::FULL_ACCESS);
+        self::assertTrue(user_can($other, AdminAccess::FULL_ACCESS));
+        self::assertTrue(ProfileField::holds(new \WP_User($other)));
+        self::assertNotSame('', UsersColumn::cell('', 'kalaka', $other));
     }
 
     public function testWordPressCannotDeleteTheOnlyHolderButCanWhenAnotherRemains(): void

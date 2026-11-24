@@ -26,7 +26,8 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   development seed's `kalaka_admin` add it directly. One holder rule,
   `FullAccessQuery::holders()`: a user holds it by their own capability only,
   never through a role, and `user_has_cap` makes every `user_can()` check
-  agree. The last holder keeps it: the use case, the profile, the CLI and the
+  agree; `OwnCapability::owns()` is the same rule on a user object, for the
+  filter, the profile checkbox and the Users column. The last holder keeps it: the use case, the profile, the CLI and the
   abilities refuse; WordPress's users screen and REST refuse deleting them
   through `map_meta_cap`, and `wp user delete` stops on the `delete_user`
   action; plain code calling `wp_delete_user()` past the check is logged and
