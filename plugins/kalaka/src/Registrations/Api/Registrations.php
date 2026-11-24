@@ -85,21 +85,6 @@ final class Registrations
     }
 
     /**
-     * The status of each of the event's registrations, by code: one statement.
-     *
-     * @return array<string, RegistrationStatus>
-     */
-    public function statusesOf(int $eventId): array
-    {
-        $statuses = [];
-        foreach ($this->list->forEvent($eventId) as $row) {
-            $statuses[$row['code']] = $row['status'];
-        }
-
-        return $statuses;
-    }
-
-    /**
      * The event's `registered` and `waitlisted` registrations, in the list's order: the ones a money settings
      * apply re-evaluates (withdrawn and removed are left out). One statement.
      *
@@ -119,15 +104,24 @@ final class Registrations
     }
 
     /**
-     * The statuses of some of an event's registrations, in one statement and without a lock; a code that is no
-     * registration of the event is absent from the result. A plain read.
+     * The statuses of an event's registrations, by code, in one statement and without a lock. With `$codes` only
+     * those: a code that is no registration of the event is absent from the result. A plain read.
      *
-     * @param list<string> $codes
+     * @param list<string>|null $codes null: every registration of the event
      * @return array<string, RegistrationStatus> code → status
      */
-    public function statusesOf(int $eventId, array $codes): array
+    public function statusesOf(int $eventId, ?array $codes = null): array
     {
-        return $this->list->statusesOf($eventId, $codes);
+        if ($codes !== null) {
+            return $this->list->statusesOf($eventId, $codes);
+        }
+
+        $statuses = [];
+        foreach ($this->list->forEvent($eventId) as $row) {
+            $statuses[$row['code']] = $row['status'];
+        }
+
+        return $statuses;
     }
 
     /**
