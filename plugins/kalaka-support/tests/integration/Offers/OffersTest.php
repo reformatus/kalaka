@@ -181,10 +181,8 @@ final class OffersTest extends OffersTestCase
         ));
     }
 
-    public function testAKeyAnotherOfferOrAnotherFieldHoldsIsRefusedWhileTheOffersAreProposed(): void
+    public function testAKeyAnotherOfferHoldsIsRefusedWhileTheOffersAreProposed(): void
     {
-        $this->declareParticipantField($this->event, 'gyulekezet');
-        $this->declareParticipantField($this->event, 'tamogatas_answer');
         $bad = [
             'an offer beside the answer field of another' => [
                 self::offer('egyhaz', '1000', request: true),
@@ -194,8 +192,6 @@ final class OffersTest extends OffersTestCase
                 self::offer('egyhaz_answer', '2000'),
                 self::offer('egyhaz', '1000', request: true),
             ],
-            'a key a form field holds' => [self::offer('gyulekezet', '1000')],
-            'an answer key a form field holds' => [self::offer('tamogatas', '1000', request: true)],
         ];
         foreach ($bad as $what => $offers) {
             try {
@@ -205,6 +201,66 @@ final class OffersTest extends OffersTestCase
                 self::assertSame([], $this->offers->offers($this->event), $what);
             }
         }
+    }
+
+    public function testAKeyAFieldOfAnotherTypeOrDeclarerHoldsIsRefusedByTheOneDeclarableCheck(): void
+    {
+        $this->declareParticipantField($this->event, 'gyulekezet');
+        $this->declareParticipantField($this->event, 'tamogatas_answer');
+        $this->declareParticipantField($this->event, 'ar', [['value' => 'a', 'label' => 'A']]);
+        $this->extensionField('masike', 'kalaka/consent-field', 'kalaka-aid');
+        $this->extensionField('masike2_answer', 'kalaka/choice-field', 'kalaka-aid');
+        $bad = [
+            'a key a form field of another type holds' => [self::offer('gyulekezet', '1000')],
+            'an answer key a form field of another type holds' => [self::offer('tamogatas', '1000', request: true)],
+            'a choice field under the consent key' => [self::offer('ar', '1000')],
+            'a key another declarer holds' => [self::offer('masike', '1000')],
+            'an answer key another declarer holds' => [self::offer('masike2', '1000', request: true)],
+        ];
+        foreach ($bad as $what => $offers) {
+            try {
+                $this->offers->propose($this->event, $offers);
+                self::fail('Accepted: ' . $what);
+            } catch (RuleViolation) {
+                self::assertSame([], $this->offers->offers($this->event), $what);
+            }
+        }
+    }
+
+    public function testAConsentFieldAFormCreatedUnderTheOffersKeyIsAdoptedAndTheOffersOwnFieldsAreMoneyRelevant(): void
+    {
+        $this->extensionField('egyhaz', 'kalaka/consent-field', null, 'form');
+
+        $this->applyOffers([self::offer('egyhaz', '1000', request: true)]);
+
+        $fields = [];
+        foreach ((new ParticipantFields())->of($this->event) as $field) {
+            $fields[$field->key] = $field;
+        }
+        self::assertSame('extension', $fields['egyhaz']->source);
+        self::assertSame('kalaka-support', $fields['egyhaz']->declaredBy);
+        self::assertTrue($fields['egyhaz']->moneyRelevant);
+        self::assertSame('kalaka-support', $fields['egyhaz_answer']->declaredBy);
+        self::assertTrue($fields['egyhaz_answer']->moneyRelevant);
+    }
+
+    /** A field of the event under the source, declared by the module the slug names (none for a form's). */
+    private function extensionField(string $key, string $type, ?string $declarer, string $source = 'extension'): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $this->event,
+            'field_key' => $key,
+            'version' => 1,
+            'type' => $type,
+            'title' => $key,
+            'source' => $source,
+            'declared_by' => $declarer,
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => 0,
+            'form_writable' => 0,
+        ]);
     }
 
     public function testMoreThanTheMostOffersAreRefusedAtTheProposalAsAtTheSave(): void
@@ -285,39 +341,49 @@ final class OffersTest extends OffersTestCase
         });
 
         self::assertFalse($this->holds($key, 'keret'));
-        self::assertSame(['seats_left.keret.1' => 1], $this->offers->seatsLeft($this->event));
+        self::assertSame(1, $this->seats->left(new OfferSeatPool($this->event, 'keret')));
     }
 
-    public function testTheSeatsLeftOfALimitedOfferAreTheFormVariable(): void
+    public function testThePoolsOfTheOffersAreTheFormVariableOfEveryOfferLimitedOrNot(): void
     {
         $this->applyOffers([self::offer('keret', '8000', limit: 2), self::offer('szabad', '1000')]);
-        self::assertSame(['seats_left.keret.1' => 2], $this->offers->seatsLeft($this->event));
+        $event = (new Events())->find($this->event) ?? throw new \LogicException();
+
+        $entries = (new OfferClaims())->pools($event);
+
+        self::assertSame(['keret', 'szabad'], array_map(static fn ($entry): string => $entry->fieldKey, $entries));
+        self::assertSame(['1', '1'], array_map(static fn ($entry): string => $entry->optionValue, $entries));
+        self::assertSame(
+            ['offer.keret', 'offer.szabad'],
+            array_map(static fn ($entry): string => $entry->pool->key(), $entries)
+        );
+        self::assertSame(2, $this->seats->left($entries[0]->pool));
+        self::assertNull($this->seats->left($entries[1]->pool));
 
         $this->holdSeat($this->register('00A0'), 'keret');
 
-        self::assertSame(['seats_left.keret.1' => 1], $this->offers->seatsLeft($this->event));
+        self::assertSame(1, $this->seats->left($entries[0]->pool));
     }
 
-    public function testASelectedOfferCannotBeRemovedNorGivenALimitButAnUnselectedOneCan(): void
+    public function testASelectedOfferCannotBeRemovedButAnUnselectedOneCanAndALimitMayBeAddedAnyTime(): void
     {
         $this->applyOffers([self::offer('diak', '5000'), self::offer('csalad', '3000')]);
         $this->registerSelecting('00A0', 'diak');
 
-        foreach (
-            [
-                [self::offer('csalad', '3000')],
-                [self::offer('diak', '5000', limit: 3), self::offer('csalad', '3000')],
-            ] as $offers
-        ) {
-            try {
-                $this->applyOffers($offers);
-                self::fail('The save went through.');
-            } catch (RuleViolation $refused) {
-                self::assertInstanceOf(OfferSelected::class, $refused);
-                self::assertSame('kalaka_offer_selected', $refused->errorCode());
-                self::assertCount(2, $this->offers->offers($this->event));
-            }
+        self::assertTrue((new Registrations())->openHolds($this->event, 'diak', '1'));
+        try {
+            $this->applyOffers([self::offer('csalad', '3000')]);
+            self::fail('The save went through.');
+        } catch (RuleViolation $refused) {
+            self::assertInstanceOf(OfferSelected::class, $refused);
+            self::assertSame('kalaka_offer_selected', $refused->errorCode());
+            self::assertCount(2, $this->offers->offers($this->event));
         }
+
+        // A limit may be added at any time: every chooser holds a seat row.
+        $this->applyOffers([self::offer('diak', '5000', limit: 3), self::offer('csalad', '3000')]);
+        self::assertSame(3, $this->offers->offers($this->event)[0]->limit);
+        $this->applyOffers([self::offer('diak', '5000'), self::offer('csalad', '3000')]);
 
         $report = $this->applyOffers([self::offer('diak', '5000'), self::offer('csalad', '3000', limit: 4)]);
         self::assertSame([], $report->failed());
@@ -517,7 +583,7 @@ final class OffersTest extends OffersTestCase
             'a malformed key' => [self::offer('Diak', '5000')],
             'an unknown node' => [self::offer('diak', '5000', node: 'NINCS')],
             'a zero amount' => [self::offer('diak', '0')],
-            'a limit of zero' => [self::offer('diak', '5000', limit: 0)],
+            'a negative limit' => [self::offer('diak', '5000', limit: -1)],
             'no label' => [['label' => ''] + self::offer('diak', '5000')],
             'an unknown property' => [self::offer('diak', '5000') + ['stackable' => true]],
             'more than fifty' => array_map(
@@ -567,6 +633,63 @@ final class OffersTest extends OffersTestCase
 
         self::assertFalse($this->awaits($key));
         self::assertSame([], $this->lineSources($key));
+    }
+
+    public function testALimitOfZeroIsAFullOfferAndStillAccepted(): void
+    {
+        $report = $this->applyOffers([self::offer('keret', '8000', limit: 0)]);
+
+        self::assertSame([], $report->failed());
+        self::assertSame(0, $this->offers->offers($this->event)[0]->limit);
+        self::assertSame(0, $this->seats->left(new OfferSeatPool($this->event, 'keret')));
+    }
+
+    public function testAnUnlimitedOfferClaimsAndHoldsASeatRowToo(): void
+    {
+        $this->applyOffers([self::offer('szabad', '1000')]);
+        $event = (new Events())->find($this->event) ?? throw new \LogicException();
+
+        $claims = (new OfferClaims())->claims($event, new ValidatedAnswers(['szabad' => '1'], ['szabad' => '1']));
+        $none = (new OfferClaims())->claims($event, new ValidatedAnswers(['szabad' => '0'], ['szabad' => '0']));
+
+        self::assertCount(1, $claims);
+        self::assertSame('szabad', $claims[0]->fieldKey);
+        self::assertSame([], $none);
+        $key = $this->register('00A0');
+        $this->holdSeat($key, 'szabad');
+        self::assertTrue($this->holds($key, 'szabad'));
+    }
+
+    public function testTheRequestSourceReadsAnsweredFromItsOwnAnswerField(): void
+    {
+        $this->applyOffers([self::offer('egyhaz', '1000', request: true)]);
+        $source = new OfferRequests();
+        $key = new RegistrationKey($this->event, '00A0');
+        $request = $source->requestsOf($key, ['egyhaz' => '1'])[0];
+
+        self::assertFalse($source->isAnswered($request, ['egyhaz' => '1']));
+        self::assertFalse($source->isAnswered($request, ['egyhaz' => '1', 'egyhaz_answer' => '']));
+        self::assertTrue($source->isAnswered($request, ['egyhaz' => '1', 'egyhaz_answer' => 'approved']));
+        self::assertTrue($source->isAnswered($request, ['egyhaz' => '1', 'egyhaz_answer' => 'refused']));
+    }
+
+    public function testTheAnswerIsWrittenUnderTheOffersDeclarerAndAnotherDeclarerIsRefused(): void
+    {
+        $this->applyOffers([self::offer('egyhaz', '1000', request: true)]);
+        $key = $this->registerSelecting('00A0', 'egyhaz');
+
+        $this->answer($key, 'egyhaz', 'yes');
+        self::assertSame('approved', (new Registrations())->values($key)['egyhaz_answer'] ?? null);
+
+        try {
+            $this->inRun(function (array $input, Context $context) use ($key): void {
+                $this->lockRegistrations($context, $key);
+                (new Registrations())->writeValue($key, 'egyhaz_answer', 'refused', $context, 'kalaka-aid');
+            });
+            self::fail('Another declarer wrote the field.');
+        } catch (\Kalaka\Foundation\Api\Error\SystemFailure) {
+            self::assertSame('approved', (new Registrations())->values($key)['egyhaz_answer'] ?? null);
+        }
     }
 
     /** @return list<string> the net of each support item's charge lines as "source payer amount", nets of zero left out */

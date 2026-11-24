@@ -138,8 +138,8 @@ the waitlist and reference codes
     the note), and the answer as the source's own participant field value, written by the source
     (`RequestSource::writeAnswer()`, called by the act) through `Registrations::writeValue()`, so the source
     stays that field's only writer. `writeValue()` takes the writing module's declarer (`kalaka-aid`,
-    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (the refusal of
-    another declarer's field completes when CF3 #231 stores `declared_by`). It refuses a run that does not hold
+    `kalaka-support`): one writer rule, a field is written by its declarer's own code only (it refuses a field
+    whose `declared_by` is another declarer). It refuses a run that does not hold
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
@@ -155,7 +155,7 @@ the waitlist and reference codes
   - On a registered registration a refusing offer answer frees the offer's seat and a "yes" after a refusal
     takes one; a waitlisted registration holds no place, so it takes and frees none (its seat is decided at
     admission). Both go through `OfferSeats`, whose default `SeatOfferSeats` maps them to `Seats`
-    (`release()`; `takeIfFree()`, then `takeOver()`, with the seat's act `answer`) for the pool the request
+    (`release()`; `retake()`, like admission and restore, with the seat's act `answer`) for the pool the request
     source names (`RequestSource::seatPool()`, a plain read; null, as for aid, means no limit and no seat call).
     The pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.

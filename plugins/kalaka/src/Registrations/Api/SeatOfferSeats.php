@@ -8,9 +8,9 @@ use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
  * The glue between the answer act and the one seat rule: an offer's seat is a seat in the offer's own pool, so
- * a refusal frees it (`Seats::release()`), and a "yes" after a refusal takes one if one is free and goes over
- * the limit otherwise (`takeIfFree()`, then `takeOver()`: the answer stands, the pool stands over, and the act
- * says so). [UNAPPROVED N95]
+ * a refusal frees it (`Seats::release()`), and a "yes" after a refusal takes one through `Seats::retake()`,
+ * like admission and restore: over the limit when the pool is full (the answer stands, the pool stands over, and
+ * the act says so). [UNAPPROVED N95]
  */
 final class SeatOfferSeats implements OfferSeats
 {
@@ -30,12 +30,7 @@ final class SeatOfferSeats implements OfferSeats
 
     public function take(RegistrationKey $registration, SeatPool $pool, Context $context): bool
     {
-        if ($this->seats->takeIfFree($pool, $registration, SeatAct::Answer, $context)) {
-            return true;
-        }
-        $this->seats->takeOver($pool, $registration, SeatAct::Answer, $context);
-
-        return false;
+        return $this->seats->retake($pool, $registration, SeatAct::Answer, $context) !== SeatOutcome::Over;
     }
 
     public function isFull(RegistrationKey $registration, SeatPool $pool): bool

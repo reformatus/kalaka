@@ -62,6 +62,15 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         $facts->get('megjegyzes');
     }
 
+    public function testTheDeclaredKeysNameTheAwaitsAnswerFactAChoice(): void
+    {
+        $declared = RegistrationFacts::declared($this->event(), []);
+
+        self::assertSame(ValueType::Choice, $declared[RegistrationFacts::AWAITS_ANSWER]);
+        self::assertSame(ValueType::Choice, $declared[RegistrationFacts::STATUS]);
+        self::assertSame(ValueType::Text, $declared[RegistrationFacts::CODE]);
+    }
+
     public function testTheFactsHoldEveryParticipantFieldOfTheEventTypedAndAnUnansweredOneAsNone(): void
     {
         $event = $this->event();
