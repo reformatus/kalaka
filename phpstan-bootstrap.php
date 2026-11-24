@@ -27,6 +27,11 @@ if (!class_exists('WP_CLI')) {
         {
         }
 
+        /** @param array<string, mixed> $assocArgs */
+        public static function confirm(string $question, array $assocArgs = []): void
+        {
+        }
+
         public static function error(string $message): never
         {
             exit(1);

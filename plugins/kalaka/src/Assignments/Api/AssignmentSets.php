@@ -27,6 +27,9 @@ use Kalaka\Registrations\Api\SeatPool;
  */
 final class AssignmentSets
 {
+    /** The approved "full" warning of a staff placing, for a caller outside Assignments (the staff field edit). */
+    public const FULL_WARNING = PlacementWarnings::FULL;
+
     public function __construct(
         private readonly ?Runner $runner = null,
         private readonly SetRepository $sets = new SetRepository(),
