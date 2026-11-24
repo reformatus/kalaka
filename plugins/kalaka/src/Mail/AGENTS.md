@@ -27,8 +27,9 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   no error (`INSERT IGNORE`).
 - Nothing reads `kalaka_deliveries` but the sender (`DeliveryQuery`), the
   counts of `Api\MailStats` and the staff listing of `wp kalaka mail failed`
-  (`DeliveryQuery::troubled()`, the registration code, never the address); no
-  decision, condition or view depends on it.
+  and of the screen's troubled list (`DeliveryQuery::troubled()`, the same
+  query, through `Api\Deliveries::troubled()`: the registration code, never the
+  address or a name); no decision, condition or view depends on it.
 - `wp_mail` is called only by `Sender`, which runs from the nudge hook
   `kalaka_send_mail`, from itself and as the periodic run's step, never in an
   interactive request, and only under the named lock `mail_sender`.
@@ -91,17 +92,25 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
-- The catalogue has five action mails; admission from the waitlist sends
+- The catalogue lists every `ActionMail` case, whether or not a use case produces
+  it yet (no hand-kept "has a producer" list); it has five action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
   gets the body's facts (`Catalogue\MailBody`: its event, whether it is
   published, whether it reads `account.password_link`) read before the
-  run by its entry, `Api\ActionMailSettings::update()`;
+  run by `UpdateActionMail::prepared()`, which the ability's `$prepare` and
+  the entry `Api\ActionMailSettings::update()` both call;
   run without them it refuses a body assignment or a switch-on. It does not
   check the keys: a body is checked at its save, and one that goes stale
-  later fails per delivery without pausing.
+  later fails per delivery without pausing. What a change leaves an action
+  mail as is judged by one check, `UpdateActionMail::refuse()`, which `execute()`
+  runs and the event's mail read runs on a copy of the entry switched on and
+  off (`can` and `refusals`), so no copy of the rule exists. The refusals with a
+  meaning of their own are typed (`MailNeedsBody`, `BodyTaken`,
+  `PasswordLinkRequired`, `RegisteredMailStaysOn`, `LayoutPlaceholderCount`,
+  `LayoutOtherPlaceholder`, each with its own code and the approved text).
 - The secret link reaches a mail only as the value `registration.link` or a
   page-link value `page_<ID>.link`, both from `Registrations\Api\SecretLinks::url()`
   (the second on the published page with that ID: following it makes the
@@ -136,7 +145,10 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   registration gets a batch's mail once. `SendManualMail` only inserts the
   batch, the members and the pending deliveries, in one transaction, and
   writes no registration and runs no evaluation; it reads no WordPress data in
-  its transaction (the body's facts come from `Api\ManualMails::send()`). The
+  its transaction (the body's facts come from `SendManualMail::prepared()`, which
+  the ability's `$prepare` and `Api\ManualMails::send()` both call). The result
+  carries the caller's warnings, `paused` and `held`, on every path: a grant
+  holder cannot read the sender's state, so this is where they learn the mail waits. The
   optional `request_key` makes a repeat in the same event return the first
   batch and queue nothing; the same key for another body or other codes is
   refused. A send's plan (which codes queue, which are skipped and why, which
@@ -152,9 +164,10 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   that is gone is `BodyUnusable` (`no_batch <id>`), failed with no attempt and
   never counted toward pausing.
 - `wp kalaka mail send|batches` (`Cli/ManualMailCommand`, `Cli/ManualMailBatchesCommand`) is a thin entry
-  point beside `MailCommand`: `send` checks the actor's grants on the codes
-  (`AdminAccess::check()`) before it prints anything about them, shows what it
-  would do, asks first (`--yes` skips; `--dry-run` only shows) and changes only
+  point beside `MailCommand`: `send` shows what it would do through the checked
+  preview, `Api\ManualMails::preview()`, which checks the actor's grants on the
+  codes (`AdminAccess::check()`) before it prints anything about them, asks first
+  (`--yes` skips; `--dry-run` only shows) and changes only
   through `SendManualMail`, whose `refuseUnknown()` it runs ahead of the question;
   `batches` reads the batch's own record for full access only.
 - `wp kalaka action-mail list|show|on|off|body|layout <event_id> …` (`Cli/`) is a
@@ -176,6 +189,19 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   (`--yes` skips), after the access check; `clear-event` runs the use case's own `ClearEventMail::refuse()`
   ahead of the question. Whether an event's mail is held is read once, in `Api\MailHold`, by the sender,
   the clear and, from #244, the manual send's warning.
+- The seven use cases `kalaka/update-action-mail`, `kalaka/set-event-mail-layout`,
+  `kalaka/pause-mail`, `kalaka/resume-mail`, `kalaka/clear-mail-queue`,
+  `kalaka/clear-event-mail` and `kalaka/send-manual-mail` are abilities, registered
+  in `Module::boot()`; each is the one entry a screen and the command line share,
+  and only the two that read WordPress data first have a `$prepare`
+  (`prepared()`). The screens' reads are `Rest\MailRoutes` under
+  `kalaka-admin/v1`: delivery only, with every rule the use case's or an `Api`
+  read's own. They are for full access, except the manual mail's preview: its gate
+  is `Access::mayReachAdmin()` and `Api\ManualMails::preview()` runs
+  `AdminAccess::check()` before the plan, so an unknown code and a code outside the
+  view give the same refusal, and the event's existence is looked for after it.
+  The failed list and the batches show registration codes and the batch's own
+  record, never an address or a name.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.

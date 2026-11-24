@@ -14,10 +14,12 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailKind;
 use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Catalogue\BodyUnpublished;
 use Kalaka\Mail\Catalogue\MailBody;
+use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Registrations;
@@ -31,7 +33,8 @@ use Kalaka\Registrations\Api\Registrations;
  * One transaction for the whole batch (the batch is one act, not a bulk change):
  * nothing in it can break per registration, since it takes no row lock and only inserts. It reads no
  * WordPress data in its transaction: the body's facts (`MailBody`) are read before the run by
- * `Api\ManualMails::send()`; run without them it refuses.
+ * `prepared()`, which the ability's `$prepare` and `Api\ManualMails::send()` both call; run without them it
+ * refuses. Its result carries the caller's warnings, `paused` and `held`, on every path.
  *
  * - A withdrawn or removed registration is skipped and listed; a waitlisted one is sent to.
  * - A code that is no registration of the event refuses the whole batch (`UnknownRegistrationCode`).
@@ -51,7 +54,22 @@ final class SendManualMail implements AdminUseCase
         private readonly MailBatchQuery $query = new MailBatchQuery(),
         private readonly MailQueue $queue = new MailQueue(),
         private readonly Events $events = new Events(),
+        private readonly MailStateQuery $state = new MailStateQuery(),
     ) {
+    }
+
+    /**
+     * The use case for this input, with the facts of its body read now, outside any run: the one pre-read,
+     * called by the ability's `$prepare` and by `Api\ManualMails::send()` alike. It only reads, and tolerates
+     * input the run has not checked yet.
+     *
+     * @param array<string, mixed> $input
+     */
+    public static function prepared(array $input): self
+    {
+        $bodyId = $input['body_id'] ?? null;
+
+        return new self(is_int($bodyId) && $bodyId > 0 ? MailBody::read($bodyId) : null);
     }
 
     public static function name(): string
@@ -102,7 +120,11 @@ final class SendManualMail implements AdminUseCase
     }
 
     /**
-     * @return array{batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool}
+     * @return array{
+     *     batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool,
+     *     paused: bool, held: bool,
+     * } `paused`: sending is paused now; `held`: the event is not published: the mail waits (a warning
+     *   for the caller, who may be a grant holder that cannot read the sender's state)
      * @throws NotFound no such event
      * @throws UnknownRegistrationCode a code is no registration of the event
      * @throws InvalidInput the body is of another event, or the request key was used with another body or codes
@@ -118,7 +140,11 @@ final class SendManualMail implements AdminUseCase
         $layout = (bool) ($input['layout'] ?? true);
         $requestKey = isset($input['request_key']) ? (string) $input['request_key'] : null;
 
-        $this->events->find($eventId) ?? throw new NotFound();
+        $event = $this->events->find($eventId) ?? throw new NotFound();
+        $warnings = [
+            'paused' => $this->state->current()->pausedAt !== null,
+            'held' => MailHold::isHeld($event, $this->events),
+        ];
         $body = $this->body($bodyId);
         if ($body->eventId !== $eventId) {
             throw new InvalidInput();
@@ -127,7 +153,7 @@ final class SendManualMail implements AdminUseCase
         if ($requestKey !== null) {
             $stored = $this->query->ofRequestKey($eventId, $requestKey);
             if ($stored !== null) {
-                return $this->repeat($stored, $bodyId, $codes);
+                return $this->repeat($stored, $bodyId, $codes, $warnings);
             }
         }
         if (!$body->published) {
@@ -153,7 +179,7 @@ final class SendManualMail implements AdminUseCase
             // The same key in a run that finished first (the unique key made this insert wait for it).
             $stored = $requestKey === null ? null : $this->query->ofRequestKey($eventId, $requestKey);
 
-            return $stored === null ? throw new NotFound() : $this->repeat($stored, $bodyId, $codes);
+            return $stored === null ? throw new NotFound() : $this->repeat($stored, $bodyId, $codes, $warnings);
         }
 
         $keys = [];
@@ -178,7 +204,7 @@ final class SendManualMail implements AdminUseCase
             'queued' => $queued,
             'skipped' => self::skipped($outcomes),
             'repeat' => false,
-        ];
+        ] + $warnings;
     }
 
     /**
@@ -232,10 +258,14 @@ final class SendManualMail implements AdminUseCase
      * The first batch of a request key, when this call asks for the same thing.
      *
      * @param list<string> $codes
-     * @return array{batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool}
+     * @param array{paused: bool, held: bool} $warnings
+     * @return array{
+     *     batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool,
+     *     paused: bool, held: bool,
+     * }
      * @throws InvalidInput when the body or the codes differ
      */
-    private function repeat(MailBatch $stored, int $bodyId, array $codes): array
+    private function repeat(MailBatch $stored, int $bodyId, array $codes, array $warnings): array
     {
         $outcomes = [];
         foreach ($this->query->members($stored->id) as $member) {
@@ -254,7 +284,7 @@ final class SendManualMail implements AdminUseCase
             'queued' => $stored->queued,
             'skipped' => self::skipped($outcomes),
             'repeat' => true,
-        ];
+        ] + $warnings;
     }
 
     /**

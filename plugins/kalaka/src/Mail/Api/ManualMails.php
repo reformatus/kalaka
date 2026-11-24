@@ -4,27 +4,35 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Api;
 
+use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Mail\Catalogue\MailBody;
+use Kalaka\Mail\Manual\MailBatch;
+use Kalaka\Mail\Manual\MailBatchQuery;
 use Kalaka\Mail\Manual\SendManualMail;
-use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Registrations\Api\Registrations;
 
-/** Sends a chosen mail to chosen registrations (`kalaka/send-manual-mail`) and previews who would get it. */
+/**
+ * Sends a chosen mail to chosen registrations (`kalaka/send-manual-mail`), previews who would get it, and reads
+ * the batches sent before.
+ */
 final class ManualMails
 {
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
-        private readonly MailStateQuery $state = new MailStateQuery(),
         private readonly Events $events = new Events(),
+        private readonly MailBatchQuery $batches = new MailBatchQuery(),
+        private readonly MailBodies $bodies = new MailBodies(),
     ) {
     }
 
     /**
-     * Runs the use case. The body's facts are read from WordPress first, outside the transaction, and passed
-     * in; the pause and the event's publication are read here too, for the caller's warning only.
+     * Runs the use case, the same one the ability runs: `SendManualMail::prepared()` reads the body's facts
+     * from WordPress first, outside the transaction, and the result carries the pause and the event's hold as
+     * the use case returns them.
      *
      * @param array<string, mixed> $input the use case's input
      * @return array{
@@ -35,31 +43,86 @@ final class ManualMails
      */
     public function send(array $input, Actor $actor, ?Runner $runner = null): array
     {
-        $bodyId = $input['body_id'] ?? null;
-        $body = is_int($bodyId) && $bodyId > 0 ? MailBody::read($bodyId) : null;
-        /** @var array{batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool} $result */
-        $result = ($runner ?? Runner::current())->run(new SendManualMail($body), $input, $actor);
-        $eventId = $input['event_id'] ?? null;
-        $event = is_int($eventId) ? $this->events->find($eventId) : null;
+        /** @var array{batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool, paused: bool, held: bool} $result */
+        $result = ($runner ?? Runner::current())->run(SendManualMail::prepared($input), $input, $actor);
 
-        return $result + [
-            'paused' => $this->state->current()->pausedAt !== null,
-            'held' => $event !== null && MailHold::isHeld($event, $this->events),
-        ];
+        return $result;
     }
 
     /**
-     * What a send of these codes would do, read outside any use case and writing nothing: the use case's own
-     * plan (`SendManualMail::plan()`).
+     * What a send of these codes would do, checked first and writing nothing: the shape of `event_id` and
+     * `codes` against the use case's own schema, then the actor's access to those codes (`AdminAccess::check()`,
+     * the use case's own check, so an unknown code and a code outside the actor's view give the same refusal),
+     * then the event, and only then the use case's own plan (`SendManualMail::plan()`).
      *
-     * @param list<string> $codes
+     * @param array<string, mixed> $input `event_id` and `codes`
      * @return array{
      *     queue: list<string>, skipped: list<array{code: string, reason: string}>, unknown: list<string>,
      *     outcomes: array<string, string>,
      * }
+     * @throws InvalidInput when `event_id` or `codes` are not as the use case's schema has them
+     * @throws \Kalaka\Foundation\Api\Error\PermissionDenied when the actor's access does not hold every code
+     * @throws NotFound when there is no such event
      */
-    public function preview(int $eventId, array $codes): array
+    public function preview(array $input, Actor $actor): array
     {
+        $schema = (new SendManualMail())->inputSchema();
+        $shape = [
+            'type' => 'object',
+            'properties' => array_intersect_key((array) $schema['properties'], ['event_id' => 1, 'codes' => 1]),
+            'required' => ['event_id', 'codes'],
+            'additionalProperties' => false,
+        ];
+        $valid = rest_validate_value_from_schema($input, $shape, 'input');
+        if (is_wp_error($valid)) {
+            $error = new InvalidInput(null, new \InvalidArgumentException($valid->get_error_message()));
+            throw $error;
+        }
+        AdminAccess::check(new SendManualMail(), $input, $actor);
+
+        $eventId = (int) $input['event_id'];
+        $this->events->find($eventId) ?? throw new NotFound();
+        /** @var list<string> $codes */
+        $codes = array_values(array_map('strval', (array) $input['codes']));
+
         return SendManualMail::plan($codes, $this->registrations->statusesOf($eventId, $codes));
+    }
+
+    /**
+     * The event's batches, newest first, with the subject of each one's body: the batch's own record, never the
+     * deliveries (so no sent or failed counts). One statement, and one read of the bodies' titles.
+     *
+     * @return list<BatchInfo>
+     */
+    public function batches(int $eventId): array
+    {
+        $batches = $this->batches->ofEvent($eventId);
+        $subjects = $this->bodies->subjects(array_values(array_unique(array_map(
+            static fn (MailBatch $batch): int => $batch->bodyId,
+            $batches
+        ))));
+
+        return array_map(
+            static fn (MailBatch $batch): BatchInfo => BatchInfo::of($batch, $subjects[$batch->bodyId] ?? null),
+            $batches
+        );
+    }
+
+    /**
+     * One batch of the event with its members, as the batch recorded them; null for a batch of another event or
+     * none. Two statements.
+     */
+    public function batch(int $eventId, int $id): ?BatchInfo
+    {
+        $batch = $this->batches->find($eventId, $id);
+        if ($batch === null) {
+            return null;
+        }
+        $members = array_map(
+            static fn ($member): array => ['code' => $member->code, 'outcome' => $member->outcome],
+            $this->batches->members($batch->id)
+        );
+
+        return BatchInfo::of($batch, $this->bodies->subjects([$batch->bodyId])[$batch->bodyId] ?? null, $members);
     }
 }

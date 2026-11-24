@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Mail\Cli;
 
-use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
@@ -18,8 +17,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * `wp kalaka mail send`: sends a chosen mail body to chosen registrations of an event (mail.md, "Five kinds
  * of mail", Manual). A thin entry point: it changes only through the use case
  * `SendManualMail` (`ManualMails::send()`), as the command line (full access) or as WP-CLI's `--user`, checked
- * by that user's grants on the codes before anything about them is printed. Registered beside `MailCommand`'s
- * commands, so either can merge first. Mail is never sent here: the batch only queues deliveries.
+ * by that user's grants on the codes before anything about them is printed (`ManualMails::preview()`).
+ * Registered beside `MailCommand`'s commands, so either can merge first. Mail is never sent here: the batch
+ * only queues deliveries.
  */
 final class ManualMailCommand
 {
@@ -92,11 +92,10 @@ final class ManualMailCommand
             if (isset($assocArgs['key'])) {
                 $input['request_key'] = (string) $assocArgs['key'];
             }
-            // The access check first: a user holding a grant learns nothing about codes outside their views.
+            // The preview checks the actor's access first: a user holding a grant learns nothing about codes
+            // outside their views, an unknown code included.
             $actor = CliActor::current();
-            AdminAccess::check(new SendManualMail(), $input, $actor);
-
-            $preview = $this->mails->preview($eventId, $input['codes']);
+            $preview = $this->mails->preview(['event_id' => $eventId, 'codes' => $input['codes']], $actor);
             $skipped = array_map(
                 static fn (array $row): string => $row['code'] . ' (' . $row['reason'] . ')',
                 $preview['skipped']

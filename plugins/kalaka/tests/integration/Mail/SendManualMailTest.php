@@ -130,6 +130,11 @@ final class SendManualMailTest extends MailBodyTestCase
             self::fail('An unknown code should refuse the batch.');
         } catch (UnknownRegistrationCode $e) {
             self::assertSame('kalaka_mail_unknown_code', $e->errorCode());
+            self::assertSame(
+                'A művelet nem hajtható végre. Van olyan kód, amely nem ennek az eseménynek a jelentkezése. '
+                . 'Egy levél sem került a küldési sorba.',
+                $e->getMessage()
+            );
             self::assertSame([], $this->deliveries());
             self::assertSame(0, $this->batchCount());
             self::assertSame(0, $this->memberCount());
