@@ -18,12 +18,13 @@ keeps of what it knows about its participants
 - The table `kalaka_participant_fields`, keyed by (event ID, field key), is
   this module's schema (option `kalaka_schema_participant_fields`), and
   `ParticipantFieldRepository` is its only writer.
-- Three audited use cases write it, `DeclareParticipantFields`
+- Four audited use cases write it, `DeclareParticipantFields`
   (`kalaka/declare-participant-fields`), `DeclareExtensionField`
-  (`kalaka/declare-extension-field`) and `RenameParticipantField`
+  (`kalaka/declare-extension-field`), `RetireExtensionField`
+  (`kalaka/retire-extension-field`) and `RenameParticipantField`
   (`kalaka/rename-participant-field`). Every other module reads and writes
   only through `Api\ParticipantFields` (`of()`, `declare()`,
-  `declareExtensionField()`, `rename()`), whose writes run the use case
+  `declareExtensionField()`, `retireExtensionField()`, `checkDeclarable()`, `lockedAfterFirstWrite()`, `rename()`), whose writes run the use case
   through the runner, or nested in the extension's own use case for
   `declareExtensionField()`.
 - `of()` reads outside a use case's transaction, never inside it: a caller
@@ -47,8 +48,13 @@ keeps of what it knows about its participants
   sets them (an option no longer declared is retired, its label kept), and
   the forms' union never adds or retires one. A declaration adopts a `form`
   field of the same type (it becomes `extension`, retired or not, values
-  untouched) and never takes over a `staff` or `system` field or a key
-  of another type [UNAPPROVED, N4 of #231].
+  untouched) and never takes over a `staff` or `system` field, a key
+  of another type or another declarer's `extension` field [UNAPPROVED, N4 of #231]. A field stores its
+  declarer's slug (`declared_by`, null for form, staff and system fields and for one declared before the column;
+  that one is taken by the first declarer) and `money_relevant`, the lock after the first write: an extension sets
+  it in its declaration, a form field takes it from its block type (`MoneyRelevantFieldType`, passed in by
+  Forms). `checkDeclarable()` and the declaration share one rule (`ParticipantFieldRecord::declarableBy()`).
+  `RetireExtensionField` retires an `extension` field of the declarer. [UNAPPROVED, N3, N5, N300, N301 of #231]
 - A field's `type` is a block name. The module reads only that block's
   registered title from WordPress's block registry (the type label) and
   nothing of Forms: which forms hold a field is Forms' to add

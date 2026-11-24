@@ -12,7 +12,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Brings an event's participant fields in line with the fields its forms hold. The input is
  * the union over every form of the event that is not trashed, the saved form's fields marked `latest`:
  *
- * - a key no row has yet is declared, source `form`;
+ * - a key no row has yet is declared, source `form`, money relevant when the block's field type is (the input's
+ *   `money_relevant`, which a `form` field's held key refreshes);
  * - a held key keeps its row and type; one held with a different type, or a field forms may not hold
  *   (`system`, or `extension` not declared form-writable), is skipped and
  *   returned (the save check lets neither through, so only a form written around it gets here) and the
@@ -66,6 +67,8 @@ final class DeclareParticipantFields implements AdminUseCase
                                 ],
                             ],
                             'latest' => ['type' => 'boolean'],
+                            // Whether the block's field type is money relevant (Forms knows the type).
+                            'money_relevant' => ['type' => 'boolean'],
                             // A type's own settings: open, because each type validates them at the form
                             // definition; ParticipantFields only keeps them.
                             'settings' => ['type' => ['object', 'null']],
@@ -112,7 +115,7 @@ final class DeclareParticipantFields implements AdminUseCase
 
         $held = [];
         $skipped = [];
-        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool, settings?: ?array<string, mixed>}> $fields */
+        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool, settings?: ?array<string, mixed>, money_relevant?: bool}> $fields */
         $fields = $input['fields'];
         foreach ($fields as $field) {
             $key = $field['key'];
@@ -133,6 +136,8 @@ final class DeclareParticipantFields implements AdminUseCase
                     false,
                     0,
                     self::settings($field['settings'] ?? null),
+                    null,
+                    $field['money_relevant'] ?? false,
                 ), $context);
                 continue;
             }
@@ -144,6 +149,9 @@ final class DeclareParticipantFields implements AdminUseCase
 
             $before = $record->toRow();
             $record->retiredAt = null;
+            if ($record->source === ParticipantFieldRecord::SOURCE_FORM) {
+                $record->moneyRelevant = $field['money_relevant'] ?? false;
+            }
             // The title is the participant field's own: set when it is declared, changed only by
             // `RenameParticipantField` (owner ruling 2026-11-13).
             $declared = $record->settings['declared'] ?? null;

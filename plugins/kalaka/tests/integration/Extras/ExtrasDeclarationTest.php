@@ -20,7 +20,7 @@ use Kalaka\Pricing\Cli\SettingsDocument;
 /**
  * The extras define their participant fields (events-and-forms.md, "Fields"): a charge declares its field with its
  * key and type when it is saved, the donation's number field is declared by every save, and a form field joins a
- * declared field by its key and never creates it. [UNAPPROVED N1] [UNAPPROVED N2] [UNAPPROVED N3] [UNAPPROVED T1]
+ * declared field by its key and never creates it. [UNAPPROVED N1] [UNAPPROVED N2] [UNAPPROVED T1]
  */
 final class ExtrasDeclarationTest extends ExtrasTestCase
 {
@@ -269,14 +269,58 @@ final class ExtrasDeclarationTest extends ExtrasTestCase
         $this->extras->propose($this->event, [self::item('ejjel', 'Éjszaka', '1000', 'number')]);
     }
 
-    public function testATakenOutChargeLeavesItsDeclaredFieldInPlace(): void
+    public function testATakenOutChargesFieldIsRetiredAndDeclaringItAgainMakesItActive(): void
     {
-        $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
-        $this->applyCharges([]);
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éj', '1000', 'number')]);
+        $this->applyCharges([self::item('ejjel', 'Éj', '1000', 'number')]);
 
-        self::assertSame([], $this->extras->charges($this->event));
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->field('ebed')?->source);
-        self::assertContains(DonationComponent::KEY, $this->keys());
+        self::assertTrue($this->field('ebed')?->retired);
+        self::assertFalse($this->field('ejjel')?->retired);
+        self::assertFalse($this->field(DonationComponent::KEY)?->retired);
+
+        $this->applyCharges([]);
+        self::assertTrue($this->field('ejjel')?->retired);
+        self::assertFalse($this->field(DonationComponent::KEY)?->retired, 'The donation is never retired.');
+
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500')]);
+        self::assertFalse($this->field('ebed')?->retired);
+        self::assertTrue($this->field('ejjel')?->retired);
+    }
+
+    public function testEveryChargeFieldAndTheDonationStoreTheExtrasAsDeclarerAndAreMoneyRelevant(): void
+    {
+        $this->applyCharges([self::item('ebed', 'Ebéd', '3500'), self::item('ejjel', 'Éj', '1000', 'number')]);
+
+        $fields = new ParticipantFields();
+        foreach (['ebed', 'ejjel', DonationComponent::KEY] as $key) {
+            $field = $this->field($key);
+            self::assertNotNull($field);
+            self::assertTrue($field->moneyRelevant, $key);
+            self::assertTrue($fields->lockedAfterFirstWrite($field), $key);
+            self::assertSame('kalaka-extras', $this->declaredBy($key), $key);
+        }
+    }
+
+    public function testAKeyAnotherDeclarerHoldsRefusesTheChargeSave(): void
+    {
+        $this->declareField('ebed', 'kalaka/consent-field', null, 0, 'extension', 'kalaka-aid');
+
+        $this->expectException(RuleViolation::class);
+        $this->extras->propose($this->event, [self::item('ebed', 'Ebéd', '3500')]);
+    }
+
+    private function declaredBy(string $key): ?string
+    {
+        global $wpdb;
+        $value = $wpdb->get_var($wpdb->prepare(
+            'SELECT declared_by FROM ' . $wpdb->prefix . 'kalaka_participant_fields'
+            . ' WHERE event_id = %d AND field_key = %s',
+            $this->event,
+            $key
+        ));
+
+        return is_string($value) ? $value : null;
     }
 
     public function testAPreviewWritesNoParticipantField(): void

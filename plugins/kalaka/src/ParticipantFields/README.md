@@ -4,11 +4,12 @@ The event's participant fields: one list per event of what it knows about each p
 
 At the module root: `ParticipantFieldRecord` (a row of `kalaka_participant_fields`, keyed by event ID and field key; its `options` and the type's `settings` are JSON),
 `ParticipantFieldRepository` (its only writer; a field is the audit subject `participant_field`),
-`ParticipantFieldQuery` (an event's fields without a lock, in declaration order), and the three use cases:
+`ParticipantFieldQuery` (an event's fields without a lock, in declaration order), and the four use cases:
 `DeclareParticipantFields` (`kalaka/declare-participant-fields`: brings an event's fields in line with the fields its
 forms hold; declares new keys, unions choice options (an `extension` field's are its declarer's), retires what no form
 holds), `DeclareExtensionField` (`kalaka/declare-extension-field`: an extension declares one field, source `extension`,
-with its type, texts, options and form-writability; an option it no longer declares is retired) and
+with its type, texts, options and form-writability; an option it no longer declares is retired; it stores its declarer and the money-relevant flag), `RetireExtensionField`
+(`kalaka/retire-extension-field`: an extension retires its own field) and
 `RenameParticipantField` (`kalaka/rename-participant-field`: a `form` or `staff` field's title and option labels).
 
 `Api/` holds `ParticipantField` (one field as everyone else reads it; `withForms()` adds the forms that hold it) and the
