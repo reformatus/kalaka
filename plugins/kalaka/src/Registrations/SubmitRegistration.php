@@ -22,6 +22,7 @@ use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\Registrations\Account\AccountOutcome;
+use Kalaka\Registrations\Api\RegisteredBy;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatAct;
@@ -193,6 +194,7 @@ final class SubmitRegistration implements PublicUseCase
             $now,
             $status === RegistrationStatus::Registered ? $now : null,
             ownerUserId: $this->account?->ownerUserId,
+            registeredBy: $status === RegistrationStatus::Registered ? RegisteredBy::Submit : null,
         ), $context);
         $this->submissions->insert(new Submission(
             $key,

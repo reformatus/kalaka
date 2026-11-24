@@ -32,6 +32,8 @@ use Kalaka\Registrations\Api\SeatOfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\StatusAct;
+use Kalaka\Registrations\Api\StatusActs;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
@@ -58,6 +60,7 @@ final class RegistrationDetail
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly Requests $requests = new Requests(),
         private readonly OfferSeats $seats = new SeatOfferSeats(),
+        private readonly StatusActs $statusActs = new StatusActs(),
     ) {
     }
 
@@ -139,6 +142,9 @@ final class RegistrationDetail
         if ($answer) {
             $read['requests'] = $this->requestsPart($key, $event->currency->value);
         }
+        // The status acts: the grant carries the act's action and the status allows it now (the server decides, the
+        // panel keeps no status logic). [UNAPPROVED N516]
+        $statusActs = $this->statusActs->allowedFor($key);
         $read['can'] = [
             'answer_request' => $answer,
             'view_money' => $viewMoney,
@@ -149,6 +155,9 @@ final class RegistrationDetail
             'confirm_manually' => $confirmable,
             'unconfirm' => $canUnconfirm,
         ];
+        foreach (StatusAct::cases() as $act) {
+            $read['can'][$act->value] = $carried($act->action()) && in_array($act, $statusActs, true);
+        }
 
         return $read;
     }

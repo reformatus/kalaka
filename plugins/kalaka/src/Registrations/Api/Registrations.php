@@ -45,6 +45,7 @@ final class Registrations
                 $registration->status,
                 $registration->registeredAt,
                 $registration->ownerUserId,
+                $registration->registeredBy,
             );
     }
 

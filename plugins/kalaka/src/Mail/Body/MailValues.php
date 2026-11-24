@@ -17,6 +17,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\RecipientUnavailable;
 use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegisteredBy;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SecretLinks;
@@ -51,8 +52,8 @@ final class MailValues
 
     /**
      * Whether the registration was admitted from the waitlist: a choice of `yes` or `no`, with no display text,
-     * for a condition in the "registered" mail, which admission sends too (owner 2026-11-16). No admission act
-     * exists yet, so it reads `no`; the admission slice gives Registrations the fact and this reads it.
+     * for a condition in the "registered" mail, which admission sends too (owner 2026-11-16): `yes` while the
+     * registration last became `registered` by a staff admission (`RegisteredBy::Admission`), else `no`.
      */
     public const FROM_WAITLIST = 'registration.from_waitlist';
 
@@ -162,7 +163,9 @@ final class MailValues
         $email = $this->marked($definition, true);
         $name = $this->marked($definition, false);
         $recipient = $email === null ? '' : ($record['values'][$email] ?? '');
-        $owner = $this->registrations->find($key)?->ownerUserId;
+        $read = $this->registrations->find($key);
+        $owner = $read?->ownerUserId;
+        $fromWaitlist = $read?->registeredBy === RegisteredBy::Admission;
         // True, false and null stay apart (owner ruling 2026-11-18): none unless the event has an account step (mode
         // not `off`: no account step, no account facts), the registration has an owner and the recipient is the
         // owner's own address, then yes (unverified) or no (verified).
@@ -184,7 +187,7 @@ final class MailValues
             self::CODE => self::text($key->code),
             self::STATUS => Value::choice([$record['status']->value], $record['status']->word()),
             self::LINK => self::text($link),
-            self::FROM_WAITLIST => Value::choice(['no'], ''),
+            self::FROM_WAITLIST => Value::choice([$fromWaitlist ? 'yes' : 'no'], ''),
             self::ACCOUNT_UNVERIFIED => $unverified === null
                 ? Value::none(ValueType::Choice)
                 : EventValues::yesNo($unverified),

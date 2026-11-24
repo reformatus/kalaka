@@ -18,7 +18,9 @@ final class Module extends AbstractModule
      * UTC `datetime(6)`; `secret` is `utf8mb4_nopad_bin`, compared exactly. `KEY code` serves the site-wide
      * `code IN (…)` of `ReferenceCodeQuery`. `owner_user_id` is the owner account (S15): the WordPress user
      * the registration belongs to, null while it has none; set once, by a logged-in person's submit, and
-     * never changed after.
+     * never changed after. `registered_by` is the act that last made the registration `registered` (`submit`,
+     * `admission`, `restore`: `Api\RegisteredBy`), written only together with `registered_at`; null for a
+     * registration that never was. [UNAPPROVED N518]
      */
     private const REGISTRATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_registrations (
@@ -29,6 +31,7 @@ CREATE TABLE {prefix}kalaka_registrations (
   secret varchar(22) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
   created_at datetime(6) NOT NULL,
   registered_at datetime(6) DEFAULT NULL,
+  registered_by varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   owner_user_id bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY  (event_id,code),
   KEY code (code)
@@ -127,8 +130,8 @@ SQL;
 
     public function schema(): Schema
     {
-        // 6: #229's seats take 5, the answers of slice B take 6.
-        return new Schema(6, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS, self::SEATS]);
+        // 6: #229's seats take 5, the answers of slice B take 6, the status acts' `registered_by` takes 7.
+        return new Schema(7, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS, self::SEATS]);
     }
 
     /**
@@ -140,6 +143,7 @@ SQL;
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
+            'kalaka_restore_registration',
             'kalaka_regenerate_link',
             Requests::ANSWER,
         ];
@@ -161,6 +165,28 @@ SQL;
             new Answer\AnswerRequest(),
             'Kérelem megválaszolása',
             'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
+        );
+
+        // The status acts' labels and descriptions are placeholders until the owner's words. [UNAPPROVED T501-T504]
+        Abilities::register(
+            new Status\AdmitRegistration(),
+            'Jelentkező felvétele a várólistáról',
+            'Egy várólistás jelentkező rögzített állapotba léptetése; a helyeit újra elfoglalja.'
+        );
+        Abilities::register(
+            new Status\WithdrawRegistration(),
+            'Jelentkezés visszavonása',
+            'Egy jelentkezés visszavonásának rögzítése; a helyei felszabadulnak.'
+        );
+        Abilities::register(
+            new Status\RemoveRegistration(),
+            'Jelentkezés törlése',
+            'Egy jelentkezés törlése indoklással; a helyei felszabadulnak.'
+        );
+        Abilities::register(
+            new Status\RestoreRegistration(),
+            'Jelentkezés visszaállítása',
+            'Egy visszavont vagy törölt jelentkezés visszaállítása rögzített állapotba; a helyeit újra elfoglalja.'
         );
     }
 }

@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\SeatOutcome;
+use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 
 /**
@@ -26,6 +27,24 @@ final class AssignmentSeats
         private readonly AssignmentRepository $assignments = new AssignmentRepository(),
         private readonly Seats $seats = new Seats(),
     ) {
+    }
+
+    /**
+     * The pools of the registration's confirmed assignments, in set order: the seats `retake()` takes. A plain read,
+     * for the status acts' report and preview.
+     *
+     * @return list<SeatPool>
+     */
+    public function pools(RegistrationKey $registration): array
+    {
+        $pools = [];
+        foreach ($this->assignments->ofRegistration($registration) as $record) {
+            if ($record->state === AssignmentState::Confirmed) {
+                $pools[] = new OptionSeatPool($registration->eventId, $record->setId, $record->optionKey);
+            }
+        }
+
+        return $pools;
     }
 
     /**
