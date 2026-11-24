@@ -50,6 +50,11 @@ final class RecordOnlineRefund extends RecordOnline
         return 'refund:' . $this->refund->refundRef;
     }
 
+    protected function allocated(): bool
+    {
+        return $this->refund->allocated;
+    }
+
     protected function at(): \DateTimeImmutable
     {
         return $this->refund->refundedAt;

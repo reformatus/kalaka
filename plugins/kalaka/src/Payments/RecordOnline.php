@@ -49,6 +49,12 @@ abstract class RecordOnline implements AdminUseCase
     /** The idempotency key's middle part of the item's line: `order:<ref>` or `refund:<ref>`. */
     abstract protected function keyPart(): string;
 
+    /** Whether the provider split the amount over the items itself: a mark on the audit entry. */
+    protected function allocated(): bool
+    {
+        return false;
+    }
+
     /** When the money moved: the line's `paidAt`. */
     abstract protected function at(): \DateTimeImmutable;
 
@@ -173,6 +179,7 @@ abstract class RecordOnline implements AdminUseCase
                     'currency' => $item->amount->currency()->value,
                     'provider' => $this->providerId(),
                     'request' => $this->requestRef(),
+                    'allocated' => $this->allocated(),
                 ]
             );
         }
