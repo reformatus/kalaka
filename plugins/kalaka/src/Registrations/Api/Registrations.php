@@ -109,7 +109,7 @@ final class Registrations
      * Writes one field value from the extension that declared the field (events-and-forms.md, "Fields": the source
      * "extension"; foundation.md: a field value is a fact whatever writes it), e.g. the answer to a request.
      * Inside a use case's run, with the registration locked by it; the value is the field type's stored form.
-     * `$declarer` is the writing module's slug, the one it declared the field with (`kalaka-aid`, `kalaka-support`):
+     * `$declarer` is the writing module's ID, the one it declared the field with (`aid`, `support`):
      * one writer rule, a field is written by its declarer's own code only. The field must be one the event
      * declares, and not a "system" field, which stores nothing (foundation.md, "Facts, decisions and computed
      * values"). The caller owns the field's type: this does not check it. [UNAPPROVED N11] [UNAPPROVED N137]
