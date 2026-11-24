@@ -81,12 +81,12 @@ the waitlist and reference codes
   shown field left blank deletes a value the form showed (one its type
   prefills), and a field its participant field locks after its first write
   (`ParticipantFields::lockedAfterFirstWrite()`) is never changed once
-  written. It never writes the registration row, its status or
+  written (`Api\ValueLocked`, a `RuleViolation` with the code `kalaka_value_locked`). It never writes the registration row, its status or
   `registered_at`, and never changes capacity or the latch (its walk reads
   `event.seats_left` unlocked, before the transaction), and it takes no new
   seat: the registration's values as they would be after the submit are asked of
   every `SeatClaimSource`, and a claim in a pool the registration does not hold
-  and did not already claim refuses the submit with nothing written. The
+  and did not already claim refuses the submit with nothing written (`Api\SeatNotClaimable`, code `kalaka_seat_not_claimable`). The
   registration's facts (`RegistrationFacts::formRead()`, built by the one builder `Registrations::factsOf()`)
   and field values are read once per attempt before the
   transaction, for the walk's conditions, and read again under the registration

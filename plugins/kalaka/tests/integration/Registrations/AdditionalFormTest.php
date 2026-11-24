@@ -17,7 +17,6 @@ use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
@@ -30,9 +29,11 @@ use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatNotClaimable;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\SubmitTokenReused;
+use Kalaka\Registrations\Api\ValueLocked;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
@@ -468,7 +469,8 @@ final class AdditionalFormTest extends FormsTestCase
         try {
             $this->send($form, ['ebed' => false, 'szabad' => 'kettő', 'note' => 'y']);
             self::fail('A declared money-relevant field was overwritten.');
-        } catch (RuleViolation) {
+        } catch (ValueLocked $violation) {
+            self::assertSame('kalaka_value_locked', $violation->errorCode());
             self::assertSame('1', $this->values()['ebed']);
         }
         self::assertSame('egy', $this->values()['szabad']);
@@ -491,7 +493,8 @@ final class AdditionalFormTest extends FormsTestCase
             try {
                 $this->send($form, $answers);
                 self::fail('A locked value was changed by an additional form.');
-            } catch (RuleViolation) {
+            } catch (ValueLocked $violation) {
+                self::assertSame('kalaka_value_locked', $violation->errorCode());
                 self::assertSame('1000', $this->values()['adomany']);
                 self::assertSame('0', $this->values()['ebed']);
             }
@@ -595,7 +598,8 @@ final class AdditionalFormTest extends FormsTestCase
         try {
             $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
             self::fail('An additional form took a seat.');
-        } catch (RuleViolation) {
+        } catch (SeatNotClaimable $violation) {
+            self::assertSame('kalaka_seat_not_claimable', $violation->errorCode());
             self::assertSame('a', $this->values()['tier']);
             self::assertArrayNotHasKey('note', $this->values());
             self::assertSame($submissions, $this->rowCount('kalaka_submissions'));
@@ -638,7 +642,7 @@ final class AdditionalFormTest extends FormsTestCase
 
         $this->sendWith($source, $form, ['tier' => 'a', 'note' => 'x']);
         self::assertSame('x', $this->values()['note']);
-        $this->expectException(RuleViolation::class);
+        $this->expectException(SeatNotClaimable::class);
         $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'y']);
     }
 }

@@ -12,14 +12,15 @@ use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\PriceLadder\SetPriceLadder;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SeatNotClaimable;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
+use Kalaka\Registrations\Api\ValueLocked;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
@@ -195,7 +196,8 @@ final class TierFormVariablesTest extends FormsTestCase
         try {
             $this->send($form, ['price_tier' => 'tamogatott', 'note' => 'x']);
             self::fail('An additional form took a seat in the limited tier.');
-        } catch (RuleViolation) {
+        } catch (SeatNotClaimable $violation) {
+            self::assertSame('kalaka_seat_not_claimable', $violation->errorCode());
             self::assertArrayNotHasKey('price_tier', (new Registrations())->values($key));
             self::assertArrayNotHasKey('note', (new Registrations())->values($key));
         }
@@ -215,7 +217,8 @@ final class TierFormVariablesTest extends FormsTestCase
         try {
             $this->send($form, ['price_tier' => 'tamogatott', 'note' => 'ketto']);
             self::fail('price_tier was overwritten by an additional form.');
-        } catch (RuleViolation) {
+        } catch (ValueLocked $violation) {
+            self::assertSame('kalaka_value_locked', $violation->errorCode());
             self::assertSame('alap', (new Registrations())->values($key)['price_tier']);
             self::assertSame('egy', (new Registrations())->values($key)['note']);
         }

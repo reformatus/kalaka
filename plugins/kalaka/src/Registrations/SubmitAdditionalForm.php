@@ -14,7 +14,6 @@ use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\AccountActor;
-use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -27,6 +26,8 @@ use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatClaims;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatNotClaimable;
+use Kalaka\Registrations\Api\ValueLocked;
 use Kalaka\Events\Api\Event;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -334,13 +335,13 @@ final class SubmitAdditionalForm implements PortalUseCase
     /**
      * A new claim in a pool the registration does not hold refuses the submit with nothing written (D7).
      *
-     * @throws RuleViolation
+     * @throws SeatNotClaimable
      */
     private function refuseNewSeats(RegistrationKey $key): void
     {
         foreach ($this->newClaims as $claim) {
             if (!$this->seats->holds($claim->pool, $key)) {
-                $error = new RuleViolation();
+                $error = new SeatNotClaimable();
                 throw $error;
             }
         }
@@ -432,7 +433,7 @@ final class SubmitAdditionalForm implements PortalUseCase
      *
      * @param array<string, string> $written field key → the value to write ('' for a clear)
      * @param array<string, FieldValue> $current
-     * @throws RuleViolation
+     * @throws ValueLocked
      */
     private function refuseLockedOverwrites(array $written, array $current): void
     {
@@ -447,7 +448,7 @@ final class SubmitAdditionalForm implements PortalUseCase
                 $field !== null && $value !== null && $value->value !== $text
                 && $this->fieldRules->lockedAfterFirstWrite($field)
             ) {
-                $error = new RuleViolation();
+                $error = new ValueLocked();
                 throw $error;
             }
         }
