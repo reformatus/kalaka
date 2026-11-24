@@ -204,7 +204,10 @@ final class MoneySettingsCommandTest extends PricingTestCase
         yield 'not JSON' => ['{nope', 'The file is not valid JSON'];
         yield 'a list' => ['[1]', 'The file must hold a JSON object'];
         yield 'an unknown key' => [['price' => '1'], 'Unknown key in the file: price.'];
-        yield 'a negative price' => [['fixed_price' => '-5'], '"fixed_price" must be a decimal string'];
+        yield 'a price that is no decimal' => [['fixed_price' => 'abc'], '"fixed_price" must be a decimal string'];
+        yield 'too many decimals' => [['fixed_price' => '1.123456789'], '"fixed_price" must be a decimal string'];
+        // The sign is the use case's: the CLI holds no check of its own, so the refusal is InvalidInput's.
+        yield 'a negative price' => [['fixed_price' => '-5'], 'Hibás vagy hiányzó adat'];
         yield 'a number price' => [['fixed_price' => 5], '"fixed_price" must be a decimal string'];
         yield 'an unknown component' => [
             ['components' => ['nope' => ['amount' => '1']]],
@@ -280,6 +283,23 @@ final class MoneySettingsCommandTest extends PricingTestCase
         self::assertSame($lines, $this->lineCount());
         self::assertSame('1200', $this->balance($key));
         self::assertSame('200', $this->extra->amount);
+    }
+
+    public function testAUserWithoutFullAccessIsRefusedByShowAndPreviewBeforeAnythingIsRead(): void
+    {
+        $this->setPrice('1000');
+        $this->register('00A0');
+        $file = $this->file(['fixed_price' => '1800']);
+        wp_set_current_user(self::factory()->user->create());
+
+        foreach (['show' => [], 'preview' => ['file' => $file]] as $verb => $args) {
+            \WP_CLI::reset();
+            $this->printed = [];
+            $this->fails(fn () => $this->command()->$verb([(string) $this->event], $args));
+
+            self::assertSame([], $this->printed, $verb);
+            self::assertSame([], array_filter(\WP_CLI::$calls, static fn (array $call): bool => $call[0] === 'line'));
+        }
     }
 
     public function testAUserWithFullAccessAppliesAndShowAndPreviewAreReads(): void
