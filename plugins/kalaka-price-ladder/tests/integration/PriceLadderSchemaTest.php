@@ -25,6 +25,11 @@ final class PriceLadderSchemaTest extends PriceLadderTestCase
         self::assertCount(1, Contributions::current()->slotRequirements());
     }
 
+    public function testTheFieldDeclarerIsTheModulesId(): void
+    {
+        self::assertSame((new Module())->id(), PriceLadderComponent::DECLARER);
+    }
+
     public function testATierHasNoConditionNoDeadlineAndNoShareColumn(): void
     {
         global $wpdb;

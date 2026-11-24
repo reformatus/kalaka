@@ -59,7 +59,7 @@ final class DeclareExtensionField implements AdminUseCase
                 ],
                 'form_writable' => ['type' => 'boolean'],
                 'decimals' => ['type' => ['integer', 'null'], 'minimum' => 0],
-                'declarer' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9-]{0,63}$'],
+                'declarer' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_-]{0,63}$'],
                 'money_relevant' => ['type' => 'boolean'],
             ],
             'required' => [

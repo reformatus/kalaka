@@ -21,8 +21,8 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  */
 final class ChargeField
 {
-    /** The declarer slug Extras stores as `declared_by` on the fields it declares. */
-    public const DECLARER = 'kalaka-extras';
+    /** The declarer Extras stores as `declared_by` on the fields it declares: its module's ID. [UNAPPROVED N300] */
+    public const DECLARER = 'extras';
 
     public function __construct(private readonly ParticipantFields $fields = new ParticipantFields())
     {

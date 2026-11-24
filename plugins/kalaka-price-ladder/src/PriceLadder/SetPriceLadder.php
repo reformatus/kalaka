@@ -110,7 +110,7 @@ final class SetPriceLadder implements AdminUseCase
                 PriceLadderComponent::FIELD_TITLE,
                 array_map(static fn (Tier $tier): array => ['value' => $tier->key, 'label' => $tier->label], $proposed),
                 true,
-                'kalaka-price-ladder',
+                PriceLadderComponent::DECLARER,
                 null,
                 true,
             );
