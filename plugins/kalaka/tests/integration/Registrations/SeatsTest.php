@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Registrations;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Events\CreateEvent;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatAct;
 use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatOutcome;
 use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SeatsFull;
@@ -132,7 +135,7 @@ final class SeatsTest extends RegistrationsTestCase
         self::assertSame(1, $pool->locks);
     }
 
-    public function testAFullPoolRefusesATakeAndGivesNoSeatToATakeIfFree(): void
+    public function testAFullPoolRefusesATakeAndARetakeGoesOver(): void
     {
         $pool = $this->pool(1);
         $this->by('00A0', 'take', $pool);
@@ -143,11 +146,12 @@ final class SeatsTest extends RegistrationsTestCase
         } catch (SeatsFull $full) {
             self::assertSame('Ez a lehetőség időközben betelt. Válassz másikat.', $full->getMessage());
         }
-        $gave = $this->by('00A2', 'takeIfFree', $pool, SeatAct::Restore);
+        $outcome = $this->by('00A2', 'retake', $pool, SeatAct::Restore);
 
-        self::assertFalse($gave);
-        self::assertSame(1, $this->seats->held($pool));
-        self::assertFalse($this->seats->holds($pool, new RegistrationKey($this->event, '00A2')));
+        self::assertSame(SeatOutcome::Over, $outcome);
+        self::assertSame(2, $this->seats->held($pool));
+        self::assertSame(1, $this->seats->over($pool));
+        self::assertTrue($this->seats->holds($pool, new RegistrationKey($this->event, '00A2')));
     }
 
     public function testStaffMayPlaceOverTheLimitAndThePoolStandsOverIt(): void
@@ -165,15 +169,13 @@ final class SeatsTest extends RegistrationsTestCase
     {
         $pool = $this->pool(1);
         $this->by('00A0', 'take', $pool);
-        $this->by('00A2', 'takeIfFree', $pool);
-
         $this->act('00A0', fn (Context $c, RegistrationKey $k) => $this->seats->release($pool, $k, $c));
 
         self::assertSame(0, $this->seats->held($pool));
         self::assertSame(1, $this->seats->left($pool));
         self::assertFalse($this->seats->holds($pool, new RegistrationKey($this->event, '00A2')));
         // The next act that asks takes it.
-        self::assertTrue($this->by('00A2', 'takeIfFree', $pool, SeatAct::Restore));
+        self::assertSame(SeatOutcome::Held, $this->by('00A2', 'retake', $pool, SeatAct::Restore));
         self::assertSame(['tier.tamogatott'], $this->seats->poolsOf(new RegistrationKey($this->event, '00A2')));
     }
 
@@ -286,5 +288,102 @@ final class SeatsTest extends RegistrationsTestCase
 
         // Quota rows first, by table and then by number (9 before 10, though "tier.10" sorts first as text).
         self::assertSame(['t9', 't10', 'b', 'o'], $ordered);
+    }
+
+    /** The event row's capacity and "full" latch, set directly. */
+    private function setEvent(?int $capacity, bool $full): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_events',
+            ['capacity' => $capacity, 'is_full' => $full ? 1 : 0],
+            ['id' => $this->event]
+        );
+        ObjectCache::clear();
+    }
+
+    private function isFull(): bool
+    {
+        return (new Events())->find($this->event)?->isFull ?? false;
+    }
+
+    public function testARetakeInAnEventPoolIsHeldUnderCapacityOverAboveAndNoneForTheNotRegistered(): void
+    {
+        $this->setEvent(2, false);
+        $this->inRun(function (array $input, Context $c): void {
+            $this->registrations->upsert($this->newRegistration($this->event, '00A0'), $c);
+            $waitlisted = $this->newRegistration($this->event, '00A2', RegistrationStatus::Waitlisted);
+            $this->registrations->upsert($waitlisted, $c);
+        });
+        $event = $this->seats->eventPool($this->event);
+        $retake = fn (string $code): mixed => $this->by($code, 'retake', $event, SeatAct::Admission);
+
+        self::assertSame(SeatOutcome::Held, $retake('00A0'));
+        self::assertSame(SeatOutcome::None, $retake('00A2'));
+        $this->setStatus(new RegistrationKey($this->event, '00A2'), RegistrationStatus::Registered);
+        self::assertSame(SeatOutcome::Held, $retake('00A2'));
+        $this->inRun(function (array $input, Context $c): void {
+            $this->registrations->upsert($this->newRegistration($this->event, '00A5'), $c);
+        });
+        self::assertSame(SeatOutcome::Over, $retake('00A5'));
+        self::assertSame(3, $this->seats->held($event));
+    }
+
+    public function testARetakeNeverTouchesTheFullLatch(): void
+    {
+        $this->setEvent(1, false);
+        $this->inRun(function (array $input, Context $c): void {
+            $this->registrations->upsert($this->newRegistration($this->event, '00A0'), $c);
+            $this->registrations->upsert($this->newRegistration($this->event, '00A2'), $c);
+        });
+        $event = $this->seats->eventPool($this->event);
+        $pool = $this->pool(0);
+
+        self::assertSame(SeatOutcome::Over, $this->by('00A2', 'retake', $event));
+        self::assertSame(SeatOutcome::Over, $this->by('00A2', 'retake', $pool));
+        self::assertFalse($this->isFull());
+        $this->setEvent(1, true);
+        $this->by('00A0', 'retake', $event);
+        self::assertTrue($this->isFull());
+    }
+
+    public function testALimitOfZeroIsAFullPoolForASubmitAndAnOverSeatForAStaffAct(): void
+    {
+        $pool = $this->pool(0);
+
+        self::assertSame(0, $this->seats->left($pool));
+        self::assertTrue($this->seats->wouldOverfill($pool, new RegistrationKey($this->event, '00A0')));
+        try {
+            $this->by('00A0', 'take', $pool);
+            self::fail('A pool with a limit of 0 should refuse a submit.');
+        } catch (SeatsFull) {
+            self::assertSame(0, $this->seats->held($pool));
+        }
+        self::assertSame(SeatOutcome::Over, $this->by('00A0', 'retake', $pool));
+    }
+
+    public function testLeftOfTheEventPoolIsZeroWhileTheFullLatchIsSet(): void
+    {
+        $this->setEvent(5, false);
+        $event = $this->seats->eventPool($this->event);
+        self::assertSame(5, $this->seats->left($event));
+
+        $this->setEvent(5, true);
+        self::assertSame(0, $this->seats->left($event));
+        $this->setEvent(null, true);
+        self::assertNull($this->seats->left($event));
+    }
+
+    public function testWouldOverfillCountsTheSeatsOfOthersAgainstTheLimit(): void
+    {
+        $pool = $this->pool(1);
+        $a = new RegistrationKey($this->event, '00A0');
+        $b = new RegistrationKey($this->event, '00A2');
+        self::assertFalse($this->seats->wouldOverfill($pool, $b));
+        $this->by('00A0', 'take', $pool);
+
+        self::assertTrue($this->seats->wouldOverfill($pool, $b));
+        self::assertFalse($this->seats->wouldOverfill($pool, $a));
+        self::assertFalse($this->seats->wouldOverfill($this->pool(null, 'tier.none'), $b));
     }
 }

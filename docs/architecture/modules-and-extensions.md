@@ -98,8 +98,8 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   under the lock on the option row, freed by withdrawal, removal or a placing
   elsewhere in the set. The confirmed assignment stays as the record, and
   holds no seat while its registration is not `registered`. An admission or a
-  restore takes the seats again where they are free; where an option is full,
-  staff are warned and the assignment stays without one. A proposed
+  restore takes its seats again, over the limit where an option is full, with
+  the "full" warning. A proposed
   assignment holds none until it is confirmed. The option's capacity is the
   pool's limit.
 - **Access modes:**

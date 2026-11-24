@@ -133,15 +133,20 @@ the waitlist and reference codes
   fails the run with the guard's `SystemFailure`: the pool's lock cannot be taken after the registration's. Any
   other pool is locked inside `take*()`, once the registration row is in.
 - A full pool refuses `take()` and `kalaka-portal/submit-registration` (the form comes back with the refusal on
-  the choice's field, nothing saved); `takeIfFree()` gives an admission or a restore no seat and no error;
-  `takeOver()` is staff placing past the limit. Only a `registered` submit takes its claims' seats: a waitlisted
-  one holds none and is not refused.
+  the choice's field, nothing saved). Admission, restore and staff placing take the seat with `takeOver()`:
+  over the limit when the pool is full, with the "full" warning; only a submit is refused by a full pool.
+  `retake()` is the one entry for admission and restore: per pool it reports `held`, `over` or `none` and
+  never refuses, and never touches the event's "full" latch. Only a `registered` submit takes its claims' seats:
+  a waitlisted one holds none and is not refused. [UNAPPROVED R40]
 - A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
   refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
   from one registration to another, and a count never hands a place on.
 - A submit's seat claims come from contributed `Api\SeatClaimSource`s
   (`Contributions::seatClaimSource()`): answers in, `SeatClaim`s out; a source locks, counts and writes nothing.
-  `RegistrationSubmit` asks each on every attempt and hands the claims to the use case.
+  `RegistrationSubmit` asks each on every attempt and hands the claims to the use case. `pools()` names every pool
+  a source can claim (field key, option value, pool), for the form host's `seats_left.<field key>.<option value>`.
+  `Seats::wouldOverfill()` is the one "would go over" read; `Seats::left()` of the event's pool is 0 while its
+  latch is set.
   A source claims only the registration's current entitlement: a choice that gives it no place now (an offer
   whose request was refused) makes no claim, for a submit's answers and for stored values alike
   [UNAPPROVED R6].

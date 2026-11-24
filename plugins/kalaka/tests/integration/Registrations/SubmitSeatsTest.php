@@ -20,8 +20,10 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Events\Api\Event;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatClaimSource;
+use Kalaka\Registrations\Api\SeatOutcome;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitResult;
@@ -77,7 +79,7 @@ final class SubmitSeatsTest extends FormsTestCase
         $sets->saveOption([
             'set_id' => $this->set,
             'label' => 'Modul A',
-            'capacity' => $places,
+            'limit' => $places,
             'leaders' => '',
             'place' => '',
             'condition' => null,
@@ -303,7 +305,7 @@ final class SubmitSeatsTest extends FormsTestCase
         self::assertSame(1, $this->seats->held($ten));
     }
 
-    public function testARestoreIntoAFullOptionGetsNoSeatAndNoError(): void
+    public function testARestoreIntoAFullOptionTakesTheSeatOverTheLimit(): void
     {
         $this->openEvent(10, 1);
         $this->submit();
@@ -321,11 +323,15 @@ final class SubmitSeatsTest extends FormsTestCase
 
         $this->inAdminRun(function (Context $context) use ($other): void {
             (new Registrations())->lock($other, $context);
-            self::assertFalse($this->seats->takeIfFree($this->pool(), $other, SeatAct::Restore, $context));
+            self::assertSame(
+                SeatOutcome::Over,
+                $this->seats->retake($this->pool(), $other, SeatAct::Restore, $context)
+            );
         });
 
-        self::assertSame(1, $this->seats->held($this->pool()));
-        self::assertFalse($this->seats->holds($this->pool(), $other));
+        self::assertSame(2, $this->seats->held($this->pool()));
+        self::assertSame(1, $this->seats->over($this->pool()));
+        self::assertTrue($this->seats->holds($this->pool(), $other));
     }
 
     public function testTheContributedSeatClaimSourceFeedsTheSubmit(): void
@@ -340,6 +346,11 @@ final class SubmitSeatsTest extends FormsTestCase
             public function claims(Event $event, ValidatedAnswers $answers): array
             {
                 return [new SeatClaim('modul', $this->pool)];
+            }
+
+            public function pools(Event $event): array
+            {
+                return [new PoolEntry('modul', 'a', $this->pool)];
             }
         };
         $submit = function () use ($source): SubmitResult {

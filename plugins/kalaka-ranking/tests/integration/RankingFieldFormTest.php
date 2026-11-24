@@ -59,7 +59,7 @@ final class RankingFieldFormTest extends FormsTestCase
                 'set_id' => $this->set,
                 'key' => $option['value'],
                 'label' => $option['label'],
-                'capacity' => null,
+                'limit' => null,
                 'leaders' => '',
                 'place' => '',
                 'condition' => null,

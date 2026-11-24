@@ -10,7 +10,11 @@ use Kalaka\Assignments\Api\AssignmentSource;
 use Kalaka\Assignments\Api\AssignmentState;
 use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\PlaceRegistration;
+use Kalaka\Assignments\SetOptionClaimSource;
+use Kalaka\Events\Api\Events;
 use Kalaka\Events\CreateEvent;
+use Kalaka\Forms\Api\ValidatedAnswers;
+use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -79,7 +83,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         return $this->sets->saveOption($changes + [
             'set_id' => $set,
             'label' => $label,
-            'capacity' => 30,
+            'limit' => 30,
             'leaders' => 'Teszt Vezető',
             'place' => 'Nagyterem',
             'condition' => $condition,
@@ -170,6 +174,31 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->newSet(['window_opens_at' => '2027-03-01 08:00']);
     }
 
+    public function testTheCoreSeatClaimSourceNamesThePoolsOfTheOptionsByTheRequestFieldKeyAndClaimsNone(): void
+    {
+        $tied = $this->newSet();
+        $this->newOption($tied, 'Modul A', null, ['limit' => 0]);
+        $this->newOption($tied, 'Modul B', null, ['limit' => null]);
+        $untied = $this->newSet(['name' => 'Délután']);
+        $this->newOption($untied, 'Modul C');
+        $this->sets->tieRequestField($tied, 'modulok', new CliActor(null));
+        $event = (new Events())->find($this->event);
+        self::assertNotNull($event);
+
+        $source = new SetOptionClaimSource();
+        $entries = $source->pools($event);
+
+        self::assertSame(
+            [
+                ['modulok', 'modul_a', 'option.' . $tied . '.modul_a'],
+                ['modulok', 'modul_b', 'option.' . $tied . '.modul_b'],
+            ],
+            array_map(static fn (PoolEntry $e): array => [$e->fieldKey, $e->optionValue, $e->pool->key()], $entries)
+        );
+        $answers = new ValidatedAnswers(['modulok' => 'modul_a'], ['modulok' => 'modul_a']);
+        self::assertSame([], $source->claims($event, $answers));
+    }
+
     public function testTheFirstRequestFieldIsTiedAndTheSameOneAgainChangesNothing(): void
     {
         $set = $this->newSet();
@@ -246,8 +275,8 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testStaffAreWarnedBeforePlacingIntoAFullOptionOrOneTheRegistrationDoesNotMeet(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
-        $this->newOption($set, 'PRO', self::trackIs('pro'), ['capacity' => 5]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
+        $this->newOption($set, 'PRO', self::trackIs('pro'), ['limit' => 5]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -284,7 +313,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAWarningIsNotComputedForARegistrationThePlacingWouldRefuse(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $missing = new RegistrationKey($this->event, '00A0');
 
         self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a'));
@@ -296,7 +325,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAWarningIsNotComputedForASetOfAnotherEvent(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $other = new RegistrationKey($this->event + 1, '00A0');
         $this->seedRegistrations($other);
 
@@ -315,7 +344,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         }
 
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -412,7 +441,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testPlacingTakesASeatInTheOptionsPoolAndStaffMayGoOverTheCapacity(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -436,7 +465,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testPlacingTheSameOptionAgainKeepsOneSeat(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $key = new RegistrationKey($this->event, '00A0');
         $this->seedRegistrations($key);
 
@@ -452,8 +481,8 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testPlacingElsewhereFreesTheOldSeatAndNobodyMovesIn(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
-        $this->newOption($set, 'Modul B', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
+        $this->newOption($set, 'Modul B', null, ['limit' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -475,7 +504,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAWithdrawalFreesTheOptionSeatAndTheNextPlacingTakesIt(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -502,7 +531,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAnOptionWithoutALimitHasNoSeatsLeftFigure(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => null]);
+        $this->newOption($set, 'Modul A', null, ['limit' => null]);
 
         $pool = $this->sets->seatPool($set, 'modul_a');
         self::assertNotNull($pool);
@@ -514,7 +543,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testPlacingAWaitlistedRegistrationWritesTheAssignmentAndTakesNoSeat(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $waiting = new RegistrationKey($this->event, '00A0');
         $this->seedRegistrations($waiting);
         $this->setStatus($waiting, RegistrationStatus::Waitlisted);
@@ -531,12 +560,12 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame(1, (new Seats())->left($pool));
     }
 
-    public function testAnAdmissionTakesTheSeatsOfTheConfirmedAssignmentsAndAFullOptionIsReported(): void
+    public function testAnAdmissionTakesTheSeatsOfTheConfirmedAssignmentsAndAFullOptionGoesOverAndIsReported(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $other = $this->newSet(['name' => 'Délután']);
-        $this->newOption($other, 'Modul B', null, ['capacity' => 1]);
+        $this->newOption($other, 'Modul B', null, ['limit' => 1]);
         $waiting = new RegistrationKey($this->event, '00A0');
         $holder = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($waiting, $holder);
@@ -558,11 +587,12 @@ final class AssignmentsTest extends RegistrationsTestCase
         });
 
         self::assertTrue($seats->holds($a, $waiting));
-        self::assertFalse($seats->holds($b, $waiting));
-        self::assertSame(1, $seats->held($b));
+        self::assertTrue($seats->holds($b, $waiting));
+        self::assertSame(2, $seats->held($b));
+        self::assertSame(1, $seats->over($b));
         self::assertCount(1, $full);
         self::assertSame([$other, 'modul_b'], [$full[0]->setId, $full[0]->optionKey]);
-        // The assignment stays over the limit; nobody was moved out of the full option.
+        // The seat went over the limit; nobody was moved out of the full option.
         self::assertSame('modul_b', $this->sets->assignment($waiting, $other)?->optionKey);
         self::assertTrue($seats->holds($b, $holder));
     }
@@ -570,7 +600,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAWithdrawnRegistrationKeepsItsAssignmentAndARestoreTakesTheSeatAgain(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', null, ['limit' => 1]);
         $key = new RegistrationKey($this->event, '00A0');
         $this->seedRegistrations($key);
         $seats = new Seats();

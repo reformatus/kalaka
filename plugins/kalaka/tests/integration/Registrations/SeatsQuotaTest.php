@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\SeatAct;
+use Kalaka\Registrations\Api\SeatOutcome;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Tests\Integration\Foundation\TestItemRepository;
@@ -73,25 +74,25 @@ final class SeatsQuotaTest extends RegistrationsTestCase
     {
         $pool = $this->pool(1);
 
-        self::assertTrue($this->act('00A0', $pool, 'takeIfFree'));
+        self::assertSame(SeatOutcome::Held, $this->act('00A0', $pool, 'retake'));
 
         self::assertSame(1, $this->seats->held($pool));
         self::assertTrue($this->seats->holds($pool, new RegistrationKey($this->event, '00A0')));
     }
 
-    public function testAFullQuotaPoolRefusesATakeAndGivesNoSeatToATakeIfFree(): void
+    public function testAFullQuotaPoolRefusesATakeAndARetakeGoesOverTheLimit(): void
     {
         $pool = $this->pool(1);
-        $this->act('00A0', $pool, 'takeIfFree');
+        $this->act('00A0', $pool, 'retake');
 
-        self::assertFalse($this->act('00A2', $pool, 'takeIfFree', SeatAct::Restore));
         try {
             $this->act('00A2', $pool, 'take');
             self::fail('A full pool should refuse.');
         } catch (SeatsFull) {
             self::assertSame(1, $this->seats->held($pool));
         }
-        $this->act('00A2', $pool, 'takeOver', SeatAct::Placement);
+        self::assertSame(SeatOutcome::Over, $this->act('00A2', $pool, 'retake', SeatAct::Restore));
+        self::assertSame(2, $this->seats->held($pool));
         self::assertSame(1, $this->seats->over($pool));
     }
 
@@ -103,7 +104,7 @@ final class SeatsQuotaTest extends RegistrationsTestCase
             $this->inRun(function (array $input, Context $context) use ($pool): void {
                 $key = new RegistrationKey($this->event, '00A0');
                 $this->registrations->findForUpdate($key, $context);
-                $this->seats->takeIfFree($pool, $key, SeatAct::Admission, $context);
+                $this->seats->retake($pool, $key, SeatAct::Admission, $context);
             });
             self::fail('The lock order should have refused the pool row after the registration row.');
         } catch (SystemFailure) {

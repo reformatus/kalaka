@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations\Api;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockOrder;
@@ -43,6 +44,7 @@ final class Seats
         private readonly SeatCount $count = new SeatCount(),
         private readonly RegistrationCount $registered = new RegistrationCount(),
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
+        private readonly Events $events = new Events(),
     ) {
     }
 
@@ -63,13 +65,33 @@ final class Seats
     /**
      * The seats left in the pool, never below zero; null when the pool has no limit. A plain read: the
      * value of the form-condition variable `event.seats_left` (the event's pool) or
-     * `seats_left.<field key>.<option value>` (a set option's pool, by the ranking/request field key).
+     * `seats_left.<field key>.<option value>` (a set option's pool, by the ranking/request field key). The
+     * event's pool reads 0 while its "full" latch is set, as the submit does: the latch, not the count, decides
+     * the waitlist (a freed place does not reopen a full event). [UNAPPROVED N126]
      */
     public function left(SeatPool $pool): ?int
     {
         $limit = $pool->limit();
+        if ($limit === null) {
+            return null;
+        }
+        if ($pool->key() === SeatPool::EVENT && $this->events->find($pool->eventId())?->isFull === true) {
+            return 0;
+        }
 
-        return $limit === null ? null : max(0, $limit - $this->held($pool));
+        return max(0, $limit - $this->held($pool));
+    }
+
+    /**
+     * Whether placing the registration in the pool would take it past its limit: the seats held by other
+     * registrations have reached the limit. The one "would go over" read, for the staff warning and the answer
+     * that a choice is full; false when the pool has no limit. A plain read. [UNAPPROVED N127]
+     */
+    public function wouldOverfill(SeatPool $pool, RegistrationKey $registration): bool
+    {
+        $limit = $pool->limit();
+
+        return $limit !== null && $this->held($pool) - ($this->holds($pool, $registration) ? 1 : 0) >= $limit;
     }
 
     /** By how many places the pool stands over its limit (staff placed past it); zero when it does not. */
@@ -140,24 +162,39 @@ final class Seats
      */
     public function take(SeatPool $pool, RegistrationKey $registration, SeatAct $act, Context $context): void
     {
-        $this->claim($pool, $registration, $act, $context, false, true);
+        $this->claim($pool, $registration, $act, $context, false);
     }
 
     /**
-     * Takes a seat when one is free, for an admission or a restore into a pool that may be full: a full pool
-     * gives no seat and no error. [UNAPPROVED N6]
+     * The one entry for admission and restore: takes the registration's seat in the pool again, over the limit
+     * when the pool is full, and never refuses (a staff act; only a registrant's own submit is refused by a full
+     * pool). The result tells the caller whether to show the "full" warning. The latch is never touched.
+     * [UNAPPROVED N6]
      *
-     * @return bool whether the registration holds a seat in the pool now
+     * In an event's pool there is no seat row: the seat is the `registered` status, which the act has set, so it
+     * is `Held` while the count is within the capacity and `Over` past it, and `None` when the registration is
+     * not `registered`. In any other pool it is `Held` when a seat was free (or already held) and `Over` when
+     * it was taken past the limit. A caller whose claim source makes no claim for the registration (an offer
+     * whose request was refused) does not call it: that is `None`.
      */
-    public function takeIfFree(SeatPool $pool, RegistrationKey $registration, SeatAct $act, Context $context): bool
+    public function retake(SeatPool $pool, RegistrationKey $registration, SeatAct $act, Context $context): SeatOutcome
     {
-        return $this->claim($pool, $registration, $act, $context, false, false);
+        if ($pool->key() === SeatPool::EVENT) {
+            if (!$this->holds($pool, $registration)) {
+                return SeatOutcome::None;
+            }
+            $limit = $pool->limit();
+
+            return $limit !== null && $this->held($pool) > $limit ? SeatOutcome::Over : SeatOutcome::Held;
+        }
+
+        return $this->claim($pool, $registration, $act, $context, true);
     }
 
     /** Takes a seat for staff placing the registration by hand: it may go over the limit. */
     public function takeOver(SeatPool $pool, RegistrationKey $registration, SeatAct $act, Context $context): void
     {
-        $this->claim($pool, $registration, $act, $context, true, false);
+        $this->claim($pool, $registration, $act, $context, true);
     }
 
     /**
@@ -175,7 +212,7 @@ final class Seats
 
     /**
      * Frees every seat the registration holds: withdrawal and removal. A confirmed assignment stays as a record
-     * (`Assignments`); a restore or an admission takes the seats again (`AssignmentSeats::retake()`).
+     * (`Assignments`); a restore or an admission takes the seats again (`Seats::retake()`).
      * [UNAPPROVED N6, N10]
      */
     public function releaseAll(RegistrationKey $registration, Context $context): void
@@ -205,8 +242,7 @@ final class Seats
         SeatAct $act,
         Context $context,
         bool $over,
-        bool $refuse,
-    ): bool {
+    ): SeatOutcome {
         $this->assertHeld($registration, $context);
         if ($pool->key() === SeatPool::EVENT || $pool->eventId() !== $registration->eventId) {
             $error = new SystemFailure(
@@ -218,19 +254,16 @@ final class Seats
         // The pool's row first: two acts for the last seat wait here, and the second counts the first's seat.
         $limit = $pool->lock($context);
         if ($this->seats->findForUpdate(self::key($registration, $pool), $context) !== null) {
-            return true;
+            return SeatOutcome::Held;
         }
-        if (!$over && $limit !== null && $this->held($pool) >= $limit) {
-            if ($refuse) {
-                $error = new SeatsFull();
-                throw $error;
-            }
-
-            return false;
+        $full = $limit !== null && $this->held($pool) >= $limit;
+        if ($full && !$over) {
+            $error = new SeatsFull();
+            throw $error;
         }
         $this->seats->upsert(new SeatRecord($registration, $pool->key(), $context->now(), $act), $context);
 
-        return true;
+        return $full ? SeatOutcome::Over : SeatOutcome::Held;
     }
 
     private function assertHeld(RegistrationKey $registration, Context $context): void

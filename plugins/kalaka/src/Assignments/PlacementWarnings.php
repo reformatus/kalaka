@@ -57,7 +57,8 @@ final class PlacementWarnings
         }
         $option = $target->option;
         $warnings = [];
-        if ($option->capacity !== null && $this->heldByOthers($registration, $setId, $optionKey) >= $option->capacity) {
+        $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
+        if ($this->seats->wouldOverfill($pool, $registration)) {
             $warnings[] = self::FULL;
         }
         if ($option->condition !== null && !$this->eligible($registration, $option->condition)) {
@@ -65,13 +66,6 @@ final class PlacementWarnings
         }
 
         return $warnings;
-    }
-
-    private function heldByOthers(RegistrationKey $registration, int $setId, string $optionKey): int
-    {
-        $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
-
-        return $this->seats->held($pool) - ($this->seats->holds($pool, $registration) ? 1 : 0);
     }
 
     /** @param array<array-key, mixed> $condition */

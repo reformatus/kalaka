@@ -28,4 +28,13 @@ interface SeatClaimSource
      * @return list<SeatClaim>
      */
     public function claims(Event $event, ValidatedAnswers $answers): array;
+
+    /**
+     * Every pool the source can claim for the event, limited or not: the field a choice is made in, the option
+     * value of the choice, and its pool. The form host serves `seats_left.<field key>.<option value>` from it
+     * ([UNAPPROVED N126]). A plain read; none when the source has no pools in the event.
+     *
+     * @return list<PoolEntry>
+     */
+    public function pools(Event $event): array;
 }
