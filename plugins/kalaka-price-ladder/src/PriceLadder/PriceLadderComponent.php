@@ -84,7 +84,8 @@ final class PriceLadderComponent implements ProvidesBase, ConfigurableFeeCompone
     {
         $tiers = [];
         foreach ((new PriceLadder())->tiers($eventId) as $tier) {
-            $tiers[] = ['key' => $tier->key, 'label' => $tier->label, 'amount' => PlainAmount::of($tier->amount)];
+            $item = ['key' => $tier->key, 'label' => $tier->label, 'amount' => PlainAmount::of($tier->amount)];
+            $tiers[] = $tier->limit === null ? $item : $item + ['limit' => $tier->limit];
         }
 
         return ['tiers' => $tiers];

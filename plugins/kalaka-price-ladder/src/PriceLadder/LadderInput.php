@@ -11,7 +11,8 @@ use Kalaka\PriceLadder\Api\Tier;
 
 /**
  * Reads a ladder as sent (`kalaka/set-price-ladder`'s `tiers`) into tiers, for the preview and the save
- * alike: keys unique and amounts in the event's currency.
+ * alike: keys unique and amounts in the event's currency. A tier's `limit` is optional: the most people (0 or
+ * more), or none (absent or null).
  */
 final class LadderInput
 {
@@ -22,6 +23,7 @@ final class LadderInput
             'key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9_]{0,63}$'],
             'label' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 191],
             'amount' => ['type' => 'string', 'pattern' => '^[0-9]{1,18}(\\.[0-9]{1,8})?$'],
+            'limit' => ['type' => ['integer', 'null'], 'minimum' => 0],
         ],
         'required' => ['key', 'label', 'amount'],
         'additionalProperties' => false,
@@ -45,7 +47,13 @@ final class LadderInput
                 throw new InvalidInput();
             }
             $seen[$key] = true;
-            $parsed[] = new Tier($key, (string) $tier['label'], Money::of((string) $tier['amount'], $event->currency));
+            $limit = $tier['limit'] ?? null;
+            $parsed[] = new Tier(
+                $key,
+                (string) $tier['label'],
+                Money::of((string) $tier['amount'], $event->currency),
+                $limit === null ? null : (int) $limit,
+            );
         }
 
         return $parsed;
