@@ -4,12 +4,13 @@ Support is the organization directory, the congregation picker and the
 support offers: one feature plugin, `kalaka-support` (module `support`), an
 extension that uses only core's public API
 ([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
-So far it holds the directory and the congregation picker.
+It holds the directory, the congregation picker and the support offers.
 
 ## Sections it implements
 
 - money.md: [Sponsor and church support](../../../../docs/architecture/money.md#sponsor-and-church-support)
-  (the directory and the congregation field type).
+  (the directory, the congregation field type and the offers),
+  [Quota places](../../../../docs/architecture/money.md#quota-places) (an offer's seats).
 - events-and-forms.md: [Fields](../../../../docs/architecture/events-and-forms.md#fields)
   (an extension's field type).
 - foundation.md: [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values)
@@ -21,7 +22,8 @@ So far it holds the directory and the congregation picker.
   [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),
   the field-type point of
-  [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
+  [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface)
+  (the fee-component, request-source and seat-claim-source points).
 
 ## Invariants
 
@@ -62,3 +64,32 @@ So far it holds the directory and the congregation picker.
   (`window.kalakaFieldEditor`; `block.json` names `kalaka-form-editor-script`
   first): the one keeper of keys, so a copy gets a fresh key, the settings,
   the participant-field and key panels. It copies none of them.
+
+## Offers (`Offers/`)
+
+- An event's offers are rows of `kalaka_support_offers`, written only through `kalaka/set-support-offers`, which
+  the money settings apply runs (`Api\Offers::propose()`, the component `support`'s settings document
+  `{"offers": [{key, label, node, amount, request, limit}]}`); the apply then re-evaluates every open
+  registration. The save refuses a duplicate or malformed key (`[a-z][a-z0-9_]*`, at most 40 characters: the key
+  is also an item key, `support:<key>`), an unknown node, a label outside 1 to 191 characters, an amount that is
+  not positive, a limit under 1, more than 50 offers and any unknown property. It also refuses to remove an
+  offer, or to give an unlimited one a limit, while an open registration has selected it.
+- The save declares the offer's fields in the same transaction, through core's `declareExtensionField()`: the
+  selection, a consent field whose key is the offer's key (form-writable, titled with the offer's label), and for
+  an offer that must be requested its answer `<key>_answer` (a choice of `approved` and `refused`, not
+  form-writable, written only by `OfferRequests`). The form links to them by key; who sees an offer, and
+  whether it stacks with another, are conditions on the form, never here. A removed offer's fields stay
+  declared: core has no way to retire a field.
+- An offer applies, in the settings' order, when its consent holds `1`, it needs no request or its answer is
+  `approved`, and it has no limit or the registration holds its seat. Each applying offer is one participant-side
+  `support:<key>` line, negative, and all together are capped at the base price (the tier stage), the earlier
+  offers first; an offer awaiting its answer, refused, or without its seat gives no line. The component reads
+  facts, its own settings and the seats; never a charge line or an answer row.
+- An offer's seats are `Seats` under the pool `offer.<key>`, at the quota lock level (`OfferSeatPool`, the row
+  of the offer): `OfferClaims` gives a submit's claims; the answer act frees and takes the seat through core's
+  `SeatOfferSeats`. This module takes and frees a seat nowhere else, and writes nothing of `kalaka_seats`.
+- `OfferRequests` is the request source of the offers that must be requested: a selected offer is the request
+  `offer:<key>` until somebody answers it. A limited one is a request only while the registration holds its
+  seat or has an answer (so a refused offer, which gave its seat back, can be answered "yes" again).
+- Only this module writes `kalaka_support_offers`. Offers are settings, so an offer left out is deleted; the
+  directory's nodes are never deleted.

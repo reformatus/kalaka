@@ -154,16 +154,17 @@ the waitlist and reference codes
     hides the due date and the transfer block in Portal. It never blocks confirmation.
   - On a registered registration a refusing offer answer frees the offer's seat and a "yes" after a refusal
     takes one; a waitlisted registration holds no place, so it takes and frees none (its seat is decided at
-    admission). Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands) with
-    the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat call). The
-    pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
+    admission). Both go through `OfferSeats`, whose default `SeatOfferSeats` maps them to `Seats`
+    (`release()`; `takeIfFree()`, then `takeOver()`, with the seat's act `answer`) for the pool the request
+    source names (`RequestSource::seatPool()`, a plain read; null, as for aid, means no limit and no seat call).
+    The pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.
   - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
     confirmation, then mail) follows in the same run.
 
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
-  and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
-  staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
+  and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore,
+  staff placing or an answer to an offer request. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
   before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
   at a lock level before the registration row (a quota row) is locked before the registration row is:
   a submit locks and checks its quota pools before the registration is written, in `Seats::inLockOrder()` (by

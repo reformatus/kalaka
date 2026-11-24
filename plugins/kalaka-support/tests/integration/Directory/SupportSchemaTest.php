@@ -17,12 +17,16 @@ final class SupportSchemaTest extends WP_UnitTestCase
         global $wpdb;
 
         self::assertTrue(LoadState::current()->isOpen());
-        self::assertSame(1, (int) get_option('kalaka_schema_support'));
+        self::assertSame(2, (int) get_option('kalaka_schema_support'));
 
         $table = $wpdb->prefix . 'kalaka_support_nodes';
         $tables = (new Module())->schema()->tables;
-        self::assertCount(1, $tables);
+        self::assertCount(2, $tables);
         self::assertSame([], IndexCheck::mismatches($table, str_replace('{prefix}', $wpdb->prefix, $tables[0])));
+        self::assertSame([], IndexCheck::mismatches(
+            $wpdb->prefix . 'kalaka_support_offers',
+            str_replace('{prefix}', $wpdb->prefix, $tables[1])
+        ));
 
         self::assertSame('utf8mb4_hungarian_ci', $wpdb->get_var($wpdb->prepare(
             'SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s',

@@ -27,8 +27,8 @@ use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
-use Kalaka\Registrations\Api\NoOfferSeats;
 use Kalaka\Registrations\Api\OfferSeats;
+use Kalaka\Registrations\Api\SeatOfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\Requests;
@@ -57,7 +57,7 @@ final class RegistrationDetail
         private readonly ActionMails $actionMails = new ActionMails(),
         private readonly Confirmations $confirmations = new Confirmations(),
         private readonly Requests $requests = new Requests(),
-        private readonly OfferSeats $seats = new NoOfferSeats(),
+        private readonly OfferSeats $seats = new SeatOfferSeats(),
     ) {
     }
 
@@ -240,7 +240,9 @@ final class RegistrationDetail
         $items = [];
         foreach ($this->requests->states($key) as $state) {
             $answer = $state->answer;
-            $pool = $state->request->kind === RequestKind::Offer ? $state->source->seatPool($state->request) : null;
+            $pool = $state->request->kind === RequestKind::Offer
+                ? $state->source->seatPool($key, $state->request)
+                : null;
             $items[] = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
