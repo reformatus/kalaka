@@ -32,11 +32,17 @@ jest.mock( '@wordpress/components', () => {
 			'label',
 			null,
 			label,
-			h( 'input', { type: 'text', 'aria-label': label, 'aria-invalid': rest[ 'aria-invalid' ], value, onChange: ( e ) => onChange( e.target.value ) } ),
+			h( 'input', { type: 'text', 'aria-label': label, 'aria-invalid': rest[ 'aria-invalid' ], autoComplete: rest.autoComplete, value, onChange: ( e ) => onChange( e.target.value ) } ),
 			help
 		);
-	const TextareaControl = ( { label, value, onChange } ) =>
-		h( 'label', null, label, h( 'textarea', { 'aria-label': label, value, onChange: ( e ) => onChange( e.target.value ) } ) );
+	const TextareaControl = ( { label, value, onChange, help, ...rest } ) =>
+		h(
+			'label',
+			null,
+			label,
+			h( 'textarea', { 'aria-label': label, 'aria-invalid': rest[ 'aria-invalid' ], maxLength: rest.maxLength, value, onChange: ( e ) => onChange( e.target.value ) } ),
+			help
+		);
 	const Button = ( { children, ...rest } ) => {
 		delete rest.isBusy;
 		delete rest.variant;
@@ -84,6 +90,15 @@ async function render( item ) {
 
 const radio = ( value ) => host.querySelector( `input[type="radio"][value="${ value }"]` );
 const amountField = () => host.querySelector( 'input[type="text"]' );
+const noteField = () => host.querySelector( 'textarea' );
+const errorsIn = ( node ) => Array.from( node.querySelectorAll( '.kg-err' ), ( e ) => e.textContent );
+const typeNote = async ( value ) => {
+	const setter = Object.getOwnPropertyDescriptor( window.HTMLTextAreaElement.prototype, 'value' ).set;
+	await act( async () => {
+		setter.call( noteField(), value );
+		noteField().dispatchEvent( new Event( 'input', { bubbles: true } ) );
+	} );
+};
 
 async function choose( value ) {
 	await act( async () => {
@@ -160,6 +175,79 @@ describe( 'the checks', () => {
 		await submit();
 		expect( host.textContent ).toContain( MONEY.amountBad );
 		expect( apiFetch ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'one message per field', () => {
+	test( 'after a failed save, choosing "yes" leaves the choice\'s message where it was and the amount untouched', async () => {
+		await render( aid );
+		await submit();
+		expect( amountField() ).toBeNull();
+		await choose( 'yes' );
+		expect( amountField().getAttribute( 'aria-invalid' ) ).toBeNull();
+		expect( amountField().closest( 'label' ).textContent ).not.toContain( REQUESTS.answerEmpty );
+		expect( host.textContent ).not.toContain( REQUESTS.answerEmpty );
+	} );
+
+	test( 'a message of the amount does not come back after "no" then "yes"', async () => {
+		await render( aid );
+		await choose( 'yes' );
+		await type( amountField(), 'abc' );
+		await submit();
+		expect( amountField().closest( 'label' ).textContent ).toContain( MONEY.amountBad );
+		await choose( 'no' );
+		await choose( 'yes' );
+		expect( amountField().closest( 'label' ).textContent ).not.toContain( MONEY.amountBad );
+		expect( amountField().getAttribute( 'aria-invalid' ) ).toBeNull();
+	} );
+
+	test( 'the amount message stays under the amount only', async () => {
+		await render( aid );
+		await choose( 'yes' );
+		await submit();
+		expect( errorsIn( host ) ).toEqual( [ REQUESTS.awardEmpty ] );
+		expect( amountField().closest( 'label' ).textContent ).toContain( REQUESTS.awardEmpty );
+	} );
+} );
+
+describe( 'the note', () => {
+	test( 'a yes to an offer asks for its reason and sends nothing without it', async () => {
+		await render( offer );
+		await choose( 'yes' );
+		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( MONEY.reasonField );
+		await submit();
+		expect( host.textContent ).toContain( MONEY.noteRequired );
+		expect( apiFetch ).not.toHaveBeenCalled();
+		await typeNote( 'Telefonon megerősítve' );
+		await submit();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'has no length limit of its own and the amount field refuses autofill', async () => {
+		await render( aid );
+		await choose( 'yes' );
+		expect( noteField().maxLength ).toBeLessThan( 0 );
+		expect( amountField().getAttribute( 'autocomplete' ) ).toBe( 'off' );
+	} );
+
+	test( 'over 500 characters is refused, counted by code point, and nothing is sent', async () => {
+		await render( offer );
+		await choose( 'yes' );
+		await typeNote( '😀'.repeat( 501 ) );
+		await submit();
+		expect( host.textContent ).toContain( REQUESTS.noteTooLong );
+		expect( noteField().getAttribute( 'aria-invalid' ) ).toBe( 'true' );
+		expect( document.activeElement ).toBe( noteField() );
+		expect( apiFetch ).not.toHaveBeenCalled();
+	} );
+
+	test( 'exactly 500 characters (1000 UTF-16 units) is sent', async () => {
+		await render( offer );
+		await choose( 'yes' );
+		await typeNote( '😀'.repeat( 500 ) );
+		await submit();
+		expect( host.textContent ).not.toContain( REQUESTS.noteTooLong );
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 } );
 

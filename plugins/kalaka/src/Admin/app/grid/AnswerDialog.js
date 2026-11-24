@@ -1,13 +1,13 @@
 /**
- * The answer dialog (slice B): yes or no for a request, for an aid "yes" the amount awarded, and an optional
- * note (`kalaka/answer-request`). A failed save keeps the dialog and what was typed, and while it runs the
- * dialog does not close. A refused "yes" over the limit is not refused: the warning stands above the buttons and
+ * The answer dialog (slice B): yes or no for a request, for an aid "yes" the amount awarded, and a note, optional
+ * except for a "yes" to an offer (`kalaka/answer-request`). A failed save keeps the dialog and what was typed, and
+ * while it runs the dialog does not close. A refused "yes" over the limit is not refused: the warning stands above the buttons and
  * the answer may be given. [UNAPPROVED N7]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl, TextareaControl } from '@wordpress/components';
 import * as api from './api';
-import { asksAmount, buildAnswer, savedText, validateAnswer, warnsFull } from './requests';
+import { asksAmount, asksReason, buildAnswer, savedText, validateAnswer, validateNote, warnsFull } from './requests';
 import { MONEY, REQUESTS } from './texts';
 
 /**
@@ -22,7 +22,8 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 	const [ answer, setAnswer ] = useState( '' );
 	const [ amount, setAmount ] = useState( '' );
 	const [ note, setNote ] = useState( '' );
-	const [ error, setError ] = useState( '' );
+	// One message per field, as the record dialog: { answer, amount, note }.
+	const [ errors, setErrors ] = useState( {} );
 	const [ failed, setFailed ] = useState( false );
 	const [ busy, setBusy ] = useState( false );
 	const sending = useRef( false );
@@ -45,12 +46,24 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 			return;
 		}
 		setFailed( false );
-		const found = answer === '' ? REQUESTS.answerEmpty : validateAnswer( item, answer, amount );
-		setError( found );
-		if ( found ) {
-			// After React has drawn the message: focus the field it is about (the choice, or the amount).
+		const found = {};
+		if ( answer === '' ) {
+			found.answer = REQUESTS.answerEmpty;
+		} else {
+			const amountMessage = validateAnswer( item, answer, amount );
+			if ( amountMessage ) {
+				found.amount = amountMessage;
+			}
+		}
+		const noteMessage = validateNote( item, answer, note );
+		if ( noteMessage ) {
+			found.note = noteMessage;
+		}
+		setErrors( found );
+		if ( Object.keys( found ).length ) {
+			// After React has drawn the messages: focus the first field with one (the choice, the amount, the note).
 			setTimeout( () => {
-				const bad = form.current && form.current.querySelector( answer === '' ? 'input' : '[aria-invalid="true"]' );
+				const bad = form.current && form.current.querySelector( found.answer ? 'input' : '[aria-invalid="true"]' );
 				if ( bad ) {
 					bad.focus();
 				}
@@ -69,6 +82,8 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 		}
 	};
 
+	const fieldError = ( name ) => errors[ name ] && <span className="kg-err">{ errors[ name ] }</span>;
+
 	return (
 		<Modal
 			title={ REQUESTS.dialogTitle }
@@ -86,8 +101,12 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 						{ value: 'yes', label: REQUESTS.yes },
 						{ value: 'no', label: REQUESTS.no },
 					] }
-					onChange={ setAnswer }
-					help={ answer === '' && error ? <span className="kg-err">{ error }</span> : undefined }
+					onChange={ ( value ) => {
+						// Another choice starts afresh for the choice and the amount; the note's message stays.
+						setAnswer( value );
+						setErrors( ( now ) => ( now.note ? { note: now.note } : {} ) );
+					} }
+					help={ fieldError( 'answer' ) }
 				/>
 				{ asksAmount( item, answer ) && (
 					<TextControl
@@ -95,18 +114,20 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 						value={ amount }
 						onChange={ setAmount }
 						inputMode="decimal"
-						aria-invalid={ answer !== '' && error ? 'true' : undefined }
-						help={ answer !== '' && error && <span className="kg-err">{ error }</span> }
+						autoComplete="off"
+						aria-invalid={ errors.amount ? 'true' : undefined }
+						help={ fieldError( 'amount' ) }
 						__next40pxDefaultSize
 						__nextHasNoMarginBottom
 					/>
 				) }
 				<TextareaControl
-					label={ REQUESTS.noteField }
+					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }
 					rows={ 3 }
-					maxLength={ 500 }
+					aria-invalid={ errors.note ? 'true' : undefined }
+					help={ fieldError( 'note' ) }
 					__nextHasNoMarginBottom
 				/>
 				{ warnsFull( item, answer ) && (

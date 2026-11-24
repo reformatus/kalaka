@@ -217,4 +217,5 @@ export const REQUESTS = {
 	saved: 'Válasz rögzítve.',
 	full: 'Ennek a támogatásnak már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
+	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
 };

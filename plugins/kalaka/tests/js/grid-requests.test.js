@@ -99,3 +99,14 @@ describe( 'the snackbar', () => {
 		expect( savedText( { changed: false, answer: null, over_limit: false } ) ).toBe( '' );
 	} );
 } );
+
+describe( 'validateNote', () => {
+	test( 'counts characters, not UTF-16 units, on the trimmed text', () => {
+		expect( validateNote( aid, 'no', '' ) ).toBe( '' );
+		expect( validateNote( aid, 'no', 'a'.repeat( 500 ) ) ).toBe( '' );
+		expect( validateNote( aid, 'no', '😀'.repeat( 500 ) ) ).toBe( '' );
+		expect( validateNote( aid, 'no', '  ' + 'a'.repeat( 500 ) + '  ' ) ).toBe( '' );
+		expect( validateNote( aid, 'no', 'a'.repeat( 501 ) ) ).toBe( REQUESTS.noteTooLong );
+		expect( validateNote( aid, 'no', '😀'.repeat( 501 ) ) ).toBe( REQUESTS.noteTooLong );
+	} );
+} );
