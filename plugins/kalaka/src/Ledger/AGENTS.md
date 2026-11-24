@@ -48,8 +48,9 @@ corrections
   time zone at recording; a correction (a manual row flagged `correction`,
   the owner's ruling 2026-11-19, with no method) has no entered date and
   stores the time it is recorded. A `charge` carries neither.
-- The payer kinds are the participant and the kinds modules declare through `Contributions::payerKind()`
-  (`PayerKinds` reads them): a declared kind has an ID, a label and a per-event predicate (where it applies) and runs no other code; a
+- The payer kinds are the participant and the kinds modules declare through a `PayerKindSource`
+  (`Contributions::payerKindSource()`; `PayerKinds` reads them): a source gives a kind (an ID and a label) and
+  says per event whether it applies (`appliesTo(PayerKindInput)`), and runs no other code; a
   payer with lines stays shown after its kind stops applying.
 - Other modules write and read lines only through `Ledger\Api\Ledger`; only
   Ledger writes its tables.

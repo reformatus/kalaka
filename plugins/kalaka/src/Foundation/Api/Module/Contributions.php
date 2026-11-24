@@ -13,6 +13,8 @@ use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerKind;
+use Kalaka\Ledger\Api\PayerKindInput;
+use Kalaka\Ledger\Api\PayerKindSource;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Pricing\Api\FeeComponent;
@@ -51,11 +53,8 @@ final class Contributions
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
 
-    /** @var array<string, PayerKind> */
-    private array $payerKinds = [];
-
-    /** @var array<string, \Closure(int): bool> */
-    private array $payerKindActive = [];
+    /** @var array<string, PayerKindSource> by payer-kind ID */
+    private array $payerKindSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -272,35 +271,37 @@ final class Contributions
     }
 
     /**
-     * A payer kind is only declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): an
-     * ID of the form `Payer::isValid()` and a Hungarian label, and a predicate that says per event whether the
-     * kind applies there (`$activeFor`, a plain read of the module's own setting); it runs no other code. The
-     * participant is core's and cannot be declared again; a repeated ID fails the contributing module.
-     *
-     * @param \Closure(int): bool $activeFor whether the kind applies to the event
+     * A payer kind is only declared (modules-and-extensions.md, "The extension surface"; money.md, "Ledger"): the
+     * source gives its kind, an ID of the form `Payer::isValid()` and a Hungarian label, and says per event
+     * whether it applies there (`PayerKindSource::appliesTo()`, a plain read of the module's own setting); it runs
+     * no other code. The participant is core's and cannot be declared again; a repeated ID fails the contributing
+     * module.
      */
-    public function payerKind(PayerKind $kind, \Closure $activeFor): void
+    public function payerKindSource(PayerKindSource $source): void
     {
+        $kind = $source->kind();
         if (!Payer::isValid($kind->id) || $kind->id === Payer::PARTICIPANT || $kind->label === '') {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
             throw new \InvalidArgumentException('Invalid payer kind ' . $kind->id . '.');
         }
-        if (isset($this->payerKinds[$kind->id])) {
+        if (isset($this->payerKindSources[$kind->id])) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a payer-kind ID, never output
             throw new \InvalidArgumentException('Payer kind already contributed: ' . $kind->id . '.');
         }
-        $this->payerKinds[$kind->id] = $kind;
-        $this->payerKindActive[$kind->id] = $activeFor;
+        $this->payerKindSources[$kind->id] = $source;
     }
 
     /**
-     * Every declared payer kind, active or not, in contribution order.
+     * Every declared payer kind, applying or not, in contribution order.
      *
      * @return list<PayerKind>
      */
     public function payerKinds(): array
     {
-        return array_values($this->payerKinds);
+        return array_values(array_map(
+            static fn (PayerKindSource $source): PayerKind => $source->kind(),
+            $this->payerKindSources
+        ));
     }
 
     /**
@@ -310,9 +311,13 @@ final class Contributions
      */
     public function payerKindsFor(int $eventId): array
     {
-        return array_values(array_filter(
-            $this->payerKinds,
-            fn (PayerKind $kind): bool => ($this->payerKindActive[$kind->id])($eventId)
-        ));
+        $input = new PayerKindInput($eventId);
+
+        $applying = array_filter(
+            $this->payerKindSources,
+            static fn (PayerKindSource $source): bool => $source->appliesTo($input)
+        );
+
+        return array_values(array_map(static fn (PayerKindSource $source): PayerKind => $source->kind(), $applying));
     }
 }

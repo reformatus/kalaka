@@ -13,10 +13,9 @@ use Kalaka\Support\Directory\Rest\NodesController;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\SupportComponent;
-use Kalaka\Ledger\Api\PayerKind;
-use Kalaka\Support\Api\Share;
 use Kalaka\Support\Picker\CongregationFieldType;
 use Kalaka\Support\Share\ShareComponent;
+use Kalaka\Support\Share\SharePayerKind;
 
 final class Module extends AbstractModule
 {
@@ -74,9 +73,6 @@ CREATE TABLE {prefix}kalaka_support_share (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
-    /** The congregation's payer-kind label. [UNAPPROVED T65] */
-    public const CONGREGATION_LABEL = 'Gyülekezet';
-
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(
         private readonly CongregationFieldType $congregationField = new CongregationFieldType()
@@ -104,10 +100,7 @@ SQL;
         $to->fieldType($this->congregationField);
         $to->feeComponent(new SupportComponent());
         $to->feeComponent(new ShareComponent());
-        $to->payerKind(
-            new PayerKind(ShareComponent::CONGREGATION, self::CONGREGATION_LABEL),
-            static fn (int $eventId): bool => (new Share())->isOn($eventId)
-        );
+        $to->payerKindSource(new SharePayerKind());
         $to->requestSource(new OfferRequests());
         $to->seatClaimSource(new OfferClaims());
     }

@@ -6,16 +6,40 @@ namespace Kalaka\Tests\Unit\Ledger;
 
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Ledger\Api\PayerKind;
+use Kalaka\Ledger\Api\PayerKindInput;
+use Kalaka\Ledger\Api\PayerKindSource;
 use PHPUnit\Framework\TestCase;
 
-/** S29: a payer kind is only declared, through `Contributions::payerKind()`. */
+/** S29: a payer kind is only declared, through a `PayerKindSource` contributed with `payerKindSource()`. */
 final class PayerKindDeclarationTest extends TestCase
 {
-    public function testADeclaredKindIsListedInContributionOrder(): void
+    private static function source(string $id, string $label, ?int $event = null): PayerKindSource
+    {
+        return new class ($id, $label, $event) implements PayerKindSource {
+            public function __construct(
+                private readonly string $id,
+                private readonly string $label,
+                private readonly ?int $event,
+            ) {
+            }
+
+            public function kind(): PayerKind
+            {
+                return new PayerKind($this->id, $this->label);
+            }
+
+            public function appliesTo(PayerKindInput $input): bool
+            {
+                return $this->event === null || $this->event === $input->eventId;
+            }
+        };
+    }
+
+    public function testADeclaredKindIsListedInContributionOrderAndAppliesPerEvent(): void
     {
         $to = new Contributions();
-        $to->payerKind(new PayerKind('congregation', 'Gyülekezet'), static fn (int $eventId): bool => $eventId === 5);
-        $to->payerKind(new PayerKind('sponsor', 'Támogató'), static fn (): bool => true);
+        $to->payerKindSource(self::source('congregation', 'Gyülekezet', 5));
+        $to->payerKindSource(self::source('sponsor', 'Támogató'));
 
         self::assertEquals(
             [new PayerKind('congregation', 'Gyülekezet'), new PayerKind('sponsor', 'Támogató')],
@@ -31,13 +55,12 @@ final class PayerKindDeclarationTest extends TestCase
     public function testAMalformedRepeatedOrParticipantKindFailsTheContributor(): void
     {
         $to = new Contributions();
-        $always = static fn (): bool => true;
-        $to->payerKind(new PayerKind('congregation', 'Gyülekezet'), $always);
+        $to->payerKindSource(self::source('congregation', 'Gyülekezet'));
 
         $refused = [['congregation', 'Másik'], ['participant', 'Jelentkező'], ['Bad-Id', 'Rossz'], ['sponsor', '']];
         foreach ($refused as [$id, $label]) {
             try {
-                $to->payerKind(new PayerKind($id, $label), $always);
+                $to->payerKindSource(self::source($id, $label));
                 self::fail($id . ' should be refused.');
             } catch (\InvalidArgumentException) {
                 self::assertCount(1, $to->payerKinds());

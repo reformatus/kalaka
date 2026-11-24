@@ -11,8 +11,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * one source for who may pay a registration: the manual payment use cases check against it and the admin
  * detail read labels its payers with it. [UNAPPROVED Shapes]
  *
- * Core declares the participant; an extension declares another through `Contributions::payerKind()` (the
- * congregation share, S29) with a per-event predicate, and this read adds the kinds active for the event.
+ * Core declares the participant; an extension declares another through a `PayerKindSource` (the
+ * congregation share, S29), and this read adds the kinds that apply to the event.
  */
 final class PayerKinds
 {

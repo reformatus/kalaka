@@ -332,8 +332,8 @@ flowchart LR
     form must hold, required and outside any condition (the price ladder
     requires `price_tier`); a form without one is closed until fixed.
   - A **payer kind** is only declared (e.g. "congregation"), with an ID and a
-    label and a per-event predicate, through `Contributions::payerKind()`; it
-    runs no other code and applies only to events where its module says so.
+    label, through a `PayerKindSource` (`Contributions::payerKindSource()`),
+    which also says per event whether the kind applies; it runs no other code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a
     block editor context. Forms gates its blocks by post type and lets a host
