@@ -243,12 +243,9 @@ final class RegistrationSubmit
      */
     private function seatClaims(Event $event, ValidatedAnswers $answers): array
     {
-        $claims = [];
-        foreach ($this->seatClaimSources ?? Contributions::current()->seatClaimSources() as $source) {
-            array_push($claims, ...$source->claims($event, $answers));
-        }
+        $sources = $this->seatClaimSources ?? Contributions::current()->seatClaimSources();
 
-        return $claims;
+        return SeatClaims::of($sources, $event, $answers);
     }
 
     /**

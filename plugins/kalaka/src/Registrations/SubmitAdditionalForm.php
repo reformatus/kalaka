@@ -24,6 +24,7 @@ use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatClaims;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Events\Api\Event;
@@ -317,11 +318,11 @@ final class SubmitAdditionalForm implements PortalUseCase
         }
         $after = $stored + $after;
         $held = [];
-        foreach (self::claimsOf($sources, $event, $before) as $claim) {
+        foreach (SeatClaims::of($sources, $event, self::answersOf($before)) as $claim) {
             $held[self::poolId($claim)] = true;
         }
         $new = [];
-        foreach (self::claimsOf($sources, $event, $after) as $claim) {
+        foreach (SeatClaims::of($sources, $event, self::answersOf($after)) as $claim) {
             if (!isset($held[self::poolId($claim)])) {
                 $new[] = $claim;
             }
@@ -346,19 +347,13 @@ final class SubmitAdditionalForm implements PortalUseCase
     }
 
     /**
-     * @param list<SeatClaimSource> $sources
-     * @param array<string, string> $values field key → value
-     * @return list<SeatClaim>
+     * The values as answers a source reads: stored and shown alike.
+     *
+     * @param array<string, string> $values
      */
-    private static function claimsOf(array $sources, Event $event, array $values): array
+    private static function answersOf(array $values): ValidatedAnswers
     {
-        $answers = new ValidatedAnswers($values, $values, array_keys($values));
-        $claims = [];
-        foreach ($sources as $source) {
-            array_push($claims, ...$source->claims($event, $answers));
-        }
-
-        return $claims;
+        return new ValidatedAnswers($values, $values, array_keys($values));
     }
 
     private static function poolId(SeatClaim $claim): string
