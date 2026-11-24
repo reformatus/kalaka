@@ -100,7 +100,10 @@ activated.**
   came through; a field with no value for that registration reads as none,
   so a mail naming a field only one form holds still renders for everyone.
   A key that is not a participant field of the event stays an error. Actions and
-  reminders add their own blocks (e.g. a payment table).
+  reminders add their own blocks (e.g. a payment table). Besides
+  `registration.link`, a body may place a **page link** `page_<ID>.link`: the
+  registrant's own secret link to that published page, declared only while the
+  page is published.
 - **The server renders the whole mail,** conditions included, at send time
   ([Sending](#sending)).
 - **The body's title is the subject,** as plain text. Mail is sent as HTML
