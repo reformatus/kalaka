@@ -42,6 +42,7 @@ abstract class ExtrasTestCase extends PricingTestCase
         ?array $settings = null,
         int $position = 0,
         string $source = 'extension',
+        ?string $declaredBy = null,
     ): void {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
@@ -57,6 +58,7 @@ abstract class ExtrasTestCase extends PricingTestCase
             'updated_at' => '2026-11-13 08:00:00.000000',
             'position' => $position,
             'form_writable' => $source === 'extension' ? 1 : 0,
+            'declared_by' => $declaredBy,
         ]);
     }
 

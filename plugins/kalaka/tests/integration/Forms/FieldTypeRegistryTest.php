@@ -159,6 +159,25 @@ final class FieldTypeRegistryTest extends FormsTestCase
         self::assertNotInstanceOf(MoneyRelevantFieldType::class, $types['kalaka/name-field']);
     }
 
+    public function testAFormFieldIsMoneyRelevantWhenItsBlockTypeIs(): void
+    {
+        $this->bootWithTestTypes();
+        wp_set_current_user($this->fullAccessUser());
+        $this->insertChecked(
+            $this->block('kalaka/test-rating-field', ['key' => 'stars'])
+            . $this->block('acme/test-surcharge-field', ['key' => 'extra']),
+            ['kalaka_event_id' => 7, 'kalaka_placement' => 'additional']
+        );
+
+        $fields = new \Kalaka\ParticipantFields\Api\ParticipantFields();
+        $byKey = [];
+        foreach ($fields->of(7) as $field) {
+            $byKey[$field->key] = $field;
+        }
+        self::assertTrue($fields->lockedAfterFirstWrite($byKey['extra']));
+        self::assertFalse($fields->lockedAfterFirstWrite($byKey['stars']));
+    }
+
     public function testAKalakaBlockThatIsNeitherATypeNorARegisteredBlockMakesTheFormUnusable(): void
     {
         $id = $this->slotForm($this->block('kalaka/test-rating-field', ['key' => 'stars']));
