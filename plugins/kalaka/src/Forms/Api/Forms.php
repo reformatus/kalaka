@@ -128,9 +128,9 @@ final class Forms
     /**
      * The published registration forms of the event that hold no account block, though the given account mode
      * wants one (`EventFormHost::stepFor()`): what a change of the event's account mode to that mode is
-     * refused for (events-and-forms.md, "Forms implementation"). A form that does not parse is left out, as it
-     * is closed and named in the broken-form warning already. Reads WordPress posts, so it runs before a use
-     * case's transaction.
+     * refused for (events-and-forms.md, "Forms implementation"). A form that does not parse or has no
+     * revision is left out, as it is closed and named in the broken-form warning already. Reads WordPress posts,
+     * so it runs before a use case's transaction.
      *
      * @return list<int> the forms' IDs, ascending
      */
@@ -138,11 +138,14 @@ final class Forms
     {
         $lacking = [];
         foreach ($this->posts->ofEvent($eventId) as $post) {
-            $form = $this->form($post->ID);
-            if ($form === null || EventFormHost::stepFor($form->placement, $mode) === null) {
+            if ($post->post_status !== 'publish') {
                 continue;
             }
             try {
+                $form = $this->form($post->ID);
+                if ($form === null || EventFormHost::stepFor($form->placement, $mode) === null) {
+                    continue;
+                }
                 $definition = $this->definition($form);
             } catch (SystemFailure) {
                 continue;

@@ -289,6 +289,30 @@ final class EventCommandTest extends FormsTestCase
         self::assertSame(AccountMode::Off, $event->accountMode);
     }
 
+    public function testShowAndListRefuseAUserWithoutFullAccessBeforeReadingAnything(): void
+    {
+        $id = $this->newId();
+        $this->command()->update([(string) $id], ['file' => $this->file(self::ivkLike())]);
+        $messages = [];
+        foreach (['administrator', 'subscriber'] as $role) {
+            wp_set_current_user(self::factory()->user->create(['role' => $role]));
+            \WP_CLI::reset();
+            $this->printed = [];
+            $messages[] = $this->fails(fn () => $this->command()->show([(string) $id], ['format' => 'json']));
+            $messages[] = $this->fails(fn () => $this->command()->show(['99999'], []));
+            $messages[] = $this->fails(fn () => $this->command()->listEvents([], ['format' => 'json']));
+            self::assertSame([], $this->printed);
+        }
+        wp_set_current_user(0);
+
+        self::assertCount(1, array_unique($messages));
+        self::assertStringNotContainsString('TESZT26', $messages[0]);
+        // With no user the command line is full access.
+        \WP_CLI::reset();
+        $this->command()->show([(string) $id], ['format' => 'json']);
+        self::assertStringContainsString('TESZT26', (string) \WP_CLI::$calls[0][1]);
+    }
+
     public function testTheModeChangesOnAFormWithTheBlockAndTheBrokenListIsRefreshed(): void
     {
         $id = $this->newId();

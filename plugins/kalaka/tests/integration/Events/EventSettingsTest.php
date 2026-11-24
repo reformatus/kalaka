@@ -187,16 +187,72 @@ final class EventSettingsTest extends FormsTestCase
         self::assertSame(AccountMode::Mandatory, $event->accountMode);
     }
 
-    public function testAnUnchangedModeIsNotRefusedForABlocklessForm(): void
+    public function testAnUnchangedModeIsNotRefusedWhenTheFormLostItsBlockLater(): void
     {
         $id = $this->filled();
-        $this->insertForm($this->slotFields(), ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration']);
+        $form = $this->insertForm(
+            '<!-- wp:kalaka/account /-->' . $this->slotFields(),
+            ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration']
+        );
+        $this->save($id, ['account_mode' => 'mandatory']);
+        // Written around the save check, which would veto it.
+        global $wpdb;
+        $wpdb->update($wpdb->posts, ['post_content' => $this->slotFields()], ['ID' => $form]);
+        clean_post_cache($form);
+        $this->insertRevisionOf($form);
+        self::assertSame([$form], $this->forms->withoutAccountBlock($id, AccountMode::Mandatory));
 
-        $this->save($id, ['account_mode' => 'off', 'payment_due_days' => 3]);
+        $this->save($id, ['account_mode' => 'mandatory', 'payment_due_days' => 3]);
 
         $event = $this->events->find($id);
         self::assertNotNull($event);
+        self::assertSame(AccountMode::Mandatory, $event->accountMode);
         self::assertSame(3, $event->paymentDueDays);
+    }
+
+    /** The form's latest revision as the post now is, as a save would have left it. */
+    private function insertRevisionOf(int $form): void
+    {
+        wp_save_post_revision($form);
+    }
+
+    public function testADraftFormWithoutTheBlockDoesNotRefuseTheChange(): void
+    {
+        $id = $this->filled();
+        $draft = $this->insertForm(
+            $this->slotFields(),
+            ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'],
+            ['post_status' => 'draft']
+        );
+
+        self::assertSame([], $this->forms->withoutAccountBlock($id, AccountMode::Mandatory));
+        $this->save($id, ['account_mode' => 'mandatory']);
+
+        $event = $this->events->find($id);
+        self::assertNotNull($event);
+        self::assertSame(AccountMode::Mandatory, $event->accountMode);
+        self::assertSame('draft', get_post_status($draft));
+    }
+
+    public function testAFormWithoutARevisionIsLeftOutAndTheOthersDecide(): void
+    {
+        $id = $this->filled();
+        $registration = ['kalaka_event_id' => $id, 'kalaka_placement' => 'registration'];
+        $odd = $this->insertForm($this->slotFields(), $registration);
+        foreach (wp_get_post_revisions($odd) as $revision) {
+            wp_delete_post_revision($revision->ID);
+        }
+        self::assertSame([], wp_get_post_revisions($odd));
+        $blockless = $this->insertForm($this->slotFields(), $registration);
+
+        self::assertSame([$blockless], $this->forms->withoutAccountBlock($id, AccountMode::Mandatory));
+
+        wp_update_post(['ID' => $blockless, 'post_content' => '<!-- wp:kalaka/account /-->' . $this->slotFields()]);
+        $this->save($id, ['account_mode' => 'mandatory']);
+
+        $event = $this->events->find($id);
+        self::assertNotNull($event);
+        self::assertSame(AccountMode::Mandatory, $event->accountMode);
     }
 
     public function testTheUseCaseRefusesAModeChangeWhoseFormsWereNotRead(): void

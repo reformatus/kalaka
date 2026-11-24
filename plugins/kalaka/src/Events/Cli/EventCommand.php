@@ -145,6 +145,7 @@ final class EventCommand
     public function show(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
+            $this->allow(new UpdateEvent(), $args, self::actor());
             $document = EventDocument::of($this->event($args));
             $format = self::format($assocArgs, ['table', 'json']);
             if ($format === 'json') {
@@ -181,7 +182,8 @@ final class EventCommand
      */
     public function listEvents(array $args, array $assocArgs): void
     {
-        Boundary::cli(function () use ($assocArgs): void {
+        Boundary::cli(function () use ($args, $assocArgs): void {
+            $this->allow(new UpdateEvent(), $args, self::actor());
             $format = self::format($assocArgs, ['table', 'json', 'csv']);
             $rows = [];
             foreach ($this->events->all() as $event) {
