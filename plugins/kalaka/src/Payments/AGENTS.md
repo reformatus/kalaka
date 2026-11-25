@@ -43,4 +43,6 @@ use cases that record what it reports
 - An item or request ref is `[a-z0-9_.-]`, so the idempotency key is never lowercased and two refs never share one.
 - The registration as `12:47K3` (event ID, a colon, the reference code) is composed and parsed only here
   (`Api\RegistrationRef`).
-- One provider is used per site, the first contributed.
+- One provider is used per site, the first contributed. Every operation of the port takes one immutable
+  `Api\PaymentProviderInput` (built with `forStart()` or `forLookup()`), and providers extend
+  `Api\AbstractPaymentProvider` (modules-and-extensions.md, "Contracts"), so a new field or method breaks no provider.

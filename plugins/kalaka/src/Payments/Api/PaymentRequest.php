@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Money\Currency;
 
 /**
  * What a payment provider is asked to collect: N lines in the one currency and the address a receipt may go to. The
- * input of `PaymentProvider::payUrl()`.
+ * part of `PaymentProviderInput::forStart()`.
  */
 final readonly class PaymentRequest
 {
