@@ -197,9 +197,12 @@ Tier places of the price ladder and support-offer places are extension
 decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
 - **Held** when the registration becomes `registered` (at submit, admission or
-  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
-  Waitlisted registrations hold no place.
-- **Released** on withdrawal or removal.
+  restore), or when a `registered` registration's additional form makes a new
+  choice of a limited option, decided under a `FOR UPDATE` lock on the tier or
+  offer row. Waitlisted registrations hold no place (and have no additional
+  forms).
+- **Released** on withdrawal or removal, or when a `registered` registration's
+  additional form changes the choice away from a limited option.
 - **Reassigned only by a staff act:** staff give a freed place to a requester
   from a list in registration order, so nobody's money changes
   automatically.

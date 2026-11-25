@@ -33,6 +33,12 @@ final readonly class FormPageView
     public const NO_ACTIVE_REGISTRATION = 'no_active_registration';
 
     /**
+     * An additional form whose registration is waitlisted: the block shows the registration's status page instead
+     * of the form (owner ruling 2026-11-25).
+     */
+    public const WAITLISTED = 'waitlisted';
+
+    /**
      * @param string|null $refusal one of the constants; null when the form shows
      * @param string $content the rendered content of the form, empty for a refusal
      * @param array<string, mixed> $context the form element's Interactivity context, empty for a refusal

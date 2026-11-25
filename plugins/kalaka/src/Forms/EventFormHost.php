@@ -52,8 +52,9 @@ use Kalaka\Registrations\Api\SubmitToken;
  * (`Assignments\Api\AssignmentSets`).
  *
  * An additional form (S60) writes to the active registration (`Portal\Api\ActiveRegistration`, set by the
- * registration's secret link) when it belongs to the form's event and is `registered` or `waitlisted`; it
- * opens with that registration's current field values, and its submit runs as the secret link's actor.
+ * registration's secret link) when it belongs to the form's event and is `registered` (a waitlisted registration
+ * has no additional forms and its page shows its status, owner ruling 2026-11-25); it opens with that
+ * registration's current field values, and its submit runs as the secret link's actor.
  */
 final class EventFormHost implements FormHost
 {
@@ -307,8 +308,13 @@ final class EventFormHost implements FormHost
         $target = $this->target($form);
         if ($target === null) {
             $refusals[] = AccessRefusal::NoActiveRegistration;
-        } elseif (!self::maySubmit($this->registrations()->find($target)?->status)) {
-            $refusals[] = AccessRefusal::RegistrationMayNotSubmit;
+        } else {
+            $status = $this->registrations()->find($target)?->status;
+            if ($status === RegistrationStatus::Waitlisted) {
+                $refusals[] = AccessRefusal::RegistrationWaitlisted;
+            } elseif (!self::maySubmit($status)) {
+                $refusals[] = AccessRefusal::RegistrationMayNotSubmit;
+            }
         }
 
         return $refusals;
@@ -328,10 +334,10 @@ final class EventFormHost implements FormHost
         return $active instanceof RegistrationKey && $active->eventId === $form->eventId ? $active : null;
     }
 
-    /** Only a `registered` or `waitlisted` registration may submit an additional form. */
+    /** Only a `registered` registration may submit an additional form (owner ruling 2026-11-25). */
     public static function maySubmit(?RegistrationStatus $status): bool
     {
-        return $status === RegistrationStatus::Registered || $status === RegistrationStatus::Waitlisted;
+        return $status === RegistrationStatus::Registered;
     }
 
     /**

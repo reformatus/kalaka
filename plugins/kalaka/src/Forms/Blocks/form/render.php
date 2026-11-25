@@ -35,6 +35,16 @@ $kalakaFormId = is_int($attributes['formId'] ?? null) ? $attributes['formId'] : 
 echo (new FormPage(new EventFormHost()))->html($kalakaFormId, static function (FormPageView $kalakaView): void {
     if ($kalakaView->refusal === FormPageView::PASSWORD_REQUIRED && $kalakaView->post !== null) {
         echo get_the_password_form($kalakaView->post);
+    } elseif ($kalakaView->refusal === FormPageView::WAITLISTED) {
+        // A waitlisted registration has no additional forms (owner ruling 2026-11-25): the Portal's status block
+        // shows its status, rendered by name, so the form depends on no Portal class beyond the active registration.
+        echo render_block([
+            'blockName' => 'kalaka/status',
+            'attrs' => [],
+            'innerBlocks' => [],
+            'innerHTML' => '',
+            'innerContent' => [],
+        ]);
     } elseif ($kalakaView->refusal !== null) {
         $kalakaTexts = [
             FormPageView::SYSTEM_FAILURE => (new SystemFailure())->getMessage(),

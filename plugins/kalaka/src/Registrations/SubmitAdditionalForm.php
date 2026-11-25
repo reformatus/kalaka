@@ -32,6 +32,7 @@ use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Registrations\Api\ValueLocked;
 use Kalaka\Events\Api\Event;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -51,17 +52,19 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * transaction. Inside, in this order: the event row `FOR UPDATE` (the lock order's first level); a repeat
  * (the same token with the same answers, for the same registration) writes nothing; the event must still be
  * the version the answers were checked against; the form's requirements at this moment (its open period
- * among them); then the registration row `FOR UPDATE`, which must be `registered` or `waitlisted`, and whose
- * values and facts must be what the walk read (else `VersionConflict`: the submit is run again).
+ * among them); then the registration row `FOR UPDATE`, which must be `registered` (a waitlisted registration has no
+ * additional forms, owner ruling 2026-11-25: `RegistrationNotActive`, nothing written), and whose values and facts
+ * must be what the walk read (else `VersionConflict`: the submit is run again).
  *
  * An additional form may take seats (owner ruling 2026-11-25), as the registration form does, only for a
  * `registered` registration: the seat claims (`SeatClaimSource`) of its values as they would be after the submit
  * are compared with those of its values now, and in one run under the pools' locks (`SubmitRegistration::
  * lockedClaims()`, the lock order) the new pools' seats are taken and the pools it no longer claims are freed. A
  * full pool refuses the submit as the registration form's does (`InvalidAnswers` on that field with
- * `SeatsFull::TEXT`), nothing is written and the old seat stays. A waitlisted registration stores the answer and
- * takes none: the admission takes it. A request-mode set choice claims nothing at submit, so re-choosing a request
- * still works. A tier or an offer, written once, stays (D5, below), so a price never changes through this form.
+ * `SeatsFull::TEXT`), nothing is written and the old seat stays; it is said only after the registration is locked
+ * and the walk's read is checked again (a stale read runs the submit again, never says "full"). A request-mode set
+ * choice claims nothing at submit, so re-choosing a request still works. A tier or an offer, written once, stays
+ * (D5, below), so a price never changes through this form.
  *
  * Every submit appends a submission (the next number), and the latest write wins (owner B9). Only the
  * fields that showed are written (B8): an answered one stores its answer, and one left blank clears its
@@ -199,29 +202,40 @@ final class SubmitAdditionalForm implements PortalUseCase
         // is read plain here and read again under its lock (a difference runs the submit again).
         $moves = !$this->seatMove->isEmpty()
             && $this->registrations->find($key)?->status === RegistrationStatus::Registered;
-        $takes = $moves
-            ? SubmitRegistration::lockedClaims(
-                $this->seats,
-                $this->seatMove->takes,
-                $context,
-                $this->seatMove->frees
-            )
-            : [];
+        $takes = [];
+        $full = null;
+        if ($moves) {
+            try {
+                $takes = SubmitRegistration::lockedClaims(
+                    $this->seats,
+                    $this->seatMove->takes,
+                    $context,
+                    $this->seatMove->frees
+                );
+            } catch (InvalidAnswers $refusal) {
+                // A full pool is said only once the registration is locked and its read is checked again: the
+                // walk may have read facts that moved, and then the submit is run again instead.
+                $full = $refusal;
+            }
+        }
 
         $registration = $this->registrations->findForUpdate($key, $context);
         if ($registration === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
             throw new FormRefused([AccessRefusal::NoActiveRegistration]);
         }
-        if (
-            $registration->status !== RegistrationStatus::Registered
-            && $registration->status !== RegistrationStatus::Waitlisted
-        ) {
+        if ($registration->status === RegistrationStatus::Waitlisted) {
+            // A waitlisted registration has no additional forms (owner ruling 2026-11-25); nothing is written.
+            $error = new RegistrationNotActive();
+            throw $error;
+        }
+        if ($registration->status !== RegistrationStatus::Registered) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- an enum case, no input
             throw new FormRefused([AccessRefusal::RegistrationMayNotSubmit]);
         }
 
-        if (!$this->seatMove->isEmpty() && ($registration->status === RegistrationStatus::Registered) !== $moves) {
+        // The registration is `registered` now: a seat move asked for a registration read as something else is stale.
+        if (!$this->seatMove->isEmpty() && !$moves) {
             $error = new VersionConflict();
             throw $error;
         }
@@ -240,6 +254,9 @@ final class SubmitAdditionalForm implements PortalUseCase
         // and the re-read of what the walk read (a failure on facts that moved is run again, not said).
         if ($this->walkFailure !== null) {
             throw $this->walkFailure;
+        }
+        if ($full !== null) {
+            throw $full;
         }
         $cleared = $this->cleared($current);
         $this->refuseLockedOverwrites($stored, $current);

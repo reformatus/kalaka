@@ -98,9 +98,19 @@ final class ValueTest extends TestCase
             'registration.status' => Value::text('', ''),
             'event.points.1' => Value::text('', ''),
             'seats_left.tier.a_1' => Value::text('', ''),
+            'seats_left.price_tier.gyerek-5_12' => Value::text('', ''),
+            'seats_left.set.0' => Value::text('', ''),
+            'seats_left.set.a--b_' => Value::text('', ''),
         ]);
 
-        foreach (['A', '1a', 'a.', 'a.b.', 'a.b.C', 'a.b.c.d', 'a-b', ''] as $bad) {
+        // The option value grammar is `[a-z0-9][a-z0-9_-]*`: no first hyphen or underscore, no capital, no space,
+        // no dot or other symbol; the first two parts keep the field key's grammar (no hyphen).
+        $keys = [
+            'A', '1a', 'a.', 'a.b.', 'a.b.C', 'a.b.c.d', 'a-b', '',
+            'a.b.-x', 'a.b._x', 'a.b.x y', 'a.b.x.y', 'a.b.xÁ', 'a.b.x/y', 'a.b.x+', 'a.b-c.x', 'a-b.c.x',
+            'a.b.x ', "a.b.x\n",
+        ];
+        foreach ($keys as $bad) {
             try {
                 new ValueContext([$bad => Value::text('', '')]);
                 self::fail('The key ' . $bad . ' was accepted.');

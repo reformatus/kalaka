@@ -155,11 +155,14 @@ values and conditions, prefill and form links
   (`DefinitionCheck`), never on an earlier version.
 - An additional form writes only to the active registration
   (`Portal\Api\ActiveRegistration`) of its own event, while that registration
-  is `registered` or `waitlisted` and the form is within its open period
+  is `registered` and the form is within its open period
   (`OpenPeriod`: each end a date reference in `kalaka_opens` / `kalaka_closes`,
   a fixed UTC instant or an event point; an end not set does not limit it,
   one that does not resolve closes the form). Its submit runs as that
   registration's `SecretLinkActor`; it never creates a registration.
+  A waitlisted registration has no additional forms (owner ruling 2026-11-25): the host's refusal is
+  `AccessRefusal::RegistrationWaitlisted`, `FormPageView::WAITLISTED`, and the embed block renders the Portal's
+  status block (`kalaka/status`, by name) in place of the form, with no text of its own.
 - A form opens with its host's stored values (`FormHost::prefill()`; for an
   additional form the registration's current field values), each turned into
   its field's answer by `FieldType::prefill()` (null opens it empty: a type

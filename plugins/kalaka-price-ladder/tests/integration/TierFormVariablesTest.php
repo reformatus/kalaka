@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\PriceLadder;
 
+use Kalaka\Events\Api\Event;
 use Kalaka\Events\PublishEvent;
+use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Api\FormPlacement;
@@ -12,11 +15,13 @@ use Kalaka\Forms\EventFormHost;
 use Kalaka\Forms\Module as FormsModule;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\PriceLadder\SetPriceLadder;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\ValueLocked;
@@ -216,5 +221,93 @@ final class TierFormVariablesTest extends FormsTestCase
             self::assertSame('alap', (new Registrations())->values($key)['price_tier']);
             self::assertSame('egy', (new Registrations())->values($key)['note']);
         }
+    }
+
+    public function testAStaleReadRunsTheSubmitAgainBeforeAFullTierIsSaid(): void
+    {
+        // The limited tier `tamogatott` (2 places) is full.
+        $this->register('tamogatott', 'Teszt Anna');
+        $this->register('tamogatott', 'Teszt Béla');
+        $key = $this->register('alap', 'Teszt Cili');
+        ActiveRegistrationState::set($key, false);
+        // `jelzo` is declared by one additional form and gates the tier field of another.
+        $this->additional($this->field('text', 'jelzo'));
+        $gate = '<!-- wp:kalaka/if ' . wp_json_encode(['condition' => ['match' => 'all', 'items' => [
+            ['key' => 'jelzo', 'operator' => 'equals', 'value' => 'igen'],
+        ]]]) . ' -->' . $this->tierField() . '<!-- /wp:kalaka/if -->';
+        $form = $this->additional($gate . $this->field('text', 'note'));
+        global $wpdb;
+        $wpdb->delete($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => 'price_tier',
+        ]);
+        $wpdb->insert($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => 'jelzo',
+            'value' => 'igen',
+        ]);
+        \Kalaka\Foundation\ObjectCache::clear();
+        // Without the change, the full tier refuses the submit on its field.
+        try {
+            $this->send($form, ['price_tier' => 'tamogatott', 'note' => 'pre']);
+            self::fail('The full tier did not refuse the additional form.');
+        } catch (InvalidAnswers $refused) {
+            self::assertSame(['price_tier'], array_keys($refused->fields));
+        }
+
+        // Each source changes `jelzo` the first time it is asked, after the walk read the registration and before
+        // the lock: the stale read runs the submit again (the full tier is not said), and the second walk hides the
+        // tier field, so the submit writes the note and claims nothing.
+        $changed = false;
+        $sources = array_map(
+            static fn (SeatClaimSource $inner): SeatClaimSource
+                => new class ($inner, $key, $changed) implements SeatClaimSource {
+                    public function __construct(
+                        private readonly SeatClaimSource $inner,
+                        private readonly RegistrationKey $key,
+                        private bool &$changed,
+                    ) {
+                    }
+
+                    public function claims(Event $event, ValidatedAnswers $answers): array
+                    {
+                        if (!$this->changed) {
+                            $this->changed = true;
+                            global $wpdb;
+                            $wpdb->update(
+                                $wpdb->prefix . 'kalaka_field_values',
+                                ['value' => 'nem'],
+                                ['event_id' => $this->key->eventId, 'code' => $this->key->code, 'field_key' => 'jelzo']
+                            );
+                        }
+
+                        return $this->inner->claims($event, $answers);
+                    }
+
+                    public function pools(Event $event): array
+                    {
+                        return $this->inner->pools($event);
+                    }
+                },
+            Contributions::current()->seatClaimSources()
+        );
+        $result = (new EventFormHost(registrationSubmit: new RegistrationSubmit(
+            $this->runner,
+            seatClaimSources: $sources
+        )))->submit(
+            $form,
+            $this->readForm($form)->version,
+            ['price_tier' => 'tamogatott', 'note' => 'x'],
+            SubmitToken::generate(),
+            [],
+            false,
+            new GuestActor()
+        );
+
+        self::assertSame('registered', $result['status']);
+        self::assertSame('x', (new Registrations())->values($key)['note']);
+        self::assertArrayNotHasKey('price_tier', (new Registrations())->values($key));
     }
 }

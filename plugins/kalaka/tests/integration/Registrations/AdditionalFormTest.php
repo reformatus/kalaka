@@ -24,6 +24,7 @@ use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\PoolEntry;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SeatClaim;
@@ -235,12 +236,21 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertSame(1, $this->rowCount('kalaka_submissions'));
     }
 
-    public function testAWaitlistedRegistrationMaySubmitAndAWithdrawnOneMayNot(): void
+    public function testAWaitlistedRegistrationIsRefusedNothingIsWrittenAndAWithdrawnOneMayNotEither(): void
     {
+        // Owner ruling 2026-11-25: a waitlisted registration has no additional forms.
         $form = $this->additional($this->field('text', 'note'));
+        $submissions = $this->rowCount('kalaka_submissions');
 
         $this->setStatus('waitlisted');
-        self::assertSame('waitlisted', $this->send($form, ['note' => 'várólistán'])['status']);
+        try {
+            $this->send($form, ['note' => 'várólistán']);
+            self::fail('A waitlisted registration submitted an additional form.');
+        } catch (RegistrationNotActive $e) {
+            self::assertSame('kalaka_registration_not_active', $e->errorCode());
+        }
+        self::assertSame('első', $this->values()['note']);
+        self::assertSame($submissions, $this->rowCount('kalaka_submissions'));
 
         $this->setStatus('withdrawn');
         try {
@@ -249,7 +259,28 @@ final class AdditionalFormTest extends FormsTestCase
         } catch (FormRefused $e) {
             self::assertSame([AccessRefusal::RegistrationMayNotSubmit], $e->refusals);
         }
-        self::assertSame('várólistán', $this->values()['note']);
+        self::assertSame('első', $this->values()['note']);
+    }
+
+    public function testAWaitlistedRegistrationsLinkShowsItsStatusInsteadOfTheForm(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        $this->setStatus('waitlisted');
+        \Kalaka\Foundation\ObjectCache::clear();
+
+        $html = $this->render($form);
+
+        self::assertStringContainsString('class="kalaka-status"', $html);
+        self::assertStringContainsString('Várólistán vagy.', $html);
+        self::assertStringNotContainsString('<form', $html);
+        self::assertStringNotContainsString('data-kalaka-field', $html);
+
+        // A withdrawn registration keeps the refusal text: no status page, no form.
+        $this->setStatus('withdrawn');
+        \Kalaka\Foundation\ObjectCache::clear();
+        $withdrawn = $this->render($form);
+        self::assertStringNotContainsString('class="kalaka-status"', $withdrawn);
+        self::assertStringNotContainsString('<form', $withdrawn);
     }
 
     public function testWithoutAnActiveRegistrationOfTheEventNothingIsWritten(): void
@@ -663,7 +694,7 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertSame(1, $seats->held(new OptionSeatPool($this->event, $set, 'a')));
     }
 
-    public function testAWaitlistedRegistrationStoresTheAnswerWithNoSeatAndAdmissionTakesIt(): void
+    public function testAWaitlistedRegistrationsRechoiceIsRefusedWithNoValueNoSeatAndNoSubmission(): void
     {
         [$set, $source] = $this->tierSource();
         $this->registerInTierA($source, '');
@@ -671,32 +702,19 @@ final class AdditionalFormTest extends FormsTestCase
         \Kalaka\Foundation\ObjectCache::clear();
         $form = $this->additional($this->field('text', 'tier') . $this->field('text', 'note'));
         $pool = new OptionSeatPool($this->event, $set, 'b');
+        $submissions = $this->rowCount('kalaka_submissions');
 
-        $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
+        try {
+            $this->sendWith($source, $form, ['tier' => 'b', 'note' => 'x']);
+            self::fail('A waitlisted registration submitted an additional form.');
+        } catch (RegistrationNotActive) {
+            $this->addToAssertionCount(1);
+        }
 
-        self::assertSame('b', $this->values()['tier']);
+        self::assertArrayNotHasKey('tier', $this->values());
+        self::assertArrayNotHasKey('note', $this->values());
         self::assertFalse((new Seats())->holds($pool, $this->registration));
-
-        // Admission (a staff act): the registration becomes `registered`, then takes the seats its stored values
-        // claim, as the admission use case will (S23).
-        $this->setStatus('registered');
-        \Kalaka\Foundation\ObjectCache::clear();
-        $key = $this->registration;
-        $claims = SeatClaims::of(
-            [$source],
-            (new \Kalaka\Events\Api\Events())->find($this->event) ?? self::fail('No event.'),
-            new ValidatedAnswers($this->values(), $this->values(), array_keys($this->values()))
-        );
-        $this->runner->run(new AdminProbe(static function (array $input, Context $context) use ($key, $claims): null {
-            (new Registrations())->lock($key, $context);
-            foreach ($claims as $claim) {
-                (new Seats())->retake($claim->pool, $key, SeatAct::Admission, $context);
-            }
-
-            return null;
-        }), [], new CliActor(null));
-
-        self::assertTrue((new Seats())->holds($pool, $key));
+        self::assertSame($submissions, $this->rowCount('kalaka_submissions'));
     }
 
     public function testARequestModeRechoiceClaimsNothingAndStillWorks(): void

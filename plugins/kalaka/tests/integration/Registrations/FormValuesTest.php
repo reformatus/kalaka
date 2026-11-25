@@ -31,6 +31,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationNotActive;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
@@ -300,21 +301,23 @@ final class FormValuesTest extends FormsTestCase
     {
         $form = $this->additional(
             $this->field('text', 'note')
-            . $this->branch('registration.status', 'equals', 'waitlisted', $this->field('text', 'extra', [
+            . $this->branch('registration.status', 'equals', 'registered', $this->field('text', 'extra', [
                 'required' => true,
             ]))
         );
 
-        self::assertSame('registered', $this->send($form, ['note' => 'x'])['status']);
-
-        $this->setStatus('waitlisted');
         try {
             $this->send($form, ['note' => 'x']);
-            self::fail('The required field of the branch for a waitlisted registration was not refused.');
+            self::fail('The required field of the branch for a registered registration was not refused.');
         } catch (InvalidAnswers $refused) {
             self::assertArrayHasKey('extra', $refused->fields);
         }
-        self::assertSame('waitlisted', $this->send($form, ['note' => 'x', 'extra' => 'y'])['status']);
+        self::assertSame('registered', $this->send($form, ['note' => 'x', 'extra' => 'y'])['status']);
+
+        // A waitlisted registration has no additional forms (owner ruling 2026-11-25), whatever the branch reads.
+        $this->setStatus('waitlisted');
+        $this->expectException(RegistrationNotActive::class);
+        $this->send($form, ['note' => 'x', 'extra' => 'y']);
     }
 
     public function testABranchOnAVolatileKeyIsNeverSentToTheBrowserUnlessItHoldsAndSeatsLeftIsOneOfThem(): void
@@ -409,24 +412,18 @@ final class FormValuesTest extends FormsTestCase
         };
     }
 
-    public function testAStatusChangedBetweenTheWalkAndTheLockRunsTheWalkAgain(): void
+    public function testAStatusChangedToWaitlistedBetweenTheWalkAndTheLockRefusesTheSubmitAndWritesNothing(): void
     {
-        $form = $this->additional(
-            $this->field('text', 'note')
-            . $this->branch('registration.status', 'equals', 'waitlisted', $this->field('text', 'extra', [
-                'required' => true,
-            ]))
-        );
+        $form = $this->additional($this->field('text', 'note'));
         $clock = $this->changingClock(fn () => $this->setStatus('waitlisted'));
         $submitter = new RegistrationSubmit(new Runner($clock, true));
 
-        // The first walk read `registered` and passed; under the lock the status is `waitlisted`, so the
-        // submit runs again, and the second walk reads `waitlisted` and requires `extra`.
+        // The walk read `registered`; under the lock the status is `waitlisted`: no additional forms for it.
         try {
             $this->send($form, ['note' => 'x'], $submitter);
-            self::fail('The second walk did not read the changed status.');
-        } catch (InvalidAnswers $refused) {
-            self::assertArrayHasKey('extra', $refused->fields);
+            self::fail('A waitlisted registration submitted an additional form.');
+        } catch (RegistrationNotActive) {
+            $this->addToAssertionCount(1);
         }
         self::assertArrayNotHasKey('note', (new Registrations())->values($this->registration));
     }

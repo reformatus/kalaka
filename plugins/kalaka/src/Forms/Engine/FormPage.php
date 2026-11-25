@@ -157,6 +157,7 @@ final class FormPage
             AccessRefusal::AccountRequired,
             AccessRefusal::RegistrationMayNotSubmit => FormPageView::refused(FormPageView::UNAVAILABLE),
             AccessRefusal::NoActiveRegistration => FormPageView::refused(FormPageView::NO_ACTIVE_REGISTRATION),
+            AccessRefusal::RegistrationWaitlisted => FormPageView::refused(FormPageView::WAITLISTED),
         };
     }
 

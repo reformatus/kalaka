@@ -119,7 +119,7 @@ final class SetExtraCharges implements AdminUseCase
         }
         // The code defines its fields (events-and-forms.md, "Fields"); a form field joins one by its key. A charge
         // taken out (one no open registration chose: the guard above refuses the others) leaves its field declared,
-        // as for every kind of item. [UNAPPROVED N3]
+        // as for every kind of item.
         foreach ($proposed as $charge) {
             $this->fields->declareExtensionField(
                 $context,

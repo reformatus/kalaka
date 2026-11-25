@@ -357,8 +357,8 @@ flowchart LR
   ([Foundation](foundation.md#facts-decisions-and-computed-values)). An
   additional form may take seats, only for a `registered` registration: it
   takes the seat of a new claim and frees the seat of one its values no longer
-  make, in one run, and a full pool refuses it as it does the registration form;
-  a waitlisted registration takes none until admission. A tier or an offer
+  make, in one run, and a full pool refuses it as it does the registration form
+  (a waitlisted registration has no additional forms). A tier or an offer
   stays once written, so a price never changes through it.
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's

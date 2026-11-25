@@ -76,7 +76,9 @@ the waitlist and reference codes
   target registration): the same checks before the transaction and the same
   repeat rule, the event row first, then the form's requirements (its open
   period among them) and the registration row `FOR UPDATE`, which must be
-  `registered` or `waitlisted`. It appends a submission with the next number
+  `registered`: a `waitlisted` one has no additional forms (owner ruling 2026-11-25), so it is refused with
+  `Api\RegistrationNotActive` (`kalaka_registration_not_active`) and nothing is written; its form page shows the
+  registration's status instead (`AccessRefusal::RegistrationWaitlisted`, the status block). It appends a submission with the next number
   and writes only the fields that showed: an answer replaces the value, a
   shown field left blank deletes a value the form showed (one its type
   prefills), and a field its participant field locks after its first write
@@ -88,8 +90,8 @@ the waitlist and reference codes
   after the submit are asked of every `SeatClaimSource`, and in one run under the pools' locks
   (`SubmitRegistration::lockedClaims()`) the new claims' seats are taken (`SeatAct::Submit`) and the pools no longer
   claimed are freed. A full pool refuses the submit on the choice's field with `SeatsFull::TEXT` as the registration
-  form does, nothing is written and the old seat stays. A waitlisted registration stores the answer and takes no seat:
-  admission takes it. A value locked after its first write (D5) still cannot be re-chosen. The
+  form does, nothing is written and the old seat stays; that refusal is said only after the registration is locked
+  and the walk's read is checked again (a changed read runs the submit again). A value locked after its first write (D5) still cannot be re-chosen. The
   registration's facts (`RegistrationFacts::formRead()`, built by the one builder `Registrations::factsOf()`)
   and field values are read once per attempt before the
   transaction, for the walk's conditions, and read again under the registration
@@ -150,8 +152,8 @@ the waitlist and reference codes
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
-  and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
-  staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
+  and only inside an act that holds the registration's row: the registrant's submit, an additional form's submit
+  (a `registered` registration's, which also frees seats), an admission, a restore or staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
   before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
   at a lock level before the registration row (a quota row) is locked before the registration row is:
   a submit locks and checks its quota pools before the registration is written, in `Seats::inLockOrder()` (by
@@ -166,14 +168,16 @@ the waitlist and reference codes
   submit is refused by a full pool. `retake()` is the one entry for admission, restore and staff placing: per
   pool it reports `held`, `over` or `none` and never refuses, and never touches the event's "full" latch. A staff
   act reads the "full" warning from that outcome; the preview before the act reads `wouldOverfill()`. Only a
-  `registered` submit takes its claims' seats: a waitlisted one holds none, and is refused when any claim is a
-  pool with a limit (see below). [UNAPPROVED R40, R100, R188]
-- A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
-  refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
-  from one registration to another, and a count never hands a place on.
+  `registered` submit takes its claims' seats: a waitlisted one holds none and is not refused.
+  [UNAPPROVED R40, R100]
+- A seat is freed by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
+  refuses an offer) or by the registration's own additional form no longer claiming its pool (`SeatMove`). A freed
+  seat stays free until some registration's own act takes it: nothing here moves a seat from one registration to
+  another, and a count never hands a place on.
 - A submit's seat claims come from contributed `Api\SeatClaimSource`s
   (`Contributions::seatClaimSource()`): answers in, `SeatClaim`s out; a source locks, counts and writes nothing.
-  `RegistrationSubmit` asks each on every attempt and hands the claims to the use case. `pools()` names every pool
+  `RegistrationSubmit` asks each on every attempt (for an additional form, as the `SeatMove` of its values before
+  and after) and hands the claims to the use case. `pools()` names every pool
   a source can claim (field key, option value, pool), for the form host's `seats_left.<field key>.<option value>`.
   `Seats::wouldOverfill()` is the one "would go over" read; `Seats::left()` of the event's pool is 0 while its
   latch is set.
