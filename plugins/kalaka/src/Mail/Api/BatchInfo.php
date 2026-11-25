@@ -13,7 +13,7 @@ use Kalaka\Mail\Manual\MailBatch;
 final readonly class BatchInfo
 {
     /**
-     * @param ?string $subject the body's title now; null when the body is gone
+     * @param ?string $subject the body's title now; null when the body is trashed or missing, then `bodyGone` is true
      * @param ?int $createdBy the user; null for the system and for WP-CLI without a user
      * @param ?list<array{code: string, outcome: string}> $members null in a list; set for one batch
      */
@@ -27,6 +27,7 @@ final readonly class BatchInfo
         public int $queued,
         public int $skipped,
         public ?array $members = null,
+        public bool $bodyGone = false,
     ) {
     }
 
@@ -42,7 +43,8 @@ final readonly class BatchInfo
             $batch->createdBy,
             $batch->queued,
             $batch->skipped,
-            $members
+            $members,
+            $subject === null
         );
     }
 }

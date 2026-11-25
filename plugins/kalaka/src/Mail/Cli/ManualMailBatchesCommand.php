@@ -79,7 +79,7 @@ final class ManualMailBatchesCommand
                 'batch' => $batch->id,
                 'created_at_utc' => $batch->createdAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
                 'by' => self::who($batch->createdBy),
-                'body' => $batch->bodyId . ' ' . ($batch->subject ?? '(gone)'),
+                'body' => $batch->bodyId . ' ' . ($batch->bodyGone ? '(gone)' : $batch->subject),
                 'layout' => $batch->layout ? 'yes' : 'no',
                 'queued' => $batch->queued,
                 'skipped' => $batch->skipped,

@@ -320,11 +320,13 @@ final class ManualMailCommandTest extends MailBodyTestCase
         $listed = $this->printed[0][1][0]['body'];
         $info = (new \Kalaka\Mail\Api\ManualMails())->batches($event);
         self::assertNull($info[0]->subject);
+        self::assertTrue($info[0]->bodyGone);
         self::assertSame($body . ' (gone)', $listed);
 
         wp_untrash_post($body);
         $this->batchesCommand()->__invoke([(string) $event], []);
         $info = (new \Kalaka\Mail\Api\ManualMails())->batches($event);
+        self::assertFalse($info[0]->bodyGone);
         self::assertSame($body . ' ' . $info[0]->subject, $this->printed[0][1][0]['body']);
     }
 

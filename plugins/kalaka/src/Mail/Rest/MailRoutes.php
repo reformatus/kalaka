@@ -315,6 +315,7 @@ final class MailRoutes
             'id' => $batch->id,
             'body_id' => $batch->bodyId,
             'subject' => $batch->subject,
+            'body_gone' => $batch->bodyGone,
             'layout' => $batch->layout,
             'created_at' => self::time($batch->createdAt),
             'created_by' => self::user($batch->createdBy),

@@ -350,7 +350,8 @@ final class MailRoutesTest extends MailAdminTestCase
 
         self::assertCount(1, $list);
         self::assertSame([
-            'id' => $sent['batch_id'], 'body_id' => $body, 'subject' => 'Sikeres jelentkezés', 'layout' => true,
+            'id' => $sent['batch_id'], 'body_id' => $body, 'subject' => 'Sikeres jelentkezés', 'body_gone' => false,
+            'layout' => true,
             'created_at' => '2026-11-30T09:00:30Z',
             'created_by' => ['id' => $this->admin->userId, 'name' => get_userdata($this->admin->userId)->display_name],
             'queued' => 2, 'skipped' => 1,
