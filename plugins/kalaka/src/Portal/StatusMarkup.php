@@ -67,8 +67,7 @@ final class StatusMarkup
     public const WITHDRAW_STALE = 'Az oldal időközben megváltozott. Nézd meg a jelentkezés mostani állapotát.';
 
     /** [UNAPPROVED T773] `kalaka_version_conflict`, in the registrant's wording (the lektor's alternative). */
-    public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott.'
-        . ' Töltsd újra az oldalt, és próbáld újra.';
+    public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott. Nézd meg a mostani állapotát.';
 
     private const MINUS = "\u{2212}";
 
