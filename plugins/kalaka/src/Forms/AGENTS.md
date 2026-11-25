@@ -232,7 +232,9 @@ values and conditions, prefill and form links
   per pool that a contributed `SeatClaimSource::pools()` lists (a source that throws is logged and
   skipped, its keys then read 0 like a removed pool; an option value may hold `-`) (set options
   today; tiers and offers with no code here once they list theirs): none for a
-  pool with no limit. An additional form also reads
+  pool with no limit. On a registration form every one reads 0 while the event's places left are 0 (the read
+  `event.seats_left` also uses: a new registrant lands on the waitlist and can choose nothing limited, owner ruling
+  2026-11-25); an additional form keeps the real counts and also reads
   the `registration.*` keys `RegistrationFacts::formTypes()` declares (the one
   builder the mails read; `registration.code` is left out) and, by key, the stored values of the event's
   participant fields it does not hold (a field the form holds is read from its

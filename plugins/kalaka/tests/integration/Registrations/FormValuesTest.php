@@ -856,6 +856,26 @@ final class FormValuesTest extends FormsTestCase
         self::assertSame('1', $this->facts($additional)->get('seats_left.modulok.modul_a')->data);
     }
 
+    public function testAFullEventZeroesEverySeatsLeftVariableOnTheRegistrationFormAndNotOnAnAdditionalForm(): void
+    {
+        $this->modulSet();
+        $additional = $this->additional($this->field('text', 'note'));
+        // Places left: the registration form reads the real counts while the event takes registrations.
+        self::assertSame('2', $this->facts($this->slot)->get('seats_left.modulok.modul_a')->data);
+        self::assertTrue($this->facts($this->slot)->get('seats_left.modulok.modul_b')->isEmpty());
+
+        // The event's last place goes (capacity 2, one registered already): the next registrant is waitlisted.
+        $this->register(['name' => 'Teszt Béla', 'email' => 'teszt.bela@example.org', 'szint' => 'kezdo']);
+        self::assertSame('0', $this->facts($this->slot)->get('event.seats_left')->data);
+
+        $registration = $this->facts($this->slot);
+        self::assertSame('0', $registration->get('seats_left.modulok.modul_a')->data);
+        self::assertSame('0', $registration->get('seats_left.modulok.modul_b')->data);
+        $extra = $this->facts($additional);
+        self::assertSame('2', $extra->get('seats_left.modulok.modul_a')->data);
+        self::assertTrue($extra->get('seats_left.modulok.modul_b')->isEmpty());
+    }
+
     /**
      * Runs the body with one more contributed seat claim source, as an extension's tiers or offers would be.
      *

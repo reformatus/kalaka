@@ -204,15 +204,21 @@ final class EventFormHost implements FormHost
 
     /**
      * The places left of every listed pool, as values. A pool whose read throws is logged and reads 0 (closed),
-     * as a removed one does.
+     * as a removed one does. While the event takes no more registrations a registration form reads every pool as 0
+     * (`$eventFull`): a new registrant lands on the waitlist and can choose nothing limited (owner ruling
+     * 2026-11-25; the submit refuses the race, `Seats`' O4 rule). An additional form keeps the real counts.
      *
      * @return array<string, Value>
      */
-    private function poolValues(Event $event): array
+    private function poolValues(Event $event, bool $eventFull): array
     {
         $seats = $this->seats();
         $values = [];
         foreach ($this->poolEntries($event) as $key => $entry) {
+            if ($eventFull) {
+                $values[$key] = EventValues::places(0);
+                continue;
+            }
             $left = 0;
             Boundary::background('places left of ' . $key, static function () use ($seats, $entry, &$left): void {
                 $left = $seats->left($entry->pool);
@@ -275,9 +281,11 @@ final class EventFormHost implements FormHost
         \DateTimeImmutable $now,
         ?RegistrationFacts $registration
     ): ValueContext {
+        // The event's places left, read once for `event.seats_left` and for the registration form's pools below.
+        $eventLeft = $this->seats()->left($this->seats()->eventPool($event->id));
         $values = $this->goneValues($form) + EventValues::form($event, $loggedIn, $now)
-            + EventValues::volatile($event, $this->seats()->left($this->seats()->eventPool($event->id)))
-            + $this->poolValues($event);
+            + EventValues::volatile($event, $eventLeft)
+            + $this->poolValues($event, $form->placement === FormPlacement::Registration && $eventLeft === 0);
         if ($form->placement === FormPlacement::Additional) {
             foreach (RegistrationFacts::formTypes($event) as $key => $type) {
                 $values[$key] = Value::none($type);
