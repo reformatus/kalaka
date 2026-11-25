@@ -85,7 +85,7 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - "Awaits an answer" is a core-derived grid column, `awaits_answer`, like `status` and `serial`: a view lists it or
   not, any view may (it tells that something awaits, not what), and it filters (yes or no, no „Nincs válasz”),
   sorts (yes first descending) and counts (`yes`) like the other yes/no columns, all over the one SQL expression
-  `ViewQuery::awaiting()`. That is `Requests::awaitingPredicate()`: the registration is `registered` and some
-  request source's `awaitingPredicate()` holds; every other status is false, never null. It is never a filter term
+  `ViewQuery::awaiting()`. That is `Requests::awaitingCondition()`: the registration is `registered` and some
+  request source's `awaitingRule()` (declarative; core compiles it) holds; every other status is false, never null. It is never a filter term
   or a counted-members column. A grid row carries `awaits_answer` as a bool from the same expression in the page's
   one statement, whether or not the view lists the column.

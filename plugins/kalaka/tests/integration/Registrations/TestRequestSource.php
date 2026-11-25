@@ -6,16 +6,18 @@ namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
-use Kalaka\Registrations\Api\SqlPredicate;
 
 /**
  * A test source of requests, standing for the offers and aid of slice B0: the field `support` holding `church`
- * is the offer `offer:church`; the field `aid_asked`, a positive amount, is the aid request `aid`. The answers go
+ * is the offer `offer:church`; the field `aid_asked`, filled, is the aid request `aid`. The answers go
  * to `support_answer` (`approved` or `refused`) and `aid_award` (the amount), the source's own fields.
  */
 final class TestRequestSource implements RequestSource
@@ -40,7 +42,7 @@ final class TestRequestSource implements RequestSource
         if (($values['support'] ?? '') === 'church') {
             $requests[] = new Request(self::OFFER, RequestKind::Offer, 'Egyházi támogatás');
         }
-        if ((float) ($values['aid_asked'] ?? '0') > 0) {
+        if (($values['aid_asked'] ?? '') !== '') {
             $requests[] = new Request(self::AID, RequestKind::Aid, 'Támogatási kérelem');
         }
 
@@ -56,22 +58,20 @@ final class TestRequestSource implements RequestSource
 
     /**
      * The church offer: `support` holds `church` and `support_answer` is neither `approved` nor `refused`; the aid
-     * request: `aid_asked` is positive and `aid_award` is empty. Exactly `requestsOf()` and `isAnswered()`.
+     * request: `aid_asked` is filled and `aid_award` is empty. Exactly `requestsOf()` and `isAnswered()`.
      */
-    public function awaitingPredicate(int $eventId, string $fieldValues): ?SqlPredicate
+    public function awaitingRule(int $eventId): ?AwaitingRule
     {
-        $field = 'SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code AND f.field_key = %s AND ';
-
-        return new SqlPredicate(
-            '(EXISTS (' . $field . "f.value = 'church')"
-            . ' AND NOT EXISTS (' . $field . "f.value IN ('approved', 'refused')))"
-            . ' OR (EXISTS (' . $field . "f.value <> '' AND CAST(f.value AS DECIMAL(26,8)) > 0)"
-            . ' AND NOT EXISTS (' . $field . "f.value <> ''))",
+        return new AwaitingRule([
             [
-                $fieldValues, 'support', $fieldValues, 'support_answer',
-                $fieldValues, 'aid_asked', $fieldValues, 'aid_award',
-            ]
-        );
+                new FieldTest('support', FieldTestKind::OneOf, ['church']),
+                new FieldTest('support_answer', FieldTestKind::NoneOf, ['approved', 'refused']),
+            ],
+            [
+                new FieldTest('aid_asked', FieldTestKind::Filled),
+                new FieldTest('aid_award', FieldTestKind::Empty),
+            ],
+        ]);
     }
 
     public function seatPool(Request $request): ?string

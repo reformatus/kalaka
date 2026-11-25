@@ -754,6 +754,23 @@ final class ViewQuery extends Query
                 $keys,
             ];
         }
+        if ($column === 'awaits_answer') {
+            // Shown as Igen / Nem: the word matches the stored '1' (awaits) and '0' (does not) it is contained in.
+            if ($keys === null || $keys === []) {
+                return null;
+            }
+            [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
+            $parts = [];
+            $args = [];
+            foreach (['1' => $awaiting, '0' => 'NOT ' . $awaiting] as $stored => $part) {
+                if (in_array((string) $stored, $keys, true)) {
+                    $parts[] = $part;
+                    array_push($args, ...$awaitingArgs);
+                }
+            }
+
+            return ['(' . implode(' OR ', $parts) . ')', $args];
+        }
         if (str_starts_with($column, 'decision:')) {
             [$state, $kindArgs] = $this->decisionState(substr($column, 9));
             if ($keys === null) {
@@ -814,16 +831,16 @@ final class ViewQuery extends Query
 
     /**
      * "Awaits an answer" as one boolean expression over `r`: the registration is `registered` and a request source
-     * has a request waiting (`Requests::awaitingPredicate()`); false for every other registration. The column's
+     * has a request waiting (`Requests::awaitingCondition()`); false for every other registration. The column's
      * filter, sort and count and the row's mark all use this one expression. [UNAPPROVED N669]
      *
      * @return array{0: literal-string, 1: list<string|int>}
      */
     private function awaiting(int $eventId): array
     {
-        $predicate = $this->requests->awaitingPredicate($eventId, $this->table(RegistrationTables::FIELD_VALUES));
+        [$sql, $args] = $this->requests->awaitingCondition($eventId, $this->table(RegistrationTables::FIELD_VALUES));
 
-        return ['(' . $predicate->sql . ')', $predicate->args];
+        return ['(' . $sql . ')', $args];
     }
 
     private function shapeOf(HeldView $view): ViewShape

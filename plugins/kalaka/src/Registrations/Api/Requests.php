@@ -20,7 +20,7 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
- * values); the grid asks in SQL instead (`awaitingPredicate()`). [UNAPPROVED N1] [UNAPPROVED N2]
+ * values); the grid asks in SQL instead (`awaitingCondition()`). [UNAPPROVED N1] [UNAPPROVED N2]
  */
 final class Requests
 {
@@ -108,33 +108,70 @@ final class Requests
 
     /**
      * "Awaits an answer" as a condition on the registration row `r`, for the admin grid's column (filter, sort and
-     * count in SQL, over the whole view, never one page): the registration is `registered` and some source has a
-     * request awaiting an answer (`RequestSource::awaitingPredicate()`); false for every other status, so a
-     * waitlisted registration shows no awaiting (it waits until admission), and false with no source. The rule is
-     * the one of `awaits()` for a `registered` registration. No statement is run.
+     * count in SQL, over the whole view, never one page): the registration is `registered` and some source's
+     * `AwaitingRule` holds (`RequestSource::awaitingRule()`); false for every other status, so a waitlisted
+     * registration shows no awaiting (it waits until admission), and false with no rule. Core alone writes the SQL:
+     * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
+     * The rule is the one of `awaits()` for a `registered` registration. No statement is run.
      * (Access) any view may list the column; it tells that something awaits, not what. [UNAPPROVED N668]
-     * (Shapes) a core-derived grid column over a per-source SQL predicate. [UNAPPROVED N669]
+     * (Shapes) a core-derived grid column over the sources' declarative rules. [UNAPPROVED N669]
      *
      * @param string $fieldValues the participant field values table
+     * @return array{0: literal-string, 1: list<string|int>} the condition and its placeholder arguments
      */
-    public function awaitingPredicate(int $eventId, string $fieldValues): SqlPredicate
+    public function awaitingCondition(int $eventId, string $fieldValues): array
     {
         $sources = $this->sources ?? Contributions::current()->requestSources();
         /** @var list<literal-string> $parts */
         $parts = [];
         $args = [];
         foreach ($sources as $source) {
-            $predicate = $source->awaitingPredicate($eventId, $fieldValues);
-            if ($predicate !== null) {
-                $parts[] = '(' . $predicate->sql . ')';
-                array_push($args, ...$predicate->args);
+            $rule = $source->awaitingRule($eventId);
+            if ($rule === null) {
+                continue;
             }
+            $groups = [];
+            foreach ($rule->groups as $group) {
+                $tests = [];
+                foreach ($group as $test) {
+                    [$sql, $testArgs] = self::compile($test, $fieldValues);
+                    $tests[] = $sql;
+                    array_push($args, ...$testArgs);
+                }
+                $groups[] = '(' . implode(' AND ', $tests) . ')';
+            }
+            $parts[] = '(' . implode(' OR ', $groups) . ')';
         }
         if ($parts === []) {
-            return new SqlPredicate('0 = 1');
+            return ['0 = 1', []];
         }
 
-        return new SqlPredicate("r.status = 'registered' AND (" . implode(' OR ', $parts) . ')', $args);
+        return ["r.status = 'registered' AND (" . implode(' OR ', $parts) . ')', $args];
+    }
+
+    /**
+     * One field test as an `EXISTS` or `NOT EXISTS` over the field values table, in MariaDB 10.3 SQL.
+     *
+     * @return array{0: literal-string, 1: list<string>}
+     */
+    private static function compile(FieldTest $test, string $fieldValues): array
+    {
+        $exists = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
+            . ' AND f.field_key = %s AND ';
+        $base = [$fieldValues, $test->key];
+
+        return match ($test->kind) {
+            FieldTestKind::Filled => [$exists . "f.value <> '')", $base],
+            FieldTestKind::Empty => ['NOT ' . $exists . "f.value <> '')", $base],
+            FieldTestKind::OneOf => [
+                $exists . 'f.value IN (' . implode(', ', array_fill(0, count($test->values), '%s')) . '))',
+                [...$base, ...$test->values],
+            ],
+            FieldTestKind::NoneOf => [
+                'NOT ' . $exists . 'f.value IN (' . implode(', ', array_fill(0, count($test->values), '%s')) . '))',
+                [...$base, ...$test->values],
+            ],
+        };
     }
 
     /**
