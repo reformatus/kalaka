@@ -50,7 +50,11 @@ bodies, the renderer and the per-event action-mail catalogue.
 - An action mail is decided only through `Api\ActionMails::due()` inside the
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
-  looks at nothing else (not the event's state).
+  looks at nothing else (not the event's state), except the one hold: while the
+  registration is `waitlisted` (inactive), `due()` queues only the waitlist
+  mail, for every other action mail, whoever asks; the status is read from the
+  registration there, once. The admission mail ("registered") is decided after
+  the status is `registered`, so it passes. A held mail is not queued later.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
