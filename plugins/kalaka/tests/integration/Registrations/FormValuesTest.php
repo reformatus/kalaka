@@ -191,7 +191,10 @@ final class FormValuesTest extends FormsTestCase
         $this->register(['name' => 'Teszt Béla', 'email' => 'teszt.bela@example.org', 'szint' => 'kezdo']);
         self::assertSame('0', $this->facts($form)->get('event.seats_left')->data);
 
-        // A waitlisted registration takes no place and the latch keeps it at 0 after a cancellation.
+        // A waitlisted registration takes no place.
+        $this->setStatus('waitlisted');
+        self::assertSame('1', $this->facts($form)->get('event.seats_left')->data);
+        // Neither does a withdrawn one, and the latch keeps it at 0 after a cancellation.
         $this->setStatus('withdrawn');
         self::assertSame('1', $this->facts($form)->get('event.seats_left')->data);
         $this->markFull($this->event);
