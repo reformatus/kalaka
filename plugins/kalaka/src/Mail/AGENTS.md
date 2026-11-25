@@ -124,7 +124,7 @@ bodies, the renderer and the per-event action-mail catalogue.
   under the editor's check (`BodyCheck::refusal()`, the one function the editor's
   filters call too, checked ahead so its text is printed) and only after the
   actor passed the use case's access check; it assigns a first body through
-  `UpdateActionMail` and never switches a mail on. The mail commands share
+  `UpdateActionMail` and never switches a mail on. `list`, `show`, `body` and `layout` share
   `Cli\CliInput` (event ID, format, the read guard) and `CliActor::current()`.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which

@@ -163,6 +163,48 @@ final class ActionMailCommandTest extends MailBodyTestCase
         self::assertCount(3, $this->entriesOf('kalaka/update-action-mail'));
     }
 
+    public function testABodyIsStoredByteForByteEvenWhereKsesWouldChangeIt(): void
+    {
+        $event = $this->create();
+        $content = $this->paragraph(
+            'Teszt <iframe src="https://example.org/x"></iframe> <b style="color:red" onclick="x()">k</b>'
+        );
+        kses_init_filters();
+        try {
+            // The filters are on, as for a user without `unfiltered_html`: WordPress would change this content.
+            self::assertNotSame($content, apply_filters('content_save_pre', wp_slash($content)));
+
+            $options = ['file' => $this->file($content), 'title' => 'Tárgy'];
+            $this->command()->body([(string) $event, 'confirmed'], $options);
+        } finally {
+            kses_remove_filters();
+        }
+
+        self::assertSame($content, get_post($this->state($event, 'confirmed')['body_id'])->post_content);
+    }
+
+    public function testAFirstBodyTheAssignmentRefusesLeavesNoPostBehind(): void
+    {
+        global $wpdb;
+        $event = $this->create();
+        // The event is gone between the save and the assignment: the use case refuses with "not found".
+        $vanish = static function () use ($wpdb, $event): void {
+            $wpdb->delete($wpdb->prefix . 'kalaka_events', ['id' => $event]);
+            ObjectCache::clear();
+        };
+        add_action('wp_insert_post', $vanish);
+        try {
+            $this->fails(fn () => $this->command()->body(
+                [(string) $event, 'confirmed'],
+                ['file' => $this->file($this->paragraph('Szia')), 'title' => 'Tárgy']
+            ));
+        } finally {
+            remove_action('wp_insert_post', $vanish);
+        }
+
+        self::assertSame(0, $this->postCount());
+    }
+
     public function testASecondBodyUpdatesTheSamePostAndKeepsTheSubject(): void
     {
         $event = $this->create();
@@ -288,6 +330,24 @@ final class ActionMailCommandTest extends MailBodyTestCase
         \WP_CLI::reset();
         $missing = (string) ($event + 999);
         self::assertNotSame('', $this->fails(fn () => $this->command()->show([$missing, 'registered'], [])));
+    }
+
+    public function testARefusedUserLearnsNothingAboutWhetherAnEventExists(): void
+    {
+        $event = $this->create();
+        wp_set_current_user(self::factory()->user->create());
+
+        $existing = $this->fails(fn () => $this->command()->listMails([(string) $event], []));
+        \WP_CLI::reset();
+        $missing = $this->fails(fn () => $this->command()->listMails([(string) ($event + 999)], []));
+        \WP_CLI::reset();
+        $existingShow = $this->fails(fn () => $this->command()->show([(string) $event, 'confirmed'], []));
+        \WP_CLI::reset();
+        $missingShow = $this->fails(fn () => $this->command()->show([(string) ($event + 999), 'confirmed'], []));
+
+        self::assertSame($existing, $missing);
+        self::assertSame($existing, $existingShow);
+        self::assertSame($existing, $missingShow);
     }
 
     public function testAUserWithoutFullAccessChangesNothingAndOneWithItDoes(): void
