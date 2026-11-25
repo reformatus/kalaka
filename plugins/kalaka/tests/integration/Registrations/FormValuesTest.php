@@ -726,7 +726,7 @@ final class FormValuesTest extends FormsTestCase
             $this->host()->goneTypes($current, ['choice_open.modulok', 'choice_open_x', 'event.points.x'])
         );
         self::assertCount(1, $this->forms->definition($current)->chains);
-        $facts = $this->host()->facts($current);
+        $facts = $this->host()->facts($current, $this->clock->now());
         self::assertNotNull($facts);
         self::assertTrue($facts->get('choice_open.modulok')->isEmpty());
         self::assertSame(ValueType::Choice, $facts->get('choice_open.modulok')->type);
