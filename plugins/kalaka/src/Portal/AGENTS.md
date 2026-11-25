@@ -56,8 +56,8 @@ page, and the account area
   through `Payments\Api\CardPayments::start()` and nothing else: JSON gets `{url}`, a plain form post a 303 to it; a refused plain form post gets a 303 back to the same-site
   return address (else the referrer, else home), clean of any query, with the refusal's code in the flash cookie
   `kalaka_card_refusal` (`CardRefusalCookie`: the code only, a known one or the generic; 120 seconds, `HttpOnly`,
-  `SameSite=Lax`, `Secure` on https). On `template_redirect` Portal reads it once, expires it, and the active
-  registration's status read shows it once as `cardRefusal`; a reload shows nothing. A JSON refusal is the error's
+  `SameSite=Lax`, `Secure` on https). On `template_redirect`, after canonical redirection, Portal reads it once
+  and expires it; every status read of that request shows it as `cardRefusal`; a reload shows nothing. A JSON refusal is the error's
   code and generic text (anything not a Kaláka error is `kalaka_system_failure`), never a raw message.
   The bare button's class is `Forms\Api\ThemeStyle::buttonClass()`.
   It is open to the holder of the active registration (the signed cookie) and answers `no-store`.

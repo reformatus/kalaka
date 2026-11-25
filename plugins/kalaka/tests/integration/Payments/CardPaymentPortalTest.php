@@ -169,6 +169,7 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         self::assertSame(303, $response->get_status());
         self::assertSame('https://pay.example.test/1', $response->get_headers()['Location']);
+        self::assertArrayNotHasKey('Set-Cookie', $response->get_headers());
     }
 
     public function testAReturnAddressOnAnotherSiteIsNotUsed(): void
@@ -319,7 +320,24 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         self::assertSame(['', -1], $response->cookies['kalaka_card_refusal']);
         self::assertSame('kalaka_card_payment_in_flight', (new StatusRead())->forActive()?->cardRefusal);
+        // Every block of the same request sees it (the transfer block may render first).
+        self::assertSame('kalaka_card_payment_in_flight', (new StatusRead())->forActive()?->cardRefusal);
+
+        // The next request: the cookie is gone, so is the refusal.
+        CardRefusalCookie::read([], new RecordingResponse());
         self::assertNull((new StatusRead())->forActive()?->cardRefusal);
+    }
+
+    public function testTheCookieIsReadAfterCanonicalRedirection(): void
+    {
+        $found = false;
+        foreach ($GLOBALS['wp_filter']['template_redirect']->callbacks[11] ?? [] as $callback) {
+            $function = $callback['function'];
+            $found = $found || (is_array($function) && $function[0] instanceof \Kalaka\Portal\Module
+                && $function[1] === 'readCardRefusal');
+        }
+        self::assertTrue($found);
+        self::assertSame(10, has_action('template_redirect', 'redirect_canonical'));
     }
 
     public function testACookieValueThatIsNoKnownCodeIsDroppedAndExpired(): void

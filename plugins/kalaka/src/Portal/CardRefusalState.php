@@ -6,8 +6,9 @@ namespace Kalaka\Portal;
 
 /**
  * The refusal code of a card payment form post that came back to the page, read once from its flash cookie at
- * `template_redirect` (`CardRefusalCookie`): held for the request, and taken by the active registration's status
- * read, which shows it once.
+ * `template_redirect` (`CardRefusalCookie`) and held for this request only. Every status read of the request
+ * sees it (the status and transfer blocks alike, in any order); the expired cookie makes it one-shot, as the bad
+ * link's flag is.
  *
  * @internal read through `Api\StatusRead`
  */
@@ -20,12 +21,9 @@ final class CardRefusalState
         self::$code = $code;
     }
 
-    /** The code, once: a second read finds none. */
-    public static function take(): ?string
+    /** The code of this request, if a refused post came back to it. */
+    public static function code(): ?string
     {
-        $code = self::$code;
-        self::$code = null;
-
-        return $code;
+        return self::$code;
     }
 }

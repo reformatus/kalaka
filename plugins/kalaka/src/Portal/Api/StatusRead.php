@@ -61,7 +61,7 @@ final class StatusRead
         $key = ActiveRegistration::current();
 
         // The one-shot refusal of a card payment form post is shown by the page that follows it, never by a mail.
-        return $key === null ? null : $this->read($key, CardRefusalState::take());
+        return $key === null ? null : $this->read($key, CardRefusalState::code());
     }
 
     /** The registration's view, or null when it or its event does not exist. */
