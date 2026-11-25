@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Tests\Integration\Registrations;
+
+use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\Request;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Api\RequestSource;
+
+/** The grid's "awaits an answer" condition is compiled by core from the sources' rules alone. [UNAPPROVED N669] */
+final class RequestsAwaitingConditionTest extends RegistrationsTestCase
+{
+    private function source(?AwaitingRule $rule): RequestSource
+    {
+        return new class ($rule) implements RequestSource {
+            public function __construct(private readonly ?AwaitingRule $rule)
+            {
+            }
+
+            public function requestsOf(RegistrationKey $registration, array $values): array
+            {
+                return [];
+            }
+
+            public function isAnswered(Request $request, array $values): bool
+            {
+                return true;
+            }
+
+            public function awaitingRule(int $eventId): ?AwaitingRule
+            {
+                return $this->rule;
+            }
+
+            public function seatPool(Request $request): ?string
+            {
+                return null;
+            }
+
+            public function writeAnswer(
+                RegistrationKey $registration,
+                Request $request,
+                Answer $answer,
+                Context $context,
+            ): void {
+            }
+        };
+    }
+
+    public function testWithNoSourceTheConditionIsFalse(): void
+    {
+        self::assertSame(['0 = 1', []], (new Requests([]))->awaitingCondition(7, 'wp_kalaka_field_values'));
+    }
+
+    public function testASourceThatNeverAwaitsAddsNothing(): void
+    {
+        self::assertSame(['0 = 1', []], (new Requests([$this->source(null)]))->awaitingCondition(7, 't'));
+    }
+
+    public function testEachTestIsAnExistsOverTheFieldValuesWithPlaceholdersOnly(): void
+    {
+        $requests = new Requests([$this->source(new AwaitingRule([[
+            new FieldTest('a', FieldTestKind::Filled),
+            new FieldTest('b', FieldTestKind::Empty),
+            new FieldTest('c', FieldTestKind::OneOf, ['x', 'y']),
+            new FieldTest('d', FieldTestKind::NoneOf, ['z']),
+        ]]))]);
+
+        [$sql, $args] = $requests->awaitingCondition(7, 't');
+
+        $exists = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
+            . ' AND f.field_key = %s AND ';
+        self::assertSame(
+            "r.status = 'registered' AND (("
+            . '(' . $exists . "f.value <> '')"
+            . ' AND NOT ' . $exists . "f.value <> '')"
+            . ' AND ' . $exists . 'f.value IN (%s, %s))'
+            . ' AND NOT ' . $exists . 'f.value IN (%s)))))',
+            $sql
+        );
+        self::assertSame(['t', 'a', 't', 'b', 't', 'c', 'x', 'y', 't', 'd', 'z'], $args);
+    }
+
+    public function testTheGroupsAndTheSourcesAreOrredAndOnlyARegisteredRegistrationAwaits(): void
+    {
+        $one = new FieldTest('a', FieldTestKind::Filled);
+        $two = new FieldTest('b', FieldTestKind::Filled);
+        $requests = new Requests([
+            $this->source(new AwaitingRule([[$one], [$two]])),
+            $this->source(null),
+            $this->source(new AwaitingRule([[$one, $two]])),
+        ]);
+
+        [$sql] = $requests->awaitingCondition(7, 't');
+
+        self::assertSame(2, substr_count($sql, ' OR '));
+        self::assertSame(1, substr_count($sql, "r.status = 'registered'"));
+        self::assertStringStartsWith("r.status = 'registered' AND (", $sql);
+    }
+}

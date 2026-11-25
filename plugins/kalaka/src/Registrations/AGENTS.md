@@ -152,10 +152,11 @@ the waitlist and reference codes
     `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
     answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
     hides the due date and the transfer block in Portal. It never blocks confirmation.
-  - The admin grid asks the same question in SQL (`Requests::awaitingPredicate()`, no statement of its own): the
-    registration is `registered` and some source's `RequestSource::awaitingPredicate()` holds, a condition over
-    the registration row `r` and the field values that must mean exactly what the source's `requestsOf()` and
-    `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
+  - The admin grid asks the same question in SQL (`Requests::awaitingCondition()`, no statement of its own): the
+    registration is `registered` and some source's `RequestSource::awaitingRule()` holds. The rule is data (an
+    `AwaitingRule`: any-of groups of all-of `FieldTest`s: filled, empty, one of, none of, over the registration's
+    field values); core alone compiles it to SQL (no source writes SQL or gets database access) and evaluates it
+    with `matches()`, and it must mean exactly what the source's `requestsOf()` and `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
     `registered` is false there, so a waitlisted registration shows none; `awaits()` stays the fact for the
     panel and Portal.
   - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits

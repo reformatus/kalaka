@@ -10,16 +10,18 @@ use Kalaka\Admin\Api\ColumnFilter;
 use Kalaka\Admin\Api\FilterKind;
 use Kalaka\Admin\Api\HeldView;
 use Kalaka\Admin\Api\Narrowing;
+use Kalaka\Admin\Api\SearchWord;
 use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Admin\View\ViewShape;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /**
  * "Awaits an answer" is a grid column of its own with a filter, a sort and a count, all over one SQL expression
- * (`RequestSource::awaitingPredicate()`); it equals `registered` and `Requests::states()` saying a request
+ * (`RequestSource::awaitingRule()`, compiled by core); it equals `registered` and `Requests::states()` saying a request
  * awaits, for every status. The row's mark comes from the same SQL. [UNAPPROVED N668] [UNAPPROVED N669]
  */
 final class ViewAwaitsAnswerTest extends AdminTestCase
@@ -38,7 +40,7 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         '00B9' => false, // aid asked, award granted
         '00E2' => false, // removed, offer unanswered
         '00E5' => true,  // offer and aid, the offer answered, the aid not
-        '00E8' => false, // aid asked as zero: no request
+        '00E8' => false, // aid asked as an empty value: no request
     ];
 
     private function seed(): void
@@ -54,7 +56,7 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
             ['00B9', 'registered', ['aid_asked' => '5000', 'aid_award' => '3000']],
             ['00E2', 'removed', ['support' => 'church']],
             ['00E5', 'registered', ['support' => 'church', 'support_answer' => 'approved', 'aid_asked' => '2000']],
-            ['00E8', 'registered', ['aid_asked' => '0']],
+            ['00E8', 'registered', ['aid_asked' => '']],
         ];
         foreach ($rows as $index => [$code, $status, $values]) {
             $this->addRegistration(self::EVENT, $code, $status, sprintf('2026-11-30 08:%02d:00', $index));
@@ -110,6 +112,14 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
             $byStates = $status === RegistrationStatus::Registered
                 && array_filter($states, static fn ($state): bool => $state->awaits()) !== [];
 
+            $values = [];
+            foreach ((new FieldValueRepository())->forRegistration($row->key) as $value) {
+                $values[$value->fieldKey] = $value->value;
+            }
+            $rule = (new TestRequestSource())->awaitingRule(self::EVENT);
+            $byRule = $status === RegistrationStatus::Registered && $rule !== null && $rule->matches($values);
+
+            self::assertSame($byRule, $row->awaitsAnswer, $code . ' by the rule in PHP');
             self::assertSame($byStates, $row->awaitsAnswer, $code . ' by the request states');
             self::assertSame(self::EXPECTED[$code], $row->awaitsAnswer, $code . ' by the fixture');
             self::assertSame($row->awaitsAnswer ? '1' : '0', $row->values['awaits_answer'], $code);
@@ -154,6 +164,26 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         $page = $this->query()->page($this->held(), narrowing: $this->narrowing('is', true));
         self::assertSame(3, $page->total);
         self::assertSame(3, $this->query()->count($this->held(), $this->narrowing('is', true)));
+    }
+
+    public function testSearchingTheShownWordsFindsTheColumnsYesAndNo(): void
+    {
+        $this->seed();
+        $search = function (string $text, string $stored): array {
+            $page = $this->query()->page(
+                $this->held(),
+                limit: 50,
+                narrowing: new Narrowing([], [new SearchWord($text, ['awaits_answer' => [$stored]])])
+            );
+
+            return array_map(static fn ($row): string => $row->key->code, $page->rows);
+        };
+
+        $yes = $search('igen', '1');
+        sort($yes);
+        self::assertSame(['00A0', '00B3', '00E5'], $yes);
+        self::assertCount(count(self::EXPECTED) - 3, $search('nem', '0'));
+        self::assertNotContains('00A0', $search('nem', '0'));
     }
 
     public function testNoAnswerIsNotAFilterOfTheColumn(): void
