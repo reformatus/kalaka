@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * decided here. `canWithdraw` is the status read's `can.withdraw`; the page shows the button only on it. The
  * confirmation step shows while `confirming` (the page's own `?kalaka_withdraw=confirm` request), with the money
  * line from the preview's `paid` and `owedAfter` when `paid` is above zero. `refusal` is the code of a refused
- * post that came back, read once. [UNAPPROVED N765 to N777]
+ * post that came back, read once. [UNAPPROVED N765 to N779]
  *
  * PROTOTYPE: the route and `can.withdraw` exist now (#253); this
  * object is built by the walk-only spike plugin (the block render's offer, F6); `canWithdraw` and `refusal` are the

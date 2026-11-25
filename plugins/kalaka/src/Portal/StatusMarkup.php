@@ -50,21 +50,25 @@ final class StatusMarkup
 
     /**
      * [UNAPPROVED T775] The money line, second part when the preview's `owed_after` is below zero (a surplus):
-     * "Túlfizetés" is the money table's approved row label.
+     * the lektor's sentence; "túlfizetés" is the money table's approved row label.
      */
-    public const WITHDRAW_SURPLUS = 'Túlfizetés:';
+    public const WITHDRAW_SURPLUS = 'A lemondás után túlfizetésed lesz:';
 
     /** [UNAPPROVED T772] Stands in the confirmation of a registered one when the preview gave nothing. */
     public const WITHDRAW_NO_MONEY = 'A befizetett összeget most nem tudjuk megmutatni.';
 
-    /** [UNAPPROVED T770] `kalaka_withdraw_unavailable` (and, T774, `kalaka_status_act_refused`): shown only where it is true, N771. */
-    public const WITHDRAW_UNAVAILABLE = 'Ezt a jelentkezést már nem tudod lemondani. Töltsd újra az oldalt.';
+    /**
+     * [UNAPPROVED T770] `kalaka_withdraw_unavailable` (and, T774, `kalaka_status_act_refused`): shown only where
+     * it is true, N771; it shows on a page that has just reloaded, so it does not ask for a reload.
+     */
+    public const WITHDRAW_UNAVAILABLE = 'Ezt a jelentkezést már nem tudod lemondani.';
 
     /** [UNAPPROVED T771] `kalaka_withdraw_stale`: the page the form came from is out of date. */
     public const WITHDRAW_STALE = 'Az oldal időközben megváltozott. Nézd meg a jelentkezés mostani állapotát.';
 
     /** [UNAPPROVED T773] `kalaka_version_conflict`, in the registrant's wording (the lektor's alternative). */
-    public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott. Töltsd újra az oldalt, és próbáld újra.';
+    public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott.'
+        . ' Töltsd újra az oldalt, és próbáld újra.';
 
     private const MINUS = "\u{2212}";
 
@@ -183,9 +187,10 @@ final class StatusMarkup
     }
 
     /**
-     * The registrant's own withdrawal [UNAPPROVED N765 to N777, N779]: the button while `can.withdraw`;
+     * The registrant's own withdrawal [UNAPPROVED N765 to N779]: the button while `can.withdraw`;
      * on the page's own confirm request (`?kalaka_withdraw=confirm`) the confirmation step in its place, a plain form
-     * that works without script (the post is the confirmed act; Mégse is a link back to the button); a refused post's text, by code.
+     * that works without script (the post is the confirmed act). Mégse is a button of an empty GET form back to the
+     * page: a link to an in-page fragment is taken over by Divi's smooth-scroll script. A refused post's text, by code.
      * With nothing to show it renders nothing. The money line comes from the preview's values only, never from the
      * page's own rules (N773).
      */
@@ -228,9 +233,13 @@ final class StatusMarkup
             . self::withdrawMoney($offer)
             . '<input type="hidden" name="code" value="' . esc_attr($offer->code) . '">'
             . '<input type="hidden" name="return_url" value="' . esc_attr($errorUrl) . '">'
-            . '<button type="submit"' . $class . $describedBy . '>' . esc_html(self::WITHDRAW_CONFIRM) . '</button> '
-            . '<a href="' . esc_url($returnUrl . '#kalaka-withdraw') . '"' . $class . '>'
-            . esc_html(self::WITHDRAW_CANCEL) . '</a></form>' . $error . '</div>';
+            . '<div class="kalaka-withdraw-actions" style="display: flex; flex-wrap: wrap; gap: 0.75em">'
+            . '<button type="submit"' . $class . $describedBy . '>' . esc_html(self::WITHDRAW_CONFIRM) . '</button>'
+            . '<button type="submit" form="kalaka-withdraw-cancel"' . $class . '>' . esc_html(self::WITHDRAW_CANCEL)
+            . '</button></div></form>'
+            . '<form id="kalaka-withdraw-cancel" method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw')
+            . '"></form>'
+            . $error . '</div>';
     }
 
     /**
@@ -249,9 +258,15 @@ final class StatusMarkup
         }
         $line = self::WITHDRAW_PAID . ' ' . MoneyText::of($offer->paid) . '.';
         if ($offer->owedAfter !== null) {
-            $line .= $offer->owedAfter->isNegative()
-                ? ' ' . self::WITHDRAW_SURPLUS . ' ' . MoneyText::of($offer->owedAfter->negated()) . '.'
-                : ' ' . self::WITHDRAW_OWED_AFTER . ' ' . MoneyText::of($offer->owedAfter) . '.';
+            // The money table's rounding rules (#233): a surplus only when it does not count as zero; the amount
+            // owed is rounded up to the payable unit and never below zero.
+            if ($offer->owedAfter->isNegative() && !$offer->owedAfter->countsAsZero()) {
+                $line .= ' ' . self::WITHDRAW_SURPLUS . ' ' . MoneyText::of($offer->owedAfter->negated()) . '.';
+            } else {
+                $due = $offer->owedAfter->roundedUpToPayableUnit();
+                $shown = $due->isPositive() ? $due : Money::zero($due->currency());
+                $line .= ' ' . self::WITHDRAW_OWED_AFTER . ' ' . MoneyText::of($shown) . '.';
+            }
         }
 
         return '<p class="kalaka-withdraw-money">' . esc_html($line) . '</p>';
