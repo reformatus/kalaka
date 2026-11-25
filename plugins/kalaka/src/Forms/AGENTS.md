@@ -280,7 +280,7 @@ values and conditions, prefill and form links
   refusals and the window, the key problem against keys beyond the form, the
   stored values the form opens with, the person's draft (`draft()`,
   `saveDraft()`, `resolveDraftClaim()`; an event form's host also keeps the
-  handoff's and the claim's, and none in the account mode `off`; `DraftHandoff` counts each handoff request through `SubmitGuard::checkHandoff()`, the submit's budget), the submit token and the submit, the
+  handoff's and the claim's, and none in the account mode `off`, where a handoff only prefills the one page load after it (`kalaka_prefill`, five minutes, read once); `DraftHandoff` counts each handoff request through `SubmitGuard::checkHandoff()`, the submit's budget), the submit token and the submit, the
   after-submit section's keys, and whether the form needs an account
   (`accountStep()`). Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form

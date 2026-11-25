@@ -21,6 +21,7 @@ use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\DraftClaimOutcome;
+use Kalaka\Registrations\Api\RegistrantCookie;
 
 /**
  * A link's or the quiz's answers handed to a registration form, and their claim (S74, owner ruling
@@ -39,7 +40,8 @@ use Kalaka\Registrations\Api\DraftClaimOutcome;
  * - **The limit.** Every handoff request counts per client, like a submit and with its budget
  *   (`SubmitGuard::checkHandoff()`); one over the budget keeps nothing and is answered the same, with the 303.
  *   Every draft read and write goes through the event form host, which keeps none in the event's account
- *   mode `off` (N9).
+ *   mode `off` (N9); there the accepted answers are stashed for five minutes under a token in the cookie
+ *   `kalaka_prefill`, and the 303's page load opens the form with them once (N676).
  * - **The claim.** A logged-in request to such a page whose cookie names a guest draft of its form claims
  *   it: it becomes the person's draft, and the cookie is cleared. With a draft of their own, it waits for
  *   their choice (the popup) and the cookie stays, but only when the link sets a value the draft does not
@@ -62,6 +64,14 @@ final class DraftHandoff
      * page shows it once (`EventFormHost::draft()`), and the cookie is cleared, so the next load does not.
      */
     private static ?DraftClaimChoice $settled = null;
+
+    /** The cookie of a prefill-only handoff (account mode `off`, N676): five minutes, read once. */
+    public const PREFILL_COOKIE = 'kalaka_prefill';
+
+    private const PREFILL_SECONDS = 300;
+
+    /** The answers a prefill-only handoff opened this page load with. */
+    private static ?AnswerSet $prefilled = null;
 
     public function __construct(
         private readonly Forms $forms = new Forms(),
@@ -91,7 +101,7 @@ final class DraftHandoff
         $url = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '/';
         // phpcs:enable
         $user = get_current_user_id();
-        if (!self::hasWork($prefill, $user, DraftClaim::current())) {
+        if (!self::hasWork($prefill, $user, DraftClaim::current(), self::prefillToken())) {
             return;
         }
         $redirect = $this->handle($post, $prefill, $user > 0 ? new AccountActor($user) : new GuestActor());
@@ -108,9 +118,13 @@ final class DraftHandoff
      *
      * @param ?array<array-key, mixed> $prefill
      */
-    public static function hasWork(?array $prefill, int $userId, ?string $claimToken): bool
-    {
-        return $prefill !== null || ($userId > 0 && $claimToken !== null);
+    public static function hasWork(
+        ?array $prefill,
+        int $userId,
+        ?string $claimToken,
+        ?string $prefillToken = null
+    ): bool {
+        return $prefill !== null || ($userId > 0 && $claimToken !== null) || $prefillToken !== null;
     }
 
     /**
@@ -140,6 +154,11 @@ final class DraftHandoff
 
                 return;
             }
+            if ($this->host->prefillsOnly($form)) {
+                $this->takePrefill();
+
+                return;
+            }
             $this->claim($form, $actor);
         });
 
@@ -158,11 +177,49 @@ final class DraftHandoff
         if ($accepted->isEmpty()) {
             return;
         }
+        if ($this->host->prefillsOnly($form)) {
+            // No draft in this account mode (N9): the answers open the next page load only (N676).
+            $token = DraftClaim::generate();
+            $this->host->stashPrefill($token, $accepted, self::PREFILL_SECONDS);
+            $expires = Runner::current()->clock()->now()->modify('+' . self::PREFILL_SECONDS . ' seconds');
+            RegistrantCookie::set(self::PREFILL_COOKIE, $token, $expires->getTimestamp());
+            $_COOKIE[self::PREFILL_COOKIE] = $token;
+
+            return;
+        }
         $kept = $this->host->handOver($form, $definition->version, $accepted, DraftClaim::current(), $actor);
         if ($kept !== null) {
             DraftClaim::setCookie($kept[0], $kept[1]);
         }
         // A logged-in person claims it at once, on the page the 303 leads to.
+    }
+
+    /** The redirected page load: the stashed answers open the form once, and the cookie is cleared. */
+    private function takePrefill(): void
+    {
+        $token = self::prefillToken();
+        if ($token === null) {
+            return;
+        }
+        self::$prefilled = $this->host->takePrefill($token);
+        RegistrantCookie::set(self::PREFILL_COOKIE, '', -1);
+        unset($_COOKIE[self::PREFILL_COOKIE]);
+    }
+
+    /** The token of a prefill-only handoff's cookie, when the request carries a well-formed one. */
+    /** @internal the token of a prefill-only handoff's cookie, for tests */
+    public static function prefillToken(): ?string
+    {
+        // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- checked against the pattern
+        $token = isset($_COOKIE[self::PREFILL_COOKIE]) ? wp_unslash($_COOKIE[self::PREFILL_COOKIE]) : null;
+
+        return is_string($token) && DraftClaim::isValid($token) ? $token : null;
+    }
+
+    /** The answers a prefill-only handoff opens this page load with. */
+    public static function prefilledNow(): ?AnswerSet
+    {
+        return self::$prefilled;
     }
 
     private function claim(Form $form, Actor $actor): void
@@ -191,6 +248,7 @@ final class DraftHandoff
     public static function forget(): void
     {
         self::$settled = null;
+        self::$prefilled = null;
     }
 
     /** The one registration form the page places, when it can be used now; null otherwise. */

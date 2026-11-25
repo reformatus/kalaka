@@ -88,7 +88,7 @@ final class DraftPageTest extends FormsTestCase
     {
         Runner::publish($this->previous);
         $GLOBALS['wp_rest_server'] = null;
-        unset($_COOKIE[DraftClaim::COOKIE]);
+        unset($_COOKIE[DraftClaim::COOKIE], $_COOKIE[DraftHandoff::PREFILL_COOKIE]);
         DraftHandoff::forget();
         wp_set_current_user(0);
         parent::tear_down();
@@ -294,9 +294,45 @@ final class DraftPageTest extends FormsTestCase
         }
 
         wp_set_current_user(0);
-        self::assertTrue((new DraftHandoff())->handle($this->page(), ['size' => 'm'], new GuestActor()));
-        self::assertCount(1, $this->draftRows());
+    }
+
+    /** N676: in mode `off` a handoff prefills the one page load after it and stores no draft. */
+    public function testAHandoffInTheAccountModeOffPrefillsOneLoadAndStoresNoDraft(): void
+    {
+        $this->accountMode('off');
+        $page = $this->page();
+        $handoff = new DraftHandoff();
+
+        self::assertTrue($handoff->handle($page, ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
+        self::assertSame([], $this->draftRows());
         self::assertNull(DraftClaim::current());
+        self::assertTrue(DraftHandoff::hasWork(null, 0, null, DraftHandoff::prefillToken()));
+
+        // The redirected load: the form opens with the answers, once.
+        self::assertFalse($handoff->handle($page, null, new GuestActor()));
+        $html = $this->render();
+        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
+        self::assertMatchesRegularExpression('#name="note"[^>]* value="a kvízből"#', $html);
+        self::assertArrayNotHasKey('draftUrl', $this->context($html));
+        self::assertSame([], $this->draftRows());
+
+        // A reload keeps nothing: the cookie is cleared and the stash is gone.
+        DraftHandoff::forget();
+        self::assertFalse(DraftHandoff::hasWork(null, 0, null, DraftHandoff::prefillToken()));
+        self::assertStringNotContainsString('a kvízből', $this->render());
+    }
+
+    /** N675 holds in mode `off` too. */
+    public function testTheOffModeHandoffCountsAgainstTheBudgetAndStashesNothingOverIt(): void
+    {
+        $this->accountMode('off');
+        $handoff = new DraftHandoff();
+        for ($i = 0; $i < SubmitGuard::ADDRESS_LIMIT; $i++) {
+            self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
+        }
+        unset($_COOKIE[DraftHandoff::PREFILL_COOKIE]);
+        self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
+        self::assertArrayNotHasKey(DraftHandoff::PREFILL_COOKIE, $_COOKIE);
     }
 
     public function testAGuestHasNoAutosaveRoute(): void

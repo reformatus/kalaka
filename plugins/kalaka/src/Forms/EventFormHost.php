@@ -164,10 +164,14 @@ final class EventFormHost implements FormHost
      * A registration form's draft (S74): the logged-in person's own, or a link's or the quiz's guest draft
      * the cookie names. An additional form has none (re-asked with S60).
      *
-     * None in the event's account mode `off` (S15-6, N9). [UNAPPROVED N9]
+     * None in the event's account mode `off` (S15-6, N9), where a handoff's answers open the one page load
+     * after it (`DraftHandoff::prefilledNow()`). [UNAPPROVED N9] [UNAPPROVED N676]
      */
     public function draft(Form $form): FormDraft
     {
+        if ($this->prefillsOnly($form)) {
+            return new FormDraft(DraftHandoff::prefilledNow() ?? new AnswerSet());
+        }
         if (!$this->keepsDrafts($form)) {
             return new FormDraft();
         }
@@ -226,6 +230,37 @@ final class EventFormHost implements FormHost
     public function settledChoice(Form $form, int $userId, string $token): ?DraftClaimChoice
     {
         return $this->drafts->settledChoice($form->eventId, $form->id, $userId, $token);
+    }
+
+    /**
+     * Whether a handoff to the form only prefills one page load, with no draft stored: a registration form of
+     * an event whose account mode is `off` (N9, N676).
+     */
+    public function prefillsOnly(Form $form): bool
+    {
+        $event = $form->placement === FormPlacement::Registration ? $this->event($form) : null;
+
+        return $event !== null && $event->accountMode === AccountMode::Off;
+    }
+
+    /** Keeps a prefill-only handoff's answers for `$seconds` under the token (a transient). [UNAPPROVED N676] */
+    public function stashPrefill(string $token, AnswerSet $accepted, int $seconds): void
+    {
+        set_transient(self::prefillKey($token), $accepted->toJson(), $seconds);
+    }
+
+    /** The stashed answers, once: they are gone after this read. [UNAPPROVED N676] */
+    public function takePrefill(string $token): ?AnswerSet
+    {
+        $stored = get_transient(self::prefillKey($token));
+        delete_transient(self::prefillKey($token));
+
+        return is_string($stored) ? AnswerSet::fromJson($stored) : null;
+    }
+
+    private static function prefillKey(string $token): string
+    {
+        return 'kalaka_prefill_' . substr(DraftClaim::hash($token), 0, 32);
     }
 
     /** Whether the form has drafts: a registration form of an event whose account mode is not `off` (N9). */
