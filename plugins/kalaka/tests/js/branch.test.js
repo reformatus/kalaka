@@ -223,6 +223,76 @@ describe("dates as the server reads them", () => {
   });
 });
 
+describe("datetimes as the server reads them", () => {
+  const literals = require("../fixtures/datetime-literals.json");
+  const scope = { typeOf: () => "datetime", choices: () => null };
+  const dateScope = { typeOf: () => "date", choices: () => null };
+
+  test.each(literals.valid)("a datetime literal passes (%s)", (literal) => {
+    expect(checkCondition(equals("nap", literal), scope)).toBeNull();
+    expect(checkCondition(equals("nap", literal), dateScope)).toBeNull();
+  });
+
+  // A bare day is no datetime literal, but a datetime key takes it as a day (its own test below).
+  test.each(literals.invalid.filter((literal) => literal !== "2026-12-01"))(
+    "a datetime literal is refused (%s)",
+    (literal) => {
+      expect(checkCondition(equals("nap", literal), scope)).toEqual({
+        problem: "value",
+        key: "nap",
+      });
+    },
+  );
+
+  test("a datetime key takes a day, every operator but contains, and a reference", () => {
+    expect(checkCondition(equals("nap", "2026-12-01"), scope)).toBeNull();
+    expect(
+      checkCondition(
+        {
+          match: "all",
+          items: [{ key: "nap", operator: "lessThan", value: { ref: "now" } }],
+        },
+        scope,
+      ),
+    ).toBeNull();
+    expect(
+      checkCondition(
+        {
+          match: "all",
+          items: [
+            { key: "nap", operator: "contains", value: "2026-12-01" },
+          ],
+        },
+        scope,
+      ),
+    ).toEqual({ problem: "value", key: "nap" });
+  });
+
+  test("a reference may name a datetime key of the scope", () => {
+    const events = {
+      typeOf: (key) =>
+        ({ nap: "date", "event.registration_closes": "datetime" })[key] ?? null,
+      choices: () => null,
+    };
+    const reference = (key) => ({
+      match: "all",
+      items: [
+        { key: "nap", operator: "lessThan", value: { key, days: -7 } },
+      ],
+    });
+    expect(
+      checkCondition(reference("event.registration_closes"), events),
+    ).toBeNull();
+  });
+
+  test("the server prints the two registration keys as datetimes", () => {
+    expect(scopeOf(form, "elseif").typeOf("event.registration_closes")).toBe(
+      "datetime",
+    );
+    expect(scopeOf(form, "elseif").typeOf("event.start")).toBe("date");
+  });
+});
+
 describe("the scope of where a condition stands", () => {
   const withSection = editor([
     { clientId: "name", name: "kalaka/name-field", attributes: { key: "nev" } },
