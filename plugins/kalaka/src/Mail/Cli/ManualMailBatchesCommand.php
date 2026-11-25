@@ -61,9 +61,9 @@ final class ManualMailBatchesCommand
     public function __invoke(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
+            CliInput::fullAccess();
             $eventId = CliInput::existingEventId($args);
             $format = CliInput::format($assocArgs);
-            CliInput::fullAccess();
             if (isset($args[1])) {
                 if (preg_match('/\A[1-9][0-9]*\z/', $args[1]) !== 1) {
                     throw new CommandFailure('The batch ID must be a positive whole number.');
