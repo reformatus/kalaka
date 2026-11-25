@@ -44,7 +44,12 @@ page, and the account area
   it `registered_at`, the time the registration last became `registered`.
 - The blocks have no look of their own: core preset classes and `portal.css`,
   which is structural only; the texts read correctly without either. Every
-  text is the frozen spec's or approved.
+  text is the frozen spec's or approved, except the registrant's withdrawal
+  (T765 to T770, marked `[UNAPPROVED]` in `StatusMarkup`), a prototype until the
+  owner approves it.
+- The registrant's withdrawal is presentation only: `StatusMarkup` shows the
+  button on the server's `can.withdraw` and a confirmation step whose post is the
+  confirmed act; the page decides nothing and holds no rule. [UNAPPROVED N765 to N777]
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
 - The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)
