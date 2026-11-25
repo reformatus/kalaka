@@ -146,6 +146,7 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 .kg-status-acts { margin: 8px 0 4px; }
 .kg-act-capacity { margin: 0 0 12px; padding: 0; list-style: none; }
 .kg-act-capacity li { margin: 0 0 4px; overflow-wrap: anywhere; }
+.kg-act-figure { white-space: nowrap; } /* N716: „6 / 6” never breaks inside */
 .kg-act-money { margin: 0 0 16px; }
 .kg-act-money h3 { font-size: 13px; margin: 0 0 4px; }
 .kg-act-money p { margin: 6px 0 0; }

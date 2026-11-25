@@ -115,7 +115,8 @@ export function retentionLineOf( preview ) {
  * payer's figures with their words, then the retention and refund sentences, as the dialog shows them, each ended
  * with a full stop when it has none. '' while there is nothing. The warnings are not here: the notice speaks its
  * own text (WordPress's `speak`), and the notices are outside the description, so they are heard once.
- * [UNAPPROVED N722]
+ * The payer's sentence „Fizető: <név>, Befizetett …, Jelenlegi tartozás …, Tartozás mentés után …” is a composed
+ * pattern of its own. [UNAPPROVED N722] [UNAPPROVED T724]
  */
 export function spokenOf( act, { seats, rows, retention } ) {
 	const end = ( text ) => ( /[.!?]$/.test( text ) ? text : `${ text }.` );
@@ -124,6 +125,7 @@ export function spokenOf( act, { seats, rows, retention } ) {
 		parts.push( STATUS_ACTS.moneyHeading );
 		rows.forEach( ( row ) =>
 			parts.push(
+				// [UNAPPROVED T724]
 				`${ MONEY.payer }: ${ row.payer }, ${ MONEY.paid } ${ row.paid }, ${ MONEY.balanceNow } ${ row.now }, ${ MONEY.balanceAfter } ${ row.after }`
 			)
 		);

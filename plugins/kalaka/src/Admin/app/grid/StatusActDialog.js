@@ -3,9 +3,9 @@
  * capacity lines of the seats with a limit, the server's warnings, the money effect per payer when the user may
  * see money) and the reason field. A failed act keeps the dialog and the reason and shows the server's text;
  * while it runs the dialog does not close and a second submit is ignored. Everything the preview shows is the
- * server's, chosen by its own values; no warning text is written here. The text, the capacity lines, the warnings
- * and the money section are the dialog's description (`aria-describedby`), so a screen reader hears what the act
- * does. [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
+ * server's, chosen by its own values; no warning text is written here. The text with the capacity lines and the money
+ * section are the dialog's description (`aria-describedby`); the warnings are outside it, each notice speaks its own
+ * (N719), and a polite live region says the capacity and money once the preview answers (N722). [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
  * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719] [UNAPPROVED N721] [UNAPPROVED N722]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
@@ -28,7 +28,13 @@ import {
 import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
 
 // The description is the text and capacity (first id) and the money section (second id); the warnings are not in it,
-// the live region says them once. [UNAPPROVED N719] [UNAPPROVED N722]
+// each warning notice speaks itself once, through WordPress's own `speak` region (not N722's region). [UNAPPROVED N719] [UNAPPROVED N722]
+// The line's „x / y” figure, kept on one line at 320 px (N716): [ text, figure ] or [ the line ].
+const capacityParts = ( line ) => {
+	const found = /^(.*: )(\d+ \/ \d+)$/.exec( line );
+	return found ? [ found[ 1 ], found[ 2 ] ] : [ line ];
+};
+
 const DESCRIPTION_IDS = 'kg-act-description kg-act-money';
 
 /**
@@ -130,7 +136,15 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 						<ul className="kg-act-capacity">
 							{ seats.map( ( seat ) => (
 								<li key={ seat.key }>
-									{ seat.line }
+									{ capacityParts( seat.line ).map( ( part, index ) =>
+										index === 1 ? (
+											<span key="figure" className="kg-act-figure">
+												{ part }
+											</span>
+										) : (
+											part
+										)
+									) }
 								</li>
 							) ) }
 						</ul>
