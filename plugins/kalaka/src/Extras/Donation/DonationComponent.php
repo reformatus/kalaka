@@ -30,7 +30,7 @@ final class DonationComponent implements FeeComponent
     /** The key of the participant field that is the event's donation, fixed by Kaláka. */
     public const KEY = 'adomany';
 
-    /** The donation field's title, the declarer's text. [UNAPPROVED T1] */
+    /** The donation field's title, the declarer's text. */
     public const FIELD_TITLE = 'Adomány';
 
     public function id(): string
