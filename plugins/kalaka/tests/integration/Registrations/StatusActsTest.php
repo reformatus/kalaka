@@ -20,6 +20,7 @@ use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Pricing\Api\MoneySettings;
@@ -679,27 +680,53 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertFalse($preview['money_hidden']);
     }
 
-    public function testThePreviewTakesNoReasonAndOnlyARealRemoveNeedsOne(): void
+    public function testAPreviewNeedsNoReasonAndIgnoresOneAndOnlyARealRemoveRequiresIt(): void
     {
-        foreach (StatusAct::cases() as $act) {
-            $code = $act === StatusAct::Admit ? '00A5' : '00A0';
-            if ($act === StatusAct::Restore) {
-                $this->act(StatusAct::Withdraw, '00A0');
-            }
-            try {
-                $this->act($act, $code, ['preview' => true, 'reason' => 'x']);
-                self::fail('A preview takes no reason: ' . $act->value);
-            } catch (InvalidInput) {
-                // Refused before anything else: the status is as it was.
-                self::assertNotSame($act->target()->value, $this->row($code)['status']);
-            }
+        $this->act(StatusAct::Withdraw, '00A0');
+        $cases = [
+            [StatusAct::Admit, '00A5'],
+            [StatusAct::Withdraw, '00A2'],
+            [StatusAct::Remove, '00A2'],
+            [StatusAct::Restore, '00A0'],
+        ];
+        foreach ($cases as [$act, $code]) {
+            $without = $this->act($act, $code, ['preview' => true]);
+            $with = $this->act($act, $code, ['preview' => true, 'reason' => 'Megírt indok']);
+            self::assertTrue($without['changed'], $act->value);
+            self::assertSame($without, $with, $act->value);
         }
-        // A remove preview needs none; a real remove still does.
-        $this->act(StatusAct::Restore, '00A0');
-        $preview = $this->act(StatusAct::Remove, '00A0', ['preview' => true]);
-        self::assertTrue($preview['changed']);
+        // The previews changed nothing; a real remove still needs a reason.
+        self::assertSame('registered', $this->row('00A2')['status']);
         $this->expectException(InvalidInput::class);
-        $this->act(StatusAct::Remove, '00A0');
+        $this->act(StatusAct::Remove, '00A2');
+    }
+
+    public function testALeavingPreviewListsTheSeatsItFreesWithTheCountAfter(): void
+    {
+        $this->capacity(5);
+        foreach (['00A0', '00A2'] as $code) {
+            $this->addValue($this->event, $code, 'tier', 'a');
+            $this->seat($code, $this->poolA);
+        }
+
+        $preview = $this->act(StatusAct::Withdraw, '00A0', ['preview' => true]);
+
+        $bySeat = [];
+        foreach ($preview['seats'] as $seat) {
+            $bySeat[(string) $seat['pool']] = $seat;
+        }
+        // The others hold the same seats after the act as before it, less this registration's own.
+        self::assertSame('released', $bySeat['tier.a']['outcome']);
+        self::assertSame(1, $bySeat['tier.a']['taken']);
+        self::assertSame(1, $bySeat['tier.a']['taken_after']);
+        self::assertSame(1, $bySeat['event']['taken']);
+        self::assertSame(1, $bySeat['event']['taken_after']);
+        self::assertSame([], $preview['warnings']);
+        // The real act then leaves exactly that count.
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame(1, $this->seats->held($this->poolA));
+        // A waitlisted registration holds nothing to free.
+        self::assertSame([], $this->act(StatusAct::Remove, '00A5', ['preview' => true])['seats']);
     }
 
     public function testAPreviewWritesNoAuditEntryAndARealActAndARealRepeatDo(): void
@@ -802,6 +829,7 @@ final class StatusActsTest extends StaffEditTestCase
     {
         require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
         \WP_CLI::reset();
+        \WP_CLI::$answersYes = true;
         $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
         $this->capacity(1);
 
@@ -809,8 +837,9 @@ final class StatusActsTest extends StaffEditTestCase
 
         self::assertSame('registered', $this->row('00A5')['status']);
         $kinds = array_map(static fn (array $call): string => $call[0], \WP_CLI::$calls);
-        self::assertSame(['warning', 'success', 'line'], array_slice($kinds, 0, 3));
-        self::assertStringContainsString('registered', (string) \WP_CLI::$calls[1][1]);
+        // The preview's warning, the question, then the act's own warning, its outcome and its seats.
+        self::assertSame(['warning', 'confirm', 'warning', 'success', 'line'], array_slice($kinds, 0, 5));
+        self::assertStringContainsString('registered', (string) \WP_CLI::$calls[3][1]);
 
         \WP_CLI::reset();
         try {
@@ -829,6 +858,36 @@ final class StatusActsTest extends StaffEditTestCase
         }
         $command->withdraw([(string) $this->event, '00A2'], ['reason' => 'Telefon']);
         self::assertSame('withdrawn', $this->row('00A2')['status']);
+    }
+
+    public function testTheCommandPreviewsAsksFirstAndADeclineChangesNothingAndYesSkipsTheQuestion(): void
+    {
+        require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
+        \WP_CLI::reset();
+        $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
+        $this->pay('00A0', '3000');
+        $entries = count($this->entries());
+
+        \WP_CLI::$decline = true;
+        try {
+            $command->withdraw([(string) $this->event, '00A0'], ['reason' => 'Telefon']);
+            self::fail('A declined question stops the command.');
+        } catch (\RuntimeException) {
+            self::assertSame('registered', $this->row('00A0')['status']);
+        }
+        self::assertCount($entries, $this->entries(), 'The preview writes nothing and the act never ran.');
+        $kinds = array_map(static fn (array $call): string => $call[0], \WP_CLI::$calls);
+        self::assertSame(['line', 'confirm', 'error'], $kinds);
+        self::assertStringContainsString('3000', (string) \WP_CLI::$calls[0][1]);
+
+        // --yes skips the question although the operator would have declined.
+        $command->withdraw([(string) $this->event, '00A0'], ['reason' => 'Telefon', 'yes' => true]);
+
+        self::assertSame('withdrawn', $this->row('00A0')['status']);
+        // A repeat is only reported, with no question.
+        \WP_CLI::reset();
+        $command->withdraw([(string) $this->event, '00A0'], []);
+        self::assertSame(['success'], array_map(static fn (array $call): string => $call[0], \WP_CLI::$calls));
     }
 
     // --- retention ---
@@ -950,6 +1009,34 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame(Retention::Nothing, $settings->retention($this->event));
         self::assertSame(['0.00000000', '8000.00000000', '-8000.00000000'], $this->money());
         self::assertNotSame([], $report->items);
+    }
+
+    public function testThePreviewOfANewRetentionRuleShowsTheLeaversAndItsCountIsWhatTheApplyTouches(): void
+    {
+        $this->pay('00A0');
+        $this->act(StatusAct::Withdraw, '00A0');
+        $settings = new MoneySettings($this->runner);
+        $proposed = new ProposedMoneySettings(retention: Retention::Nothing);
+
+        $rows = $settings->preview($this->event, $proposed);
+
+        $byCode = [];
+        foreach ($rows as $row) {
+            $byCode[$row->registration->code] = $row;
+        }
+        // The leaver is in the preview, and its retention line goes: it owed 8000 now and would owe nothing.
+        self::assertArrayHasKey('00A0', $byCode);
+        self::assertSame('8000.00000000', $byCode['00A0']->before['participant']->amount());
+        self::assertSame('0.00000000', ($byCode['00A0']->after['participant'] ?? Money::zero(Currency::HUF))->amount());
+        self::assertTrue($byCode['00A0']->changes());
+        // Without a proposed rule the leavers are left out, as the apply does not touch them.
+        $codes = array_map(
+            static fn ($row): string => $row->registration->code,
+            $settings->preview($this->event, new ProposedMoneySettings())
+        );
+        self::assertNotContains('00A0', $codes);
+        $report = $settings->apply($this->event, $proposed, new CliActor(null));
+        self::assertCount(count($rows), $report->items);
     }
 
     public function testNoMoneyIsEverRefundedByALeaving(): void

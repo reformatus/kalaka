@@ -361,7 +361,9 @@ such as lunch or a donation.
   saves the settings, then re-evaluates each of them in its own transaction,
   and the materializer writes the difference as `charge` lines. Its report
   lists the failed registrations, with retry and skip; a failed or skipped
-  one converges on its next evaluation, since the settings are saved.
+  one converges on its next evaluation, since the settings are saved. A
+  change of the retention rule reaches the withdrawn and removed registrations
+  too: the preview shows them and the apply re-evaluates them.
 
 ## Materializer
 

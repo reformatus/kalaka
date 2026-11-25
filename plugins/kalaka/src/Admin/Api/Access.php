@@ -15,6 +15,7 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
@@ -39,6 +40,28 @@ final class Access
     public function isFull(Actor $actor): bool
     {
         return AdminAccess::isFull($actor);
+    }
+
+    /**
+     * The one money-view read: whether the actor may see the money of the registration. Full access, or a held view
+     * that contains it and whose grant carries money-view or money-write (the owner's ruling 2026-11-18: money-write
+     * includes money-view). The detail read and the status-act preview both ask it. [UNAPPROVED N670]
+     */
+    public function mayViewMoney(Actor $actor, RegistrationKey $key): bool
+    {
+        if ($this->isFull($actor)) {
+            return true;
+        }
+        foreach ($this->holding($actor, $key) as $held) {
+            if (
+                in_array(Ledger::VIEW_MONEY, $held['actions'], true)
+                || in_array(Ledger::RECORD_MONEY, $held['actions'], true)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -49,8 +49,8 @@ use Kalaka\Registrations\RegistrationRepository;
  *
  * - Input: the registration and a reason (at most 500 characters; required for a real remove, optional for the
  *   other real acts, kept in the audit entry's reason). [UNAPPROVED N514] With `preview` the act answers what it
- *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview takes no reason,
- *   and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
+ *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview needs no reason
+ *   and ignores one, and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
  *   status the act does not allow is `StatusActRefused`. [UNAPPROVED N512]
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
@@ -69,10 +69,12 @@ use Kalaka\Registrations\RegistrationRepository;
  * Returns `{changed, status, over_capacity, seats, warnings}`: `seats` lists each pool the act took again (a claimed
  * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
  * warning when any went over. The preview adds, per seat, `taken` (held by other registrations), `taken_after` (the
- * pool's count once the act has taken the seat) and `limit`, and for withdraw, remove and restore `money`: per payer
- * `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the actor has no money-view, `money` is
- * null; false with a null `money`: the fee cannot be priced). Withdraw and remove add `retention`, the event's rule
- * (`everything_paid` or `nothing`), null for a holder without money-view. [UNAPPROVED N530-N533, N535, N537, N538]
+ * pool's count once the act is done: `taken + 1` for an act that takes the seat, `taken` for one that frees it) and
+ * `limit`; a leaving act lists the pools the registration holds now, each with outcome `released`. Withdraw, remove
+ * and restore add `money`: per payer `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the
+ * actor has no money-view, `money` is null; false with a null `money`: the fee cannot be priced). Withdraw and
+ * remove add `retention`, the event's rule (`everything_paid` or `nothing`), null for a holder without money-view.
+ * [UNAPPROVED N530-N533, N535, N537, N538]
  */
 abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
@@ -142,10 +144,10 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         $act = $this->act();
         $key = new RegistrationKey((int) $input['event_id'], (string) $input['code']);
         // The reason: required for a real removal, checked on the trimmed text (as the confirmation acts do). A
-        // preview takes none: it writes nothing, so there is nothing to give a reason for.
+        // preview does not need one and ignores one it is given (the dialog may preview after staff typed it).
         $preview = $this->isPreview($input);
         $reason = isset($input['reason']) ? trim((string) $input['reason']) : '';
-        if ($preview ? isset($input['reason']) : $act->reasonRequired() && $reason === '') {
+        if (!$preview && $act->reasonRequired() && $reason === '') {
             throw new InvalidInput();
         }
 
@@ -177,6 +179,9 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
     {
         $taken = [];
         $eventOutcome = SeatOutcome::Held;
+        if (!$act->enters()) {
+            $taken = $this->previewReleased($event, $key);
+        }
         if ($act->enters()) {
             foreach ($this->seats->inLockOrder($this->claims($event, $key)) as $claim) {
                 $taken[] = $this->previewSeat($claim->pool, $claim->fieldKey, $key);
@@ -190,7 +195,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         }
         $result = self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
         if ($act !== StatusAct::Admit) {
-            $hidden = !$this->mayViewMoney($key, $context);
+            $hidden = !$this->access->mayViewMoney($context->actor(), $key);
             $result['money'] = $hidden ? null : $this->previewMoney($act, $key, $context);
             $result['money_hidden'] = $hidden;
             if (!$act->enters()) {
@@ -199,6 +204,42 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         }
 
         return $result;
+    }
+
+    /**
+     * The pools a leaving act frees: the ones the registration holds now (claimed pools, the event's places, an
+     * assignment's option), each with the count of the others (`taken`), which is also the count after.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function previewReleased(Event $event, RegistrationKey $key): array
+    {
+        $pools = [];
+        foreach ($this->seats->inLockOrder($this->claims($event, $key)) as $claim) {
+            $pools[] = [$claim->pool, $claim->fieldKey];
+        }
+        $pools[] = [$this->seats->eventPool($key->eventId), null];
+        foreach ($this->assignmentSeats->pools($key) as $pool) {
+            $pools[] = [$pool, null];
+        }
+        $released = [];
+        foreach ($pools as [$pool, $field]) {
+            if (!$this->seats->holds($pool, $key)) {
+                continue;
+            }
+            $others = $this->seats->held($pool) - 1;
+            $released[] = [
+                'pool' => $pool->key(),
+                'label' => $pool->label(),
+                'field' => $field,
+                'outcome' => 'released',
+                'taken' => $others,
+                'taken_after' => $others,
+                'limit' => $pool->limit(),
+            ];
+        }
+
+        return $released;
     }
 
     /**
@@ -255,22 +296,6 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         }
 
         return $rows;
-    }
-
-    private function mayViewMoney(RegistrationKey $key, Context $context): bool
-    {
-        $actor = $context->actor();
-        if ($this->access->isFull($actor)) {
-            return true;
-        }
-        foreach ($this->access->holding($actor, $key) as $held) {
-            $actions = $held['actions'];
-            if (in_array(Ledger::VIEW_MONEY, $actions, true) || in_array(Ledger::RECORD_MONEY, $actions, true)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function previewOutcome(SeatPool $pool, RegistrationKey $key): SeatOutcome

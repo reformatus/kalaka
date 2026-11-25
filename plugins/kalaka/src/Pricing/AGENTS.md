@@ -85,7 +85,9 @@ retention and the materializer
   `Evaluations` (Pricing never marks a registration touched itself); one
   failure never stops the others, a failed one is flagged "evaluation failed",
   and it converges on its next evaluation. The preview refuses what the apply
-  refuses (a negative price).
+  refuses (a negative price). A proposed retention rule adds the withdrawn and removed registrations to both, and
+  retention is applied in one place, `FeeComposition::withRetention()`, which the materializer's composition and
+  the preview share.
 - Once confirmed, a registered registration never becomes unconfirmed because
   amounts change later, an apply included (owner rule, 2026-11-14), nor by a
   refund (the owner's ruling 2026-11-19): only staff's unconfirm

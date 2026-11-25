@@ -112,7 +112,7 @@ final class RegistrationDetail
         };
         // The owner's ruling 2026-11-18: money-write includes money-view.
         $record = $carried(Ledger::RECORD_MONEY);
-        $viewMoney = $carried(Ledger::VIEW_MONEY) || $record;
+        $viewMoney = $this->access->mayViewMoney($actor, $key);
         // [UNAPPROVED A1] one money-write action carries a payment, a refund, a correction, a manual charge
         // and a manual discount.
         // The owner's topic 1 ruling, H3: confirmation applies only to a registered registration.

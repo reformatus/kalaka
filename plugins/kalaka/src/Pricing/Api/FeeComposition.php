@@ -89,16 +89,25 @@ final class FeeComposition
      * nobody owes more than they paid and nothing is refunded. A registration that is `registered` or `waitlisted`
      * has none; its line, if one was recorded, reads zero and the materializer reverses it.
      *
+     * The one place retention is applied: the materializer's composition and the money settings preview both come
+     * here. `$rule` is the rule to apply (a proposed one in the preview); null reads the event's saved rule.
+     *
      * @param array<string, array<string, Money>> $composed
      * @return array<string, array<string, Money>>
      */
-    private function withRetention(RegistrationFacts $facts, Currency $currency, array $composed): array
-    {
+    public function withRetention(
+        RegistrationFacts $facts,
+        Currency $currency,
+        array $composed,
+        ?Retention $rule = null,
+    ): array {
         if ($facts->status !== RegistrationStatus::Withdrawn && $facts->status !== RegistrationStatus::Removed) {
             return $composed;
         }
-        $record = $this->retention->find($facts->registration->eventId);
-        $rule = $record === null ? Retention::default() : $record->rule;
+        if ($rule === null) {
+            $record = $this->retention->find($facts->registration->eventId);
+            $rule = $record === null ? Retention::default() : $record->rule;
+        }
         $paid = [];
         foreach ($this->ledger->paymentFactsOf($facts->registration) as $fact) {
             $paid[$fact->payer] = ($paid[$fact->payer] ?? Money::zero($currency))->minus($fact->amount);

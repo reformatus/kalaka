@@ -46,9 +46,10 @@ the waitlist and reference codes
   `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
   and queue the "registered" mail on admission only. Withdraw and remove free
   seats only through `Seats::releaseAll()`. The preview (`preview: true`)
-  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it takes no
-  `reason`. It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the count once the
-  act has taken it) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
+  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it needs no
+  `reason` and ignores one. It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
+  count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
+  pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
   effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`) with
   `money_hidden` (no money-view: `money` is null; false with a null `money`: unpriceable); withdraw and remove add
   the event's `retention` rule; `money` and `retention` are only for a holder of money-view.

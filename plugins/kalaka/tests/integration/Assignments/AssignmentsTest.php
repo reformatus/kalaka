@@ -740,7 +740,15 @@ final class AssignmentsTest extends RegistrationsTestCase
             $input + ['preview' => true],
             $actor
         );
-        self::assertSame([], $preview['seats']);
+        // A leaving act lists the seats it frees: the option's count after is the other registration's alone.
+        $released = array_values(array_filter(
+            $preview['seats'],
+            static fn (array $seat): bool => $seat['pool'] === $pool->key()
+        ));
+        self::assertSame([['released', 1, 1]], array_map(
+            static fn (array $seat): array => [$seat['outcome'], $seat['taken'], $seat['taken_after']],
+            $released
+        ));
     }
 
     private function place(RegistrationKey $key, int $set, string $option): void

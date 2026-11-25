@@ -45,6 +45,7 @@ final class MoneySettings
         private readonly Registrations $registrations = new Registrations(),
         private readonly FixedPriceRepository $prices = new FixedPriceRepository(),
         private readonly RetentionRepository $retention = new RetentionRepository(),
+        private readonly FeeComposition $composition = new FeeComposition(),
     ) {
     }
 
@@ -63,8 +64,9 @@ final class MoneySettings
     }
 
     /**
-     * Composes every open registration of the event under the current and the proposed settings, without
-     * writing. Plain reads, outside any use case.
+     * Composes the registrations the apply would re-evaluate (`keysOf()`) under the current and the proposed
+     * settings, without writing: retention included, through the one `FeeComposition::withRetention()`, so a
+     * proposed retention rule shows on the registrations that left too. Plain reads, outside any use case.
      *
      * @return list<PreviewRow>
      * @throws NotFound when there is no such event
@@ -80,14 +82,23 @@ final class MoneySettings
         $next = $this->components->list($proposed);
 
         $rows = [];
-        foreach ($this->registrations->openOf($eventId) as $key) {
+        foreach ($this->keysOf($eventId, $proposed) as $key) {
             $facts = $this->registrations->factsOf($key, $event, $now);
             if ($facts === null) {
                 continue;
             }
             try {
-                $before = $this->composer->compose($facts, $event->currency, $now, $current);
-                $after = $this->composer->compose($facts, $event->currency, $now, $next);
+                $before = $this->composition->withRetention(
+                    $facts,
+                    $event->currency,
+                    $this->composer->compose($facts, $event->currency, $now, $current)
+                );
+                $after = $this->composition->withRetention(
+                    $facts,
+                    $event->currency,
+                    $this->composer->compose($facts, $event->currency, $now, $next),
+                    $proposed->retention
+                );
                 $before = self::byPayer($before, $event->currency);
                 $after = self::byPayer($after, $event->currency);
                 $rows[] = new PreviewRow($key, $facts->status, $before, $after);
@@ -145,7 +156,22 @@ final class MoneySettings
             $this->runner()->run($save->useCase, $save->input, $actor);
         }
 
-        // A new retention rule changes what the registrations that left owe, so they are evaluated too.
+        $items = [];
+        foreach ($this->keysOf($eventId, $proposed) as $key) {
+            $items[] = $this->retry($key, $actor);
+        }
+
+        return new ApplyReport($items);
+    }
+
+    /**
+     * The registrations an apply of the proposed settings re-evaluates, and the preview shows: the open ones, and,
+     * when a new retention rule is proposed, the withdrawn and removed ones too, since it changes what they owe.
+     *
+     * @return list<RegistrationKey>
+     */
+    private function keysOf(int $eventId, ProposedMoneySettings $proposed): array
+    {
         $keys = $this->registrations->openOf($eventId);
         if ($proposed->retention !== null) {
             foreach ($this->registrations->statusesOf($eventId) as $code => $status) {
@@ -154,12 +180,8 @@ final class MoneySettings
                 }
             }
         }
-        $items = [];
-        foreach ($keys as $key) {
-            $items[] = $this->retry($key, $actor);
-        }
 
-        return new ApplyReport($items);
+        return $keys;
     }
 
     /**

@@ -148,6 +148,9 @@ final class RegistrationCommand
      * [--reason=<text>]
      * : Why, up to 500 characters. Written to the audit entry.
      *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
      * @param list<string> $args
      * @param array<string, mixed> $assoc
      */
@@ -172,6 +175,9 @@ final class RegistrationCommand
      * [--reason=<text>]
      * : Why, up to 500 characters. Written to the audit entry.
      *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
      * @param list<string> $args
      * @param array<string, mixed> $assoc
      */
@@ -195,6 +201,9 @@ final class RegistrationCommand
      *
      * --reason=<text>
      * : Why, 1 to 500 characters. Written to the audit entry.
+     *
+     * [--yes]
+     * : Do not ask for confirmation.
      *
      * @param list<string> $args
      * @param array<string, mixed> $assoc
@@ -221,6 +230,9 @@ final class RegistrationCommand
      * [--reason=<text>]
      * : Why, up to 500 characters. Written to the audit entry.
      *
+     * [--yes]
+     * : Do not ask for confirmation.
+     *
      * @param list<string> $args
      * @param array<string, mixed> $assoc
      */
@@ -244,7 +256,27 @@ final class RegistrationCommand
         }
         $reason = isset($assoc['reason']) && is_string($assoc['reason']) ? $assoc['reason'] : null;
         $actor = new CliActor(get_current_user_id() ?: null);
-        $result = $this->actions->run($act, new RegistrationKey((int) $args[0], $args[1]), $reason, $actor);
+        $key = new RegistrationKey((int) $args[0], $args[1]);
+        // The act itself says what it would do (the same refusals, nothing written); then the operator confirms.
+        $preview = $this->actions->run($act, $key, null, $actor, true);
+        if ($preview['changed'] !== true) {
+            \WP_CLI::success($args[1] . ' is already ' . (string) $preview['status'] . '.');
+
+            return;
+        }
+        foreach ((array) $preview['warnings'] as $warning) {
+            \WP_CLI::warning((string) $warning);
+        }
+        foreach ((array) ($preview['money'] ?? []) as $row) {
+            $row = (array) $row;
+            \WP_CLI::line(
+                'Money, ' . (string) $row['payer'] . ': paid ' . (string) $row['paid'] . ', balance '
+                . (string) $row['balance_now'] . ' now, ' . (string) $row['balance_after'] . ' after.'
+            );
+        }
+        \WP_CLI::confirm($act->value . ' ' . $args[1] . '?', $assoc);
+
+        $result = $this->actions->run($act, $key, $reason, $actor);
         $line = $args[1] . ($result['changed'] === true ? ': ' : ' is already ') . (string) $result['status'] . '.';
         if ($result['over_capacity'] === true) {
             \WP_CLI::warning(AssignmentSets::FULL_WARNING);
