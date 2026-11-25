@@ -69,7 +69,7 @@ final class SubmitRegistration implements PublicUseCase
      * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
      *     until the token's repeat rule has been applied under the lock, then thrown
      * @param list<SeatClaim> $seatClaims the limited choices of the answers, each a pool whose seat a
-     *     `registered` submit takes (a waitlisted one holds none)
+     *     `registered` submit takes (a waitlisted one may claim no limited pool)
      * @param string|null $fingerprint of the answers as sent (`fingerprint()`); null (not given) never matches an
      *     earlier submit's, so a repeat is refused
      */
@@ -186,13 +186,15 @@ final class SubmitRegistration implements PublicUseCase
             $error = new SystemFailure(null, new \LogicException('A published event without a capacity.'));
             throw $error;
         }
-        $status = RegistrationStatus::Registered;
-        if ($event->isFull) {
-            $status = RegistrationStatus::Waitlisted;
-        } elseif ($this->seats->held($this->seats->eventPool($eventId)) >= $event->capacity) {
-            // The first counted registration that does not fit sets the latch, before any lower lock.
-            $this->capacity->markFull($context, $eventId);
-            $status = RegistrationStatus::Waitlisted;
+        // The one "goes to the waitlist" read, latch-aware, under the event lock: the form side reads the same.
+        $goesToWaitlist = $this->seats->left($this->seats->eventPool($eventId)) === 0;
+        $status = $goesToWaitlist ? RegistrationStatus::Waitlisted : RegistrationStatus::Registered;
+        if ($goesToWaitlist) {
+            $this->refuseLimitedClaims();
+            if (!$event->isFull) {
+                // The first counted registration that does not fit sets the latch, before any lower lock.
+                $this->capacity->markFull($context, $eventId);
+            }
         }
 
         // The pool rows come before the registration row in the lock order; a full pool refuses the submit.
@@ -238,6 +240,27 @@ final class SubmitRegistration implements PublicUseCase
         );
 
         return SubmitResult::created($key, $status);
+    }
+
+    /**
+     * A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): for it
+     * everything limited acts as full, so any claim on a pool with a limit refuses the submit with the "full" text
+     * on that choice, before anything is written. Unlimited pools are not refused. [UNAPPROVED N5]
+     *
+     * @throws InvalidAnswers
+     */
+    private function refuseLimitedClaims(): void
+    {
+        $refused = [];
+        foreach ($this->seatClaims as $claim) {
+            if ($claim->pool->limit() !== null) {
+                $refused[$claim->fieldKey] = SeatsFull::TEXT;
+            }
+        }
+        if ($refused !== []) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- field keys and a fixed text
+            throw new InvalidAnswers($refused);
+        }
     }
 
     /**

@@ -38,7 +38,8 @@ use Kalaka\Tests\Integration\Foundation\TestItemRepository;
 
 /**
  * A submit that chooses a limited option takes its seat when it becomes `registered` and is refused, with
- * nothing saved, when the pool is full (topic 15, Q2). A waitlisted submit holds no seat and is not refused (A3).
+ * nothing saved, when the pool is full (topic 15, Q2). A submit that lands on the waitlist may choose
+ * nothing limited (O4/A3).
  */
 final class SubmitSeatsTest extends FormsTestCase
 {
@@ -228,18 +229,73 @@ final class SubmitSeatsTest extends FormsTestCase
         $this->submit();
     }
 
-    public function testAWaitlistedSubmitWithAFullChoiceIsNotRefusedAndHoldsNoSeat(): void
+    public function testAFullEventRefusesASubmitWithALimitedChoiceAndWritesNothing(): void
+    {
+        // Owner ruling 2026-11-25 (O4/A3): the event is full, so everything limited acts as full, though the option
+        // itself has places left.
+        $this->openEvent(1, 5);
+        $first = $this->submitClaiming([]);
+        self::assertSame(RegistrationStatus::Registered, $first->status);
+        self::assertSame(0, $this->seats->left($this->seats->eventPool($this->event)));
+
+        try {
+            $this->submit();
+            self::fail('The limited choice should have refused the waitlisted submit.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['modul' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+        }
+
+        self::assertSame(1, $this->registrationCount());
+        self::assertSame(0, $this->seats->held($this->pool()));
+        self::assertSame(1, $this->submissionCount());
+    }
+
+    public function testALatchedEventRefusesALimitedChoiceEvenWithPlacesFree(): void
+    {
+        $this->openEvent(2, 5);
+        $this->submitClaiming([]);
+        $this->inAdminRun(function (Context $context): void {
+            (new \Kalaka\Events\Api\EventCapacity())->markFull($context, $this->event);
+        });
+        self::assertSame(0, $this->seats->left($this->seats->eventPool($this->event)));
+
+        $this->expectException(InvalidAnswers::class);
+        $this->submit();
+    }
+
+    public function testAFullEventPutsASubmitWithOnlyUnlimitedChoicesOnTheWaitlist(): void
     {
         $this->openEvent(1, 1);
-        $first = $this->submit();
-        self::assertSame(RegistrationStatus::Registered, $first->status);
+        $this->submitClaiming([]);
+        [$nine] = $this->quotaPools();
+        $free = new TestQuotaPool($this->event, 'tier.free', 'kalaka_test_items', 1, null);
 
-        // The event is full, and so is the option: the second lands on the waitlist, not refused (A3).
-        $second = $this->submit();
+        $second = $this->submitClaiming([new SeatClaim('a', $free)]);
 
         self::assertSame(RegistrationStatus::Waitlisted, $second->status);
-        self::assertFalse($this->seats->holds($this->pool(), $second->registration));
-        self::assertSame(1, $this->seats->held($this->pool()));
+        self::assertFalse($this->seats->holds($free, $second->registration));
+        self::assertSame(2, $this->registrationCount());
+        self::assertSame(0, $this->seats->held($nine));
+    }
+
+    public function testAnEventWithRoomStillTakesTheLimitedChoice(): void
+    {
+        $this->openEvent(5, 1);
+
+        $result = $this->submit();
+
+        self::assertSame(RegistrationStatus::Registered, $result->status);
+        self::assertTrue($this->seats->holds($this->pool(), $result->registration));
+    }
+
+    private function submissionCount(): int
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_submissions WHERE event_id = %d",
+            $this->event
+        ));
     }
 
     /**
