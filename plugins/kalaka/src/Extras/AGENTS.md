@@ -44,10 +44,10 @@ plugin. It holds two fee components at the extras stage and is core money
   charge's field fixes its decimals at 0, and a form field that joins it holds none
   (`SharedKeyCheck`'s `extension_decimals`) [UNAPPROVED N6]. Every declaration stores
   `extras` (its module's ID) as the field's declarer (`declared_by`) and marks it money relevant (locked after its first
-  write; `adomany` too) [UNAPPROVED N301], and a key another declarer's `extension` field holds is refused, by the
-  one check `ParticipantFields::checkDeclarable()` (`ChargeField` calls it) [UNAPPROVED N5]. A charge taken out
+  write; `adomany` too), and a key another declarer's `extension` field holds is refused, by the
+  one check `ParticipantFields::checkDeclarable()` (`ChargeField` calls it). A charge taken out
   leaves its declared field in place, as every kind of item does; refusing the removal of a charge an open
-  registration chose comes with CF4 [UNAPPROVED N3]. The participant field whose key equals the charge's key calls
+  registration chose comes with CF4. The participant field whose key equals the charge's key calls
   it, **by the field's type**: a consent counts the
   amount once (a `1`), a number field whose stored decimals are 0 counts it a
   positive whole `n` times, and every other type charges nobody. A charge key

@@ -34,7 +34,7 @@ keeps of what it knows about its participants
   `Forms::participantValues()` (S25), and a money setting's save, which
   checks the conditions and the fields it names (S25, S26). `checkDeclarable()` reads inside a transaction too: a plain
   read of the same table with no lock, which the money settings' saves (the charges' and the ladder's) run before
-  the declaration re-checks the same rule under its lock [UNAPPROVED N5].
+  the declaration re-checks the same rule under its lock.
 - A field's type settings (the number field's bounds, decimals and affixes)
   are its JSON `settings` column, stored from the form on declare; the
   module keeps them and does not interpret them.
