@@ -59,7 +59,17 @@ final class DraftClaim
         RegistrantCookie::set(
             self::COOKIE,
             $token ?? '',
-            $token === null || $expires === null ? -1 : $expires->getTimestamp(),
+            self::cookieExpiry($token, $expires),
         );
+    }
+
+    /** The cookie's expiry: -1 deletes it (no token), 0 is a session cookie (a token without an expiry). */
+    public static function cookieExpiry(?string $token, ?\DateTimeImmutable $expires): int
+    {
+        if ($token === null) {
+            return -1;
+        }
+
+        return $expires === null ? 0 : $expires->getTimestamp();
     }
 }

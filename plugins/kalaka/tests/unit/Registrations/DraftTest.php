@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Unit\Registrations;
 
 use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Draft\Draft;
 use PHPUnit\Framework\TestCase;
 
@@ -42,5 +43,15 @@ final class DraftTest extends TestCase
         self::assertFalse($own->isGuestOf(7));
         self::assertFalse($own->isUsableGuest($now));
         self::assertFalse($this->draft(null, null)->isUsableGuest($now));
+    }
+
+    public function testOnlyANullTokenDeletesTheClaimCookie(): void
+    {
+        $at = new \DateTimeImmutable('2026-11-24 10:00:00', new \DateTimeZone('UTC'));
+
+        self::assertSame(-1, DraftClaim::cookieExpiry(null, $at));
+        self::assertSame(-1, DraftClaim::cookieExpiry(null, null));
+        self::assertSame(0, DraftClaim::cookieExpiry('token', null));
+        self::assertSame($at->getTimestamp(), DraftClaim::cookieExpiry('token', $at));
     }
 }

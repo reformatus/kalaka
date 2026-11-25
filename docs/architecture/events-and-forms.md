@@ -235,7 +235,7 @@ flowchart TB
   is kept and only the answers of what shows are sent; a ticked option that
   stops being offered is ticked again when it returns. A guest's answers
   are not kept across a reload; a logged-in person's are, in their draft,
-  which the autosave keeps
+  which the autosave keeps, unless the event's account mode is off
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **While the server is asked** (a re-fetch, a page check, a submit) the
   form is dimmed and its fields take no input; after 2 seconds a spinner in
@@ -273,7 +273,7 @@ flowchart TB
   its content and cannot be sent, and the server refuses a submit while one
   shows. The contact email and the display name never sit on a conditional
   page. A guest's answers are not kept across a reload; a logged-in
-  person's are, in their draft
+  person's are, in their draft, unless the event's account mode is off
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you
