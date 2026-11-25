@@ -59,7 +59,9 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 		focusOpener();
 	};
 
-	if ( ! can || ( items.length === 0 && notices.length === 0 ) ) {
+	// The read carries the requests only to a holder of the answer ability, so the block shows whenever it has items;
+	// `can.answer_request` (false while the registration is not registered, N655) only gives the button. [UNAPPROVED N858]
+	if ( items.length === 0 && notices.length === 0 ) {
 		return null;
 	}
 	return (
@@ -71,17 +73,21 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 						{ items.map( ( item ) => (
 							<li key={ item.id }>
 								<span>
-									{ item.label }: { stateText( item, detail.requests.currency ) }
+									{ item.label }
+									{ stateText( item, detail.requests.currency ) !== '' &&
+										`: ${ stateText( item, detail.requests.currency ) }` }
 								</span>
-								<Button
-									variant="secondary"
-									onClick={ ( e ) => {
-										opener.current = e.currentTarget;
-										setOpen( item );
-									} }
-								>
-									{ item.state === 'awaiting' ? REQUESTS.answer : REQUESTS.change }
-								</Button>
+								{ can && item.state !== 'inactive' && (
+									<Button
+										variant="secondary"
+										onClick={ ( e ) => {
+											opener.current = e.currentTarget;
+											setOpen( item );
+										} }
+									>
+										{ item.state === 'awaiting' ? REQUESTS.answer : REQUESTS.change }
+									</Button>
+								) }
 							</li>
 						) ) }
 					</ul>
