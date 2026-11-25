@@ -136,7 +136,7 @@ final class GridRoutes
             $rows[] = [
                 'key' => $row->key->code,
                 'values' => (object) $row->values,
-                'awaits_answer' => $row->awaitsAnswer, // [UNAPPROVED N351]
+                'awaits_answer' => $row->awaitsAnswer, // [UNAPPROVED N669]
             ];
         }
         $response = new \WP_REST_Response($rows);

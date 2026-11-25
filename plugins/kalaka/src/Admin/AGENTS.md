@@ -82,6 +82,10 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
   access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
-- A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
-  statement for the page's field values, none without a request source); it is a row value, not a column, so it is
-  not filterable, sortable or summable.
+- "Awaits an answer" is a core-derived grid column, `awaits_answer`, like `status` and `serial`: a view lists it or
+  not, any view may (it tells that something awaits, not what), and it filters (yes or no, no „Nincs válasz”),
+  sorts (yes first descending) and counts (`yes`) like the other yes/no columns, all over the one SQL expression
+  `ViewQuery::awaiting()`. That is `Requests::awaitingPredicate()`: the registration is `registered` and some
+  request source's `awaitingPredicate()` holds; every other status is false, never null. It is never a filter term
+  or a counted-members column. A grid row carries `awaits_answer` as a bool from the same expression in the page's
+  one statement, whether or not the view lists the column.

@@ -20,7 +20,7 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
- * values). [UNAPPROVED N1] [UNAPPROVED N2]
+ * values); the grid asks in SQL instead (`awaitingPredicate()`). [UNAPPROVED N1] [UNAPPROVED N2]
  */
 final class Requests
 {
@@ -79,52 +79,62 @@ final class Requests
 
     /**
      * Whether the registration has a request its source says is not answered (from its answer field); false for a
-     * withdrawn or removed registration.
+     * withdrawn or removed registration. One statement (the field values, which hold every answer); none with no
+     * source or for a withdrawn or removed registration.
      */
     public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
     {
-        return $this->awaitsOf($registration->eventId, [$registration->code => $status])[$registration->code];
-    }
-
-    /**
-     * "Awaits an answer" for several of one event's registrations at once, by the one rule of `awaits()`: the
-     * cost is fixed whatever the count: with no source, or when every registration is withdrawn or removed, no
-     * statement; otherwise one, the field values, which hold every answer. (Shapes) grid rows carry
-     * awaits_answer: bool, PHP-computed per page; not filterable, sortable or summable (alt: a
-     * per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
-     *
-     * @param array<string, RegistrationStatus> $statusByCode the registrations' codes with their statuses
-     * @return array<string, bool> by code, every given code
-     */
-    public function awaitsOf(int $eventId, array $statusByCode): array
-    {
-        $awaits = array_fill_keys(array_map('strval', array_keys($statusByCode)), false);
         $sources = $this->sources ?? Contributions::current()->requestSources();
-        $live = [];
-        foreach ($statusByCode as $code => $status) {
-            if ($status !== RegistrationStatus::Withdrawn && $status !== RegistrationStatus::Removed) {
-                $live[] = (string) $code;
-            }
-        }
-        if ($sources === [] || $live === []) {
-            return $awaits;
+        if (
+            $sources === []
+            || $status === RegistrationStatus::Withdrawn
+            || $status === RegistrationStatus::Removed
+        ) {
+            return false;
         }
 
         $values = [];
-        foreach ($this->values->forRegistrations($eventId, $live) as $value) {
-            $values[$value->registration->code][$value->fieldKey] = $value->value;
+        foreach ($this->values->forRegistration($registration) as $value) {
+            $values[$value->fieldKey] = $value->value;
         }
-        foreach ($live as $code) {
-            $key = new RegistrationKey($eventId, $code);
-            foreach ($this->requestsOf($key, $values[$code] ?? [], $sources) as [$request, $source]) {
-                if (!$source->isAnswered($request, $values[$code] ?? [])) {
-                    $awaits[$code] = true;
-                    break;
-                }
+        foreach ($this->requestsOf($registration, $values, $sources) as [$request, $source]) {
+            if (!$source->isAnswered($request, $values)) {
+                return true;
             }
         }
 
-        return $awaits;
+        return false;
+    }
+
+    /**
+     * "Awaits an answer" as a condition on the registration row `r`, for the admin grid's column (filter, sort and
+     * count in SQL, over the whole view, never one page): the registration is `registered` and some source has a
+     * request awaiting an answer (`RequestSource::awaitingPredicate()`); false for every other status, so a
+     * waitlisted registration shows no awaiting (it waits until admission), and false with no source. The rule is
+     * the one of `awaits()` for a `registered` registration. No statement is run.
+     * (Access) any view may list the column; it tells that something awaits, not what. [UNAPPROVED N668]
+     * (Shapes) a core-derived grid column over a per-source SQL predicate. [UNAPPROVED N669]
+     *
+     * @param string $fieldValues the participant field values table
+     */
+    public function awaitingPredicate(int $eventId, string $fieldValues): SqlPredicate
+    {
+        $sources = $this->sources ?? Contributions::current()->requestSources();
+        /** @var list<literal-string> $parts */
+        $parts = [];
+        $args = [];
+        foreach ($sources as $source) {
+            $predicate = $source->awaitingPredicate($eventId, $fieldValues);
+            if ($predicate !== null) {
+                $parts[] = '(' . $predicate->sql . ')';
+                array_push($args, ...$predicate->args);
+            }
+        }
+        if ($parts === []) {
+            return new SqlPredicate('0 = 1');
+        }
+
+        return new SqlPredicate("r.status = 'registered' AND (" . implode(' OR ', $parts) . ')', $args);
     }
 
     /**
