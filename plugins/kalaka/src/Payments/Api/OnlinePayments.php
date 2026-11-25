@@ -23,8 +23,8 @@ final class OnlinePayments
     public function recordPaid(PaidRequest $paid): void
     {
         Runner::current()->run(
-            new RecordOnlinePayment($paid),
-            $this->input($paid->providerId, $paid->requestRef),
+            new RecordOnlinePayment(),
+            RecordOnlinePayment::inputOf($paid),
             new SystemActor()
         );
     }
@@ -33,15 +33,9 @@ final class OnlinePayments
     public function recordRefunded(RefundedRequest $refund): void
     {
         Runner::current()->run(
-            new RecordOnlineRefund($refund),
-            $this->input($refund->providerId, $refund->requestRef),
+            new RecordOnlineRefund(),
+            RecordOnlineRefund::inputOf($refund),
             new SystemActor()
         );
-    }
-
-    /** @return array<string, string> */
-    private function input(string $providerId, string $requestRef): array
-    {
-        return ['provider' => $providerId, 'request' => $requestRef];
     }
 }

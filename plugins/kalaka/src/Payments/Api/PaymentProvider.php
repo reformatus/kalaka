@@ -26,6 +26,12 @@ interface PaymentProvider
      */
     public function payUrl(PaymentRequest $request, string $returnUrl): string;
 
-    /** The state of the registration's latest request; null when it has none or the latest was cancelled. */
+    /**
+     * The state of the registration's latest request; null when it has none or the latest was cancelled.
+     * `Paid` means paid and not yet reported as recorded: once the provider's report of it has been recorded
+     * (`OnlinePayments::recordPaid()` returned), the provider answers null or a newer request, never the
+     * recorded one as `Paid`. Core still checks the ledger for that request's lines (`OpenPayment::$requestRef`)
+     * before it refuses a start for a paid request.
+     */
     public function latestOf(RegistrationKey $key): ?OpenPayment;
 }

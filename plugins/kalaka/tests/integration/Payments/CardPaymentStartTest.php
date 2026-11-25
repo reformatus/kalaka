@@ -7,6 +7,7 @@ namespace Kalaka\Tests\Integration\Payments;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Database\NamedLock;
+use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Payments\Api\CardPaymentInFlight;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
 use Kalaka\Payments\Api\CardPayments;
@@ -133,10 +134,10 @@ final class CardPaymentStartTest extends PortalTestCase
         $this->charge($key, '5000');
         $since = new \DateTimeImmutable('2026-11-30 09:30:00');
 
-        $this->provider->latest = new OpenPayment(OpenPaymentState::Pending, $since);
+        $this->provider->latest = new OpenPayment(OpenPaymentState::Pending, $since, '501');
         (new CardPayments())->start($key);
         foreach ([OpenPaymentState::Processing, OpenPaymentState::Paid] as $state) {
-            $this->provider->latest = new OpenPayment($state, $since);
+            $this->provider->latest = new OpenPayment($state, $since, '501');
             try {
                 (new CardPayments())->start($key);
                 self::fail('Nothing refused it.');
@@ -144,9 +145,70 @@ final class CardPaymentStartTest extends PortalTestCase
                 self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());
             }
         }
-        $this->provider->latest = new OpenPayment(OpenPaymentState::Failed, $since);
+        $this->provider->latest = new OpenPayment(OpenPaymentState::Failed, $since, '501');
         (new CardPayments())->start($key);
         self::assertCount(2, $this->provider->requests);
+    }
+
+    public function testAPaidRequestWhoseLinesAreRecordedDoesNotBlockANewStart(): void
+    {
+        $key = $this->stored('12A3');
+        $this->charge($key, '5000');
+        $this->record($this->line(
+            $key,
+            LineKind::Payment,
+            '-5000',
+            'online:fake:order:501:71',
+            paidAt: '2026-11-30 09:30:00',
+            sourceType: 'fake_order',
+            source: '501'
+        ));
+        $this->provider->latest = new OpenPayment(
+            OpenPaymentState::Paid,
+            new \DateTimeImmutable('2026-11-30 09:30:00'),
+            '501'
+        );
+        // Paid and recorded, and nothing is due: refused for that, not as in flight.
+        try {
+            (new CardPayments())->start($key);
+            self::fail('Nothing refused it.');
+        } catch (CardPaymentUnavailable) {
+            self::assertSame([], $this->provider->requests);
+        }
+
+        $this->charge($key, '3000');
+        $url = (new CardPayments())->start($key);
+
+        self::assertSame('https://pay.example.test/1', $url);
+        self::assertSame('3000', rtrim(rtrim($this->provider->requests[0]->lines[0]->amount->amount(), '0'), '.'));
+    }
+
+    public function testAPaidRequestWhoseLinesAreNotRecordedIsRefusedAsInFlight(): void
+    {
+        $key = $this->stored('12A3');
+        $this->charge($key, '5000');
+        // Another request's lines are recorded, not this one's.
+        $this->record($this->line(
+            $key,
+            LineKind::Payment,
+            '-2000',
+            'online:fake:order:500:71',
+            paidAt: '2026-11-29 09:30:00',
+            sourceType: 'fake_order',
+            source: '500'
+        ));
+        $this->provider->latest = new OpenPayment(
+            OpenPaymentState::Paid,
+            new \DateTimeImmutable('2026-11-30 09:30:00'),
+            '501'
+        );
+
+        try {
+            (new CardPayments())->start($key);
+            self::fail('Nothing refused it.');
+        } catch (CardPaymentInFlight) {
+            self::assertSame([], $this->provider->requests);
+        }
     }
 
     private function otherConnection(): \mysqli
@@ -239,8 +301,8 @@ final class CardPaymentStartTest extends PortalTestCase
 
         $this->expectException(CardPaymentUnavailable::class);
         $this->runner->run(
-            new StartCardPayment($key, null, home_url('/'), status: $read),
-            [],
+            new StartCardPayment(null, home_url('/'), status: $read),
+            ['event_id' => $key->eventId, 'code' => $key->code],
             new SecretLinkActor($key)
         );
     }
@@ -294,8 +356,8 @@ final class CardPaymentStartTest extends PortalTestCase
 
         $this->expectException(\Kalaka\Foundation\Api\Error\PermissionDenied::class);
         $this->runner->run(
-            new StartCardPayment($mine, null, home_url('/')),
-            [],
+            new StartCardPayment(null, home_url('/')),
+            ['event_id' => $mine->eventId, 'code' => $mine->code],
             new SecretLinkActor($other)
         );
     }

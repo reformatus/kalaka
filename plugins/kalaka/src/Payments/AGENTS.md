@@ -34,6 +34,12 @@ use cases that record what it reports
   transaction, never in the use case; a start holds a named lock per registration from the read of the latest
   request until the pay URL is made, and is refused as `CardPaymentInFlight` while the latest request is in flight
   at the provider (processing, or paid and not yet recorded) or another start of the registration holds the lock.
+  `Paid` means paid and not yet reported as recorded: a provider answers null or a newer request once its report
+  is recorded, and core also checks the ledger for the request's lines (key prefix
+  `online:<provider>:order:<request>:`) before it treats a paid request as in flight.
+- The use cases take everything they act on in their schema-checked input (the registration of a start; the whole
+  report of a recording), and name their registrations from it; the ref patterns of the schemas come from
+  `Api\OnlineRefs`. A report names each item ref once.
 - An item or request ref is `[a-z0-9_.-]`, so the idempotency key is never lowercased and two refs never share one.
 - The registration as `12:47K3` (event ID, a colon, the reference code) is composed and parsed only here
   (`Api\RegistrationRef`).

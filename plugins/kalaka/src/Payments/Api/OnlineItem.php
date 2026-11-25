@@ -24,7 +24,7 @@ final readonly class OnlineItem
     ) {
         if (
             !Payer::isValid($payer) || !$amount->isPositive()
-            || preg_match('/\A[a-z0-9_.-]{1,40}\z/', $itemRef) !== 1
+            || preg_match(OnlineRefs::REF_PATTERN, $itemRef) !== 1
         ) {
             throw new \InvalidArgumentException('An online item has a payer, a positive amount and an item ref.');
         }

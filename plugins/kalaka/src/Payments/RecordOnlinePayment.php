@@ -4,39 +4,41 @@ declare(strict_types=1);
 
 namespace Kalaka\Payments;
 
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Ledger\Api\LineKind;
+use Kalaka\Payments\Api\OnlineRefs;
 use Kalaka\Payments\Api\PaidRequest;
 
 /**
  * Records a paid payment request: one negative `payment` line per item, source `<provider>_order`, key
- * `online:<provider>:order:<request>:<item>`, `paidAt` the request's. Run as the system by `OnlinePayments`.
- * Returns how many lines it wrote.
+ * `online:<provider>:order:<request>:<item>`, `paidAt` the request's. Run as the system by `OnlinePayments`,
+ * which builds the input from the report (`inputOf()`). Returns how many lines it wrote.
  */
 final class RecordOnlinePayment extends RecordOnline
 {
-    public function __construct(private readonly PaidRequest $paid)
-    {
-        parent::__construct();
-    }
-
     public static function name(): string
     {
         return 'kalaka/record-online-payment';
     }
 
-    protected function providerId(): string
+    /**
+     * @return array<string, mixed>
+     */
+    public static function inputOf(PaidRequest $paid): array
     {
-        return $this->paid->providerId;
+        return [
+            ...self::reportInput($paid->providerId, $paid->requestRef, $paid->items),
+            'paid_at' => Instant::toStorage($paid->paidAt),
+        ];
     }
 
-    protected function requestRef(): string
+    /** @return array{properties: array<string, array<string, mixed>>, required: list<string>} */
+    protected function extraSchema(): array
     {
-        return $this->paid->requestRef;
-    }
-
-    protected function items(): array
-    {
-        return $this->paid->items;
+        return [
+            'properties' => ['paid_at' => ['type' => 'string', 'pattern' => OnlineRefs::INSTANT_SCHEMA]],
+            'required' => ['paid_at'],
+        ];
     }
 
     protected function kind(): LineKind
@@ -44,13 +46,15 @@ final class RecordOnlinePayment extends RecordOnline
         return LineKind::Payment;
     }
 
-    protected function keyPart(): string
+    /** @param array<string, mixed> $input */
+    protected function keyPart(array $input): string
     {
-        return 'order:' . $this->paid->requestRef;
+        return 'order:' . $input['request'];
     }
 
-    protected function at(): \DateTimeImmutable
+    /** @param array<string, mixed> $input */
+    protected function at(array $input): \DateTimeImmutable
     {
-        return $this->paid->paidAt;
+        return Instant::fromStorage((string) $input['paid_at']);
     }
 }

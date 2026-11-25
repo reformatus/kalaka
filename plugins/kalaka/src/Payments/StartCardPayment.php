@@ -35,7 +35,6 @@ final class StartCardPayment implements PortalUseCase
      *                       before the run
      */
     public function __construct(
-        private readonly RegistrationKey $key,
         private readonly ?string $email,
         private readonly string $fallbackUrl,
         private readonly bool $inFlight = false,
@@ -55,15 +54,24 @@ final class StartCardPayment implements PortalUseCase
         return [
             'type' => 'object',
             'properties' => [
+                'event_id' => ['type' => 'integer', 'minimum' => 1],
+                'code' => ['type' => 'string', 'pattern' => '^[0-9]{2}[AKBEGJTZFLRSXI][0-9]{1,13}\\z'],
                 'return_url' => ['type' => 'string', 'maxLength' => 2000],
             ],
+            'required' => ['event_id', 'code'],
             'additionalProperties' => false,
         ];
     }
 
     public function registrations(array $input): array
     {
-        return [$this->key];
+        return [self::keyOf($input)];
+    }
+
+    /** @param array<string, mixed> $input */
+    private static function keyOf(array $input): RegistrationKey
+    {
+        return new RegistrationKey((int) $input['event_id'], (string) $input['code']);
     }
 
     /**
@@ -73,14 +81,15 @@ final class StartCardPayment implements PortalUseCase
      */
     public function execute(array $input, Context $context): StartedCardPayment
     {
-        if (!$this->registrations->lock($this->key, $context)) {
+        $key = self::keyOf($input);
+        if (!$this->registrations->lock($key, $context)) {
             throw new CardPaymentUnavailable();
         }
-        $amount = $this->status->payableNow($this->key);
+        $amount = $this->status->payableNow($key);
         if ($amount === null) {
             throw new CardPaymentUnavailable();
         }
-        $event = $this->events->find($this->key->eventId);
+        $event = $this->events->find($key->eventId);
         if ($event === null) {
             throw new NotFound();
         }
@@ -94,11 +103,11 @@ final class StartCardPayment implements PortalUseCase
             new PaymentRequest(
                 [
                     new RequestLine(
-                        $this->key,
+                        $key,
                         Payer::PARTICIPANT,
                         $amount,
                         // [UNAPPROVED T80] the order item's name; "{event name}: befizetés ({code})"
-                        $event->name . ': befizetés (' . $this->key->code . ')'
+                        $event->name . ': befizetés (' . $key->code . ')'
                     ),
                 ],
                 $amount->currency(),

@@ -4,40 +4,48 @@ declare(strict_types=1);
 
 namespace Kalaka\Payments;
 
+use Kalaka\Foundation\Api\Time\Instant;
 use Kalaka\Ledger\Api\LineKind;
+use Kalaka\Payments\Api\OnlineRefs;
 use Kalaka\Payments\Api\RefundedRequest;
 
 /**
  * Records a refund of a paid request: one positive `refund` line per item, source `<provider>_order` (the
  * request), key `online:<provider>:refund:<refund>:<item>`, `paidAt` the refund's. Run as the system by
- * `OnlinePayments`. Returns how many lines it wrote. A refund never unconfirms: confirmation reads payments
- * only through its own rule.
+ * `OnlinePayments`, which builds the input from the report (`inputOf()`). Returns how many lines it wrote. A
+ * refund never unconfirms: confirmation reads payments only through its own rule.
  */
 final class RecordOnlineRefund extends RecordOnline
 {
-    public function __construct(private readonly RefundedRequest $refund)
-    {
-        parent::__construct();
-    }
-
     public static function name(): string
     {
         return 'kalaka/record-online-refund';
     }
 
-    protected function providerId(): string
+    /**
+     * @return array<string, mixed>
+     */
+    public static function inputOf(RefundedRequest $refund): array
     {
-        return $this->refund->providerId;
+        return [
+            ...self::reportInput($refund->providerId, $refund->requestRef, $refund->items),
+            'refund' => $refund->refundRef,
+            'refunded_at' => Instant::toStorage($refund->refundedAt),
+            'allocated' => $refund->allocated,
+        ];
     }
 
-    protected function requestRef(): string
+    /** @return array{properties: array<string, array<string, mixed>>, required: list<string>} */
+    protected function extraSchema(): array
     {
-        return $this->refund->requestRef;
-    }
-
-    protected function items(): array
-    {
-        return $this->refund->items;
+        return [
+            'properties' => [
+                'refund' => ['type' => 'string', 'pattern' => OnlineRefs::REF_SCHEMA],
+                'refunded_at' => ['type' => 'string', 'pattern' => OnlineRefs::INSTANT_SCHEMA],
+                'allocated' => ['type' => 'boolean'],
+            ],
+            'required' => ['refund', 'refunded_at'],
+        ];
     }
 
     protected function kind(): LineKind
@@ -45,18 +53,21 @@ final class RecordOnlineRefund extends RecordOnline
         return LineKind::Refund;
     }
 
-    protected function keyPart(): string
+    /** @param array<string, mixed> $input */
+    protected function keyPart(array $input): string
     {
-        return 'refund:' . $this->refund->refundRef;
+        return 'refund:' . $input['refund'];
     }
 
-    protected function allocated(): bool
+    /** @param array<string, mixed> $input */
+    protected function allocated(array $input): bool
     {
-        return $this->refund->allocated;
+        return (bool) ($input['allocated'] ?? false);
     }
 
-    protected function at(): \DateTimeImmutable
+    /** @param array<string, mixed> $input */
+    protected function at(array $input): \DateTimeImmutable
     {
-        return $this->refund->refundedAt;
+        return Instant::fromStorage((string) $input['refunded_at']);
     }
 }
