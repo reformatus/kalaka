@@ -383,7 +383,10 @@ WP-CLI shows it the same way, on 500s only.
   fallback.
 - **What is audited:** permission refusals, edit conflicts, rule violations
   and system errors. Plain validation failures (a missing or malformed answer,
-  shown to the person at once) are not.
+  shown to the person at once) are not. Nor is a **preview**, a run that
+  writes nothing and only answers what a real run would do: the runner writes
+  no entry for one that succeeded (a refused preview is audited like any
+  refusal). An unchanged real run is audited.
 - **System entries:** a failure noticed outside any person's action (an
   extension contribution starting to fail, changing its error, or recovering)
   is recorded by a use case run as `SystemActor`, not tied to an event, so it

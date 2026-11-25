@@ -95,6 +95,9 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   log only when that write fails, or when writing it could keep or commit work
   that is not the use case's own: a failed rollback with no new connection, or
   a transaction another plugin left open.
+- A top-level run of a `PreviewableUseCase` that is a preview (`isPreview()`) writes nothing, so the runner
+  evaluates and audits nothing for it when it succeeds (a refused preview is audited as any refusal); a preview
+  that touched a registration fails. No use case decides this itself.
 - A failed entry holds no changes, no input values and no reason; the context
   a thrower adds to a `KalakaException` names rules and record keys, never a
   submitted field value, a person's data or a secret; a secret never reaches

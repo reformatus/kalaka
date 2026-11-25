@@ -20,11 +20,13 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
+use Kalaka\Foundation\Api\UseCase\PreviewableUseCase;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComposition;
+use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -45,9 +47,10 @@ use Kalaka\Registrations\RegistrationRepository;
  * one registration, carried by its grant action. The act writes only its facts; the runner's evaluation then follows
  * in the same run (money, then confirmation, then mail). [UNAPPROVED N510]
  *
- * - Input: the registration and a reason (at most 500 characters; required for remove, optional for the others,
- *   kept in the audit entry's reason). [UNAPPROVED N514] With `preview` the act answers what it would do and writes
- *   nothing (the same refusals, the same grant, plain reads only). [UNAPPROVED N513]
+ * - Input: the registration and a reason (at most 500 characters; required for a real remove, optional for the
+ *   other real acts, kept in the audit entry's reason). [UNAPPROVED N514] With `preview` the act answers what it
+ *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview takes no reason,
+ *   and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
  *   status the act does not allow is `StatusActRefused`. [UNAPPROVED N512]
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
@@ -65,10 +68,13 @@ use Kalaka\Registrations\RegistrationRepository;
  *
  * Returns `{changed, status, over_capacity, seats, warnings}`: `seats` lists each pool the act took again (a claimed
  * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
- * warning when any went over. The preview adds, per seat, `taken` and `limit`, and for withdraw, remove and restore
- * `money`: per payer `paid`, `balance_now` and `balance_after`, null without money-view. [UNAPPROVED N530-N533]
+ * warning when any went over. The preview adds, per seat, `taken` (held by other registrations), `taken_after` (the
+ * pool's count once the act has taken the seat) and `limit`, and for withdraw, remove and restore `money`: per payer
+ * `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the actor has no money-view, `money` is
+ * null; false with a null `money`: the fee cannot be priced). Withdraw and remove add `retention`, the event's rule
+ * (`everything_paid` or `nothing`), null for a holder without money-view. [UNAPPROVED N530-N533, N535, N537, N538]
  */
-abstract class StatusChange implements AdminUseCase
+abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
     /**
      * @param list<SeatClaimSource>|null $seatClaimSources null: the contributed ones; a test passes its own
@@ -85,6 +91,7 @@ abstract class StatusChange implements AdminUseCase
         private readonly FeeComposition $composition = new FeeComposition(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly Registrations $reads = new Registrations(),
+        private readonly MoneySettings $settings = new MoneySettings(),
     ) {
     }
 
@@ -121,6 +128,11 @@ abstract class StatusChange implements AdminUseCase
         return [new RegistrationKey((int) $input['event_id'], (string) $input['code'])];
     }
 
+    public function isPreview(array $input): bool
+    {
+        return ($input['preview'] ?? false) === true;
+    }
+
     /**
      * @param array<string, mixed> $input
      * @return array<string, mixed>
@@ -129,9 +141,11 @@ abstract class StatusChange implements AdminUseCase
     {
         $act = $this->act();
         $key = new RegistrationKey((int) $input['event_id'], (string) $input['code']);
-        // The reason: required for a removal, checked on the trimmed text (as the confirmation acts do).
+        // The reason: required for a real removal, checked on the trimmed text (as the confirmation acts do). A
+        // preview takes none: it writes nothing, so there is nothing to give a reason for.
+        $preview = $this->isPreview($input);
         $reason = isset($input['reason']) ? trim((string) $input['reason']) : '';
-        if ($act->reasonRequired() && $reason === '') {
+        if ($preview ? isset($input['reason']) : $act->reasonRequired() && $reason === '') {
             throw new InvalidInput();
         }
 
@@ -145,7 +159,7 @@ abstract class StatusChange implements AdminUseCase
             throw new StatusActRefused();
         }
 
-        if (($input['preview'] ?? false) === true) {
+        if ($preview) {
             return $this->preview($act, $key, $event, $context);
         }
 
@@ -176,7 +190,12 @@ abstract class StatusChange implements AdminUseCase
         }
         $result = self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
         if ($act !== StatusAct::Admit) {
-            $result['money'] = $this->previewMoney($act, $key, $context);
+            $hidden = !$this->mayViewMoney($key, $context);
+            $result['money'] = $hidden ? null : $this->previewMoney($act, $key, $context);
+            $result['money_hidden'] = $hidden;
+            if (!$act->enters()) {
+                $result['retention'] = $hidden ? null : $this->settings->retention($key->eventId)->value;
+            }
         }
 
         return $result;
@@ -194,6 +213,7 @@ abstract class StatusChange implements AdminUseCase
 
         return self::seat($pool, $field, $this->previewOutcome($pool, $key)) + [
             'taken' => $taken,
+            'taken_after' => $taken + 1,
             'limit' => $pool->limit(),
         ];
     }
@@ -201,16 +221,13 @@ abstract class StatusChange implements AdminUseCase
     /**
      * What the act does to each payer's money, for a holder who may view it: what was paid, the balance now and the
      * balance once the act's own composition (the materializer's, retention included) is recorded. Signed amounts as
-     * the money reads give them (above zero owed, below zero overpaid). Null for a holder without money-view, or when
-     * a fee component cannot say what is owed. Nothing is written or refunded.
+     * the money reads give them (above zero owed, below zero overpaid). Null when
+     * a fee component cannot say what is owed. Nothing is written or refunded. The caller has checked the holder.
      *
      * @return list<array{payer: string, paid: string, balance_now: string, balance_after: string}>|null
      */
     private function previewMoney(StatusAct $act, RegistrationKey $key, Context $context): ?array
     {
-        if (!$this->mayViewMoney($key, $context)) {
-            return null;
-        }
         try {
             $after = $this->composition->of($key, $context->now(), $act->target());
         } catch (FeeComponentFailed) {

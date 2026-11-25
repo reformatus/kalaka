@@ -29,6 +29,7 @@ use Kalaka\Pricing\SetRetention;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\FeeComponentInput;
+use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\Materializer;
@@ -332,9 +333,9 @@ final class StatusActsTest extends StaffEditTestCase
         $this->act(StatusAct::Withdraw, '00A8');
     }
 
-    public function testLeavingSucceedsWhileAFeeComponentThrows(): void
+    private function failingComponent(): FeeComponent
     {
-        $throwing = new class () implements FeeComponent {
+        return new class () implements FeeComponent {
             public function id(): string
             {
                 return 'boom';
@@ -350,7 +351,11 @@ final class StatusActsTest extends StaffEditTestCase
                 throw new \RuntimeException('A component failed.');
             }
         };
-        $this->runner = $this->moneyRunner([$throwing]);
+    }
+
+    public function testLeavingSucceedsWhileAFeeComponentThrows(): void
+    {
+        $this->runner = $this->moneyRunner([$this->failingComponent()]);
 
         $result = $this->act(StatusAct::Withdraw, '00A0');
 
@@ -566,12 +571,13 @@ final class StatusActsTest extends StaffEditTestCase
         // The tier is full (1 of 1 taken by another): over, with its own label and figures.
         self::assertSame(
             ['pool' => 'tier.b', 'label' => 'Teszt tier.b', 'field' => 'tier', 'outcome' => 'over', 'taken' => 1,
-                'limit' => 1],
+                'taken_after' => 2, 'limit' => 1],
             $bySeat['tier.b']
         );
         // The event's places: the event's own name, the registered registrations, the capacity.
         self::assertSame(
-            ['pool' => 'event', 'label' => 'Tábor', 'field' => null, 'outcome' => 'over', 'taken' => 2, 'limit' => 2],
+            ['pool' => 'event', 'label' => 'Tábor', 'field' => null, 'outcome' => 'over', 'taken' => 2,
+                'taken_after' => 3, 'limit' => 2],
             $bySeat['event']
         );
         self::assertSame([AssignmentSets::FULL_WARNING], $preview['warnings']);
@@ -626,9 +632,11 @@ final class StatusActsTest extends StaffEditTestCase
         $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'nothing']);
         $this->pay('00A0');
 
-        $remove = $this->act(StatusAct::Remove, '00A0', ['preview' => true, 'reason' => 'x']);
+        $remove = $this->act(StatusAct::Remove, '00A0', ['preview' => true]);
 
         self::assertSame('-8000.00000000', $remove['money'][0]['balance_after']);
+        self::assertSame('nothing', $remove['retention']);
+        self::assertFalse($remove['money_hidden']);
     }
 
     public function testTheMoneyOfThePreviewIsOnlyForAHolderOfMoneyView(): void
@@ -647,7 +655,96 @@ final class StatusActsTest extends StaffEditTestCase
         $with = $this->act(StatusAct::Withdraw, '00A0', ['preview' => true], new UserActor($moneyUser));
 
         self::assertNull($without['money']);
+        self::assertTrue($without['money_hidden']);
+        self::assertNull($without['retention']);
         self::assertSame('0.00000000', $with['money'][0]['balance_after']);
+        self::assertFalse($with['money_hidden']);
+        self::assertSame('everything_paid', $with['retention']);
+    }
+
+    public function testAMoneyViewerWhoseFeeCannotBePricedGetsNullMoneyThatIsNotHidden(): void
+    {
+        $this->runner = $this->moneyRunner([$this->failingComponent()]);
+        // Leaving never prices the fee; coming back does, and the component cannot say.
+        $this->act(StatusAct::Withdraw, '00A0');
+        $restore = new RestoreRegistration(
+            [],
+            composition: new FeeComposition(new CoreFeeComponents([$this->failingComponent()]))
+        );
+
+        $preview = $this->exec($restore, ['event_id' => $this->event, 'code' => '00A0', 'preview' => true]);
+        self::assertIsArray($preview);
+
+        self::assertNull($preview['money']);
+        self::assertFalse($preview['money_hidden']);
+    }
+
+    public function testThePreviewTakesNoReasonAndOnlyARealRemoveNeedsOne(): void
+    {
+        foreach (StatusAct::cases() as $act) {
+            $code = $act === StatusAct::Admit ? '00A5' : '00A0';
+            if ($act === StatusAct::Restore) {
+                $this->act(StatusAct::Withdraw, '00A0');
+            }
+            try {
+                $this->act($act, $code, ['preview' => true, 'reason' => 'x']);
+                self::fail('A preview takes no reason: ' . $act->value);
+            } catch (InvalidInput) {
+                // Refused before anything else: the status is as it was.
+                self::assertNotSame($act->target()->value, $this->row($code)['status']);
+            }
+        }
+        // A remove preview needs none; a real remove still does.
+        $this->act(StatusAct::Restore, '00A0');
+        $preview = $this->act(StatusAct::Remove, '00A0', ['preview' => true]);
+        self::assertTrue($preview['changed']);
+        $this->expectException(InvalidInput::class);
+        $this->act(StatusAct::Remove, '00A0');
+    }
+
+    public function testAPreviewWritesNoAuditEntryAndARealActAndARealRepeatDo(): void
+    {
+        $entries = count($this->entries());
+
+        $this->act(StatusAct::Withdraw, '00A0', ['preview' => true]);
+        $this->act(StatusAct::Admit, '00A5', ['preview' => true]);
+        self::assertCount($entries, $this->entries());
+
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertCount($entries + 1, $this->entries());
+        // An unchanged real save stays audited.
+        self::assertFalse($this->act(StatusAct::Withdraw, '00A0')['changed']);
+        self::assertCount($entries + 2, $this->entries());
+        // A preview that is refused is audited like any refusal.
+        try {
+            $this->act(StatusAct::Restore, '00A5', ['preview' => true]);
+            self::fail('Refused.');
+        } catch (StatusActRefused) {
+            self::assertCount($entries + 3, $this->entries());
+        }
+    }
+
+    public function testThePreviewGivesTheCountAfterTheActAndTheEventsRetentionRule(): void
+    {
+        $this->capacity(5);
+        $this->addValue($this->event, '00A5', 'tier', 'b');
+        $this->seat('00A2', $this->poolB);
+
+        $preview = $this->act(StatusAct::Admit, '00A5', ['preview' => true]);
+
+        $bySeat = [];
+        foreach ($preview['seats'] as $seat) {
+            $bySeat[(string) $seat['pool']] = $seat;
+        }
+        self::assertSame(1, $bySeat['tier.b']['taken']);
+        self::assertSame(2, $bySeat['tier.b']['taken_after']);
+        self::assertSame(2, $bySeat['event']['taken']);
+        self::assertSame(3, $bySeat['event']['taken_after']);
+        self::assertArrayNotHasKey('retention', $preview);
+        self::assertArrayNotHasKey('money_hidden', $preview);
+        // Only an act that leaves carries the retention rule.
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertArrayNotHasKey('retention', $this->act(StatusAct::Restore, '00A0', ['preview' => true]));
     }
 
     public function testTheAllowedActsFollowTheStatus(): void
