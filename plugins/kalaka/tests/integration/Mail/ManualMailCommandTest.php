@@ -311,7 +311,10 @@ final class ManualMailCommandTest extends MailBodyTestCase
     {
         [$event, $body] = $this->ready();
         wp_set_current_user(self::factory()->user->create());
-        $this->fails(fn () => $this->batchesCommand()->__invoke([(string) $event], []));
+        $existing = $this->fails(fn () => $this->batchesCommand()->__invoke([(string) $event], []));
+        // A refused user learns nothing about which events exist.
+        $missing = $this->fails(fn () => $this->batchesCommand()->__invoke([(string) ($event + 999)], []));
+        self::assertSame($existing, $missing);
 
         wp_set_current_user(0);
         $other = $this->published();

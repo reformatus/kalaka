@@ -12,8 +12,9 @@ use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 
 /**
- * What every mail command reads from its arguments, in one place (module-internal): the event ID, the output
- * format and the read guard. It parses input and holds no rule of the use cases.
+ * What the mail commands (`action-mail` and `mail`) read from their arguments, in one place
+ * (module-internal): the event ID, the output format and the read guard. It parses input and holds no rule of
+ * the use cases.
  */
 final class CliInput
 {

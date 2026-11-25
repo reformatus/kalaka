@@ -66,8 +66,8 @@ final class ActionMailCommand
     public function listMails(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
-            $eventId = CliInput::existingEventId($args);
             CliInput::fullAccess();
+            $eventId = CliInput::existingEventId($args);
             $rows = array_map(
                 static fn (ActionMailSetting $mail): array => self::row($mail),
                 $this->settings->ofEvent($eventId)->mails
@@ -101,8 +101,8 @@ final class ActionMailCommand
     public function show(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args): void {
-            $eventId = CliInput::existingEventId($args);
             CliInput::fullAccess();
+            $eventId = CliInput::existingEventId($args);
             $mail = $this->settings->ofEvent($eventId)->mail(self::kind($args));
             $post = $mail->bodyId === null ? null : get_post($mail->bodyId);
             $data = $mail->toArray() + [

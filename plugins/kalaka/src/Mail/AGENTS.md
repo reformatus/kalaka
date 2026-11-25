@@ -165,8 +165,9 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   under the editor's check (`BodyCheck::refusal()`, the one function the editor's
   filters call too, checked ahead so its text is printed) and only after the
   actor passed the use case's access check; it assigns a first body through
-  `UpdateActionMail` and never switches a mail on. The mail commands share
-  `Cli\CliInput` (event ID, format, the read guard) and `CliActor::current()`.
+  `UpdateActionMail` and never switches a mail on. `list`, `show`, `body` and `layout` share
+  `Cli\CliInput` (event ID, format, the read guard, which runs before an event is looked up) and
+  `CliActor::current()`; so do `mail status`, `failed` and `batches` below.
 - `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
   thin entry point: it changes only through `PauseMail`, `ResumeMail`, `ClearMailQueue` and
   `ClearEventMail`, as the command line or as WP-CLI's `--user`; `status` and `failed` read for
