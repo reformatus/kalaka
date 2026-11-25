@@ -7,6 +7,7 @@ namespace Kalaka\Mail\Rest;
 use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\Event;
+use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
@@ -38,7 +39,8 @@ use Kalaka\Mail\Manual\SendManualMail;
  *
  * - `GET /events/{id}/mail`: the event's mail page: the action mails with `can` and `refusals` of a switch, the
  *   bodies, the counts and `can.clear_event`.
- * - `GET /mail`: the sender: the pause, the errors in a row, the budget, the pending count and each event's counts.
+ * - `GET /mail`: the sender: the pause, the errors in a row, the budget, the pending count and each event's name,
+ *   counts and `can.clear_event` (an archived event is listed only while something of it is queued or failed).
  * - `GET /events/{id}/mail/troubled`: the event's deliveries that need a look, by registration code.
  * - `GET /events/{id}/mail/batches` and `…/batches/{batch}`: the manual mail's own record, never the deliveries.
  * - `POST /events/{id}/mail/manual/preview` with `{codes}`: who a send of those codes would reach.
@@ -171,16 +173,25 @@ final class MailRoutes
         $site = $stats->site();
         $eventIds = $stats->eventIds();
         $sent = MailHold::sentEventIds();
+        $found = new Events();
         $events = [];
         foreach ($stats->ofEvents($eventIds) as $eventId => $count) {
+            $event = $found->find($eventId);
+            // An archived event drops off the list once nothing of it is queued or failed.
+            $done = $count->queued + $count->failed === 0;
+            if ($event === null || ($event->state() === EventState::Archived && $done)) {
+                continue;
+            }
             $events[] = [
                 'event_id' => $eventId,
+                'name' => $event->name,
                 'held' => !in_array($eventId, $sent, true),
                 'queued' => $count->queued,
                 'sent' => $count->sent,
                 'failed' => $count->failed,
                 'with_error' => $count->withError,
                 'stuck_sending' => $count->stuckSending,
+                'can' => ['clear_event' => self::mayClear($event)],
             ];
         }
         $paused = $site->paused;
@@ -221,7 +232,7 @@ final class MailRoutes
             'status' => $delivery->status,
             'attempts' => $delivery->attempts,
             'queued_at' => self::time($delivery->queuedAt),
-            'last_attempt_at' => $delivery->lastAttemptAt === null ? null : self::time($delivery->lastAttemptAt),
+            'last_attempt_at' => self::time($delivery->lastAttemptAt),
             'error' => $delivery->error,
             'batch_id' => $delivery->batchId,
         ], (new Deliveries())->troubled($event->id)));
@@ -317,9 +328,9 @@ final class MailRoutes
         return $data;
     }
 
-    private static function time(\DateTimeImmutable $time): string
+    private static function time(?\DateTimeImmutable $time): ?string
     {
-        return $time->setTimezone(new \DateTimeZone('UTC'))->format(self::TIME);
+        return $time?->setTimezone(new \DateTimeZone('UTC'))->format(self::TIME);
     }
 
     /** @return ?array{id: int, name: ?string} null for the system and the command line */

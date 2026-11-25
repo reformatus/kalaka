@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Mail;
 
+use Kalaka\Events\ArchiveEvent;
 use Kalaka\Events\UnpublishEvent;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Mail\Api\MailKind;
@@ -135,6 +136,51 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertSame(['clear_event' => false], $data['can']);
     }
 
+    public function testAnArchivedEventIsListedOnlyWhileSomethingOfItIsQueuedOrFailed(): void
+    {
+        global $wpdb;
+        $kept = $this->published();
+        $this->queue($kept, '00A0');
+        $this->transition(new UnpublishEvent(), $kept);
+        $this->transition(new ArchiveEvent(), $kept);
+        $this->as($this->admin->userId);
+
+        $listed = $this->rest('GET', '/mail')->get_data()['events'];
+        self::assertSame([$kept], array_column($listed, 'event_id'));
+        self::assertSame(['clear_event' => true], $listed[0]['can']);
+
+        // Failed counts as much as queued; sent alone does not.
+        $table = $wpdb->prefix . 'kalaka_deliveries';
+        $wpdb->update($table, ['status' => 'failed'], ['event_id' => $kept]);
+        self::assertSame([$kept], array_column($this->rest('GET', '/mail')->get_data()['events'], 'event_id'));
+        $wpdb->update($table, ['status' => 'sent'], ['event_id' => $kept]);
+        self::assertSame([], $this->rest('GET', '/mail')->get_data()['events']);
+    }
+
+    public function testAZeroDateReadsAsNullInTheMailReads(): void
+    {
+        global $wpdb;
+        [$event] = $this->ready();
+        $draft = $this->document($event, $this->paragraph('x'), 'Vázlat');
+        wp_update_post(['ID' => $draft, 'post_status' => 'draft']);
+        $wpdb->update($wpdb->posts, ['post_modified_gmt' => '0000-00-00 00:00:00'], ['ID' => $draft]);
+        clean_post_cache($draft);
+        $this->as($this->admin->userId);
+
+        $bodies = $this->rest('GET', '/events/' . $event . '/mail')->get_data()['bodies'];
+
+        $row = array_values(array_filter($bodies, static fn (array $body): bool => $body['id'] === $draft))[0];
+        self::assertNull($row['modified']);
+    }
+
+    private function nameOf(int $event): string
+    {
+        $found = (new \Kalaka\Events\Api\Events())->find($event);
+        self::assertNotNull($found);
+
+        return $found->name;
+    }
+
     public function testAHeldEventMayBeCleared(): void
     {
         [$event] = $this->ready();
@@ -224,10 +270,10 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertSame([2, 100, 3], [$data['errors_in_row'], $data['hourly_budget'], $data['queued']]);
         self::assertSame(
             [
-                ['event_id' => $event, 'held' => false, 'queued' => 2, 'sent' => 0, 'failed' => 0,
-                    'with_error' => 0, 'stuck_sending' => 0],
-                ['event_id' => $other, 'held' => true, 'queued' => 1, 'sent' => 0, 'failed' => 0,
-                    'with_error' => 0, 'stuck_sending' => 0],
+                ['event_id' => $event, 'name' => $this->nameOf($event), 'held' => false, 'queued' => 2, 'sent' => 0,
+                    'failed' => 0, 'with_error' => 0, 'stuck_sending' => 0, 'can' => ['clear_event' => false]],
+                ['event_id' => $other, 'name' => $this->nameOf($other), 'held' => true, 'queued' => 1, 'sent' => 0,
+                    'failed' => 0, 'with_error' => 0, 'stuck_sending' => 0, 'can' => ['clear_event' => true]],
             ],
             $data['events']
         );

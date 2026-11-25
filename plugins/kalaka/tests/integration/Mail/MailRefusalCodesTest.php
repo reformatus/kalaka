@@ -41,6 +41,12 @@ final class MailRefusalCodesTest extends MailBodyTestCase
         self::assertSame('kalaka_mail_body_taken', $this->codeOf(
             fn () => $this->updateMail(['event_id' => $event, 'mail' => 'confirmed', 'body_id' => $body])
         ));
+        // A body belongs to one mail of the event: assigning it to another is refused while that mail is off too.
+        self::assertSame('kalaka_mail_body_taken', $this->codeOf(
+            fn () => $this->updateMail(
+                ['event_id' => $event, 'mail' => 'confirmed', 'body_id' => $body, 'enabled' => false]
+            )
+        ));
         self::assertSame('kalaka_mail_layout_placeholder', $this->codeOf(
             fn () => $this->setLayout($event, '<p>nincs</p>')
         ));

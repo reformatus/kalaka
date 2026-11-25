@@ -122,7 +122,7 @@ final class MailBodies
             $post->post_title,
             $post->post_status,
             $usedBy,
-            Instant::fromStorage($post->post_modified_gmt),
+            Instant::fromStoredOrNull($post->post_modified_gmt),
             admin_url('post.php?post=' . $post->ID . '&action=edit'),
             new MailBody(
                 $post->ID,

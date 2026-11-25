@@ -24,7 +24,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
             'update-action-mail' => [
                 new UpdateActionMail(),
                 'Levél beállítása',
-                'Egy esemény valamelyik levelének be- vagy kikapcsolása, levélsablonjának kiválasztása, '
+                'Egy esemény valamelyik levelének be- vagy kikapcsolása, levélsablonjának kiválasztása '
                     . 'és annak beállítása, hogy a levélkeret körülvegye-e.',
             ],
             'set-event-mail-layout' => [
@@ -55,7 +55,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
             'send-manual-mail' => [
                 new SendManualMail(),
                 'Levél küldése jelentkezőknek',
-                'Egy levélsablon küldése a kiválasztott jelentkezőknek.',
+                'Levél küldése egy levélsablonból a kiválasztott jelentkezőknek.',
             ],
         ];
     }

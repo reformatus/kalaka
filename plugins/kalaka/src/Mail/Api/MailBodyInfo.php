@@ -12,6 +12,7 @@ final readonly class MailBodyInfo
     /**
      * @param string $status WordPress's own post status
      * @param ?ActionMail $usedBy the action mail that has this body assigned; null when none
+     * @param ?\DateTimeImmutable $modified when it was last changed; null for a draft never saved (a zero date)
      * @param MailBody $facts what `UpdateActionMail::refuse()` needs to know of it
      */
     public function __construct(
@@ -19,7 +20,7 @@ final readonly class MailBodyInfo
         public string $subject,
         public string $status,
         public ?ActionMail $usedBy,
-        public \DateTimeImmutable $modified,
+        public ?\DateTimeImmutable $modified,
         public string $editUrl,
         public MailBody $facts,
     ) {
