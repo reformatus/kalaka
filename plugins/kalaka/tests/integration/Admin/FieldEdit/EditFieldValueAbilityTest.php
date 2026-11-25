@@ -114,6 +114,24 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
         self::assertCount($before, $this->entries(), 'A refused input is not audited.');
     }
 
+    public function testAPreviewWritesNoAuditEntryAndAnUnchangedSaveStillDoes(): void
+    {
+        wp_set_current_user($this->admin->userId);
+        $entries = count($this->entries());
+
+        self::assertSame(
+            ['changed' => true, 'over_limit' => [], 'warnings' => []],
+            $this->call($this->input('name', 'Új Név', ['preview' => true]))
+        );
+        self::assertCount($entries, $this->entries());
+
+        self::assertSame(['changed' => true, 'over_limit' => []], $this->call($this->input('name', 'Új Név')));
+        self::assertCount($entries + 1, $this->entries());
+        // The same value again changes nothing, and the real run is audited all the same.
+        self::assertSame(['changed' => false, 'over_limit' => []], $this->call($this->input('name', 'Új Név')));
+        self::assertCount($entries + 2, $this->entries());
+    }
+
     public function testAPreviewNeedsNoReasonButASaveDoes(): void
     {
         wp_set_current_user($this->admin->userId);
@@ -121,12 +139,12 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
         unset($without['reason']);
 
         foreach ([$without, ['reason' => ''] + $without, ['reason' => '  '] + $without] as $input) {
+            $entries = count($this->entries());
             self::assertSame(
                 ['changed' => true, 'over_limit' => [], 'warnings' => []],
                 $this->call($input + ['preview' => true])
             );
-            $entry = $this->lastEntry();
-            self::assertNull($entry['reason'], 'A preview with no reason is audited with none.');
+            self::assertCount($entries, $this->entries(), 'A preview writes no audit entry.');
 
             $save = $this->call($input);
             self::assertInstanceOf(\WP_Error::class, $save);

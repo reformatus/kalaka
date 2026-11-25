@@ -120,8 +120,8 @@ SQL;
         );
         Abilities::register(
             new EditFieldValue(),
-            'Jelentkezési adat javítása',
-            'Egy jelentkezés egyik adatának javítása indoklással.',
+            'Jelentkezési adat módosítása',
+            'Egy jelentkezés egyik adatának módosítása indoklással.',
             EditFieldValue::prepared(...)
         );
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
