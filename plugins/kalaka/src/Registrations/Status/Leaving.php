@@ -20,8 +20,8 @@ use Kalaka\Registrations\RegistrationRepository;
 
 /**
  * The one copy of what a leaving act does and what it would do to money (registrations-and-identity.md, "Status,
- * capacity and waitlist"; money.md, "Withdrawal, removal and substitution"): lock the registration's row and check
- * the status again under it, write the status and free every seat (`Seats::releaseAll()`). The staff acts
+ * capacity and waitlist"; money.md, "Withdrawal, removal and substitution"): take the registration's lock
+ * (`StatusLock`), write the status and free every seat (`Seats::releaseAll()`). The staff acts
  * (`StatusChange`) and the participant's own withdrawal (`WithdrawOwnRegistration`) both call it, so the lock, seat
  * and money sequence is written once. It writes no reason and no mail; the caller's actor and the runner's audit
  * entry carry who and why. [UNAPPROVED N510, N660]
@@ -48,7 +48,7 @@ final class Leaving
      */
     public function leave(StatusAct $act, RegistrationKey $key, Context $context): bool
     {
-        $registration = $this->locked($act, $key, $context);
+        $registration = (new StatusLock($this->registrations))->locked($act, $key, $context);
         if ($registration === null) {
             return false;
         }
@@ -57,26 +57,6 @@ final class Leaving
         $this->seats->releaseAll($key, $context);
 
         return true;
-    }
-
-    /**
-     * Locks the registration's row and checks the status again under it: null when it is already in the target
-     * state (a repeat that lost the race), else the locked row.
-     *
-     * @throws NotFound
-     * @throws StatusActRefused
-     */
-    public function locked(StatusAct $act, RegistrationKey $key, Context $context): ?Registration
-    {
-        $registration = $this->registrations->findForUpdate($key, $context) ?? throw new NotFound();
-        if ($registration->status === $act->target()) {
-            return null;
-        }
-        if (!$act->allowedFrom($registration->status)) {
-            throw new StatusActRefused();
-        }
-
-        return $registration;
     }
 
     /**

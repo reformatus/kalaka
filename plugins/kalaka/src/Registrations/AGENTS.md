@@ -31,8 +31,9 @@ the waitlist and reference codes
   `kalaka/remove-registration`, `kalaka/restore-registration`, one table in
   `Api\StatusAct`, one shape in `StatusChange`) and the participant's own
   withdrawal (`kalaka-portal/withdraw-registration`, `WithdrawOwnRegistration`
-  [UNAPPROVED N660]); nothing else updates a status. A leaving act's lock, status and seat
-  release, and the money it would leave, are written once, in `Status\Leaving`, which the staff
+  [UNAPPROVED N660]); nothing else updates a status. The registration's lock and status
+  recheck is written once, in `Status\StatusLock`, which admit, restore and both withdrawals use; a leaving act's
+  status and seat release, and the money it would leave, are written once, in `Status\Leaving`, which the staff
   withdraw and remove and the participant's withdrawal all call; there is no second copy.
   An act on a registration already in its target state writes nothing
   (`changed: false`); any other status it does not allow is `StatusActRefused`.

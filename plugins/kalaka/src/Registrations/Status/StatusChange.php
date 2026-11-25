@@ -78,6 +78,8 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
     private readonly Leaving $leaving;
 
+    private readonly StatusLock $lock;
+
     /**
      * @param list<SeatClaimSource>|null $seatClaimSources null: the contributed ones; a test passes its own
      */
@@ -96,6 +98,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         private readonly MoneySettings $settings = new MoneySettings(),
     ) {
         // The leave and the money preview are one copy, shared with the participant's own withdrawal.
+        $this->lock = new StatusLock($registrations);
         $this->leaving = new Leaving($registrations, $seats, $composition, $ledger, $events);
     }
 
@@ -290,7 +293,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
             }
         }
 
-        $registration = $this->leaving->locked($act, $key, $context);
+        $registration = $this->lock->locked($act, $key, $context);
         if ($registration === null) {
             return self::unchanged($act->target());
         }

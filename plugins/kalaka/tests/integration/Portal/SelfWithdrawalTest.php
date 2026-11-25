@@ -470,6 +470,38 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame('kalaka_withdraw_unavailable', $again->get_data()['code'] ?? null);
     }
 
+    public function testAFormPostOnAClosedSiteIsRedirectedWithTheFlashCookie(): void
+    {
+        ActiveRegistrationState::set($this->key('00A5'), false);
+        LoadState::record([new LoadFailure('x', 'y')]);
+
+        $response = $this->post('application/x-www-form-urlencoded', 'code=00A5');
+        LoadState::record([]);
+
+        self::assertSame(303, $response->get_status());
+        self::assertSame(home_url('/'), $response->get_headers()['Location']);
+        self::assertStringStartsWith(
+            'kalaka_withdraw_refusal=kalaka_system_failure; Max-Age=120; Path=/',
+            (string) $response->get_headers()['Set-Cookie']
+        );
+        self::assertSame('waitlisted', $this->status('00A5'));
+    }
+
+    public function testAFormPostWithoutAReturnAddressGoesBackToASameSiteReferrer(): void
+    {
+        ActiveRegistrationState::set($this->key('00A5'), false);
+        $_SERVER['HTTP_REFERER'] = home_url('/statusz/');
+        try {
+            $response = $this->post('application/x-www-form-urlencoded', 'code=00A5');
+        } finally {
+            unset($_SERVER['HTTP_REFERER']);
+        }
+
+        self::assertSame(303, $response->get_status());
+        self::assertSame(home_url('/statusz/'), $response->get_headers()['Location']);
+        self::assertSame('withdrawn', $this->status('00A5'));
+    }
+
     public function testAClosedSiteRefusesTheRouteBeforeAnythingElse(): void
     {
         ActiveRegistrationState::set($this->key('00A5'), false);
