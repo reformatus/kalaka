@@ -165,9 +165,9 @@ the waitlist and reference codes
     is false for it and true again by itself at admission. A refusing offer answer frees the offer's seat and a "yes"
     after a refusal takes one. Both go through `OfferSeats`, whose default `SeatOfferSeats` maps them to `Seats`
     (`release()`; `retake()`, like admission and restore, with the seat's act `answer`) for the pool the request
-    source names (`RequestSource::seatPool()`, a plain read; null, as for aid, means no limit and no seat call). The
-    pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
-    `over_limit`.
+  - source names (`RequestSource::seatPool()`, a plain read; null, as for aid, means the request has no seat and no
+    seat call; every offer has a pool, limited or not). The pool lock is taken before the registration lock. A full
+    pool never refuses the "yes": the result says `over_limit`.
   - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
     confirmation, then mail) follows in the same run.
 

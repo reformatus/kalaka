@@ -47,8 +47,8 @@ interface RequestSource
     public function awaitingRule(int $eventId): ?AwaitingRule;
 
     /**
-     * The seat pool an offer's seat comes from, or null when the request has no limit (an aid request, an offer
-     * with no quota). A plain read. The answer act passes it to `OfferSeats`.
+     * The seat pool an offer's seat comes from, or null when the request has no seat (an aid request; every offer
+     * has a pool, limited or not). A plain read. The answer act passes it to `OfferSeats`.
      */
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool;
 

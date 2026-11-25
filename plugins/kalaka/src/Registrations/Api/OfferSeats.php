@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * What a support offer's seat does when its request is answered (Foundation, "Facts, decisions and computed
  * values"; money.md, "Quota places"). `SeatOfferSeats` is the default of the answer act: it maps each call to
  * the one seat rule (`Seats`), for the pool the request source names (`RequestSource::seatPool()`). The pool
- * is the offer's own: an aid request, and an offer with no limit, have none, and the act makes no seat call.
+ * is the offer's own, limited or not: an aid request has none, and the act makes no seat call.
  * [UNAPPROVED N95]
  */
 interface OfferSeats
