@@ -18,6 +18,7 @@ use Kalaka\Pricing\SetRetention;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Portal\Api\StatusRead;
+use Kalaka\Portal\Api\WithdrawStale;
 use Kalaka\Portal\Api\WithdrawUnavailable;
 use Kalaka\Portal\Api\Withdrawal;
 use Kalaka\Portal\WithdrawRefusalCookie;
@@ -242,7 +243,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
     public function testAnotherCodeThanTheActiveRegistrationsIsRefusedAndNothingChanges(): void
     {
-        $this->expectException(WithdrawUnavailable::class);
+        $this->expectException(WithdrawStale::class);
         try {
             $this->withdrawal()->run($this->key('00A0'), '00A2');
         } finally {
@@ -253,7 +254,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
     public function testWithoutAnActiveRegistrationItIsRefused(): void
     {
-        $this->expectException(WithdrawUnavailable::class);
+        $this->expectException(WithdrawStale::class);
         $this->withdrawal()->run(null, '00A0');
     }
 
@@ -311,10 +312,10 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         try {
             $this->withdrawal()->run(null, '00A0', true);
             self::fail('No active registration.');
-        } catch (WithdrawUnavailable) {
+        } catch (WithdrawStale) {
             self::assertSame('registered', $this->status('00A0'));
         }
-        $this->expectException(WithdrawUnavailable::class);
+        $this->expectException(WithdrawStale::class);
         $this->withdrawal()->run($this->key('00A0'), '00A2', true);
     }
 
@@ -419,7 +420,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame(home_url('/'), $response->get_headers()['Location']);
         $cookie = (string) $response->get_headers()['Set-Cookie'];
         self::assertStringStartsWith(
-            'kalaka_withdraw_refusal=kalaka_withdraw_unavailable; Max-Age=120; Path=/',
+            'kalaka_withdraw_refusal=kalaka_withdraw_stale; Max-Age=120; Path=/',
             $cookie
         );
         self::assertStringContainsString('HttpOnly; SameSite=Lax', $cookie);
@@ -427,17 +428,42 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame('registered', $this->status('00A0'));
     }
 
+    public function testARefusedFormPostOfAStatusThatCannotWithdrawCarriesTheUnavailableCode(): void
+    {
+        $this->withdraw('00A0');
+        ActiveRegistrationState::set($this->key('00A0'), false);
+
+        $response = $this->post('application/x-www-form-urlencoded', 'code=00A0');
+
+        self::assertSame(303, $response->get_status());
+        self::assertStringStartsWith(
+            'kalaka_withdraw_refusal=kalaka_withdraw_unavailable; Max-Age=120; Path=/',
+            (string) $response->get_headers()['Set-Cookie']
+        );
+    }
+
+    public function testAJsonPreviewWithAStaleCodeIsAnErrorNotNotAllowed(): void
+    {
+        $none = $this->post('application/json', (string) wp_json_encode(['code' => '00A0', 'preview' => true]));
+        self::assertSame(422, $none->get_status());
+        self::assertSame('kalaka_withdraw_stale', $none->get_data()['code'] ?? null);
+
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $other = $this->post('application/json', (string) wp_json_encode(['code' => '00A2', 'preview' => true]));
+        self::assertSame('kalaka_withdraw_stale', $other->get_data()['code'] ?? null);
+    }
+
     public function testAJsonRefusalCarriesTheErrorCodeAndNothingChanges(): void
     {
         $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A0']));
 
         self::assertSame(422, $response->get_status());
-        self::assertSame('kalaka_withdraw_unavailable', $response->get_data()['code'] ?? null);
+        self::assertSame('kalaka_withdraw_stale', $response->get_data()['code'] ?? null);
         self::assertSame('registered', $this->status('00A0'));
 
         ActiveRegistrationState::set($this->key('00A0'), false);
         $mismatch = $this->post('application/json', (string) wp_json_encode(['code' => '00A2']));
-        self::assertSame('kalaka_withdraw_unavailable', $mismatch->get_data()['code'] ?? null);
+        self::assertSame('kalaka_withdraw_stale', $mismatch->get_data()['code'] ?? null);
 
         $this->withdraw('00A0');
         $again = $this->post('application/json', (string) wp_json_encode(['code' => '00A0']));
@@ -463,6 +489,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     {
         self::assertSame('kalaka_withdraw_unavailable', WithdrawRefusalCookie::codeFor('kalaka_withdraw_unavailable'));
         self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));
+        self::assertSame('kalaka_withdraw_stale', WithdrawRefusalCookie::codeFor('kalaka_withdraw_stale'));
         self::assertSame('kalaka_system_failure', WithdrawRefusalCookie::codeFor('anything <b>else</b>'));
 
         $response = new RecordingResponse();

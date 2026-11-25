@@ -49,8 +49,8 @@ page, and the account area
   each inside its own error boundary.
 - The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)
   acts only for the active registration and only with that registration's own `code`; anything else (no active
-  registration, another code, a status that cannot withdraw) is `Api\WithdrawUnavailable`
-  (`kalaka_withdraw_unavailable`). It is open to whoever holds the active registration (the secret link and the
+  registration, another code) is `Api\WithdrawStale` (`kalaka_withdraw_stale`), also in a preview; a status that
+  cannot withdraw is `Api\WithdrawUnavailable` (`kalaka_withdraw_unavailable`; a preview answers `allowed: false`). It is open to whoever holds the active registration (the secret link and the
   signed cookie), with no nonce, as the card route is; `LoadState::requireOpen()` comes first, every answer is
   `no-store`, and a plain form post is answered with a 303 to the same-site return address (else the referrer, else
   home), clean, with a refusal's code in the flash cookie `WithdrawRefusalCookie` that the next page request reads
