@@ -15,6 +15,11 @@ use Kalaka\Vendor\Brick\Math\BigDecimal;
  * request or clock, so a caller inside a transaction can use it. It is the one evaluator behind
  * every availability (S76), reached through `Api\Availability` and the form walk.
  *
+ * Dates and datetimes compare by what the two operands are: two datetimes as instants (offsets differ across a
+ * daylight-saving change, so never as strings); a day against anything else on the day, a datetime
+ * contributing the day it was written on (the site's zone), never midnight. So `now >= D` holds from the start of
+ * D and `now <= D` to its end (events-and-forms.md, "Conditions").
+ *
  * Three values: true, false and unknown (null). A comparison on a missing value, or against a
  * reference to a missing date, is unknown: nothing was answered, so the comparison cannot be
  * judged. Only `empty` reads a missing value (`empty` true, `not empty` false). `not` never turns
@@ -80,7 +85,10 @@ final class ConditionEvaluator
                     BigDecimal::of($this->string($value))->compareTo($given),
                     $comparison->operator
                 ),
-                ValueType::Date => $this->ordered(strcmp($this->string($value), $given), $comparison->operator),
+                ValueType::Date, ValueType::Datetime => $this->ordered(
+                    $this->moments($this->string($value), $given),
+                    $comparison->operator
+                ),
                 ValueType::Text => $this->text($value, $comparison),
                 ValueType::Choice => $this->choice($value, $comparison),
             };
@@ -90,10 +98,10 @@ final class ConditionEvaluator
     }
 
     /**
-     * What the value is compared with: the fixed value, or the referenced date moved; null for
+     * What the value is compared with: the fixed value, or the referenced date or datetime moved; null for
      * `empty` and for a reference to an empty date.
      *
-     * @throws SystemFailure a reference to an undeclared key or to a key that is not a date
+     * @throws SystemFailure a reference to an undeclared key or to a key that is neither a date nor a datetime
      */
     private function given(Comparison $comparison, Facts $context): ?string
     {
@@ -101,12 +109,37 @@ final class ConditionEvaluator
             return $comparison->value;
         }
         $referenced = $context->get($comparison->reference->key);
-        if ($referenced->type !== ValueType::Date) {
+        if ($referenced->type !== ValueType::Date && $referenced->type !== ValueType::Datetime) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw new SystemFailure('invalid_condition ' . $comparison->key);
         }
+        if ($referenced->isEmpty()) {
+            return null;
+        }
 
-        return $referenced->isEmpty() ? null : $comparison->reference->from($this->string($referenced));
+        return $referenced->type === ValueType::Datetime
+            ? $comparison->reference->fromInstant($referenced)
+            : $comparison->reference->from($this->string($referenced));
+    }
+
+    /**
+     * Two dates or datetimes ordered: a day (`YYYY-MM-DD`) is ten characters, an instant longer. Two instants
+     * compare as instants; otherwise the days, an instant's day being its date part as written (decision N652,
+     * #222).
+     */
+    private function moments(string $value, string $given): int
+    {
+        if (strlen($value) > 10 && strlen($given) > 10) {
+            $left = Value::instant($value);
+            $right = Value::instant($given);
+            if ($left === null || $right === null) {
+                throw new SystemFailure('invalid_condition');
+            }
+
+            return $left <=> $right;
+        }
+
+        return strcmp(substr($value, 0, 10), substr($given, 0, 10));
     }
 
     private function string(Value $value): string

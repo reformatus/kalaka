@@ -75,7 +75,7 @@ values and conditions, prefill and form links
   and, on WP-CLI, a warning and a failing exit), and
   `ParticipantFieldSync`, after the post and its settings are stored, writes
   the participant fields through `ParticipantFields::declare()`, each field with `money_relevant` from its block
-  type (`MoneyRelevantFieldType`) [UNAPPROVED N301]; besides it
+  type (`MoneyRelevantFieldType`); besides it
   only the rename route (an explicit request) does, through
   `ParticipantFields::rename()`.
 - The form editor derives a key unique across the form's event: against the
@@ -189,8 +189,9 @@ values and conditions, prefill and form links
   fact source; the evaluator never runs the materializer on a draft.
 - "Now" in a condition is the date reference `{"ref": "now"}`, read from the
   fact source's `Facts::NOW` (`EventValues::now($at)`: the moment the caller
-  holds, one clock passed down, a day in the site's time zone): never a key a
-  condition names, never read from a clock by the evaluator. A chain that reads it is withheld.
+  holds, one clock passed down, a datetime to the second in the site's time
+  zone): never a key a condition names, never read from a clock by the
+  evaluator. A chain that reads it is withheld.
   One way: every fact source a condition is evaluated over carries it
   (`EventValues::now($now)` in each `ValueContext` built for conditions, with
   the act's own moment), so the parser makes no scope check for it and a

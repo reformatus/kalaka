@@ -18,7 +18,7 @@ const data = () => globalThis.kalakaFormEditor ?? {};
 
 const map = (value) => (value !== null && typeof value === 'object' ? value : {});
 
-/** Field block name → the value type of its answer ('text' | 'date' | 'choice' | 'number'). */
+/** Field block name → the value type of its answer ('text' | 'date' | 'datetime' | 'choice' | 'number'). */
 export const fieldTypes = () => map(data().fieldTypes);
 
 /** The field block names whose value is a path: `equals` is refused on them. */
