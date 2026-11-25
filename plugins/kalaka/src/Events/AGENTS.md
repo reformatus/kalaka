@@ -42,10 +42,12 @@ Events is events, their states, timeline points, date types, capacity and the
   transfer texts) are written only by `kalaka/update-event`, as optional keys; the
   readers take the texts as entered, so no shape beyond the column's length is checked.
 - A change of the account mode to one with accounts is refused while a published
-  registration form of the event lacks the account block
+  registration form of the event lacks the account block, or while the event's
+  "registered" mail is off or its body lacks the set-password link
   ([Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation)).
-  The forms are read before the run (`Api\Events::update()`; a use case reads no
-  post) and the broken-form list is refreshed after it.
+  The forms and the mail's problem (`Mail\Api\AccountMail::modeProblem()`) are read before the
+  run (`Api\Events::update()`; a use case reads no post or mail) and the broken-form list is
+  refreshed after it.
 - `wp kalaka event` (`Cli/`) is a thin entry point: it changes only through the
   module's use cases, as the command line or as WP-CLI's `--user`, and prints a use
   case's own refusal. It checks nothing itself (no state, field or value rule): it runs
@@ -59,3 +61,5 @@ Events is events, their states, timeline points, date types, capacity and the
   is `Api\AccountBlockMissing` (`forms`: the form IDs). Both are rule violations with the
   same Hungarian text and their own error codes; the keys and IDs are typed properties for the
   operator's console (`wp kalaka event`) and are never sent to REST (`toWpError()` is unchanged).
+  The refusal of an account mode the "registered" mail cannot back is `Api\AccountMailNotReady`
+  (`kalaka_account_mail_not_ready`); its message is `AccountLinkRule`'s own text on every path.

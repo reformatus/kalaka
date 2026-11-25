@@ -6,7 +6,6 @@ namespace Kalaka\Events\Cli;
 
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\AccountBlockMissing;
-use Kalaka\Events\Api\AccountMailNotReady;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventNotReady;
 use Kalaka\Events\Api\Events;
@@ -298,9 +297,6 @@ final class EventCommand
             $run();
         } catch (EventNotReady $e) {
             $error = new CommandFailure($e->operatorMessage() . "\nmissing: " . implode(', ', $e->missing), $e);
-            throw $error;
-        } catch (AccountMailNotReady $e) {
-            $error = new CommandFailure($e->operatorMessage() . "\nthe registered mail: " . $e->reason, $e);
             throw $error;
         } catch (AccountBlockMissing $e) {
             $text = "\nforms without the account block: " . implode(', ', $e->forms);

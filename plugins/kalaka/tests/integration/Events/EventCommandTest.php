@@ -252,7 +252,7 @@ final class EventCommandTest extends FormsTestCase
 
         $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
 
-        self::assertSame(self::REFUSED . "\nthe registered mail: " . AccountLinkRule::NEEDS_LINK, $error);
+        self::assertSame(self::REFUSED . ' ' . AccountLinkRule::NEEDS_LINK, $error);
         self::assertSame(1, $this->versionOf($id));
     }
 

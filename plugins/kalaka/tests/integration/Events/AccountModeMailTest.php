@@ -36,7 +36,9 @@ final class AccountModeMailTest extends MailBodyTestCase
             $this->save($id, $mode);
             self::fail('The mode was accepted.');
         } catch (AccountMailNotReady $e) {
-            self::assertSame(AccountLinkRule::NEEDS_LINK, $e->reason);
+            $text = 'A művelet nem hajtható végre. ' . AccountLinkRule::NEEDS_LINK;
+            self::assertSame($text, $e->getMessage());
+            self::assertSame($text, $e->toWpError()->get_error_message());
             self::assertSame('kalaka_account_mail_not_ready', $e->errorCode());
             self::assertSame(AccountMode::Off, $this->mode($id));
         }
