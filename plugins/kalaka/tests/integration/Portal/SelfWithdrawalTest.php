@@ -481,7 +481,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame(303, $response->get_status());
         self::assertSame(home_url('/'), $response->get_headers()['Location']);
         self::assertStringStartsWith(
-            'kalaka_withdraw_refusal=kalaka_system_failure; Max-Age=120; Path=/',
+            'kalaka_withdraw_refusal=kalaka_site_closed; Max-Age=120; Path=/',
             (string) $response->get_headers()['Set-Cookie']
         );
         self::assertSame('waitlisted', $this->status('00A5'));
@@ -522,6 +522,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame('kalaka_withdraw_unavailable', WithdrawRefusalCookie::codeFor('kalaka_withdraw_unavailable'));
         self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));
         self::assertSame('kalaka_withdraw_stale', WithdrawRefusalCookie::codeFor('kalaka_withdraw_stale'));
+        self::assertSame('kalaka_site_closed', WithdrawRefusalCookie::codeFor('kalaka_site_closed'));
         self::assertSame('kalaka_system_failure', WithdrawRefusalCookie::codeFor('anything <b>else</b>'));
 
         $response = new RecordingResponse();
