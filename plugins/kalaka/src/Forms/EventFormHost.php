@@ -178,6 +178,7 @@ final class EventFormHost implements FormHost
         Form $form,
         Event $event,
         ?bool $loggedIn,
+        \DateTimeImmutable $now,
         ?array $stored,
         ?string $status
     ): ValueContext {

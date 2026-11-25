@@ -205,7 +205,7 @@ final class FormValuesTest extends FormsTestCase
         self::assertNotNull($event);
         $form = new Form(1, $unlimited, FormPlacement::Registration, null, false, 1);
 
-        $facts = $this->host()->factsFor($form, $event, null, null, null);
+        $facts = $this->host()->factsFor($form, $event, null, $this->clock->now(), null, null);
 
         self::assertTrue($facts->get('event.seats_left')->isEmpty());
         self::assertSame(ValueType::Number, $facts->get('event.seats_left')->type);
@@ -783,6 +783,7 @@ final class FormValuesTest extends FormsTestCase
             new Form($form, $this->event, FormPlacement::Registration, null, false, $version),
             $event,
             null,
+            $this->clock->now(),
             null,
             null
         );
