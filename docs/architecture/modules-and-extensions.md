@@ -159,8 +159,9 @@ Besides the money plugins:
   columns; each print is audited as a personal-data export.
 - **The Divi 4 theme adapter** (both organizations): Divi's contact-form
   classes on Kaláka's form markup, `p` wrappers where Divi's form rules need
-  them, Divi's form red as the error colour, and Divi's form styles loaded on
-  pages that hold a form. It keeps visible labels and the browser's own radio
+  them, Divi's form red as the error colour, and Divi's form styles loaded,
+  inline as critical CSS, on pages that hold a form or the registrant's
+  status block. It keeps visible labels and the browser's own radio
   buttons and checkboxes ([Engineering](engineering.md#wordpress-surfaces)).
   Its plugin is `kalaka-divi4`. Divi 5 and other themes come
   later, each as its own adapter.

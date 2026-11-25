@@ -25,7 +25,10 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
   own: no Divi class that hides them (`et_pb_contact_form_label`, Divi's drawn
   `input` + `label > i` controls).
 - Divi's own form styles load through Divi's mechanism
-  (`et_required_module_assets`) on pages whose content places a form. The
+  (`et_required_module_assets`) on pages whose content places a form or the
+  status block, and are named above the fold too
+  (`et_dynamic_assets_modules_atf`, after Divi's own list), so Divi prints
+  them inline as critical CSS: its deferred stylesheets need JavaScript. The
   plugin's own CSS maps core's neutral base onto Divi's form look: the
   `--kalaka-…` properties set on Divi's contact form (Divi's input greys, no
   border or radius; the filled +/× in the same greys), plus what they cannot
@@ -42,4 +45,7 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
   shortcode: Divi gives a `td` a `#eee` top line and a `th` none, so the first
   column gets the same line (not on the rows core's own separator, `kalaka-rule`,
   marks). Core keeps the table's structure and its emphasis (`em`, `strong`).
+- Divi's button icon glyph keeps its look, with an empty text alternative
+  (`content: "\35" / ""`), for Kaláka's own buttons only (the form's, the
+  card payment button): a screen reader does not read it.
 - The plugin stores nothing.

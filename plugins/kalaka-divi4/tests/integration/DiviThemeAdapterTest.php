@@ -197,12 +197,58 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
             : '';
     }
 
+    public function testTheAboveTheFoldFilterNamesDivisFormStylesOnlyOnAFormOrStatusPageUnderDivi4(): void
+    {
+        $module = new Module();
+        $module->boot();
+        // After Divi's own callback (priority 10), which replaces the list.
+        self::assertSame(11, has_filter('et_dynamic_assets_modules_atf', [$module, 'aboveTheFoldAssets']));
+
+        self::assertSame([], $module->aboveTheFoldAssets([], '[kalaka_form id="8"]'), 'not Divi');
+
+        $template = static fn (): string => 'Divi';
+        add_filter('template', $template);
+        try {
+            self::assertSame([], $module->aboveTheFoldAssets([], '[kalaka_form id="8"]'), 'no Divi 4');
+
+            $divi4 = new Module(self::divi('4.27.4'));
+            self::assertSame(['et_pb_contact_form'], $divi4->aboveTheFoldAssets([], '[kalaka_form id="8"]'));
+            self::assertSame(['et_pb_contact_form'], $divi4->aboveTheFoldAssets([], '<!-- wp:kalaka/status /-->'));
+            self::assertSame(
+                ['et_pb_text', 'et_pb_contact_form'],
+                $divi4->aboveTheFoldAssets(['et_pb_text'], '[kalaka_status]')
+            );
+            self::assertSame(
+                ['et_pb_contact_form'],
+                $divi4->aboveTheFoldAssets(['et_pb_contact_form'], '[kalaka_form]')
+            );
+            self::assertSame(['et_pb_text'], $divi4->aboveTheFoldAssets(['et_pb_text'], 'no form here'));
+            self::assertSame('x', $divi4->aboveTheFoldAssets('x', '[kalaka_form]'), 'array only');
+            $divi5 = new Module(self::divi('5.0.0'));
+            self::assertSame([], $divi5->aboveTheFoldAssets([], '[kalaka_form id="8"]'), 'Divi 5');
+        } finally {
+            remove_filter('template', $template);
+        }
+    }
+
+    public function testTheButtonIconKeepsDivisGlyphWithAnEmptyTextAlternativeForKalakasButtonsOnly(): void
+    {
+        self::assertSame(
+            '.et_pb_contact_form[data-wp-interactive="kalaka/form"] .et_pb_button:after,'
+                . '.kalaka-pay-card .et_pb_button:after{content:"\35";content:"\35" / ""}',
+            Module::BUTTON_ICON
+        );
+        self::assertStringContainsString(Module::BUTTON_ICON, $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString(Module::BUTTON_ICON, $this->divi4Css('<!-- wp:kalaka/status /-->'));
+    }
+
     public function testUnderDivi4AStatusPageGetsTheMoneyTablesRowLineAndNothingOfTheForm(): void
     {
         $css = $this->divi4Css('<!-- wp:kalaka/status /-->');
 
         // Divi's `#eee` line of a `td`, on the row header too; not on the rows core separates itself.
-        self::assertSame(
+        self::assertSame(Module::MONEY_TABLE . Module::BUTTON_ICON, $css);
+        self::assertStringContainsString(
             '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}',
             $css
         );
