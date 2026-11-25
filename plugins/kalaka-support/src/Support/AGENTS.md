@@ -95,8 +95,8 @@ It holds the directory, the congregation picker and the support offers.
   a submit's claims and `pools()` the pools of the form variable; the answer act frees and takes the seat through
   core's `SeatOfferSeats` (over `Seats::retake()`, like admission and restore). This module takes and frees a seat nowhere else, and writes nothing of
   `kalaka_seats`.
-- A selection is written only by a submit (which takes the seat) and by the answer act. An additional form that
-  would write an offer key is refused (CF4); staff placing into an offer is not built (N104).
+- A selection is written only by a submit (which takes the seat) and by the answer act. An additional form may
+  write an offer key too: CF4 takes the offer's seat first under its pool's lock and releases a dropped one.
 - `OfferRequests` is the request source of the offers that must be requested: a selected offer is the request
   `offer:<key>` until somebody answers it. A limited one is a request only while the registration holds its
   seat or has an answer (so a refused offer, which gave its seat back, can be answered "yes" again).
