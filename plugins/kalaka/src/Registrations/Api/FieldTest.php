@@ -6,8 +6,8 @@ namespace Kalaka\Registrations\Api;
 
 /**
  * One test of one participant field's stored value, a part of an `AwaitingRule`: the field key, the kind of test
- * and, for `OneOf` and `NoneOf`, the values (at least one; `Filled` and `Empty` take none). Values are compared as
- * stored, text for text. [UNAPPROVED N669]
+ * and, for `OneOf` and `NoneOf`, the values (at least one; `Filled` and `Empty` take none). Values are compared exactly
+ * as stored, byte for byte, in PHP and in the SQL core compiles. [UNAPPROVED N669]
  */
 final readonly class FieldTest
 {

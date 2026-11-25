@@ -126,6 +126,38 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         }
     }
 
+    public function testTheSqlComparesValuesExactlyAsPhpDoes(): void
+    {
+        $rows = [
+            ['00A0', ['support' => 'church', 'support_answer' => 'Approved']], // not "approved": awaits
+            ['00A2', ['support' => 'church', 'support_answer' => 'approved']], // answered
+            ['00A5', ['support' => 'Church']], // not "church": no request
+            ['00A8', ['aid_asked' => '5000', 'aid_award' => ' ']], // a space is a value: answered
+            ['00B0', ['support' => 'church', 'support_answer' => 'approved ']], // not "approved": awaits
+        ];
+        foreach ($rows as $index => [$code, $values]) {
+            $this->addRegistration(self::EVENT, $code, 'registered', sprintf('2026-11-30 08:%02d:00', $index));
+            foreach ($values as $key => $value) {
+                $this->addValue(self::EVENT, $code, $key, $value);
+            }
+        }
+        $rule = (new TestRequestSource())->awaitingRule(self::EVENT) ?? throw new \LogicException();
+
+        $page = $this->query()->page($this->held(), limit: 50);
+
+        self::assertCount(count($rows), $page->rows);
+        $byCode = [];
+        foreach ($page->rows as $row) {
+            $values = [];
+            foreach ((new FieldValueRepository())->forRegistration($row->key) as $value) {
+                $values[$value->fieldKey] = $value->value;
+            }
+            self::assertSame($rule->matches($values), $row->awaitsAnswer, $row->key->code . ' SQL equals PHP');
+            $byCode[$row->key->code] = $row->awaitsAnswer;
+        }
+        self::assertSame(['00A0' => true, '00A2' => false, '00A5' => false, '00A8' => false, '00B0' => true], $byCode);
+    }
+
     public function testAnUnlistedColumnIsStillMarkedOnTheRowButNotAValue(): void
     {
         $this->seed();

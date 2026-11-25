@@ -150,7 +150,9 @@ final class Requests
     }
 
     /**
-     * One field test as an `EXISTS` or `NOT EXISTS` over the field values table, in MariaDB 10.3 SQL.
+     * One field test as an `EXISTS` or `NOT EXISTS` over the field values table, in MariaDB 10.3 SQL. The value is
+     * compared byte for byte (`BINARY`, no collation, no trailing-space padding) and "filled" is a length above zero,
+     * so the SQL means what `FieldTest::matches()` means: case, accents and spaces all count.
      *
      * @return array{0: literal-string, 1: list<string>}
      */
@@ -159,16 +161,17 @@ final class Requests
         $exists = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
             . ' AND f.field_key = %s AND ';
         $base = [$fieldValues, $test->key];
+        $in = implode(', ', array_fill(0, count($test->values), '%s'));
 
         return match ($test->kind) {
-            FieldTestKind::Filled => [$exists . "f.value <> '')", $base],
-            FieldTestKind::Empty => ['NOT ' . $exists . "f.value <> '')", $base],
+            FieldTestKind::Filled => [$exists . 'LENGTH(f.value) > 0)', $base],
+            FieldTestKind::Empty => ['NOT ' . $exists . 'LENGTH(f.value) > 0)', $base],
             FieldTestKind::OneOf => [
-                $exists . 'f.value IN (' . implode(', ', array_fill(0, count($test->values), '%s')) . '))',
+                $exists . 'BINARY f.value IN (' . $in . '))',
                 [...$base, ...$test->values],
             ],
             FieldTestKind::NoneOf => [
-                'NOT ' . $exists . 'f.value IN (' . implode(', ', array_fill(0, count($test->values), '%s')) . '))',
+                'NOT ' . $exists . 'BINARY f.value IN (' . $in . '))',
                 [...$base, ...$test->values],
             ],
         };
