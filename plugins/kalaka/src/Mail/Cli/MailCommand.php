@@ -237,9 +237,9 @@ final class MailCommand
     public function failed(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args, $assocArgs): void {
+            CliInput::fullAccess();
             $eventId = CliInput::existingEventId($args);
             $format = CliInput::format($assocArgs);
-            CliInput::fullAccess();
             $rows = array_map(static fn (Delivery $delivery): array => [
                 'code' => $delivery->registration->code,
                 'mail' => $delivery->mail,
