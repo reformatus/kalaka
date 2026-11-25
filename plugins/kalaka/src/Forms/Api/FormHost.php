@@ -84,7 +84,7 @@ interface FormHost
     public function prefill(Form $form): array;
 
     /**
-     * The options and the choice window of the set a request field names (`RequestFieldType`), for the
+     * The options of the set a request field names (`RequestFieldType`), for the
      * form: null when the form's event has no such set in request mode (the form is then unusable). Read
      * when the definition is parsed, outside any transaction.
      */

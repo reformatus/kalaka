@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms;
 
-use Kalaka\Assignments\Api\AssignmentSet;
 use Kalaka\Assignments\Api\AssignmentSets;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
@@ -30,7 +29,6 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -56,6 +54,9 @@ use Kalaka\Registrations\Api\SubmitToken;
  */
 final class EventFormHost implements FormHost
 {
+    /** A key of the dropped set choice window (`choice_open.<field key>`): it reads as empty in an older revision. */
+    private const CHOICE_OPEN_PREFIX = 'choice_open.';
+
     public function __construct(
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
@@ -72,11 +73,10 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for
-     * every form the event's places left, its custom points and whether each request field's choice window is
-     * open (`EventValues::volatileTypes()`); for an additional form also the registration's status and the
-     * stored values of the event's participant fields, by their keys (`typesOf()`). A key the form holds as a
-     * field is read from the answers: the parser drops it from this list.
+     * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for every
+     * form the event's places left and its custom points (`EventValues::volatileTypes()`); for an additional form
+     * also the registration's status and the stored values of the event's participant fields, by their keys
+     * (`typesOf()`). A key the form holds as a field is read from the answers: the parser drops it from this list.
      */
     public function factTypes(Form $form): array
     {
@@ -86,10 +86,11 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * A custom point that a revision's conditions read and the event no longer has (staff removed it) is gone:
-     * a date that reads as empty, so no revision closes over it, as none closes over a removed set option
-     * (CF1). Only such a point counts; any other unknown key stays an error. A save refuses it
-     * (`DefinitionCheck`, `unknown_point`).
+     * A key that a revision's conditions read and no longer exists is gone and reads as empty, so no revision
+     * closes over it, as none closes over a removed set option (CF1): a custom point the event no longer has
+     * (staff removed it; a date), and `choice_open.<key>` (a set's choice window, dropped by the owner's ruling
+     * 2026-11-25; a choice). Any other unknown key stays an error. A save refuses a gone point
+     * (`DefinitionCheck`, `unknown_point`), and a `choice_open.*` key as any unknown key.
      */
     public function goneTypes(Form $form, array $keys): array
     {
@@ -99,9 +100,11 @@ final class EventFormHost implements FormHost
             if (
                 $event !== null
                 && preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
-                && !isset(EventValues::volatileTypes($event, [])[$key])
+                && !isset(EventValues::volatileTypes($event)[$key])
             ) {
                 $gone[$key] = ValueType::Date;
+            } elseif (str_starts_with($key, self::CHOICE_OPEN_PREFIX)) {
+                $gone[$key] = ValueType::Choice;
             }
         }
 
@@ -109,12 +112,12 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * The gone points (`goneTypes()`) that the revision being walked (`Form::$version`) reads: valued as none in
-     * the facts. A revision that is not readable has none.
+     * The gone keys (`goneTypes()`) that the revision being walked (`Form::$version`) reads, each valued as none
+     * in the facts. A revision that is not readable has none.
      *
-     * @return list<string>
+     * @return array<string, Value>
      */
-    private function gonePoints(Form $form): array
+    private function goneKeys(Form $form): array
     {
         try {
             $content = (new FormPosts())->content($form, $form->version);
@@ -122,7 +125,10 @@ final class EventFormHost implements FormHost
             return [];
         }
 
-        return array_keys($this->goneTypes($form, ConditionKeys::in(parse_blocks($content))));
+        return array_map(
+            static fn (ValueType $type): Value => Value::none($type),
+            $this->goneTypes($form, ConditionKeys::in(parse_blocks($content)))
+        );
     }
 
     /**
@@ -133,7 +139,7 @@ final class EventFormHost implements FormHost
     public function typesOf(Event $event, FormPlacement $placement): array
     {
         $types = EventValues::FORM_TYPES
-            + EventValues::volatileTypes($event, array_keys($this->requestSets($event->id)));
+            + EventValues::volatileTypes($event);
         if ($placement === FormPlacement::Additional) {
             $types[RegistrationFacts::STATUS] = ValueType::Choice;
             $types += (new Forms())->storedTypes($event->id);
@@ -172,19 +178,11 @@ final class EventFormHost implements FormHost
         Form $form,
         Event $event,
         ?bool $loggedIn,
-        \DateTimeImmutable $now,
         ?array $stored,
         ?string $status
     ): ValueContext {
-        $open = [];
-        foreach ($this->requestSets($event->id) as $key => $set) {
-            $open[$key] = $set->windowContains($now);
-        }
-        $values = array_map(
-            static fn (ValueType $type): Value => Value::none($type),
-            array_fill_keys($this->gonePoints($form), ValueType::Date)
-        ) + EventValues::form($event, $loggedIn, $now)
-            + EventValues::volatile($event, $this->registrations()->registeredCount($event->id), $open);
+        $values = $this->goneKeys($form) + EventValues::form($event, $loggedIn, $now)
+            + EventValues::volatile($event, $this->registrations()->registeredCount($event->id));
         if ($form->placement === FormPlacement::Additional) {
             $values[RegistrationFacts::STATUS] = $status === null
                 ? Value::none(ValueType::Choice)
@@ -196,24 +194,6 @@ final class EventFormHost implements FormHost
         }
 
         return new ValueContext($values);
-    }
-
-    /**
-     * The event's request fields with the set each names (request field key → set), whose window a form's
-     * condition reads as `choice_open.<key>`.
-     *
-     * @return array<string, AssignmentSet>
-     */
-    private function requestSets(int $eventId): array
-    {
-        $sets = [];
-        foreach ($this->sets->ofEvent($eventId) as $set) {
-            if ($set->requestFieldKey !== null) {
-                $sets[$set->requestFieldKey] = $set;
-            }
-        }
-
-        return $sets;
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array
@@ -360,7 +340,7 @@ final class EventFormHost implements FormHost
             $options[] = ['value' => $option->key, 'label' => $option->label];
         }
 
-        return new RequestOptions($options, $set->windowOpens, $set->windowCloses);
+        return new RequestOptions($options);
     }
 
     public function submitToken(): string

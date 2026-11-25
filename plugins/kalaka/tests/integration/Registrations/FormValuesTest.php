@@ -30,10 +30,9 @@ use Kalaka\Tests\Integration\Foundation\TestClock;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
- * CF2: the values only a form's conditions read (`event.seats_left`, `choice_open.<field key>`,
- * `event.points.<id>`), an additional form's reads of the registration (`registration.status` and the stored
- * values of fields the form does not hold), the submit's walk judging them as they are then, and the
- * registration lock's re-read of what the walk read.
+ * CF2: the values only a form's conditions read (`event.seats_left`, `event.points.<id>`), an additional form's reads
+ * of the registration (`registration.status` and the stored values of fields the form does not hold), the submit's
+ * walk judging them as they are then, and the registration lock's re-read of what the walk read.
  */
 final class FormValuesTest extends FormsTestCase
 {
@@ -206,7 +205,7 @@ final class FormValuesTest extends FormsTestCase
         self::assertNotNull($event);
         $form = new Form(1, $unlimited, FormPlacement::Registration, null, false, 1);
 
-        $facts = $this->host()->factsFor($form, $event, null, $this->clock->now(), null, null);
+        $facts = $this->host()->factsFor($form, $event, null, null, null);
 
         self::assertTrue($facts->get('event.seats_left')->isEmpty());
         self::assertSame(ValueType::Number, $facts->get('event.seats_left')->type);
@@ -246,28 +245,6 @@ final class FormValuesTest extends FormsTestCase
         self::assertArrayNotHasKey('szint', $host->factTypes($this->formOf($registration)));
         self::assertSame(ValueType::Choice, $host->factTypes($this->formOf($additional))['szint']);
         self::assertTrue($this->facts($additional)->get('registration.status')->isEmpty());
-    }
-
-    public function testChoiceOpenIsYesInsideTheSetsWindowAndNoOutside(): void
-    {
-        $sets = new AssignmentSets($this->runner);
-        $set = $sets->save([
-            'event_id' => $this->event,
-            'name' => 'Modulok',
-            'required' => true,
-            'window_opens_at' => '2026-12-01 08:00',
-            'window_closes_at' => '2026-12-10 20:00',
-            'published' => false,
-        ], new CliActor(null));
-        $sets->tieRequestField($set, 'modulok', new CliActor(null));
-        $form = $this->additional($this->field('text', 'note'));
-
-        $this->now('2026-11-30 08:00:00');
-        self::assertSame(['no'], $this->facts($form)->get('choice_open.modulok')->data);
-        $this->now('2026-12-02 08:00:00');
-        self::assertSame(['yes'], $this->facts($form)->get('choice_open.modulok')->data);
-        $this->now('2026-12-11 08:00:00');
-        self::assertSame(['no'], $this->facts($form)->get('choice_open.modulok')->data);
     }
 
     public function testAnAdditionalFormsBranchReadsAStoredValueOfAFieldItDoesNotHold(): void
@@ -357,30 +334,18 @@ final class FormValuesTest extends FormsTestCase
 
     public function testAWithheldBranchThatFlipsToShownRefusesItsMissingRequiredField(): void
     {
-        // The set's window opens between the page and the submit: the branch was withheld on the page.
-        $sets = new AssignmentSets($this->runner);
-        $set = $sets->save([
-            'event_id' => $this->event,
-            'name' => 'Modulok',
-            'required' => true,
-            'window_opens_at' => '2026-12-01 08:00',
-            'window_closes_at' => '2026-12-10 20:00',
-            'published' => false,
-        ], new CliActor(null));
-        $sets->tieRequestField($set, 'modulok', new CliActor(null));
+        // The last place goes between the page and the submit: the branch on no places left was withheld on the page.
         $form = $this->insertForm(
             $this->slotFields()
             . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]])
-            . $this->branch('choice_open.modulok', 'equals', 'yes', $this->field('text', 'indok', [
+            . $this->branch('event.seats_left', 'lessThan', '1', $this->field('text', 'indok', [
                 'required' => true,
             ])),
             ['kalaka_event_id' => $this->event]
         );
-
-        $this->now('2026-11-30 12:00:00');
         self::assertStringNotContainsString('indok', $this->render($form));
 
-        $this->now('2026-12-02 12:00:00');
+        $this->register(['name' => 'Teszt Cili', 'email' => 'teszt.cili@example.org', 'szint' => 'kezdo']);
         $send = fn (array $answers) => $this->submitter()->submit(
             new SubmitRequest($form, $this->readForm($form)->version, $answers, SubmitToken::generate()),
             new GuestActor()
@@ -397,7 +362,7 @@ final class FormValuesTest extends FormsTestCase
             'szint' => 'halado',
             'indok' => 'van',
         ]);
-        self::assertSame('registered', $registered->status->value);
+        self::assertContains($registered->status->value, ['registered', 'waitlisted']);
     }
 
     /**
@@ -634,20 +599,10 @@ final class FormValuesTest extends FormsTestCase
 
     public function testTheReFetchFlipsAWithheldBranchWhenItsValueChanges(): void
     {
-        $sets = new AssignmentSets($this->runner);
-        $set = $sets->save([
-            'event_id' => $this->event,
-            'name' => 'Modulok',
-            'required' => true,
-            'window_opens_at' => '2026-12-01 08:00',
-            'window_closes_at' => '2026-12-10 20:00',
-            'published' => false,
-        ], new CliActor(null));
-        $sets->tieRequestField($set, 'modulok', new CliActor(null));
         $form = $this->insertForm(
             $this->slotFields()
             . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]])
-            . $this->branch('choice_open.modulok', 'equals', 'yes', $this->field('text', 'indok')),
+            . $this->branch('event.seats_left', 'lessThan', '1', $this->field('text', 'indok')),
             ['kalaka_event_id' => $this->event]
         );
         $GLOBALS['wp_rest_server'] = null;
@@ -664,9 +619,8 @@ final class FormValuesTest extends FormsTestCase
             return $data;
         };
 
-        $this->now('2026-11-30 12:00:00');
         self::assertFalse($refetch()['availability']['fields']['indok']);
-        $this->now('2026-12-02 12:00:00');
+        $this->register(['name' => 'Teszt Cili', 'email' => 'teszt.cili@example.org', 'szint' => 'kezdo']);
         self::assertTrue($refetch()['availability']['fields']['indok']);
         self::assertNotEmpty($this->forms->definition($this->readForm($form))->withheldChains());
     }
@@ -753,6 +707,55 @@ final class FormValuesTest extends FormsTestCase
         self::assertSame('x', (new Registrations())->values($this->registration)['note']);
     }
 
+    public function testARevisionThatReadsTheDroppedChoiceOpenKeyStillParsesAndReadsEmpty(): void
+    {
+        // Owner ruling 2026-11-25: a set has no choice window. A revision stored before it may still read
+        // `choice_open.<field key>`: the key is gone, reads as empty, and the branch never holds.
+        $form = $this->insertForm(
+            $this->slotFields()
+            . $this->field('choice', 'szint', ['options' => [['value' => 'halado', 'label' => 'Haladó']]])
+            . $this->branch('choice_open.modulok', 'equals', 'yes', $this->field('text', 'indok', [
+                'required' => true,
+            ])),
+            ['kalaka_event_id' => $this->event]
+        );
+        $current = $this->readForm($form);
+
+        self::assertSame(
+            ['choice_open.modulok' => ValueType::Choice],
+            $this->host()->goneTypes($current, ['choice_open.modulok', 'choice_open_x', 'event.points.x'])
+        );
+        self::assertCount(1, $this->forms->definition($current)->chains);
+        $facts = $this->host()->facts($current);
+        self::assertNotNull($facts);
+        self::assertTrue($facts->get('choice_open.modulok')->isEmpty());
+        self::assertSame(ValueType::Choice, $facts->get('choice_open.modulok')->type);
+        self::assertArrayNotHasKey(
+            'choice_open.modulok',
+            $this->host()->typesOf(
+                $this->events->find($this->event) ?? self::fail('No event.'),
+                FormPlacement::Registration
+            )
+        );
+        $registered = $this->submitter()->submit(
+            new SubmitRequest(
+                $form,
+                $current->version,
+                ['name' => 'Teszt Béla', 'email' => 'teszt.bela@example.org', 'szint' => 'halado'],
+                SubmitToken::generate()
+            ),
+            new GuestActor()
+        );
+        self::assertSame('registered', $registered->status->value);
+        // A save refuses it like any key nothing declares.
+        self::assertNotNull(DefinitionCheck::problem(
+            (string) get_post($form)?->post_content,
+            $form,
+            FormPlacement::Registration,
+            $this->event
+        ));
+    }
+
     public function testTheGonePointsAreThoseOfTheRevisionBeingWalkedNotTheCurrentContent(): void
     {
         $this->update($this->event, ['points' => [
@@ -780,7 +783,6 @@ final class FormValuesTest extends FormsTestCase
             new Form($form, $this->event, FormPlacement::Registration, null, false, $version),
             $event,
             null,
-            $this->clock->now(),
             null,
             null
         );

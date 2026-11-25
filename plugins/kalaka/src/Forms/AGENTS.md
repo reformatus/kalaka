@@ -218,7 +218,7 @@ values and conditions, prefill and form links
   that does not hold, or an option that is not offered, is dropped: never
   stored, never required, never an error.
 - The keys only a form's conditions read (`event.seats_left`,
-  `choice_open.<field key>`, `event.points.<id>`) are `EventValues::volatile()`,
+  `event.points.<id>`) are `EventValues::volatile()`,
   never in `EventValues::of()`, which mails, the after-submit section and
   `RegistrationFacts` also read. An additional form also reads
   `registration.status` and, by key, the stored values of the event's
@@ -230,8 +230,10 @@ values and conditions, prefill and form links
   editor lists the same keys (`Module::editorData()`). A branch that reads any
   of them is withheld. The submit's walk reads them as they are then.
 - A key a revision's conditions read that the host says is gone (`FormHost::goneTypes()`: a custom point staff
-  removed) is declared as its type with value none when a definition is read, for every revision, so a removed
-  point never closes a form or an older revision; the save check refuses it (`unknown_point`). Only conditions
+  removed, and `choice_open.<field key>`, the dropped set choice window of an older revision, owner ruling
+  2026-11-25) is declared as its type with value none when a definition is read, for every revision, so a removed
+  point or key never closes a form or an older revision; the save check refuses a point (`unknown_point`) and
+  a `choice_open.*` key (as any unknown key). Only conditions
   count: text that mentions a key declares nothing (`Engine\Condition\ConditionKeys`).
 - A form's chains are numbered once, by `Engine\Condition\ChainMarks`, on the parsed
   blocks: `DefinitionParser` reads the numbers from those marks and the branch
@@ -322,7 +324,7 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  stored values the form opens with, the options and window of the set a
+  stored values the form opens with, the options of the set a
   request field names, the submit token and the submit, the after-submit
   section's keys, and whether the form needs an account (`accountStep()`).
   Kaláka's event form, `EventFormHost`, is the first host; `Api\Forms` and
@@ -337,10 +339,9 @@ values and conditions, prefill and form links
   `optionConditions` that is no option of the set is refused when the form is
   saved (`unknown_option`) and ignored when the definition is read, so a
   removed option never closes the form. `FormEngine::blocks()`
-  renders it with those attributes. Outside the set's choice window, decided
-  when the definition is built from the runner's clock, it is closed: it does
-  not show, renders nothing and whatever is sent for it is dropped; the walk
-  and the evaluator stay pure. A block of such a type that names no set
+  renders it with those attributes. A set has no choice window (owner ruling
+  2026-11-25): the form's own open period and conditions decide when the
+  field can be answered. A block of such a type that names no set
   (`requestSet()` null) keeps its own options and is no request field: the
   block's set attribute decides, and the type is then also an
   `OptionsFieldType`, whose checks apply only to a block that names no set.

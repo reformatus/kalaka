@@ -351,7 +351,7 @@ final class DefinitionCheck
         if ($event === null) {
             return null;
         }
-        $known = array_keys(EventValues::volatileTypes($event, []));
+        $known = array_keys(EventValues::volatileTypes($event));
 
         return array_values(array_diff($keys, $known))[0] ?? null;
     }

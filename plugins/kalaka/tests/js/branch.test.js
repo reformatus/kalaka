@@ -477,7 +477,6 @@ describe("the per-event keys the server prints (CF2)", () => {
         ...before.eventTypes,
         "event.seats_left": "number",
         "event.points.3": "date",
-        "choice_open.rangsor": "choice",
         "registration.status": "choice",
         // a stored value of the event's participant field, which an additional form may read
         sav: "choice",
@@ -501,7 +500,6 @@ describe("the per-event keys the server prints (CF2)", () => {
         );
       expect(reads("event.seats_left", "greaterThan", "0")).toBeNull();
       expect(reads("event.points.3", "greaterThan", "2026-12-01")).toBeNull();
-      expect(reads("choice_open.rangsor", "equals", "yes")).toBeNull();
       expect(reads("registration.status", "equals", "registered")).toBeNull();
       expect(reads("sav", "equals", "A")).toBeNull();
     });

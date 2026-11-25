@@ -31,14 +31,13 @@ use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * Reads the field blocks of a form's block markup, in document order, whatever core blocks and condition branches
  * they sit in; each field carries the branches it sits in, and a choice field the availability conditions of its
  * options. A request field (`Api\RequestFieldType`) gets its options from the set it names, through the host
  * (`FormHost::requestOptions()`); each option's condition comes from the block's own `optionConditions` (option key
- * to condition), which are then read like a choice field's. Outside the set's choice window it is closed (S44). The
+ * to condition), which are then read like a choice field's. The
  * chains are numbered in
  * document order, and every key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`,
  * the marks the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming the problem
@@ -426,27 +425,26 @@ final class DefinitionParser
             throw new SystemFailure('invalid_number ' . $key);
         }
 
-        $closed = false;
         if ($type instanceof RequestFieldType) {
-            [$attributes, $closed] = $this->requestAttributes($type, $key, $attributes);
+            $attributes = $this->requestAttributes($type, $key, $attributes);
         }
 
         $optionConditions = $name === ChoiceFieldType::BLOCK_NAME || $type instanceof RequestFieldType
             ? $this->optionConditions($attributes, new FormScope($fields, $contributions, $this->factTypes))
             : [];
 
-        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page, $closed);
+        return new FormField($key, $name, $attributes, $branches, $optionConditions, $this->page);
     }
 
     /**
-     * A request field's attributes with its set's options in `options`, and whether the set's choice window is
-     * closed now (S44). A field naming a set the host does not have is a problem; one naming none keeps its own
-     * options. The block's `optionConditions` (option key → condition) become the options' `condition`, so every
-     * version reads its own block's conditions. A key the set has no option for is refused when the form is
-     * saved (`unknown_option`) and ignored when the definition is read, so a removed option never closes the form.
+     * A request field's attributes with its set's options in `options` (S44). A field naming a set the host does not
+     * have is a problem; one naming none keeps its own options. The block's `optionConditions` (option key →
+     * condition) become the options' `condition`, so every version reads its own block's conditions. A key the set
+     * has no option for is refused when the form is saved (`unknown_option`) and ignored when the definition is read,
+     * so a removed option never closes the form.
      *
      * @param array<string, mixed> $attributes
-     * @return array{array<string, mixed>, bool}
+     * @return array<string, mixed>
      * @throws SystemFailure
      */
     private function requestAttributes(RequestFieldType $type, string $key, array $attributes): array
@@ -454,7 +452,7 @@ final class DefinitionParser
         $setId = $type->requestSet($attributes);
         if ($setId === null) {
             // It names no set: its options are its own, as authored.
-            return [$attributes, false];
+            return $attributes;
         }
         $options = $this->host === null || $this->form === null
             ? null
@@ -465,7 +463,7 @@ final class DefinitionParser
         }
         $attributes['options'] = $this->withConditions($key, $attributes['optionConditions'] ?? null, $options);
 
-        return [$attributes, !$options->openAt(Runner::current()->clock()->now())];
+        return $attributes;
     }
 
     /**
