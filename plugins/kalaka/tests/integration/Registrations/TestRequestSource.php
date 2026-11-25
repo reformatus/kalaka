@@ -11,6 +11,7 @@ use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\SqlPredicate;
 
 /**
  * A test source of requests, standing for the offers and aid of slice B0: the field `support` holding `church`
@@ -51,6 +52,26 @@ final class TestRequestSource implements RequestSource
         return $request->kind === RequestKind::Offer
             ? in_array($values['support_answer'] ?? '', ['approved', 'refused'], true)
             : ($values['aid_award'] ?? '') !== '';
+    }
+
+    /**
+     * The church offer: `support` holds `church` and `support_answer` is neither `approved` nor `refused`; the aid
+     * request: `aid_asked` is positive and `aid_award` is empty. Exactly `requestsOf()` and `isAnswered()`.
+     */
+    public function awaitingPredicate(int $eventId, string $fieldValues): ?SqlPredicate
+    {
+        $field = 'SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code AND f.field_key = %s AND ';
+
+        return new SqlPredicate(
+            '(EXISTS (' . $field . "f.value = 'church')"
+            . ' AND NOT EXISTS (' . $field . "f.value IN ('approved', 'refused')))"
+            . ' OR (EXISTS (' . $field . "f.value <> '' AND CAST(f.value AS DECIMAL(26,8)) > 0)"
+            . ' AND NOT EXISTS (' . $field . "f.value <> ''))",
+            [
+                $fieldValues, 'support', $fieldValues, 'support_answer',
+                $fieldValues, 'aid_asked', $fieldValues, 'aid_award',
+            ]
+        );
     }
 
     public function seatPool(Request $request): ?string

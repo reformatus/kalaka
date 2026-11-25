@@ -474,18 +474,47 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertTrue($this->answer(TestRequestSource::OFFER, 'yes', [], new UserActor($partner))['changed']);
     }
 
-    public function testAWaitlistedRegistrationTakesAndFreesNoSeatWhateverItAnswers(): void
+    public function testAWaitlistedRegistrationIsInactiveSoItsRequestIsNotAnswered(): void
     {
         $this->addRegistration($this->event, '00B0', 'waitlisted');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        $this->answer(TestRequestSource::OFFER, 'no', ['code' => '00B0']);
-        $second = $this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0']);
+        try {
+            $this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0']);
+            self::fail('A waitlisted registration is not answered.');
+        } catch (RuleViolation) {
+            self::assertSame([], $this->answerRows());
+            self::assertNull((new Registrations())->values($this->key('00B0'))['support_answer'] ?? null);
+            self::assertSame(['lock:church'], $this->seats->calls, 'only the lock; no take, no release');
+        }
+    }
 
-        self::assertTrue($second['changed']);
-        self::assertFalse($second['over_limit']);
+    public function testTheSameRegistrationIsAnswerableOnceAdmitted(): void
+    {
+        $this->addRegistration($this->event, '00B0', 'waitlisted');
+        $this->addValue($this->event, '00B0', 'support', 'church');
+        $this->admit('00B0');
+
+        self::assertTrue($this->answer(TestRequestSource::OFFER, 'yes', ['code' => '00B0'])['changed']);
         self::assertSame('approved', (new Registrations())->values($this->key('00B0'))['support_answer']);
-        self::assertSame(['lock:church', 'lock:church'], $this->seats->calls, 'no release, no take');
+    }
+
+    public function testAWaitlistedRegistrationStillAwaitsAnAnswerAsAFact(): void
+    {
+        $this->addRegistration($this->event, '00B0', 'waitlisted');
+        $this->addValue($this->event, '00B0', 'support', 'church');
+
+        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+    }
+
+    private function admit(string $code): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['status' => 'registered', 'registered_at' => '2026-11-30 09:00:00.000000'],
+            ['event_id' => $this->event, 'code' => $code],
+        );
     }
 
     public function testAnAidRequestLocksNoSeatPool(): void

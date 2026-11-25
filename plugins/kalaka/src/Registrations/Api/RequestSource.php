@@ -35,6 +35,21 @@ interface RequestSource
     public function isAnswered(Request $request, array $values): bool;
 
     /**
+     * The same question as `requestsOf()` and `isAnswered()` together, asked in SQL for the admin grid's "awaits an
+     * answer" column: a condition over the registration row `r` (`r.event_id`, `r.code`) and the participant field
+     * values table, true when this source has a request awaiting an answer. It means exactly what the two reads
+     * mean: a request the source names now and its answer field empty (the field is the truth). It does not look at
+     * the registration's status (the caller does: only a `registered` registration awaits in the grid) and names no
+     * other table. It uses its own aliases inside `EXISTS` subqueries, never `r` for anything else, passes every
+     * value as a placeholder argument, and reads configuration (which offers need approval) in PHP while it builds
+     * the text. MariaDB 10.3 SQL only. Null when this event's registrations can have no request from the source.
+     * [UNAPPROVED N669]
+     *
+     * @param string $fieldValues the participant field values table, to pass as the `%i` argument
+     */
+    public function awaitingPredicate(int $eventId, string $fieldValues): ?SqlPredicate;
+
+    /**
      * The key of the seat pool an offer's seat comes from, or null when the request has no limit (an aid
      * request, an offer with no quota). The answer act passes it to `OfferSeats`.
      */

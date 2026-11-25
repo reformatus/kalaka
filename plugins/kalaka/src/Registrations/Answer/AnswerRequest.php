@@ -40,11 +40,10 @@ use Kalaka\Registrations\Api\RequestState;
  *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
  * - A repeat of the latest answer, the same yes or no, the same amount and no new note, writes nothing; a new
  *   note alone is a new act. [UNAPPROVED N8] Only a
- *   `registered` or `waitlisted` registration is answered; a withdrawn or removed one is a `RuleViolation`.
- *   [UNAPPROVED N9]
- * - On a `registered` registration a refusal frees the offer's seat; a "yes" after a refusal takes one again, and
- *   when the pool is full the answer stands and `over_limit` says so (B1). A waitlisted registration holds no
- *   place, so it takes and frees none. Both go through `OfferSeats`, a seam until slice A.
+ *   `registered` registration is answered (a waitlisted registration is inactive: its request waits until it is
+ *   admitted); a waitlisted, withdrawn or removed one is a `RuleViolation`. [UNAPPROVED N9]
+ * - A refusal frees the offer's seat; a "yes" after a refusal takes one again, and when the pool is full the
+ *   answer stands and `over_limit` says so (B1). Both go through `OfferSeats`, a seam until slice A.
  *
  * Returns `{changed, answer, over_limit}`: the new record's id, null when nothing was written.
  */
@@ -123,7 +122,7 @@ final class AnswerRequest implements AdminUseCase
         $request = $state->request;
 
         $status = $this->registrations->find($key)?->status;
-        if ($status !== RegistrationStatus::Registered && $status !== RegistrationStatus::Waitlisted) {
+        if ($status !== RegistrationStatus::Registered) {
             throw new RuleViolation();
         }
 
@@ -158,10 +157,8 @@ final class AnswerRequest implements AdminUseCase
         ), $context);
         $state->source->writeAnswer($key, $request, $answer, $context);
 
-        // A waitlisted registration holds no place (money.md, "Quota places"): its offer seat is decided when it
-        // is admitted, so an answer takes and frees nothing for it. [UNAPPROVED N4]
         $overLimit = false;
-        if ($pool !== null && $status === RegistrationStatus::Registered) {
+        if ($pool !== null) {
             if (!$yes) {
                 $this->seats->release($key, $pool, $context);
             } elseif ($previous !== null && !$previous->approved) {
