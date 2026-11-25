@@ -55,7 +55,7 @@ final class FieldEditing
             );
             throw $error;
         }
-        $attributes = $this->attributes($field, $type);
+        $attributes = $this->attributes($field, $type, null);
         // An answer the type refuses (it throws or returns an error) moves on to the next shape; only when none is
         // taken is the input refused.
         foreach (self::shapes($value) as $shape) {
@@ -82,7 +82,7 @@ final class FieldEditing
         if ($type === null) {
             return null;
         }
-        // Only a choice needs its form (whether it takes several); other types read their settings from the field.
+        // Only a choice needs its form (whether it takes several); the rest of the attributes are the field's own.
         if ($field->forms === [] && $type instanceof ChoiceFieldType) {
             $this->held[$eventId] ??= $this->forms->participantFields($eventId, true);
             foreach ($this->held[$eventId] as $held) {
@@ -92,7 +92,7 @@ final class FieldEditing
                 }
             }
         }
-        $attributes = $this->attributes($field, $type);
+        $attributes = $this->attributes($field, $type, $stored);
         $options = null;
         if ($type instanceof OptionsFieldType) {
             $options = [];
@@ -165,22 +165,29 @@ final class FieldEditing
     }
 
     /**
-     * The block attributes the type reads the answer with: the attributes of the form field holding the key (the
-     * registration form's newest published version, else the first additional form that holds it, by form ID);
-     * the participant field's label when no form holds it. An options type reads the field's active options,
-     * whatever the form's block lists.
+     * The block attributes the type reads the answer with: the one rule `Forms::attributesOf()` builds from the
+     * participant field (its settings, label, options, and `multiple` as the stored answer shows it). An options
+     * type reads the field's active options only, whatever the form's block lists; a choice takes whether it is
+     * multiple from the form field that holds the key (the registration form's newest published version, else the
+     * first additional form that holds it, by form ID), since a value to be written has no stored form yet.
      *
      * @return array<string, mixed>
      */
-    private function attributes(ParticipantField $field, FieldType $type): array
+    private function attributes(ParticipantField $field, FieldType $type, ?string $answer): array
     {
-        $attributes = $this->formAttributes($field) ?? ['label' => $field->title];
+        $attributes = Forms::attributesOf($field, $answer ?? '');
         if ($type instanceof OptionsFieldType) {
             $attributes['options'] = [];
             foreach ($field->options as $option) {
                 if (!$option['retired']) {
                     $attributes['options'][] = ['value' => $option['value'], 'label' => $option['label']];
                 }
+            }
+        }
+        if ($type instanceof ChoiceFieldType) {
+            $held = $this->formAttributes($field);
+            if ($held !== null) {
+                $attributes['multiple'] = ($held['multiple'] ?? false) === true;
             }
         }
 

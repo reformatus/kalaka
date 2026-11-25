@@ -6,12 +6,15 @@ namespace Kalaka\Tests\Integration\Admin\FieldEdit;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Assignments\Api\AssignmentSets;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /** B5-2: `kalaka/edit-field-value` as an ability, prepared per call from its input. */
 final class EditFieldValueAbilityTest extends StaffEditTestCase
 {
     private Runner $production;
+
+    private Contributions $contributions;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
     public function set_up(): void
@@ -20,6 +23,7 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
 
         // The ability runs the production runner; it joins the harness's open transaction here.
         $this->production = Runner::current();
+        $this->contributions = Contributions::current();
         Runner::publish($this->runner);
         Access::forget();
         $this->declareField('name', 'kalaka/text-field');
@@ -33,6 +37,7 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
     public function tear_down(): void
     {
         Runner::publish($this->production);
+        Contributions::record($this->contributions);
         wp_set_current_user(0);
         Access::forget();
 
@@ -191,5 +196,26 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
             'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.',
             AssignmentSets::FULL_WARNING
         );
+
+        // A preview through the ability that would overfill a pool carries exactly that text.
+        $contributions = clone Contributions::current();
+        $contributions->seatClaimSource(new TierClaimSource(['a' => $this->poolA, 'b' => $this->poolB]));
+        Contributions::record($contributions);
+        $this->declareField(TierClaimSource::FIELD, 'kalaka/choice-field', 'form', [
+            ['value' => 'a', 'label' => 'A', 'retired_at' => null],
+            ['value' => 'b', 'label' => 'B', 'retired_at' => null],
+        ]);
+        $this->addValue($this->event, '00A0', 'tier', 'a');
+        $this->seat('00A0', $this->poolA);
+        $this->addRegistration($this->event, '00A2');
+        $this->addValue($this->event, '00A2', 'tier', 'b');
+        $this->seat('00A2', $this->poolB);
+        wp_set_current_user($this->admin->userId);
+
+        $result = $this->call($this->input(TierClaimSource::FIELD, 'b', ['preview' => true]));
+
+        self::assertIsArray($result);
+        self::assertSame([AssignmentSets::FULL_WARNING], $result['warnings']);
+        self::assertSame(['tier'], $result['over_limit']);
     }
 }

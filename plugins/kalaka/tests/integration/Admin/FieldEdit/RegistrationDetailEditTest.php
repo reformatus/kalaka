@@ -114,7 +114,7 @@ final class RegistrationDetailEditTest extends StaffEditTestCase
         }
     }
 
-    public function testAWriteColumnOfAViewThatDoesNotHoldTheRegistrationIsNotWritable(): void
+    public function testAWriteColumnOfAViewThatHoldsTheRegistrationIsWritable(): void
     {
         $user = $this->plainUser();
         $view = $this->viewWithColumns(
@@ -126,6 +126,77 @@ final class RegistrationDetailEditTest extends StaffEditTestCase
         $this->addValue($this->event, '00A5', 'name', 'Teszt Elek');
 
         self::assertTrue($this->fields(new UserActor($user), '00A5')['name']['writable']);
+    }
+
+    public function testAWriteColumnOfAViewThatDoesNotHoldTheRegistrationIsNotWritable(): void
+    {
+        $user = $this->plainUser();
+        $view = $this->viewWithColumns(
+            [['column' => 'code', 'write' => false], ['column' => 'field:name', 'write' => true]],
+            [['column' => 'field:name', 'in' => ['Teszt Elek']]]
+        );
+        $this->saveGrant($this->event, $user, ['view_id' => $view, 'actions' => []]);
+        $this->addRegistration($this->event, '00A6');
+        $this->addValue($this->event, '00A6', 'name', 'Más Valaki');
+
+        // The registration's name is outside the view's filter: the read refuses it, or lists nothing writable.
+        try {
+            $fields = $this->fields(new UserActor($user), '00A6');
+        } catch (\Kalaka\Foundation\Api\Error\KalakaException) {
+            $fields = [];
+        }
+        foreach ($fields as $key => $field) {
+            self::assertFalse($field['writable'], $key);
+        }
+    }
+
+    public function testANumberAndAScaleOpenOnTheirStoredValueWithTheirOwnSettings(): void
+    {
+        $this->declareField('amount', 'kalaka/number-field', 'form', null, false, null, ['decimals' => 2]);
+        $this->declareField('rating', 'kalaka/scale-field', 'form', null, false, null, ['min' => 0, 'max' => 10]);
+        $this->addValue($this->event, '00A0', 'amount', '12.50');
+        $this->addValue($this->event, '00A0', 'rating', '8');
+
+        $fields = $this->fields();
+
+        // The control holds the type's own text of the number, not the empty control the default decimals gave.
+        self::assertEquals(12.5, $fields['amount']['edit']['answer']['value']);
+        self::assertNotNull($fields['amount']['edit']['answer']['value']);
+        self::assertSame('number', $fields['amount']['edit']['control']);
+        self::assertEquals(8, $fields['rating']['edit']['answer']['value']);
+        self::assertNotNull($fields['rating']['edit']['answer']['value']);
+    }
+
+    public function testAStoredNumberRoundTripsThroughTheAct(): void
+    {
+        $this->declareField('amount', 'kalaka/number-field', 'form', null, false, null, ['decimals' => 2]);
+        $this->addValue($this->event, '00A0', 'amount', '12.5');
+        $edit = $this->fields()['amount']['edit'];
+
+        // The value the control opened on goes back through the field type to the stored form it came from.
+        $prepared = (new \Kalaka\Admin\FieldEdit\FieldEditInput())->prepare([
+            'event_id' => $this->event,
+            'code' => '00A0',
+            'field' => 'amount',
+            'value' => $edit['answer']['value'],
+            'reason' => 'Elírás',
+        ], $this->admin);
+        self::assertSame($edit['expected'], $prepared->stored);
+
+        $prepared = (new \Kalaka\Admin\FieldEdit\FieldEditInput())->prepare([
+            'event_id' => $this->event,
+            'code' => '00A0',
+            'field' => 'amount',
+            'value' => '13.25',
+            'reason' => 'Elírás',
+        ], $this->admin);
+        $result = $this->exec(
+            new \Kalaka\Admin\FieldEdit\EditFieldValue($prepared, $this->corrections()),
+            ['event_id' => $this->event, 'code' => '00A0', 'field' => 'amount', 'value' => '13.25', 'reason' => 'Ok']
+        );
+        self::assertIsArray($result);
+        self::assertSame('13.25', $this->valueOf('00A0', 'amount'));
+        self::assertEquals(13.25, $this->fields()['amount']['edit']['answer']['value']);
     }
 
     public function testTheEditCarriesTheEditorKindTheAnswerAndTheStoredValueAsTheActComparesIt(): void

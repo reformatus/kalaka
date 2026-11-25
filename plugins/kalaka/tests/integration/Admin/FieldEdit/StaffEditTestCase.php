@@ -148,7 +148,10 @@ abstract class StaffEditTestCase extends AdminTestCase
         return $result;
     }
 
-    /** @param list<array{value: string, label: string, retired_at: ?string}>|null $options */
+    /**
+     * @param list<array{value: string, label: string, retired_at: ?string}>|null $options
+     * @param array<string, mixed>|null $settings the type's stored settings (a number's decimals, a scale's range)
+     */
     protected function declareField(
         string $key,
         string $type,
@@ -156,6 +159,7 @@ abstract class StaffEditTestCase extends AdminTestCase
         ?array $options = null,
         bool $writable = false,
         ?string $retired = null,
+        ?array $settings = null,
     ): void {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
@@ -171,6 +175,7 @@ abstract class StaffEditTestCase extends AdminTestCase
             'updated_at' => '2026-11-01 07:00:00.000000',
             'position' => 1,
             'form_writable' => $writable ? 1 : 0,
+            'settings' => $settings === null ? null : wp_json_encode($settings),
         ]);
     }
 

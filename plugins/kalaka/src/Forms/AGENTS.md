@@ -359,6 +359,7 @@ values and conditions, prefill and form links
   closes the site.
 - One field type per block name; a second one is a load failure.
 - A field type runs for a hand edit only through `Api\FieldEditing`, outside any transaction: `stored()` turns a
-  typed value into the field's stored form (the form field's attributes, the field's active options, the shapes a
-  plain text may stand for) and `editor()` gives an edit control's data (`FieldEditor`: the type's block name, the
+  typed value into the field's stored form (the attributes of the one rule `Forms::attributesOf()`: the field's
+  settings, label and options, with the active options only and a choice's `multiple` from the form that holds it;
+  the shapes a plain text may stand for) and `editor()` gives an edit control's data (`FieldEditor`: the type's block name, the
   `prefill()` of the stored answer, the active options). Admin never runs a field type itself.
