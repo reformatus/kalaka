@@ -123,7 +123,6 @@ final class SetExtraCharges implements AdminUseCase
             );
         }
         // The donation's number field is declared whenever the extras are saved, with or without charges.
-        // [UNAPPROVED N2]
         $this->fields->declareExtensionField(
             $context,
             $eventId,

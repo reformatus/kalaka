@@ -21,7 +21,7 @@ use Kalaka\Pricing\Cli\SettingsDocument;
 /**
  * The extras define their participant fields (events-and-forms.md, "Fields"): a charge declares its field with its
  * key and type when it is saved, the donation's number field is declared by every save, and a form field joins a
- * declared field by its key and never creates it. [UNAPPROVED N1] [UNAPPROVED N2] [UNAPPROVED T1]
+ * declared field by its key and never creates it.
  */
 final class ExtrasDeclarationTest extends ExtrasTestCase
 {
