@@ -140,8 +140,6 @@ final class ParticipantFields
      * A `staff` or `system` field, another type and another declarer's field refuse. `$decimals` is the declarer's
      * fixed decimals for a number field; the key rule does not read it.
      *
-     * [UNAPPROVED N5]
-     *
      * @throws FieldKeyHeld when the key is not free
      */
     public function checkDeclarable(
@@ -161,7 +159,7 @@ final class ParticipantFields
     /**
      * Whether the field's value is locked after its first write: its stored flag (an extension's declaration, or the
      * block type's capability when a form declared it) or its type's own capability (`MoneyRelevantFieldType`), so a
-     * row stored before the flag existed, or an adoption that claimed none, still locks a money type. [UNAPPROVED N301]
+     * row stored before the flag existed, or an adoption that claimed none, still locks a money type.
      */
     public function lockedAfterFirstWrite(ParticipantField $field): bool
     {
