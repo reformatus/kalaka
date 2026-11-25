@@ -478,10 +478,9 @@ final class GridModel
         }
         if ($column === 'awaits_answer') {
             // A core-derived yes/no column [UNAPPROVED N669]: shown, filtered and counted as a consent field is
-            // (stored '1' / '0'), always with a value, so no „Nincs válasz”. The label is a placeholder: the
-            // column's title is UX's.
+            // (stored '1' / '0'), always with a value, so no „Nincs válasz”. The title is [UNAPPROVED T852].
             return $meta + [
-                'label' => $column,
+                'label' => Texts::AWAITS_ANSWER,
                 'type' => 'consent',
                 'options' => ['1' => Texts::YES, '0' => Texts::NO],
             ];
