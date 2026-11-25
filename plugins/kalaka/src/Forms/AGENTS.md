@@ -180,8 +180,9 @@ values and conditions, prefill and form links
   fact source; the evaluator never runs the materializer on a draft.
 - "Now" in a condition is the date reference `{"ref": "now"}`, read from the
   fact source's `Facts::NOW` (`EventValues::now($at)`: the moment the caller
-  holds, one clock passed down, a day in the site's time zone): never a key a
-  condition names, never read from a clock by the evaluator. A chain that reads it is withheld.
+  holds, one clock passed down, a datetime to the second in the site's time
+  zone): never a key a condition names, never read from a clock by the
+  evaluator. A chain that reads it is withheld.
   One way: every fact source a condition is evaluated over carries it
   (`EventValues::now($now)` in each `ValueContext` built for conditions, with
   the act's own moment), so the parser makes no scope check for it and a
