@@ -15,6 +15,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerSummary;
+use Kalaka\Payments\Api\PaymentProviderInput;
 use Kalaka\Payments\Api\PaymentProviders;
 use Kalaka\Payments\Api\PaymentsInFlight;
 use Kalaka\Portal\CardRefusalState;
@@ -97,7 +98,7 @@ final class StatusRead
             // One balance read per status read: the rule's input is the balance, never the display summary.
             $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
             $transfer = $this->transfer($key, $event, $availability, $payment, $balance);
-            [$can, $card] = $this->card($key, $event, $availability, $payment);
+            [$can, $card] = $this->card($key, $event, $availability, $payment, $balance);
         }
 
         return new RegistrationStatusView(
@@ -141,23 +142,25 @@ final class StatusRead
      *
      * @return array{RegistrationCan, ?CardPaymentView}
      */
-    private function card(RegistrationKey $key, Event $event, Availability $availability, PaymentView $payment): array
-    {
+    private function card(
+        RegistrationKey $key,
+        Event $event,
+        Availability $availability,
+        PaymentView $payment,
+        Money $balance,
+    ): array {
         $provider = $this->providers->active();
         if ($provider === null) {
             return [new RegistrationCan(), null];
         }
         try {
-            $payable = PayableNow::amount(
-                $availability,
-                $payment->awaitsAnswer,
-                $payment->participant->balance
-            ) !== null;
-            $latest = $provider->latestOf($key);
+            $payable = PayableNow::amount($availability, $payment->awaitsAnswer, $balance) !== null;
+            $lookup = PaymentProviderInput::forLookup($key, $event->currency);
+            $latest = $provider->latestOf($lookup);
             // Not while a request is in flight (the start's own rule): a failed one is paid again, and a pending
             // one is the order the next start reuses.
             $idle = !$this->inFlight->is($provider, $key, $latest);
-            $can = new RegistrationCan($payable && $idle && $provider->accepts($event->currency));
+            $can = new RegistrationCan($payable && $idle && $provider->accepts($lookup));
 
             return [$can, $latest === null ? null : new CardPaymentView($latest->state, $latest->since)];
         } catch (\Throwable $e) {
