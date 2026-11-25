@@ -26,8 +26,13 @@ final class MailPages
     private const SITE_SLUG = 'kalaka-mail';
     private const HANDLE = 'kalaka-admin-mail';
     private const NAMESPACE = 'kalaka-admin/v1';
+    /** After core's separator (4), before the events (4.01 and up). */
+    private const KALAKA_POSITION = 4.001;
 
-    /** The menu icon: a „K” as a 20×20 SVG data URI, which WordPress repaints to the admin colour scheme. */
+    /**
+     * The menu icon: a „K” as a 20×20 SVG data URI. It is not given to WordPress, which repaints an SVG icon with JS
+     * and flashed black on load in the menu mock; `menuStyle()` draws it as a CSS mask filled with `currentColor`.
+     */
     private const LOGO = 'data:image/svg+xml;base64,'
         . 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdC'
         . 'b3g9IjAgMCAyMCAyMCI+PHRleHQgeD0iMTAiIHk9IjE3IiB0ZXh0LWFuY2hv'
@@ -43,17 +48,19 @@ final class MailPages
             return;
         }
         // A new top-level item with one submenu item, the page the banner names. Its icon is the Kaláka logo, as the
-        // owner's menu ruling has it (a plain „K” until the logo exists, as in the menu mock). WordPress shows a
+        // owner's menu ruling has it (a plain „K” until the logo exists, as in the menu mock), drawn as a CSS mask
+        // (`menuStyle()`). Its place is the mock's: right after core's separator and right before the events, which
+        // the grid page puts at 4.01 and up (the approved menu code, #204, keeps the events there). WordPress shows a
         // submenu only when it has a second item, so „Levelezés” stays out of the sidebar until the ruling's
         // „Irányítópult” exists. [UNAPPROVED N271, T270]
         add_menu_page(
-            Texts::SITE_TITLE,
+            Texts::SITE_PAGE,
             Texts::SITE_MENU,
             'read',
             self::SITE_SLUG,
             [self::class, 'render'],
-            self::LOGO,
-            3
+            'none',
+            self::KALAKA_POSITION
         );
         add_submenu_page(
             self::SITE_SLUG,
@@ -75,6 +82,30 @@ final class MailPages
                 [self::class, 'render']
             );
         }
+    }
+
+    /**
+     * `admin_head`: the Kaláka item's icon as a mask filled with the menu's own icon colour, so it follows the colour
+     * scheme, hover and current states with no repaint (as the approved menu mock draws its icons).
+     */
+    public static function menuStyle(): void
+    {
+        $present = false;
+        foreach ((array) ($GLOBALS['menu'] ?? []) as $item) {
+            if (is_array($item) && ($item[2] ?? '') === self::SITE_SLUG) {
+                $present = true;
+            }
+        }
+        if (!$present) {
+            return;
+        }
+        $icon = esc_attr(self::LOGO);
+        $css = '#toplevel_page_' . self::SITE_SLUG . ' div.wp-menu-image::before { content: ""; display: block; '
+            . 'width: 20px; height: 20px; margin: 7px auto 0; padding: 0; background-color: currentColor; '
+            . '-webkit-mask: url("' . $icon . '") center / 20px 20px no-repeat; '
+            . 'mask: url("' . $icon . '") center / 20px 20px no-repeat; }';
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- constants and an escaped constant
+        echo '<style>' . $css . '</style>';
     }
 
     /** `admin_enqueue_scripts`: the app's script and styles on the two mail pages only. */

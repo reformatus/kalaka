@@ -26,7 +26,8 @@ function Members( { config, id, onClose } ) {
 					<ul className="km-members">
 						{ ( read.data.members || [] ).map( ( member ) => (
 							<li key={ member.code }>
-								<span className="km-code-text">{ member.code }</span> { outcomeWord( member.outcome ) }
+								<span className="km-code-text">{ member.code }</span>{ ' – ' }
+								{ outcomeWord( member.outcome ) }
 							</li>
 						) ) }
 					</ul>

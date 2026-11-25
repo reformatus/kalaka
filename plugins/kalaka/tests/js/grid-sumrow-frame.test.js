@@ -90,6 +90,18 @@ test( 'with row actions every sum cell sits at the index of its own header cell'
 	expect( sums[ sums.length - 1 ].textContent ).toBe( '' );
 } );
 
+test( 'the cell under the actions column is sticky like the column\'s own cells, so no sum shows through below the header', async () => {
+	const container = await mount( true );
+	const sums = container.querySelector( 'tr.kg-sumtr' ).children;
+	const last = sums[ sums.length - 1 ];
+	expect( last.classList.contains( 'kg-sumtd-actions' ) ).toBe( true );
+	expect( last.classList.contains( 'dataviews-view-table__actions-column--sticky' ) ).toBe( true );
+	// jsdom has no layout: the rule that makes the cell stick is read from the stylesheet. The real overlap is
+	// measured in the browser (internal/spikes/mail-admin/overlap-check.cjs).
+	const css = require( 'fs' ).readFileSync( 'plugins/kalaka/src/Admin/app/grid/grid.css', 'utf8' );
+	expect( css ).toMatch( /tr\.kg-sumtr td\.kg-sumtd-actions \{ position: sticky; right: 0; \}/ );
+} );
+
 test( 'without row actions there is one cell per field and nothing else', async () => {
 	const container = await mount( false );
 	const head = container.querySelector( 'thead tr:first-child' ).children;

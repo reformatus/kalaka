@@ -31,6 +31,21 @@ export function createKeys( make = newRequestKey ) {
 	};
 }
 
+const pageStores = new Map();
+
+/**
+ * The keys of one event for the life of the page load, shared by everything on the page that sends: the grid's action
+ * is rebuilt when the tab changes (a grant holder's tabs differ in `kalaka_manual_mail`) and „Levelezés” has one
+ * list per event, yet the same body and codes must stay one request. A reload makes new keys: that gap is the
+ * server's (the key never expires), see the record's hole 25. [UNAPPROVED N292]
+ */
+export function pageKeys( event ) {
+	if ( ! pageStores.has( event ) ) {
+		pageStores.set( event, createKeys() );
+	}
+	return pageStores.get( event );
+}
+
 /** Whether a failed preview is the server refusing more codes than one send may hold (core's 400). */
 export const isTooMany = ( error ) =>
 	!! error && error.code === 'rest_invalid_param' && !! error.data && error.data.status === 400;

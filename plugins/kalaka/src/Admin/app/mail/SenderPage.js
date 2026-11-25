@@ -98,7 +98,8 @@ export default function SenderPage( { config } ) {
 				enableSorting: false,
 			},
 		],
-		[ config.events ]
+		// The names come from the read, which arrives after the first render: the fields follow it.
+		[ config.events, read.data ]
 	);
 
 	if ( read.loading && ! read.data ) {

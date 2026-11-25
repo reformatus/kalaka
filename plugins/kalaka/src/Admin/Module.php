@@ -152,6 +152,7 @@ SQL;
         // The mail screens: the event's „Levelek” page and the site's „Levelezés” page (prototype).
         add_action('admin_menu', [MailPages::class, 'menu'], 20);
         add_action('admin_enqueue_scripts', [MailPages::class, 'enqueue']);
+        add_action('admin_head', [MailPages::class, 'menuStyle']);
         add_action('rest_api_init', [GridRoutes::class, 'register']);
 
         if (defined('WP_CLI') && WP_CLI) {

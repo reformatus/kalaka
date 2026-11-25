@@ -39,6 +39,7 @@ export const MAILS = {
 	noBody: '– nincs –',
 	layout: 'Levélkeret használata', // „levélkeret” is approved
 	held: 'Az esemény nincs közzétéve, ezért a levelek a küldési sorban várnak.', // „küldési sor” is approved
+	unsaved: 'Nincs mentve', // beside „Mentés” while the chosen body differs from the saved one [UNAPPROVED T293]
 	saveBody: 'Mentés', // approved; the body choice is saved by this button, not on every change [UNAPPROVED T287]
 };
 
@@ -81,7 +82,7 @@ export const TROUBLED = {
 	attempts: 'Kísérletek száma', // reworded per the lektor
 	queued: 'Sorba állítva',
 	lastAttempt: 'Utolsó kísérlet',
-	error: 'Hiba',
+	error: 'Hibaüzenet', // reworded per the lektor (pass 2): one word with the sender page's
 	none: 'Nincs küldési hiba.', // reworded per the lektor
 	failed: 'Sikertelen',
 	pending: 'Hiba után újra küldésre vár', // reworded per the lektor
@@ -112,13 +113,13 @@ export const SENDER = {
 
 /** The sender's controls and their confirmations. [UNAPPROVED T279] */
 export const CONTROLS = {
-	pause: 'Küldés szüneteltetése',
-	resume: 'Küldés folytatása',
+	pause: 'Levélküldés szüneteltetése', // reworded per the lektor (pass 2), as the ability's label
+	resume: 'Levélküldés folytatása',
 	clearQueue: 'Küldési sor ürítése',
 	clearEvent: 'Az esemény küldésre váró leveleinek törlése', // reworded per the lektor
 	clearEventFor: '%1$s: az esemény küldésre váró leveleinek törlése', // the button's accessible name [UNAPPROVED T288]
 	clearQueueConfirm: 'Minden küldésre váró levél törlődik a küldési sorból (%d levél). A már elküldött és a sikertelen levelek megmaradnak.',
-	clearEventConfirm: '„%2$s” eseményének minden küldésre váró levele törlődik a küldési sorból (%1$d levél).', // names the event [UNAPPROVED T288]
+	clearEventConfirm: '%2$s: az esemény minden küldésre váró levele törlődik a küldési sorból (%1$d levél).', // names the event; reworded per the lektor (pass 2): no „X eseményének” [UNAPPROVED T288]
 	confirm: 'Törlés',
 	paused: 'A levélküldés szünetel.', // reworded per the lektor (the four sentences)
 	resumed: 'A levélküldés folytatódik.',
@@ -137,8 +138,8 @@ export const COUNTS = {
 	queued: 'Küldésre vár', // reworded per the lektor: one word for a queued mail
 	sent: 'Elküldve',
 	failed: 'Sikertelen',
-	// „Ebből”: the mails that wait after an error are among the ones above, not a separate count. [UNAPPROVED T280]
-	withError: 'Ebből hiba után újra küldésre vár',
+	// The mails that wait after an error are among the ones counted as waiting, not a separate count. [UNAPPROVED T280]
+	withError: 'A küldésre várók közül hiba után vár', // reworded per the lektor (pass 2): names its base, as the column is no longer next to „Küldésre vár”
 	stuck: 'Küldés közben elakadt', // reworded per the lektor
 	none: 'Még egy esemény levele sem került a küldési sorba.', // reworded per the lektor
 	open: 'Levelek',
@@ -188,9 +189,10 @@ export const BATCHES = {
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
 	members: 'Jelentkezők',
 	open: '%d. csoportos levél részletei',
-	outcome_queued: 'Sorba került',
-	outcome_skipped_withdrawn: 'Kimaradt: visszavont', // reworded per the lektor
-	outcome_skipped_removed: 'Kimaradt: törölt',
+	// After a code, lowercase, as the manual mail dialog writes it („16F5 – visszavont”); reworded per the lektor (pass 2).
+	outcome_queued: 'sorba került',
+	outcome_skipped_withdrawn: 'kimaradt: visszavont',
+	outcome_skipped_removed: 'kimaradt: törölt',
 	deleted: 'Törölt levélsablon',
 };
 

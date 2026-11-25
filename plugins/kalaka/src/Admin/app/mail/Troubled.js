@@ -10,7 +10,7 @@ import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
 import ListTable from './ListTable';
 import ManualMailDialog from './ManualMailDialog';
-import { createKeys } from './manual';
+import { pageKeys } from './manual';
 import useRead from './useRead';
 import { deliveryStatus, moment } from './format';
 import { fmt } from '../grid/format';
@@ -19,7 +19,7 @@ import { COMMON, TROUBLED } from './texts';
 export default function Troubled( { config, version } ) {
 	const read = useRead( config.rest, `/events/${ config.event }/mail/troubled` );
 	const [ sending, setSending ] = useState( null );
-	const keys = useRef( createKeys() );
+	const keys = useRef( pageKeys( config.event ) );
 	const fields = useMemo(
 		() => [
 			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => item.code, enableHiding: false },

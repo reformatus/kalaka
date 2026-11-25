@@ -9,6 +9,9 @@
  * order (`aria-disabled`, described by the refusal) instead of being `disabled`; the body is chosen in the select and
  * saved by its own „Mentés”, not on every arrow key (N274 changed); a typed layout and a chosen but unsaved body
  * are held by the page, so they survive a change of tab.
+ *
+ * Fix pass 2: the „Mentés” row has its own, always reserved room (spacing and card height: N274 changed), an unsaved
+ * choice says so beside it (T293) and the page asks before it is left with one (`EventPage`, N299).
  */
 import { Fragment, useId, useState } from '@wordpress/element';
 import { Button, Card, CardBody, CardHeader, Notice, SelectControl, TextareaControl, ToggleControl } from '@wordpress/components';
@@ -70,21 +73,26 @@ function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 					onChange={ ( value ) => drafts.set( 'body:' + mail.mail, value ) }
 					__nextHasNoMarginBottom
 				/>
-				{ chosen !== current && (
-					<Button
-						variant="secondary"
-						size="compact"
-						isBusy={ busy }
-						disabled={ busy }
-						accessibleWhenDisabled
-						onClick={ async () => {
-							await act( { body_id: chosen === '' ? null : parseInt( chosen, 10 ) } );
-							drafts.clear( 'body:' + mail.mail );
-						} }
-					>
-						{ MAILS.saveBody }
-					</Button>
-				) }
+				<div className="km-choose">
+					{ chosen !== current && (
+						<Fragment>
+							<span className="km-unsaved">{ MAILS.unsaved }</span>
+							<Button
+								variant="secondary"
+								size="compact"
+								isBusy={ busy }
+								disabled={ busy }
+								accessibleWhenDisabled
+								onClick={ async () => {
+									await act( { body_id: chosen === '' ? null : parseInt( chosen, 10 ) } );
+									drafts.clear( 'body:' + mail.mail );
+								} }
+							>
+								{ MAILS.saveBody }
+							</Button>
+						</Fragment>
+					) }
+				</div>
 				<ToggleControl
 					label={ MAILS.layout }
 					checked={ mail.layout }

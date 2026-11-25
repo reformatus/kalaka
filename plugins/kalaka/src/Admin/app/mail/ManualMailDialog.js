@@ -15,7 +15,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
-import { createKeys, isTooMany, stateReads } from './manual';
+import { isTooMany, pageKeys, stateReads } from './manual';
 import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
 import { COMMON, MANUAL, RESULT } from './texts';
@@ -44,7 +44,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 	const sending = useRef( false );
 	const keyFor = useRef( null );
 	if ( ! keyFor.current ) {
-		keyFor.current = keys || createKeys();
+		keyFor.current = keys || pageKeys( event );
 	}
 	// Whether sending is paused and whether the event is held, before anything is queued. Full access's reads: a
 	// refusal leaves the answer as the only place to learn it. [UNAPPROVED N293]

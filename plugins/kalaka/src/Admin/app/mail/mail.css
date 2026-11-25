@@ -24,6 +24,25 @@
 	margin-bottom: 16px;
 }
 
+/* The „Mentés” row under the body select: its room is always there (the cards stay one height) and it has its own
+   spacing. [UNAPPROVED N274] */
+.km-mail .km-choose {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	min-height: 32px;
+	margin-bottom: 16px;
+}
+
+.km-mail .components-select-control {
+	margin-bottom: 8px;
+}
+
+.km-unsaved {
+	font-style: italic;
+}
+
 .km-code textarea {
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -95,30 +114,20 @@
 	overflow-x: auto;
 }
 
+/* Bottom right, as the approved grid's snackbars (`.kg-snacks`). */
 .km-snacks {
 	position: fixed;
-	bottom: 16px;
-	left: 176px; /* the open admin menu (160px) and a gutter */
+	left: auto;
+	right: 12px;
+	bottom: 12px;
 	z-index: 100000;
+	width: min(400px, calc(100vw - 24px));
 }
 
-/* A folded admin menu is 36px wide: WordPress folds it by hand (body.folded) and by itself from 782 to 960px. */
-@media (min-width: 783px) {
-	body.folded .km-snacks {
-		left: 52px;
-	}
-}
-
-@media (min-width: 783px) and (max-width: 960px) {
-	body.auto-fold .km-snacks {
-		left: 52px;
-	}
-}
-
-@media (max-width: 782px) {
+@media (max-width: 600px) {
 	.km-snacks {
-		left: 16px;
-		right: 16px;
+		left: 12px;
+		right: 12px;
 	}
 }
 

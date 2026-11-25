@@ -53,3 +53,26 @@ test( 'the name and the clear button come from the read, even for an event the p
 	expect( one.querySelectorAll( 'button' ).length ).toBe( 1 );
 	expect( nine.querySelectorAll( 'button' ).length ).toBe( 0 );
 } );
+
+test( 'the clear button\'s accessible name uses the event\'s name although the read arrives after the first render', async () => {
+	let answer;
+	apiFetch.mockImplementation( () => new Promise( ( resolve ) => ( answer = resolve ) ) );
+	const host = document.createElement( 'div' );
+	document.body.appendChild( host );
+	const config = { rest: '/kalaka-admin/v1', timezone: 'UTC', events: [ { id: 4, name: 'Tavaszi találkozó', url: '/e/4' } ] };
+	await act( async () => createRoot( host ).render( createElement( SenderPage, { config } ) ) );
+	expect( host.querySelector( 'button' ) ).toBeNull();
+	await act( async () => {
+		answer( {
+			paused: null,
+			errors_in_row: 0,
+			hourly_budget: 240,
+			queued: 4,
+			can: {},
+			events: [ row( { event_id: 4, name: 'Tavaszi találkozó', held: true, queued: 4, can: { clear_event: true } } ) ],
+		} );
+	} );
+	const label = host.querySelector( '[data-event="4"] button' ).getAttribute( 'aria-label' );
+	expect( label ).toContain( 'Tavaszi találkozó' );
+	expect( label ).not.toContain( '4. számú esemény' );
+} );

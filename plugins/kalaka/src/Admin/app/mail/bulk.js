@@ -15,7 +15,7 @@
 import { useEffect, useRef } from '@wordpress/element';
 import { envelope } from '@wordpress/icons';
 import { ManualMailForm } from './ManualMailDialog';
-import { createKeys } from './manual';
+import { pageKeys } from './manual';
 import { GRIDACTION, MANUAL } from './texts';
 
 /**
@@ -51,9 +51,10 @@ function BulkDialog( { event, previewPath, items, closeModal, onSent, keys } ) {
 }
 
 export function manualMailAction( { eligible, event, previewPath, onSent } ) {
-	// One set of request keys for the action's life (the grid page): the dialog is opened and closed on the same rows
-	// and body as often as the admin likes and that stays one request. [UNAPPROVED N292]
-	const keys = createKeys();
+	// The event's request keys for the page load (not for this action object, which the grid rebuilds when the tab
+	// changes): the dialog is opened and closed on the same rows and body as often as the admin likes and that stays
+	// one request. [UNAPPROVED N292]
+	const keys = pageKeys( event );
 	return {
 		id: 'kalaka-manual-mail',
 		label: GRIDACTION.label,

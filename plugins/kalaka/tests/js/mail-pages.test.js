@@ -9,7 +9,7 @@ import { act, createElement, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import apiFetch from '@wordpress/api-fetch';
 import ActionMails from '../../src/Admin/app/mail/ActionMails';
-import useDrafts from '../../src/Admin/app/mail/drafts';
+import useDrafts, { hasUnsaved } from '../../src/Admin/app/mail/drafts';
 import Troubled from '../../src/Admin/app/mail/Troubled';
 import { bodyLabel } from '../../src/Admin/app/mail/format';
 import { stateReads } from '../../src/Admin/app/mail/manual';
@@ -146,9 +146,12 @@ describe( 'a mail card', () => {
 		const card = () => host.querySelector( '[role="group"]' );
 		const saveIn = () => Array.from( card().querySelectorAll( 'button' ) ).find( ( b ) => b.textContent === 'Mentés' );
 		expect( saveIn() ).toBeUndefined();
+		expect( host.textContent ).not.toContain( 'Nincs mentve' );
 		await setValue( host.querySelector( 'select' ), '20', window.HTMLSelectElement.prototype );
 		await setValue( host.querySelector( 'select' ), '22', window.HTMLSelectElement.prototype );
 		expect( saves ).toHaveLength( 0 );
+		// The unsaved choice says so beside the button.
+		expect( card().textContent ).toContain( 'Nincs mentve' );
 		await act( async () => saveIn().click() );
 		expect( saves ).toHaveLength( 1 );
 		expect( saves[ 0 ].data.input ).toMatchObject( { event_id: 1, mail: 'registered', body_id: 22 } );
@@ -209,6 +212,21 @@ describe( 'the failed list', () => {
 		expect( buttons( 'F1' ) ).toBe( 1 );
 		expect( buttons( 'P2' ) ).toBe( 0 );
 		expect( buttons( 'S3' ) ).toBe( 0 );
+	} );
+} );
+
+describe( 'unsaved entries', () => {
+	const data = DATA( [ mail( { body_id: 20 } ) ] );
+
+	test( 'a chosen body or a typed layout that differs from the saved state is unsaved', () => {
+		expect( hasUnsaved( {}, data ) ).toBe( false );
+		expect( hasUnsaved( { 'body:registered': '22' }, data ) ).toBe( true );
+		expect( hasUnsaved( { layout: '<b>{{content}}</b>' }, data ) ).toBe( true );
+	} );
+
+	test( 'an entry equal to the saved state, or no read yet, is not', () => {
+		expect( hasUnsaved( { 'body:registered': '20', layout: '{{content}}' }, data ) ).toBe( false );
+		expect( hasUnsaved( { layout: 'x' }, null ) ).toBe( false );
 	} );
 } );
 

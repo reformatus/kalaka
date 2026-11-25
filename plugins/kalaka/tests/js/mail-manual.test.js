@@ -1,7 +1,7 @@
 /**
  * The manual mail's pure logic: the repeat guard's keys (one per body, layout and codes) and the format helpers.
  */
-import { createKeys, isTooMany, newRequestKey } from '../../src/Admin/app/mail/manual';
+import { createKeys, isTooMany, newRequestKey, pageKeys } from '../../src/Admin/app/mail/manual';
 import { moment, problemText } from '../../src/Admin/app/mail/format';
 
 describe( 'request keys', () => {
@@ -59,5 +59,16 @@ describe( 'a server instant', () => {
 
 	test( 'a null (the server\'s zero or unset date) reads as a dash', () => {
 		expect( moment( null, 'Europe/Budapest' ) ).toBe( '–' );
+	} );
+} );
+
+describe( 'the page\'s keys', () => {
+	test( 'one event has one set of keys for the page load, however often its action is rebuilt', () => {
+		const first = pageKeys( 71 )( 20, false, [ 'A1', 'A2' ] );
+		expect( pageKeys( 71 )( 20, false, [ 'A2', 'A1' ] ) ).toBe( first );
+	} );
+
+	test( 'another event has its own keys', () => {
+		expect( pageKeys( 72 )( 20, false, [ 'A1' ] ) ).not.toBe( pageKeys( 73 )( 20, false, [ 'A1' ] ) );
 	} );
 } );

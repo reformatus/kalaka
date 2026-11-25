@@ -7,7 +7,9 @@
  * a column that can count members, the counting choices; owner's walk, topic 6a G10 and round 3).
  *
  * When the table carries row actions, DataViews puts a selection column before the fields and an actions column
- * after them; `framed` adds an empty cell at each end so every sum stays under its own column. [UNAPPROVED N295]
+ * after them; `framed` adds an empty cell at each end so every sum stays under its own column. The cell under the
+ * actions column is sticky like the column's own cells, so a sum that scrolls under the header does not show
+ * through below the sticky „Műveletek”. [UNAPPROVED N295]
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { sumParts } from './format';
@@ -66,7 +68,7 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed,
 		<>
 			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
 			{ cells }
-			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
+			{ framed && <td className="kg-sumtd kg-sumtd-frame kg-sumtd-actions dataviews-view-table__actions-column--sticky" /> }
 		</>,
 		row
 	);
