@@ -2,10 +2,28 @@
  * The mail screens' pure helpers (no WordPress imports, so Jest runs them as they are).
  */
 import { formatMoment } from '../grid/money';
+import { fmt } from '../grid/format';
 import { BODIES, BATCHES, TROUBLED } from './texts';
 
 /** The status word of a body post; an unknown status as it is. [UNAPPROVED T276] */
 export const bodyStatus = ( status ) => BODIES[ 'status_' + status ] || status;
+
+/**
+ * A body's text in a select: the subject, with its status in lowercase words when it is not published, and its number
+ * when another body of the list has the same subject, so two of them are never the same option. Bodies without a
+ * `status` (the manual mail's preview lists published ones only) carry no status word. [UNAPPROVED T289]
+ */
+export function bodyLabel( body, bodies ) {
+	const twin = bodies.some( ( other ) => other.id !== body.id && other.subject === body.subject );
+	const word = body.status && body.status !== 'publish' ? bodyStatus( body.status ).toLowerCase() : null;
+	if ( twin && word ) {
+		return fmt( BODIES.numberedStatus, body.subject, body.id, word );
+	}
+	if ( twin ) {
+		return fmt( BODIES.numbered, body.subject, body.id );
+	}
+	return word ? `${ body.subject } (${ word })` : body.subject;
+}
 
 /** The word of a delivery's status. [UNAPPROVED T277] */
 export const deliveryStatus = ( status ) => TROUBLED[ status ] || status;

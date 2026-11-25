@@ -27,6 +27,14 @@ final class MailPages
     private const HANDLE = 'kalaka-admin-mail';
     private const NAMESPACE = 'kalaka-admin/v1';
 
+    /** The menu icon: a „K” as a 20×20 SVG data URI, which WordPress repaints to the admin colour scheme. */
+    private const LOGO = 'data:image/svg+xml;base64,'
+        . 'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdC'
+        . 'b3g9IjAgMCAyMCAyMCI+PHRleHQgeD0iMTAiIHk9IjE3IiB0ZXh0LWFuY2hv'
+        . 'cj0ibWlkZGxlIiBmb250LWZhbWlseT0iSGVsdmV0aWNhLEFyaWFsLHNhbnMt'
+        . 'c2VyaWYiIGZvbnQtd2VpZ2h0PSI3MDAiIGZvbnQtc2l6ZT0iMTkiIGZpbGw9'
+        . 'ImJsYWNrIj5LPC90ZXh0Pjwvc3ZnPg==';
+
     /** `admin_menu`, after the grid's own menu so the event's menu item exists. Full access only. */
     public static function menu(): void
     {
@@ -34,14 +42,17 @@ final class MailPages
         if (!Access::mayReachAdmin($userId) || !(new Access())->isFull(new UserActor($userId))) {
             return;
         }
-        // A new top-level item with one submenu item, the page the banner names. [UNAPPROVED N271, T270]
+        // A new top-level item with one submenu item, the page the banner names. Its icon is the Kaláka logo, as the
+        // owner's menu ruling has it (a plain „K” until the logo exists, as in the menu mock). WordPress shows a
+        // submenu only when it has a second item, so „Levelezés” stays out of the sidebar until the ruling's
+        // „Irányítópult” exists. [UNAPPROVED N271, T270]
         add_menu_page(
             Texts::SITE_TITLE,
             Texts::SITE_MENU,
             'read',
             self::SITE_SLUG,
             [self::class, 'render'],
-            'dashicons-email',
+            self::LOGO,
             3
         );
         add_submenu_page(

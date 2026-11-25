@@ -6,12 +6,15 @@
  * `fmt()` (grid/format.js). PHP's own text is in `Admin/Mail/Texts.php` ([UNAPPROVED T270, T271]).
  */
 
-/** The event page's four tabs. [UNAPPROVED T272] */
+/**
+ * The event page's three tabs. [UNAPPROVED T272] The failed list is no tab any more: the owner's ruling puts every
+ * queue list on „Levelezés” (`SENDER.troubled`). Tab names the lektor questioned (owner's choice, not changed here):
+ * „Levelek” (option „Automatikus levelek”) and „Csoportos levelek” (option „Kézzel küldött levelek”).
+ */
 export const TABS = {
 	label: 'Levelek',
 	mails: 'Levelek',
 	bodies: 'Levélsablonok', // approved: the post type's plural
-	troubled: 'Sikertelen küldések',
 	batches: 'Csoportos levelek',
 };
 
@@ -36,20 +39,21 @@ export const MAILS = {
 	noBody: '– nincs –',
 	layout: 'Levélkeret használata', // „levélkeret” is approved
 	held: 'Az esemény nincs közzétéve, ezért a levelek a küldési sorban várnak.', // „küldési sor” is approved
+	saveBody: 'Mentés', // approved; the body choice is saved by this button, not on every change [UNAPPROVED T287]
 };
 
 /** The event's layout (the raw HTML wrapper). [UNAPPROVED T275] */
 export const LAYOUT = {
 	title: 'Levélkeret', // approved word
 	field: 'A levélkeret HTML-je',
-	help: 'A {{content}} jelölő helyére kerül a levél szövege.',
+	help: 'A {{content}} jelölő helyére kerül a levélsablon szövege.', // reworded per the lektor [UNAPPROVED T275]
 };
 
 /** The bodies tab. Status words of a post. [UNAPPROVED T276] */
 export const BODIES = {
 	subject: 'Tárgy',
 	status: 'Állapot', // approved: the grid's
-	usedBy: 'Használja',
+	usedBy: 'Levél', // reworded per the lektor [UNAPPROVED T276]
 	modified: 'Módosítva',
 	edit: 'Szerkesztés',
 	none: 'Nem található levélsablon.', // approved: the post type's
@@ -58,46 +62,52 @@ export const BODIES = {
 	titleField: 'Tárgy',
 	titleEmpty: 'Add meg a tárgyat.',
 	status_publish: 'Közzétéve',
-	status_draft: 'Piszkozat',
+	status_draft: 'Vázlat', // reworded per the lektor (core's word)
 	status_pending: 'Függőben',
 	status_private: 'Privát',
-	status_future: 'Ütemezve',
+	status_future: 'Időzítve', // reworded per the lektor (core's word)
 	hint: 'A levélsablon szövegét a szerkesztőben lehet megírni.',
+	// Two bodies with one subject are told apart by their number. [UNAPPROVED T289]
+	numbered: '%1$s (%2$d. számú levélsablon)',
+	numberedStatus: '%1$s (%3$s, %2$d. számú levélsablon)',
 };
 
 /** The failed deliveries tab. [UNAPPROVED T277] */
 export const TROUBLED = {
 	code: 'Kód', // approved
 	mail: 'Levél',
-	manual: 'Csoportos levél (%d.)',
+	manual: '%d. csoportos levél', // reworded per the lektor
 	status: 'Állapot', // approved
-	attempts: 'Kísérletek',
+	attempts: 'Kísérletek száma', // reworded per the lektor
 	queued: 'Sorba állítva',
 	lastAttempt: 'Utolsó kísérlet',
 	error: 'Hiba',
-	none: 'Nincs sikertelen küldés.',
+	none: 'Nincs küldési hiba.', // reworded per the lektor
 	failed: 'Sikertelen',
-	pending: 'Hibával várakozik',
-	sending: 'Küldés alatt (elakadt)',
+	pending: 'Hiba után újra küldésre vár', // reworded per the lektor
+	sending: 'Küldés közben elakadt', // reworded per the lektor
 	send: 'Levél küldése',
 	sendFor: 'Levél küldése: %s',
 };
 
 /** The sender page. [UNAPPROVED T278] */
 export const SENDER = {
-	running: 'A levélküldés fut.',
+	state: 'Levélküldés', // the state's heading; the banner's title is not repeated as a heading [UNAPPROVED T291]
+	stateLabel: 'Állapot', // approved: the grid's
+	troubled: 'Küldési hibák', // reworded per the lektor; the failed list now sits here [UNAPPROVED T272, T290]
+	running: 'A levélküldés fut', // reworded per the lektor: no period, like the banner titles
 	pausedManual: 'A levélküldés szünetel', // approved: the banner's title
 	pausedErrors: 'A levélküldés hiba miatt szünetel', // approved: the banner's title
-	since: 'Szünetel ekkortól',
+	since: 'A szünet kezdete', // reworded per the lektor
 	by: 'Szüneteltette',
 	system: 'Kaláka',
 	delivery: 'A hibát jelző levél',
-	deliveryOf: '%1$d. küldés, %2$s',
-	error: 'A tárolt hiba',
-	errorsInRow: 'Egymást követő hibák',
-	budget: 'Óránkénti keret',
+	deliveryOf: '%2$s, %1$d. számú levél', // reworded per the lektor
+	error: 'Hibaüzenet', // reworded per the lektor
+	errorsInRow: 'Egymást követő hibák száma', // reworded per the lektor
+	budget: 'Óránként legfeljebb küldhető levél', // reworded per the lektor: no „keret” for the limit
 	queued: 'Küldésre váró levelek',
-	unknownEvent: 'Esemény %d.',
+	unknownEvent: '%d. számú esemény', // reworded per the lektor
 };
 
 /** The sender's controls and their confirmations. [UNAPPROVED T279] */
@@ -105,28 +115,32 @@ export const CONTROLS = {
 	pause: 'Küldés szüneteltetése',
 	resume: 'Küldés folytatása',
 	clearQueue: 'Küldési sor ürítése',
-	clearEvent: 'Az esemény várakozó leveleinek törlése',
+	clearEvent: 'Az esemény küldésre váró leveleinek törlése', // reworded per the lektor
+	clearEventFor: '%1$s: az esemény küldésre váró leveleinek törlése', // the button's accessible name [UNAPPROVED T288]
 	clearQueueConfirm: 'Minden küldésre váró levél törlődik a küldési sorból (%d levél). A már elküldött és a sikertelen levelek megmaradnak.',
-	clearEventConfirm: 'Az esemény minden küldésre váró levele törlődik a küldési sorból (%d levél).',
+	clearEventConfirm: '„%2$s” eseményének minden küldésre váró levele törlődik a küldési sorból (%1$d levél).', // names the event [UNAPPROVED T288]
 	confirm: 'Törlés',
-	paused: 'A küldés szünetel.',
-	resumed: 'A küldés folytatódik.',
-	alreadyPaused: 'A küldés már szünetelt.',
-	notPaused: 'A küldés nem szünetelt.',
+	paused: 'A levélküldés szünetel.', // reworded per the lektor (the four sentences)
+	resumed: 'A levélküldés folytatódik.',
+	alreadyPaused: 'A levélküldés már szünetel.',
+	notPaused: 'A levélküldés nem szünetel.',
 	cleared: '%d levél törölve.',
 };
 
 /** The per-event counts on the sender page. [UNAPPROVED T280] */
 export const COUNTS = {
+	section: 'Események', // reworded per the lektor: the plural over the table
 	event: 'Esemény',
 	held: 'Nincs közzétéve',
 	published: 'Közzétéve',
-	queued: 'Várakozik',
+	publication: 'Közzététel', // reworded per the lektor: the column no longer equals one of its values
+	queued: 'Küldésre vár', // reworded per the lektor: one word for a queued mail
 	sent: 'Elküldve',
 	failed: 'Sikertelen',
-	withError: 'Hibával várakozik',
-	stuck: 'Küldés alatt',
-	none: 'Még egy eseménynek sincs levele.',
+	// „Ebből”: the mails that wait after an error are among the ones above, not a separate count. [UNAPPROVED T280]
+	withError: 'Ebből hiba után újra küldésre vár',
+	stuck: 'Küldés közben elakadt', // reworded per the lektor
+	none: 'Még egy esemény levele sem került a küldési sorba.', // reworded per the lektor
 	open: 'Levelek',
 };
 
@@ -139,12 +153,12 @@ export const MANUAL = {
 	pick: '– válassz –',
 	noBodies: 'Az eseménynek nincs közzétett levélsablonja.',
 	layout: 'Levélkeret használata', // „levélkeret” is approved
-	toQueue: '%d jelentkezőnek megy ki a levél.',
-	toQueueNone: 'Egy jelentkezőnek sem megy ki a levél.',
+	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
+	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
 	skipped: 'Nem kap levelet:',
 	unknown: 'Ismeretlen kód:',
-	reason_withdrawn: 'Visszavont', // approved status words
-	reason_removed: 'Törölt',
+	reason_withdrawn: 'visszavont', // approved status words, lowercase after a code (reworded per the lektor)
+	reason_removed: 'törölt',
 	tooMany: 'Egyszerre legfeljebb 1000 jelentkezőnek küldhető levél.',
 	send: 'Küldés',
 	sending: 'Küldés…',
@@ -155,7 +169,8 @@ export const MANUAL = {
 export const RESULT = {
 	queued: '%d levél a küldési sorba került.',
 	skipped: '%d jelentkező kimaradt:',
-	repeat: 'Ez a küldés már megtörtént, újabb levél nem került a sorba.',
+	// Reworded per the lektor. On a repeat this replaces the „%d levél a küldési sorba került.” line too.
+	repeat: 'Ez a levél korábban már a küldési sorba került (%d levél), ezért újabb levél nem került a sorba.',
 	paused: 'A levélküldés szünetel, ezért a levelek a küldési sorban várnak.',
 	held: 'Az esemény nincs közzétéve, ezért a levelek a küldési sorban várnak.',
 	batch: '%d. csoportos levél',
@@ -163,25 +178,26 @@ export const RESULT = {
 
 /** The batches tab. [UNAPPROVED T283] */
 export const BATCHES = {
-	id: 'Szám',
+	id: 'Sorszám', // reworded per the lektor
 	subject: 'Tárgy',
-	created: 'Küldve',
+	created: 'Sorba állítva', // reworded per the lektor: the batch's creation time, not a delivery
 	by: 'Küldte',
 	queued: 'Sorba került',
 	skipped: 'Kimaradt',
 	layout: 'Levélkerettel',
-	none: 'Még nem ment ki csoportos levél.',
+	none: 'Még nincs csoportos levél.', // reworded per the lektor
 	members: 'Jelentkezők',
 	open: '%d. csoportos levél részletei',
 	outcome_queued: 'Sorba került',
-	outcome_skipped_withdrawn: 'Kimaradt: Visszavont',
-	outcome_skipped_removed: 'Kimaradt: Törölt',
+	outcome_skipped_withdrawn: 'Kimaradt: visszavont', // reworded per the lektor
+	outcome_skipped_removed: 'Kimaradt: törölt',
 	deleted: 'Törölt levélsablon',
 };
 
 /** The grid's bulk action. [UNAPPROVED T284] */
 export const GRIDACTION = {
 	label: 'Levél küldése',
+	selectRow: 'Jelentkezés kijelölése: %s', // the row checkbox's accessible name [UNAPPROVED T286]
 };
 
 /** Words for a delivery or a batch's user that the server leaves null. [UNAPPROVED T285] */

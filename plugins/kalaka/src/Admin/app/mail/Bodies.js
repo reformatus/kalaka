@@ -4,7 +4,7 @@
  * (`POST /wp/v2/kalaka_mail`, the event in its meta), then the core post editor. The bodies are edited nowhere
  * else. [UNAPPROVED N277] [UNAPPROVED N278]
  */
-import { useMemo, useRef, useState } from '@wordpress/element';
+import { useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextControl } from '@wordpress/components';
 import * as api from './api';
 import ListTable from './ListTable';
@@ -17,6 +17,18 @@ function NewBody( { config, onClose } ) {
 	const [ failed, setFailed ] = useState( null );
 	const [ busy, setBusy ] = useState( false );
 	const sending = useRef( false );
+	const field = useRef();
+	// Focus lands on the subject field, on opening and after an empty submit. [UNAPPROVED N278]
+	const focusField = () => {
+		const input = field.current && field.current.querySelector( 'input' );
+		if ( input ) {
+			input.focus();
+		}
+	};
+	useEffect( () => {
+		const timer = setTimeout( focusField, 60 );
+		return () => clearTimeout( timer );
+	}, [] );
 	const submit = async ( event ) => {
 		event.preventDefault();
 		if ( sending.current ) {
@@ -25,6 +37,7 @@ function NewBody( { config, onClose } ) {
 		setFailed( null );
 		if ( title.trim() === '' ) {
 			setError( BODIES.titleEmpty );
+			setTimeout( focusField, 50 );
 			return;
 		}
 		setError( '' );
@@ -40,8 +53,14 @@ function NewBody( { config, onClose } ) {
 		}
 	};
 	return (
-		<Modal title={ BODIES.new } onRequestClose={ () => ! sending.current && onClose() } size="medium" shouldCloseOnClickOutside={ false }>
-			<form onSubmit={ submit } noValidate>
+		<Modal
+			title={ BODIES.new }
+			onRequestClose={ () => ! sending.current && onClose() }
+			size="medium"
+			shouldCloseOnClickOutside={ false }
+			focusOnMount={ false }
+		>
+			<form ref={ field } onSubmit={ submit } noValidate>
 				<TextControl
 					label={ BODIES.titleField }
 					value={ title }

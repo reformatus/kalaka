@@ -36,6 +36,16 @@
 	margin-bottom: 12px;
 }
 
+.km-h3 {
+	font-size: 1em;
+	margin: 12px 0 4px;
+}
+
+/* A switch the read does not allow: reachable and described, but plainly off-limits. [UNAPPROVED N273] */
+.km-standing .components-form-toggle {
+	opacity: 0.4;
+}
+
 .km-h2 {
 	font-size: 1.1em;
 	margin: 16px 0 8px;
@@ -88,8 +98,21 @@
 .km-snacks {
 	position: fixed;
 	bottom: 16px;
-	left: 160px;
+	left: 176px; /* the open admin menu (160px) and a gutter */
 	z-index: 100000;
+}
+
+/* A folded admin menu is 36px wide: WordPress folds it by hand (body.folded) and by itself from 782 to 960px. */
+@media (min-width: 783px) {
+	body.folded .km-snacks {
+		left: 52px;
+	}
+}
+
+@media (min-width: 783px) and (max-width: 960px) {
+	body.auto-fold .km-snacks {
+		left: 52px;
+	}
 }
 
 @media (max-width: 782px) {

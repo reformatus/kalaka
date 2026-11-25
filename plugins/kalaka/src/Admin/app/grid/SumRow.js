@@ -5,12 +5,15 @@
  *
  * Every cell carries one down arrow, which opens that column's menu (`ColumnMenu`: the sort commands and, for
  * a column that can count members, the counting choices; owner's walk, topic 6a G10 and round 3).
+ *
+ * When the table carries row actions, DataViews puts a selection column before the fields and an actions column
+ * after them; `framed` adds an empty cell at each end so every sum stays under its own column. [UNAPPROVED N295]
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { sumParts } from './format';
 import { GRID } from './texts';
 
-export default function SumRow( { root, columns, order, sums, menuFor, narrowed } ) {
+export default function SumRow( { root, columns, order, sums, menuFor, narrowed, framed } ) {
 	const [ row ] = useState( () => {
 		const tr = document.createElement( 'tr' );
 		tr.className = 'kg-sumtr';
@@ -59,5 +62,12 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed 
 				</td>
 			);
 		} );
-	return createPortal( cells, row );
+	return createPortal(
+		<>
+			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
+			{ cells }
+			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
+		</>,
+		row
+	);
 }

@@ -12,32 +12,48 @@
  * @param {Function} options.onSent      called when the dialog closes after a send was made (not before: clearing the
  *                                       selection earlier would unmount the action's modal and the answer in it)
  */
-import { useRef } from '@wordpress/element';
+import { useEffect, useRef } from '@wordpress/element';
 import { envelope } from '@wordpress/icons';
 import { ManualMailForm } from './ManualMailDialog';
+import { createKeys } from './manual';
 import { GRIDACTION, MANUAL } from './texts';
 
-function BulkDialog( { event, previewPath, items, closeModal, onSent } ) {
+/**
+ * DataViews closes its modal by itself on × and Esc, without asking the dialog, so the ticks are cleared when the
+ * dialog goes away after a send, however it was closed: not at the send (that would unmount the answer) and not in
+ * the Bezárás button only. [UNAPPROVED N288]
+ */
+function BulkDialog( { event, previewPath, items, closeModal, onSent, keys } ) {
 	const sent = useRef( false );
+	const done = useRef( onSent );
+	done.current = onSent;
+	useEffect(
+		() => () => {
+			if ( sent.current ) {
+				sent.current = false;
+				done.current();
+			}
+		},
+		[]
+	);
 	return (
 		<ManualMailForm
 			event={ event }
 			previewPath={ previewPath }
 			codes={ items.map( ( item ) => item.key ) }
-			onClose={ () => {
-				closeModal();
-				if ( sent.current ) {
-					onSent();
-				}
-			} }
+			onClose={ closeModal }
 			onSent={ () => {
 				sent.current = true;
 			} }
+			keys={ keys }
 		/>
 	);
 }
 
 export function manualMailAction( { eligible, event, previewPath, onSent } ) {
+	// One set of request keys for the action's life (the grid page): the dialog is opened and closed on the same rows
+	// and body as often as the admin likes and that stays one request. [UNAPPROVED N292]
+	const keys = createKeys();
 	return {
 		id: 'kalaka-manual-mail',
 		label: GRIDACTION.label,
@@ -47,7 +63,7 @@ export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 		supportsBulk: true,
 		isEligible: () => eligible,
 		RenderModal: ( { items, closeModal } ) => (
-			<BulkDialog event={ event } previewPath={ previewPath } items={ items } closeModal={ closeModal } onSent={ onSent } />
+			<BulkDialog event={ event } previewPath={ previewPath } items={ items } closeModal={ closeModal } onSent={ onSent } keys={ keys } />
 		),
 	};
 }

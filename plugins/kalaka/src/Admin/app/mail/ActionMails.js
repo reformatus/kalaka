@@ -4,14 +4,19 @@
  * is offered only as the read's `can` says, and a refused one shows the read's refusal text (the approved texts of
  * `UpdateActionMail`). Each change is saved at once and the page re-reads; a refused act shows the server's text under
  * the mail. [UNAPPROVED N273] [UNAPPROVED N274] [UNAPPROVED N275] [UNAPPROVED N276]
+ *
+ * Fix pass 1: a card's controls are one group named by the mail; a switch the read does not allow stays in the tab
+ * order (`aria-disabled`, described by the refusal) instead of being `disabled`; the body is chosen in the select and
+ * saved by its own „Mentés”, not on every arrow key (N274 changed); a typed layout and a chosen but unsaved body
+ * are held by the page, so they survive a change of tab.
  */
-import { Fragment, useState } from '@wordpress/element';
+import { Fragment, useId, useState } from '@wordpress/element';
 import { Button, Card, CardBody, CardHeader, Notice, SelectControl, TextareaControl, ToggleControl } from '@wordpress/components';
 import * as api from './api';
-import { bodyStatus, problemText } from './format';
+import { bodyLabel, problemText } from './format';
 import { COMMON, LAYOUT, MAILS } from './texts';
 
-function MailCard( { config, mail, bodies, onChanged, say } ) {
+function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 	const [ busy, setBusy ] = useState( false );
 	const [ failed, setFailed ] = useState( null );
 	const act = async ( change ) => {
@@ -32,34 +37,54 @@ function MailCard( { config, mail, bodies, onChanged, say } ) {
 	};
 	const refusal = mail.enabled ? mail.refusals.switch_off : mail.refusals.switch_on;
 	const allowed = mail.enabled ? mail.can.switch_off : mail.can.switch_on;
+	// A standing refusal is a state, not an error: the switch looks off-limits but can be reached, and the refusal's
+	// text is its description. [UNAPPROVED N273]
+	const standing = ! busy && ! allowed;
+	const titleId = useId();
+	const current = mail.body_id === null ? '' : String( mail.body_id );
+	const chosen = drafts.get( 'body:' + mail.mail, current );
 	return (
 		<Card className="km-mail" size="small">
 			<CardHeader>
-				<strong>{ mail.label }</strong>
+				<strong id={ titleId }>{ mail.label }</strong>
 			</CardHeader>
-			<CardBody>
+			<CardBody role="group" aria-labelledby={ titleId }>
 				<ToggleControl
+					className={ standing ? 'km-standing' : undefined }
 					label={ MAILS.enabled }
 					checked={ mail.enabled }
-					disabled={ busy || ! allowed }
+					disabled={ busy }
+					aria-disabled={ standing ? 'true' : undefined }
 					help={ refusal ? refusal.message : undefined }
-					onChange={ ( on ) => act( { enabled: on } ) }
+					onChange={ ( on ) => ( standing ? undefined : act( { enabled: on } ) ) }
 					__nextHasNoMarginBottom
 				/>
 				<SelectControl
 					label={ MAILS.body }
-					value={ mail.body_id === null ? '' : String( mail.body_id ) }
+					value={ chosen }
 					disabled={ busy }
 					options={ [
 						{ value: '', label: MAILS.noBody },
-						...bodies.map( ( body ) => ( {
-							value: String( body.id ),
-							label: body.status === 'publish' ? body.subject : `${ body.subject } (${ bodyStatus( body.status ) })`,
-						} ) ),
+						...bodies.map( ( body ) => ( { value: String( body.id ), label: bodyLabel( body, bodies ) } ) ),
 					] }
-					onChange={ ( value ) => act( { body_id: value === '' ? null : parseInt( value, 10 ) } ) }
+					onChange={ ( value ) => drafts.set( 'body:' + mail.mail, value ) }
 					__nextHasNoMarginBottom
 				/>
+				{ chosen !== current && (
+					<Button
+						variant="secondary"
+						size="compact"
+						isBusy={ busy }
+						disabled={ busy }
+						accessibleWhenDisabled
+						onClick={ async () => {
+							await act( { body_id: chosen === '' ? null : parseInt( chosen, 10 ) } );
+							drafts.clear( 'body:' + mail.mail );
+						} }
+					>
+						{ MAILS.saveBody }
+					</Button>
+				) }
 				<ToggleControl
 					label={ MAILS.layout }
 					checked={ mail.layout }
@@ -77,8 +102,9 @@ function MailCard( { config, mail, bodies, onChanged, say } ) {
 	);
 }
 
-function LayoutEditor( { config, html, onChanged, say } ) {
-	const [ draft, setDraft ] = useState( null );
+function LayoutEditor( { config, html, onChanged, say, drafts } ) {
+	const draft = drafts.get( 'layout', null );
+	const setDraft = ( value ) => drafts.set( 'layout', value );
 	const [ busy, setBusy ] = useState( false );
 	const [ failed, setFailed ] = useState( null );
 	const value = draft === null ? html : draft;
@@ -90,7 +116,7 @@ function LayoutEditor( { config, html, onChanged, say } ) {
 		setFailed( null );
 		try {
 			await api.saveLayout( config.event, value );
-			setDraft( null );
+			drafts.clear( 'layout' );
 			say( COMMON.saved );
 			await onChanged();
 		} catch ( error ) {
@@ -126,7 +152,7 @@ function LayoutEditor( { config, html, onChanged, say } ) {
 	);
 }
 
-export default function ActionMails( { config, data, onChanged, say } ) {
+export default function ActionMails( { config, data, onChanged, say, drafts } ) {
 	return (
 		<Fragment>
 			{ data.held && (
@@ -143,10 +169,11 @@ export default function ActionMails( { config, data, onChanged, say } ) {
 						bodies={ data.bodies }
 						onChanged={ onChanged }
 						say={ say }
+						drafts={ drafts }
 					/>
 				) ) }
 			</div>
-			<LayoutEditor config={ config } html={ data.layout_html } onChanged={ onChanged } say={ say } />
+			<LayoutEditor config={ config } html={ data.layout_html } onChanged={ onChanged } say={ say } drafts={ drafts } />
 		</Fragment>
 	);
 }

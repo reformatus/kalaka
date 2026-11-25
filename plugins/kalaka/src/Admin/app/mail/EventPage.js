@@ -1,6 +1,6 @@
 /**
- * The event's „Levelek” page: four tabs in core's TabPanel, the action mails with the layout, the bodies, the failed
- * deliveries and the past manual batches. One read (`GET /events/{id}/mail`) serves the first two. A saved change is a
+ * The event's „Levelek” page: three tabs in core's TabPanel, the action mails with the layout, the bodies and the past
+ * manual batches (the failed deliveries are on „Levelezés”: the owner's ruling puts the queue lists there). One read (`GET /events/{id}/mail`) serves the first two. A saved change is a
  * snackbar. The tab is kept in the address (`&tab=`). [UNAPPROVED N272]
  */
 import { useRef, useState } from '@wordpress/element';
@@ -8,15 +8,16 @@ import { SnackbarList, TabPanel } from '@wordpress/components';
 import ActionMails from './ActionMails';
 import Batches from './Batches';
 import Bodies from './Bodies';
-import Troubled from './Troubled';
+import useDrafts from './drafts';
 import useRead from './useRead';
 import { COMMON, TABS } from './texts';
 import { SNACKBAR_MS, withNotice, withoutNotice } from '../grid/snack';
 
-const KEYS = [ 'mails', 'bodies', 'troubled', 'batches' ];
+const KEYS = [ 'mails', 'bodies', 'batches' ];
 
 export default function EventPage( { config } ) {
 	const read = useRead( config.rest, `/events/${ config.event }/mail` );
+	const drafts = useDrafts();
 	const [ notices, setNotices ] = useState( [] );
 	const timers = useRef( [] );
 	const say = ( text ) => {
@@ -52,13 +53,10 @@ export default function EventPage( { config } ) {
 			>
 				{ ( tab ) => {
 					if ( tab.name === 'mails' ) {
-						return <ActionMails config={ config } data={ data } onChanged={ read.reload } say={ say } />;
+						return <ActionMails config={ config } data={ data } onChanged={ read.reload } say={ say } drafts={ drafts } />;
 					}
 					if ( tab.name === 'bodies' ) {
 						return <Bodies config={ config } data={ data } />;
-					}
-					if ( tab.name === 'troubled' ) {
-						return <Troubled config={ config } />;
 					}
 					return <Batches config={ config } />;
 				} }

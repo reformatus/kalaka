@@ -9,6 +9,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import apiFetch from '@wordpress/api-fetch';
 import { ManualMailForm } from '../../src/Admin/app/mail/ManualMailDialog';
+import { createKeys } from '../../src/Admin/app/mail/manual';
 import { MANUAL, RESULT } from '../../src/Admin/app/mail/texts';
 
 jest.mock( '@wordpress/components', () => {
@@ -67,8 +68,14 @@ let sent;
 
 const calls = ( path ) => apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).filter( ( c ) => c.path.includes( path ) );
 
-function route( { plan = PLAN, send = () => Promise.resolve( SENT ) } = {} ) {
+function route( { plan = PLAN, send = () => Promise.resolve( SENT ), site = { paused: null }, event = { held: false } } = {} ) {
 	apiFetch.mockImplementation( ( options ) => {
+		if ( options.path === '/kalaka-admin/v1/mail' ) {
+			return site instanceof Error ? Promise.reject( site ) : Promise.resolve( site );
+		}
+		if ( options.path === '/kalaka-admin/v1/events/1/mail' ) {
+			return event instanceof Error ? Promise.reject( event ) : Promise.resolve( event );
+		}
 		if ( options.path.endsWith( '/mail/manual/preview' ) ) {
 			return plan instanceof Error ? Promise.reject( plan ) : Promise.resolve( plan );
 		}
@@ -143,9 +150,9 @@ describe( 'the preview', () => {
 		await render();
 		expect( calls( 'preview' ) ).toHaveLength( 1 );
 		expect( calls( 'preview' )[ 0 ].data ).toEqual( { codes: [ 'A1', 'A2', 'A3', 'A4' ] } );
-		expect( host.textContent ).toContain( '2 jelentkezőnek megy ki a levél.' );
-		expect( host.textContent ).toContain( 'A3 ' + MANUAL.reason_withdrawn );
-		expect( host.textContent ).toContain( 'A4 ' + MANUAL.reason_removed );
+		expect( host.textContent ).toContain( 'A levelet 2 jelentkező kapja meg.' );
+		expect( host.textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
+		expect( host.textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
 	} );
 
 	test( 'the choice is the published bodies the read returned, and none is chosen for the user', async () => {
@@ -257,7 +264,7 @@ describe( 'the answer', () => {
 		await choose( '20' );
 		await submit();
 		expect( host.textContent ).toContain( '2 levél a küldési sorba került.' );
-		expect( host.textContent ).toContain( 'A3 ' + MANUAL.reason_withdrawn );
+		expect( host.textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
 		expect( host.querySelector( 'form' ) ).toBeNull();
 		expect( notices( 'warning' ) ).toEqual( [] );
 	} );
@@ -275,6 +282,73 @@ describe( 'the answer', () => {
 		await render();
 		await choose( '20' );
 		await submit();
-		expect( notices( 'info' ) ).toEqual( [ RESULT.repeat ] );
+		expect( notices( 'info' ) ).toEqual( [ 'Ez a levél korábban már a küldési sorba került (2 levél), ezért újabb levél nem került a sorba.' ] );
+		expect( host.textContent ).not.toContain( 'a küldési sorba került.' + '1' );
+	} );
+} );
+
+describe( 'before the send', () => {
+	test( 'a paused sender and a held event are told before anything is queued', async () => {
+		route( { site: { paused: { cause: 'errors' } }, event: { held: true } } );
+		await render();
+		expect( notices( 'warning' ) ).toEqual( [ RESULT.paused, RESULT.held ] );
+		expect( calls( 'send-manual-mail' ) ).toHaveLength( 0 );
+	} );
+
+	test( 'a running sender and a published event say nothing', async () => {
+		await render();
+		expect( notices( 'warning' ) ).toEqual( [] );
+	} );
+
+	test( 'a grant holder\'s reads are refused: nothing is said before the send, and the dialog still works', async () => {
+		const refused = Object.assign( new Error( 'no' ), { code: 'kalaka_permission_denied' } );
+		route( { site: refused, event: refused } );
+		await render();
+		expect( notices( 'warning' ) ).toEqual( [] );
+		expect( select() ).not.toBeNull();
+	} );
+} );
+
+describe( 'a double send across reopenings', () => {
+	test( 'the same rows and body keep one request key when the dialog is closed and opened again', async () => {
+		const keys = createKeys();
+		await render( { keys } );
+		await choose( '20' );
+		await submit();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { keys } );
+		await choose( '20' );
+		await submit();
+		const sent = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
+		expect( sent ).toHaveLength( 2 );
+		expect( sent[ 1 ] ).toBe( sent[ 0 ] );
+	} );
+
+	test( 'another selection is another request', async () => {
+		const keys = createKeys();
+		await render( { keys, codes: [ 'A1', 'A2' ] } );
+		await choose( '20' );
+		await submit();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { keys, codes: [ 'A1', 'A3' ] } );
+		await choose( '20' );
+		await submit();
+		const sent = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
+		expect( new Set( sent ).size ).toBe( 2 );
+	} );
+} );
+
+describe( 'bodies with one subject', () => {
+	test( 'are told apart by their number in the select', async () => {
+		route( { plan: { ...PLAN, bodies: [ { id: 20, subject: 'Közlemény' }, { id: 22, subject: 'Közlemény' }, { id: 23, subject: 'Más' } ] } } );
+		await render();
+		expect( Array.from( select().options ).map( ( o ) => o.textContent ) ).toEqual( [
+			MANUAL.pick,
+			'Közlemény (20. számú levélsablon)',
+			'Közlemény (22. számú levélsablon)',
+			'Más',
+		] );
 	} );
 } );

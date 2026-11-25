@@ -1,14 +1,16 @@
 /**
- * The „Sikertelen küldések” tab: the event's deliveries that need a look (failed, pending with the error of an
+ * One event's failed deliveries, on the „Levelezés” page (the owner's ruling: the queue lists live there only): the event's deliveries that need a look (failed, pending with the error of an
  * earlier attempt, stuck in „sending”), by registration code only: Mail reads no registration values and the
  * read has no code-list narrowing, so no name is shown (Backend's N549; ViewQuery has no code-list filter). The error
  * is shown as the server stored it. The one follow-up is a manual mail to that code, the same dialog as the grid's.
- * [UNAPPROVED N285] [UNAPPROVED N286]
+ * Only a failed delivery offers the follow-up: a mail that still waits (with the error of an earlier attempt) or is
+ * stuck in „sending” may yet go out, so a second copy would be a duplicate. [UNAPPROVED N285] [UNAPPROVED N286]
  */
-import { Fragment, useMemo, useState } from '@wordpress/element';
+import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
 import ListTable from './ListTable';
 import ManualMailDialog from './ManualMailDialog';
+import { createKeys } from './manual';
 import useRead from './useRead';
 import { deliveryStatus, moment } from './format';
 import { fmt } from '../grid/format';
@@ -17,6 +19,7 @@ import { COMMON, TROUBLED } from './texts';
 export default function Troubled( { config, version } ) {
 	const read = useRead( config.rest, `/events/${ config.event }/mail/troubled` );
 	const [ sending, setSending ] = useState( null );
+	const keys = useRef( createKeys() );
 	const fields = useMemo(
 		() => [
 			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => item.code, enableHiding: false },
@@ -55,11 +58,12 @@ export default function Troubled( { config, version } ) {
 				label: '',
 				header: <span className="screen-reader-text">{ TROUBLED.send }</span>,
 				getValue: () => '',
-				render: ( { item } ) => (
-					<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, item.code ) }>
-						{ TROUBLED.send }
-					</Button>
-				),
+				render: ( { item } ) =>
+					item.status === 'failed' ? (
+						<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, item.code ) }>
+							{ TROUBLED.send }
+						</Button>
+					) : null,
 				enableHiding: false,
 				enableSorting: false,
 			},
@@ -90,6 +94,7 @@ export default function Troubled( { config, version } ) {
 				<ManualMailDialog
 					config={ config }
 					codes={ [ sending ] }
+					keys={ keys.current }
 					onClose={ () => setSending( null ) }
 					onSent={ () => read.reload() }
 				/>

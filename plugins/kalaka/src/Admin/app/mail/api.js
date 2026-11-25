@@ -11,6 +11,9 @@ export { runAbility };
 /** A read: `path` is after `kalaka-admin/v1`. */
 export const read = ( rest, path ) => apiFetch( { path: `${ rest }${ path }` } );
 
+/** A read by its full path (after the site's REST root already in it). */
+export const readPath = ( path ) => apiFetch( { path } );
+
 /**
  * Switches a mail on or off, assigns its body (null: none) or sets whether it is wrapped in the layout; at least
  * one of the three. Answers the event's settings.

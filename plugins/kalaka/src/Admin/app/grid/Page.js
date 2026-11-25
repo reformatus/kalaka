@@ -32,10 +32,12 @@ import * as api from './api';
 import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
+import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import DetailPanel from './DetailPanel';
 import { manualMailAction } from '../mail/bulk';
+import { GRIDACTION } from '../mail/texts';
 import { GRID, PANEL, SUM } from './texts';
 
 /**
@@ -463,6 +465,20 @@ export default function Page( { config } ) {
 				: [],
 		[ tab.manualMail, config.event, config.rest ]
 	);
+	// Each row's selection checkbox is named with the registration's code (DataViews says „(no title)”). [UNAPPROVED T286]
+	const rowKeys = data.rows.map( ( row ) => row.key ).join( '\u0000' );
+	useLayoutEffect( () => {
+		if ( ! host || actions.length === 0 ) {
+			return undefined;
+		}
+		const keys = rowKeys === '' ? [] : rowKeys.split( '\u0000' );
+		const run = () => labelRowCheckboxes( host, keys, ( key ) => fmt( GRIDACTION.selectRow, key ) );
+		run();
+		const observer = new window.MutationObserver( run );
+		observer.observe( host, { childList: true, subtree: true } );
+		return () => observer.disconnect();
+	}, [ host, actions.length, rowKeys ] );
+
 	const copyButton = (
 		<Button
 			variant="secondary"
@@ -498,6 +514,7 @@ export default function Page( { config } ) {
 				sums={ sums }
 				menuFor={ menuFor }
 				narrowed={ narrowed }
+				framed={ actions.length > 0 }
 			/>
 			<div ref={ setHost } className="kg-dv" onClick={ onHostClick }>
 				<DataViews

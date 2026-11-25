@@ -15,8 +15,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
-import { createKeys, isTooMany } from './manual';
-import { problemText } from './format';
+import { createKeys, isTooMany, stateReads } from './manual';
+import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
 import { COMMON, MANUAL, RESULT } from './texts';
 
@@ -29,8 +29,10 @@ const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
  * @param {string[]} props.codes       the registrations' codes
  * @param {Function} props.onClose     closes the dialog
  * @param {Function} props.onSent      called with the answer once a send is made
+ * @param {Function} [props.keys]    the page's request keys (`createKeys()`), so reopening the dialog with the same
+ *                                   rows and body is the same request
  */
-export function ManualMailForm( { event, previewPath, codes, onClose, onSent } ) {
+export function ManualMailForm( { event, previewPath, codes, onClose, onSent, keys } ) {
 	const [ plan, setPlan ] = useState( null );
 	const [ planError, setPlanError ] = useState( null );
 	const [ bodyId, setBodyId ] = useState( '' );
@@ -42,8 +44,26 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent } )
 	const sending = useRef( false );
 	const keyFor = useRef( null );
 	if ( ! keyFor.current ) {
-		keyFor.current = createKeys();
+		keyFor.current = keys || createKeys();
 	}
+	// Whether sending is paused and whether the event is held, before anything is queued. Full access's reads: a
+	// refusal leaves the answer as the only place to learn it. [UNAPPROVED N293]
+	const [ standing, setStanding ] = useState( { paused: false, held: false } );
+	useEffect( () => {
+		let live = true;
+		const reads = stateReads( previewPath );
+		api.readPath( reads.site ).then(
+			( data ) => live && setStanding( ( old ) => ( { ...old, paused: !! data.paused } ) ),
+			() => {}
+		);
+		api.readPath( reads.event ).then(
+			( data ) => live && setStanding( ( old ) => ( { ...old, held: !! data.held } ) ),
+			() => {}
+		);
+		return () => {
+			live = false;
+		};
+	}, [ previewPath ] );
 
 	useEffect( () => {
 		let live = true;
@@ -94,17 +114,22 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent } )
 	if ( result ) {
 		return (
 			<div className="km-dialog">
-				<p role="status">
-					<strong>{ fmt( RESULT.queued, result.queued ) }</strong>
-				</p>
-				{ result.repeat && <Notice status="info" isDismissible={ false }>{ RESULT.repeat }</Notice> }
+				{ result.repeat ? (
+					<Notice status="info" isDismissible={ false }>
+						{ fmt( RESULT.repeat, result.queued ) }
+					</Notice>
+				) : (
+					<p role="status">
+						<strong>{ fmt( RESULT.queued, result.queued ) }</strong>
+					</p>
+				) }
 				{ result.skipped.length > 0 && (
 					<Fragment>
 						<p>{ fmt( RESULT.skipped, result.skipped.length ) }</p>
 						<ul className="km-members">
 							{ result.skipped.map( ( s ) => (
 								<li key={ s.code }>
-									<span className="km-code-text">{ s.code }</span> { reasonWord( s.reason ) }
+									<span className="km-code-text">{ s.code }</span> – { reasonWord( s.reason ) }
 								</li>
 							) ) }
 						</ul>
@@ -146,7 +171,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent } )
 							<ul className="km-members">
 								{ plan.skipped.map( ( s ) => (
 									<li key={ s.code }>
-										<span className="km-code-text">{ s.code }</span> { reasonWord( s.reason ) }
+										<span className="km-code-text">{ s.code }</span> – { reasonWord( s.reason ) }
 									</li>
 								) ) }
 							</ul>
@@ -165,7 +190,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent } )
 							value={ bodyId }
 							options={ [
 								{ value: '', label: MANUAL.pick },
-								...plan.bodies.map( ( b ) => ( { value: String( b.id ), label: b.subject } ) ),
+								...plan.bodies.map( ( b ) => ( { value: String( b.id ), label: bodyLabel( b, plan.bodies ) } ) ),
 							] }
 							onChange={ ( value ) => {
 								setBodyId( value );
@@ -178,6 +203,8 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent } )
 					<CheckboxControl label={ MANUAL.layout } checked={ layout } onChange={ setLayout } __nextHasNoMarginBottom />
 				</Fragment>
 			) }
+			{ standing.paused && <Notice status="warning" isDismissible={ false }>{ RESULT.paused }</Notice> }
+			{ standing.held && <Notice status="warning" isDismissible={ false }>{ RESULT.held }</Notice> }
 			{ failed && (
 				<Notice status="error" isDismissible={ false }>
 					{ failed }
@@ -204,7 +231,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent } )
 }
 
 /** The form in a modal of its own (the failed deliveries' follow-up). */
-export default function ManualMailDialog( { config, codes, onClose, onSent } ) {
+export default function ManualMailDialog( { config, codes, onClose, onSent, keys } ) {
 	return (
 		<Modal title={ MANUAL.title } onRequestClose={ onClose } size="medium" shouldCloseOnClickOutside={ false }>
 			<ManualMailForm
@@ -213,6 +240,7 @@ export default function ManualMailDialog( { config, codes, onClose, onSent } ) {
 				codes={ codes }
 				onClose={ onClose }
 				onSent={ onSent }
+				keys={ keys }
 			/>
 		</Modal>
 	);

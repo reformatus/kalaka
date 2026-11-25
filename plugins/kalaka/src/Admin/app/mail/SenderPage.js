@@ -4,12 +4,17 @@
  * budget, the pending count, the buttons the read's `can` allows (pause, resume, clear the queue, with a confirm for
  * the clear) and each event's counts with a clear of its held mail. The banner itself is the site warning, which
  * shows on this page like on every admin page. [UNAPPROVED N281] [UNAPPROVED N282] [UNAPPROVED N283] [UNAPPROVED N284]
+ *
+ * Fix pass 1: the queue lists are here and nowhere else (the owner's ruling of 2026-11-07: „Levelezés … holds mail
+ * settings, controls and the queue; the queue lives only there”): below the counts each event with failed, waiting-
+ * after-an-error or stuck deliveries has its list, with the manual mail follow-up on the failed rows. [UNAPPROVED N285]
  */
 import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, Notice, SnackbarList } from '@wordpress/components';
 import * as api from './api';
 import ConfirmModal from './ConfirmModal';
 import ListTable from './ListTable';
+import Troubled from './Troubled';
 import useRead from './useRead';
 import { moment, problemText } from './format';
 import { fmt } from '../grid/format';
@@ -24,6 +29,7 @@ export default function SenderPage( { config } ) {
 	const [ notices, setNotices ] = useState( [] );
 	const timers = useRef( [] );
 	const names = Object.fromEntries( config.events.map( ( e ) => [ e.id, e ] ) );
+	const eventName = ( id ) => ( names[ id ] ? names[ id ].name : fmt( SENDER.unknownEvent, id ) );
 	const say = ( text ) => {
 		const id = String( Date.now() ) + Math.random();
 		setNotices( ( list ) => withNotice( list, id, text, 'success' ) );
@@ -61,7 +67,7 @@ export default function SenderPage( { config } ) {
 			},
 			{
 				id: 'held',
-				label: COUNTS.published,
+				label: COUNTS.publication,
 				getValue: ( { item } ) => ( item.held ? COUNTS.held : COUNTS.published ),
 				enableHiding: false,
 			},
@@ -81,6 +87,7 @@ export default function SenderPage( { config } ) {
 							variant="secondary"
 							size="compact"
 							isDestructive
+							aria-label={ fmt( CONTROLS.clearEventFor, eventName( item.event_id ) ) }
 							onClick={ () => setConfirm( { event: item.event_id, count: item.queued } ) }
 						>
 							{ CONTROLS.clearEvent }
@@ -105,6 +112,8 @@ export default function SenderPage( { config } ) {
 	}
 	const data = read.data;
 	const paused = data.paused;
+	// Events whose deliveries need a look: failed, waiting after an error, or stuck in „sending”.
+	const troubled = data.events.filter( ( row ) => row.failed + row.with_error + row.stuck_sending > 0 );
 	const rows = [
 		[ SENDER.errorsInRow, String( data.errors_in_row ) ],
 		[ SENDER.budget, String( data.hourly_budget ) ],
@@ -114,9 +123,11 @@ export default function SenderPage( { config } ) {
 		<div className="km-page">
 			<section className="km-section" aria-labelledby="km-state">
 				<h2 id="km-state" className="km-h2">
-					{ paused ? ( paused.cause === 'errors' ? SENDER.pausedErrors : SENDER.pausedManual ) : SENDER.running }
+					{ SENDER.state }
 				</h2>
 				<dl className="km-dl">
+					<dt>{ SENDER.stateLabel }</dt>
+					<dd>{ paused ? ( paused.cause === 'errors' ? SENDER.pausedErrors : SENDER.pausedManual ) : SENDER.running }</dd>
 					{ paused && (
 						<Fragment>
 							<dt>{ SENDER.since }</dt>
@@ -127,15 +138,9 @@ export default function SenderPage( { config } ) {
 								<Fragment>
 									<dt>{ SENDER.delivery }</dt>
 									<dd>
-										{ ( () => {
-											const event = names[ paused.delivery.event_id ];
-											const text = fmt(
-												SENDER.deliveryOf,
-												paused.delivery.id,
-												event ? event.name : fmt( SENDER.unknownEvent, paused.delivery.event_id )
-											);
-											return event ? <a href={ event.url + '&tab=troubled' }>{ text }</a> : text;
-										} )() }
+										<a href={ `#km-troubled-${ paused.delivery.event_id }` }>
+											{ fmt( SENDER.deliveryOf, paused.delivery.id, eventName( paused.delivery.event_id ) ) }
+										</a>
 									</dd>
 								</Fragment>
 							) }
@@ -181,7 +186,7 @@ export default function SenderPage( { config } ) {
 			</section>
 			<section className="km-section" aria-labelledby="km-counts">
 				<h2 id="km-counts" className="km-h2">
-					{ COUNTS.event }
+					{ COUNTS.section }
 				</h2>
 				<ListTable
 					data={ data.events }
@@ -190,10 +195,27 @@ export default function SenderPage( { config } ) {
 					empty={ <p className="km-empty">{ COUNTS.none }</p> }
 				/>
 			</section>
+			{ troubled.length > 0 && (
+				<section className="km-section" aria-labelledby="km-troubled">
+					<h2 id="km-troubled" className="km-h2">
+						{ SENDER.troubled }
+					</h2>
+					{ troubled.map( ( row ) => (
+						<div key={ row.event_id } id={ `km-troubled-${ row.event_id }` }>
+							<h3 className="km-h3">{ eventName( row.event_id ) }</h3>
+							<Troubled config={ { ...config, event: row.event_id } } version={ row.event_id } />
+						</div>
+					) ) }
+				</section>
+			) }
 			{ confirm && (
 				<ConfirmModal
 					title={ confirm.queue ? CONTROLS.clearQueue : CONTROLS.clearEvent }
-					text={ fmt( confirm.queue ? CONTROLS.clearQueueConfirm : CONTROLS.clearEventConfirm, confirm.count ) }
+					text={
+						confirm.queue
+							? fmt( CONTROLS.clearQueueConfirm, confirm.count )
+							: fmt( CONTROLS.clearEventConfirm, confirm.count, eventName( confirm.event ) )
+					}
 					label={ CONTROLS.confirm }
 					onClose={ () => setConfirm( null ) }
 					onConfirm={ async () => {
