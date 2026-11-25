@@ -178,6 +178,70 @@ final class DraftsTest extends FormsTestCase
         self::assertFalse($opening->autosave);
     }
 
+    /** @return string the token of a one-shot prefill (N676) */
+    private function stash(array $answers): string
+    {
+        return $this->drafts->stashPrefill(
+            $this->event,
+            $this->form,
+            $this->version(),
+            new AnswerSet($answers),
+            new GuestActor()
+        )[0];
+    }
+
+    /** N676: the stash is a row of our table under the token's hash, and one read gives it and deletes it. */
+    public function testAPrefillIsKeptUnderTheTokensHashForFiveMinutesAndOneReadDeletesIt(): void
+    {
+        $token = $this->stash(['note' => 'a kvízből']);
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame('prefill', $rows[0]['kind']);
+        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        self::assertNull($rows[0]['user_id']);
+        self::assertSame('2026-11-30 08:05:00.000000', $rows[0]['expires_at']);
+        self::assertStringNotContainsString($token, (string) wp_json_encode($rows));
+
+        $taken = $this->drafts->takePrefill($this->form, $token, new GuestActor());
+        self::assertNotNull($taken);
+        self::assertSame(['note' => 'a kvízből'], $taken->answers);
+        self::assertSame([], $this->draftRows());
+        self::assertNull($this->drafts->takePrefill($this->form, $token, new GuestActor()));
+    }
+
+    public function testAPrefillAfterItsFiveMinutesIsNotGivenAndANeverReadOneIsSwept(): void
+    {
+        $read = $this->stash(['note' => 'a']);
+        $this->stash(['note' => 'b']);
+        $this->useClock(new TestClock(new \DateTimeImmutable('2026-11-30 08:06:00', new \DateTimeZone('UTC'))));
+        Runner::publish($this->runner);
+        $drafts = new Drafts($this->runner);
+
+        self::assertNull($drafts->takePrefill($this->form, $read, new GuestActor()));
+        self::assertCount(1, $this->draftRows());
+
+        (new DraftSweep($this->runner))->run();
+        self::assertSame([], $this->draftRows());
+    }
+
+    public function testAPrefillIsNeverADraftOfAnyListingOrClaim(): void
+    {
+        $token = $this->stash(['note' => 'a']);
+        $person = $this->person();
+
+        $opening = $this->drafts->opening($this->event, $this->form, $person->userId, $token);
+        self::assertTrue($opening->answers->isEmpty());
+        self::assertFalse($opening->claimConflict);
+        self::assertSame(DraftClaimOutcome::Gone, $this->drafts->claim($this->form, $token, $person));
+        self::assertTrue($this->drafts->opening($this->event, $this->form, null, $token)->answers->isEmpty());
+        self::assertFalse($this->drafts->holds($token));
+        self::assertCount(1, $this->draftRows());
+        // Another form's page leaves it alone.
+        self::assertNull($this->drafts->takePrefill($this->form + 1, $token, new GuestActor()));
+        self::assertCount(1, $this->draftRows());
+    }
+
     public function testASecondHandoffReplacesTheBrowsersEarlierGuestDraft(): void
     {
         $first = $this->handOver(['note' => 'első']);

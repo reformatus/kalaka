@@ -144,6 +144,11 @@ flowchart TB
   draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
   under a claim token in a cookie, and the request is answered with a 303 to
   the page without them. The form then opens with them, as editable values.
+  Where the event's account mode is `off` there are no drafts: the answers
+  are kept instead as a one-shot row of the drafts table, under the hash of
+  a token in a cookie, for five minutes, and the one page load after the 303
+  opens the form with them and deletes the row; it is never listed or
+  claimed as a draft, and the periodic run deletes one that is never read.
   A link-only field never takes public prefill. Nothing of the request is
   logged.
 - **Forms start from the active registration**

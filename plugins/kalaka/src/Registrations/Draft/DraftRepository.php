@@ -36,7 +36,18 @@ final class DraftRepository extends EntityRepository
     /** The guest draft under the claim token's hash, `FOR UPDATE` when a run is given. */
     public function ofClaim(string $claimHash, ?Context $forUpdate = null): ?Draft
     {
-        return $this->findWhere('claim_hash = %s', [$claimHash], $forUpdate)[0] ?? null;
+        return $this->findWhere('claim_hash = %s AND kind = %s', [$claimHash, Draft::KIND_DRAFT], $forUpdate)[0]
+            ?? null;
+    }
+
+    /** The one-shot prefill under the token's hash, `FOR UPDATE`; never a draft (N676). */
+    public function ofPrefill(string $claimHash, Context $forUpdate): ?Draft
+    {
+        return $this->findWhere(
+            'claim_hash = %s AND kind = %s',
+            [$claimHash, Draft::KIND_PREFILL],
+            $forUpdate
+        )[0] ?? null;
     }
 
     /** @return list<int> the events that have drafts; a plain read */
@@ -103,6 +114,7 @@ final class DraftRepository extends EntityRepository
             'id' => $entity->id,
             'version' => $entity->version,
             'claims' => $entity->claims,
+            'kind' => $entity->kind,
             'form_id' => $entity->formId,
             'form_version' => $entity->formVersion,
             'user_id' => $entity->userId,
@@ -135,6 +147,7 @@ final class DraftRepository extends EntityRepository
             (int) $row['claims'],
             $row['resolved_claim'],
             $row['resolved_choice'],
+            (string) $row['kind'],
         );
     }
 

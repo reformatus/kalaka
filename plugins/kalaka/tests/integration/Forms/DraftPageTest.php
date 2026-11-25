@@ -248,6 +248,32 @@ final class DraftPageTest extends FormsTestCase
         );
     }
 
+    /**
+     * C2-1: the account never keeps a handoff out (`FormPage::withoutAccount()`, as the page and its routes):
+     * a guest's quiz handoff is kept and opens the form prefilled in the mandatory and the optional mode.
+     *
+     * @dataProvider accountModes
+     */
+    public function testAGuestsHandoffIsKeptWhereTheEventNeedsOrOffersAccounts(string $mode): void
+    {
+        $this->accountMode($mode);
+
+        $handoff = new DraftHandoff();
+        self::assertTrue($handoff->handle($this->page(), ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
+
+        self::assertSame(['size' => 'm', 'note' => 'a kvízből'], $this->storedAnswers());
+        self::assertNotNull(DraftClaim::current());
+        $html = $this->render();
+        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
+        self::assertMatchesRegularExpression('#name="note"[^>]* value="a kvízből"#', $html);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function accountModes(): array
+    {
+        return ['mandatory' => ['mandatory'], 'optional' => ['optional']];
+    }
+
     /** N675: a handoff writes a row, so it counts like a submit, with the guest submit's budget. */
     public function testTheHandoffAfterTheGuestBudgetIsRefusedAndWritesNoRow(): void
     {
@@ -304,7 +330,10 @@ final class DraftPageTest extends FormsTestCase
         $handoff = new DraftHandoff();
 
         self::assertTrue($handoff->handle($page, ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
-        self::assertSame([], $this->draftRows());
+        // Only the one-shot row, never a draft; the raw token is in the cookie alone.
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame('prefill', $rows[0]['kind']);
         self::assertNull(DraftClaim::current());
         self::assertTrue(DraftHandoff::hasWork(null, 0, null, DraftHandoff::prefillToken()));
 

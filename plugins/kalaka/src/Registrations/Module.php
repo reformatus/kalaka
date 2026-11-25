@@ -86,6 +86,7 @@ CREATE TABLE {prefix}kalaka_drafts (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   version int(10) unsigned NOT NULL,
   claims int(10) unsigned NOT NULL DEFAULT 0,
+  kind varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL DEFAULT 'draft',
   form_id bigint(20) unsigned NOT NULL,
   form_version bigint(20) unsigned NOT NULL,
   user_id bigint(20) unsigned DEFAULT NULL,
@@ -117,7 +118,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(4, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::DRAFTS]);
+        return new Schema(5, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::DRAFTS]);
     }
 
     /**

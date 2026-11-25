@@ -243,24 +243,21 @@ final class EventFormHost implements FormHost
         return $event !== null && $event->accountMode === AccountMode::Off;
     }
 
-    /** Keeps a prefill-only handoff's answers for `$seconds` under the token (a transient). [UNAPPROVED N676] */
-    public function stashPrefill(string $token, AnswerSet $accepted, int $seconds): void
+    /**
+     * Keeps a prefill-only handoff's answers for one page load: a one-shot row of our table under the hash of a
+     * new token (N676); the token and the expiry for the cookie. [UNAPPROVED N676]
+     *
+     * @return array{string, \DateTimeImmutable}
+     */
+    public function stashPrefill(Form $form, int $version, AnswerSet $accepted, Actor $actor): array
     {
-        set_transient(self::prefillKey($token), $accepted->toJson(), $seconds);
+        return $this->drafts->stashPrefill($form->eventId, $form->id, $version, $accepted, $actor);
     }
 
     /** The stashed answers, once: they are gone after this read. [UNAPPROVED N676] */
-    public function takePrefill(string $token): ?AnswerSet
+    public function takePrefill(Form $form, string $token, Actor $actor): ?AnswerSet
     {
-        $stored = get_transient(self::prefillKey($token));
-        delete_transient(self::prefillKey($token));
-
-        return is_string($stored) ? AnswerSet::fromJson($stored) : null;
-    }
-
-    private static function prefillKey(string $token): string
-    {
-        return 'kalaka_prefill_' . substr(DraftClaim::hash($token), 0, 32);
+        return $this->drafts->takePrefill($form->id, $token, $actor);
     }
 
     /** Whether the form has drafts: a registration form of an event whose account mode is not `off` (N9). */

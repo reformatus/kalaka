@@ -40,8 +40,9 @@ use Kalaka\Registrations\Api\RegistrantCookie;
  * - **The limit.** Every handoff request counts per client, like a submit and with its budget
  *   (`SubmitGuard::checkHandoff()`); one over the budget keeps nothing and is answered the same, with the 303.
  *   Every draft read and write goes through the event form host, which keeps none in the event's account
- *   mode `off` (N9); there the accepted answers are stashed for five minutes under a token in the cookie
- *   `kalaka_prefill`, and the 303's page load opens the form with them once (N676).
+ *   mode `off` (N9); there the accepted answers are kept for five minutes as a one-shot row of our drafts
+ *   table, keyed by the hash of a token in the cookie `kalaka_prefill`, and the 303's page load opens the
+ *   form with them once (N676).
  * - **The claim.** A logged-in request to such a page whose cookie names a guest draft of its form claims
  *   it: it becomes the person's draft, and the cookie is cleared. With a draft of their own, it waits for
  *   their choice (the popup) and the cookie stays, but only when the link sets a value the draft does not
@@ -65,10 +66,8 @@ final class DraftHandoff
      */
     private static ?DraftClaimChoice $settled = null;
 
-    /** The cookie of a prefill-only handoff (account mode `off`, N676): five minutes, read once. */
+    /** The cookie of a prefill-only handoff (account mode `off`, N676): five minutes, read once, N676. */
     public const PREFILL_COOKIE = 'kalaka_prefill';
-
-    private const PREFILL_SECONDS = 300;
 
     /** The answers a prefill-only handoff opened this page load with. */
     private static ?AnswerSet $prefilled = null;
@@ -155,7 +154,7 @@ final class DraftHandoff
                 return;
             }
             if ($this->host->prefillsOnly($form)) {
-                $this->takePrefill();
+                $this->takePrefill($form, $actor);
 
                 return;
             }
@@ -179,9 +178,7 @@ final class DraftHandoff
         }
         if ($this->host->prefillsOnly($form)) {
             // No draft in this account mode (N9): the answers open the next page load only (N676).
-            $token = DraftClaim::generate();
-            $this->host->stashPrefill($token, $accepted, self::PREFILL_SECONDS);
-            $expires = Runner::current()->clock()->now()->modify('+' . self::PREFILL_SECONDS . ' seconds');
+            [$token, $expires] = $this->host->stashPrefill($form, $definition->version, $accepted, $actor);
             RegistrantCookie::set(self::PREFILL_COOKIE, $token, $expires->getTimestamp());
             $_COOKIE[self::PREFILL_COOKIE] = $token;
 
@@ -195,19 +192,22 @@ final class DraftHandoff
     }
 
     /** The redirected page load: the stashed answers open the form once, and the cookie is cleared. */
-    private function takePrefill(): void
+    private function takePrefill(Form $form, Actor $actor): void
     {
         $token = self::prefillToken();
         if ($token === null) {
             return;
         }
-        self::$prefilled = $this->host->takePrefill($token);
+        self::$prefilled = $this->host->takePrefill($form, $token, $actor);
         RegistrantCookie::set(self::PREFILL_COOKIE, '', -1);
         unset($_COOKIE[self::PREFILL_COOKIE]);
     }
 
-    /** The token of a prefill-only handoff's cookie, when the request carries a well-formed one. */
-    /** @internal the token of a prefill-only handoff's cookie, for tests */
+    /**
+     * The token of a prefill-only handoff's cookie, when the request carries a well-formed one.
+     *
+     * @internal public for the tests
+     */
     public static function prefillToken(): ?string
     {
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- checked against the pattern
@@ -271,7 +271,9 @@ final class DraftHandoff
         if ($found === null) {
             return null;
         }
-        $refusals = FormsPage::refusalsOf($this->host, $found, $post, Runner::current()->clock()->now());
+        $refusals = FormsPage::withoutAccount(
+            FormsPage::refusalsOf($this->host, $found, $post, Runner::current()->clock()->now())
+        );
 
         return $refusals === [] ? $found : null;
     }

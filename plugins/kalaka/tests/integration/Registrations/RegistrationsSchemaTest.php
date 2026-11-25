@@ -10,7 +10,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3). */
+/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3; schema 5 adds their `kind`). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -47,6 +47,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'id' => 'bigint(20) unsigned',
             'version' => 'int(10) unsigned',
             'claims' => 'int(10) unsigned',
+            'kind' => 'varchar(8)',
             'form_id' => 'bigint(20) unsigned',
             'form_version' => 'bigint(20) unsigned',
             'user_id' => 'bigint(20) unsigned null',
@@ -67,6 +68,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.submit_token' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.answers_hash' => 'utf8mb4_nopad_bin',
+        'kalaka_drafts.kind' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.claim_hash' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.resolved_claim' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.resolved_choice' => 'utf8mb4_nopad_bin',
@@ -76,7 +78,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(4, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(5, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -167,7 +169,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     }
 
     /**
-     * A site at schema 3 (S15's `owner_user_id`, no drafts) upgrades to 4: `kalaka_drafts` is created and the
+     * A site at schema 3 (S15's `owner_user_id`, no drafts) upgrades to 5: `kalaka_drafts` is created and the
      * registrations keep their owner. Real tables under a prefix of their own, dropped after; creating them
      * commits the harness transaction, so the version option is put back by hand.
      */
@@ -198,7 +200,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
 
             $upgrader->upgrade($module);
 
-            self::assertSame(4, (int) get_option($option));
+            self::assertSame(5, (int) get_option($option));
             self::assertSame(
                 $wpdb->prefix . 'kalaka_drafts',
                 $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . 'kalaka_drafts'))
@@ -212,7 +214,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
                 $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $wpdb->prefix . $table));
             }
             $wpdb->prefix = $prefix;
-            update_option($option, 4);
+            update_option($option, 5);
         }
     }
 

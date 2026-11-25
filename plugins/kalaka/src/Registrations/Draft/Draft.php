@@ -23,6 +23,18 @@ use Kalaka\Forms\Api\AnswerSet;
  */
 final class Draft
 {
+    /** A draft proper: a person's or a guest's. */
+    public const KIND_DRAFT = 'draft';
+
+    /**
+     * A one-shot prefill (N676): a handoff's answers in an account mode with no drafts, kept under the hash of
+     * a cookie token for `PREFILL_SECONDS` and deleted on its first read. Never a draft: no draft lookup finds
+     * it, no claim takes it.
+     */
+    public const KIND_PREFILL = 'prefill';
+
+    public const PREFILL_SECONDS = 300;
+
     public function __construct(
         public readonly int $eventId,
         public readonly int $formId,
@@ -39,6 +51,7 @@ final class Draft
         public int $claims = 0,
         public ?string $resolvedClaim = null,
         public ?string $resolvedChoice = null,
+        public readonly string $kind = self::KIND_DRAFT,
     ) {
     }
 

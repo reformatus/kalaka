@@ -118,6 +118,10 @@ the waitlist and reference codes
   names the draft, never their values.
 - A draft is written only by its use cases: `kalaka-portal/save-draft` (a
   logged-in person only), `kalaka-portal/hand-over-prefill`,
+  `kalaka-portal/stash-prefill` and `kalaka-portal/take-prefill` (the one-shot
+  row of account mode `off`: `kind` is `prefill`, never a draft, found only by
+  `ofPrefill()`, five minutes, deleted by its first read, swept like an
+  expired draft; N676),
   `kalaka-portal/claim-draft`, `kalaka-portal/resolve-draft-claim`,
   `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
   the cookie's guest draft of the form in its own transaction. A draft never

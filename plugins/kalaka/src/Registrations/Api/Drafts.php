@@ -19,6 +19,8 @@ use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\Draft\HandOverPrefill;
 use Kalaka\Registrations\Draft\ResolveDraftClaim;
 use Kalaka\Registrations\Draft\SaveDraft;
+use Kalaka\Registrations\Draft\StashPrefill;
+use Kalaka\Registrations\Draft\TakePrefill;
 
 /**
  * Drafts of registration forms (S74, owner ruling 2026-11-14), for the event form's host and the handoff:
@@ -198,6 +200,46 @@ final class Drafts
         }
 
         return [$token, $expires];
+    }
+
+    /**
+     * A handoff's answers for one page load, where the event's accounts are `off` and drafts are none (N676):
+     * a one-shot row under the hash of a new token, which only the cookie holds.
+     *
+     * @return array{string, \DateTimeImmutable} the token and the expiry
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function stashPrefill(int $eventId, int $formId, int $version, AnswerSet $answers, Actor $actor): array
+    {
+        $token = DraftClaim::generate();
+        $expires = $this->runner()->run(new StashPrefill($answers), [
+            'event_id' => $eventId,
+            'form_id' => $formId,
+            'form_version' => $version,
+            'claim_hash' => DraftClaim::hash($token),
+        ], $actor);
+        if (!$expires instanceof \DateTimeImmutable) {
+            $error = new SystemFailure(null, new \LogicException('The stash gave no expiry.'));
+            throw $error;
+        }
+
+        return [$token, $expires];
+    }
+
+    /**
+     * The stashed answers of the token, once: the row is deleted by this read.
+     *
+     * @throws \Kalaka\Foundation\Api\Error\KalakaException
+     */
+    public function takePrefill(int $formId, string $token, Actor $actor): ?AnswerSet
+    {
+        $answers = $this->runner()->run(
+            new TakePrefill(),
+            ['form_id' => $formId, 'claim_hash' => DraftClaim::hash($token)],
+            $actor
+        );
+
+        return $answers instanceof AnswerSet ? $answers : null;
     }
 
     /**
