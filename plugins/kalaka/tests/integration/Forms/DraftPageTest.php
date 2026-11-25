@@ -20,12 +20,14 @@ use Kalaka\Forms\Engine\DraftClaimTexts;
 use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
+use Kalaka\Forms\Engine\SubmitGuard;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\Drafts;
 
@@ -68,9 +70,12 @@ final class DraftPageTest extends FormsTestCase
         $this->event = $this->create();
         $this->update($this->event);
         $this->transition(new PublishEvent(), $this->event);
+        $this->accountMode('optional');
         $this->form = $this->insertForm(
-            $this->slotFields() . $this->field('choice', 'size', ['options' => self::SIZES])
+            '<!-- wp:kalaka/account /-->' . $this->slotFields()
+                . $this->field('choice', 'size', ['options' => self::SIZES])
                 . $this->field('text', 'note')
+                . $this->field('phone', 'telefon')
                 . $this->field('choice', 'szallas', ['options' => self::STAY])
                 . $this->field('choice', 'polo', ['options' => self::SHIRTS])
                 . $this->field('choice', 'meret', ['options' => self::SHIRTS, 'multiple' => true]),
@@ -87,6 +92,14 @@ final class DraftPageTest extends FormsTestCase
         DraftHandoff::forget();
         wp_set_current_user(0);
         parent::tear_down();
+    }
+
+    /** The event's account mode, set directly: the mode's own use case is S72's. */
+    private function accountMode(string $mode): void
+    {
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => $mode], ['id' => $this->event]);
+        ObjectCache::clear();
     }
 
     private function render(): string
@@ -209,13 +222,13 @@ final class DraftPageTest extends FormsTestCase
             $this->event,
             $this->form,
             $this->version(),
-            new AnswerSet(['email' => 'teszt.anna@']),
+            new AnswerSet(['telefon' => '+3630']),
             0,
             0,
             new AccountActor($user)
         );
 
-        self::assertMatchesRegularExpression('#name="email"[^>]* value="teszt.anna@"#', $this->render());
+        self::assertMatchesRegularExpression('#name="telefon"[^>]* value="\+3630"#', $this->render());
     }
 
     public function testOnlyAPrefillOrALoggedInClaimCookieGivesAPageViewAnythingToDo(): void
@@ -233,6 +246,57 @@ final class DraftPageTest extends FormsTestCase
             '/jelentkezes/?x=1',
             remove_query_arg(DraftHandoff::PARAMETER, '/jelentkezes/?kalaka%5Bsize%5D=m&kalaka%5Bnote%5D=a&x=1')
         );
+    }
+
+    /** N675: a handoff writes a row, so it counts like a submit, with the guest submit's budget. */
+    public function testTheHandoffAfterTheGuestBudgetIsRefusedAndWritesNoRow(): void
+    {
+        $handoff = new DraftHandoff();
+        for ($i = 0; $i < SubmitGuard::ADDRESS_LIMIT; $i++) {
+            self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
+        }
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+
+        // A new browser: without the cookie, an allowed handoff would write a second row.
+        unset($_COOKIE[DraftClaim::COOKIE]);
+        self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
+
+        self::assertSame($rows, $this->draftRows());
+        self::assertNull(DraftClaim::current());
+    }
+
+    /** N676 (N9): no drafts while the event's accounts are `off`. */
+    public function testNoDraftInTheAccountModeOff(): void
+    {
+        $this->accountMode('off');
+        $form = (new Forms())->form($this->form);
+        self::assertNotNull($form);
+        $host = new EventFormHost();
+        $user = $this->logIn();
+        (new Drafts($this->runner))->save(
+            $this->event,
+            $this->form,
+            $this->version(),
+            new AnswerSet(['note' => 'félkész']),
+            0,
+            0,
+            new AccountActor($user)
+        );
+
+        self::assertTrue($host->draft($form)->answers->isEmpty());
+
+        try {
+            $host->saveDraft($form, $form->version, new AnswerSet(['note' => 'x']), 0, 0, new AccountActor($user));
+            self::fail('The save was accepted.');
+        } catch (NotFound) {
+            self::assertSame('félkész', $this->storedAnswers()['note']);
+        }
+
+        wp_set_current_user(0);
+        self::assertTrue((new DraftHandoff())->handle($this->page(), ['size' => 'm'], new GuestActor()));
+        self::assertCount(1, $this->draftRows());
+        self::assertNull(DraftClaim::current());
     }
 
     public function testAGuestHasNoAutosaveRoute(): void
@@ -279,16 +343,18 @@ final class DraftPageTest extends FormsTestCase
 
         $html = $this->render();
         self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
-        self::assertDoesNotMatchRegularExpression('#name="(name|email|note)"[^>]* value="[^"]+"#', $html);
+        self::assertDoesNotMatchRegularExpression('#name="(name|email|note|telefon)"[^>]* value="[^"]+"#', $html);
         self::assertStringNotContainsString('aria-invalid', $html);
         self::assertSame(
             0,
             preg_match('#<span id="kalaka-field-[a-z_]+-error"[^>]*>[^<]+</span>#', $html),
             'An error element of the opened form holds text.'
         );
+        // The account block's own error line is not a field's.
+        $fields = (string) preg_replace('#<p id="kalaka-account-error"[^>]*></p>#', '', $html);
         self::assertSame(
-            substr_count($html, '-error"'),
-            preg_match_all('#<span id="kalaka-field-[a-z_]+-error"[^>]* hidden></span>#', $html),
+            substr_count($fields, '-error"'),
+            preg_match_all('#<span id="kalaka-field-[a-z_]+-error"[^>]* hidden></span>#', $fields),
             'Every error element of the opened form is hidden and empty.'
         );
     }

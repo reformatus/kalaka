@@ -269,7 +269,7 @@ values and conditions, prefill and form links
   storage, a URL or a log line.
 - The form engine is `Forms\Engine` (parse, walk, validate, conditions, field
   types, values and markup, theme adapters, `BlockGate`, `ChainMarks`, the form
-  posts, the form page and its two routes) with its contract, every
+  posts, the form page and its four routes) with its contract, every
   `Forms\Api` type but the facade `Forms`, `EventValues` and `AfterSubmit`,
   which stay at their names (deptrac: the layers `Forms Engine` and
   `Forms Engine Api`). It may use only Foundation Api, its own Api, WordPress
@@ -278,7 +278,9 @@ values and conditions, prefill and form links
 - The engine asks one host, `Api\FormHost`, for everything about what a form
   belongs to: the facts a condition reads and their types, the access
   refusals and the window, the key problem against keys beyond the form, the
-  stored values the form opens with, the submit token and the submit, the
+  stored values the form opens with, the person's draft (`draft()`,
+  `saveDraft()`, `resolveDraftClaim()`; an event form's host also keeps the
+  handoff's and the claim's, and none in the account mode `off`; `DraftHandoff` counts each handoff request through `SubmitGuard::checkHandoff()`, the submit's budget), the submit token and the submit, the
   after-submit section's keys, and whether the form needs an account
   (`accountStep()`). Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form

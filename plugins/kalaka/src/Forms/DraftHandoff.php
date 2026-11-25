@@ -10,7 +10,9 @@ use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
+use Kalaka\Forms\Api\RateLimited;
 use Kalaka\Forms\Engine\FormPage as FormsPage;
+use Kalaka\Forms\Engine\SubmitGuard;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
@@ -19,7 +21,6 @@ use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\DraftClaimOutcome;
-use Kalaka\Registrations\Api\Drafts;
 
 /**
  * A link's or the quiz's answers handed to a registration form, and their claim (S74, owner ruling
@@ -35,6 +36,10 @@ use Kalaka\Registrations\Api\Drafts;
  *   not accept is dropped, silently (`Forms::linkAnswers()`; Master ruling 2026-11-17). What is left is kept
  *   as a guest draft under a new claim token, set in the cookie, and the request is answered with a 303 to
  *   the page without `kalaka`, never cached. Nothing of the request is logged.
+ * - **The limit.** Every handoff request counts per client, like a submit and with its budget
+ *   (`SubmitGuard::checkHandoff()`); one over the budget keeps nothing and is answered the same, with the 303.
+ *   Every draft read and write goes through the event form host, which keeps none in the event's account
+ *   mode `off` (N9).
  * - **The claim.** A logged-in request to such a page whose cookie names a guest draft of its form claims
  *   it: it becomes the person's draft, and the cookie is cleared. With a draft of their own, it waits for
  *   their choice (the popup) and the cookie stays, but only when the link sets a value the draft does not
@@ -60,8 +65,8 @@ final class DraftHandoff
 
     public function __construct(
         private readonly Forms $forms = new Forms(),
-        private readonly Drafts $drafts = new Drafts(),
         private readonly EventFormHost $host = new EventFormHost(),
+        private readonly SubmitGuard $guard = new SubmitGuard(),
     ) {
     }
 
@@ -123,8 +128,15 @@ final class DraftHandoff
                 return;
             }
             if ($prefill !== null) {
-                $this->handOver($form, $prefill, $actor);
+                // Every request that may write a row counts, like a submit; over the budget it keeps nothing
+                // and is answered as any other handoff (the parameter stripped), unlogged: a flood's noise.
                 $redirect = true;
+                try {
+                    $this->guard->checkHandoff($actor);
+                } catch (RateLimited) {
+                    return;
+                }
+                $this->handOver($form, $prefill, $actor);
 
                 return;
             }
@@ -146,15 +158,10 @@ final class DraftHandoff
         if ($accepted->isEmpty()) {
             return;
         }
-        [$token, $expires] = $this->drafts->handOver(
-            $form->eventId,
-            $form->id,
-            $definition->version,
-            $accepted,
-            DraftClaim::current(),
-            $actor
-        );
-        DraftClaim::setCookie($token, $expires);
+        $kept = $this->host->handOver($form, $definition->version, $accepted, DraftClaim::current(), $actor);
+        if ($kept !== null) {
+            DraftClaim::setCookie($kept[0], $kept[1]);
+        }
         // A logged-in person claims it at once, on the page the 303 leads to.
     }
 
@@ -164,9 +171,9 @@ final class DraftHandoff
         if ($token === null || !$actor instanceof AccountActor) {
             return;
         }
-        $outcome = $this->drafts->claim($form->id, $token, $actor);
+        $outcome = $this->host->claimDraft($form, $token, $actor);
         if ($outcome === DraftClaimOutcome::Gone) {
-            self::$settled = $this->drafts->settledChoice($form->eventId, $form->id, $actor->userId, $token);
+            self::$settled = $this->host->settledChoice($form, $actor->userId, $token);
         }
         $done = [DraftClaimOutcome::Claimed, DraftClaimOutcome::Settled, DraftClaimOutcome::Gone];
         if (in_array($outcome, $done, true)) {

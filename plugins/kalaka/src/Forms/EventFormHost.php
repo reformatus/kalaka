@@ -21,11 +21,13 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
+use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Api\DraftClaimRefused;
+use Kalaka\Registrations\Api\DraftClaimOutcome;
 use Kalaka\Registrations\Api\Drafts;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
@@ -162,12 +164,11 @@ final class EventFormHost implements FormHost
      * A registration form's draft (S74): the logged-in person's own, or a link's or the quiz's guest draft
      * the cookie names. An additional form has none (re-asked with S60).
      *
-     * TODO(S15): no draft in the event's account mode `off` (S15-6) once S15 records the mode.
-     * [UNAPPROVED N9]
+     * None in the event's account mode `off` (S15-6, N9). [UNAPPROVED N9]
      */
     public function draft(Form $form): FormDraft
     {
-        if ($form->placement !== FormPlacement::Registration) {
+        if (!$this->keepsDrafts($form)) {
             return new FormDraft();
         }
         $user = get_current_user_id();
@@ -192,11 +193,51 @@ final class EventFormHost implements FormHost
         int $claims,
         Actor $actor
     ): void {
-        if ($form->placement !== FormPlacement::Registration) {
+        if (!$this->keepsDrafts($form)) {
             $error = new NotFound();
             throw $error;
         }
         $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
+    }
+
+    /**
+     * A link's or the quiz's accepted answers as a guest draft (S74, the handoff): the claim token and its
+     * expiry; null when the form keeps no drafts (an additional form, an event with accounts `off`, N9).
+     * [UNAPPROVED N677]
+     *
+     * @return array{string, \DateTimeImmutable}|null
+     */
+    public function handOver(Form $form, int $version, AnswerSet $accepted, ?string $claimToken, Actor $actor): ?array
+    {
+        if (!$this->keepsDrafts($form)) {
+            return null;
+        }
+
+        return $this->drafts->handOver($form->eventId, $form->id, $version, $accepted, $claimToken, $actor);
+    }
+
+    /** A logged-in person's claim of the cookie's guest draft, on the `wp` request. [UNAPPROVED N677] */
+    public function claimDraft(Form $form, string $token, AccountActor $actor): DraftClaimOutcome
+    {
+        return $this->drafts->claim($form->id, $token, $actor);
+    }
+
+    /** The choice that settled the person's claim of the guest draft; null when none. [UNAPPROVED N677] */
+    public function settledChoice(Form $form, int $userId, string $token): ?DraftClaimChoice
+    {
+        return $this->drafts->settledChoice($form->eventId, $form->id, $userId, $token);
+    }
+
+    /** Whether the form has drafts: a registration form of an event whose account mode is not `off` (N9). */
+    private function keepsDrafts(Form $form): bool
+    {
+        if ($form->placement !== FormPlacement::Registration) {
+            return false;
+        }
+
+        $event = $this->event($form);
+
+        return $event !== null && $event->accountMode !== AccountMode::Off;
     }
 
     public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void

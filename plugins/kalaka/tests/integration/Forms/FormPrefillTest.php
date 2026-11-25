@@ -15,6 +15,7 @@ use Kalaka\Forms\Engine\FormPageView;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\Drafts;
 
 /**
@@ -38,6 +39,10 @@ final class FormPrefillTest extends FormsTestCase
             'ends_at' => $day(36),
         ]);
         $this->transition(new PublishEvent(), $id);
+        // Drafts need accounts (N9), and an event with accounts needs the account block in its form.
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['account_mode' => 'optional'], ['id' => $id]);
+        ObjectCache::clear();
 
         return $id;
     }
@@ -45,7 +50,10 @@ final class FormPrefillTest extends FormsTestCase
     /** @param array<string, string> $stored */
     private function render(string $content, array $stored): string
     {
-        $formId = $this->insertForm($this->slotFields() . $content, ['kalaka_event_id' => $this->event()]);
+        $formId = $this->insertForm(
+            '<!-- wp:kalaka/account /-->' . $this->slotFields() . $content,
+            ['kalaka_event_id' => $this->event()]
+        );
         $host = new PrefillingHost(new EventFormHost(), $stored);
 
         return (new FormPage($host))->html($formId, static function (FormPageView $view): void {
@@ -70,7 +78,8 @@ final class FormPrefillTest extends FormsTestCase
         ]]);
         $event = $this->event();
         $formId = $this->insertForm(
-            $this->slotFields() . $this->field('choice', 'size', ['options' => self::SIZES])
+            '<!-- wp:kalaka/account /-->' . $this->slotFields()
+                . $this->field('choice', 'size', ['options' => self::SIZES])
                 . '<!-- wp:kalaka/if ' . $reads('size', 'm') . ' -->'
                 . $this->field('choice', 'tier', ['options' => $tiers]) . '<!-- /wp:kalaka/if -->'
                 . '<!-- wp:kalaka/if ' . $reads('tier', 'b') . ' -->'
