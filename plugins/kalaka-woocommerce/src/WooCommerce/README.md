@@ -6,7 +6,9 @@ orders, as core's payments provider.
 
 `Module.php` registers `AdminAccessGate` on WooCommerce's
 `woocommerce_prevent_admin_access` and `woocommerce_disable_admin_bar` filters
-in `boot()`.
+in `boot()`, and the card payment's hooks (`PaymentReporter`, `ReturnAddress`,
+`HiddenProduct::purchasable()`; see the entry points below); it contributes the
+provider and the `ReconcileStep`.
 
 `AdminAccessGate` runs `Kalaka\Admin\Api\Access::mayReachAdmin()` for the
 current user: full access or at least one grant returns false, so WooCommerce's
@@ -27,9 +29,6 @@ and `KalakaItem` (an order as the plugin reads it), `OrderMeta` (the meta names 
 Tests: `tests/integration/` (the filter on a real WooCommerce install, a grant
 holder through WooCommerce's own `prevent_admin_access()`, a plain customer
 that WooCommerce really redirects, full access, an administrator and the
-missing-API guard; the card payment on real `WC_Order`s in both order-storage modes, with a test-only stand-in gateway) (the filter on a real WooCommerce install, a grant
-holder through WooCommerce's own `prevent_admin_access()`, a plain customer
-that WooCommerce really redirects, full access, an administrator and the
-missing-API guard).
+missing-API guard; the card payment on real `WC_Order`s in both order-storage modes, with a test-only stand-in gateway).
 
 Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`; the periodic step `woocommerce_reconcile`.

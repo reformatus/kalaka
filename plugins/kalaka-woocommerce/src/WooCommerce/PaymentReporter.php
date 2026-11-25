@@ -50,6 +50,19 @@ final class PaymentReporter
                     $items[] = new OnlineItem($item->registration, $item->payer, $item->charged, (string) $item->id);
                 }
             }
+            // The total as decimal text, never a float: any non-zero digit in a non-negative total is money.
+            $total = wc_format_decimal((string) $mine->order->get_total());
+            if ($items === [] && !str_starts_with($total, '-') && preg_match('/[1-9]/', $total) === 1) {
+                // A paid order with money on it but no item this plugin can read (an unknown currency, or item
+                // meta that does not parse): never marked recorded, so the reconcile step comes back to it and
+                // the log says so each time.
+                Boundary::report(
+                    'Recording WooCommerce order ' . $orderId,
+                    new \RuntimeException('A paid Kaláka order has no readable item')
+                );
+
+                return false;
+            }
             if ($items !== []) {
                 $this->online->recordPaid(
                     new PaidRequest(WooProvider::ID, (string) $orderId, $paidAt, $items)

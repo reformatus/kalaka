@@ -482,6 +482,25 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertCount(1, $this->moneyLines());
     }
 
+    public function testAPaidOrderWithNoReadableItemIsReportedAndNotMarkedRecorded(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        foreach ($order->get_items() as $item) {
+            $item->update_meta_data('_kalaka_registration', 'not a registration');
+            $item->save();
+        }
+
+        [$log] = $this->captureLog(function () use ($order): void {
+            $this->payOrder($order);
+        });
+
+        self::assertSame([], $this->moneyLines());
+        self::assertSame('', (string) $this->freshOrder($order)->get_meta(OrderMeta::RECORDED));
+        self::assertStringContainsString('A paid Kaláka order has no readable item', $log);
+    }
+
     public function testAGuestCanOpenTheOrderPayPageAndAWrongKeyCannot(): void
     {
         $anna = $this->owing('00A0');
