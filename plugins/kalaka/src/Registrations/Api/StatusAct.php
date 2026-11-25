@@ -6,8 +6,9 @@ namespace Kalaka\Registrations\Api;
 
 /**
  * The four acts that change a registration's status (registrations-and-identity.md, "Status, capacity and
- * waitlist"): admit from the waitlist, withdraw, remove and restore. Each is one staff act on one registration;
- * nothing else changes a status after the submit set it. The table of what each allows and does is here, once:
+ * waitlist"): admit from the waitlist, withdraw, remove and restore. Each is one staff act on one registration,
+ * and withdraw is also the participant's own act (`WithdrawOwnRegistration`, by the secret-link actor); nothing else
+ * changes a status after the submit set it. The table of what each allows and does is here, once:
  * the use cases, the preview and the detail read's `can` flags all read it. [UNAPPROVED N510]
  */
 enum StatusAct: string

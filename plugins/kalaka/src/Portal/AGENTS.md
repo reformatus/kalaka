@@ -47,3 +47,15 @@ page, and the account area
   text is the frozen spec's or approved.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
+- The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)
+  acts only for the active registration and only with that registration's own `code`; anything else (no active
+  registration, another code, a status that cannot withdraw) is `Api\WithdrawUnavailable`
+  (`kalaka_withdraw_unavailable`). It is open to whoever holds the active registration (the secret link and the
+  signed cookie), with no nonce, as the card route is; `LoadState::requireOpen()` comes first, every answer is
+  `no-store`, and a plain form post is answered with a 303 to the same-site return address (else the referrer, else
+  home), clean, with a refusal's code in the flash cookie `WithdrawRefusalCookie` that the next page request reads
+  once (`WithdrawRefusalState`, read through `StatusRead`; it becomes one portal flash cookie with the card
+  payment's when both exist). A plain form post is never a preview. The act, its rule and its audit are
+  Registrations'; Portal adds no rule and shows no seat, no other payer's money and no reason. `can.withdraw`
+  (`Api\RegistrationCan`) is decided in `StatusRead` from `StatusAct::Withdraw`'s allowed statuses and
+  `LoadState`, never in the page. [UNAPPROVED N660-N666]

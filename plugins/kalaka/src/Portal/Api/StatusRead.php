@@ -9,11 +9,13 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Foundation\Api\Decision\Decisions;
+use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerSummary;
 use Kalaka\Portal\LineLabels;
+use Kalaka\Portal\WithdrawRefusalState;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -21,6 +23,7 @@ use Kalaka\Registrations\Api\RegistrationRead;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\StatusAct;
 
 /**
  * The read behind the participant blocks: one registration's status, phase, confirmation, money and
@@ -53,11 +56,17 @@ final class StatusRead
     {
         $key = ActiveRegistration::current();
 
-        return $key === null ? null : $this->of($key);
+        // The one-shot refusal of a withdrawal form post is shown by the page that follows it, never by a mail.
+        return $key === null ? null : $this->read($key, WithdrawRefusalState::code());
     }
 
     /** The registration's view, or null when it or its event does not exist. */
     public function of(RegistrationKey $key): ?RegistrationStatusView
+    {
+        return $this->read($key, null);
+    }
+
+    private function read(RegistrationKey $key, ?string $withdrawRefusal): ?RegistrationStatusView
     {
         $registration = $this->registrations->find($key);
         $event = $registration === null ? null : $this->events->find($key->eventId);
@@ -96,6 +105,11 @@ final class StatusRead
             $payment,
             $transfer,
             $this->money->of($key, $event->currency),
+            // The staff withdrawal's own table says which statuses may leave; a closed site refuses every use case.
+            new RegistrationCan(
+                LoadState::current()->isOpen() && StatusAct::Withdraw->allowedFrom($registration->status)
+            ),
+            $withdrawRefusal,
         );
     }
 

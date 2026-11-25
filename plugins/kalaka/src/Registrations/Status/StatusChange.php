@@ -15,7 +15,6 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\VersionConflict;
-use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
@@ -24,7 +23,6 @@ use Kalaka\Foundation\Api\UseCase\PreviewableUseCase;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMails;
-use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -38,7 +36,6 @@ use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\StatusAct;
 use Kalaka\Registrations\Api\StatusActRefused;
-use Kalaka\Registrations\Registration;
 use Kalaka\Registrations\RegistrationRepository;
 
 /**
@@ -79,6 +76,8 @@ use Kalaka\Registrations\RegistrationRepository;
  */
 abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
+    private readonly Leaving $leaving;
+
     /**
      * @param list<SeatClaimSource>|null $seatClaimSources null: the contributed ones; a test passes its own
      */
@@ -96,6 +95,8 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         private readonly Registrations $reads = new Registrations(),
         private readonly MoneySettings $settings = new MoneySettings(),
     ) {
+        // The leave and the money preview are one copy, shared with the participant's own withdrawal.
+        $this->leaving = new Leaving($registrations, $seats, $composition, $ledger, $events);
     }
 
     abstract protected function act(): StatusAct;
@@ -166,7 +167,13 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
             return $this->preview($act, $key, $event, $context);
         }
 
-        return $act->enters() ? $this->enter($act, $key, $event, $context) : $this->leave($act, $key, $context);
+        if ($act->enters()) {
+            return $this->enter($act, $key, $event, $context);
+        }
+
+        return $this->leaving->leave($act, $key, $context)
+            ? self::result($act->target(), false, [])
+            : self::unchanged($act->target());
     }
 
     /**
@@ -199,7 +206,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         $result['requires_reason'] = $act->reasonRequired();
         if ($act !== StatusAct::Admit) {
             $hidden = !$this->access->mayViewMoney($context->actor(), $key);
-            $result['money'] = $hidden ? null : $this->previewMoney($act, $key, $context);
+            $result['money'] = $hidden ? null : $this->leaving->money($act, $key, $context);
             $result['money_hidden'] = $hidden;
             if (!$act->enters()) {
                 $result['retention'] = $hidden ? null : $this->settings->retentionId($key->eventId);
@@ -262,64 +269,9 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         ];
     }
 
-    /**
-     * What the act does to each payer's money, for a holder who may view it: what was paid, the balance now and the
-     * balance once the act's own composition (the materializer's, retention included) is recorded. Signed amounts as
-     * the money reads give them (above zero owed, below zero overpaid). Null when
-     * a fee component cannot say what is owed. Nothing is written or refunded. The caller has checked the holder.
-     *
-     * @return list<array{payer: string, paid: string, balance_now: string, balance_after: string}>|null
-     */
-    private function previewMoney(StatusAct $act, RegistrationKey $key, Context $context): ?array
-    {
-        try {
-            $after = $this->composition->of($key, $context->now(), $act->target());
-        } catch (FeeComponentFailed) {
-            return null;
-        }
-        $event = $this->events->find($key->eventId);
-        if ($after === null || $event === null) {
-            return null;
-        }
-        $summary = $this->ledger->summaryOf($key);
-        $targets = $after->targets();
-        $payers = array_unique([...array_keys($summary->payers()), ...array_keys($targets)]);
-        sort($payers, SORT_STRING);
-        $rows = [];
-        foreach ($payers as $payer) {
-            $payer = (string) $payer;
-            $now = $summary->of($payer, $event->currency);
-            $target = $targets[$payer] ?? Money::zero($event->currency);
-            $rows[] = [
-                'payer' => $payer,
-                'paid' => $now->paid->amount(),
-                'balance_now' => $now->balance->amount(),
-                'balance_after' => $target->minus($now->paid)->amount(),
-            ];
-        }
-
-        return $rows;
-    }
-
     private function previewOutcome(SeatPool $pool, RegistrationKey $key): SeatOutcome
     {
         return $this->seats->wouldOverfill($pool, $key) ? SeatOutcome::Over : SeatOutcome::Held;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function leave(StatusAct $act, RegistrationKey $key, Context $context): array
-    {
-        $registration = $this->locked($act, $key, $context);
-        if ($registration === null) {
-            return self::unchanged($act->target());
-        }
-        $registration->status = $act->target();
-        $this->registrations->upsert($registration, $context);
-        $this->seats->releaseAll($key, $context);
-
-        return self::result($act->target(), false, []);
     }
 
     /**
@@ -338,7 +290,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
             }
         }
 
-        $registration = $this->locked($act, $key, $context);
+        $registration = $this->leaving->locked($act, $key, $context);
         if ($registration === null) {
             return self::unchanged($act->target());
         }
@@ -383,26 +335,6 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         }
 
         return self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
-    }
-
-    /**
-     * Locks the registration's row and checks the status again under it: null when it is already in the target
-     * state (a repeat that lost the race), else the locked row.
-     *
-     * @throws NotFound
-     * @throws StatusActRefused
-     */
-    private function locked(StatusAct $act, RegistrationKey $key, Context $context): ?Registration
-    {
-        $registration = $this->registrations->findForUpdate($key, $context) ?? throw new NotFound();
-        if ($registration->status === $act->target()) {
-            return null;
-        }
-        if (!$act->allowedFrom($registration->status)) {
-            throw new StatusActRefused();
-        }
-
-        return $registration;
     }
 
     /**

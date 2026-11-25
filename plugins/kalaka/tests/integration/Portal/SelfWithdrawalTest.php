@@ -1,0 +1,490 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Kalaka\Tests\Integration\Portal;
+
+use Kalaka\Foundation\Api\Error\SiteClosed;
+use Kalaka\Foundation\Api\LoadFailure;
+use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Decision\DecisionRules;
+use Kalaka\Foundation\Evaluation\Evaluation;
+use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Pricing\Api\Materializer;
+use Kalaka\Pricing\CoreFeeComponents;
+use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Pricing\SetRetention;
+use Kalaka\Ledger\RecordPayment;
+use Kalaka\Portal\ActiveRegistrationState;
+use Kalaka\Portal\Api\StatusRead;
+use Kalaka\Portal\Api\WithdrawUnavailable;
+use Kalaka\Portal\Api\Withdrawal;
+use Kalaka\Portal\WithdrawRefusalCookie;
+use Kalaka\Portal\WithdrawRefusalState;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\StatusActRefused;
+use Kalaka\Registrations\Api\OwnWithdrawal;
+use Kalaka\Tests\Integration\Admin\FieldEdit\StaffEditTestCase;
+
+/**
+ * The participant's own withdrawal (`kalaka-portal/withdraw-registration`): the portal check, the act (the staff
+ * withdrawal's own leave), the preview of the registrant's own payer, the route and `can.withdraw`.
+ */
+final class SelfWithdrawalTest extends StaffEditTestCase
+{
+    private Runner $production;
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
+    public function set_up(): void
+    {
+        parent::set_up();
+
+        $money = new Materializer(new CoreFeeComponents([]));
+        $rules = new DecisionRules();
+        $rules->add(new ConfirmationRule($money->composition()), true);
+        $this->runner = new Runner($this->clockAt('2026-12-01 10:00:00'), true, new Evaluation($rules, money: $money));
+        $this->production = Runner::current();
+        Runner::publish($this->runner);
+        ActiveRegistrationState::set(null, false);
+        WithdrawRefusalState::set(null);
+        $GLOBALS['wp_rest_server'] = null;
+        $this->exec(new SetFixedPrice(), ['event_id' => $this->event, 'amount' => '8000', 'currency' => 'HUF']);
+        $this->addRegistration($this->event, '00A0');
+        $this->addRegistration($this->event, '00A2');
+        $this->addRegistration($this->event, '00A5', 'waitlisted');
+    }
+
+    // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- WordPress names this hook
+    public function tear_down(): void
+    {
+        LoadState::record([]);
+        ActiveRegistrationState::set(null, false);
+        WithdrawRefusalState::set(null);
+        $GLOBALS['wp_rest_server'] = null;
+        Runner::publish($this->production);
+
+        parent::tear_down();
+    }
+
+    private function withdrawal(): Withdrawal
+    {
+        return new Withdrawal(new OwnWithdrawal($this->runner));
+    }
+
+    /** @return array<string, mixed> */
+    private function withdraw(string $code, ?string $as = null, bool $preview = false): array
+    {
+        return $this->withdrawal()->run($this->key($as ?? $code), $code, $preview);
+    }
+
+    private function status(string $code): string
+    {
+        global $wpdb;
+
+        return (string) $wpdb->get_var($wpdb->prepare(
+            'SELECT status FROM %i WHERE event_id = %d AND code = %s',
+            $wpdb->prefix . 'kalaka_registrations',
+            $this->event,
+            $code
+        ));
+    }
+
+    private function tableRows(string $table): int
+    {
+        global $wpdb;
+
+        return (int) $wpdb->get_var($wpdb->prepare('SELECT COUNT(*) FROM %i', $wpdb->prefix . $table));
+    }
+
+    /** @return array<string, int> what a preview must leave as it was */
+    private function counts(): array
+    {
+        return [
+            'audit' => $this->tableRows('kalaka_audit_entries'),
+            'seats' => $this->tableRows('kalaka_seats'),
+            'ledger' => $this->tableRows('kalaka_ledger_lines'),
+            'decisions' => $this->tableRows('kalaka_decisions'),
+            'registrations' => (int) $this->version('00A0') + (int) $this->version('00A5'),
+        ];
+    }
+
+    private function version(string $code): string
+    {
+        global $wpdb;
+
+        return (string) $wpdb->get_var($wpdb->prepare(
+            'SELECT version FROM %i WHERE event_id = %d AND code = %s',
+            $wpdb->prefix . 'kalaka_registrations',
+            $this->event,
+            $code
+        ));
+    }
+
+    private function pay(string $code, string $amount): void
+    {
+        $this->exec(new RecordPayment(), [
+            'event_id' => $this->event,
+            'code' => $code,
+            'amount' => $amount,
+            'currency' => 'HUF',
+            'method' => 'bank_transfer',
+            'value_date' => '2026-11-29',
+            'idempotency_key' => 'k-' . strtolower($code) . '-' . $amount,
+        ]);
+    }
+
+    private function payCongregation(string $code, string $amount): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_ledger_lines', [
+            'event_id' => $this->event,
+            'code' => $code,
+            'kind' => 'payment',
+            'payer' => 'congregation',
+            'amount' => '-' . $amount,
+            'currency' => 'HUF',
+            'source_type' => 'system',
+            'source_event_id' => null,
+            'source_key' => 'system',
+            'idempotency_key' => 'gyulekezet-' . $code,
+            'value_date' => '2026-11-29 23:00:00.000000',
+            'paid_at' => null,
+            'recorded_at' => '2026-11-30 08:00:00.000000',
+            'method' => 'bank_transfer',
+            'correction' => 0,
+        ]);
+    }
+
+    public function testAWaitlistedRegistrantWithdrawsAndTheAuditNamesTheSecretLink(): void
+    {
+        $before = $this->tableRows('kalaka_audit_entries');
+        $result = $this->withdraw('00A5');
+
+        self::assertSame(['changed' => true, 'status' => 'withdrawn'], $result);
+        self::assertSame('withdrawn', $this->status('00A5'));
+        $entry = $this->lastEntry();
+        self::assertSame('kalaka-portal/withdraw-registration', $entry['action']);
+        self::assertSame('secret_link', $entry['actor_type']);
+        self::assertSame('00A5', $entry['actor_code']);
+        self::assertNull($entry['reason']);
+        self::assertSame($before + 1, $this->tableRows('kalaka_audit_entries'));
+    }
+
+    public function testARegisteredRegistrantWithdrawsFreesTheSeatsAndQueuesNoMail(): void
+    {
+        $this->addValue($this->event, '00A0', 'tier', 'a');
+        $this->seat('00A0', $this->poolA);
+        $before = $this->version('00A0');
+        global $wpdb;
+        $mails = $this->tableRows('kalaka_deliveries');
+
+        $result = $this->withdraw('00A0');
+
+        self::assertSame(['changed' => true, 'status' => 'withdrawn'], $result);
+        self::assertSame('withdrawn', $this->status('00A0'));
+        self::assertSame((int) $before + 1, (int) $this->version('00A0'));
+        self::assertSame(0, $this->seats->held($this->poolA));
+        self::assertFalse($this->seats->holds($this->poolA, $this->key('00A0')));
+        self::assertSame($mails, $this->tableRows('kalaka_deliveries'));
+        // The registered stamp is the staff withdrawal's: left as it was.
+        self::assertNotNull($wpdb->get_var($wpdb->prepare(
+            'SELECT registered_at FROM %i WHERE event_id = %d AND code = %s',
+            $wpdb->prefix . 'kalaka_registrations',
+            $this->event,
+            '00A0'
+        )));
+        // Nobody on the waitlist moved up.
+        self::assertSame('waitlisted', $this->status('00A5'));
+    }
+
+    public function testTheEvaluationFollowsAndTheEventsRetentionRuleAppliesToTheOwnWithdrawal(): void
+    {
+        $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'nothing']);
+        $this->pay('00A0', '3000');
+
+        $this->withdraw('00A0');
+
+        $summary = (new \Kalaka\Ledger\Api\Ledger())->summaryOf($this->key('00A0'))
+            ->of('participant', \Kalaka\Foundation\Api\Money\Currency::HUF);
+        // The staff withdrawal's own result: nothing retained, so what was paid shows as an overpayment.
+        self::assertSame('3000.00000000', $summary->paid->amount());
+        self::assertSame('-3000.00000000', $summary->balance->amount());
+    }
+
+    public function testAWaitlistedWithdrawalHoldsAndFreesNoSeat(): void
+    {
+        $seats = $this->tableRows('kalaka_seats');
+
+        $this->withdraw('00A5');
+
+        self::assertSame($seats, $this->tableRows('kalaka_seats'));
+    }
+
+    public function testWithdrawingAgainOrAfterAStaffRemovalIsUnavailable(): void
+    {
+        $this->withdraw('00A0');
+        try {
+            $this->withdraw('00A0');
+            self::fail('A withdrawn registration cannot withdraw again.');
+        } catch (WithdrawUnavailable $e) {
+            self::assertSame('kalaka_withdraw_unavailable', $e->errorCode());
+        }
+
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_registrations', ['status' => 'removed'], [
+            'event_id' => $this->event,
+            'code' => '00A2',
+        ]);
+        $this->expectException(WithdrawUnavailable::class);
+        $this->withdraw('00A2');
+    }
+
+    public function testAnotherCodeThanTheActiveRegistrationsIsRefusedAndNothingChanges(): void
+    {
+        $this->expectException(WithdrawUnavailable::class);
+        try {
+            $this->withdrawal()->run($this->key('00A0'), '00A2');
+        } finally {
+            self::assertSame('registered', $this->status('00A2'));
+            self::assertSame('registered', $this->status('00A0'));
+        }
+    }
+
+    public function testWithoutAnActiveRegistrationItIsRefused(): void
+    {
+        $this->expectException(WithdrawUnavailable::class);
+        $this->withdrawal()->run(null, '00A0');
+    }
+
+    public function testAStatusThatChangesUnderTheLockIsTheStaffActsRefusal(): void
+    {
+        // The use case itself, past the portal's check: a status that cannot withdraw is the status act's refusal.
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_registrations', ['status' => 'removed'], [
+            'event_id' => $this->event,
+            'code' => '00A2',
+        ]);
+
+        $this->expectException(StatusActRefused::class);
+        (new OwnWithdrawal($this->runner))->run($this->key('00A2'));
+    }
+
+    public function testThePreviewWritesNothingAndSaysWhatTheOwnPayerWouldHave(): void
+    {
+        $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'nothing']);
+        $this->pay('00A0', '3000');
+        $this->payCongregation('00A0', '2000');
+        $before = $this->counts();
+
+        $preview = $this->withdraw('00A0', preview: true);
+
+        // Only the registrant's own payer: never the congregation's 2 000.
+        self::assertSame(
+            ['allowed' => true, 'paid' => '3000.00000000', 'owed_after' => '-3000.00000000'],
+            $preview
+        );
+        self::assertSame($before, $this->counts());
+        self::assertSame('registered', $this->status('00A0'));
+    }
+
+    public function testThePreviewOfARegistrationThatCannotWithdrawSaysNotAllowedAndWritesNothing(): void
+    {
+        $this->withdraw('00A0');
+        $before = $this->counts();
+
+        $preview = $this->withdraw('00A0', preview: true);
+
+        self::assertSame(['allowed' => false, 'paid' => null, 'owed_after' => null], $preview);
+        self::assertSame($before, $this->counts());
+    }
+
+    public function testThePreviewOfAnUnpaidRegistrationIsZero(): void
+    {
+        $preview = $this->withdraw('00A5', preview: true);
+
+        self::assertSame(['allowed' => true, 'paid' => '0.00000000', 'owed_after' => '0.00000000'], $preview);
+    }
+
+    public function testThePreviewStillNeedsTheActiveRegistrationAndItsCode(): void
+    {
+        try {
+            $this->withdrawal()->run(null, '00A0', true);
+            self::fail('No active registration.');
+        } catch (WithdrawUnavailable) {
+            self::assertSame('registered', $this->status('00A0'));
+        }
+        $this->expectException(WithdrawUnavailable::class);
+        $this->withdrawal()->run($this->key('00A0'), '00A2', true);
+    }
+
+    public function testCanWithdrawFollowsTheStatusAndTheLoadState(): void
+    {
+        $read = new StatusRead();
+        self::assertTrue($read->of($this->key('00A0'))?->can->withdraw);
+        self::assertTrue($read->of($this->key('00A5'))?->can->withdraw);
+
+        $this->withdraw('00A0');
+        self::assertFalse($read->of($this->key('00A0'))?->can->withdraw);
+
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_registrations', ['status' => 'removed'], [
+            'event_id' => $this->event,
+            'code' => '00A2',
+        ]);
+        self::assertFalse($read->of($this->key('00A2'))?->can->withdraw);
+
+        LoadState::record([new LoadFailure('x', 'y')]);
+        self::assertFalse($read->of($this->key('00A5'))?->can->withdraw);
+    }
+
+    // --- the route ---
+
+    private function post(string $contentType, string $body): \WP_REST_Response
+    {
+        $request = new \WP_REST_Request('POST', '/kalaka-portal/v1/withdraw');
+        $request->set_header('Content-Type', $contentType);
+        $request->set_body($body);
+        if ($contentType === 'application/json') {
+            $request->set_body_params((array) json_decode($body, true));
+        } else {
+            parse_str($body, $params);
+            $request->set_body_params($params);
+        }
+
+        return rest_do_request($request);
+    }
+
+    public function testAJsonPostWithdrawsTheActiveRegistration(): void
+    {
+        ActiveRegistrationState::set($this->key('00A5'), false);
+
+        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A5']));
+
+        self::assertSame(200, $response->get_status());
+        self::assertSame(['changed' => true, 'status' => 'withdrawn'], $response->get_data());
+        self::assertSame('withdrawn', $this->status('00A5'));
+        self::assertStringContainsString('no-store', (string) $response->get_headers()['Cache-Control']);
+    }
+
+    public function testAJsonPreviewThroughTheRouteWritesNothing(): void
+    {
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $before = $this->counts();
+
+        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A0', 'preview' => true]));
+
+        self::assertSame(200, $response->get_status());
+        self::assertSame(
+            ['allowed' => true, 'paid' => '0.00000000', 'owed_after' => '0.00000000'],
+            $response->get_data()
+        );
+        self::assertSame($before, $this->counts());
+    }
+
+    public function testAFormPostWithdrawsAndIsRedirectedCleanWithNoCookie(): void
+    {
+        ActiveRegistrationState::set($this->key('00A5'), false);
+
+        $response = $this->post(
+            'application/x-www-form-urlencoded',
+            'code=00A5&return_url=' . rawurlencode(home_url('/statusz/?x=1'))
+        );
+
+        self::assertSame(303, $response->get_status());
+        self::assertSame(home_url('/statusz/?x=1'), $response->get_headers()['Location']);
+        self::assertArrayNotHasKey('Set-Cookie', $response->get_headers());
+        self::assertSame('withdrawn', $this->status('00A5'));
+    }
+
+    public function testAFormPostIsNeverAPreview(): void
+    {
+        ActiveRegistrationState::set($this->key('00A5'), false);
+
+        $this->post('application/x-www-form-urlencoded', 'code=00A5&preview=true');
+
+        self::assertSame('withdrawn', $this->status('00A5'));
+    }
+
+    public function testARefusedFormPostGoesBackWithOnlyTheCodeInAFlashCookie(): void
+    {
+        ActiveRegistrationState::set($this->key('00A0'), false);
+
+        $response = $this->post(
+            'application/x-www-form-urlencoded',
+            'code=00A2&return_url=' . rawurlencode('https://elsewhere.example.net/')
+        );
+
+        self::assertSame(303, $response->get_status());
+        self::assertSame(home_url('/'), $response->get_headers()['Location']);
+        $cookie = (string) $response->get_headers()['Set-Cookie'];
+        self::assertStringStartsWith(
+            'kalaka_withdraw_refusal=kalaka_withdraw_unavailable; Max-Age=120; Path=/',
+            $cookie
+        );
+        self::assertStringContainsString('HttpOnly; SameSite=Lax', $cookie);
+        self::assertSame('registered', $this->status('00A2'));
+        self::assertSame('registered', $this->status('00A0'));
+    }
+
+    public function testAJsonRefusalCarriesTheErrorCodeAndNothingChanges(): void
+    {
+        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A0']));
+
+        self::assertSame(422, $response->get_status());
+        self::assertSame('kalaka_withdraw_unavailable', $response->get_data()['code'] ?? null);
+        self::assertSame('registered', $this->status('00A0'));
+
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $mismatch = $this->post('application/json', (string) wp_json_encode(['code' => '00A2']));
+        self::assertSame('kalaka_withdraw_unavailable', $mismatch->get_data()['code'] ?? null);
+
+        $this->withdraw('00A0');
+        $again = $this->post('application/json', (string) wp_json_encode(['code' => '00A0']));
+        self::assertSame('kalaka_withdraw_unavailable', $again->get_data()['code'] ?? null);
+    }
+
+    public function testAClosedSiteRefusesTheRouteBeforeAnythingElse(): void
+    {
+        ActiveRegistrationState::set($this->key('00A5'), false);
+        LoadState::record([new LoadFailure('x', 'y')]);
+
+        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A5']));
+
+        self::assertSame(503, $response->get_status());
+        self::assertSame((new SiteClosed())->errorCode(), $response->get_data()['code'] ?? null);
+        LoadState::record([]);
+        self::assertSame('waitlisted', $this->status('00A5'));
+    }
+
+    // --- the flash cookie ---
+
+    public function testTheFlashCookieKeepsOnlyAKnownCodeAndIsReadOnce(): void
+    {
+        self::assertSame('kalaka_withdraw_unavailable', WithdrawRefusalCookie::codeFor('kalaka_withdraw_unavailable'));
+        self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));
+        self::assertSame('kalaka_system_failure', WithdrawRefusalCookie::codeFor('anything <b>else</b>'));
+
+        $response = new RecordingResponse();
+        WithdrawRefusalCookie::read([WithdrawRefusalCookie::NAME => 'kalaka_withdraw_unavailable'], $response);
+        self::assertSame('kalaka_withdraw_unavailable', WithdrawRefusalState::code());
+        self::assertSame(['', -1], $response->cookies[WithdrawRefusalCookie::NAME]);
+
+        WithdrawRefusalCookie::read([WithdrawRefusalCookie::NAME => '<script>'], new RecordingResponse());
+        self::assertNull(WithdrawRefusalState::code());
+
+        WithdrawRefusalCookie::read(
+            [WithdrawRefusalCookie::NAME => 'kalaka_withdraw_unavailable'],
+            new RecordingResponse()
+        );
+        $view = $this->flashed();
+        self::assertSame('kalaka_withdraw_unavailable', $view);
+    }
+
+    private function flashed(): ?string
+    {
+        ActiveRegistrationState::set($this->key('00A0'), false);
+
+        return (new StatusRead())->forActive()?->withdrawRefusal;
+    }
+}

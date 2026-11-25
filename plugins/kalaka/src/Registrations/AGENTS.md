@@ -26,10 +26,14 @@ the waitlist and reference codes
   that holds per-event data is keyed event first.
 - Status is a fact: stored, changed only by people's acts through use cases,
   never recomputed. The sorszám is computed when read and never stored.
-- The status writers are the submit's insert and the four staff acts of
+- The status writers are the submit's insert, the four staff acts of
   `Status/` (`kalaka/admit-registration`, `kalaka/withdraw-registration`,
   `kalaka/remove-registration`, `kalaka/restore-registration`, one table in
-  `Api\StatusAct`, one shape in `StatusChange`); nothing else updates a status.
+  `Api\StatusAct`, one shape in `StatusChange`) and the participant's own
+  withdrawal (`kalaka-portal/withdraw-registration`, `WithdrawOwnRegistration`
+  [UNAPPROVED N660]); nothing else updates a status. A leaving act's lock, status and seat
+  release, and the money it would leave, are written once, in `Status\Leaving`, which the staff
+  withdraw and remove and the participant's withdrawal all call; there is no second copy.
   An act on a registration already in its target state writes nothing
   (`changed: false`); any other status it does not allow is `StatusActRefused`.
   A removal needs a reason (the trimmed text); the reason is the audit entry's.
@@ -53,6 +57,12 @@ the waitlist and reference codes
   effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`) with
   `money_hidden` (no money-view: `money` is null; false with a null `money`: unpriceable); withdraw and remove add
   the event's `retention` rule; `money` and `retention` are only for a holder of money-view.
+- The participant's own withdrawal is `StatusAct::Withdraw` run by the secret-link actor, through the runner
+  (`Api\OwnWithdrawal`, which Portal's `Withdrawal` calls after holding the actor to the active registration):
+  allowed from `registered` and `waitlisted` only, no reason, no mail, no deadline, nobody on the waitlist moves up.
+  Its preview (`preview: true`) is `{allowed, paid, owed_after}` for the registrant's own payer only (the
+  `participant` payer of the same composition the staff preview uses), writes nothing and leaves no audit entry; a
+  status that changed under the lock is `StatusActRefused`. [UNAPPROVED N660-N663, N666]
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list
