@@ -179,7 +179,8 @@ final class SubmitRaceTest extends RealTableTestCase
             );
             self::fail('The submit should have been refused.');
         } catch (InvalidAnswers $invalid) {
-            self::assertSame(['modul' => 'Ez a lehetőség időközben betelt. Válassz másikat.'], $invalid->fields);
+            self::assertSame(['modul' => SubmitRegistration::WAITLIST_LIMITED_TEXT], $invalid->fields);
+            self::assertSame(['modul' => 'kalaka_waitlist_limited'], $invalid->codes);
         }
 
         self::assertSame("waited\n", $this->finish($holder), 'The event lock was not waited for.');
