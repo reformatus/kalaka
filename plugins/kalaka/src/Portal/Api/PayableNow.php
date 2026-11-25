@@ -19,10 +19,10 @@ final class PayableNow
     {
     }
 
-    /** The amount payable now, rounded up to the payable unit; null when nothing is payable. */
-    public static function amount(Availability $availability, bool $awaitsAnswer, PayerAmounts $participant): ?Money
+    /** The amount payable now (from the participant's balance), rounded up to the payable unit; null when nothing is payable. */
+    public static function amount(Availability $availability, bool $awaitsAnswer, Money $participantBalance): ?Money
     {
-        $amount = $participant->balance->roundedUpToPayableUnit();
+        $amount = $participantBalance->roundedUpToPayableUnit();
         if ($availability !== Availability::Open || $awaitsAnswer || !$amount->isPositive()) {
             return null;
         }

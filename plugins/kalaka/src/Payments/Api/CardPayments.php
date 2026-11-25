@@ -8,6 +8,7 @@ use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Database\NamedLock;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Mail\Api\MailRecipients;
 use Kalaka\Payments\StartCardPayment;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -31,6 +32,7 @@ final class CardPayments
     public function __construct(
         private readonly PaymentProviders $providers = new PaymentProviders(),
         private readonly MailRecipients $recipients = new MailRecipients(),
+        private readonly Ledger $ledger = new Ledger(),
         private readonly int $waitMs = 3000,
     ) {
     }
@@ -67,9 +69,13 @@ final class CardPayments
         $inFlight = false;
         if ($provider !== null) {
             try {
-                $latest = $provider->latestOf($key)?->state;
-                // Authorised, or paid and not yet recorded: money on its way, so no new request.
-                $inFlight = $latest === OpenPaymentState::Processing || $latest === OpenPaymentState::Paid;
+                $latest = $provider->latestOf($key);
+                // Authorised, or paid and not yet recorded: money on its way, so no new request. A paid request
+                // whose lines the ledger already holds is recorded, so it is not in flight.
+                $inFlight = $latest !== null && (
+                    $latest->state === OpenPaymentState::Processing
+                    || ($latest->state === OpenPaymentState::Paid && !$this->recorded($provider, $key, $latest))
+                );
             } catch (\Throwable $e) {
                 $error = new SystemFailure(null, $e);
                 throw $error;
@@ -77,12 +83,15 @@ final class CardPayments
         }
         $started = Runner::current()->run(
             new StartCardPayment(
-                $key,
                 $this->recipients->of($key),
                 (string) (wp_get_referer() ?: home_url('/')),
                 $inFlight
             ),
-            $returnUrl === null ? [] : ['return_url' => $returnUrl],
+            [
+                'event_id' => $key->eventId,
+                'code' => $key->code,
+                ...($returnUrl === null ? [] : ['return_url' => $returnUrl]),
+            ],
             new SecretLinkActor($key)
         );
         if (!$started instanceof StartedCardPayment) {
@@ -101,5 +110,13 @@ final class CardPayments
             $error = new SystemFailure(null, $e);
             throw $error;
         }
+    }
+
+    private function recorded(PaymentProvider $provider, RegistrationKey $key, OpenPayment $latest): bool
+    {
+        return $this->ledger->holdsLineKeyStartingWith(
+            $key,
+            'online:' . $provider->id() . ':order:' . $latest->requestRef . ':'
+        );
     }
 }

@@ -179,6 +179,8 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
         $this->online->recordRefunded($refund);
         $this->online->recordRefunded($refund);
 
+        // The payment's mail and the refund's, once each: the replay queued none.
+        self::assertSame(2, $this->mails());
         $lines = $this->lines();
         self::assertCount(2, $lines);
         self::assertSame('refund', $lines[1]['kind']);
@@ -207,6 +209,7 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
 
         $this->online->recordRefunded($refund);
 
+        self::assertSame(2, $this->mails());
         global $wpdb;
         $changes = (string) $wpdb->get_var(
             "SELECT GROUP_CONCAT(changes) FROM {$wpdb->prefix}kalaka_audit_entries"
@@ -235,9 +238,14 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
         $anna = $this->register('00A0');
         $gone = new RegistrationKey($this->event, '00A5');
 
-        $this->online->recordPaid(
-            $this->paid('501', $this->item($gone, '10000', '70'), $this->item($anna, '10000', '71'))
-        );
+        $log = $this->capturedErrorLog(function () use ($gone, $anna): void {
+            $this->online->recordPaid(
+                $this->paid('501', $this->item($gone, '10000', '70'), $this->item($anna, '10000', '71'))
+            );
+        });
+
+        self::assertStringContainsString('Recording an online payment failed', $log);
+        self::assertStringContainsString('00A5', $log);
 
         $lines = $this->lines();
         self::assertCount(1, $lines);
@@ -268,9 +276,58 @@ final class OnlinePaymentsTest extends ConfirmationTestCase
         $this->item($this->register('00A0'), '1000', 'AbC');
     }
 
-    public function testAReportOfNoItemsOrABadRefIsRefusedAtConstruction(): void
+    public function testAReportWithABadRefAndValidItemsIsRefusedAtConstruction(): void
     {
         $this->expectException(\InvalidArgumentException::class);
-        new PaidRequest('fake', 'bad ref', $this->utc('2026-11-30 09:30:00'), []);
+        new PaidRequest('fake', 'bad ref', $this->utc('2026-11-30 09:30:00'), [
+            $this->item($this->register('00A0'), '1000'),
+        ]);
+    }
+
+    public function testAReportOfNoItemsWithAValidRefIsRefusedAtConstruction(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new PaidRequest('fake', '501', $this->utc('2026-11-30 09:30:00'), []);
+    }
+
+    public function testTwoItemsOfOneReportWithTheSameItemRefAreRefused(): void
+    {
+        $anna = $this->register('00A0');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->paid('501', $this->item($anna, '1000', '71'), $this->item($anna, '1000', '71'));
+    }
+
+    public function testARefundReplayWithOtherContentIsAFailureNeverASecondLine(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $this->online->recordPaid($this->paid('501', $this->item($anna, '10000')));
+        $at = $this->utc('2026-12-01 10:00:00');
+        $this->online->recordRefunded(new RefundedRequest('fake', '501', '9', $at, [$this->item($anna, '3000')]));
+
+        try {
+            $this->online->recordRefunded(new RefundedRequest('fake', '501', '9', $at, [$this->item($anna, '2000')]));
+            self::fail('The conflicting replay was accepted.');
+        } catch (SystemFailure) {
+            self::assertCount(2, $this->lines());
+            self::assertSame(2, $this->mails());
+        }
+    }
+
+    public function testAClosedOrUnpublishedEventStillRecords(): void
+    {
+        $this->setPrice('10000');
+        $anna = $this->register('00A0');
+        $bela = $this->register('00A2');
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['state' => 'unpublished'], ['id' => $this->event]);
+
+        $this->online->recordPaid($this->paid('501', $this->item($anna, '10000')));
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['state' => 'archived'], ['id' => $this->event]);
+        $this->online->recordPaid($this->paid('502', $this->item($bela, '10000')));
+
+        self::assertCount(2, $this->lines());
+        self::assertSame(2, $this->mails());
     }
 }

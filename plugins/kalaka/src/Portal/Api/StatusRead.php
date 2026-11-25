@@ -108,10 +108,10 @@ final class StatusRead
             return null;
         }
         $facts = $this->registrations->factsOf($key, $event);
-        $participant = self::amounts($this->ledger->summaryOf($key)->of(Payer::PARTICIPANT, $event->currency));
+        $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
         $availability = self::availability($event);
 
-        return PayableNow::amount($availability, $facts !== null && $facts->awaitsAnswer, $participant);
+        return PayableNow::amount($availability, $facts !== null && $facts->awaitsAnswer, $balance);
     }
 
     private static function availability(Event $event): Availability
@@ -164,7 +164,7 @@ final class StatusRead
         Availability $availability,
         PaymentView $payment,
     ): ?TransferDetails {
-        $amount = PayableNow::amount($availability, $payment->awaitsAnswer, $payment->participant);
+        $amount = PayableNow::amount($availability, $payment->awaitsAnswer, $payment->participant->balance);
         $beneficiary = trim((string) $event->transferBeneficiary);
         $account = trim((string) $event->transferAccount);
         if ($amount === null || $beneficiary === '' || $account === '') {
