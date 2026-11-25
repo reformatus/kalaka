@@ -79,10 +79,10 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
             . ' AND f.field_key = %s AND ';
         self::assertSame(
             "r.status = 'registered' AND (("
-            . '(' . $exists . "f.value <> '')"
-            . ' AND NOT ' . $exists . "f.value <> '')"
-            . ' AND ' . $exists . 'f.value IN (%s, %s))'
-            . ' AND NOT ' . $exists . 'f.value IN (%s)))))',
+            . '(' . $exists . 'LENGTH(f.value) > 0)'
+            . ' AND NOT ' . $exists . 'LENGTH(f.value) > 0)'
+            . ' AND ' . $exists . 'BINARY f.value IN (%s, %s))'
+            . ' AND NOT ' . $exists . 'BINARY f.value IN (%s)))))',
             $sql
         );
         self::assertSame(['t', 'a', 't', 'b', 't', 'c', 'x', 'y', 't', 'd', 'z'], $args);
