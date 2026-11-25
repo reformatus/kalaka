@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Payments\Api;
 
+use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Database\NamedLock;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -33,6 +34,7 @@ final class CardPayments
         private readonly MailRecipients $recipients = new MailRecipients(),
         private readonly PaymentsInFlight $inFlight = new PaymentsInFlight(),
         private readonly int $waitMs = 3000,
+        private readonly Events $events = new Events(),
     ) {
     }
 
@@ -66,9 +68,10 @@ final class CardPayments
     {
         $provider = $this->providers->active();
         $inFlight = false;
-        if ($provider !== null) {
+        $event = $provider === null ? null : $this->events->find($key->eventId);
+        if ($provider !== null && $event !== null) {
             try {
-                $latest = $provider->latestOf($key);
+                $latest = $provider->latestOf(PaymentProviderInput::forLookup($key, $event->currency));
                 $inFlight = $this->inFlight->is($provider, $key, $latest);
             } catch (\Throwable $e) {
                 $error = new SystemFailure(null, $e);
@@ -92,12 +95,13 @@ final class CardPayments
             $error = new SystemFailure(null, new \LogicException('The start use case returned no request.'));
             throw $error;
         }
+        $input = PaymentProviderInput::forStart($started->request, $started->returnUrl);
         try {
-            if ($provider === null || !$provider->accepts($started->request->currency)) {
+            if ($provider === null || !$provider->accepts($input)) {
                 throw new NoPaymentProvider();
             }
 
-            return $provider->payUrl($started->request, $started->returnUrl);
+            return $provider->payUrl($input);
         } catch (NoPaymentProvider $e) {
             throw $e;
         } catch (\Throwable $e) {

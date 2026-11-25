@@ -4,15 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Payments;
 
-use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Payments\Api\OpenPayment;
-use Kalaka\Payments\Api\PaymentProvider;
+use Kalaka\Payments\Api\AbstractPaymentProvider;
+use Kalaka\Payments\Api\PaymentProviderInput;
 use Kalaka\Payments\Api\PaymentRequest;
-use Kalaka\Registrations\Api\RegistrationKey;
 
 /** A payment provider for the tests: it records what it was asked and answers a fixed address. */
-final class FakeProvider implements PaymentProvider
+final class FakeProvider extends AbstractPaymentProvider
 {
     /** @var list<PaymentRequest> */
     public array $requests = [];
@@ -41,27 +40,27 @@ final class FakeProvider implements PaymentProvider
         return $this->id;
     }
 
-    public function accepts(Currency $currency): bool
+    public function accepts(PaymentProviderInput $input): bool
     {
         $this->insideARun['accepts'] = Runner::activeRun() !== null;
 
         return $this->accepts;
     }
 
-    public function payUrl(PaymentRequest $request, string $returnUrl): string
+    public function payUrl(PaymentProviderInput $input): string
     {
         $this->ranInsideARun = Runner::activeRun() !== null;
         $this->insideARun['payUrl'] = $this->ranInsideARun;
         if ($this->whilePaying !== null) {
             ($this->whilePaying)();
         }
-        $this->requests[] = $request;
-        $this->returnUrls[] = $returnUrl;
+        $this->requests[] = $input->request();
+        $this->returnUrls[] = $input->returnUrl();
 
         return 'https://pay.example.test/' . count($this->requests);
     }
 
-    public function latestOf(RegistrationKey $key): ?OpenPayment
+    public function latestOf(PaymentProviderInput $input): ?OpenPayment
     {
         $this->insideARun['latestOf'] = Runner::activeRun() !== null;
 

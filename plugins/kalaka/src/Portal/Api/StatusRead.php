@@ -80,7 +80,9 @@ final class StatusRead
             $facts = $this->registrations->factsOf($key, $event);
             $awaits = $facts !== null && $facts->awaitsAnswer;
             $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
-            $transfer = $this->transfer($key, $event, $availability, $payment);
+            // One balance read per status read: the rule's input is the balance, never the display summary.
+            $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
+            $transfer = $this->transfer($key, $event, $availability, $payment, $balance);
         }
 
         return new RegistrationStatusView(
@@ -163,8 +165,9 @@ final class StatusRead
         Event $event,
         Availability $availability,
         PaymentView $payment,
+        Money $balance,
     ): ?TransferDetails {
-        $amount = PayableNow::amount($availability, $payment->awaitsAnswer, $payment->participant->balance);
+        $amount = PayableNow::amount($availability, $payment->awaitsAnswer, $balance);
         $beneficiary = trim((string) $event->transferBeneficiary);
         $account = trim((string) $event->transferAccount);
         if ($amount === null || $beneficiary === '' || $account === '') {
