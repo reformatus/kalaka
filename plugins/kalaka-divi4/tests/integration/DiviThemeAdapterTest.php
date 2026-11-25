@@ -89,6 +89,9 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
             self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets([], $form));
             self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets(['et_pb_contact_form'], $form));
             self::assertSame([], $divi4->requiredAssets([], 'no form here'));
+            // The status block's card payment button wears the form's button class.
+            self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets([], '[kalaka_status]'));
+            self::assertSame(['et_pb_contact_form'], $divi4->requiredAssets([], '<!-- wp:kalaka/status /-->'));
             self::assertSame([], (new Module(self::divi('5.0.0')))->requiredAssets([], $form), 'Divi 5');
         } finally {
             remove_filter('template', $template);

@@ -106,8 +106,10 @@ final class Module extends AbstractModule
     }
 
     /**
-     * Loads Divi's form styles where a form appears, through Divi's own mechanism: its dynamic assets load
-     * a module's styles only on pages that use the module, unless `et_required_module_assets` asks for them.
+     * Loads Divi's form styles where a form or the status block appears, through Divi's own mechanism: its
+     * dynamic assets load a module's styles only on pages that use the module, unless
+     * `et_required_module_assets` asks for them. The status block's card payment button wears the form's
+     * button class, so it needs the same styles.
      */
     public function boot(): void
     {
@@ -125,7 +127,8 @@ final class Module extends AbstractModule
     {
         if (
             is_array($assets) && is_string($content) && $this->isDivi()
-            && self::holdsForm($content) && !in_array(self::DIVI_ASSETS, $assets, true)
+            && (self::holdsForm($content) || self::holdsMoneyTable($content))
+            && !in_array(self::DIVI_ASSETS, $assets, true)
         ) {
             $assets[] = self::DIVI_ASSETS;
         }
