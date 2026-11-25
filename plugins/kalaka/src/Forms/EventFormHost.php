@@ -29,6 +29,7 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -163,13 +164,17 @@ final class EventFormHost implements FormHost
         $stored = $target === null ? null : $this->registrations()->values($target);
         $status = $target === null ? null : $this->registrations()->find($target)?->status->value;
 
-        return $this->factsFor($form, $event, $loggedIn, $stored, $status);
+        return $this->factsFor($form, $event, $loggedIn, Runner::current()->clock()->now(), $stored, $status);
     }
 
     /**
      * The values of `typesOf()` for the form, from what the caller read: the one builder behind the page, the
      * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued; an additional
      * form with no registration (`$stored` null) reads its registration keys as none, never fails.
+     *
+     * [UNAPPROVED N1155] The caller gives the moment the facts are read at (the page and re-fetch read the run's
+     * clock, a submit's walk the same clock before its transaction), so one moment is used for all the facts of a
+     * read, and the page, the re-fetch and the submit's walk keep it alike. No fact here reads it yet.
      *
      * @param array<string, string>|null $stored the registration's field values by key (an additional form)
      * @param string|null $status the registration's status (an additional form)
@@ -178,6 +183,7 @@ final class EventFormHost implements FormHost
         Form $form,
         Event $event,
         ?bool $loggedIn,
+        \DateTimeImmutable $now,
         ?array $stored,
         ?string $status
     ): ValueContext {

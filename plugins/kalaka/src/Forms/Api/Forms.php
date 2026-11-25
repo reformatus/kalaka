@@ -315,9 +315,11 @@ final class Forms
 
     /**
      * The facts a submit's walk reads for the form, built the same way as its page's and re-fetch's
-     * (`FormHost::facts()`) but from what the caller read: the account state, and for an additional
+     * (`FormHost::facts()`) but from what the caller read: the account state, the moment, and for an additional
      * form the registration's field values and status (one read, so the use case can check the same read under
      * its lock). Reads the database, so it runs before a use case's transaction.
+     *
+     * [UNAPPROVED N1155] The moment is the caller's, the same one the page's and re-fetch's facts read at.
      *
      * @param array<string, string>|null $stored the registration's field values by key; null for none
      * @param string|null $status the registration's status value
@@ -326,10 +328,11 @@ final class Forms
         Form $form,
         Event $event,
         ?bool $loggedIn,
+        \DateTimeImmutable $now,
         ?array $stored,
         ?string $status
     ): ValueContext {
-        return (new EventFormHost())->factsFor($form, $event, $loggedIn, $stored, $status);
+        return (new EventFormHost())->factsFor($form, $event, $loggedIn, $now, $stored, $status);
     }
 
     /**
