@@ -6,7 +6,6 @@ namespace Kalaka\Portal;
 
 use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Error\SystemFailure;
-use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Portal\Api\Availability;
@@ -14,7 +13,6 @@ use Kalaka\Portal\Api\PaymentView;
 use Kalaka\Portal\Api\RegistrationStatusView;
 use Kalaka\Portal\Api\WithdrawOffer;
 use Kalaka\Registrations\Api\RegistrationStatus;
-use Kalaka\Registrations\Api\StatusActRefused;
 
 /**
  * The markup of the two participant blocks, from the frozen status-block spec (owner-accepted 2026-11-13,
@@ -35,17 +33,38 @@ final class StatusMarkup
     /** [UNAPPROVED T765] The button that starts the registrant's own withdrawal. */
     public const WITHDRAW_BUTTON = 'Jelentkezés lemondása';
 
-    /** [UNAPPROVED T766] The confirmation step's question. */
+    /** [UNAPPROVED T766] The confirmation step's question (a heading, N779). */
     public const WITHDRAW_QUESTION = 'Biztosan lemondod a jelentkezésedet?';
 
     /** [UNAPPROVED T767] The confirming button. */
     public const WITHDRAW_CONFIRM = 'Lemondom a jelentkezést';
 
-    /** [UNAPPROVED T768] Leaves the confirmation step without acting. */
-    public const WITHDRAW_CANCEL = 'Mégsem';
+    /** [UNAPPROVED T768] Leaves the confirmation step without acting ("Mégse", the app's own cancel word). */
+    public const WITHDRAW_CANCEL = 'Mégse';
 
-    /** [UNAPPROVED T770] The one new refusal text; the others reuse approved ones (`withdrawRefusalText()`). */
+    /** [UNAPPROVED T769] The money line, first part: the preview's `paid`. */
+    public const WITHDRAW_PAID = 'Befizetve:';
+
+    /** [UNAPPROVED T769] The money line, second part: the preview's `owed_after`, when it is zero or above. */
+    public const WITHDRAW_OWED_AFTER = 'A lemondás után még fizetendő:';
+
+    /**
+     * [UNAPPROVED T775] The money line, second part when the preview's `owed_after` is below zero (a surplus):
+     * "Túlfizetés" is the money table's approved row label.
+     */
+    public const WITHDRAW_SURPLUS = 'Túlfizetés:';
+
+    /** [UNAPPROVED T772] Stands in the confirmation of a registered one when the preview gave nothing. */
+    public const WITHDRAW_NO_MONEY = 'A befizetett összeget most nem tudjuk megmutatni.';
+
+    /** [UNAPPROVED T770] `kalaka_withdraw_unavailable` (and, T774, `kalaka_status_act_refused`): shown only where it is true, N771. */
     public const WITHDRAW_UNAVAILABLE = 'Ezt a jelentkezést már nem tudod lemondani. Töltsd újra az oldalt.';
+
+    /** [UNAPPROVED T771] `kalaka_withdraw_stale`: the page the form came from is out of date. */
+    public const WITHDRAW_STALE = 'Az oldal időközben megváltozott. Nézd meg a jelentkezés mostani állapotát.';
+
+    /** [UNAPPROVED T773] `kalaka_version_conflict`, in the registrant's wording (the lektor's alternative). */
+    public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott. Töltsd újra az oldalt, és próbáld újra.';
 
     private const MINUS = "\u{2212}";
 
@@ -72,20 +91,20 @@ final class StatusMarkup
                 return $html . self::box(
                     '<p><strong>Várólistán vagy.</strong> Amíg nem kerülsz be, nem kell fizetned.</p>',
                     'very-light-gray'
-                ) . self::withdraw($withdraw, false) . '</section>';
+                ) . self::withdraw($withdraw) . '</section>';
             case RegistrationStatus::Withdrawn:
                 return $html . '<p><strong>Lemondtad ezt a jelentkezést.</strong></p>'
-                    . self::withdraw($withdraw, false) . '</section>';
+                    . self::withdraw($withdraw) . '</section>';
             case RegistrationStatus::Removed:
                 return $html . '<p><strong>A szervezők törölték ezt a jelentkezést.</strong></p>'
-                    . self::withdraw($withdraw, false) . '</section>';
+                    . self::withdraw($withdraw) . '</section>';
             case RegistrationStatus::Registered:
                 break;
         }
 
         $payment = $view->payment;
         if ($payment === null) {
-            return $html . self::withdraw($withdraw, true) . '</section>';
+            return $html . self::withdraw($withdraw) . '</section>';
         }
         $confirmed = $view->confirmation !== null && $view->confirmation->confirmed;
         if ($payment->awaitsAnswer) {
@@ -104,7 +123,7 @@ final class StatusMarkup
             $state = '<p><strong>Fizetésre vár.</strong></p>';
         }
 
-        return $html . $state . '<h3>Pénzügyek</h3>' . self::payment($payment) . self::withdraw($withdraw, true)
+        return $html . $state . '<h3>Pénzügyek</h3>' . self::payment($payment) . self::withdraw($withdraw)
             . '</section>';
     }
 
@@ -164,57 +183,91 @@ final class StatusMarkup
     }
 
     /**
-     * The registrant's own withdrawal [UNAPPROVED N765 to N777]: the button while `can.withdraw`; on the page's own
-     * confirm request (`?kalaka_withdraw=confirm`) the confirmation step in its place, a plain form that works without
-     * script (the post is the confirmed act; Mégsem is a link back to the clean address); a refused post's text under
-     * it, by code. With nothing to show it renders nothing. Registered ones get the money line from the preview;
-     * a waitlisted one gets the question and the two buttons only.
+     * The registrant's own withdrawal [UNAPPROVED N765 to N777, N779]: the button while `can.withdraw`;
+     * on the page's own confirm request (`?kalaka_withdraw=confirm`) the confirmation step in its place, a plain form
+     * that works without script (the post is the confirmed act; Mégse is a link back to the button); a refused post's text, by code.
+     * With nothing to show it renders nothing. The money line comes from the preview's values only, never from the
+     * page's own rules (N773).
      */
-    private static function withdraw(?WithdrawOffer $offer, bool $registered): string
+    private static function withdraw(?WithdrawOffer $offer): string
     {
-        if ($offer === null || (!$offer->canWithdraw && $offer->refusal === null)) {
+        if ($offer === null) {
             return '';
         }
-        $colour = $offer->errorColour ?? 'var(--kalaka-error-color, #cc1818)';
-        $error = $offer->refusal === null
-            ? ''
-            : '<p class="kalaka-withdraw-error" role="alert" style="' . esc_attr('color: ' . $colour) . '">'
-                . esc_html(self::withdrawRefusalText($offer->refusal)) . '</p>';
-        $class = $offer->buttonClass === '' ? '' : ' class="' . esc_attr($offer->buttonClass) . '"';
-        if (!$offer->canWithdraw) {
-            return '<div class="kalaka-withdraw">' . $error . '</div>';
+        $colour = $offer->errorColour ?? '#cc1818';
+        $text = $offer->refusal === null ? null : self::withdrawRefusalText($offer->refusal);
+        // N771: the "no longer possible" texts are true only where the button is gone.
+        if ($offer->canWithdraw && $text === self::WITHDRAW_UNAVAILABLE) {
+            $text = null;
         }
+        if (!$offer->canWithdraw && $text === null) {
+            return '';
+        }
+        $error = $text === null
+            ? ''
+            : '<p id="kalaka-withdraw-error" class="kalaka-withdraw-error" role="alert" tabindex="-1" style="'
+                . esc_attr('color: var(--kalaka-error-color, #cc1818)') . '">' . esc_html($text) . '</p>';
+        $describedBy = $text === null ? '' : ' aria-describedby="kalaka-withdraw-error"';
+        $class = $offer->buttonClass === '' ? '' : ' class="' . esc_attr($offer->buttonClass) . '"';
+        $open = '<div id="kalaka-withdraw" class="kalaka-withdraw" style="'
+            . esc_attr('--kalaka-error-color: ' . $colour) . '">';
+        if (!$offer->canWithdraw) {
+            return $open . $error . '</div>';
+        }
+        // A refused post comes back to the error (N779: the fragment moves focus to it, so it is read out).
+        $returnUrl = $offer->returnUrl;
+        $errorUrl = $returnUrl . '#kalaka-withdraw-error';
         if (!$offer->confirming) {
-            return '<div class="kalaka-withdraw"><form method="get" action="' . esc_url($offer->returnUrl) . '">'
-                . '<button type="submit" name="kalaka_withdraw" value="confirm"' . $class . '>'
+            return $open . '<form method="get" action="' . esc_url($returnUrl . '#kalaka-withdraw-question') . '">'
+                . '<button type="submit" name="kalaka_withdraw" value="confirm"' . $class . $describedBy . '>'
                 . esc_html(self::WITHDRAW_BUTTON) . '</button></form>' . $error . '</div>';
         }
-        $money = '';
-        if ($registered && $offer->paid !== null && $offer->paid->isPositive()) {
-            $owed = $offer->owedAfter ?? Money::zero($offer->paid->currency());
-            $money = '<p class="kalaka-withdraw-money">Befizetve: ' . esc_html(MoneyText::of($offer->paid))
-                . '. Lemondás után még fizetendő: ' . esc_html(MoneyText::of($owed)) . '.</p>';
-        }
 
-        return '<div class="kalaka-withdraw"><form method="post" action="' . esc_url($offer->actionUrl) . '">'
-            . '<p><strong>' . esc_html(self::WITHDRAW_QUESTION) . '</strong></p>' . $money
+        return $open . '<form method="post" action="' . esc_url($offer->actionUrl) . '">'
+            . '<h3 id="kalaka-withdraw-question" tabindex="-1">' . esc_html(self::WITHDRAW_QUESTION) . '</h3>'
+            . self::withdrawMoney($offer)
             . '<input type="hidden" name="code" value="' . esc_attr($offer->code) . '">'
-            . '<input type="hidden" name="return_url" value="' . esc_attr($offer->returnUrl) . '">'
-            . '<button type="submit"' . $class . '>' . esc_html(self::WITHDRAW_CONFIRM) . '</button> '
-            . '<a href="' . esc_url($offer->returnUrl) . '">' . esc_html(self::WITHDRAW_CANCEL) . '</a></form>'
-            . $error . '</div>';
+            . '<input type="hidden" name="return_url" value="' . esc_attr($errorUrl) . '">'
+            . '<button type="submit"' . $class . $describedBy . '>' . esc_html(self::WITHDRAW_CONFIRM) . '</button> '
+            . '<a href="' . esc_url($returnUrl . '#kalaka-withdraw') . '"' . $class . '>'
+            . esc_html(self::WITHDRAW_CANCEL) . '</a></form>' . $error . '</div>';
     }
 
     /**
-     * [UNAPPROVED N771] What a refused withdrawal shows, by the route's code: one new text, three approved ones
-     * reused, and the generic text of `kalaka_system_failure` for any other code (including `kalaka_site_closed`).
+     * The confirmation's money line [UNAPPROVED N773]: only what the preview sent. Nothing when nothing was paid and
+     * the preview was fine; a stated gap when a registered one's preview gave nothing (no value is made up).
+     */
+    private static function withdrawMoney(WithdrawOffer $offer): string
+    {
+        if ($offer->paid === null) {
+            return $offer->previewFailed
+                ? '<p class="kalaka-withdraw-money">' . esc_html(self::WITHDRAW_NO_MONEY) . '</p>'
+                : '';
+        }
+        if (!$offer->paid->isPositive()) {
+            return '';
+        }
+        $line = self::WITHDRAW_PAID . ' ' . MoneyText::of($offer->paid) . '.';
+        if ($offer->owedAfter !== null) {
+            $line .= $offer->owedAfter->isNegative()
+                ? ' ' . self::WITHDRAW_SURPLUS . ' ' . MoneyText::of($offer->owedAfter->negated()) . '.'
+                : ' ' . self::WITHDRAW_OWED_AFTER . ' ' . MoneyText::of($offer->owedAfter) . '.';
+        }
+
+        return '<p class="kalaka-withdraw-money">' . esc_html($line) . '</p>';
+    }
+
+    /**
+     * [UNAPPROVED N771] What a refused withdrawal shows, by the route's code: new texts for the two withdrawal codes,
+     * the registrant's wording for a version conflict, the "no longer possible" text for a refused act, and the
+     * generic text of `kalaka_system_failure` for any other code (including `kalaka_site_closed`).
      */
     public static function withdrawRefusalText(string $code): string
     {
         return match ($code) {
-            'kalaka_withdraw_unavailable' => self::WITHDRAW_UNAVAILABLE,
-            'kalaka_status_act_refused' => (new StatusActRefused())->getMessage(),
-            'kalaka_version_conflict' => (new VersionConflict())->getMessage(),
+            'kalaka_withdraw_stale' => self::WITHDRAW_STALE,
+            'kalaka_withdraw_unavailable', 'kalaka_status_act_refused' => self::WITHDRAW_UNAVAILABLE,
+            'kalaka_version_conflict' => self::WITHDRAW_VERSION_CONFLICT,
             default => (new SystemFailure())->publicMessage(),
         };
     }

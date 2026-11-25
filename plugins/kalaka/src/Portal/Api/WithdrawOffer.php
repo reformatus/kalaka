@@ -13,8 +13,10 @@ use Kalaka\Foundation\Api\Money\Money;
  * line from the preview's `paid` and `owedAfter` when `paid` is above zero. `refusal` is the code of a refused
  * post that came back, read once. [UNAPPROVED N765 to N777]
  *
- * PROTOTYPE: until the status read carries `can.withdraw` and the route exists (Backend's PR on #247), this
- * object is built by the walk-only spike plugin.
+ * PROTOTYPE: the route and `can.withdraw` exist now (#253); this
+ * object is built by the walk-only spike plugin (the block render's offer, F6); `canWithdraw` and `refusal` are the
+ * status read's `can.withdraw` and `withdrawRefusal`. `owedAfter` is the preview's signed value (below zero: a
+ * surplus); `previewFailed` is set when a registered one's preview gave nothing.
  */
 final readonly class WithdrawOffer
 {
@@ -29,6 +31,7 @@ final readonly class WithdrawOffer
         public ?string $refusal = null,
         public ?Money $paid = null,
         public ?Money $owedAfter = null,
+        public bool $previewFailed = false,
     ) {
     }
 }
