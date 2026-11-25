@@ -21,14 +21,16 @@ export const abilityOf = ( act ) => `kalaka/${ act }-registration`;
 /** Whether the reason is required (#247: remove only). [UNAPPROVED N703] */
 export const reasonRequired = ( act ) => act === 'remove';
 
-/** The act's input; the reason only when there is one. */
+/**
+ * The act's input; the reason only when there is one. A preview carries no reason: the server takes none on a
+ * preview, remove's included. [UNAPPROVED N706]
+ */
 export function inputOf( event, code, reason, preview = false ) {
 	const input = { event_id: event, code };
-	if ( reason !== '' ) {
-		input.reason = reason;
-	}
 	if ( preview ) {
 		input.preview = true;
+	} else if ( reason !== '' ) {
+		input.reason = reason;
 	}
 	return input;
 }
@@ -42,13 +44,6 @@ export function reasonProblem( act, reason ) {
 }
 
 /**
- * Whether the preview is asked as the dialog opens: for all acts but remove, whose preview needs the reason (the
- * server refuses it without one, as it refuses the act), so remove asks once a reason has been typed.
- * [UNAPPROVED N706]
- */
-export const previewsAtOpen = ( act ) => act !== 'remove';
-
-/**
  * The warnings of a preview, the server's own text (`warnings`: the "full" text when a pool would go over);
  * nothing is built or copied here. [UNAPPROVED N707]
  */
@@ -57,9 +52,9 @@ export const warningsOf = ( preview ) =>
 
 /**
  * The money section's rows: the preview's `money` per payer, as the server gives it, shown as the panel's money
- * words show amounts. Null (no section) without `money` (admit, a user without money view, a fee that cannot be
- * priced) or with no payer. The payer's name is the read's label, else its key. No retention rule is read or
- * worded here. [UNAPPROVED N714] [UNAPPROVED N715]
+ * words show amounts. Null (no section) without `money` (admit; `money_hidden` true: no money view) or with no
+ * payer; `money` null with `money_hidden` false (the fee cannot be priced) shows nothing new: a hole. The payer's
+ * name is the read's label, else its key. [UNAPPROVED N714] [UNAPPROVED N715]
  *
  * @param {?Object} preview the act's preview
  * @param {?Object} money   the detail read's `money` (`{ currency, payers }`), for the currency and the labels
@@ -83,19 +78,38 @@ export function moneyRowsOf( preview, money ) {
 }
 
 /**
- * The capacity lines: each seat of the preview that has a limit, with its label and `taken` of `limit`. A seat
- * with no limit (null) has no line. `taken` is what the other registrations hold, as the server counts it.
- * [UNAPPROVED N716]
+ * The capacity lines: each seat of the preview that has a limit, as „<label> – foglalt helyek a művelet után:
+ * taken_after / limit”. `taken_after` is the server's count once the act is done (a taking act: `taken` + 1, so
+ * 6 / 6 becomes 7 / 6; a leaving act's `released` seats: `taken`). A seat with no limit (null) has no line. The
+ * figures are the server's; nothing is computed here. [UNAPPROVED N716]
  */
 export function seatLinesOf( preview ) {
 	return ( preview && Array.isArray( preview.seats ) ? preview.seats : [] )
 		.filter( ( seat ) => seat.limit !== null && seat.limit !== undefined )
 		.map( ( seat, index ) => ( {
 			key: `${ seat.pool }-${ seat.field || '' }-${ index }`,
-			label: seat.label || '',
-			line: fmt( STATUS_ACTS.capacity, seat.taken, seat.limit ),
+			line: fmt( STATUS_ACTS.capacity, seat.label || '', seat.taken_after, seat.limit ),
 		} ) );
 }
+
+/**
+ * The retention sentence of a leaving act's money section: the preview's `retention` (`everything_paid` or
+ * `nothing`) and nothing else; '' for any other value (admit, restore, no money view: the server sends none).
+ * [UNAPPROVED N717]
+ */
+export function retentionLineOf( preview ) {
+	switch ( preview && preview.retention ) {
+		case 'everything_paid':
+			return STATUS_ACTS.retentionAll;
+		case 'nothing':
+			return STATUS_ACTS.retentionNone;
+		default:
+			return '';
+	}
+}
+
+/** Whether the money section's „no automatic refund” line shows: for the leaving acts only. [UNAPPROVED N718] */
+export const showsRefundLine = ( act ) => act === 'withdraw' || act === 'remove';
 
 const BY_ACT = {
 	admit: [ 'admit', 'admitTitle', 'admitBody', 'admitted' ],
@@ -118,7 +132,7 @@ export const SHOWN_CODES = [
 	'kalaka_version_conflict',
 ];
 
-/** The codes after which the panel behind the dialog is stale, so it re-reads. [UNAPPROVED N711] */
+/** The codes after which the panel behind the dialog is stale, so it re-reads. [UNAPPROVED N710] */
 export const STALE_CODES = [ 'kalaka_status_act_refused', 'kalaka_rule_violation', 'kalaka_version_conflict', 'kalaka_not_found' ];
 
 /**

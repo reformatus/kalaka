@@ -139,7 +139,10 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 @media (max-width: 600px) { .kg-panel { top: 0; z-index: 99999; } .kg-snacks { z-index: 100001; } }
 .wp-responsive-open .kg-panel { z-index: 99; }
 
-/* S39 on #247: the status acts row. */
+/* S39 on #247: the status acts row. [UNAPPROVED N721] Unboxed look, kept for the owner's eye: the row's margin, the
+   capacity list's spacing, the money section's 13px heading, its row borders and 4px cell padding. At 600px and
+   narrower the table stacks as a list (N714). The headers of the figure columns sit over their figures, as #233's
+   money table does. */
 .kg-status-acts { margin: 8px 0 4px; }
 .kg-act-capacity { margin: 0 0 12px; padding: 0; list-style: none; }
 .kg-act-capacity li { margin: 0 0 4px; overflow-wrap: anywhere; }
@@ -158,7 +161,9 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 	.kg-act-money td::before { content: attr(data-label) ': '; font-weight: 600; }
 }
 
-/* B5-2 on #249: the field list and its edit buttons. */
+/* B5-2 on #249: the field list and its edit buttons. [UNAPPROVED N249] Unboxed look, kept for the owner's eye: the
+   labels' grey (#50575e, as the panel's own meta line), the row borders and the 2fr/3fr two-column grid at desktop
+   width (one column at 600px and narrower, N243). */
 .kg-fields { margin: 8px 0 12px; }
 .kg-field-list { margin: 0; }
 .kg-field { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; align-items: center; }

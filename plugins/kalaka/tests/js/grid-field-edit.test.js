@@ -10,7 +10,7 @@ import apiFetch from '@wordpress/api-fetch';
 import FieldEditDialog from '../../src/Admin/app/grid/FieldEditDialog';
 import FieldsBlock from '../../src/Admin/app/grid/FieldsBlock';
 import { controlOf, inputOf, isFull, openingOf, valueOf } from '../../src/Admin/app/grid/fieldEdit';
-import { CONFIRM, FIELDS, GRID, MONEY } from '../../src/Admin/app/grid/texts';
+import { CONFIRM, FIELDS, GRID, MONEY, REQUESTS } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
@@ -128,7 +128,7 @@ describe( 'which fields get a control', () => {
 	test( 'the list shows every field the read carries and an edit button only on the editable ones', async () => {
 		await mount( createElement( FieldsBlock, { config, code: 'x', detail: { fields: [ NAME, LOCKED, RANKING, OFFER ] }, stale: false, reload: () => {}, onSaved: () => {} } ) );
 		expect( host.querySelectorAll( 'dt' ) ).toHaveLength( 4 );
-		expect( Array.from( host.querySelectorAll( 'button' ) ).map( ( b ) => b.getAttribute( 'aria-label' ) ) ).toEqual( [ 'Név szerkesztése', 'Gyülekezeti támogatás szerkesztése' ] );
+		expect( Array.from( host.querySelectorAll( 'button' ) ).map( ( b ) => b.getAttribute( 'aria-label' ) ) ).toEqual( [ 'Szerkesztés: Név', 'Szerkesztés: Gyülekezeti támogatás' ] );
 		expect( host.querySelectorAll( 'dd' )[ 1 ].textContent ).toBe( FIELDS.empty );
 	} );
 
@@ -258,6 +258,27 @@ describe( 'the dialog', () => {
 		await submit();
 		const save = apiFetch.mock.calls.map( ( call ) => call[ 0 ] ).filter( ( request ) => ! request.data.input.preview );
 		expect( save[ 0 ].data.input.value ).toBeNull();
+	} );
+
+	test( 'focus opens on the checked option of a choice, not on the clear option', async () => {
+		apiFetch.mockResolvedValue( { warnings: [] } );
+		await dialog( TIER );
+		await act( async () => new Promise( ( resolve ) => setTimeout( resolve, 120 ) ) );
+		expect( document.activeElement ).toBe( host.querySelector( 'input[value="tamogatott"]' ) );
+	} );
+
+	test( 'focus opens on the first control when nothing is checked', async () => {
+		await dialog( NAME );
+		await act( async () => new Promise( ( resolve ) => setTimeout( resolve, 120 ) ) );
+		expect( document.activeElement ).toBe( host.querySelector( 'input' ) );
+	} );
+
+	test( 'a consent\'s label is not shown twice: the title is the field, the checkbox says Igen', async () => {
+		apiFetch.mockResolvedValue( { warnings: [] } );
+		await dialog( OFFER );
+		expect( host.querySelector( 'h1' ).textContent ).toBe( OFFER.label );
+		expect( host.querySelector( 'input[type="checkbox"]' ).parentElement.textContent ).toBe( REQUESTS.yes );
+		expect( host.textContent.split( OFFER.label ).length - 1 ).toBe( 1 );
 	} );
 
 	test( 'a consent sends "1"', async () => {

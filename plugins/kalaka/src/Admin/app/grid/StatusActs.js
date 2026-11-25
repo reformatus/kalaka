@@ -57,6 +57,7 @@ export default function StatusActs( { config, code, can, money, stale, reload, o
 		setDialog( null );
 		focusOpener();
 	};
+	// An answer `{ changed: false }` (a repeat) is done as well: the same re-read, close and snackbar. [UNAPPROVED N711]
 	const done = async ( act ) => {
 		await reload();
 		onSaved();

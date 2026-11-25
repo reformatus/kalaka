@@ -5,7 +5,8 @@
  * placing is never stopped. A failed save keeps the dialog and the reason and
  * shows the server's text (a stored value changed by someone else is the 409's own text). While it runs the
  * dialog does not close and a second submit is ignored. [UNAPPROVED N233] [UNAPPROVED N234] [UNAPPROVED N235]
- * [UNAPPROVED N236] [UNAPPROVED N239] [UNAPPROVED N241]
+ * [UNAPPROVED N236] [UNAPPROVED N239] [UNAPPROVED N241] [UNAPPROVED N242]
+ * [UNAPPROVED N247] [UNAPPROVED N248]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, RadioControl, TextareaControl, TextControl } from '@wordpress/components';
@@ -13,7 +14,7 @@ import * as api from './api';
 import { validateReason } from './confirmation';
 import { controlOf, inputOf, isFull, openingOf } from './fieldEdit';
 import { failureOf, staleAfter, warningsOf } from './statusActs';
-import { CONFIRM, GRID, MONEY } from './texts';
+import { CONFIRM, GRID, MONEY, REQUESTS } from './texts';
 
 const NONE = '';
 
@@ -55,10 +56,14 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 		};
 	}, [ full, picked ] );
 
-	// Focus lands on the first control, not on the dialog frame. [UNAPPROVED N241]
+	// Focus lands on the checked option of a choice or a list, else on the first control, not on the dialog
+	// frame. [UNAPPROVED N241] [UNAPPROVED N247]
 	useEffect( () => {
 		const timer = setTimeout( () => {
-			const input = form.current && form.current.querySelector( 'input:not([type="hidden"]), textarea' );
+			const input =
+				form.current &&
+				( form.current.querySelector( 'input:checked' ) ||
+					form.current.querySelector( 'input:not([type="hidden"]), textarea' ) );
 			if ( input ) {
 				input.focus();
 			}
@@ -145,8 +150,10 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 						) ) }
 					</fieldset>
 				) }
+				{ /* The checkbox says „Igen” (REQUESTS.yes), the title is the field's label: the label is not shown
+				twice. [UNAPPROVED N248] */ }
 				{ control === 'consent' && (
-					<CheckboxControl label={ field.label } checked={ picked } onChange={ setPicked } __nextHasNoMarginBottom />
+					<CheckboxControl label={ REQUESTS.yes } checked={ picked } onChange={ setPicked } __nextHasNoMarginBottom />
 				) }
 				{ warnings.map( ( text ) => (
 					<Notice key={ text } status="warning" isDismissible={ false }>

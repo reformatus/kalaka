@@ -4,7 +4,7 @@
  * control for) an edit button that opens the dialog. Read-only fields have no button and no word: the panel shows
  * only what the read returns and never decides access. After a save the panel re-reads, the grid re-reads, a
  * snackbar says it was done and focus returns to the field's edit button. [UNAPPROVED N230] [UNAPPROVED N231]
- * [UNAPPROVED N232] [UNAPPROVED N237]
+ * [UNAPPROVED N232] [UNAPPROVED N237] [UNAPPROVED N243]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
@@ -52,7 +52,8 @@ export default function FieldsBlock( { config, code, detail, stale, reload, onSa
 		setOpen( null );
 		focusOpener( key );
 	};
-	// `{ changed: false }` (a value equal to the stored one) is done as well. [UNAPPROVED N238]
+	// `{ changed: false }` (a value equal to the stored one) is done as well. [UNAPPROVED N238] The answer's
+	// `over_limit` is not shown: nothing follows the save. [UNAPPROVED N240]
 	const done = async () => {
 		const key = open;
 		await reload();

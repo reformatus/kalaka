@@ -3,8 +3,10 @@
  * capacity lines of the seats with a limit, the server's warnings, the money effect per payer when the user may
  * see money) and the reason field. A failed act keeps the dialog and the reason and shows the server's text;
  * while it runs the dialog does not close and a second submit is ignored. Everything the preview shows is the
- * server's: no retention wording and no warning text is written here. [UNAPPROVED N702] [UNAPPROVED N706]
- * [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709] [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716]
+ * server's, chosen by its own values; no warning text is written here. The text, the capacity lines, the warnings
+ * and the money section are the dialog's description (`aria-describedby`), so a screen reader hears what the act
+ * does. [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
+ * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
@@ -13,15 +15,18 @@ import {
 	bodyOf,
 	failureOf,
 	moneyRowsOf,
-	previewsAtOpen,
 	reasonProblem,
 	reasonRequired,
+	retentionLineOf,
 	seatLinesOf,
+	showsRefundLine,
 	staleAfter,
 	titleOf,
 	warningsOf,
 } from './statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
+
+const DESCRIPTION_ID = 'kg-act-description';
 
 /**
  * @param {Object}   props
@@ -56,31 +61,22 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 		return () => clearTimeout( timer );
 	}, [] );
 
-	// The preview is asked as the dialog opens, except for remove: its preview needs the reason, so it is asked
-	// when the reason field is left with a reason in it. A failed preview shows nothing: the act's own answer
-	// decides. [UNAPPROVED N706]
-	const [ asked, setAsked ] = useState( previewsAtOpen( act ) ? '' : null );
+	// The preview is asked as the dialog opens, for every act, with no reason (the server takes none on a
+	// preview). A failed preview shows nothing: the act's own answer decides. [UNAPPROVED N706]
 	useEffect( () => {
 		let live = true;
-		if ( asked !== null ) {
-			api.runStatusAct( config, act, code, asked, true ).then(
-				( result ) => live && setPreview( result ),
-				() => {}
-			);
-		}
+		api.runStatusAct( config, act, code, '', true ).then(
+			( result ) => live && setPreview( result ),
+			() => {}
+		);
 		return () => {
 			live = false;
 		};
-	}, [ config, act, code, asked ] );
-	const leaveField = ( event ) => {
-		const typed = reason.trim();
-		if ( ! previewsAtOpen( act ) && event.target.tagName === 'TEXTAREA' && typed !== '' && typed !== asked ) {
-			setAsked( typed );
-		}
-	};
+	}, [ config, act, code ] );
 	const warnings = warningsOf( preview );
 	const rows = moneyRowsOf( preview, money );
 	const seats = seatLinesOf( preview );
+	const retention = retentionLineOf( preview );
 
 	const submit = async ( event ) => {
 		event.preventDefault();
@@ -116,56 +112,60 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 			size="medium"
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
+			aria={ { describedby: DESCRIPTION_ID } }
 		>
-			<form onSubmit={ submit } onBlur={ leaveField } noValidate ref={ form }>
-				<p>{ bodyOf( act ) }</p>
-				{ seats.length > 0 && (
-					<ul className="kg-act-capacity">
-						{ seats.map( ( seat ) => (
-							<li key={ seat.key }>
-								<strong>{ seat.label }</strong> { seat.line }
-							</li>
-						) ) }
-					</ul>
-				) }
-				{ warnings.map( ( text ) => (
-					<Notice key={ text } status="warning" isDismissible={ false }>
-						{ text }
-					</Notice>
-				) ) }
-				{ rows && (
-					<div className="kg-act-money">
-						<h3>{ STATUS_ACTS.moneyHeading }</h3>
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">{ MONEY.payer }</th>
-									<th scope="col">{ MONEY.paid }</th>
-									<th scope="col">{ MONEY.balanceNow }</th>
-									<th scope="col">{ MONEY.balanceAfter }</th>
-								</tr>
-							</thead>
-							<tbody>
-								{ rows.map( ( row ) => (
-									<tr key={ row.key }>
-										<td data-label={ MONEY.payer }>{ row.payer }</td>
-										<td className="kg-num" data-label={ MONEY.paid }>
-											{ row.paid }
-										</td>
-										<td className="kg-num" data-label={ MONEY.balanceNow }>
-											{ row.now }
-										</td>
-										<td className="kg-num" data-label={ MONEY.balanceAfter }>
-											{ row.after }
-										</td>
+			<form onSubmit={ submit } noValidate ref={ form }>
+				<div id={ DESCRIPTION_ID }>
+					<p>{ bodyOf( act ) }</p>
+					{ seats.length > 0 && (
+						<ul className="kg-act-capacity">
+							{ seats.map( ( seat ) => (
+								<li key={ seat.key }>
+									{ seat.line }
+								</li>
+							) ) }
+						</ul>
+					) }
+					{ warnings.map( ( text ) => (
+						<Notice key={ text } status="warning" isDismissible={ false }>
+							{ text }
+						</Notice>
+					) ) }
+					{ rows && (
+						<div className="kg-act-money">
+							<h3>{ STATUS_ACTS.moneyHeading }</h3>
+							<table>
+								<thead>
+									<tr>
+										<th scope="col">{ MONEY.payer }</th>
+										<th scope="col" className="kg-num">{ MONEY.paid }</th>
+										<th scope="col" className="kg-num">{ MONEY.balanceNow }</th>
+										<th scope="col" className="kg-num">{ MONEY.balanceAfter }</th>
 									</tr>
-								) ) }
-							</tbody>
-						</table>
-						<p>{ STATUS_ACTS.noAutomaticRefund }</p>
-					</div>
-				) }
-				{ act === 'admit' && <p>{ STATUS_ACTS.serialEnd }</p> }
+								</thead>
+								<tbody>
+									{ rows.map( ( row ) => (
+										<tr key={ row.key }>
+											<td data-label={ MONEY.payer }>{ row.payer }</td>
+											<td className="kg-num" data-label={ MONEY.paid }>
+												{ row.paid }
+											</td>
+											<td className="kg-num" data-label={ MONEY.balanceNow }>
+												{ row.now }
+											</td>
+											<td className="kg-num" data-label={ MONEY.balanceAfter }>
+												{ row.after }
+											</td>
+										</tr>
+									) ) }
+								</tbody>
+							</table>
+							{ retention && <p>{ retention }</p> }
+							{ showsRefundLine( act ) && <p>{ STATUS_ACTS.noAutomaticRefund }</p> }
+						</div>
+					) }
+					{ act === 'admit' && <p>{ STATUS_ACTS.serialEnd }</p> }
+				</div>
 				<TextareaControl
 					label={ CONFIRM.reasonField }
 					value={ reason }

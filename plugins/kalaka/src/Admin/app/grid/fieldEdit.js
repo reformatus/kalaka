@@ -46,7 +46,7 @@ export function openingOf( field ) {
 
 /**
  * The value the ability takes: text and a single choice send null for empty (a clear), a list sends null when
- * empty, a consent sends "1" or "0". [UNAPPROVED N244]
+ * empty, a consent sends "1" or "0". [UNAPPROVED N244] [UNAPPROVED N242]
  */
 export function valueOf( field, picked ) {
 	switch ( controlOf( field ) ) {

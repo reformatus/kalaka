@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import apiFetch from '@wordpress/api-fetch';
 import StatusActDialog from '../../src/Admin/app/grid/StatusActDialog';
 import StatusActs from '../../src/Admin/app/grid/StatusActs';
-import { abilityOf, actsFor, failureOf, inputOf, moneyRowsOf, previewsAtOpen, seatLinesOf, staleAfter, warningsOf } from '../../src/Admin/app/grid/statusActs';
+import { abilityOf, actsFor, failureOf, inputOf, moneyRowsOf, retentionLineOf, seatLinesOf, showsRefundLine, staleAfter, warningsOf } from '../../src/Admin/app/grid/statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
@@ -19,7 +19,8 @@ jest.mock( '@wordpress/components', () => {
 		delete rest.isBusy;
 		return h( 'button', rest, children );
 	};
-	const Modal = ( { title, children } ) => h( 'div', { role: 'dialog' }, h( 'h1', null, title ), children );
+	const Modal = ( { title, children, aria } ) =>
+		h( 'div', { role: 'dialog', 'aria-describedby': aria && aria.describedby }, h( 'h1', null, title ), children );
 	const Notice = ( { children, status } ) => h( 'div', { 'data-notice': status }, children );
 	return { Button, Modal, Notice, TextareaControl, SnackbarList: () => null };
 } );
@@ -38,14 +39,14 @@ const OVER = {
 	changed: true,
 	status: 'registered',
 	over_capacity: true,
-	seats: [ { pool: 'event', label: 'Nyári tábor', field: null, outcome: 'over', taken: 6, limit: 6 } ],
+	seats: [ { pool: 'event', label: 'Nyári tábor', field: null, outcome: 'over', taken: 6, taken_after: 7, limit: 6 } ],
 	warnings: [ FULL_TEXT ],
 };
 const HELD = {
 	changed: true,
 	status: 'registered',
 	over_capacity: false,
-	seats: [ { pool: 'event', label: 'Nyári tábor', field: null, outcome: 'held', taken: 4, limit: 6 } ],
+	seats: [ { pool: 'event', label: 'Nyári tábor', field: null, outcome: 'held', taken: 4, taken_after: 5, limit: 6 } ],
 	warnings: [],
 };
 const MONEY_LEFT = {
@@ -117,7 +118,9 @@ describe( 'the call', () => {
 	test( 'names the ability and the input', () => {
 		expect( abilityOf( 'admit' ) ).toBe( 'kalaka/admit-registration' );
 		expect( inputOf( 7, 'A1', '' ) ).toEqual( { event_id: 7, code: 'A1' } );
-		expect( inputOf( 7, 'A1', 'ok', true ) ).toEqual( { event_id: 7, code: 'A1', reason: 'ok', preview: true } );
+		// A preview carries no reason, even when one is given: the server takes none on a preview.
+		expect( inputOf( 7, 'A1', 'ok', true ) ).toEqual( { event_id: 7, code: 'A1', preview: true } );
+		expect( inputOf( 7, 'A1', 'ok' ) ).toEqual( { event_id: 7, code: 'A1', reason: 'ok' } );
 	} );
 } );
 
@@ -149,8 +152,8 @@ describe( 'each dialog', () => {
 		expect( host.textContent ).toContain( CONFIRM.reasonTooLong );
 	} );
 
-	test( 'all acts but remove ask the preview as the dialog opens, without a reason', async () => {
-		for ( const name of [ 'admit', 'withdraw', 'restore' ] ) {
+	test( 'every act asks the preview as the dialog opens, without a reason, remove included', async () => {
+		for ( const name of [ 'admit', 'withdraw', 'remove', 'restore' ] ) {
 			apiFetch.mockReset();
 			await render( name );
 			expect( apiFetch ).toHaveBeenCalledTimes( 1 );
@@ -158,25 +161,28 @@ describe( 'each dialog', () => {
 			await act( async () => root.unmount() );
 			host.remove();
 		}
-		expect( previewsAtOpen( 'remove' ) ).toBe( false );
 	} );
 
-	test( 'remove asks its preview once a reason has been typed and the field is left', async () => {
+	test( 'remove shows its money from the start and leaving the reason field asks nothing more', async () => {
 		await render( 'remove', MONEY_LEFT );
-		expect( apiFetch ).not.toHaveBeenCalled();
-		expect( host.textContent ).not.toContain( STATUS_ACTS.moneyHeading );
-		await write( '  Dupla jelentkezés  ' );
-		await act( async () => {
-			textarea().dispatchEvent( new Event( 'focusout', { bubbles: true } ) );
-		} );
-		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
-		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input ).toEqual( { event_id: 7, code: '92F7', reason: 'Dupla jelentkezés', preview: true } );
 		expect( host.textContent ).toContain( STATUS_ACTS.moneyHeading );
-		// Leaving the field again with the same reason asks nothing more.
+		await write( 'Dupla jelentkezés' );
 		await act( async () => {
 			textarea().dispatchEvent( new Event( 'focusout', { bubbles: true } ) );
 		} );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	test( 'the dialog is described by its text, capacity lines, warnings and money section', async () => {
+		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ] } );
+		const id = host.querySelector( '[role="dialog"]' ).getAttribute( 'aria-describedby' );
+		const description = host.querySelector( `#${ id }` );
+		expect( description ).not.toBeNull();
+		expect( description.textContent ).toContain( STATUS_ACTS.withdrawBody );
+		expect( description.querySelector( '.kg-act-capacity' ) ).not.toBeNull();
+		expect( description.textContent ).toContain( FULL_TEXT );
+		expect( description.querySelector( '.kg-act-money' ) ).not.toBeNull();
+		expect( description.querySelector( 'textarea' ) ).toBeNull();
 	} );
 
 	test( 'the warning is the preview\'s own text, one notice per warning, none when it has none', async () => {
@@ -190,15 +196,17 @@ describe( 'each dialog', () => {
 		expect( warningsOf( { warnings: [ 'a', '', 'b' ] } ) ).toEqual( [ 'a', 'b' ] );
 	} );
 
-	test( 'a seat with a limit gets its label and taken / limit; an unlimited seat has no line', async () => {
+	test( 'a seat with a limit gets its label and taken_after / limit; an unlimited seat has no line', async () => {
 		await render( 'admit', OVER );
-		expect( host.querySelector( '.kg-act-capacity' ).textContent ).toBe( 'Nyári tábor Foglalt helyek: 6 / 6.' );
-		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'held', taken: 1, limit: null } ] } ) ).toEqual( [] );
+		// The count after the act, from the server's `taken_after`: 6 / 6 becomes 7 / 6.
+		expect( host.querySelector( '.kg-act-capacity' ).textContent ).toBe( 'Nyári tábor – foglalt helyek a művelet után: 7 / 6' );
+		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'released', taken: 5, taken_after: 5, limit: 6 } ] } )[ 0 ].line ).toBe( 'Sáv – foglalt helyek a művelet után: 5 / 6' );
+		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'held', taken: 1, taken_after: 2, limit: null } ] } ) ).toEqual( [] );
 		expect( seatLinesOf( null ) ).toEqual( [] );
 	} );
 
-	test( 'the money section lists each payer from the preview and invents no retention wording', async () => {
-		await render( 'withdraw', MONEY_LEFT );
+	test( 'the money section lists each payer from the preview; the retention sentence follows only the preview\'s `retention`', async () => {
+		await render( 'withdraw', { ...MONEY_LEFT, retention: 'everything_paid' } );
 		const section = host.querySelector( '.kg-act-money' );
 		expect( section.querySelector( 'h3' ).textContent ).toBe( STATUS_ACTS.moneyHeading );
 		expect( Array.from( section.querySelectorAll( 'th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
@@ -209,7 +217,18 @@ describe( 'each dialog', () => {
 			'−5\u00a0000\u00a0Ft (túlfizetés)',
 		] );
 		expect( section.textContent ).toContain( STATUS_ACTS.noAutomaticRefund );
-		expect( section.textContent ).not.toMatch( /megtart/i );
+		expect( section.textContent ).toContain( STATUS_ACTS.retentionAll );
+		expect( retentionLineOf( { retention: 'nothing' } ) ).toBe( STATUS_ACTS.retentionNone );
+		expect( retentionLineOf( { retention: null } ) ).toBe( '' );
+		expect( retentionLineOf( {} ) ).toBe( '' );
+		expect( retentionLineOf( null ) ).toBe( '' );
+	} );
+
+	test( 'the no-refund line shows for withdraw and remove only, not for restore', async () => {
+		expect( [ 'admit', 'withdraw', 'remove', 'restore' ].map( showsRefundLine ) ).toEqual( [ false, true, true, false ] );
+		await render( 'restore', MONEY_LEFT );
+		expect( host.querySelector( '.kg-act-money' ).textContent ).not.toContain( STATUS_ACTS.noAutomaticRefund );
+		expect( host.querySelector( '.kg-act-money' ).textContent ).not.toContain( STATUS_ACTS.retentionAll );
 	} );
 
 	test( 'no money section for admit, without money in the preview, or without a payer', async () => {
@@ -217,7 +236,12 @@ describe( 'each dialog', () => {
 		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
 		await act( async () => root.unmount() );
 		host.remove();
-		await render( 'withdraw', { ...MONEY_LEFT, money: null } );
+		// A holder without money view (`money_hidden`) and a fee that cannot be priced both send `money: null`: no section.
+		await render( 'withdraw', { ...MONEY_LEFT, money: null, money_hidden: true, retention: null } );
+		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( 'withdraw', { ...MONEY_LEFT, money: null, money_hidden: false, retention: 'everything_paid' } );
 		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
 		expect( moneyRowsOf( { money: [] }, DETAIL_MONEY ) ).toBeNull();
 		expect( moneyRowsOf( null, DETAIL_MONEY ) ).toBeNull();

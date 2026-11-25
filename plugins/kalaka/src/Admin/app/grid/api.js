@@ -179,8 +179,8 @@ export const answerRequest = ( input ) => runAbility( 'kalaka/answer-request', i
 
 /**
  * Runs one status act (`kalaka/admit-registration`, `-withdraw-`, `-remove-`, `-restore-`; #247), or with
- * `preview` asks what it would do (the same refusals, nothing written). Answers `{ changed, status,
- * over_capacity, seats }`. An act is not idempotent by key: a repeat answers `{ changed: false }`.
+ * `preview` asks what it would do (no reason, nothing written, no audit row). Answers `{ changed, status,
+ * over_capacity, seats, warnings }`; a preview adds `money`, `money_hidden` and `retention` (#247). An act is not idempotent by key: a repeat answers `{ changed: false }`.
  *
  * @param {Object}  config  window.kalakaGrid
  * @param {string}  act     `admit`, `withdraw`, `remove` or `restore`
