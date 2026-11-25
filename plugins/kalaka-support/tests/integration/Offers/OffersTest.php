@@ -27,6 +27,7 @@ use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Pricing\Cli\SettingsDocument;
 use Kalaka\Support\Api\OfferSelected;
 use Kalaka\Support\Offers\OfferClaims;
@@ -695,6 +696,77 @@ final class OffersTest extends OffersTestCase
         } catch (\Kalaka\Foundation\Api\Error\SystemFailure) {
             self::assertSame('approved', (new Registrations())->values($key)['egyhaz_answer'] ?? null);
         }
+    }
+
+    /** @return list<string> the codes of the event's registrations core's compiled condition says await an answer */
+    private function awaitingBySql(): array
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'kalaka_field_values';
+        [$condition, $args] = (new Requests([new OfferRequests()]))->awaitingCondition($this->event, $table);
+        $sql = 'SELECT r.code FROM %i r WHERE r.event_id = %d AND (' . $condition . ') ORDER BY r.code';
+        $codes = $wpdb->get_col(
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test inspection; the text is the table placeholders and the condition's own placeholders
+            $wpdb->prepare($sql, $wpdb->prefix . 'kalaka_registrations', $this->event, ...$args)
+        );
+
+        return array_map('strval', $codes);
+    }
+
+    public function testTheAwaitingRuleMeansWhatTheRequestSourceMeans(): void
+    {
+        $this->applyOffers([
+            self::offer('egyhaz', '1000', request: true),
+            self::offer('masik', '700', request: true),
+            self::offer('nemkell', '500'),
+            self::offer('korlatos', '200', request: true, limit: 2),
+        ]);
+        $awaiting = [
+            $this->registerSelecting('00A0', 'egyhaz'),
+            $this->registerSelecting('00A2', 'egyhaz'),
+            $this->registerSelecting('00A5', 'egyhaz', 'masik'),
+            $this->registerSelecting('00B0', 'korlatos'),
+        ];
+        $this->holdSeat($awaiting[3], 'korlatos');
+        $this->writeValue($awaiting[1], 'egyhaz_answer', '');
+        $this->writeValue($awaiting[2], 'masik_answer', 'approved');
+        $this->writeValue($this->registerSelecting('00B3', 'egyhaz'), 'egyhaz_answer', 'approved');
+        $this->writeValue($this->registerSelecting('00B6', 'egyhaz'), 'egyhaz_answer', 'refused');
+        $this->registerSelecting('00B9', 'nemkell');
+        $this->register('00E2');
+        $waitlisted = $this->register('00E5', RegistrationStatus::Waitlisted);
+        $this->writeValue($waitlisted, 'egyhaz', '1');
+        $withdrawn = $this->register('00E8', RegistrationStatus::Withdrawn);
+        $this->writeValue($withdrawn, 'egyhaz', '1');
+
+        $bySql = $this->awaitingBySql();
+
+        self::assertSame(['00A0', '00A2', '00A5', '00B0'], $bySql);
+        $requests = new Requests([new OfferRequests()]);
+        $byStates = [];
+        $byRule = [];
+        $rule = (new OfferRequests())->awaitingRule($this->event) ?? throw new \LogicException();
+        foreach (['00A0', '00B3', '00B6', '00B9', '00A2', '00A5', '00E2', '00E5', '00E8', '00B0'] as $code) {
+            $key = new RegistrationKey($this->event, $code);
+            $status = (new Registrations())->find($key)->status ?? throw new \LogicException();
+            if ($status === RegistrationStatus::Registered && $requests->awaits($key, $status)) {
+                $byStates[] = $code;
+            }
+            if ($status === RegistrationStatus::Registered && $rule->matches((new Registrations())->values($key))) {
+                $byRule[] = $code;
+            }
+        }
+        sort($byStates);
+        sort($byRule);
+        self::assertSame($byStates, $bySql);
+        self::assertSame($byRule, $bySql);
+    }
+
+    public function testNoOfferThatNeedsApprovalGivesNoRule(): void
+    {
+        $this->applyOffers([self::offer('nemkell', '500')]);
+
+        self::assertNull((new OfferRequests())->awaitingRule($this->event));
     }
 
     /** @return list<string> the net of each support item's charge lines as "source payer amount", nets of zero left out */

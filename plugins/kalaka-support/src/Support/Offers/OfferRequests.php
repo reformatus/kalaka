@@ -6,6 +6,9 @@ namespace Kalaka\Support\Offers;
 
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
@@ -25,6 +28,11 @@ use Kalaka\Registrations\Api\Seats;
  * which gave its seat back, can still be answered "yes" again. A selection admitted or restored takes its seat
  * over the limit like every pool, so it is a request. The answer is the offer's own field: `isAnswered()` reads
  * `<key>_answer` from the values it is given. [UNAPPROVED N101, N356]
+ *
+ * `awaitingRule()` is the same question as a declarative rule for the admin grid: an offer that needs a request,
+ * chosen, and its answer field neither `approved` nor `refused`; one group per such offer. It does not test the seat
+ * of a limited offer: a registered registration holds the seat of every offer it chose until the offer is answered,
+ * so the seat test of `requestsOf()` is always met for the registrations the grid counts. [UNAPPROVED N670]
  */
 final class OfferRequests implements RequestSource
 {
@@ -60,6 +68,25 @@ final class OfferRequests implements RequestSource
     public function isAnswered(Request $request, array $values): bool
     {
         return self::answered($values, self::keyOf($request));
+    }
+
+    public function awaitingRule(int $eventId): ?AwaitingRule
+    {
+        $groups = [];
+        foreach ($this->offers->forEvent($eventId) as $offer) {
+            if ($offer->needsRequest) {
+                $groups[] = [
+                    new FieldTest($offer->key, FieldTestKind::OneOf, ['1']),
+                    new FieldTest(
+                        $offer->key . SetSupportOffers::ANSWER_SUFFIX,
+                        FieldTestKind::NoneOf,
+                        ['approved', 'refused']
+                    ),
+                ];
+            }
+        }
+
+        return $groups === [] ? null : new AwaitingRule($groups);
     }
 
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool

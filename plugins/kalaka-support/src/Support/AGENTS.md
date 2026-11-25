@@ -100,5 +100,9 @@ It holds the directory, the congregation picker and the support offers.
 - `OfferRequests` is the request source of the offers that must be requested: a selected offer is the request
   `offer:<key>` until somebody answers it. A limited one is a request only while the registration holds its
   seat or has an answer (so a refused offer, which gave its seat back, can be answered "yes" again).
+  `awaitingRule()` is the same question as a declarative `AwaitingRule` for the admin grid's awaiting column (core
+  compiles it to SQL; the source writes none): an offer that needs a request, chosen (`1`), its `<key>_answer`
+  neither `approved` nor `refused`; one group per such offer, none (null) when no offer needs one. It reads no seat: a registered registration holds the seat of each chosen offer
+  until the offer is answered (D2), so the grid's `registered` condition already holds the seat test.
 - Only this module writes `kalaka_support_offers`. Offers are settings, so an offer left out is deleted; the
   directory's nodes are never deleted.

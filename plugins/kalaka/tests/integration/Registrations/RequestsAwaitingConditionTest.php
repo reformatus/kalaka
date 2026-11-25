@@ -13,6 +13,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\SeatPool;
 
 /** The grid's "awaits an answer" condition is compiled by core from the sources' rules alone. [UNAPPROVED N669] */
 final class RequestsAwaitingConditionTest extends RegistrationsTestCase
@@ -39,7 +40,7 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
                 return $this->rule;
             }
 
-            public function seatPool(Request $request): ?string
+            public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
             {
                 return null;
             }
