@@ -50,6 +50,8 @@ is asked until decided. Sponsor and church support is the other extension
 - An aid request, `aid`, exists while the registration holds a value in
   `aid_can_pay` or in `aid_award` and the event has aid. Staff answer 0 when nothing is
   needed. The request source reads only the field values and the settings.
+  `awaitingRule()` is the same question as a declarative `AwaitingRule` for the admin grid's awaiting column (core
+  compiles it to SQL; the source writes none): `aid_can_pay` holds a value and `aid_award` none (any award, `0` included, is an answer); null while the event has no aid.
 - The award is written only by `AidRequests::writeAnswer()`, called by the
   answer act: the amount for a yes (above zero, and no more than the number
   field holds), 0 for a no, under the declarer `aid`. The award field

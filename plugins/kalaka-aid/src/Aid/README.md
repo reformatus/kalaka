@@ -4,7 +4,7 @@ Adjudicated financial aid: one extension plugin, `kalaka-aid` (module `aid`). An
 
 Table, created by the schema in `Module.php`: `kalaka_aid_settings` (event, label); only `AidSettingsRepository` writes it.
 
-At the module root: `AidComponent` (the fee component, at the aid stage), `AidRequests` (the request source; its `writeAnswer()` is the award's only writer), `AidSettings` and `AidSettingsRepository`, `AidInput` (the checks before aid is proposed or saved) and the admin use case `SetAid` (`kalaka/set-aid`; full access only), which also declares the participant fields `aid_can_pay` and `aid_award` through the ParticipantFields Api.
+At the module root: `AidComponent` (the fee component, at the aid stage), `AidRequests` (the request source, with its `awaitingRule()` for the admin grid; its `writeAnswer()` is the award's only writer), `AidSettings` and `AidSettingsRepository`, `AidInput` (the checks before aid is proposed or saved) and the admin use case `SetAid` (`kalaka/set-aid`; full access only), which also declares the participant fields `aid_can_pay` and `aid_award` through the ParticipantFields Api.
 
 `Api/` holds `Aid` (`label()`, and `propose()`, which gives a `ProposedAid` for `Pricing\Api\MoneySettings::preview()` and `apply()`).
 

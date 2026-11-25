@@ -24,8 +24,12 @@ use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\Requests;
 use Kalaka\Tests\Integration\Pricing\ClosureComponent;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
@@ -34,7 +38,6 @@ use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Pricing\Cli\SettingsDocument;
 use Kalaka\Aid\Module;
 use Kalaka\Aid\SetAid;
-use Kalaka\Registrations\Api\Registrations;
 
 /**
  * S32 on the topic-15 model: the aid request exists while `aid_can_pay` holds a value; the one answer act writes
@@ -70,6 +73,65 @@ final class AidTest extends AidTestCase
         // An event without aid: a stated amount is not a request.
         $this->applyAid(null);
         self::assertSame([], $source->requestsOf($without, ['aid_can_pay' => '1000']));
+    }
+
+    /** @return list<string> the codes core's compiled condition says await an answer */
+    private function awaitingBySql(): array
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'kalaka_field_values';
+        [$condition, $args] = (new Requests([new AidRequests()]))->awaitingCondition($this->event, $table);
+        $sql = 'SELECT r.code FROM %i r WHERE r.event_id = %d AND (' . $condition . ') ORDER BY r.code';
+
+        return array_map('strval', $wpdb->get_col(
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- test inspection; the text is the table placeholders and the condition's own placeholders
+            $wpdb->prepare($sql, $wpdb->prefix . 'kalaka_registrations', $this->event, ...$args)
+        ));
+    }
+
+    public function testTheAwaitingRuleMeansWhatTheRequestSourceMeans(): void
+    {
+        $this->applyAid();
+        $this->registerAsking('00A0', '1000');
+        $this->registerAsking('00A2', '2000');
+        $this->answer($this->registerAsking('00A5', '3000'), 'yes', '2500');
+        $this->answer($this->registerAsking('00A8', '4000'), 'no');
+        $emptied = $this->registerAsking('00B0', '5000');
+        $this->answer($emptied, 'yes', '1500');
+        $this->writeValue($emptied, 'aid_can_pay', '');
+        $this->registerAsking('00B3', '');
+        $this->register('00B6');
+        $awardOnly = $this->register('00B9');
+        $this->writeValue($awardOnly, 'aid_award', '0');
+        $this->writeValue($this->register('00E2', RegistrationStatus::Waitlisted), 'aid_can_pay', '1000');
+        $this->writeValue($this->register('00E5', RegistrationStatus::Withdrawn), 'aid_can_pay', '1000');
+
+        $bySql = $this->awaitingBySql();
+
+        self::assertSame(['00A0', '00A2'], $bySql);
+        $requests = new Requests([new AidRequests()]);
+        $byStates = [];
+        $byRule = [];
+        $rule = (new AidRequests())->awaitingRule($this->event) ?? throw new \LogicException();
+        foreach (['00A0', '00A2', '00A5', '00A8', '00B0', '00B3', '00B6', '00B9', '00E2', '00E5'] as $code) {
+            $key = new RegistrationKey($this->event, $code);
+            $status = (new Registrations())->find($key)->status ?? throw new \LogicException();
+            if ($status === RegistrationStatus::Registered && $requests->awaits($key, $status)) {
+                $byStates[] = $code;
+            }
+            if ($status === RegistrationStatus::Registered && $rule->matches((new Registrations())->values($key))) {
+                $byRule[] = $code;
+            }
+        }
+        self::assertSame($byStates, $bySql);
+        self::assertSame($byRule, $bySql);
+    }
+
+    public function testAnEventWithoutAidHasNoAwaitingRule(): void
+    {
+        $this->applyAid(null);
+
+        self::assertNull((new AidRequests())->awaitingRule($this->event));
     }
 
     public function testAnEmptiedCanPayAfterAnAwardLeavesTheRequestTheLineAndTheAnswerAct(): void

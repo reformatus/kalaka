@@ -8,6 +8,9 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Registrations\Api\Answer;
+use Kalaka\Registrations\Api\AwaitingRule;
+use Kalaka\Registrations\Api\FieldTest;
+use Kalaka\Registrations\Api\FieldTestKind;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
@@ -24,6 +27,10 @@ use Kalaka\Registrations\Api\SeatPool;
  * component caps it (Q-B0-8). It reads only the registration's field values and the event's settings. If staff empty
  * `aid_can_pay` after an answer, the request stays because the award holds a value, so staff can still change the
  * award through the answer act (N124); with both fields empty there is no request.
+ *
+ * `awaitingRule()` is the same question as a declarative rule for the admin grid's awaiting column: the request exists
+ * and the award is empty, which is `aid_can_pay` holding a value and `aid_award` none (an award holding any value, `0`
+ * included, is an answer). Null while the event has no aid. [UNAPPROVED N363]
  * [UNAPPROVED N115, N116, N117, N124, N363]
  */
 final class AidRequests implements RequestSource
@@ -56,6 +63,18 @@ final class AidRequests implements RequestSource
     public function isAnswered(Request $request, array $values): bool
     {
         return ($values[AidComponent::AWARD_FIELD] ?? '') !== '';
+    }
+
+    public function awaitingRule(int $eventId): ?AwaitingRule
+    {
+        if ($this->settings->find($eventId) === null) {
+            return null;
+        }
+
+        return new AwaitingRule([[
+            new FieldTest(self::CAN_PAY_FIELD, FieldTestKind::Filled),
+            new FieldTest(AidComponent::AWARD_FIELD, FieldTestKind::Empty),
+        ]]);
     }
 
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool
