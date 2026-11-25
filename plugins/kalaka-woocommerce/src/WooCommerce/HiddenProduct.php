@@ -35,7 +35,7 @@ final class HiddenProduct
 
         $product = new \WC_Product_Simple();
         // [UNAPPROVED T82] the product's name, seen in the shop's product list
-        $product->set_name('Kaláka befizetés');
+        $product->set_name('Kaláka-befizetés');
         $product->set_status('private');
         $product->set_catalog_visibility('hidden');
         $product->set_virtual(true);
