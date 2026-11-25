@@ -173,16 +173,32 @@ describe( 'each dialog', () => {
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'the dialog is described by its text, capacity lines, warnings and money section', async () => {
-		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ] } );
-		const id = host.querySelector( '[role="dialog"]' ).getAttribute( 'aria-describedby' );
-		const description = host.querySelector( `#${ id }` );
-		expect( description ).not.toBeNull();
-		expect( description.textContent ).toContain( STATUS_ACTS.withdrawBody );
-		expect( description.querySelector( '.kg-act-capacity' ) ).not.toBeNull();
-		expect( description.textContent ).toContain( FULL_TEXT );
-		expect( description.querySelector( '.kg-act-money' ) ).not.toBeNull();
-		expect( description.querySelector( 'textarea' ) ).toBeNull();
+	test( 'the dialog is described by its text and capacity and by the money section; the warning is in neither', async () => {
+		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ], retention: 'everything_paid' } );
+		const ids = host.querySelector( '[role="dialog"]' ).getAttribute( 'aria-describedby' ).split( ' ' );
+		expect( ids ).toHaveLength( 2 );
+		const [ text, money ] = ids.map( ( id ) => host.querySelector( `#${ id }` ) );
+		expect( text.textContent ).toContain( STATUS_ACTS.withdrawBody );
+		expect( text.querySelector( '.kg-act-capacity' ) ).not.toBeNull();
+		expect( money.querySelector( '.kg-act-money' ) ).not.toBeNull();
+		expect( text.textContent + money.textContent ).not.toContain( FULL_TEXT );
+		expect( host.querySelector( 'textarea' ).closest( '#kg-act-description, #kg-act-money' ) ).toBeNull();
+	} );
+
+	test( 'once the preview has answered, a polite live region says the capacity, each payer\'s figures and the sentences, not the warning', async () => {
+		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ], retention: 'everything_paid' } );
+		const region = host.querySelector( '[role="status"]' );
+		expect( region.getAttribute( 'aria-live' ) ).toBe( 'polite' );
+		expect( region.textContent ).toBe(
+			'Nyári tábor – foglalt helyek mentés után: 7 / 6. Pénzügyi hatás. ' +
+				'Fizető: Résztvevő, Befizetett 60\u00a0000\u00a0Ft, Jelenlegi tartozás 10\u00a0000\u00a0Ft, Tartozás mentés után −5\u00a0000\u00a0Ft (túlfizetés). ' +
+				'Az esemény a befizetett összeget teljes egészében megtartja. Nincs automatikus visszafizetés.'
+		);
+		expect( region.textContent ).not.toContain( FULL_TEXT );
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( 'admit', { ...HELD, seats: [] } );
+		expect( host.querySelector( '[role="status"]' ).textContent ).toBe( '' );
 	} );
 
 	test( 'the warning is the preview\'s own text, one notice per warning, none when it has none', async () => {
@@ -199,19 +215,24 @@ describe( 'each dialog', () => {
 	test( 'a seat with a limit gets its label and taken_after / limit; an unlimited seat has no line', async () => {
 		await render( 'admit', OVER );
 		// The count after the act, from the server's `taken_after`: 6 / 6 becomes 7 / 6.
-		expect( host.querySelector( '.kg-act-capacity' ).textContent ).toBe( 'Nyári tábor – foglalt helyek a művelet után: 7 / 6' );
-		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'released', taken: 5, taken_after: 5, limit: 6 } ] } )[ 0 ].line ).toBe( 'Sáv – foglalt helyek a művelet után: 5 / 6' );
+		expect( host.querySelector( '.kg-act-capacity' ).textContent ).toBe( 'Nyári tábor – foglalt helyek mentés után: 7 / 6' );
+		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'released', taken: 5, taken_after: 5, limit: 6 } ] } )[ 0 ].line ).toBe( 'Sáv – foglalt helyek mentés után: 5 / 6' );
 		expect( seatLinesOf( { seats: [ { pool: 'x', label: 'Sáv', field: 'f', outcome: 'held', taken: 1, taken_after: 2, limit: null } ] } ) ).toEqual( [] );
 		expect( seatLinesOf( null ) ).toEqual( [] );
+		// No label: no dash starts the line (T723).
+		expect( seatLinesOf( { seats: [ { pool: 'x', label: '', field: 'f', outcome: 'released', taken: 5, taken_after: 5, limit: 6 } ] } )[ 0 ].line ).toBe( 'Foglalt helyek mentés után: 5 / 6' );
 	} );
 
 	test( 'the money section lists each payer from the preview; the retention sentence follows only the preview\'s `retention`', async () => {
 		await render( 'withdraw', { ...MONEY_LEFT, retention: 'everything_paid' } );
 		const section = host.querySelector( '.kg-act-money' );
 		expect( section.querySelector( 'h3' ).textContent ).toBe( STATUS_ACTS.moneyHeading );
-		expect( Array.from( section.querySelectorAll( 'th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
+		expect( Array.from( section.querySelectorAll( 'thead th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
+		// The payer is the row's header, as in the panel's money tab; the figures carry `is-num`.
+		expect( section.querySelector( 'tbody th' ).getAttribute( 'scope' ) ).toBe( 'row' );
+		expect( section.querySelector( 'tbody th' ).textContent ).toBe( 'Résztvevő' );
+		expect( section.querySelectorAll( 'tbody td.is-num' ) ).toHaveLength( 3 );
 		expect( Array.from( section.querySelectorAll( 'tbody td' ) ).map( ( td ) => td.textContent ) ).toEqual( [
-			'Résztvevő',
 			'60\u00a0000\u00a0Ft',
 			'10\u00a0000\u00a0Ft',
 			'−5\u00a0000\u00a0Ft (túlfizetés)',
@@ -244,6 +265,12 @@ describe( 'each dialog', () => {
 		await render( 'withdraw', { ...MONEY_LEFT, money: null, money_hidden: false, retention: 'everything_paid' } );
 		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
 		expect( moneyRowsOf( { money: [] }, DETAIL_MONEY ) ).toBeNull();
+		await act( async () => root.unmount() );
+		host.remove();
+		// An empty `money` list hides the whole section, the retention sentence with it (N717).
+		await render( 'withdraw', { ...MONEY_LEFT, money: [], retention: 'everything_paid' } );
+		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
+		expect( host.textContent ).not.toContain( STATUS_ACTS.retentionAll );
 		expect( moneyRowsOf( null, DETAIL_MONEY ) ).toBeNull();
 	} );
 
@@ -255,7 +282,7 @@ describe( 'each dialog', () => {
 
 	test( 'a restore of a leaver shows the reversal as the server computed it', async () => {
 		await render( 'restore', { ...HELD, money: [ { payer: 'participant', paid: '20000.00000000', balance_now: '-20000.00000000', balance_after: '40000.00000000' } ] } );
-		expect( Array.from( host.querySelectorAll( '.kg-act-money tbody td' ) ).map( ( td ) => td.textContent ).slice( 2 ) ).toEqual( [ '−20\u00a0000\u00a0Ft (túlfizetés)', '40\u00a0000\u00a0Ft' ] );
+		expect( Array.from( host.querySelectorAll( '.kg-act-money tbody td' ) ).map( ( td ) => td.textContent ).slice( 1 ) ).toEqual( [ '−20\u00a0000\u00a0Ft (túlfizetés)', '40\u00a0000\u00a0Ft' ] );
 	} );
 
 	test( 'a failed preview shows nothing', async () => {

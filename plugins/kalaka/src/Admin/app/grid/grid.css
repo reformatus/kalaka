@@ -140,25 +140,22 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 .wp-responsive-open .kg-panel { z-index: 99; }
 
 /* S39 on #247: the status acts row. [UNAPPROVED N721] Unboxed look, kept for the owner's eye: the row's margin, the
-   capacity list's spacing, the money section's 13px heading, its row borders and 4px cell padding. At 600px and
-   narrower the table stacks as a list (N714). The headers of the figure columns sit over their figures, as #233's
-   money table does. */
+   capacity list's spacing, the money section's 13px heading and, boxed in N721, its 16px bottom margin and the 6px
+   top margin of its paragraphs. The money table is the panel's money tab's (`table.kg-money`, a row header, `is-num`
+   figures with tabular-nums, headers over their figures). At 600px and narrower it stacks as a list (N714). */
 .kg-status-acts { margin: 8px 0 4px; }
 .kg-act-capacity { margin: 0 0 12px; padding: 0; list-style: none; }
 .kg-act-capacity li { margin: 0 0 4px; overflow-wrap: anywhere; }
 .kg-act-money { margin: 0 0 16px; }
 .kg-act-money h3 { font-size: 13px; margin: 0 0 4px; }
 .kg-act-money p { margin: 6px 0 0; }
-.kg-act-money table { border-collapse: collapse; width: 100%; }
-.kg-act-money th, .kg-act-money td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid #f0f0f1; }
-.kg-act-money .kg-num { text-align: right; white-space: nowrap; }
+.kg-act-money table.kg-money .is-num { white-space: nowrap; }
 @media (max-width: 600px) {
-	.kg-act-money thead { display: none; }
-	.kg-act-money table, .kg-act-money tbody, .kg-act-money tr, .kg-act-money td { display: block; width: auto; }
-	.kg-act-money tr { margin: 0 0 8px; }
-	.kg-act-money td { border: 0; padding: 2px 0; text-align: left; white-space: normal; }
-	.kg-act-money td.kg-num { text-align: left; }
-	.kg-act-money td::before { content: attr(data-label) ': '; font-weight: 600; }
+	.kg-act-money table.kg-money thead { display: none; }
+	.kg-act-money table.kg-money, .kg-act-money table.kg-money tbody, .kg-act-money table.kg-money tr, .kg-act-money table.kg-money th, .kg-act-money table.kg-money td { display: block; width: auto; }
+	.kg-act-money table.kg-money tr { margin: 0 0 8px; }
+	.kg-act-money table.kg-money th, .kg-act-money table.kg-money td { border: 0; padding: 2px 0; text-align: left; white-space: normal; font-weight: 400; }
+	.kg-act-money table.kg-money th::before, .kg-act-money table.kg-money td::before { content: attr(data-label) ': '; font-weight: 600; }
 }
 
 /* B5-2 on #249: the field list and its edit buttons. [UNAPPROVED N249] Unboxed look, kept for the owner's eye: the

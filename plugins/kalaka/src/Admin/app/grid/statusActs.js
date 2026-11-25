@@ -78,17 +78,19 @@ export function moneyRowsOf( preview, money ) {
 }
 
 /**
- * The capacity lines: each seat of the preview that has a limit, as „<label> – foglalt helyek a művelet után:
- * taken_after / limit”. `taken_after` is the server's count once the act is done (a taking act: `taken` + 1, so
+ * The capacity lines: each seat of the preview that has a limit, as „<label> – foglalt helyek mentés után:
+ * taken_after / limit” (no label: „Foglalt helyek mentés után: …”, T723). `taken_after` is the server's count once the act is done (a taking act: `taken` + 1, so
  * 6 / 6 becomes 7 / 6; a leaving act's `released` seats: `taken`). A seat with no limit (null) has no line. The
- * figures are the server's; nothing is computed here. [UNAPPROVED N716]
+ * figures are the server's; nothing is computed here. [UNAPPROVED N716] [UNAPPROVED N723]
  */
 export function seatLinesOf( preview ) {
 	return ( preview && Array.isArray( preview.seats ) ? preview.seats : [] )
 		.filter( ( seat ) => seat.limit !== null && seat.limit !== undefined )
 		.map( ( seat, index ) => ( {
 			key: `${ seat.pool }-${ seat.field || '' }-${ index }`,
-			line: fmt( STATUS_ACTS.capacity, seat.label || '', seat.taken_after, seat.limit ),
+			line: seat.label
+				? fmt( STATUS_ACTS.capacity, seat.label, seat.taken_after, seat.limit )
+				: fmt( STATUS_ACTS.capacityUnlabelled, seat.taken_after, seat.limit ),
 		} ) );
 }
 
@@ -106,6 +108,33 @@ export function retentionLineOf( preview ) {
 		default:
 			return '';
 	}
+}
+
+/**
+ * What a screen reader hears once the preview has answered (a polite live region): the capacity lines, then each
+ * payer's figures with their words, then the retention and refund sentences, as the dialog shows them, each ended
+ * with a full stop when it has none. '' while there is nothing. The warnings are not here: the notice speaks its
+ * own text (WordPress's `speak`), and the notices are outside the description, so they are heard once.
+ * [UNAPPROVED N722]
+ */
+export function spokenOf( act, { seats, rows, retention } ) {
+	const end = ( text ) => ( /[.!?]$/.test( text ) ? text : `${ text }.` );
+	const parts = seats.map( ( seat ) => seat.line );
+	if ( rows ) {
+		parts.push( STATUS_ACTS.moneyHeading );
+		rows.forEach( ( row ) =>
+			parts.push(
+				`${ MONEY.payer }: ${ row.payer }, ${ MONEY.paid } ${ row.paid }, ${ MONEY.balanceNow } ${ row.now }, ${ MONEY.balanceAfter } ${ row.after }`
+			)
+		);
+		if ( retention ) {
+			parts.push( retention );
+		}
+		if ( showsRefundLine( act ) ) {
+			parts.push( STATUS_ACTS.noAutomaticRefund );
+		}
+	}
+	return parts.length ? parts.map( end ).join( ' ' ) : '';
 }
 
 /** Whether the money section's „no automatic refund” line shows: for the leaving acts only. [UNAPPROVED N718] */

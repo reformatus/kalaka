@@ -223,7 +223,7 @@ export const REQUESTS = {
 
 /**
  * The four status acts of the detail panel (S39 on #247). Every visible string is unapproved until the owner ticks
- * its box (T700..T722), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and „Add meg az indoklást.”
+ * its box (T700..T723), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and „Add meg az indoklást.”
  * (CONFIRM) and the generic failure (MONEY.saveFail). The „full” warning and the server's refusals are shown with
  * the server's own text (the preview's `warnings`, the error's `message`) and are not here.
  */
@@ -257,8 +257,10 @@ export const STATUS_ACTS = {
 	// Under the money table of withdraw and remove (S23): nothing is paid back by the act. [UNAPPROVED T719]
 	noAutomaticRefund: 'Nincs automatikus visszafizetés.',
 	// The capacity line of a seat with a limit (S24): the pool's label, then `taken_after` and `limit` from the
-	// preview's `seats`. [UNAPPROVED T720]
-	capacity: '%1$s – foglalt helyek a művelet után: %2$d / %3$d',
+	// preview's `seats`. „mentés után” as the money table's „Tartozás mentés után”. [UNAPPROVED T720]
+	capacity: '%1$s – foglalt helyek mentés után: %2$d / %3$d',
+	// The same line for a seat the server gives no label, so no dash starts it. [UNAPPROVED T723]
+	capacityUnlabelled: 'Foglalt helyek mentés után: %1$d / %2$d',
 	// The retention sentence under the money table of withdraw and remove, by the preview's `retention`
 	// (the earlier prototype's S18 and S17). [UNAPPROVED T721] [UNAPPROVED T722]
 	retentionAll: 'Az esemény a befizetett összeget teljes egészében megtartja.',

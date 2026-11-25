@@ -6,7 +6,7 @@
  * server's, chosen by its own values; no warning text is written here. The text, the capacity lines, the warnings
  * and the money section are the dialog's description (`aria-describedby`), so a screen reader hears what the act
  * does. [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
- * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719]
+ * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719] [UNAPPROVED N721] [UNAPPROVED N722]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
@@ -18,6 +18,7 @@ import {
 	reasonProblem,
 	reasonRequired,
 	retentionLineOf,
+	spokenOf,
 	seatLinesOf,
 	showsRefundLine,
 	staleAfter,
@@ -26,7 +27,9 @@ import {
 } from './statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
 
-const DESCRIPTION_ID = 'kg-act-description';
+// The description is the text and capacity (first id) and the money section (second id); the warnings are not in it,
+// the live region says them once. [UNAPPROVED N719] [UNAPPROVED N722]
+const DESCRIPTION_IDS = 'kg-act-description kg-act-money';
 
 /**
  * @param {Object}   props
@@ -77,6 +80,9 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 	const rows = moneyRowsOf( preview, money );
 	const seats = seatLinesOf( preview );
 	const retention = retentionLineOf( preview );
+	// What the preview says, for a screen reader, once it has answered: focus is in the dialog before that, so
+	// the description alone was read too early. [UNAPPROVED N722]
+	const spoken = spokenOf( act, { seats, rows, retention } );
 
 	const submit = async ( event ) => {
 		event.preventDefault();
@@ -112,10 +118,13 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 			size="medium"
 			className="kg-dialog"
 			shouldCloseOnClickOutside={ false }
-			aria={ { describedby: DESCRIPTION_ID } }
+			aria={ { describedby: DESCRIPTION_IDS } }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
-				<div id={ DESCRIPTION_ID }>
+				<div className="screen-reader-text" role="status" aria-live="polite" aria-atomic="true">
+					{ spoken }
+				</div>
+				<div id="kg-act-description">
 					<p>{ bodyOf( act ) }</p>
 					{ seats.length > 0 && (
 						<ul className="kg-act-capacity">
@@ -126,34 +135,36 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 							) ) }
 						</ul>
 					) }
-					{ warnings.map( ( text ) => (
-						<Notice key={ text } status="warning" isDismissible={ false }>
-							{ text }
-						</Notice>
-					) ) }
+				</div>
+				{ warnings.map( ( text ) => (
+					<Notice key={ text } status="warning" isDismissible={ false }>
+						{ text }
+					</Notice>
+				) ) }
+				<div id="kg-act-money">
 					{ rows && (
 						<div className="kg-act-money">
 							<h3>{ STATUS_ACTS.moneyHeading }</h3>
-							<table>
+							<table className="kg-money">
 								<thead>
 									<tr>
 										<th scope="col">{ MONEY.payer }</th>
-										<th scope="col" className="kg-num">{ MONEY.paid }</th>
-										<th scope="col" className="kg-num">{ MONEY.balanceNow }</th>
-										<th scope="col" className="kg-num">{ MONEY.balanceAfter }</th>
+										<th scope="col" className="is-num">{ MONEY.paid }</th>
+										<th scope="col" className="is-num">{ MONEY.balanceNow }</th>
+										<th scope="col" className="is-num">{ MONEY.balanceAfter }</th>
 									</tr>
 								</thead>
 								<tbody>
 									{ rows.map( ( row ) => (
 										<tr key={ row.key }>
-											<td data-label={ MONEY.payer }>{ row.payer }</td>
-											<td className="kg-num" data-label={ MONEY.paid }>
+											<th scope="row" data-label={ MONEY.payer }>{ row.payer }</th>
+											<td className="is-num" data-label={ MONEY.paid }>
 												{ row.paid }
 											</td>
-											<td className="kg-num" data-label={ MONEY.balanceNow }>
+											<td className="is-num" data-label={ MONEY.balanceNow }>
 												{ row.now }
 											</td>
-											<td className="kg-num" data-label={ MONEY.balanceAfter }>
+											<td className="is-num" data-label={ MONEY.balanceAfter }>
 												{ row.after }
 											</td>
 										</tr>
