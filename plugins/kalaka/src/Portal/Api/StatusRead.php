@@ -15,8 +15,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerSummary;
-use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Payments\Api\PaymentProviders;
+use Kalaka\Payments\Api\PaymentsInFlight;
+use Kalaka\Portal\CardRefusalState;
 use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Confirmations;
@@ -48,6 +49,7 @@ final class StatusRead
         private readonly LineLabels $labels = new LineLabels(),
         ?MoneyRead $money = null,
         private readonly PaymentProviders $providers = new PaymentProviders(),
+        private readonly PaymentsInFlight $inFlight = new PaymentsInFlight(),
     ) {
         $this->money = $money ?? new MoneyRead(labels: $labels);
     }
@@ -57,11 +59,17 @@ final class StatusRead
     {
         $key = ActiveRegistration::current();
 
-        return $key === null ? null : $this->of($key);
+        // The one-shot refusal of a card payment form post is shown by the page that follows it, never by a mail.
+        return $key === null ? null : $this->read($key, CardRefusalState::take());
     }
 
     /** The registration's view, or null when it or its event does not exist. */
     public function of(RegistrationKey $key): ?RegistrationStatusView
+    {
+        return $this->read($key, null);
+    }
+
+    private function read(RegistrationKey $key, ?string $cardRefusal): ?RegistrationStatusView
     {
         $registration = $this->registrations->find($key);
         $event = $registration === null ? null : $this->events->find($key->eventId);
@@ -104,6 +112,7 @@ final class StatusRead
             $this->money->of($key, $event->currency),
             $can,
             $card,
+            $cardRefusal,
         );
     }
 
@@ -139,12 +148,15 @@ final class StatusRead
             return [new RegistrationCan(), null];
         }
         try {
-            $payable = PayableNow::amount($availability, $payment->awaitsAnswer, $payment->participant) !== null;
+            $payable = PayableNow::amount(
+                $availability,
+                $payment->awaitsAnswer,
+                $payment->participant->balance
+            ) !== null;
             $latest = $provider->latestOf($key);
-            // Not while a request is in flight or paid and not yet recorded: only a failed one is paid again,
-            // and a pending one is the order the next start reuses.
-            $idle = $latest === null || $latest->state === OpenPaymentState::Failed
-                || $latest->state === OpenPaymentState::Pending;
+            // Not while a request is in flight (the start's own rule): a failed one is paid again, and a pending
+            // one is the order the next start reuses.
+            $idle = !$this->inFlight->is($provider, $key, $latest);
             $can = new RegistrationCan($payable && $idle && $provider->accepts($event->currency));
 
             return [$can, $latest === null ? null : new CardPaymentView($latest->state, $latest->since)];

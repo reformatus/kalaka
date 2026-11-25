@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
 use Kalaka\Payments\Api\CardPayments;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Portal\CardRefusalCookie;
 
 /**
  * `POST kalaka-portal/v1/card-payment` `{return_url?}`: starts a card payment for the active registration
@@ -17,7 +18,8 @@ use Kalaka\Portal\Api\ActiveRegistration;
  * script) gets a 303 to the pay URL. Open to anyone who holds the active registration, which only a secret link
  * gives and the signed cookie remembers; with none it is `CardPaymentUnavailable` (the portal's text for it).
  * A refused plain form post is answered with a 303 back to the same-site return address (else the referrer, else
- * the home page) with `kalaka_card=<code>` added. Every answer carries `Cache-Control: no-store`. It runs
+ * the home page), clean of any query, with the refusal's code in a flash cookie (`CardRefusalCookie`) that the next
+ * page request reads once. Every answer carries `Cache-Control: no-store`. It runs
  * behind the error boundary (foundation.md, "Errors"): a JSON error is a `KalakaException`'s code and its generic
  * text, and anything else is `kalaka_system_failure`.
  */
@@ -26,9 +28,6 @@ final class CardPaymentRoute
     public const NAMESPACE = 'kalaka-portal/v1';
 
     public const ROUTE = '/card-payment';
-
-    /** The query argument a refused plain form post comes back with: the refusal's code, never a text. */
-    public const REFUSAL_ARG = 'kalaka_card';
 
     public function __construct(private readonly CardPayments $payments = new CardPayments())
     {
@@ -60,6 +59,7 @@ final class CardPaymentRoute
         $json = ($request->get_content_type()['value'] ?? '') === 'application/json';
         $returnUrl = $request->get_param('return_url');
         $returnUrl = is_string($returnUrl) && $returnUrl !== '' ? $returnUrl : null;
+        $refusal = null;
         try {
             LoadState::current()->requireOpen();
             $key = ActiveRegistration::current();
@@ -72,17 +72,18 @@ final class CardPaymentRoute
                 throw $e;
             }
 
-            // A plain form post has no script to show an error: back to the page with the error's code only.
-            $url = add_query_arg(
-                self::REFUSAL_ARG,
-                Boundary::shown('REST card payment', $e)->errorCode(),
-                $this->backTo($returnUrl)
-            );
+            // A plain form post has no script to show an error: back to the clean page, the error's code in a
+            // flash cookie (never in the address, so a reload does not show the refusal again).
+            $refusal = Boundary::shown('REST card payment', $e)->errorCode();
+            $url = $this->backTo($returnUrl);
         }
 
         $response = $json ? new \WP_REST_Response(['url' => $url], 200) : new \WP_REST_Response(null, 303);
         if (!$json) {
             $response->header('Location', $url);
+            if ($refusal !== null) {
+                $response->header('Set-Cookie', CardRefusalCookie::header($refusal));
+            }
         }
         $response->header('Cache-Control', FormCaching::CACHE_CONTROL);
 

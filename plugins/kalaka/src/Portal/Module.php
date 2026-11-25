@@ -29,6 +29,7 @@ final class Module extends AbstractModule
         add_action('wp_logout', [$this, 'logout']);
         add_action('init', [$this, 'register']);
         add_action('rest_api_init', [new Rest\CardPaymentRoute(), 'register']);
+        add_action('template_redirect', [$this, 'readCardRefusal'], 0);
         add_action('template_redirect', [$this, 'preventCaching']);
         add_shortcode(ParticipantBlocks::STATUS_SHORTCODE, [ParticipantBlocks::class, 'status']);
         add_shortcode(ParticipantBlocks::TRANSFER_SHORTCODE, [ParticipantBlocks::class, 'transfer']);
@@ -83,6 +84,15 @@ final class Module extends AbstractModule
                 register_block_type($name, ['render_callback' => static fn (): string => $render()]);
             }
         }
+    }
+
+    /** @internal the `template_redirect` callback (priority 0, before any output): the card refusal's flash cookie */
+    public function readCardRefusal(): void
+    {
+        Boundary::background('card payment refusal', static function (): void {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only a known refusal code is ever kept
+            CardRefusalCookie::read(wp_unslash($_COOKIE), new HttpResponse());
+        });
     }
 
     /**

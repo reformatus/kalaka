@@ -9,13 +9,16 @@ use Kalaka\Forms\Api\ThemeAdaptation;
 use Kalaka\Forms\Api\ThemeStyle;
 use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Ledger\Api\LineKind;
 use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Portal\Api\StatusRead;
+use Kalaka\Portal\CardRefusalCookie;
 use Kalaka\Portal\StatusMarkup;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Forms\TestThemeAdapter;
 use Kalaka\Tests\Integration\Portal\PortalTestCase;
+use Kalaka\Tests\Integration\Portal\RecordingResponse;
 
 /** The status read's card state, the route that starts a card payment and the bare link to it. */
 final class CardPaymentPortalTest extends PortalTestCase
@@ -99,7 +102,7 @@ final class CardPaymentPortalTest extends PortalTestCase
     {
         $this->owing();
         $since = new \DateTimeImmutable('2026-11-30 07:00:00', new \DateTimeZone('UTC'));
-        $this->provider->latest = new OpenPayment(OpenPaymentState::Failed, $since);
+        $this->provider->latest = new OpenPayment(OpenPaymentState::Failed, $since, '501');
 
         $card = (new StatusRead())->forActive()?->cardPayment;
 
@@ -226,7 +229,7 @@ final class CardPaymentPortalTest extends PortalTestCase
         bool $can,
     ): void {
         $this->owing();
-        $this->provider->latest = new OpenPayment($state, new \DateTimeImmutable('2026-11-30 07:00:00'));
+        $this->provider->latest = new OpenPayment($state, new \DateTimeImmutable('2026-11-30 07:00:00'), '501');
 
         $view = (new StatusRead())->forActive();
 
@@ -266,10 +269,13 @@ final class CardPaymentPortalTest extends PortalTestCase
         );
 
         self::assertSame(303, $response->get_status());
-        self::assertSame(
-            home_url('/vissza/') . '?kalaka_card=kalaka_card_payment_unavailable',
-            $response->get_headers()['Location']
+        self::assertSame(home_url('/vissza/'), $response->get_headers()['Location']);
+        $cookie = (string) $response->get_headers()['Set-Cookie'];
+        self::assertStringStartsWith(
+            'kalaka_card_refusal=kalaka_card_payment_unavailable; Max-Age=120; Path=/',
+            $cookie
         );
+        self::assertStringContainsString('HttpOnly; SameSite=Lax', $cookie);
         self::assertStringContainsString('no-store', (string) $response->get_headers()['Cache-Control']);
     }
 
@@ -282,10 +288,7 @@ final class CardPaymentPortalTest extends PortalTestCase
             'return_url=' . rawurlencode('https://elsewhere.example.net/')
         );
 
-        self::assertSame(
-            home_url('/') . '?kalaka_card=kalaka_card_payment_unavailable',
-            $response->get_headers()['Location']
-        );
+        self::assertSame(home_url('/'), $response->get_headers()['Location']);
     }
 
     public function testAnErrorThatIsNoKalakaRefusalReachesNobodyAsItsMessage(): void
@@ -300,9 +303,68 @@ final class CardPaymentPortalTest extends PortalTestCase
         self::assertSame('kalaka_system_failure', $json->get_data()['code'] ?? null);
         self::assertStringNotContainsString('Raw English', (string) wp_json_encode($json->get_data()));
         self::assertSame(303, $form->get_status());
-        self::assertSame(
-            home_url('/') . '?kalaka_card=kalaka_system_failure',
-            $form->get_headers()['Location']
+        self::assertSame(home_url('/'), $form->get_headers()['Location']);
+        self::assertStringStartsWith(
+            'kalaka_card_refusal=kalaka_system_failure;',
+            (string) $form->get_headers()['Set-Cookie']
         );
+    }
+
+    public function testTheRefusalIsShownOnceByTheNextStatusReadAndTheCookieIsExpired(): void
+    {
+        $this->owing();
+        $response = new RecordingResponse();
+
+        CardRefusalCookie::read(['kalaka_card_refusal' => 'kalaka_card_payment_in_flight'], $response);
+
+        self::assertSame(['', -1], $response->cookies['kalaka_card_refusal']);
+        self::assertSame('kalaka_card_payment_in_flight', (new StatusRead())->forActive()?->cardRefusal);
+        self::assertNull((new StatusRead())->forActive()?->cardRefusal);
+    }
+
+    public function testACookieValueThatIsNoKnownCodeIsDroppedAndExpired(): void
+    {
+        $this->owing();
+        $response = new RecordingResponse();
+
+        CardRefusalCookie::read(['kalaka_card_refusal' => '<b>hack</b>'], $response);
+
+        self::assertSame(['', -1], $response->cookies['kalaka_card_refusal']);
+        self::assertNull((new StatusRead())->forActive()?->cardRefusal);
+    }
+
+    public function testNoCookieMeansNoRefusalAndSetsNothing(): void
+    {
+        $this->owing();
+        $response = new RecordingResponse();
+
+        CardRefusalCookie::read([], $response);
+
+        self::assertSame([], $response->cookies);
+        self::assertNull((new StatusRead())->forActive()?->cardRefusal);
+    }
+
+    public function testAPaidRequestCountsAsInFlightUntilItsLinesAreRecorded(): void
+    {
+        $key = $this->owing();
+        $this->provider->latest = new OpenPayment(
+            OpenPaymentState::Paid,
+            new \DateTimeImmutable('2026-11-30 09:30:00'),
+            '501'
+        );
+        self::assertFalse((new StatusRead())->forActive()?->can->payCard);
+
+        $this->record($this->line(
+            $key,
+            LineKind::Payment,
+            '-5000',
+            'online:fake:order:501:71',
+            paidAt: '2026-11-30 09:30:00',
+            sourceType: 'fake_order',
+            source: '501'
+        ));
+        $this->charge($key, '3000');
+
+        self::assertTrue((new StatusRead())->forActive()?->can->payCard);
     }
 }

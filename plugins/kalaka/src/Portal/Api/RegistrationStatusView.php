@@ -18,7 +18,8 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * status (a withdrawn or removed registration keeps its rows and movements); it is read beside `payment`,
  * whose `lines` go when the blocks switch to it. `can` is what the registrant may do now, and `cardPayment` the
  * latest card payment request (null for none, for a registration that is not registered, and while no provider
- * is contributed).
+ * is contributed). `cardRefusal` is the code a refused no-script card payment post came back with, read once
+ * by the active registration's page (null otherwise).
  */
 final readonly class RegistrationStatusView
 {
@@ -34,6 +35,7 @@ final readonly class RegistrationStatusView
         public ParticipantMoney $money,
         public RegistrationCan $can = new RegistrationCan(),
         public ?CardPaymentView $cardPayment = null,
+        public ?string $cardRefusal = null,
     ) {
     }
 
