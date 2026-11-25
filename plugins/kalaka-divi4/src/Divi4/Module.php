@@ -94,6 +94,17 @@ final class Module extends AbstractModule
     public const BUTTON_ICON = '.et_pb_contact_form[data-wp-interactive="kalaka/form"] .et_pb_button:after,'
         . '.kalaka-pay-card .et_pb_button:after{content:"\35";content:"\35" / ""}';
 
+    /**
+     * Kaláka's own buttons (the form's and the card payment's), beyond the icon:
+     * - the same dark focus ring as the ranking's controls, because Divi's `:focus { outline: 0 }` (unlayered)
+     *   removes the keyboard focus that core's layered rule draws;
+     * - the card payment button without the left margin Divi gives a contact form's submit
+     *   (`.et_pb_contact_submit`): on the status page it is not in a form, and lines up with the text above it.
+     */
+    public const BUTTONS = '.et_pb_contact_form[data-wp-interactive="kalaka/form"] .et_pb_button:focus-visible,'
+        . '.kalaka-pay-card .et_pb_button:focus-visible{outline:2px solid #333;outline-offset:2px}'
+        . '.kalaka-pay-card .et_pb_button{margin-left:0}';
+
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(private readonly DiviThemeAdapter $adapter = new DiviThemeAdapter())
     {
@@ -174,7 +185,7 @@ final class Module extends AbstractModule
             ? self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::RANKING : '')
             . (self::holdsMoneyTable($post->post_content) ? self::MONEY_TABLE : '');
         if ($css !== '') {
-            $css .= self::BUTTON_ICON;
+            $css .= self::BUTTON_ICON . self::BUTTONS;
         }
         if ($css === '') {
             return;

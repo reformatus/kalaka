@@ -240,6 +240,9 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         );
         self::assertStringContainsString(Module::BUTTON_ICON, $this->divi4Css('[kalaka_form id="8"]'));
         self::assertStringContainsString(Module::BUTTON_ICON, $this->divi4Css('<!-- wp:kalaka/status /-->'));
+        // The focus ring Divi's `:focus { outline: 0 }` takes away, and the card button without the submit's margin.
+        self::assertStringContainsString(Module::BUTTONS, $this->divi4Css('[kalaka_form id="8"]'));
+        self::assertStringContainsString(Module::BUTTONS, $this->divi4Css('<!-- wp:kalaka/status /-->'));
     }
 
     public function testUnderDivi4AStatusPageGetsTheMoneyTablesRowLineAndNothingOfTheForm(): void
@@ -247,7 +250,7 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         $css = $this->divi4Css('<!-- wp:kalaka/status /-->');
 
         // Divi's `#eee` line of a `td`, on the row header too; not on the rows core separates itself.
-        self::assertSame(Module::MONEY_TABLE . Module::BUTTON_ICON, $css);
+        self::assertSame(Module::MONEY_TABLE . Module::BUTTON_ICON . Module::BUTTONS, $css);
         self::assertStringContainsString(
             '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}',
             $css

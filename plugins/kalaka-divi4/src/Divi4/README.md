@@ -6,4 +6,4 @@ The Divi 4 theme adapter: one extension plugin, `kalaka-divi4` (module `divi4`).
 
 On a page whose content holds the `kalaka/status` block or the `[kalaka_status]` shortcode, the same stylesheet gives the registrant's money table Divi's row line on the row headers (`Module::MONEY_TABLE`): Divi draws a `#eee` line on the top of a `td` and none on a `th`. The table's structure and its emphasis (`em`, `strong`) are core's.
 
-The icon of Divi's button (an arrow glyph shown on hover) gets an empty text alternative on Kaláka's own buttons (`Module::BUTTON_ICON`), so a screen reader does not read it; the look is Divi's.
+The icon of Divi's button (an arrow glyph shown on hover) gets an empty text alternative on Kaláka's own buttons (`Module::BUTTON_ICON`), so a screen reader does not read it; the look is Divi's. Those buttons also get the ranking's dark focus ring back, which Divi's `:focus { outline: 0 }` removes, and the card payment button drops the left margin of a contact form's submit (`Module::BUTTONS`).
