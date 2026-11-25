@@ -48,14 +48,14 @@ is asked until decided. Sponsor and church support is the other extension
   staff or system field, another type or another declarer's field refuses
   with `RuleViolation`), never by a check of this module.
 - An aid request, `aid`, exists while the registration holds a value in
-  `aid_can_pay` and the event has aid. Staff answer 0 when nothing is
+  `aid_can_pay` or in `aid_award` and the event has aid. Staff answer 0 when nothing is
   needed. The request source reads only the field values and the settings.
 - The award is written only by `AidRequests::writeAnswer()`, called by the
   answer act: the amount for a yes (above zero, and no more than the number
   field holds), 0 for a no, under the declarer `aid`. The award field
   is the truth of the answer (`isAnswered()`): empty is awaiting, `0` is
-  refused, an amount is granted. An emptied `aid_can_pay` ends the request but
-  leaves the award's line. Nothing else
+  refused, an amount is granted. An emptied `aid_can_pay` leaves the request
+  and the award's line, so staff can still change the award. Nothing else
   sets `aid_award`; nobody sets a derived fact directly.
 - The fee component `aid` composes at the aid stage, returns a value and
   writes nothing. The award is one participant-side item line `aid:award`,

@@ -72,6 +72,42 @@ final class AidTest extends AidTestCase
         self::assertSame([], $source->requestsOf($without, ['aid_can_pay' => '1000']));
     }
 
+    public function testAnEmptiedCanPayAfterAnAwardLeavesTheRequestTheLineAndTheAnswerAct(): void
+    {
+        $this->applyAid();
+        $key = $this->registerAsking('00A0', '10000');
+        $this->answer($key, 'yes', '12000');
+
+        $this->writeValue($key, 'aid_can_pay', '');
+
+        $values = (new Registrations())->values($key);
+        $source = new AidRequests();
+        $requests = $source->requestsOf($key, $values);
+        self::assertSame(['aid'], array_map(static fn ($request): string => $request->id, $requests));
+        self::assertTrue($source->isAnswered($requests[0], $values));
+        self::assertFalse($this->awaits($key));
+        self::assertSame(['aid:award participant -12000'], $this->aidLines($key));
+
+        $this->answer($key, 'yes', '5000');
+        self::assertSame('5000', (new Registrations())->values($key)['aid_award']);
+        self::assertSame(['aid:award participant -5000'], $this->aidLines($key));
+        self::assertSame('25000', $this->balance($key));
+    }
+
+    public function testNeitherFieldHoldingAValueIsNoRequestAndACanPayAloneAwaits(): void
+    {
+        $this->applyAid();
+        $key = $this->register('00A0');
+        $source = new AidRequests();
+
+        self::assertSame([], $source->requestsOf($key, []));
+        self::assertSame([], $source->requestsOf($key, ['aid_can_pay' => '', 'aid_award' => '']));
+        self::assertCount(1, $source->requestsOf($key, ['aid_can_pay' => '', 'aid_award' => '0']));
+        $asked = $source->requestsOf($key, ['aid_can_pay' => '1000', 'aid_award' => '']);
+        self::assertCount(1, $asked);
+        self::assertFalse($source->isAnswered($asked[0], ['aid_can_pay' => '1000', 'aid_award' => '']));
+    }
+
     public function testAYesWithAnAmountWritesTheAwardAndOneLineForTheParticipant(): void
     {
         $this->applyAid();

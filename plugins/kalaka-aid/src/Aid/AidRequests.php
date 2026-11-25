@@ -17,13 +17,13 @@ use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * The aid extension's request source (money.md, "Core money scope"): an aid request, `aid`, exists while the
- * registration holds a value in `aid_can_pay`, the amount the participant states they can pay, and the event has
- * aid (Q-B0-7: any stored value; staff answer 0 when nothing is needed). The one answer act writes the answer
- * through `writeAnswer()`, which writes the award `aid_award`: 0 for a "no", the amount for a "yes". This source
- * is the award's only writer. It refuses nothing about the amount's size but what the field cannot hold: the
- * component caps it (Q-B0-8). It reads only the registration's field values and the event's settings. Once
- * `aid_can_pay` is emptied the request is gone, so the award stays on its line with no way to answer until
- * additional-form edits arrive.
+ * registration holds a value in `aid_can_pay`, the amount the participant states they can pay, or in `aid_award`, and
+ * the event has aid (Q-B0-7: any stored value; staff answer 0 when nothing is needed). The one answer act writes the
+ * answer through `writeAnswer()`, which writes the award `aid_award`: 0 for a "no", the amount for a "yes". This
+ * source is the award's only writer. It refuses nothing about the amount's size but what the field cannot hold: the
+ * component caps it (Q-B0-8). It reads only the registration's field values and the event's settings. If staff empty
+ * `aid_can_pay` after an answer, the request stays because the award holds a value, so staff can still change the
+ * award through the answer act (N124); with both fields empty there is no request.
  * [UNAPPROVED N115, N116, N117, N124, N363]
  */
 final class AidRequests implements RequestSource
@@ -44,7 +44,7 @@ final class AidRequests implements RequestSource
 
     public function requestsOf(RegistrationKey $registration, array $values): array
     {
-        if (($values[self::CAN_PAY_FIELD] ?? '') === '') {
+        if (($values[self::CAN_PAY_FIELD] ?? '') === '' && ($values[AidComponent::AWARD_FIELD] ?? '') === '') {
             return [];
         }
         $settings = $this->settings->find($registration->eventId);
