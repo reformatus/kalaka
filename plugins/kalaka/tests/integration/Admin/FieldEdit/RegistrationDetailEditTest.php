@@ -128,7 +128,7 @@ final class RegistrationDetailEditTest extends StaffEditTestCase
         self::assertTrue($this->fields(new UserActor($user), '00A5')['name']['writable']);
     }
 
-    public function testAWriteColumnOfAViewThatDoesNotHoldTheRegistrationIsNotWritable(): void
+    public function testTheReadOfARegistrationOutsideTheViewsFilterIsNotFound(): void
     {
         $user = $this->plainUser();
         $view = $this->viewWithColumns(
@@ -139,15 +139,8 @@ final class RegistrationDetailEditTest extends StaffEditTestCase
         $this->addRegistration($this->event, '00A6');
         $this->addValue($this->event, '00A6', 'name', 'Más Valaki');
 
-        // The registration's name is outside the view's filter: the read refuses it, or lists nothing writable.
-        try {
-            $fields = $this->fields(new UserActor($user), '00A6');
-        } catch (\Kalaka\Foundation\Api\Error\KalakaException) {
-            $fields = [];
-        }
-        foreach ($fields as $key => $field) {
-            self::assertFalse($field['writable'], $key);
-        }
+        $this->expectException(\Kalaka\Foundation\Api\Error\NotFound::class);
+        $this->fields(new UserActor($user), '00A6');
     }
 
     public function testANumberAndAScaleOpenOnTheirStoredValueWithTheirOwnSettings(): void
