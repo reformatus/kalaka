@@ -9,6 +9,7 @@ use Kalaka\Mail\Api\ActionMailSettings;
 use Kalaka\Mail\Body\AccountLinkRule;
 use Kalaka\Mail\Cli\ActionMailCommand;
 use Kalaka\Mail\Body\MailPosts;
+use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\ObjectCache;
 
 /** `wp kalaka action-mail list|show|on|off|body|layout` (G4): the state it prints, the changes and the refusals. */
@@ -172,7 +173,7 @@ final class ActionMailCommandTest extends MailBodyTestCase
         kses_init_filters();
         try {
             // The filters are on, as for a user without `unfiltered_html`: WordPress would change this content.
-            self::assertNotSame($content, apply_filters('content_save_pre', wp_slash($content)));
+            self::assertNotSame($content, wp_unslash(apply_filters('content_save_pre', wp_slash($content))));
 
             $options = ['file' => $this->file($content), 'title' => 'Tárgy'];
             $this->command()->body([(string) $event, 'confirmed'], $options);
@@ -187,22 +188,65 @@ final class ActionMailCommandTest extends MailBodyTestCase
     {
         global $wpdb;
         $event = $this->create();
+        $inserted = null;
         // The event is gone between the save and the assignment: the use case refuses with "not found".
-        $vanish = static function () use ($wpdb, $event): void {
+        $vanish = static function (int $postId, \WP_Post $post) use ($wpdb, $event, &$inserted): void {
+            if ($post->post_type !== MailPosts::POST_TYPE) {
+                return;
+            }
+            $inserted = $postId;
             $wpdb->delete($wpdb->prefix . 'kalaka_events', ['id' => $event]);
             ObjectCache::clear();
         };
-        add_action('wp_insert_post', $vanish);
+        add_action('wp_insert_post', $vanish, 10, 2);
         try {
-            $this->fails(fn () => $this->command()->body(
+            $text = $this->fails(fn () => $this->command()->body(
                 [(string) $event, 'confirmed'],
                 ['file' => $this->file($this->paragraph('Szia')), 'title' => 'Tárgy']
             ));
         } finally {
-            remove_action('wp_insert_post', $vanish);
+            remove_action('wp_insert_post', $vanish, 10);
         }
 
+        self::assertNotNull($inserted);
+        self::assertSame((new NotFound())->getMessage(), $text);
+        self::assertNull(get_post($inserted));
         self::assertSame(0, $this->postCount());
+    }
+
+    public function testAnExistingBodyAFilterWouldChangeIsRefusedBeforeAnythingIsWritten(): void
+    {
+        $event = $this->create();
+        $this->command()->body(
+            [(string) $event, 'confirmed'],
+            ['file' => $this->file($this->paragraph('Egy')), 'title' => 'Tárgy']
+        );
+        $id = $this->state($event, 'confirmed')['body_id'];
+        \WP_CLI::reset();
+        $change = static fn (string $content): string => str_replace('Kettő', 'Más', $content);
+        add_filter('content_save_pre', $change);
+        try {
+            $this->fails(fn () => $this->command()->body(
+                [(string) $event, 'confirmed'],
+                ['file' => $this->file($this->paragraph('Kettő')), 'title' => 'Új']
+            ));
+        } finally {
+            remove_filter('content_save_pre', $change);
+        }
+
+        self::assertSame($this->paragraph('Egy'), get_post($id)->post_content);
+        self::assertSame('Tárgy', get_post($id)->post_title);
+    }
+
+    public function testABodyWithAnInvalidNumericEntityIsStoredAsWritten(): void
+    {
+        $event = $this->create();
+        $content = $this->paragraph('Ár: 5 &#128;');
+
+        $this->command()->body([(string) $event, 'confirmed'], ['file' => $this->file($content), 'title' => 'Tárgy']);
+
+        self::assertSame($content, get_post($this->state($event, 'confirmed')['body_id'])->post_content);
+        self::assertNotFalse(has_filter('content_save_pre', 'convert_invalid_entities'));
     }
 
     public function testASecondBodyUpdatesTheSamePostAndKeepsTheSubject(): void

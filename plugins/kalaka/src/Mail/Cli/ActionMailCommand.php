@@ -211,7 +211,7 @@ final class ActionMailCommand
                     $input = ['event_id' => $eventId, 'mail' => $action->value, 'body_id' => $id];
                     $this->settings->update($input, $actor);
                 } catch (\Throwable $e) {
-                    wp_delete_post($id, true);
+                    self::discard($id);
                     throw $e;
                 }
             }
@@ -266,10 +266,19 @@ final class ActionMailCommand
     {
         // Full access is trusted like `unfiltered_html`: the content is stored as written (as the layout is).
         $kses = has_filter('content_save_pre', 'wp_filter_post_kses') !== false;
+        $entities = has_filter('content_save_pre', 'convert_invalid_entities');
         if ($kses) {
             kses_remove_filters();
         }
+        if ($entities !== false) {
+            remove_filter('content_save_pre', 'convert_invalid_entities', $entities);
+        }
         try {
+            // The save filters, run before anything is written: a body they would change is refused untouched.
+            $filtered = wp_unslash(apply_filters('content_save_pre', wp_slash($content)));
+            if ($filtered !== $content) {
+                throw new CommandFailure('The body is not saved as given: WordPress would change it.');
+            }
             $post = [
                 'post_type' => MailPosts::POST_TYPE,
                 'post_status' => 'publish',
@@ -282,6 +291,9 @@ final class ActionMailCommand
                 ? wp_insert_post($post + ['meta_input' => [MailPosts::META_EVENT_ID => $eventId]], true)
                 : wp_update_post($post + ['ID' => $existing], true);
         } finally {
+            if ($entities !== false) {
+                add_filter('content_save_pre', 'convert_invalid_entities', $entities);
+            }
             if ($kses) {
                 kses_init_filters();
             }
@@ -294,12 +306,20 @@ final class ActionMailCommand
         $stored = $saved instanceof \WP_Post && $saved->post_status === 'publish' && $saved->post_content === $content;
         if (!$stored) {
             if ($existing === null) {
-                wp_delete_post($result, true);
+                self::discard($result);
             }
             throw new CommandFailure('The body is not saved as given: WordPress refused it.');
         }
 
         return $result;
+    }
+
+    /** Removes a post this command made; says so when WordPress does not, and the caller's error stands. */
+    private static function discard(int $id): void
+    {
+        if (!(wp_delete_post($id, true) instanceof \WP_Post)) {
+            \WP_CLI::warning('Post ' . $id . ' could not be removed; remove it by hand.');
+        }
     }
 
     /**
