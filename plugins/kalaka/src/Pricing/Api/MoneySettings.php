@@ -56,11 +56,11 @@ final class MoneySettings
     }
 
     /** The event's retention rule: what it keeps when a registration leaves; the default when none is saved. */
-    public function retention(int $eventId): Retention
+    public function retention(int $eventId): RetentionRule
     {
         $record = $this->retention->find($eventId);
 
-        return $record === null ? Retention::default() : $record->rule;
+        return RetentionRules::get($record === null ? Retention::DEFAULT : $record->rule);
     }
 
     /**
@@ -97,7 +97,7 @@ final class MoneySettings
                     $facts,
                     $event->currency,
                     $this->composer->compose($facts, $event->currency, $now, $next),
-                    $proposed->retention
+                    $proposed->retention === null ? null : RetentionRules::get($proposed->retention)
                 );
                 $before = self::byPayer($before, $event->currency);
                 $after = self::byPayer($after, $event->currency);
@@ -147,7 +147,7 @@ final class MoneySettings
         if ($proposed->retention !== null) {
             $this->runner()->run(
                 new SetRetention(),
-                ['event_id' => $eventId, 'retention' => $proposed->retention->value],
+                ['event_id' => $eventId, 'retention' => $proposed->retention],
                 $actor
             );
         }
@@ -200,12 +200,16 @@ final class MoneySettings
     }
 
     /**
-     * @throws InvalidInput on a negative proposed price, a component ID that repeats another's, or one no
+     * @throws InvalidInput on a negative proposed price, a retention rule no one registered, a component ID
+     *                       that repeats another's, or one no
      *                       registered component has, so the preview never shows what the apply refuses
      */
     private function check(ProposedMoneySettings $proposed): void
     {
         if ($proposed->fixedPrice !== null && $proposed->fixedPrice->isNegative()) {
+            throw new InvalidInput();
+        }
+        if ($proposed->retention !== null && RetentionRules::find($proposed->retention) === null) {
             throw new InvalidInput();
         }
 

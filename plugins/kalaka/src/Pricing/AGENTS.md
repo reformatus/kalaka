@@ -72,10 +72,13 @@ retention and the materializer
   re-evaluating anything.
 - Only a `registered` registration composes; every other status owes zero
   except retention: a `withdrawn` or `removed` registration owes, per payer, what the event's rule
-  (`Api\Retention`, in `kalaka_retention`, set by `kalaka/set-retention` or a money settings apply; default
-  "everything paid", the alternative "nothing") keeps of that payer's own net payments, read from payment facts
-  only (`Api\FeeComposition`), as one `retention` line per payer (label `Retention::LABEL`). It never owes more
-  than was paid and refunds nothing. A restore makes the line read zero and the materializer reverses it; a
+  (a `RetentionRule`, a typed inside point like `ConfirmationThreshold`: core's `everything_paid` (the default) and
+  `nothing`, others contributed through `Contributions::retentionRule()` and listed by `Api\RetentionRules`; its ID
+  is stored in `kalaka_retention`, set by `kalaka/set-retention` or a money settings apply, an unknown ID refused)
+  keeps of that payer's own net payments, asked once for every payer together with the net payments (read from
+  payment facts only) and the composition (`Api\FeeComposition`), as one `retention` line per payer (label
+  `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
+  refunds nothing. A restore makes the line read zero and the materializer reverses it; a
   change of the rule re-evaluates the registrations that left too. [UNAPPROVED N526, T505]
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.

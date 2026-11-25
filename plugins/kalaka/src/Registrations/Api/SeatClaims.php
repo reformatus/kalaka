@@ -10,7 +10,8 @@ use Kalaka\Forms\Api\ValidatedAnswers;
 /**
  * The one read of seat claims: every `SeatClaimSource` asked for the claims of the answers, in contribution order.
  * A registration submit asks it of the answers it validated, an additional form's submit of the values the
- * registration would hold after it (D7). Plain reads, outside any transaction.
+ * registration would hold after it (D7), a staff correction and a status act of the stored values. One claim
+ * per pool: when two sources claim the same pool, the first stays. Plain reads, outside any transaction.
  */
 final class SeatClaims
 {
@@ -20,11 +21,13 @@ final class SeatClaims
      */
     public static function of(array $sources, Event $event, ValidatedAnswers $answers): array
     {
-        $claims = [];
+        $byPool = [];
         foreach ($sources as $source) {
-            array_push($claims, ...$source->claims($event, $answers));
+            foreach ($source->claims($event, $answers) as $claim) {
+                $byPool[$claim->pool->key()] ??= $claim;
+            }
         }
 
-        return $claims;
+        return array_values($byPool);
     }
 }

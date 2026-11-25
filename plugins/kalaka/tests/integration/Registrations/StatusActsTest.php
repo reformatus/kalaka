@@ -15,6 +15,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
@@ -25,7 +26,6 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
-use Kalaka\Pricing\Api\Retention;
 use Kalaka\Pricing\SetRetention;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\FeeComponent;
@@ -34,9 +34,14 @@ use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
 use Kalaka\Pricing\Api\Materializer;
+use Kalaka\Pricing\Api\RetentionInput;
+use Kalaka\Pricing\Api\RetentionRule;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Registrations\Api\FieldCorrections;
 use Kalaka\Registrations\Api\RegisteredBy;
+use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\SeatClaims;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SeatClaim;
 use Kalaka\Registrations\Api\SeatClaimSource;
@@ -841,21 +846,33 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame(['warning', 'confirm', 'warning', 'success', 'line'], array_slice($kinds, 0, 5));
         self::assertStringContainsString('registered', (string) \WP_CLI::$calls[3][1]);
 
+        // The use case refuses, not the command: a waitlisted registration cannot be restored.
+        $this->addRegistration($this->event, '00B0', 'waitlisted');
         \WP_CLI::reset();
         try {
-            // The use case refuses, not the command: a registration that is registered cannot be restored.
-            $command->restore([(string) $this->event, '00A0'], []);
-        } catch (\Throwable) {
-            self::assertSame('error', \WP_CLI::$calls[array_key_last(\WP_CLI::$calls)][0]);
+            $command->restore([(string) $this->event, '00B0'], []);
+            self::fail('A waitlisted registration cannot be restored.');
+        } catch (\RuntimeException $stopped) {
+            // WP-CLI's error() does not return; the double throws in its place.
+            self::assertSame('WP_CLI::error', $stopped->getMessage());
         }
-        self::assertSame('registered', $this->row('00A0')['status']);
+        $last = \WP_CLI::$calls[array_key_last(\WP_CLI::$calls)];
+        self::assertSame('error', $last[0]);
+        self::assertStringContainsString((new StatusActRefused())->getMessage(), (string) $last[1][0]);
+        self::assertSame('waitlisted', $this->row('00B0')['status']);
+
+        // A removal needs its reason: the use case refuses it as invalid input and nothing changes.
         \WP_CLI::reset();
         try {
             $command->remove([(string) $this->event, '00A2'], []);
             self::fail('A removal needs its reason.');
-        } catch (\Throwable) {
-            self::assertSame('registered', $this->row('00A2')['status']);
+        } catch (\RuntimeException $stopped) {
+            self::assertSame('WP_CLI::error', $stopped->getMessage());
         }
+        $last = \WP_CLI::$calls[array_key_last(\WP_CLI::$calls)];
+        self::assertSame('error', $last[0]);
+        self::assertStringContainsString((new InvalidInput())->getMessage(), (string) $last[1][0]);
+        self::assertSame('registered', $this->row('00A2')['status']);
         $command->withdraw([(string) $this->event, '00A2'], ['reason' => 'Telefon']);
         self::assertSame('withdrawn', $this->row('00A2')['status']);
     }
@@ -980,6 +997,120 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame(['2000.00000000', '2000.00000000', '0.00000000'], $this->money('00A0', 'congregation'));
     }
 
+    private function payCongregation(string $code, string $amount): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_ledger_lines', [
+            'event_id' => $this->event,
+            'code' => $code,
+            'kind' => 'payment',
+            'payer' => 'congregation',
+            'amount' => '-' . $amount,
+            'currency' => 'HUF',
+            'source_type' => 'system',
+            'source_event_id' => null,
+            'source_key' => 'system',
+            'idempotency_key' => 'gyulekezet-' . $code,
+            'value_date' => '2026-11-29 23:00:00.000000',
+            'paid_at' => null,
+            'recorded_at' => '2026-11-30 08:00:00.000000',
+            'method' => 'bank_transfer',
+            'correction' => 0,
+        ]);
+    }
+
+    public function testTheSubmitTheStaffCorrectionAndTheStatusActsGatherTheSameClaimsOnePerPool(): void
+    {
+        // Two sources claim the same pool: the first stays, whoever asks.
+        $sources = [
+            new TierClaimSource(['a' => $this->poolA, 'b' => $this->poolB]),
+            new TierClaimSource(['a' => $this->poolA]),
+        ];
+        $event = (new \Kalaka\Events\Api\Events())->find($this->event);
+        self::assertNotNull($event);
+        $values = ['tier' => 'a'];
+        $answers = new ValidatedAnswers($values, $values);
+        $keys = static fn (array $claims): array => array_map(
+            static fn (SeatClaim $claim): string => $claim->pool->key(),
+            array_values($claims)
+        );
+
+        $direct = SeatClaims::of($sources, $event, $answers);
+        $submit = (new \ReflectionMethod(RegistrationSubmit::class, 'seatClaims'))
+            ->invoke(new RegistrationSubmit(null, seatClaimSources: $sources), $event, $answers);
+        $correction = (new \ReflectionMethod(FieldCorrections::class, 'claimsOf'))
+            ->invoke(new FieldCorrections($sources), $event, $values);
+        $this->addValue($this->event, '00A5', 'tier', 'a');
+        $preview = $this->exec(
+            $this->useCase(StatusAct::Admit, $sources),
+            ['event_id' => $this->event, 'code' => '00A5', 'preview' => true]
+        );
+        self::assertIsArray($preview);
+        $act = array_values(array_filter(
+            array_map(static fn (array $seat): string => (string) $seat['pool'], $preview['seats']),
+            static fn (string $pool): bool => str_starts_with($pool, 'tier.')
+        ));
+
+        self::assertSame(['tier.a'], $keys($direct));
+        self::assertSame($keys($direct), $keys($submit));
+        self::assertSame($keys($direct), $keys($correction));
+        self::assertSame($keys($direct), $act);
+    }
+
+    public function testAContributedRetentionRuleIsAskedOnceWithEveryPayerAndItsKeptAmountIsHeldToWhatWasPaid(): void
+    {
+        $calls = [];
+        $rule = new class ($calls) implements RetentionRule {
+            /** @param list<array<string>> $calls */
+            public function __construct(private array &$calls)
+            {
+            }
+
+            public function id(): string
+            {
+                return 'greedy';
+            }
+
+            public function kept(RetentionInput $input): array
+            {
+                $this->calls[] = array_keys($input->paid);
+
+                // Asks for ten times what each payer paid: held to what was paid.
+                return array_map(static fn ($paid) => $paid->times(10), $input->paid);
+            }
+        };
+        $contributions = new Contributions();
+        $contributions->retentionRule($rule);
+        $before = Contributions::current();
+        Contributions::record($contributions);
+        try {
+            $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'greedy']);
+            $this->pay('00A0', '3000');
+            $this->payCongregation('00A0', '2000');
+
+            $this->act(StatusAct::Withdraw, '00A0');
+
+            self::assertSame([['congregation', 'participant']], array_values(array_unique($calls, SORT_REGULAR)));
+            self::assertSame(['3000.00000000', '3000.00000000', '0.00000000'], $this->money());
+            self::assertSame(['2000.00000000', '2000.00000000', '0.00000000'], $this->money('00A0', 'congregation'));
+            self::assertSame('greedy', (new MoneySettings($this->runner))->retention($this->event)->id());
+        } finally {
+            Contributions::record($before);
+        }
+    }
+
+    public function testAnUnknownRetentionRuleIsRefusedByTheUseCaseAndThePreview(): void
+    {
+        try {
+            $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'bogus']);
+            self::fail('An unknown rule is refused.');
+        } catch (InvalidInput) {
+            self::assertSame('everything_paid', (new MoneySettings($this->runner))->retention($this->event)->id());
+        }
+        $this->expectException(InvalidInput::class);
+        (new MoneySettings($this->runner))->preview($this->event, new ProposedMoneySettings(retention: 'bogus'));
+    }
+
     public function testARestoreTakesTheRetentionLineBackAndTheFullFeeReturns(): void
     {
         $this->pay('00A0', '3000');
@@ -999,14 +1130,14 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame(['8000.00000000', '8000.00000000', '0.00000000'], $this->money());
 
         $settings = new MoneySettings($this->runner);
-        self::assertSame(Retention::EverythingPaid, $settings->retention($this->event));
+        self::assertSame('everything_paid', $settings->retention($this->event)->id());
         $report = $settings->apply(
             $this->event,
-            new ProposedMoneySettings(retention: Retention::Nothing),
+            new ProposedMoneySettings(retention: 'nothing'),
             new CliActor(null)
         );
 
-        self::assertSame(Retention::Nothing, $settings->retention($this->event));
+        self::assertSame('nothing', $settings->retention($this->event)->id());
         self::assertSame(['0.00000000', '8000.00000000', '-8000.00000000'], $this->money());
         self::assertNotSame([], $report->items);
     }
@@ -1016,7 +1147,7 @@ final class StatusActsTest extends StaffEditTestCase
         $this->pay('00A0');
         $this->act(StatusAct::Withdraw, '00A0');
         $settings = new MoneySettings($this->runner);
-        $proposed = new ProposedMoneySettings(retention: Retention::Nothing);
+        $proposed = new ProposedMoneySettings(retention: 'nothing');
 
         $rows = $settings->preview($this->event, $proposed);
 

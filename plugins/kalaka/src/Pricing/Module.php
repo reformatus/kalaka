@@ -63,8 +63,9 @@ CREATE TABLE {prefix}kalaka_unconfirmations (
 SQL;
 
     /**
-     * money.md, "Withdrawal, removal and substitution": the event's retention rule (`nothing` or `everything_paid`);
-     * no row means the default, everything paid. Read as it is now. [UNAPPROVED N526]
+     * money.md, "Withdrawal, removal and substitution": the event's retention rule, the ID of a
+     * `RetentionRule` (`nothing` or `everything_paid` in core); no row means the default, everything paid.
+     * Read as it is now. [UNAPPROVED N526]
      */
     private const RETENTION = <<<'SQL'
 CREATE TABLE {prefix}kalaka_retention (

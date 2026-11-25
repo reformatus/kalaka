@@ -6,7 +6,6 @@ namespace Kalaka\Pricing;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
-use Kalaka\Pricing\Api\Retention;
 
 /**
  * The only writer of `kalaka_retention`.
@@ -37,14 +36,14 @@ final class RetentionRepository extends EntityRepository
 
     protected function toRow(object $entity): array
     {
-        return ['event_id' => $entity->eventId, 'version' => $entity->version, 'rule' => $entity->rule->value];
+        return ['event_id' => $entity->eventId, 'version' => $entity->version, 'rule' => $entity->rule];
     }
 
     protected function fromRow(array $row): object
     {
         return new RetentionRecord(
             (int) $row['event_id'],
-            Retention::from((string) $row['rule']),
+            (string) $row['rule'],
             (int) $row['version'],
         );
     }

@@ -85,8 +85,9 @@ final class FeeComposition
 
     /**
      * Retention (money.md, "Withdrawal, removal and substitution"): a registration that withdrew or was removed owes,
-     * per payer, what the event's rule keeps of that payer's own net payments, read from payment facts only, so
-     * nobody owes more than they paid and nothing is refunded. A registration that is `registered` or `waitlisted`
+     * per payer, what the event's rule keeps, asked once for every payer together (`RetentionRule::kept()`, with the
+     * payers' net payments read from payment facts only and the composition) and held to that payer's own payments,
+     * so nobody owes more than they paid and nothing is refunded. A registration that is `registered` or `waitlisted`
      * has none; its line, if one was recorded, reads zero and the materializer reverses it.
      *
      * The one place retention is applied: the materializer's composition and the money settings preview both come
@@ -99,23 +100,34 @@ final class FeeComposition
         RegistrationFacts $facts,
         Currency $currency,
         array $composed,
-        ?Retention $rule = null,
+        ?RetentionRule $rule = null,
     ): array {
         if ($facts->status !== RegistrationStatus::Withdrawn && $facts->status !== RegistrationStatus::Removed) {
             return $composed;
         }
         if ($rule === null) {
             $record = $this->retention->find($facts->registration->eventId);
-            $rule = $record === null ? Retention::default() : $record->rule;
+            $rule = RetentionRules::get($record === null ? Retention::DEFAULT : $record->rule);
         }
         $paid = [];
         foreach ($this->ledger->paymentFactsOf($facts->registration) as $fact) {
             $paid[$fact->payer] = ($paid[$fact->payer] ?? Money::zero($currency))->minus($fact->amount);
         }
-        $kept = [];
         ksort($paid, SORT_STRING);
+        try {
+            $asked = $rule->kept(new RetentionInput($facts, $currency, $paid, $composed));
+        } catch (\Throwable $failure) {
+            $error = new FeeComponentFailed(Retention::LINE, $failure);
+            throw $error;
+        }
+        $kept = [];
         foreach ($paid as $payer => $amount) {
-            $keep = $rule->kept($amount);
+            $keep = $asked[$payer] ?? null;
+            if (!$keep instanceof Money) {
+                continue;
+            }
+            // Never more than the payer's own payments.
+            $keep = $keep->isGreaterThan($amount) ? $amount : $keep;
             if ($keep->isPositive()) {
                 $kept[(string) $payer] = $keep;
             }

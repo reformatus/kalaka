@@ -199,7 +199,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
             $result['money'] = $hidden ? null : $this->previewMoney($act, $key, $context);
             $result['money_hidden'] = $hidden;
             if (!$act->enters()) {
-                $result['retention'] = $hidden ? null : $this->settings->retention($key->eventId)->value;
+                $result['retention'] = $hidden ? null : $this->settings->retention($key->eventId)->id();
             }
         }
 
@@ -411,13 +411,9 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
     private function claims(Event $event, RegistrationKey $key): array
     {
         $values = $this->reads->values($key);
-        $byPool = [];
         $sources = $this->seatClaimSources ?? Contributions::current()->seatClaimSources();
-        foreach (SeatClaims::of($sources, $event, new ValidatedAnswers($values, $values)) as $claim) {
-            $byPool[$claim->pool->key()] ??= $claim;
-        }
 
-        return array_values($byPool);
+        return SeatClaims::of($sources, $event, new ValidatedAnswers($values, $values));
     }
 
     /** @return array{pool: string, label: string, field: ?string, outcome: string} */

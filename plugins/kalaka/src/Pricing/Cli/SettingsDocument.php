@@ -15,7 +15,7 @@ use Kalaka\Pricing\Api\ConfigurableFeeComponent;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
-use Kalaka\Pricing\Api\Retention;
+use Kalaka\Pricing\Api\RetentionRules;
 use Kalaka\Pricing\CoreFeeComponents;
 
 /**
@@ -53,7 +53,7 @@ final class SettingsDocument
 
         return [
             'fixed_price' => $price === null ? null : PlainAmount::of($price),
-            'retention' => $this->settings->retention($eventId)->value,
+            'retention' => $this->settings->retention($eventId)->id(),
             'components' => $components,
         ];
     }
@@ -94,9 +94,12 @@ final class SettingsDocument
 
         $retention = null;
         if (($document['retention'] ?? null) !== null) {
-            $retention = is_string($document['retention']) ? Retention::tryFrom($document['retention']) : null;
+            $given = $document['retention'];
+            $retention = is_string($given) && RetentionRules::find($given) !== null ? $given : null;
             if ($retention === null) {
-                $error = new CommandFailure('"retention" must be "everything_paid" or "nothing".');
+                $error = new CommandFailure(
+                    '"retention" must be one of: ' . implode(', ', RetentionRules::ids()) . '.'
+                );
                 throw $error;
             }
         }

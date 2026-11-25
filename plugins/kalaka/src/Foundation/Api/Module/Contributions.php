@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
 use Kalaka\Registrations\Api\RequestSource;
 use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Pricing\Api\FeeComponent;
+use Kalaka\Pricing\Api\RetentionRule;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -48,6 +49,9 @@ final class Contributions
     private array $seatClaimSources = [];
     /** @var array<string, FeeComponent> */
     private array $feeComponents = [];
+
+    /** @var array<string, RetentionRule> */
+    private array $retentionRules = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -231,6 +235,35 @@ final class Contributions
             throw new \InvalidArgumentException('Fee component already contributed: ' . $id . '.');
         }
         $this->feeComponents[$id] = $component;
+    }
+
+    /**
+     * A retention rule is an inside point (modules-and-extensions.md, "The extension surface"). Its ID is
+     * `[a-z][a-z0-9_]*`, at most 20 characters, and unique: a malformed or repeated ID fails the contributing
+     * module (Pricing refuses one that is core's own).
+     */
+    public function retentionRule(RetentionRule $rule): void
+    {
+        $id = $rule->id();
+        if (preg_match('/\A[a-z][a-z0-9_]{0,19}\z/', $id) !== 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a rule ID, never output
+            throw new \InvalidArgumentException('Invalid retention rule ID ' . $id . '.');
+        }
+        if (isset($this->retentionRules[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a rule ID, never output
+            throw new \InvalidArgumentException('Retention rule already contributed: ' . $id . '.');
+        }
+        $this->retentionRules[$id] = $rule;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<RetentionRule>
+     */
+    public function retentionRules(): array
+    {
+        return array_values($this->retentionRules);
     }
 
     /**

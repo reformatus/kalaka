@@ -17,7 +17,7 @@ final readonly class ProposedMoneySettings
     public function __construct(
         public ?Money $fixedPrice = null,
         public array $components = [],
-        public ?Retention $retention = null,
+        public ?string $retention = null,
     ) {
     }
 

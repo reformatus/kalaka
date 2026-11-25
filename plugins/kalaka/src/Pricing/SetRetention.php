@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace Kalaka\Pricing;
 
 use Kalaka\Events\Api\Events;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Pricing\Api\Retention;
+use Kalaka\Pricing\Api\RetentionRules;
 
 /**
- * Saves an event's retention rule: a step of a money settings apply (`Api\MoneySettings::apply()`), which then
+ * Saves an event's retention rule (the ID of a registered `RetentionRule`; an unknown one is refused): a step of a
+ * money settings apply (`Api\MoneySettings::apply()`), which then
  * re-evaluates every registration of the event, those that left included. Saving alone touches no registration.
  * Site-level: full access only, like the fixed price. [UNAPPROVED N526]
  */
@@ -34,10 +36,8 @@ final class SetRetention implements AdminUseCase
             'type' => 'object',
             'properties' => [
                 'event_id' => ['type' => 'integer', 'minimum' => 1],
-                'retention' => ['type' => 'string', 'enum' => array_map(
-                    static fn (Retention $rule): string => $rule->value,
-                    Retention::cases()
-                )],
+                // Any registered rule's ID; an unknown one is refused in `execute()`.
+                'retention' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 20],
             ],
             'required' => ['event_id', 'retention'],
             'additionalProperties' => false,
@@ -65,7 +65,10 @@ final class SetRetention implements AdminUseCase
         if ($this->events->find($eventId) === null) {
             throw new NotFound();
         }
-        $rule = Retention::from((string) $input['retention']);
+        $rule = (string) $input['retention'];
+        if (RetentionRules::find($rule) === null) {
+            throw new InvalidInput();
+        }
         $record = $this->rules->findForUpdate($eventId, $context);
         if ($record === null) {
             $this->rules->upsert(new RetentionRecord($eventId, $rule), $context);
