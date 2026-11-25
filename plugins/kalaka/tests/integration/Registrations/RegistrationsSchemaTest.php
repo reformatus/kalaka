@@ -10,7 +10,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3; schema 5 adds their `kind`). */
+/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3, with their `kind`). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -78,7 +78,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     {
         global $wpdb;
 
-        self::assertSame(5, (int) get_option('kalaka_schema_registrations'));
+        self::assertSame(4, (int) get_option('kalaka_schema_registrations'));
         self::assertSame([], LoadState::current()->failures);
 
         foreach (self::COLUMNS as $table => $expected) {
@@ -169,7 +169,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
     }
 
     /**
-     * A site at schema 3 (S15's `owner_user_id`, no drafts) upgrades to 5: `kalaka_drafts` is created and the
+     * A site at schema 3 (S15's `owner_user_id`, no drafts) upgrades to 4: `kalaka_drafts` is created and the
      * registrations keep their owner. Real tables under a prefix of their own, dropped after; creating them
      * commits the harness transaction, so the version option is put back by hand.
      */
@@ -200,7 +200,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
 
             $upgrader->upgrade($module);
 
-            self::assertSame(5, (int) get_option($option));
+            self::assertSame(4, (int) get_option($option));
             self::assertSame(
                 $wpdb->prefix . 'kalaka_drafts',
                 $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->prefix . 'kalaka_drafts'))
@@ -214,7 +214,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
                 $wpdb->query($wpdb->prepare('DROP TABLE IF EXISTS %i', $wpdb->prefix . $table));
             }
             $wpdb->prefix = $prefix;
-            update_option($option, 5);
+            update_option($option, 4);
         }
     }
 

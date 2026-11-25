@@ -118,7 +118,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(5, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::DRAFTS]);
+        return new Schema(4, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::DRAFTS]);
     }
 
     /**
