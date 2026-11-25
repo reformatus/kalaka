@@ -67,7 +67,9 @@ final class CardPayments
         $inFlight = false;
         if ($provider !== null) {
             try {
-                $inFlight = $provider->latestOf($key)?->state === OpenPaymentState::Processing;
+                $latest = $provider->latestOf($key)?->state;
+                // Authorised, or paid and not yet recorded: money on its way, so no new request.
+                $inFlight = $latest === OpenPaymentState::Processing || $latest === OpenPaymentState::Paid;
             } catch (\Throwable $e) {
                 $error = new SystemFailure(null, $e);
                 throw $error;

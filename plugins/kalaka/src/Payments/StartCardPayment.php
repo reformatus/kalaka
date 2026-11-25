@@ -30,7 +30,8 @@ final class StartCardPayment implements PortalUseCase
     /**
      * @param ?string $email the registration's contact email, read before the run
      * @param string $fallbackUrl where the registrant returns to when the input names no same-site address
-     * @param bool $inFlight whether the provider reported the registration's latest request in flight, read
+     * @param bool $inFlight whether the provider reported the registration's latest request in flight
+     *                       (processing, or paid and not yet recorded), read
      *                       before the run
      */
     public function __construct(

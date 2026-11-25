@@ -135,14 +135,18 @@ final class CardPaymentStartTest extends PortalTestCase
 
         $this->provider->latest = new OpenPayment(OpenPaymentState::Pending, $since);
         (new CardPayments())->start($key);
-        $this->provider->latest = new OpenPayment(OpenPaymentState::Processing, $since);
-        try {
-            (new CardPayments())->start($key);
-            self::fail('Nothing refused it.');
-        } catch (CardPaymentInFlight $e) {
-            self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());
+        foreach ([OpenPaymentState::Processing, OpenPaymentState::Paid] as $state) {
+            $this->provider->latest = new OpenPayment($state, $since);
+            try {
+                (new CardPayments())->start($key);
+                self::fail('Nothing refused it.');
+            } catch (CardPaymentInFlight $e) {
+                self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());
+            }
         }
-        self::assertCount(1, $this->provider->requests);
+        $this->provider->latest = new OpenPayment(OpenPaymentState::Failed, $since);
+        (new CardPayments())->start($key);
+        self::assertCount(2, $this->provider->requests);
     }
 
     private function otherConnection(): \mysqli
