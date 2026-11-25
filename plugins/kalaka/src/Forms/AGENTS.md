@@ -245,8 +245,9 @@ values and conditions, prefill and form links
   editor lists the same keys (`Module::editorData()`). A branch that reads any
   of them is withheld. The submit's walk reads them as they are then.
 - A key a revision's conditions read that the host says is gone (`FormHost::goneTypes()`: a custom point staff
-  removed, or a pool that no source lists now) is declared as its type when a definition is read, for every
-  revision: a point with value none, a pool's `seats_left.*` with value 0 (never none, so "empty or more than 0"
+  removed, a pool that no source lists now, or `choice_open.<field key>`, the dropped set choice window of an older
+  revision, owner ruling 2026-11-25) is declared as its type when a definition is read, for every
+  revision: a point or a `choice_open.*` key with value none, a pool's `seats_left.*` with value 0 (never none, so "empty or more than 0"
   never reads a removed pool as open), so a removed one never closes a form or an older revision; the save check
   refuses a point (`unknown_point`) and a pool's key, as any key the form may not read. Only conditions
   count: text that mentions a key declares nothing (`Engine\Condition\ConditionKeys`).

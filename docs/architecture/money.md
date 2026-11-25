@@ -201,8 +201,9 @@ decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
   choice of a limited option, decided under a `FOR UPDATE` lock on the tier or
   offer row. Waitlisted registrations hold no place (and have no additional
   forms).
-- **Released** on withdrawal or removal, or when a `registered` registration's
-  additional form changes the choice away from a limited option.
+- **Released** on withdrawal or removal. A tier or an offer, once written, is
+  locked like every money-relevant value, so an additional form never changes
+  it away.
 - **Reassigned only by a staff act:** staff give a freed place to a requester
   from a list in registration order, so nobody's money changes
   automatically.

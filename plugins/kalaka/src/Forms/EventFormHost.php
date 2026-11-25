@@ -319,7 +319,8 @@ final class EventFormHost implements FormHost
         } else {
             $status = $this->registrations()->find($target)?->status;
             if ($status === RegistrationStatus::Waitlisted) {
-                $refusals[] = AccessRefusal::RegistrationWaitlisted;
+                // First, so the page shows the status whatever else holds the form shut (its open period, a password).
+                array_unshift($refusals, AccessRefusal::RegistrationWaitlisted);
             } elseif (!self::maySubmit($status)) {
                 $refusals[] = AccessRefusal::RegistrationMayNotSubmit;
             }

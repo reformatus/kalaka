@@ -19,6 +19,7 @@ use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Engine\Rest\FormRoutes;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\EventFormHost;
 use Kalaka\Mail\Body\MailValues;
@@ -1096,7 +1097,10 @@ final class FormValuesTest extends FormsTestCase
                     $host = $this->host();
                     $types = $host->factTypes($this->formOf($additional));
                     // The throwing listing is skipped, the malformed entry dropped, the others served.
-                    self::assertArrayNotHasKey('seats_left.bad key.x', $types);
+                    self::assertArrayNotHasKey('seats_left.Bad Key.x', $types);
+                    foreach (array_keys($types) as $key) {
+                        self::assertTrue(ValueContext::isKey($key), $key);
+                    }
                     self::assertSame(ValueType::Number, $types['seats_left.price_tier.kulfoldi']);
                     self::assertSame('3', $this->facts($additional)->get('seats_left.price_tier.kulfoldi')->data);
                     // A pool whose read throws is declared and reads 0, like a removed one.

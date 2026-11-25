@@ -168,8 +168,8 @@ the waitlist and reference codes
   submit is refused by a full pool. `retake()` is the one entry for admission, restore and staff placing: per
   pool it reports `held`, `over` or `none` and never refuses, and never touches the event's "full" latch. A staff
   act reads the "full" warning from that outcome; the preview before the act reads `wouldOverfill()`. Only a
-  `registered` submit takes its claims' seats: a waitlisted one holds none and is not refused.
-  [UNAPPROVED R40, R100]
+  `registered` submit takes its claims' seats: a waitlisted one holds none, and is refused when any claim is a pool
+  with a limit (see below). [UNAPPROVED R40, R100, R188]
 - A seat is freed by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
   refuses an offer) or by the registration's own additional form no longer claiming its pool (`SeatMove`). A freed
   seat stays free until some registration's own act takes it: nothing here moves a seat from one registration to

@@ -283,6 +283,21 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertStringNotContainsString('<form', $withdrawn);
     }
 
+    public function testAWaitlistedRegistrationsLinkShowsItsStatusEvenOutsideTheFormsOpenPeriod(): void
+    {
+        $form = $this->additional(
+            $this->field('text', 'note'),
+            ['kalaka_closes' => wp_json_encode(['kind' => 'fixed', 'at' => '2000-01-01 00:00:00'])]
+        );
+        $this->setStatus('waitlisted');
+        \Kalaka\Foundation\ObjectCache::clear();
+
+        $html = $this->render($form);
+
+        self::assertStringContainsString('class="kalaka-status"', $html);
+        self::assertStringNotContainsString('Ez az űrlap jelenleg nem érhető el.', $html);
+    }
+
     public function testWithoutAnActiveRegistrationOfTheEventNothingIsWritten(): void
     {
         $form = $this->additional($this->field('text', 'note'));
