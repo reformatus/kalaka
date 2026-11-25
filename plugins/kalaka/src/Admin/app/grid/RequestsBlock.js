@@ -1,8 +1,9 @@
 /**
  * The requests block of the detail panel (slice B, "answer a request"), under the manual confirmation block: each
  * request of the registration with its state, and with `can.answer_request` the button that opens the answer
- * dialog. It shows only what the read carries: nothing without `can.answer_request` and nothing while the last
- * read failed. [UNAPPROVED N7]
+ * dialog. It shows only what the read carries: the block shows when the read carries requests (only holders of the
+ * answer ability get them), only the button needs `can.answer_request`, an inactive request shows its label
+ * without a state word, and nothing shows while the last read failed. [UNAPPROVED N7] [UNAPPROVED N858]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
