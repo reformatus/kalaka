@@ -42,8 +42,10 @@ retention and the materializer
   stored ID that no rule is registered under now (its extension is off) fails the composition of the registrations
   that left as `FeeComponentFailed('retention')`, so the evaluation flags them as it does any failing component, and
   never as a bare exception; `money-settings show` prints the stored ID with a warning, and applying a registered
-  rule fixes it. A rule's input carries the fee the registration would owe if it were still `registered` (empty when
-  a component cannot say, so leaving never fails on it). The ID `retention` is core's line key:
+  rule fixes it. A rule's input carries the fee the registration would owe if it were still `registered` (`fee`, null when
+  a component cannot say, so leaving does not fail on it; a rule that needs the fee decides what null means). A rule
+  that throws, or returns anything but Money in the event's currency per payer, fails as
+  `FeeComponentFailed('retention')`. The ID `retention` is core's line key:
   `Contributions::feeComponent()` refuses it. [UNAPPROVED N671]
 - A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings as plain data and reads
   them back (`settingsToArray()`, `settingsFromArray()` into `ProposedComponentSettings`), so
@@ -83,10 +85,12 @@ retention and the materializer
   `nothing`, others contributed through `Contributions::retentionRule()` and listed by `Api\RetentionRules`; its ID
   is stored in `kalaka_retention`, set by `kalaka/set-retention` or a money settings apply, an unknown ID refused)
   keeps of that payer's own net payments, asked once for every payer together with the net payments (read from
-  payment facts only) and the composition (`Api\FeeComposition`), as one `retention` line per payer (label
+  payment facts only) and the fee the registration would owe if it were still registered, from its own
+  registration time (`fee`; null when a fee component cannot say, which does not fail the leaving), by
+  `Api\FeeComposition`, as one `retention` line per payer (label
   `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
   refunds nothing. A restore makes the line read zero and the materializer reverses it; a
-  change of the rule re-evaluates the registrations that left too. [UNAPPROVED N526, T505]
+  change of the rule re-evaluates the registrations that left too. [UNAPPROVED N526, T505, N674]
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;

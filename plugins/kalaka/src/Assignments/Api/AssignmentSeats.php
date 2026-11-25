@@ -31,7 +31,7 @@ final class AssignmentSeats
 
     /**
      * The pools of the registration's confirmed assignments, in set order: the seats `retake()` takes. A plain read,
-     * for the status acts' report and preview.
+     * for the status acts' report and preview. [UNAPPROVED N528]
      *
      * @return list<SeatPool>
      */

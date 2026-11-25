@@ -34,7 +34,7 @@ enum StatusAct: string
         return 'kalaka/' . $this->value . '-registration';
     }
 
-    /** The status the act leaves the registration in. */
+    /** The status the act leaves the registration in: a restore always returns to `registered`. [UNAPPROVED N519] */
     public function target(): RegistrationStatus
     {
         return match ($this) {

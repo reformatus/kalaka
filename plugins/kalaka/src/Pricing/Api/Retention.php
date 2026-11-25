@@ -17,6 +17,9 @@ final class Retention
     /** The label of the retention line. [UNAPPROVED T505] */
     public const LABEL = 'Megtartott összeg';
 
+    /** The IDs of core's own rules; a contributed rule may not take them. */
+    public const CORE_RULES = ['everything_paid', 'nothing'];
+
     /** The rule an event has until it chooses one. */
     public const DEFAULT = 'everything_paid';
 }

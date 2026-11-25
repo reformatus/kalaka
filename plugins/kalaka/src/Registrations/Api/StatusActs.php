@@ -9,7 +9,7 @@ use Kalaka\Registrations\RegistrationRepository;
 /**
  * Which status acts a registration's status allows now: a plain read, for the detail read's `can` flags and the
  * preview. It answers the acts only, never the row, so a reader outside Registrations' data layer may ask it. The
- * grant is a separate question (the runner's coarse check). [UNAPPROVED N516]
+ * grant is a separate question (the runner's coarse check). [UNAPPROVED N513]
  */
 final class StatusActs
 {

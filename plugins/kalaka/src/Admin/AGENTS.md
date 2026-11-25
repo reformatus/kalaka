@@ -95,6 +95,7 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The detail read's `can.admit`, `can.withdraw`, `can.remove` and `can.restore` are the act's grant action carried and
   the status allowing it now (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
   command line runs them through `Registrations\Api\StatusActions` without a rule of its own: it previews first, prints
-  the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does. Whether an actor may see
+  the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does; a remove without `--reason` is refused before the question, from the
+  preview's `requires_reason`. Whether an actor may see
   money is one read, `Access::mayViewMoney()`, used by the detail read and the status-act preview. [UNAPPROVED N670]
 - Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.

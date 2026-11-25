@@ -242,8 +242,10 @@ final class RegistrationCommand
     }
 
     /**
-     * The wrapper of a status act: arguments in, the use case through the runner, the outcome printed. Every rule
-     * (which status allows the act, the reason) is the use case's; a refusal prints its own message.
+     * The wrapper of a status act: arguments in, the act as a preview first, the question, then the use case through
+     * the runner, the outcome printed. Every rule (which status allows the act, the reason) is the use case's; a
+     * refusal prints its own message. The one thing the command does itself is to refuse a remove without
+     * `--reason` before it asks, from the preview's `requires_reason` (the use case's rule). [UNAPPROVED N522, N673]
      *
      * @param list<string> $args
      * @param array<string, mixed> $assoc

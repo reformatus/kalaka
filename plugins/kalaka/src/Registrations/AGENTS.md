@@ -47,7 +47,7 @@ the waitlist and reference codes
   and queue the "registered" mail on admission only. Withdraw and remove free
   seats only through `Seats::releaseAll()`. The preview (`preview: true`)
   reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it needs no
-  `reason` and ignores one. It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
+  `reason` and ignores one, and says `requires_reason` (the act's own rule: a real remove needs one). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
   count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
   pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
   effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`) with

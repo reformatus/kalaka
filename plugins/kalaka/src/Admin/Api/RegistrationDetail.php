@@ -143,7 +143,7 @@ final class RegistrationDetail
             $read['requests'] = $this->requestsPart($key, $event->currency->value);
         }
         // The status acts: the grant carries the act's action and the status allows it now (the server decides, the
-        // panel keeps no status logic). [UNAPPROVED N516]
+        // panel keeps no status logic). [UNAPPROVED N513]
         $statusActs = $this->statusActs->allowedFor($key);
         $read['can'] = [
             'answer_request' => $answer,

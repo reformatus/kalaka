@@ -97,6 +97,25 @@ final readonly class RegistrationFacts implements Facts
      * The same facts as they would be once the registration has the status (`registered` from now on, for a restore
      * or an admission): what a staff dialog previews. Computed values are not carried over; they are never stored.
      */
+    /**
+     * The same facts as if the registration were still `registered`, from its own registration time: only the
+     * status changes, so a date rule reads the stored `registered_at` (`$fallback` when there is none).
+     */
+    public function asIfRegistered(\DateTimeImmutable $fallback): self
+    {
+        return new self(
+            $this->registration,
+            RegistrationStatus::Registered,
+            $this->registeredAt ?? $fallback,
+            $this->event,
+            $this->now,
+            $this->fieldValues,
+            [],
+            $this->fieldKinds,
+            $this->awaitsAnswer,
+        );
+    }
+
     public function becoming(RegistrationStatus $status, \DateTimeImmutable $now): self
     {
         return new self(

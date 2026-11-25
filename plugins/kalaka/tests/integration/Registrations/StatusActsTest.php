@@ -1161,8 +1161,9 @@ final class StatusActsTest extends StaffEditTestCase
             $this->act(StatusAct::Withdraw, '00A0');
 
             self::assertNotSame([], $seen);
-            $composed = $seen[array_key_last($seen)]->composed;
+            $composed = $seen[array_key_last($seen)]->fee;
             $amounts = [];
+            self::assertIsArray($composed);
             foreach ($composed as $payers) {
                 foreach ($payers as $payer => $amount) {
                     $amounts[$payer] = $amount->amount();
@@ -1172,6 +1173,131 @@ final class StatusActsTest extends StaffEditTestCase
             self::assertSame(['participant' => '8000.00000000'], $amounts);
         } finally {
             Contributions::record($before);
+        }
+    }
+
+    public function testTheRuleGetsANullFeeWhenAComponentCannotSayAndTheLeavingStillSucceeds(): void
+    {
+        $seen = [];
+        $contributions = new Contributions();
+        $contributions->retentionRule($this->recordingRule('peek', $seen));
+        $before = Contributions::current();
+        Contributions::record($contributions);
+        try {
+            $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'peek']);
+            $this->pay('00A0', '3000');
+            $this->runner = $this->moneyRunner([$this->failingComponent()]);
+
+            $result = $this->act(StatusAct::Withdraw, '00A0');
+
+            self::assertSame('withdrawn', $result['status']);
+            self::assertNotSame([], $seen);
+            self::assertNull($seen[array_key_last($seen)]->fee);
+        } finally {
+            Contributions::record($before);
+        }
+    }
+
+    public function testTheFeeThatTheRuleSeesIsComposedFromTheStoredRegistrationTime(): void
+    {
+        $probe = new class () implements FeeComponent {
+            /** @var list<string> */
+            public array $stamps = [];
+
+            public function id(): string
+            {
+                return 'probe';
+            }
+
+            public function stage(): FeeStage
+            {
+                return FeeStage::Extras;
+            }
+
+            public function targets(FeeComponentInput $input): FeeTargets
+            {
+                $this->stamps[] = $input->facts->registeredAt?->format('Y-m-d H:i:s') ?? 'none';
+
+                return FeeTargets::none();
+            }
+        };
+        $this->runner = $this->moneyRunner([$probe]);
+        $this->pay('00A0', '3000');
+
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        // The registration was registered on 2026-11-30; the run is on 2026-12-01: the leaver's own time is kept.
+        self::assertContains('2026-11-30 08:00:00', $probe->stamps);
+        self::assertNotContains('2026-12-01 10:00:00', $probe->stamps);
+    }
+
+    /** @return array<string, RetentionRule> */
+    private function misbehavingRules(): array
+    {
+        $make = static fn (string $id, \Closure $kept): RetentionRule => new class (
+            $id,
+            $kept
+        ) implements RetentionRule {
+            public function __construct(private readonly string $id, private readonly \Closure $kept)
+            {
+            }
+
+            public function id(): string
+            {
+                return $this->id;
+            }
+
+            public function kept(RetentionInput $input): array
+            {
+                return ($this->kept)($input);
+            }
+        };
+
+        return [
+            'thrower' => $make('thrower', static function (): array {
+                throw new \RuntimeException('A rule failed.');
+            }),
+            'malformed' => $make('malformed', static fn (): array => ['participant' => 3000]),
+        ];
+    }
+
+    public function testARuleThatThrowsOrReturnsSomethingMalformedFlagsMoneyRetention(): void
+    {
+        $contributions = new Contributions();
+        foreach ($this->misbehavingRules() as $rule) {
+            $contributions->retentionRule($rule);
+        }
+        $before = Contributions::current();
+        $failures = new EvaluationFailureRepository();
+        $key = $this->key('00A0');
+        $this->pay('00A0', '3000');
+        $this->act(StatusAct::Withdraw, '00A0');
+        Contributions::record($contributions);
+        try {
+            foreach (['thrower', 'malformed'] as $id) {
+                $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => $id]);
+                try {
+                    (new Evaluations($this->runner))->evaluate($key, new SystemActor());
+                    self::fail('The evaluation succeeded with ' . $id . '.');
+                } catch (SystemFailure) {
+                    self::assertSame('money/retention', $failures->find($key)?->rule, $id);
+                }
+            }
+        } finally {
+            Contributions::record($before);
+        }
+    }
+
+    public function testAContributedRetentionRuleMayNotTakeACoreId(): void
+    {
+        foreach (['everything_paid', 'nothing'] as $id) {
+            $seen = [];
+            try {
+                (new Contributions())->retentionRule($this->recordingRule($id, $seen));
+                self::fail('A core ID was accepted: ' . $id);
+            } catch (\InvalidArgumentException) {
+                self::assertSame([], $seen);
+            }
         }
     }
 
