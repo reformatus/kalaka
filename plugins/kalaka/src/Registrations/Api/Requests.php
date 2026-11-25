@@ -15,7 +15,8 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  * says is not answered, read from the source's own answer field, whatever the answer says ("no", or an award of
  * 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record the act (who, when, the note, the
  * mail's key) and decide nothing else. A withdrawn or removed registration awaits nothing; a waitlisted one
- * does. [UNAPPROVED N10] [UNAPPROVED N136]
+ * does (the fact stays computed, but nothing shows it while the registration is inactive, and the request is
+ * answerable only once it is `registered`). [UNAPPROVED N10] [UNAPPROVED N136]
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field

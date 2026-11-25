@@ -140,9 +140,10 @@ the waitlist and reference codes
     `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
     answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
     hides the due date and the transfer block in Portal. It never blocks confirmation.
-  - On a registered registration a refusing offer answer frees the offer's seat and a "yes" after a refusal
-    takes one; a waitlisted registration holds no place, so it takes and frees none (its seat is decided at
-    admission). Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands) with
+  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits
+    until admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`);
+    `awaits_answer` stays computed for it. A refusing offer answer frees the offer's seat and a "yes" after a
+    refusal takes one. Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands) with
     the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat call). The
     pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.
