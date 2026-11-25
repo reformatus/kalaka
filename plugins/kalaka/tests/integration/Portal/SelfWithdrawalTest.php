@@ -523,6 +523,8 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));
         self::assertSame('kalaka_withdraw_stale', WithdrawRefusalCookie::codeFor('kalaka_withdraw_stale'));
         self::assertSame('kalaka_site_closed', WithdrawRefusalCookie::codeFor('kalaka_site_closed'));
+        self::assertSame('kalaka_version_conflict', WithdrawRefusalCookie::codeFor('kalaka_version_conflict'));
+        self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));
         self::assertSame('kalaka_system_failure', WithdrawRefusalCookie::codeFor('anything <b>else</b>'));
 
         $response = new RecordingResponse();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Portal;
 
 use Kalaka\Foundation\Api\Error\SiteClosed;
+use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Portal\Api\WithdrawStale;
 use Kalaka\Portal\Api\WithdrawUnavailable;
 
@@ -63,6 +64,7 @@ final class WithdrawRefusalCookie
             (new WithdrawUnavailable())->errorCode(),
             (new WithdrawStale())->errorCode(),
             (new SiteClosed())->errorCode(),
+            (new VersionConflict())->errorCode(),
             (new \Kalaka\Registrations\Api\StatusActRefused())->errorCode(),
             self::GENERIC,
         ], true);
