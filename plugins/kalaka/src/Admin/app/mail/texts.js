@@ -193,7 +193,7 @@ export const BATCHES = {
 	outcome_queued: 'sorba került',
 	outcome_skipped_withdrawn: 'kimaradt: visszavont',
 	outcome_skipped_removed: 'kimaradt: törölt',
-	deleted: 'Törölt levélsablon',
+	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing [UNAPPROVED T294]
 };
 
 /** The grid's bulk action. [UNAPPROVED T284] */

@@ -7,7 +7,7 @@ import { Fragment, useMemo, useState } from '@wordpress/element';
 import { Button, Modal } from '@wordpress/components';
 import ListTable from './ListTable';
 import useRead from './useRead';
-import { moment, outcomeWord } from './format';
+import { batchSubject, moment, outcomeWord } from './format';
 import { fmt } from '../grid/format';
 import { BATCHES, COMMON, WHO } from './texts';
 
@@ -20,7 +20,7 @@ function Members( { config, id, onClose } ) {
 			{ read.data && (
 				<Fragment>
 					<p>
-						<strong>{ read.data.subject === null ? BATCHES.deleted : read.data.subject }</strong>
+						<strong>{ batchSubject( read.data ) }</strong>
 					</p>
 					<h2 className="km-h2">{ BATCHES.members }</h2>
 					<ul className="km-members">
@@ -62,7 +62,7 @@ export default function Batches( { config, version } ) {
 			{
 				id: 'subject',
 				label: BATCHES.subject,
-				getValue: ( { item } ) => item.subject || BATCHES.deleted,
+				getValue: ( { item } ) => batchSubject( item ),
 				enableHiding: false,
 			},
 			{

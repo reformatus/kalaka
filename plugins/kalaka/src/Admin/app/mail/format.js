@@ -5,6 +5,12 @@ import { formatMoment } from '../grid/money';
 import { fmt } from '../grid/format';
 import { BODIES, BATCHES, TROUBLED } from './texts';
 
+/**
+ * A batch's subject; a trashed or missing body reads as a null subject with `body_gone`, and the server sends no text of
+ * its own (Backend N567), so the word is ours. [UNAPPROVED T294]
+ */
+export const batchSubject = ( batch ) => ( batch.body_gone || batch.subject === null || batch.subject === undefined ? BATCHES.gone : batch.subject );
+
 /** The status word of a body post; an unknown status as it is. [UNAPPROVED T276] */
 export const bodyStatus = ( status ) => BODIES[ 'status_' + status ] || status;
 

@@ -11,7 +11,7 @@ import apiFetch from '@wordpress/api-fetch';
 import ActionMails from '../../src/Admin/app/mail/ActionMails';
 import useDrafts, { hasUnsaved } from '../../src/Admin/app/mail/drafts';
 import Troubled from '../../src/Admin/app/mail/Troubled';
-import { bodyLabel } from '../../src/Admin/app/mail/format';
+import { batchSubject, bodyLabel } from '../../src/Admin/app/mail/format';
 import { stateReads } from '../../src/Admin/app/mail/manual';
 
 jest.mock( '@wordpress/components', () => {
@@ -231,6 +231,12 @@ describe( 'unsaved entries', () => {
 } );
 
 describe( 'helpers', () => {
+	test( 'a batch whose body is gone shows the placeholder, not a subject', () => {
+		expect( batchSubject( { subject: null, body_gone: true } ) ).toBe( '(törölt levélsablon)' );
+		expect( batchSubject( { subject: null, body_gone: false } ) ).toBe( '(törölt levélsablon)' );
+		expect( batchSubject( { subject: 'Üdv', body_gone: false } ) ).toBe( 'Üdv' );
+	} );
+
 	test( 'bodyLabel: a unique subject stays as it is, a draft gets its status in lowercase', () => {
 		const all = [ { id: 1, subject: 'A', status: 'publish' }, { id: 2, subject: 'B', status: 'draft' } ];
 		expect( bodyLabel( all[ 0 ], all ) ).toBe( 'A' );
