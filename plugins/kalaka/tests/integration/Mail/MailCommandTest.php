@@ -287,7 +287,9 @@ final class MailCommandTest extends MailTestCase
         wp_set_current_user(self::factory()->user->create());
 
         $this->fails(fn () => $this->command()->status([], []));
-        $this->fails(fn () => $this->command()->failed([(string) $event], []));
+        $existing = $this->fails(fn () => $this->command()->failed([(string) $event], []));
+        // A refused user learns nothing about which events exist.
+        self::assertSame($existing, $this->fails(fn () => $this->command()->failed([(string) ($event + 999)], [])));
 
         wp_set_current_user($this->fullUser());
         $this->command()->status([], []);
