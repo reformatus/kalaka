@@ -107,7 +107,7 @@ final class SetExtraCharges implements AdminUseCase
         }
         // The code defines its fields (events-and-forms.md, "Fields"); a form field joins one by its key. A charge
         // taken out leaves its field declared, as for every kind of item; refusing the removal of a charge an open
-        // registration chose comes with CF4. [UNAPPROVED N3]
+        // registration chose comes with CF4.
         foreach ($proposed as $charge) {
             $this->fields->declareExtensionField(
                 $context,
@@ -123,7 +123,6 @@ final class SetExtraCharges implements AdminUseCase
             );
         }
         // The donation's number field is declared whenever the extras are saved, with or without charges.
-        // [UNAPPROVED N2]
         $this->fields->declareExtensionField(
             $context,
             $eventId,
