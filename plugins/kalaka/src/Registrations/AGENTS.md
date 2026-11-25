@@ -83,10 +83,13 @@ the waitlist and reference codes
   (`ParticipantFields::lockedAfterFirstWrite()`) is never changed once
   written (`Api\ValueLocked`, a `RuleViolation` with the code `kalaka_value_locked`). It never writes the registration row, its status or
   `registered_at`, and never changes capacity or the latch (its walk reads
-  `event.seats_left` unlocked, before the transaction), and it takes no new
-  seat: the registration's values as they would be after the submit are asked of
-  every `SeatClaimSource`, and a claim in a pool the registration does not hold
-  and did not already claim refuses the submit with nothing written (`Api\SeatNotClaimable`, code `kalaka_seat_not_claimable`). The
+  `event.seats_left` unlocked, before the transaction), and it may take
+  seats (owner ruling 2026-11-25), only for a `registered` registration: the registration's values as they would be
+  after the submit are asked of every `SeatClaimSource`, and in one run under the pools' locks
+  (`SubmitRegistration::lockedClaims()`) the new claims' seats are taken (`SeatAct::Submit`) and the pools no longer
+  claimed are freed. A full pool refuses the submit on the choice's field with `SeatsFull::TEXT` as the registration
+  form does, nothing is written and the old seat stays. A waitlisted registration stores the answer and takes no seat:
+  admission takes it. A value locked after its first write (D5) still cannot be re-chosen. The
   registration's facts (`RegistrationFacts::formRead()`, built by the one builder `Registrations::factsOf()`)
   and field values are read once per attempt before the
   transaction, for the walk's conditions, and read again under the registration

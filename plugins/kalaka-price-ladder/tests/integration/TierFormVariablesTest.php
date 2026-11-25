@@ -17,7 +17,6 @@ use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
-use Kalaka\Registrations\Api\SeatNotClaimable;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Api\ValueLocked;
@@ -179,12 +178,12 @@ final class TierFormVariablesTest extends FormsTestCase
         );
     }
 
-    public function testAnAdditionalFormCannotNewlyChooseATier(): void
+    public function testAnAdditionalFormThatNewlyChoosesATierTakesItsSeat(): void
     {
         $key = $this->register('alap');
         ActiveRegistrationState::set($key, false);
         $form = $this->additional($this->tierField() . $this->field('text', 'note'));
-        // A registration with no tier yet (the first write is free of the lock); the form would claim one.
+        // A registration with no tier yet (the first write is free of the lock); the form claims one.
         global $wpdb;
         $wpdb->delete($wpdb->prefix . 'kalaka_field_values', [
             'event_id' => $key->eventId,
@@ -193,17 +192,12 @@ final class TierFormVariablesTest extends FormsTestCase
         ]);
         \Kalaka\Foundation\ObjectCache::clear();
 
-        try {
-            $this->send($form, ['price_tier' => 'tamogatott', 'note' => 'x']);
-            self::fail('An additional form took a seat in the limited tier.');
-        } catch (SeatNotClaimable $violation) {
-            self::assertSame('kalaka_seat_not_claimable', $violation->errorCode());
-            self::assertArrayNotHasKey('price_tier', (new Registrations())->values($key));
-            self::assertArrayNotHasKey('note', (new Registrations())->values($key));
-        }
-        // The tier whose seat row the registration already holds is no new seat.
         $this->send($form, ['price_tier' => 'alap', 'note' => 'x']);
+
         self::assertSame('alap', (new Registrations())->values($key)['price_tier']);
+        // The tier then stays (D5): another one is a change of a locked field.
+        $this->expectException(ValueLocked::class);
+        $this->send($form, ['price_tier' => 'tamogatott', 'note' => 'y']);
     }
 
     public function testPriceTierIsLockedAfterItsFirstWriteOnAnAdditionalForm(): void

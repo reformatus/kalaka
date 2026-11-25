@@ -158,7 +158,7 @@ final class EventFormHost implements FormHost
     /**
      * The pools every contributed seat claim source lists for the event, as the form variables over them:
      * `seats_left.<field key>.<option value>`, a number. One path for a set option's, a tier's and an offer's
-     * places (`Registrations\Api\SeatClaimSource::pools()`). [UNAPPROVED N305]
+     * places (`Registrations\Api\SeatClaimSource::pools()`).
      *
      * A source is an outside point (modules-and-extensions.md, "Failure isolation"): one that throws is logged and
      * skipped, so the form keeps working without its variables, and a stored revision that reads one of its keys

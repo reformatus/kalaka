@@ -355,9 +355,11 @@ flowchart LR
   value>` is served. It locks, counts and writes nothing; the submit locks the
   pools and takes the seats when the registration becomes `registered`
   ([Foundation](foundation.md#facts-decisions-and-computed-values)). An
-  additional form takes no new seat: a submit whose values would make a new
-  claim (one the stored values do not already make) in a pool the
-  registration does not hold is refused.
+  additional form may take seats, only for a `registered` registration: it
+  takes the seat of a new claim and frees the seat of one its values no longer
+  make, in one run, and a full pool refuses it as it does the registration form;
+  a waitlisted registration takes none until admission. A tier or an offer
+  stays once written, so a price never changes through it.
 - **A theme adapter** is an outside point that fits participant-side markup
   to a theme which styles its own components instead of WordPress's
   ([Engineering](engineering.md#wordpress-surfaces)). It says whether it

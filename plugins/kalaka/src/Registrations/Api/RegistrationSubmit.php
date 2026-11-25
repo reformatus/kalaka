@@ -92,8 +92,7 @@ final class RegistrationSubmit
      * @throws \Kalaka\Forms\Api\FormTerminal a terminal page shows for the answers
      * @throws \Kalaka\Forms\Api\FormRefused the form cannot be used now (event not open, outside the
      *     registration window, password, role), with the codes
-     * @throws RuleViolation a locked field's value would be overwritten, or an additional form would make a new seat
-     *     claim (D7)
+     * @throws RuleViolation a locked field's value would be overwritten
      * @throws FormRefused also `account_required`: someone not logged in, in `mandatory` mode (from the use case)
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws
      */
@@ -173,7 +172,7 @@ final class RegistrationSubmit
                     $clearable,
                     $read,
                     $failure,
-                    newClaims: SubmitAdditionalForm::newClaims(
+                    seatMove: SubmitAdditionalForm::seatMove(
                         $this->seatClaimSources ?? Contributions::current()->seatClaimSources(),
                         $event,
                         $answers,

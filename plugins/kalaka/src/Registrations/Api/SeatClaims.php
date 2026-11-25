@@ -10,7 +10,7 @@ use Kalaka\Forms\Api\ValidatedAnswers;
 /**
  * The one read of seat claims: every `SeatClaimSource` asked for the claims of the answers, in contribution order.
  * A registration submit asks it of the answers it validated, an additional form's submit of the values the
- * registration would hold after it (D7). Plain reads, outside any transaction.
+ * registration would hold after it (its seat move). Plain reads, outside any transaction.
  */
 final class SeatClaims
 {

@@ -113,7 +113,7 @@ final readonly class RegistrationFacts implements Facts
     /**
      * The `registration.*` keys an additional form's conditions read, with their types: every key the source
      * declares under that prefix but the code (an identity, no fact to decide on). A key that joins the source
-     * and `declared()` appears here with no change, so an additional form reads it too (D9, CF4). [UNAPPROVED N306]
+     * and `declared()` appears here with no change, so an additional form reads it too (D9, CF4).
      *
      * @return array<string, ValueType>
      */
