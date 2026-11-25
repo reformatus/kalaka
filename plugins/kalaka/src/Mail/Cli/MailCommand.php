@@ -11,10 +11,11 @@ use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\CommandFailure;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Mail\Api\Deliveries;
 use Kalaka\Mail\Api\MailStats;
+use Kalaka\Mail\Api\TroubledDelivery;
 use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\ClearMailQueue;
-use Kalaka\Mail\Delivery;
 use Kalaka\Mail\DeliveryQuery;
 use Kalaka\Mail\EventMailNotHeld;
 use Kalaka\Mail\Pause\MailStateQuery;
@@ -45,6 +46,7 @@ final class MailCommand
         private readonly MailStateQuery $state = new MailStateQuery(),
         private readonly DeliveryQuery $deliveries = new DeliveryQuery(),
         private readonly Events $events = new Events(),
+        private readonly Deliveries $troubled = new Deliveries(),
         private readonly ?\Closure $print = null,
         private readonly ?\Closure $confirm = null,
     ) {
@@ -240,15 +242,15 @@ final class MailCommand
             CliInput::fullAccess();
             $eventId = CliInput::existingEventId($args);
             $format = CliInput::format($assocArgs);
-            $rows = array_map(static fn (Delivery $delivery): array => [
-                'code' => $delivery->registration->code,
+            $rows = array_map(static fn (TroubledDelivery $delivery): array => [
+                'code' => $delivery->code,
                 'mail' => $delivery->mail,
                 'kind' => $delivery->kind->value,
-                'status' => $delivery->status->value,
+                'status' => $delivery->status,
                 'attempts' => $delivery->attempts,
-                'attempted_at_utc' => $delivery->claimedAt === null ? '' : self::utc($delivery->claimedAt),
+                'attempted_at_utc' => $delivery->lastAttemptAt === null ? '' : self::utc($delivery->lastAttemptAt),
                 'error' => $delivery->error ?? '',
-            ], $this->deliveries->troubled($eventId));
+            ], $this->troubled->troubled($eventId));
             $this->show($format, $rows, self::FAILED_FIELDS);
         });
     }

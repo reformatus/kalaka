@@ -9,9 +9,10 @@ use Kalaka\Mail\DeliveryQuery;
 use Kalaka\Mail\Manual\MailBatch;
 
 /**
- * The deliveries of an event that need a look, for the event's mail page and `wp kalaka mail failed`'s
- * source (mail.md, "Failures"): failed for want of a valid address, pending with an error, or left in
- * "sending". It lists registration codes only; the screen resolves a name through the registration's own read.
+ * The deliveries of an event that need a look (mail.md, "Failures"): the one read of them, which the event's
+ * mail page and `wp kalaka mail failed` both call, so a screen and the command give the same answer. They are
+ * failed for want of a valid address, pending with an error, or left in "sending". It lists registration codes
+ * only; the screen resolves a name through the registration's own read.
  * Full access only reads it: the caller checks.
  */
 final class Deliveries

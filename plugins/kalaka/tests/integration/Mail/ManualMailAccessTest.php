@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\Actor\SystemActor;
 use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Module\ActionCatalogue;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Tests\Integration\Admin\GrantTestCase;
 
@@ -113,6 +114,22 @@ final class ManualMailAccessTest extends GrantTestCase
     public function testAUserWithoutAnyGrantIsRefused(): void
     {
         self::assertFalse($this->sends(['00A0']));
+    }
+
+    public function testThePreviewReadsTheSanitizedInputTheRunnerChecks(): void
+    {
+        $input = ['event_id' => (string) $this->event, 'codes' => ['00A0']];
+
+        $checked = Runner::checkedInput(['type' => 'object', 'properties' => [
+            'event_id' => ['type' => 'integer'],
+            'codes' => ['type' => 'array', 'items' => ['type' => 'string']],
+        ]], $input, 'test');
+        $plan = (new ManualMails())->preview($input, $this->admin);
+
+        self::assertSame($this->event, $checked['event_id']);
+        self::assertSame(['00A0'], $plan['queue']);
+        $this->expectException(\Kalaka\Foundation\Api\Error\InvalidInput::class);
+        (new ManualMails())->preview($input + ['body_id' => $this->body], $this->admin);
     }
 
     /** @return list<array<string, ?string>> */

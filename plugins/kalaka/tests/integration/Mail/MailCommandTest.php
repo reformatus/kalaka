@@ -277,6 +277,10 @@ final class MailCommandTest extends MailTestCase
         self::assertSame('The following recipients failed: teszt@example.org', $rows[0]['error']);
         self::assertSame('', $rows[1]['error']);
         self::assertNotContains('00G1', array_column($rows, 'code'));
+        $api = (new \Kalaka\Mail\Api\Deliveries())->troubled($event);
+        self::assertSame(array_column($api, 'code'), array_column($rows, 'code'));
+        $errors = array_map(static fn (array $row): ?string => $row['error'] === '' ? null : $row['error'], $rows);
+        self::assertSame(array_column($api, 'error'), $errors);
         self::assertArrayNotHasKey('recipient', $rows[0]);
         self::assertArrayNotHasKey('email', $rows[0]);
     }

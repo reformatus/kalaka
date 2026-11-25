@@ -51,7 +51,8 @@ final class ManualMails
 
     /**
      * What a send of these codes would do, checked first and writing nothing: the shape of `event_id` and
-     * `codes` against the use case's own schema, then the actor's access to those codes (`AdminAccess::check()`,
+     * `codes` checked and sanitized by the Runner's own input check on the use case's schema, then the actor's
+     * access to those codes (`AdminAccess::check()`,
      * the use case's own check, so an unknown code and a code outside the actor's view give the same refusal),
      * then the event, and only then the use case's own plan (`SendManualMail::plan()`).
      *
@@ -66,19 +67,16 @@ final class ManualMails
      */
     public function preview(array $input, Actor $actor): array
     {
-        $schema = (new SendManualMail())->inputSchema();
+        $useCase = new SendManualMail();
+        $schema = $useCase->inputSchema();
         $shape = [
             'type' => 'object',
             'properties' => array_intersect_key((array) $schema['properties'], ['event_id' => 1, 'codes' => 1]),
             'required' => ['event_id', 'codes'],
             'additionalProperties' => false,
         ];
-        $valid = rest_validate_value_from_schema($input, $shape, 'input');
-        if (is_wp_error($valid)) {
-            $error = new InvalidInput(null, new \InvalidArgumentException($valid->get_error_message()));
-            throw $error;
-        }
-        AdminAccess::check(new SendManualMail(), $input, $actor);
+        $input = Runner::checkedInput($shape, $input, $useCase::name());
+        AdminAccess::check($useCase, $input, $actor);
 
         $eventId = (int) $input['event_id'];
         $this->events->find($eventId) ?? throw new NotFound();
