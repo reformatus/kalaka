@@ -444,6 +444,7 @@ abstract class ProviderTestBase extends WooTestCase
         $this->missTheHooks();
         $this->payOrder($this->orders()[1]);
         self::assertSame(OpenPaymentState::Paid, $this->provider->latestOf($anna)?->state, 'Paid, not recorded yet.');
+        self::assertSame((string) $this->orders()[1]->get_id(), $this->provider->latestOf($anna)->requestRef);
 
         (new ReconcileStep())->run();
         self::assertNull($this->provider->latestOf($anna), 'Recorded: the request is over.');

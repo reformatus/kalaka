@@ -125,7 +125,8 @@ final class WooProvider implements PaymentProvider
 
         return new OpenPayment(
             $state,
-            $since === null ? Runner::current()->clock()->now() : new \DateTimeImmutable('@' . $since->getTimestamp())
+            $since === null ? Runner::current()->clock()->now() : new \DateTimeImmutable('@' . $since->getTimestamp()),
+            (string) $order->get_id()
         );
     }
 
