@@ -53,7 +53,7 @@ final class SettingsDocument
 
         return [
             'fixed_price' => $price === null ? null : PlainAmount::of($price),
-            'retention' => $this->settings->retention($eventId)->id(),
+            'retention' => $this->settings->retentionId($eventId),
             'components' => $components,
         ];
     }

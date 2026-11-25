@@ -20,6 +20,11 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Decision\DecisionRules;
 use Kalaka\Foundation\Evaluation\Evaluation;
 use Kalaka\Foundation\Api\Actor\CliActor;
+use Kalaka\Foundation\Api\Actor\SystemActor;
+use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Evaluation\Evaluations;
+use Kalaka\Foundation\Evaluation\EvaluationFailureRepository;
+use Kalaka\Pricing\Cli\SettingsDocument;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Ledger;
@@ -861,7 +866,7 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertStringContainsString((new StatusActRefused())->getMessage(), (string) $last[1][0]);
         self::assertSame('waitlisted', $this->row('00B0')['status']);
 
-        // A removal needs its reason: the use case refuses it as invalid input and nothing changes.
+        // A removal needs its reason: refused before anything is asked, and nothing changes.
         \WP_CLI::reset();
         try {
             $command->remove([(string) $this->event, '00A2'], []);
@@ -871,10 +876,30 @@ final class StatusActsTest extends StaffEditTestCase
         }
         $last = \WP_CLI::$calls[array_key_last(\WP_CLI::$calls)];
         self::assertSame('error', $last[0]);
-        self::assertStringContainsString((new InvalidInput())->getMessage(), (string) $last[1][0]);
+        self::assertStringContainsString('--reason is required for remove.', (string) $last[1][0]);
         self::assertSame('registered', $this->row('00A2')['status']);
         $command->withdraw([(string) $this->event, '00A2'], ['reason' => 'Telefon']);
         self::assertSame('withdrawn', $this->row('00A2')['status']);
+    }
+
+    public function testARemoveWithoutAReasonIsRefusedBeforeTheOperatorIsAsked(): void
+    {
+        require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
+        \WP_CLI::reset();
+        $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
+        self::assertTrue($this->act(StatusAct::Remove, '00A2', ['preview' => true])['requires_reason']);
+        self::assertFalse($this->act(StatusAct::Withdraw, '00A2', ['preview' => true])['requires_reason']);
+
+        try {
+            $command->remove([(string) $this->event, '00A2'], []);
+            self::fail('A removal needs its reason.');
+        } catch (\RuntimeException $stopped) {
+            self::assertSame('WP_CLI::error', $stopped->getMessage());
+        }
+
+        $kinds = array_map(static fn (array $call): string => $call[0], \WP_CLI::$calls);
+        self::assertNotContains('confirm', $kinds);
+        self::assertSame('registered', $this->row('00A2')['status']);
     }
 
     public function testTheCommandPreviewsAsksFirstAndADeclineChangesNothingAndYesSkipsTheQuestion(): void
@@ -1097,6 +1122,99 @@ final class StatusActsTest extends StaffEditTestCase
         } finally {
             Contributions::record($before);
         }
+    }
+
+    /** A contributed retention rule that does nothing but note what it was given. */
+    private function recordingRule(string $id, array &$seen): RetentionRule
+    {
+        return new class ($id, $seen) implements RetentionRule {
+            /** @param list<RetentionInput> $seen */
+            public function __construct(private readonly string $id, private array &$seen)
+            {
+            }
+
+            public function id(): string
+            {
+                return $this->id;
+            }
+
+            public function kept(RetentionInput $input): array
+            {
+                $this->seen[] = $input;
+
+                return $input->paid;
+            }
+        };
+    }
+
+    public function testAContributedRetentionRuleGetsTheRealFeePerComponentAndPayer(): void
+    {
+        $seen = [];
+        $contributions = new Contributions();
+        $contributions->retentionRule($this->recordingRule('peek', $seen));
+        $before = Contributions::current();
+        Contributions::record($contributions);
+        try {
+            $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'peek']);
+            $this->pay('00A0', '3000');
+
+            $this->act(StatusAct::Withdraw, '00A0');
+
+            self::assertNotSame([], $seen);
+            $composed = $seen[array_key_last($seen)]->composed;
+            $amounts = [];
+            foreach ($composed as $payers) {
+                foreach ($payers as $payer => $amount) {
+                    $amounts[$payer] = $amount->amount();
+                }
+            }
+            // The fixed price of 8000, as the registration would owe it if it were still registered.
+            self::assertSame(['participant' => '8000.00000000'], $amounts);
+        } finally {
+            Contributions::record($before);
+        }
+    }
+
+    public function testAStoredRuleThatIsNoLongerRegisteredFlagsTheEvaluationAndAnApplyFixesIt(): void
+    {
+        $seen = [];
+        $contributions = new Contributions();
+        $contributions->retentionRule($this->recordingRule('ghost', $seen));
+        $before = Contributions::current();
+        Contributions::record($contributions);
+        try {
+            $this->exec(new SetRetention(), ['event_id' => $this->event, 'retention' => 'ghost']);
+            $this->pay('00A0', '3000');
+            $this->act(StatusAct::Withdraw, '00A0');
+        } finally {
+            // The extension is turned off: the stored ID has no rule now.
+            Contributions::record($before);
+        }
+        $settings = new MoneySettings($this->runner);
+        $key = $this->key('00A0');
+        $failures = new EvaluationFailureRepository();
+
+        // The evaluation of the leaver fails like any failing component, flagged, and not as a bare exception.
+        try {
+            (new Evaluations($this->runner))->evaluate($key, new SystemActor());
+            self::fail('The evaluation succeeded.');
+        } catch (SystemFailure) {
+            self::assertSame('money/retention', $failures->find($key)?->rule);
+        }
+        // `show` still prints the stored ID, and the settings read says no rule is registered under it.
+        $document = new SettingsDocument($settings, new CoreFeeComponents());
+        self::assertSame('ghost', $document->show($this->event)['retention']);
+        self::assertNull($settings->retention($this->event));
+        // A registered rule applied through the settings fixes it, and the flag is cleared.
+        $report = $settings->apply(
+            $this->event,
+            new ProposedMoneySettings(retention: 'everything_paid'),
+            new CliActor(null)
+        );
+        self::assertSame([], $report->failed());
+        self::assertSame('everything_paid', $settings->retention($this->event)?->id());
+        self::assertNull($failures->find($key));
+        self::assertSame(['3000.00000000', '3000.00000000', '0.00000000'], $this->money());
     }
 
     public function testAnUnknownRetentionRuleIsRefusedByTheUseCaseAndThePreview(): void

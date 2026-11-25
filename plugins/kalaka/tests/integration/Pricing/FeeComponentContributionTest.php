@@ -28,6 +28,12 @@ final class FeeComponentContributionTest extends WP_UnitTestCase
         (new Contributions())->feeComponent(new TierComponent('1', 'Árlépcső'));
     }
 
+    public function testTheIdRetentionIsCoresOwnAndIsRefused(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        (new Contributions())->feeComponent(new TierComponent('1', 'retention'));
+    }
+
     public function testAnIdContributedTwiceIsRefused(): void
     {
         $contributions = new Contributions();

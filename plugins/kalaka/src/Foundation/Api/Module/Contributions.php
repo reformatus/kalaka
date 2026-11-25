@@ -226,7 +226,8 @@ final class Contributions
     public function feeComponent(FeeComponent $component): void
     {
         $id = $component->id();
-        if (preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $id) !== 1) {
+        // `retention` is core's own line key (money.md, "Withdrawal, removal and substitution").
+        if ($id === 'retention' || preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $id) !== 1) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
             throw new \InvalidArgumentException('Invalid fee component ID ' . $id . '.');
         }

@@ -29,8 +29,8 @@ final class FeeComposer
      * What each component says each payer owes now, by component ID. Only a `registered` registration
      * composes; every other status owes zero.
      *
-     * Retention (money.md, "Withdrawal, removal and substitution") is an empty step here: a withdrawn or
-     * removed registration owes nothing. Default; re-asked in S23, which fills the step.
+     * Retention (money.md, "Withdrawal, removal and substitution") is not a step here: a withdrawn or removed
+     * registration composes nothing, and `FeeComposition::withRetention()` adds its retention line on top.
      *
      * @param list<FeeComponent> $components
      * @return array<string, array<string, Money>> line source key → payer → amount owed: the component's ID, or

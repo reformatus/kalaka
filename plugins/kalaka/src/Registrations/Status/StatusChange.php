@@ -70,11 +70,12 @@ use Kalaka\Registrations\RegistrationRepository;
  * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
  * warning when any went over. The preview adds, per seat, `taken` (held by other registrations), `taken_after` (the
  * pool's count once the act is done: `taken + 1` for an act that takes the seat, `taken` for one that frees it) and
- * `limit`; a leaving act lists the pools the registration holds now, each with outcome `released`. Withdraw, remove
- * and restore add `money`: per payer `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the
- * actor has no money-view, `money` is null; false with a null `money`: the fee cannot be priced). Withdraw and
- * remove add `retention`, the event's rule (`everything_paid` or `nothing`), null for a holder without money-view.
- * [UNAPPROVED N530-N533, N535, N537, N538]
+ * `limit`, and the preview carries `requires_reason` (the act's own rule, N673); a leaving act lists the pools the
+ * registration holds now, each with outcome `released`. Withdraw, remove and restore add `money`: per payer
+ * `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the actor has no money-view, `money` is
+ * null; false with a null `money`: the fee cannot be priced). Withdraw and remove add `retention`, the event's rule
+ * (its ID, null for a holder without money-view).
+ * [UNAPPROVED N530-N533, N535, N537, N538, N673]
  */
 abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
@@ -194,12 +195,14 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
             }
         }
         $result = self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
+        // The act's own rule, for a caller that asks before it writes: a real remove needs a reason.
+        $result['requires_reason'] = $act->reasonRequired();
         if ($act !== StatusAct::Admit) {
             $hidden = !$this->access->mayViewMoney($context->actor(), $key);
             $result['money'] = $hidden ? null : $this->previewMoney($act, $key, $context);
             $result['money_hidden'] = $hidden;
             if (!$act->enters()) {
-                $result['retention'] = $hidden ? null : $this->settings->retention($key->eventId)->id();
+                $result['retention'] = $hidden ? null : $this->settings->retentionId($key->eventId);
             }
         }
 

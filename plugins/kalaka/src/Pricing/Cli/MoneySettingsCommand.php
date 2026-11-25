@@ -14,6 +14,7 @@ use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Pricing\Api\MoneySettings;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Pricing\Api\PreviewRow;
+use Kalaka\Pricing\Api\RetentionRules;
 use Kalaka\Pricing\SetFixedPrice;
 
 /**
@@ -60,6 +61,13 @@ final class MoneySettingsCommand
             $eventId = self::eventId($args);
             self::check($eventId, self::actor());
             \WP_CLI::line(self::json($this->document->show($eventId)));
+            if ($this->settings->retention($eventId) === null) {
+                \WP_CLI::warning(
+                    'The stored retention rule "' . $this->settings->retentionId($eventId) . '" is not registered'
+                    . ' now. Registrations that left cannot be evaluated until one is chosen again: apply'
+                    . ' a retention rule from: ' . implode(', ', RetentionRules::ids()) . '.'
+                );
+            }
         });
     }
 

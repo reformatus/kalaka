@@ -264,6 +264,11 @@ final class RegistrationCommand
 
             return;
         }
+        if (($preview['requires_reason'] ?? false) === true && trim((string) $reason) === '') {
+            // The use case's own rule, as the preview reports it: refused before the operator is asked anything.
+            $error = new CommandFailure('--reason is required for ' . $act->value . '.');
+            throw $error;
+        }
         foreach ((array) $preview['warnings'] as $warning) {
             \WP_CLI::warning((string) $warning);
         }

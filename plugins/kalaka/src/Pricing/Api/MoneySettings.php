@@ -55,12 +55,16 @@ final class MoneySettings
         return $this->prices->find($eventId)?->amount;
     }
 
-    /** The event's retention rule: what it keeps when a registration leaves; the default when none is saved. */
-    public function retention(int $eventId): RetentionRule
+    /** The ID of the event's retention rule (what it keeps when a registration leaves); the default when none. */
+    public function retentionId(int $eventId): string
     {
-        $record = $this->retention->find($eventId);
+        return (new EventRetention($this->retention))->idOf($eventId);
+    }
 
-        return RetentionRules::get($record === null ? Retention::DEFAULT : $record->rule);
+    /** The event's retention rule; null when the stored ID has no registered rule now (its extension is off). */
+    public function retention(int $eventId): ?RetentionRule
+    {
+        return (new EventRetention($this->retention))->find($eventId);
     }
 
     /**
@@ -91,13 +95,17 @@ final class MoneySettings
                 $before = $this->composition->withRetention(
                     $facts,
                     $event->currency,
-                    $this->composer->compose($facts, $event->currency, $now, $current)
+                    $this->composer->compose($facts, $event->currency, $now, $current),
+                    $current,
+                    $now
                 );
                 $after = $this->composition->withRetention(
                     $facts,
                     $event->currency,
                     $this->composer->compose($facts, $event->currency, $now, $next),
-                    $proposed->retention === null ? null : RetentionRules::get($proposed->retention)
+                    $next,
+                    $now,
+                    $proposed->retention === null ? null : RetentionRules::find($proposed->retention)
                 );
                 $before = self::byPayer($before, $event->currency);
                 $after = self::byPayer($after, $event->currency);

@@ -8,7 +8,6 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Ledger;
-use Kalaka\Pricing\RetentionRepository;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Pricing\CoreFeeComponents;
@@ -30,7 +29,7 @@ final class FeeComposition
         private readonly Events $events = new Events(),
         private readonly Registrations $registrations = new Registrations(),
         private readonly Ledger $ledger = new Ledger(),
-        private readonly RetentionRepository $retention = new RetentionRepository(),
+        private readonly EventRetention $retention = new EventRetention(),
     ) {
     }
 
@@ -78,7 +77,9 @@ final class FeeComposition
             $this->withRetention(
                 $facts,
                 $event->currency,
-                $this->composer->compose($facts, $event->currency, $now, $this->components->list())
+                $this->composer->compose($facts, $event->currency, $now, $this->components->list()),
+                $this->components->list(),
+                $now
             )
         );
     }
@@ -86,7 +87,9 @@ final class FeeComposition
     /**
      * Retention (money.md, "Withdrawal, removal and substitution"): a registration that withdrew or was removed owes,
      * per payer, what the event's rule keeps, asked once for every payer together (`RetentionRule::kept()`, with the
-     * payers' net payments read from payment facts only and the composition) and held to that payer's own payments,
+     * payers' net payments read from payment facts only and the fee the registration would owe if it were still
+     * `registered`, composed from `$components`; a component that cannot say leaves the rule an empty composition,
+     * so leaving never fails on it) and held to that payer's own payments,
      * so nobody owes more than they paid and nothing is refunded. A registration that is `registered` or `waitlisted`
      * has none; its line, if one was recorded, reads zero and the materializer reverses it.
      *
@@ -94,28 +97,35 @@ final class FeeComposition
      * here. `$rule` is the rule to apply (a proposed one in the preview); null reads the event's saved rule.
      *
      * @param array<string, array<string, Money>> $composed
+     * @param list<FeeComponent> $components the components the fee is composed from for the rule's input
      * @return array<string, array<string, Money>>
+     * @throws FeeComponentFailed named `retention` when the event's stored rule is not registered, or the rule throws
      */
     public function withRetention(
         RegistrationFacts $facts,
         Currency $currency,
         array $composed,
+        array $components,
+        \DateTimeImmutable $now,
         ?RetentionRule $rule = null,
     ): array {
         if ($facts->status !== RegistrationStatus::Withdrawn && $facts->status !== RegistrationStatus::Removed) {
             return $composed;
         }
-        if ($rule === null) {
-            $record = $this->retention->find($facts->registration->eventId);
-            $rule = RetentionRules::get($record === null ? Retention::DEFAULT : $record->rule);
-        }
+        $rule ??= $this->retention->ruleOf($facts->registration->eventId);
         $paid = [];
         foreach ($this->ledger->paymentFactsOf($facts->registration) as $fact) {
             $paid[$fact->payer] = ($paid[$fact->payer] ?? Money::zero($currency))->minus($fact->amount);
         }
         ksort($paid, SORT_STRING);
         try {
-            $asked = $rule->kept(new RetentionInput($facts, $currency, $paid, $composed));
+            $asRegistered = $facts->becoming(RegistrationStatus::Registered, $now);
+            $fee = $this->composer->compose($asRegistered, $currency, $now, $components);
+        } catch (FeeComponentFailed) {
+            $fee = [];
+        }
+        try {
+            $asked = $rule->kept(new RetentionInput($facts, $currency, $paid, $fee));
         } catch (\Throwable $failure) {
             $error = new FeeComponentFailed(Retention::LINE, $failure);
             throw $error;

@@ -38,6 +38,13 @@ retention and the materializer
   owes zero, so the materializer reverses it. A component that owes per item
   writes one line per item (source key `<component>:<item>`, at most 64
   characters).
+- The event's retention rule is read in one place, `Api\EventRetention` (the stored ID, the default when none). A
+  stored ID that no rule is registered under now (its extension is off) fails the composition of the registrations
+  that left as `FeeComponentFailed('retention')`, so the evaluation flags them as it does any failing component, and
+  never as a bare exception; `money-settings show` prints the stored ID with a warning, and applying a registered
+  rule fixes it. A rule's input carries the fee the registration would owe if it were still `registered` (empty when
+  a component cannot say, so leaving never fails on it). The ID `retention` is core's line key:
+  `Contributions::feeComponent()` refuses it. [UNAPPROVED N671]
 - A fee component can also be a `Api\ConfigurableFeeComponent`: it writes its settings as plain data and reads
   them back (`settingsToArray()`, `settingsFromArray()` into `ProposedComponentSettings`), so
   `wp kalaka money-settings show|preview|apply` (`Cli/`) carries every component's settings as JSON by component
