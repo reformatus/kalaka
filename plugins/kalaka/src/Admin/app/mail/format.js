@@ -48,13 +48,9 @@ export function problemText( error, fallback ) {
 }
 
 /**
- * A server instant as the site's day and time, or „–” when it is no real time. A body that was never dated reads as
- * year -1 (a server gap, reported), and one bad value must not break the whole table.
+ * A server instant as the site's day and time, or „–” when the read has none: a zero or unset date is `null` in
+ * every mail read (the server's rule).
  */
 export function moment( instant, zone ) {
-	const time = instant ? new Date( instant ).getTime() : NaN;
-	if ( Number.isNaN( time ) || time < 0 ) {
-		return '–';
-	}
-	return formatMoment( instant, zone );
+	return instant ? formatMoment( instant, zone ) : '–';
 }

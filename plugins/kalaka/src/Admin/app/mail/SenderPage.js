@@ -29,7 +29,8 @@ export default function SenderPage( { config } ) {
 	const [ notices, setNotices ] = useState( [] );
 	const timers = useRef( [] );
 	const names = Object.fromEntries( config.events.map( ( e ) => [ e.id, e ] ) );
-	const eventName = ( id ) => ( names[ id ] ? names[ id ].name : fmt( SENDER.unknownEvent, id ) );
+	const eventsById = Object.fromEntries( ( read.data ? read.data.events : [] ).map( ( e ) => [ e.event_id, e ] ) );
+	const eventName = ( id ) => ( eventsById[ id ] && eventsById[ id ].name ? eventsById[ id ].name : fmt( SENDER.unknownEvent, id ) );
 	const say = ( text ) => {
 		const id = String( Date.now() ) + Math.random();
 		setNotices( ( list ) => withNotice( list, id, text, 'success' ) );
@@ -56,12 +57,12 @@ export default function SenderPage( { config } ) {
 			{
 				id: 'event',
 				label: COUNTS.event,
-				getValue: ( { item } ) => ( names[ item.event_id ] ? names[ item.event_id ].name : fmt( SENDER.unknownEvent, item.event_id ) ),
+				getValue: ( { item } ) => item.name || fmt( SENDER.unknownEvent, item.event_id ),
 				render: ( { item } ) =>
 					names[ item.event_id ] ? (
-						<a href={ names[ item.event_id ].url }>{ names[ item.event_id ].name }</a>
+						<a href={ names[ item.event_id ].url }>{ item.name || fmt( SENDER.unknownEvent, item.event_id ) }</a>
 					) : (
-						fmt( SENDER.unknownEvent, item.event_id )
+						item.name || fmt( SENDER.unknownEvent, item.event_id )
 					),
 				enableHiding: false,
 			},
@@ -82,7 +83,7 @@ export default function SenderPage( { config } ) {
 				header: <span className="screen-reader-text">{ CONTROLS.clearEvent }</span>,
 				getValue: () => '',
 				render: ( { item } ) =>
-					item.held && item.queued > 0 ? (
+					item.can && item.can.clear_event ? (
 						<Button
 							variant="secondary"
 							size="compact"

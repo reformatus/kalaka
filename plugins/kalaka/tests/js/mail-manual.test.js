@@ -57,8 +57,7 @@ describe( 'a server instant', () => {
 		expect( moment( '2026-11-24T23:10:52Z', 'Europe/Budapest' ) ).toBe( '2026. 11. 25. 00:10' );
 	} );
 
-	test( 'a body that was never dated (year -1) and an empty value read as a dash, not an error', () => {
-		expect( moment( '-0001-11-30T00:00:00Z', 'Europe/Budapest' ) ).toBe( '–' );
+	test( 'a null (the server\'s zero or unset date) reads as a dash', () => {
 		expect( moment( null, 'Europe/Budapest' ) ).toBe( '–' );
 	} );
 } );
