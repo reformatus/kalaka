@@ -7,19 +7,19 @@ namespace Kalaka\WooCommerce;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
-use Kalaka\Payments\Api\PaymentProvider;
+use Kalaka\Payments\Api\AbstractPaymentProvider;
+use Kalaka\Payments\Api\PaymentProviderInput;
 use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RegistrationRef;
 use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Foundation\Api\UseCase\Runner;
-use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one guest order with one item
  * of the hidden product per line, paid on WooCommerce's own order-pay page with whatever gateway the shop
  * has. Only unpaid orders (pending, failed) are ever reused or cancelled; a paid order is never touched.
  */
-final class WooProvider implements PaymentProvider
+final class WooProvider extends AbstractPaymentProvider
 {
     public const ID = 'woocommerce';
 
@@ -37,9 +37,9 @@ final class WooProvider implements PaymentProvider
         return self::ID;
     }
 
-    public function accepts(Currency $currency): bool
+    public function accepts(PaymentProviderInput $input): bool
     {
-        if (!function_exists('WC') || get_woocommerce_currency() !== $currency->value) {
+        if (!function_exists('WC') || get_woocommerce_currency() !== $input->currency->value) {
             return false;
         }
         foreach (WC()->payment_gateways()->payment_gateways() as $gateway) {
@@ -51,8 +51,10 @@ final class WooProvider implements PaymentProvider
         return false;
     }
 
-    public function payUrl(PaymentRequest $request, string $returnUrl): string
+    public function payUrl(PaymentProviderInput $input): string
     {
+        $request = $input->request();
+        $returnUrl = $input->returnUrl();
         $wanted = array_map(
             static fn (RequestLine $line): string => KalakaItem::signatureOf(
                 $line->registration,
@@ -89,8 +91,9 @@ final class WooProvider implements PaymentProvider
         return $this->create($request, $returnUrl)->get_checkout_payment_url();
     }
 
-    public function latestOf(RegistrationKey $key): ?OpenPayment
+    public function latestOf(PaymentProviderInput $input): ?OpenPayment
     {
+        $key = $input->registration();
         $orders = $this->finder->of($key, ['any']);
         // An authorised payment that is not paid yet blocks a new one, whichever order is the newest.
         foreach ($orders as $order) {

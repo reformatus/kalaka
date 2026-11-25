@@ -7,7 +7,9 @@ namespace Kalaka\Tests\Integration\WooCommerce\Card;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
+use Kalaka\Payments\Api\PaymentProviderInput;
 use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -51,6 +53,16 @@ abstract class ProviderTestBase extends WooTestCase
         }
 
         return new PaymentRequest($lines, Currency::HUF, 'teszt@example.com');
+    }
+
+    private function payUrlFor(PaymentRequest $request, string $returnUrl): string
+    {
+        return $this->provider->payUrl(PaymentProviderInput::forStart($request, $returnUrl));
+    }
+
+    private function latestFor(RegistrationKey $key): ?OpenPayment
+    {
+        return $this->provider->latestOf(PaymentProviderInput::forLookup($key, Currency::HUF));
     }
 
     /** @return list<\WC_Order> the orders of the plugin, oldest first */
@@ -129,7 +141,7 @@ abstract class ProviderTestBase extends WooTestCase
         $anna = $this->owing('00A0');
         $bela = $this->register('00A2');
 
-        $url = $this->provider->payUrl($this->requestFor([$anna, $bela]), 'https://example.org/vissza/');
+        $url = $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/vissza/');
 
         $order = $this->onlyOrder();
         self::assertSame('pending', $order->get_status());
@@ -168,7 +180,7 @@ abstract class ProviderTestBase extends WooTestCase
         $anna = $this->owing('00A0');
         update_option('woocommerce_currency', 'EUR');
 
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
 
         self::assertSame('HUF', $this->freshOrder($this->onlyOrder())->get_currency());
     }
@@ -176,7 +188,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testTheHiddenProductCannotBeBoughtEvenByAnAdministrator(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $product = wc_get_product((int) get_option(OrderMeta::PRODUCT_OPTION));
         self::assertInstanceOf(\WC_Product::class, $product);
         wp_set_current_user(self::factory()->user->create(['role' => 'administrator']));
@@ -193,13 +205,13 @@ abstract class ProviderTestBase extends WooTestCase
     public function testTheHiddenProductIsCreatedOnceAndRecreatedWhenTrashed(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $first = (int) get_option(OrderMeta::PRODUCT_OPTION);
-        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '9000']), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '9000']), 'https://example.org/');
         self::assertSame($first, (int) get_option(OrderMeta::PRODUCT_OPTION));
 
         wp_trash_post($first);
-        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '8000']), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '8000']), 'https://example.org/');
 
         self::assertNotSame($first, (int) get_option(OrderMeta::PRODUCT_OPTION));
     }
@@ -208,8 +220,8 @@ abstract class ProviderTestBase extends WooTestCase
     {
         $anna = $this->owing('00A0');
 
-        $first = $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/egy/');
-        $second = $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/ketto/');
+        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/egy/');
+        $second = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/ketto/');
 
         self::assertSame($first, $second);
         $order = $this->onlyOrder();
@@ -220,19 +232,19 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAFailedOrderWithEqualLinesIsReusedToo(): void
     {
         $anna = $this->owing('00A0');
-        $first = $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $this->onlyOrder()->update_status('failed');
 
-        self::assertSame($first, $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/'));
+        self::assertSame($first, $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/'));
         self::assertCount(1, $this->orders());
     }
 
     public function testAChangedAmountCancelsTheOldOrderAndCreatesANewOne(): void
     {
         $anna = $this->owing('00A0');
-        $first = $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
 
-        $second = $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+        $second = $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
 
         self::assertNotSame($first, $second);
         $orders = $this->orders();
@@ -245,10 +257,10 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAPaidOrderIsNeverTouchedWhenANewRequestIsMade(): void
     {
         $anna = $this->owing('00A0', '20000');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $this->payOrder($this->onlyOrder());
 
-        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '5000']), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '5000']), 'https://example.org/');
 
         $orders = $this->orders();
         self::assertCount(2, $orders);
@@ -269,7 +281,7 @@ abstract class ProviderTestBase extends WooTestCase
             'body_id' => null,
             'layout' => 1,
         ]);
-        $this->provider->payUrl($this->requestFor([$anna, $bela]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/');
         $order = $this->onlyOrder();
 
         $this->payOrder($order);
@@ -317,19 +329,19 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAFailedPaymentWritesNothingAndTheOrderStaysTheRequest(): void
     {
         $anna = $this->owing('00A0');
-        $first = $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         StandInGateway::$outcome = 'failed';
         (new StandInGateway())->process_payment($this->onlyOrder()->get_id());
 
         self::assertSame([], $this->moneyLines());
         self::assertSame('failed', $this->onlyOrder()->get_status());
-        self::assertSame($first, $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/'));
+        self::assertSame($first, $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/'));
     }
 
     public function testAnOrderThatLeavesPaidAfterwardsWritesNothing(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
 
@@ -345,7 +357,7 @@ abstract class ProviderTestBase extends WooTestCase
     {
         $anna = $this->owing('00A0');
         $bela = $this->register('00A2');
-        $this->provider->payUrl($this->requestFor([$anna, $bela]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
         $items = array_values($order->get_items());
@@ -374,7 +386,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAnAmountOnlyRefundOnAOneItemOrderGoesToThatItem(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
 
@@ -393,7 +405,7 @@ abstract class ProviderTestBase extends WooTestCase
         $anna = $this->owing('00A0');
         $bela = $this->register('00A2');
         $request = $this->requestFor([$anna, $bela], ['00A0' => '4000', '00A2' => '6000']);
-        $this->provider->payUrl($request, 'https://example.org/');
+        $this->payUrlFor($request, 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
 
@@ -425,38 +437,38 @@ abstract class ProviderTestBase extends WooTestCase
     public function testLatestOfMapsTheOrdersStates(): void
     {
         $anna = $this->owing('00A0');
-        self::assertNull($this->provider->latestOf($anna));
+        self::assertNull($this->latestFor($anna));
 
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
-        self::assertSame(OpenPaymentState::Pending, $this->provider->latestOf($anna)?->state);
+        self::assertSame(OpenPaymentState::Pending, $this->latestFor($anna)?->state);
 
         $order->update_status('failed');
-        self::assertSame(OpenPaymentState::Failed, $this->provider->latestOf($anna)?->state);
+        self::assertSame(OpenPaymentState::Failed, $this->latestFor($anna)?->state);
 
         $order->update_status('on-hold');
-        self::assertSame(OpenPaymentState::Processing, $this->provider->latestOf($anna)?->state);
+        self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
 
         $order->update_status('cancelled');
-        self::assertNull($this->provider->latestOf($anna));
+        self::assertNull($this->latestFor($anna));
 
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $this->missTheHooks();
         $this->payOrder($this->orders()[1]);
-        self::assertSame(OpenPaymentState::Paid, $this->provider->latestOf($anna)?->state, 'Paid, not recorded yet.');
-        self::assertSame((string) $this->orders()[1]->get_id(), $this->provider->latestOf($anna)->requestRef);
+        self::assertSame(OpenPaymentState::Paid, $this->latestFor($anna)?->state, 'Paid, not recorded yet.');
+        self::assertSame((string) $this->orders()[1]->get_id(), $this->latestFor($anna)->requestRef);
 
         (new ReconcileStep())->run();
-        self::assertNull($this->provider->latestOf($anna), 'Recorded: the request is over.');
+        self::assertNull($this->latestFor($anna), 'Recorded: the request is over.');
 
         wc_create_refund(['order_id' => $this->orders()[1]->get_id(), 'amount' => 10000]);
-        self::assertNull($this->provider->latestOf($anna), 'Refunded in full is no request.');
+        self::assertNull($this->latestFor($anna), 'Refunded in full is no request.');
     }
 
     public function testTheReconcileStepRecordsAPaidOrderAHookMissed(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         remove_all_actions('woocommerce_payment_complete');
         remove_all_actions('woocommerce_order_status_processing');
@@ -473,7 +485,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAGuestCanOpenTheOrderPayPageAndAWrongKeyCannot(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         wp_set_current_user(0);
         self::assertTrue(current_user_can('pay_for_order', $order->get_id()));
@@ -500,16 +512,17 @@ abstract class ProviderTestBase extends WooTestCase
 
     public function testAcceptsNeedsTheShopCurrencyAndAnOnlineGateway(): void
     {
-        self::assertTrue($this->provider->accepts(Currency::HUF));
+        $input = PaymentProviderInput::forLookup($this->owing('00A0'), Currency::HUF);
+        self::assertTrue($this->provider->accepts($input));
 
         update_option('woocommerce_currency', 'EUR');
-        self::assertFalse($this->provider->accepts(Currency::HUF));
+        self::assertFalse($this->provider->accepts($input));
     }
 
     public function testTheGatewayReturnsTheRegistrantToTheStoredAddress(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/vissza/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/vissza/');
         $order = $this->onlyOrder();
 
         self::assertSame('https://example.org/vissza/', (new StandInGateway())->get_return_url($order));
@@ -521,7 +534,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testRecordingIsRegardlessOfTheAmountAndAMoneyValueIsExact(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '12345']), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '12345']), 'https://example.org/');
         $this->payOrder($this->onlyOrder());
 
         $lines = $this->moneyLines();
@@ -532,7 +545,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testARefundThatFullyRefundsTheOrderIsRecordedAndTheBalanceOwesAgain(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
         self::assertSame('0', $this->balance($anna));
@@ -550,7 +563,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testTheLastOfSeveralPartialRefundsIsRecordedToo(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
 
@@ -569,7 +582,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAnOrderMovedToRefundedByHandIsRecordedAsRefunded(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
 
@@ -583,7 +596,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAFullRefundOfAnOrderWhosePaymentHookWasMissedRecordsThePaymentAndTheRefund(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->missTheHooks();
         $this->payOrder($order);
@@ -599,7 +612,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testTheReconcileStepRecordsAPaidOrderThatWasRefundedInFullBeforeItWasRecorded(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->missTheHooks();
         remove_all_actions('woocommerce_order_refunded');
@@ -617,7 +630,7 @@ abstract class ProviderTestBase extends WooTestCase
     public function testTheReconcileStepRecordsARefundWhoseRecordingFailedEarlier(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
         remove_all_actions('woocommerce_order_refunded');
@@ -635,8 +648,8 @@ abstract class ProviderTestBase extends WooTestCase
     {
         $old = $this->owing('00A0');
         $recent = $this->register('00A2');
-        $this->provider->payUrl($this->requestFor([$old]), 'https://example.org/');
-        $this->provider->payUrl($this->requestFor([$recent]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$old]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$recent]), 'https://example.org/');
         $this->missTheHooks();
         $now = Runner::current()->clock()->now();
         foreach ($this->orders() as $i => $order) {
@@ -654,22 +667,22 @@ abstract class ProviderTestBase extends WooTestCase
     public function testAnOnHoldOrderBlocksWhateverTheNewestOrderIs(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $this->onlyOrder()->update_status('on-hold');
-        self::assertSame(OpenPaymentState::Processing, $this->provider->latestOf($anna)?->state);
+        self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
 
         // A newer pending order of the same registration does not hide it.
-        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
 
         self::assertCount(2, $this->orders());
-        self::assertSame(OpenPaymentState::Processing, $this->provider->latestOf($anna)?->state);
+        self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
     }
 
     public function testAnOrderCancelledByALaterClickThatIsPaidAnywayIsRecordedAndShowsAsAnOverpayment(): void
     {
         $anna = $this->owing('00A0');
-        $this->provider->payUrl($this->requestFor([$anna]), 'https://example.org/');
-        $this->provider->payUrl($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
         $orders = $this->orders();
         self::assertSame('cancelled', $orders[0]->get_status());
 
@@ -686,7 +699,7 @@ abstract class ProviderTestBase extends WooTestCase
         $anna = $this->owing('00A0');
         $bela = $this->register('00A2');
         $request = $this->requestFor([$anna, $bela], ['00A0' => '4000', '00A2' => '6000']);
-        $this->provider->payUrl($request, 'https://example.org/');
+        $this->payUrlFor($request, 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
         $items = array_values($order->get_items());
@@ -710,7 +723,7 @@ abstract class ProviderTestBase extends WooTestCase
         $anna = $this->owing('00A0');
         $bela = $this->register('00A2');
         $request = $this->requestFor([$anna, $bela], ['00A0' => '4000', '00A2' => '6000']);
-        $this->provider->payUrl($request, 'https://example.org/');
+        $this->payUrlFor($request, 'https://example.org/');
         $order = $this->onlyOrder();
         $this->payOrder($order);
         $items = array_values($order->get_items());

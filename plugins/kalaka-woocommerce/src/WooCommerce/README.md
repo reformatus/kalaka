@@ -16,7 +16,7 @@ bar for that user. If core's API is absent or anything
 throws, the incoming value is returned and a throw is reported through
 `Foundation\Api\Entry\Boundary`.
 
-Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (`payUrl()` creates a guest order with one item of the
+Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (extends `AbstractPaymentProvider`; each operation takes one `PaymentProviderInput`; `payUrl()` creates a guest order with one item of the
 hidden product (`HiddenProduct`) per line, or reuses an unpaid one with equal lines and cancels the other unpaid ones;
 `latestOf()`; `accepts()`), the hidden product is private and not purchasable (`HiddenProduct::purchasable()`), `OrderFinder` (`wc_get_orders()` by `meta_key`, valid in both storage modes), `KalakaOrder`
 and `KalakaItem` (an order as the plugin reads it), `OrderMeta` (the meta names and the option), `PaymentReporter`
