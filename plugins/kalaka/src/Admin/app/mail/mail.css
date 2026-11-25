@@ -39,10 +39,6 @@
 	margin-bottom: 8px;
 }
 
-.km-unsaved {
-	font-style: italic;
-}
-
 .km-code textarea {
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -120,14 +116,20 @@
 	left: auto;
 	right: 12px;
 	bottom: 12px;
-	z-index: 100000;
+	z-index: 9996;
 	width: min(400px, calc(100vw - 24px));
+}
+
+/* Core's list is absolutely placed and would hang below the empty box, off the screen (as `.kg-snacks`). */
+.km-snacks .components-snackbar-list {
+	position: static;
 }
 
 @media (max-width: 600px) {
 	.km-snacks {
 		left: 12px;
 		right: 12px;
+		z-index: 100001;
 	}
 }
 

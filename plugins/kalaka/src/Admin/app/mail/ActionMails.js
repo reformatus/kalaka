@@ -74,9 +74,13 @@ function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 					__nextHasNoMarginBottom
 				/>
 				<div className="km-choose">
+					{ /* The polite live region is always there, so the marker is announced when it appears (T293). */ }
+					<span className="screen-reader-text" role="status">
+						{ chosen !== current ? MAILS.unsaved : '' }
+					</span>
 					{ chosen !== current && (
 						<Fragment>
-							<span className="km-unsaved">{ MAILS.unsaved }</span>
+							<span className="km-unsaved" aria-hidden="true">{ MAILS.unsaved }</span>
 							<Button
 								variant="secondary"
 								size="compact"

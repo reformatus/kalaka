@@ -102,6 +102,21 @@ test( 'the cell under the actions column is sticky like the column\'s own cells,
 	expect( css ).toMatch( /tr\.kg-sumtr td\.kg-sumtd-actions \{ position: sticky; right: 0; \}/ );
 } );
 
+test( 'the cell under the actions column carries the divider class while DataViews\' own header cell does', async () => {
+	const container = await mount( true );
+	const sums = container.querySelector( 'tr.kg-sumtr' ).children;
+	const last = sums[ sums.length - 1 ];
+	expect( last.classList.contains( 'dataviews-view-table__actions-column--stuck' ) ).toBe( false );
+	await act( async () => {
+		container.querySelector( 'thead th.dataviews-view-table__actions-column' ).classList.add( 'dataviews-view-table__actions-column--stuck' );
+	} );
+	expect( last.classList.contains( 'dataviews-view-table__actions-column--stuck' ) ).toBe( true );
+	await act( async () => {
+		container.querySelector( 'thead th.dataviews-view-table__actions-column' ).classList.remove( 'dataviews-view-table__actions-column--stuck' );
+	} );
+	expect( last.classList.contains( 'dataviews-view-table__actions-column--stuck' ) ).toBe( false );
+} );
+
 test( 'without row actions there is one cell per field and nothing else', async () => {
 	const container = await mount( false );
 	const head = container.querySelector( 'thead tr:first-child' ).children;

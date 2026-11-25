@@ -21,6 +21,9 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed,
 		tr.className = 'kg-sumtr';
 		return tr;
 	} );
+	// Whether DataViews draws the divider on its own sticky cells (its header cell carries `--stuck`); the sum's
+	// frame cell follows it. [UNAPPROVED N295]
+	const [ stuck, setStuck ] = useState( false );
 	// While filtered or searched the sums follow the filter: italics (CSS) and a tooltip say so.
 	useLayoutEffect( () => {
 		row.classList.toggle( 'is-narrowed', !! narrowed );
@@ -34,10 +37,11 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed,
 			if ( thead && thead.lastElementChild !== row ) {
 				thead.appendChild( row );
 			}
+			setStuck( !! root.querySelector( 'table thead th.dataviews-view-table__actions-column--stuck' ) );
 		};
 		ensure();
 		const observer = new window.MutationObserver( ensure );
-		observer.observe( root, { childList: true, subtree: true } );
+		observer.observe( root, { childList: true, subtree: true, attributes: true, attributeFilter: [ 'class' ] } );
 		return () => {
 			observer.disconnect();
 			row.remove();
@@ -68,7 +72,7 @@ export default function SumRow( { root, columns, order, sums, menuFor, narrowed,
 		<>
 			{ framed && <td className="kg-sumtd kg-sumtd-frame" /> }
 			{ cells }
-			{ framed && <td className="kg-sumtd kg-sumtd-frame kg-sumtd-actions dataviews-view-table__actions-column--sticky" /> }
+			{ framed && <td className={ 'kg-sumtd kg-sumtd-frame kg-sumtd-actions dataviews-view-table__actions-column--sticky' + ( stuck ? ' dataviews-view-table__actions-column--stuck' : '' ) } /> }
 		</>,
 		row
 	);

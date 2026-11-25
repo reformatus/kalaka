@@ -28,6 +28,8 @@ final class MailPages
     private const NAMESPACE = 'kalaka-admin/v1';
     /** After core's separator (4), before the events (4.01 and up). */
     private const KALAKA_POSITION = 4.001;
+    /** After the last event item (4.01 + n/100 for the first 98 events), before „Bejegyzések” (5). */
+    private const SEPARATOR_POSITION = '4.999';
 
     /**
      * The menu icon: a „K” as a 20×20 SVG data URI. It is not given to WordPress, which repaints an SVG icon with JS
@@ -70,6 +72,10 @@ final class MailPages
             self::SITE_SLUG,
             [self::class, 'render']
         );
+        // The separator that closes our section before „Bejegyzések”, as the owner's ruling and the mock have it; the
+        // approved menu code (#204) puts the events at 4.01 and up and no separator after them. [UNAPPROVED N271]
+        global $menu;
+        $menu[self::SEPARATOR_POSITION] = ['', 'read', 'separator-kalaka', '', 'wp-menu-separator'];
         foreach ((new Events())->notArchived() as $event) {
             $parent = GridPage::slug($event);
             // The event's mail page, next to „Jelentkezők”. [UNAPPROVED N270, T271]
