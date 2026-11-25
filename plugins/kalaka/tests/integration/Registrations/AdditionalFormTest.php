@@ -519,8 +519,6 @@ final class AdditionalFormTest extends FormsTestCase
             'event_id' => $this->event,
             'name' => 'Szintek',
             'required' => false,
-            'window_opens_at' => null,
-            'window_closes_at' => null,
             'published' => false,
         ], new CliActor(null));
         foreach (['A', 'B'] as $label) {

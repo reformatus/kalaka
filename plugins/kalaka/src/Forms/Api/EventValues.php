@@ -131,13 +131,12 @@ final class EventValues
      * The values of `volatileTypes()`. `event.seats_left` is the event pool's places left, given in
      * (`Registrations\Api\Seats::left()`, the one computation: 0 while the event's "full" latch is set, none while
      * the event has no capacity, a draft without one included). A custom point is a day in the site's time zone,
-     * like the event's other points. `choice_open.<key>` is yes or no.
+     * like the event's other points.
      *
      * @param int|null $seatsLeft the event pool's places left; null for no limit
-     * @param array<string, bool> $choiceOpen request field key → whether its set's window holds now
      * @return array<string, Value>
      */
-    public static function volatile(Event $event, ?int $seatsLeft, array $choiceOpen): array
+    public static function volatile(Event $event, ?int $seatsLeft): array
     {
         $values = [self::SEATS_LEFT => self::places($seatsLeft)];
         foreach ($event->customPoints as $point) {

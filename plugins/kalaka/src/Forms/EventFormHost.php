@@ -87,9 +87,9 @@ final class EventFormHost implements FormHost
 
     /**
      * What a form's conditions read besides the answers (CF2): the event's keys and `account.logged_in`; for
-     * every form the event's places left, its custom points and whether each request field's choice window is
-     * open (`EventValues::volatileTypes()`), and the places left of every pool a seat claim source lists
-     * (`seats_left.<field key>.<option value>`, `poolTypes()`); for an additional form also the registration's
+     * every form the event's places left and its custom points (`EventValues::volatileTypes()`), and the places left
+     * of every pool a seat claim source lists (`seats_left.<field key>.<option value>`, `poolTypes()`); for an
+     * additional form also the registration's
      * `registration.*` facts (`RegistrationFacts::formTypes()`) and the stored values of the event's participant
      * fields, by their keys (`typesOf()`). A key the form holds as a field is read from the answers: the parser
      * drops it from this list.
@@ -105,21 +105,26 @@ final class EventFormHost implements FormHost
      * A custom point or a pool's places left that a revision's conditions read and the event no longer has (staff
      * removed the point, the option, tier or offer) is gone: a date that reads as empty, and a number that reads
      * 0, so no revision closes over it, as none closes over a removed set option (CF1). A pool reads 0, never
-     * none, so "empty or more than 0" never reads a removed pool as open. Only such a key counts; any other
-     * unknown key stays an error. A save refuses it: a point by `DefinitionCheck` (`unknown_point`), a pool's
-     * places left as any key the form may not read.
+     * none, so "empty or more than 0" never reads a removed pool as open. So is `choice_open.<key>`, a set's
+     * choice window, dropped by the owner's ruling 2026-11-25: a choice that reads as empty. Only such a key
+     * counts; any other unknown key stays an error. A save refuses it: a point by `DefinitionCheck`
+     * (`unknown_point`), a pool's places left and a `choice_open.*` key as any key the form may not read.
      */
     public function goneTypes(Form $form, array $keys): array
     {
         $event = $this->event($form);
         $gone = [];
         foreach ($keys as $key) {
+            if (str_starts_with($key, self::CHOICE_OPEN_PREFIX)) {
+                $gone[$key] = ValueType::Choice;
+                continue;
+            }
             if ($event === null) {
                 continue;
             }
             if (
                 preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
-                && !isset(EventValues::volatileTypes($event, [])[$key])
+                && !isset(EventValues::volatileTypes($event)[$key])
             ) {
                 $gone[$key] = ValueType::Date;
             } elseif (
@@ -136,7 +141,7 @@ final class EventFormHost implements FormHost
 
     /**
      * The gone keys (`goneTypes()`) that the revision being walked (`Form::$version`) reads, with the value each
-     * reads as: none for a point, 0 for a pool's places left. A revision that is not readable has none.
+     * reads as: none for a point or a choice, 0 for a pool's places left. A revision that is not readable has none.
      *
      * @return array<string, Value>
      */
@@ -225,7 +230,7 @@ final class EventFormHost implements FormHost
     public function typesOf(Event $event, FormPlacement $placement): array
     {
         $types = EventValues::FORM_TYPES
-            + EventValues::volatileTypes($event, array_keys($this->requestSets($event->id)))
+            + EventValues::volatileTypes($event)
             + $this->poolTypes($event);
         if ($placement === FormPlacement::Additional) {
             $types += RegistrationFacts::formTypes($event);
@@ -269,12 +274,8 @@ final class EventFormHost implements FormHost
         \DateTimeImmutable $now,
         ?RegistrationFacts $registration
     ): ValueContext {
-        $open = [];
-        foreach ($this->requestSets($event->id) as $key => $set) {
-            $open[$key] = $set->windowContains($now);
-        }
         $values = $this->goneValues($form) + EventValues::form($event, $loggedIn, $now)
-            + EventValues::volatile($event, $this->seats()->left($this->seats()->eventPool($event->id)), $open)
+            + EventValues::volatile($event, $this->seats()->left($this->seats()->eventPool($event->id)))
             + $this->poolValues($event);
         if ($form->placement === FormPlacement::Additional) {
             foreach (RegistrationFacts::formTypes($event) as $key => $type) {

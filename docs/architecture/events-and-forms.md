@@ -435,8 +435,7 @@ is no other participant-side edit.
     read the places the event has left (`event.seats_left`), the places left
     of a set option, price tier or support offer
     (`seats_left.<field key>.<option value>`; no value means unlimited, and
-    a removed one reads 0), whether a set's choice window is open
-    (`choice_open.<field key>`) and the event's own points
+    a removed one reads 0) and the event's own points
     (`event.points.<id>`). Whatever decides what a form shows is such a
     value; the backend keeps no rule of its own on who sees what.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
