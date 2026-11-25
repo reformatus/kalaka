@@ -34,6 +34,14 @@ final class EventSettingsTest extends FormsTestCase
         $this->events->update($more + $this->updateInput($id, $this->versionOf($id)), $this->admin);
     }
 
+    protected function filled(string $name = 'Tábor'): int
+    {
+        $id = parent::filled($name);
+        $this->readyAccountMail($id);
+
+        return $id;
+    }
+
     public function testTheSettingsAreWrittenAndReadBackThroughTheApi(): void
     {
         $id = $this->filled();

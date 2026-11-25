@@ -9,6 +9,7 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Cli\EventCommand;
 use Kalaka\Events\UnpublishEvent;
 use Kalaka\Forms\BrokenForms;
+use Kalaka\Mail\Body\AccountLinkRule;
 use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /** `wp kalaka event create|update|show|list|publish|unpublish|archive` (go-live G1, G2, G8). */
@@ -92,8 +93,10 @@ final class EventCommandTest extends FormsTestCase
     private function newId(): int
     {
         $this->command()->create(['Teszt tábor'], ['porcelain' => true]);
+        $id = (int) \WP_CLI::$calls[0][1];
+        $this->readyAccountMail($id);
 
-        return (int) \WP_CLI::$calls[0][1];
+        return $id;
     }
 
     /** @return array<string, mixed> */
@@ -239,6 +242,32 @@ final class EventCommandTest extends FormsTestCase
 
         self::assertSame(self::CONFLICT, $error);
         self::assertSame($before, $this->row($id));
+    }
+
+    public function testAModeWithAccountsNeedsTheRegisteredMailAndSaysWhy(): void
+    {
+        $this->command()->create(['Teszt tábor'], ['porcelain' => true]);
+        $id = (int) \WP_CLI::$calls[0][1];
+        $path = $this->file(['account_mode' => 'mandatory']);
+
+        $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
+
+        self::assertSame(self::REFUSED . "\nthe registered mail: " . AccountLinkRule::NEEDS_LINK, $error);
+        self::assertSame(1, $this->versionOf($id));
+    }
+
+    public function testAVersionThatIsNotAnIntegerIsRefusedAndNothingIsWritten(): void
+    {
+        $id = $this->newId();
+        $before = $this->row($id);
+
+        foreach (['1', 1.5, null, true, [1]] as $version) {
+            $path = $this->file(['version' => $version, 'capacity' => 10]);
+            $error = $this->fails(fn () => $this->command()->update([(string) $id], ['file' => $path]));
+
+            self::assertSame('"version" must be a whole number.', $error);
+            self::assertSame($before, $this->row($id));
+        }
     }
 
     public function testTheFilesOwnVersionIsTheOneTheUseCaseChecks(): void
@@ -529,12 +558,16 @@ final class EventCommandTest extends FormsTestCase
         self::assertSame('11111111-22222222-33333333', $event->transferAccount);
         self::assertSame('TESZT26', $event->transferReferencePrefix);
         // Every write was one use case run as the command line, audited.
-        $actions = array_column($this->entries(), 'action');
+        // (the mail the account mode needs was set up by the test, as the admin, and is left out).
+        $entries = array_filter(
+            $this->entries(),
+            static fn (array $e): bool => $e['action'] !== 'kalaka/update-action-mail'
+        );
         self::assertSame(
             ['kalaka/create-event', 'kalaka/update-event', 'kalaka/publish-event'],
-            array_values(array_unique($actions))
+            array_values(array_unique(array_column($entries, 'action')))
         );
-        self::assertSame(['cli'], array_values(array_unique(array_column($this->entries(), 'actor_type'))));
+        self::assertSame(['cli'], array_values(array_unique(array_column($entries, 'actor_type'))));
     }
 
     private function assertUtc(string $expected, ?\DateTimeImmutable $actual): void

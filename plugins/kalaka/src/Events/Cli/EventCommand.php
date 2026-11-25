@@ -6,6 +6,7 @@ namespace Kalaka\Events\Cli;
 
 use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Events\Api\AccountBlockMissing;
+use Kalaka\Events\Api\AccountMailNotReady;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventNotReady;
 use Kalaka\Events\Api\Events;
@@ -105,6 +106,7 @@ final class EventCommand
             $current = EventDocument::of($event);
             $file = self::file($assocArgs);
             [$proposed, $given] = EventDocument::proposed($current, $file);
+            $version = EventDocument::fileVersion($file, $event->version);
             $changes = EventDocument::changes($current, $proposed);
             if ($changes === []) {
                 \WP_CLI::success('Nothing to change.');
@@ -115,7 +117,6 @@ final class EventCommand
                 \WP_CLI::line($key . ': ' . self::text($before) . ' -> ' . self::text($after));
             }
 
-            $version = EventDocument::fileVersion($file, $event->version);
             $input = EventDocument::input($proposed, $given, $event->id, $version);
             if (!empty($assocArgs['dry-run'])) {
                 self::detailed(fn () => $this->events->update($input + ['preview' => true], $actor));
@@ -297,6 +298,9 @@ final class EventCommand
             $run();
         } catch (EventNotReady $e) {
             $error = new CommandFailure($e->operatorMessage() . "\nmissing: " . implode(', ', $e->missing), $e);
+            throw $error;
+        } catch (AccountMailNotReady $e) {
+            $error = new CommandFailure($e->operatorMessage() . "\nthe registered mail: " . $e->reason, $e);
             throw $error;
         } catch (AccountBlockMissing $e) {
             $text = "\nforms without the account block: " . implode(', ', $e->forms);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Events;
 
 use Kalaka\Events\Api\AccountBlockMissing;
+use Kalaka\Events\Api\AccountMailNotReady;
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Foundation\Api\Audit\Subject;
@@ -46,10 +47,13 @@ final class UpdateEvent implements AdminUseCase
      * @param list<int>|null $formsWithoutAccountBlock the published registration forms of the event that lack the
      *     account block, read before the run for the requested account mode (`Api\Events::update()`); null is a
      *     caller that did not read them, which only matters when the mode changes to one with accounts
+     * @param string|null $accountMailProblem why the event's "registered" mail cannot back a mode with accounts
+     *     (`Api\Events::update()` reads it); null is no problem, or a caller that did not read it
      */
     public function __construct(
         private readonly EventRepository $repository = new EventRepository(),
         private readonly ?array $formsWithoutAccountBlock = null,
+        private readonly ?string $accountMailProblem = null,
     ) {
     }
 
@@ -189,6 +193,7 @@ final class UpdateEvent implements AdminUseCase
      * @return array<string, mixed>
      * @throws InvalidInput when a text is longer than its column
      * @throws AccountBlockMissing when the mode would leave a published registration form without its account block
+     * @throws AccountMailNotReady when the "registered" mail cannot back the mode
      */
     private function settings(array $input, EventRecord $record): array
     {
@@ -215,6 +220,10 @@ final class UpdateEvent implements AdminUseCase
             $mode = AccountMode::from((string) $input['account_mode']);
             if ($mode !== $record->accountMode && $mode !== AccountMode::Off) {
                 $this->requireAccountBlocks();
+                if ($this->accountMailProblem !== null) {
+                    $error = new AccountMailNotReady($this->accountMailProblem);
+                    throw $error;
+                }
             }
             $settings['accountMode'] = $mode;
         }

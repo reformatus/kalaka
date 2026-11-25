@@ -96,10 +96,22 @@ final class EventDocument
         return [$proposed, $given];
     }
 
-    /** The `version` the file carries, or the event's own when it gives none: the use case checks it. */
+    /**
+     * The `version` the file carries, or the event's own when it gives none; the use case checks it. A value that
+     * is not a JSON integer is refused here: the use case's schema would read "3" and 3.0 as 3.
+     *
+     * @throws CommandFailure when the file's version is not an integer
+     */
     public static function fileVersion(mixed $file, int $current): int
     {
-        return is_array($file) && is_int($file['version'] ?? null) ? $file['version'] : $current;
+        if (!is_array($file) || !array_key_exists('version', $file)) {
+            return $current;
+        }
+        if (!is_int($file['version'])) {
+            throw new CommandFailure('"version" must be a whole number.');
+        }
+
+        return $file['version'];
     }
 
     /**
