@@ -6,15 +6,16 @@ namespace Kalaka\Assignments;
 
 use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\Rest\AssignmentSetsRoute;
+use Kalaka\Foundation\Api\Database\SchemaStep;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
 {
     /**
-     * See modules-and-extensions.md, "Assignment sets": one row per set of an event. The window's
-     * ends are UTC `datetime(6)`; `request_field_key` is the set's one request field (S44-1), `utf8mb4_nopad_bin` like
-     * every field key.
+     * See modules-and-extensions.md, "Assignment sets": one row per set of an event. A set has no
+     * window of its own (owner ruling 2026-11-25); `request_field_key` is the set's one request field (S44-1),
+     * `utf8mb4_nopad_bin` like every field key.
      */
     private const SETS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_assignment_sets (
@@ -25,8 +26,6 @@ CREATE TABLE {prefix}kalaka_assignment_sets (
   time_slot varchar(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   required tinyint(1) NOT NULL DEFAULT 0,
   mode varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
-  window_opens_at datetime(6) DEFAULT NULL,
-  window_closes_at datetime(6) DEFAULT NULL,
   published tinyint(1) NOT NULL DEFAULT 0,
   request_field_key varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
   PRIMARY KEY  (id),
@@ -84,7 +83,19 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(1, [self::SETS, self::OPTIONS, self::ASSIGNMENTS]);
+        return new Schema(2, [self::SETS, self::OPTIONS, self::ASSIGNMENTS], [
+            2 => self::dropSetWindow(...),
+        ]);
+    }
+
+    /**
+     * Schema step 2: a set has no choice window (owner ruling 2026-11-25), so its two columns go. dbDelta never
+     * drops a column; each is dropped only where it exists, so the step is safe to run again.
+     */
+    private static function dropSetWindow(): void
+    {
+        SchemaStep::dropColumnIfExists('kalaka_assignment_sets', 'window_opens_at');
+        SchemaStep::dropColumnIfExists('kalaka_assignment_sets', 'window_closes_at');
     }
 
     public function boot(): void

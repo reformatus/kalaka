@@ -129,7 +129,6 @@ final class RegistrationSubmit
                         $form,
                         $event,
                         $loggedIn,
-                        ($this->runner ?? Runner::current())->clock()->now(),
                         $read['values'] ?? null,
                         $read['status'] ?? null
                     )

@@ -127,8 +127,6 @@ final class AssignmentSets
             $set->timeSlot,
             $set->required,
             $set->mode,
-            $set->windowOpensAt,
-            $set->windowClosesAt,
             $set->published,
             $set->requestFieldKey,
             $own,

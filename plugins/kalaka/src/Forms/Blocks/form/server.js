@@ -6,7 +6,7 @@
  * - `pathFieldTypes`: the field-type block names whose value is a path (`Api\PathFieldType`), which a
  *   condition never compares with `equals`;
  * - `eventTypes`: the keys a form's condition may read besides its fields, for the edited form's event and
- *   placement (`EventFormHost::typesOf()`: the event's keys, the places left, the choice windows, the custom
+ *   placement (`EventFormHost::typesOf()`: the event's keys, the places left, the custom
  *   points, and for an additional form the registration's status and stored values); the event keys alone
  *   (`Api\EventValues::FORM_TYPES`) when the editor holds no saved form of an event;
  * - `afterSubmitTypes`: what the after-submit section's conditions may read (`Api\AfterSubmit::TYPES`);

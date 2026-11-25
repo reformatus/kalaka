@@ -46,8 +46,8 @@ It holds the ranking field type now and the ranking proposer later (S77).
   control); the set holds none. A key whose option is gone is ignored when
   the form is read, and refused on save (`unknown_option`). A block with no
   `set` ignores `optionConditions`. The field it declares is the set's one
-  request field, and outside the set's choice window it does not show and writes
-  nothing. A block with no `set` (also every block saved before sets
+  request field. A set has no choice window; the form's own open period and
+  conditions decide when it can be answered. A block with no `set` (also every block saved before sets
   existed) holds its own `options`, every one offered; the type is an
   `OptionsFieldType` there, so core derives a missing option key on save and
   the definition check refuses a block without a valid option, and the field

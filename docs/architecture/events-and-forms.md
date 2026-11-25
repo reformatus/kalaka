@@ -101,10 +101,7 @@ flowchart TB
   - a registration form is open while the slot is: from "registration
     opens" up to "registration closes". It has no period of its own;
   - **each additional form has its own open period**, which a form link can
-    bypass ([below](#form-links-and-admin-submissions));
-  - an additional form that writes an assignment set's choice follows that
-    set's choice window instead
-    ([Modules](modules-and-extensions.md#assignment-sets)).
+    bypass ([below](#form-links-and-admin-submissions)).
 - **The slot adds one more rule:** every form in it must contain the
   required fields and functionality (e.g. exactly one contact email).
   Otherwise all forms share the same primitives.
@@ -126,7 +123,7 @@ flowchart TB
   ([Modules](modules-and-extensions.md#assignment-sets)). A choice field in a
   form writes a set's direct choice or a request. **Re-choosing later is an
   additional form** holding that choice, in both access modes, open while
-  the set's choice window is; there is no separate portal edit.
+  that form is; there is no separate portal edit.
 - **Form texts read amounts, quotas and deadlines from the event's settings,**
   so they cannot drift from the rules
   ([Values and conditions](#values-and-conditions)).
@@ -416,8 +413,7 @@ is no other participant-side edit.
     account mode, an additional form), never no there.
     An additional form's conditions also read its registration's status
     (`registration.status`). Every form's conditions read the places the
-    event has left (`event.seats_left`), whether a set's choice window is open
-    (`choice_open.<field key>`) and the event's own points
+    event has left (`event.seats_left`) and the event's own points
     (`event.points.<id>`). Whatever decides what a form shows is such a
     value; the backend keeps no rule of its own on who sees what.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
@@ -474,7 +470,7 @@ is no other participant-side edit.
 - **Mid-form availability is advisory.** Seats and capacity are decided only
   at submit, under the lock; the texts say so (approved when built).
 - **The submit judges values that change.** The time, the places left, a
-  registration's status and the choice windows can change between the page and
+  registration's status can change between the page and
   the submit. The submit's walk reads them as they are then: a field that now shows is checked
   like any shown field, and an answer that no longer shows or is no longer
   offered is dropped. An additional form's submit reads the registration's

@@ -42,6 +42,9 @@ mode (S65) and the screens (S72/S48) come later.
 - A set has at most one request field (`request_field_key`), tied once
   (`kalaka/tie-request-field`) and never changed or released; one field is the
   request field of one set only.
+- A set has no choice window (owner ruling 2026-11-25): when it can be
+  answered is the open period and the conditions of the additional form that
+  holds it. Nothing here compares a set with the time.
 - A set's `required` only marks the later tally; whether a form insists is
   the request field's own `required`.
 - Per-event tables are indexed event first; only this module writes its

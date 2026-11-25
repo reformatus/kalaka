@@ -35,8 +35,6 @@ final class RankingStoredVersionTest extends MailBodyTestCase
             'event_id' => $this->event,
             'name' => 'Modulok',
             'required' => false,
-            'window_opens_at' => null,
-            'window_closes_at' => null,
             'published' => false,
         ], new CliActor(null));
     }

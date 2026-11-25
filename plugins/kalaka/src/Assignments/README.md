@@ -2,8 +2,8 @@
 
 Assignment sets, options, assignment facts, tallies, roster views and the proposer point. S44 builds request mode.
 
-Tables (`Module.php`, schema 1): `kalaka_assignment_sets` (a set of an event: name, time slot, required, mode, choice
-window, published, `request_field_key`), `kalaka_assignment_options` (keyed by set and option key: position, label,
+Tables (`Module.php`, schema 2): `kalaka_assignment_sets` (a set of an event: name, time slot, required, mode,
+published, `request_field_key`), `kalaka_assignment_options` (keyed by set and option key: position, label,
 capacity, leaders, place) and `kalaka_assignments` (the facts, keyed
 by event, code and set: option, source, state). `SetRepository`, `OptionRepository` and `AssignmentRepository` are their
 only writers.
