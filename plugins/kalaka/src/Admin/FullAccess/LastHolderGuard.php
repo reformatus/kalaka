@@ -61,7 +61,14 @@ final class LastHolderGuard
      */
     public static function deleting(int $userId, ?bool $commandLine = null): void
     {
-        if (!self::isOnlyHolder($userId)) {
+        try {
+            $onlyHolder = self::isOnlyHolder($userId);
+        } catch (\Throwable $error) {
+            // Fail closed, as metaCaps() does: an unreadable holder list is treated as the last holder.
+            Boundary::report('checking the last full-access holder', $error);
+            $onlyHolder = true;
+        }
+        if (!$onlyHolder) {
             return;
         }
         $commandLine ??= defined('WP_CLI') && WP_CLI;

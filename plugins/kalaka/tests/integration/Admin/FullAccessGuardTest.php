@@ -211,6 +211,45 @@ final class FullAccessGuardTest extends AdminTestCase
         self::assertInstanceOf(\WP_User::class, get_userdata($id));
     }
 
+    public function testTheCommandLineTreatsAnUnreadableHolderListAsTheLastHolder(): void
+    {
+        require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
+        if (!defined('WP_CLI::IS_TEST_DOUBLE')) {
+            self::markTestSkipped('The real WP-CLI is loaded; the recording double is not in use.');
+        }
+        \WP_CLI::reset();
+        global $wpdb;
+        $id = $this->admin->userId;
+        // The holder read fails: the statement reaches the database as invalid SQL.
+        $break = static fn (string $sql): string => str_contains($sql, 'meta_value LIKE') ? 'SELECT FROM' : $sql;
+        $suppressed = $wpdb->suppress_errors(true);
+        add_filter('query', $break);
+
+        try {
+            $log = $this->capturedErrorLog(static function () use ($id): void {
+                try {
+                    LastHolderGuard::deleting($id, true);
+                    self::fail('The command line should have refused to delete a user with an unreadable holder list.');
+                } catch (\RuntimeException $e) {
+                    self::assertSame('WP_CLI::error', $e->getMessage());
+                }
+            });
+        } finally {
+            remove_filter('query', $break);
+            $wpdb->suppress_errors($suppressed);
+        }
+
+        self::assertStringContainsString('checking the last full-access holder', $log);
+        self::assertSame(
+            [['error', [
+                'Cannot delete the last user with full access to Kaláka. Give full access to another user first.',
+                1,
+            ]]],
+            \WP_CLI::$calls
+        );
+        self::assertInstanceOf(\WP_User::class, get_userdata($id));
+    }
+
     public function testTheCommandLineDeletesAUserWhenAnotherHolderRemains(): void
     {
         require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
