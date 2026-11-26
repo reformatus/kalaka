@@ -31,8 +31,9 @@ use Kalaka\Registrations\Api\SeatOfferSeats;
  * partner (a grant holder whose view holds only their registrations), carried by `kalaka_answer_request`. Giving
  * a different answer later is this act again. [UNAPPROVED N1] [UNAPPROVED N3]
  *
- * - Input: the registration, the request's id, `yes` or `no`, for aid the amount awarded, and a note: optional,
- *   except for a "yes" to an offer (a partner's approval), which needs it as its reason. [UNAPPROVED N162]
+ * - Input: the registration, the request's id, `yes` or `no`, for aid the amount awarded, and a note: optional, a
+ *   "yes" to an offer (a partner's approval) too, where it is the reason (owner 2026-11-26: a reason is never
+ *   required).
  *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero; an offer takes no amount.
  *   [UNAPPROVED N5]
  * - Writes one answer record per act (its id is the key the "answered" mail will take) and the answer as the
@@ -138,12 +139,6 @@ final class AnswerRequest implements AdminUseCase
             && self::sameAmount($previous->amount, $answer->amount) && !$newNote
         ) {
             return ['changed' => false, 'answer' => null, 'over_limit' => false];
-        }
-        // A partner's approval is recorded with its reason (release-plan.md, "Support and decisions"): until
-        // partners have their own views, staff record it on the partner's behalf, so a "yes" to an offer carries
-        // a note, the reason. A refusal and aid take it optionally. [UNAPPROVED N162]
-        if ($request->kind === RequestKind::Offer && $yes && $answer->note === null) {
-            throw new InvalidInput();
         }
 
         $record = $this->answers->insert(new AnswerRead(
