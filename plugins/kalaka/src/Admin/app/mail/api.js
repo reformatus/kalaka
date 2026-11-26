@@ -40,14 +40,14 @@ export const createBody = ( event, title ) =>
 	} );
 
 /**
- * Who a send of the codes would reach, and the bodies it may use: `{ queue, skipped, unknown, bodies }`. A read
+ * Who a send to the codes (as a `{ codes }` selection) would reach, and the bodies it may use: `{ queue, skipped, unknown, count, names, bodies }`. A read
  * that writes nothing; a POST because 1000 codes do not fit in a query string.
  */
 export const previewManual = ( path, codes ) =>
 	apiFetch( {
 		path,
 		method: 'POST',
-		data: { codes },
+		data: { selection: { codes } },
 	} );
 
 /**
@@ -58,7 +58,7 @@ export const sendManual = ( event, bodyId, codes, layout, requestKey ) =>
 	runAbility( 'kalaka/send-manual-mail', {
 		event_id: event,
 		body_id: bodyId,
-		codes,
+		selection: { codes },
 		layout,
 		request_key: requestKey,
 	} );
