@@ -149,7 +149,7 @@ describe( 'the preview', () => {
 	test( 'asks the server about exactly the ticked codes and shows who gets the mail and who is skipped, with the reason', async () => {
 		await render();
 		expect( calls( 'preview' ) ).toHaveLength( 1 );
-		expect( calls( 'preview' )[ 0 ].data ).toEqual( { codes: [ 'A1', 'A2', 'A3', 'A4' ] } );
+		expect( calls( 'preview' )[ 0 ].data ).toEqual( { selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] } } );
 		expect( host.textContent ).toContain( 'A levelet 2 jelentkező kapja meg.' );
 		expect( host.textContent ).toContain( 'A3 – ' + MANUAL.reason_withdrawn );
 		expect( host.textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
@@ -203,7 +203,7 @@ describe( 'the send', () => {
 		await submit();
 		const [ call ] = calls( 'send-manual-mail' );
 		expect( call.path ).toBe( '/wp-abilities/v1/abilities/kalaka/send-manual-mail/run' );
-		expect( call.data.input ).toMatchObject( { event_id: 1, body_id: 20, codes: [ 'A1', 'A2', 'A3', 'A4' ], layout: true } );
+		expect( call.data.input ).toMatchObject( { event_id: 1, body_id: 20, selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] }, layout: true } );
 		expect( call.data.input.request_key ).toMatch( /^[A-Za-z0-9_-]{8,64}$/ );
 		expect( sent ).toHaveBeenCalledWith( SENT );
 	} );

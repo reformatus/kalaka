@@ -89,7 +89,7 @@ describe( 'the grid\'s bulk action', () => {
 			root.render( createElement( action.RenderModal, { items: [ { key: 'Q1' }, { key: 'Q2' } ], closeModal: () => {} } ) );
 		} );
 		const asked = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.path.endsWith( '/preview' ) );
-		expect( asked.data ).toEqual( { codes: [ 'Q1', 'Q2' ] } );
+		expect( asked.data ).toEqual( { selection: { codes: [ 'Q1', 'Q2' ] } } );
 	} );
 } );
 
