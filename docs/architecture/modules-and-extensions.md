@@ -336,9 +336,10 @@ flowchart LR
     label, through a `PayerKindSource` (`Contributions::payerKindSource()`),
     which also says per event whether the kind applies: its `appliesTo()` is a
     plain read of the module's own setting that runs inside the record use
-    cases and in the admin detail read (it fires no hooks and writes nothing).
+    cases, in the admin detail read and in the participant status read (it fires
+    no hooks and writes nothing).
     In a record use case, inside the transaction, a throw rolls the use case
-    back; in the detail read, outside it, a throw is caught: that kind is
+    back; in a read, outside it, a throw is caught: that kind is
     treated as not applying and the failure is only logged, as `ThemeAdapters`
     does; the stored failure record of
     [Failure isolation](#failure-isolation) is not built yet for any

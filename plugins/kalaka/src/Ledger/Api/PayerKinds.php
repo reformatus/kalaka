@@ -9,15 +9,15 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * The payer kinds that apply to an event (money.md, "Ledger": "extensions register other payer kinds"), and the
- * one rule for a registration's payers: `payersOf()` lists them for the admin detail read and `mayRecordFor()`
- * tests membership for the record use cases. [UNAPPROVED Shapes]
+ * The payer kinds that apply to an event (money.md, "Ledger": "extensions register other payer kinds"), and the one
+ * rule for a registration's payers: `payersOf()` lists them for the admin detail read and the participant status read
+ * (Portal's `StatusRead`), and `mayRecordFor()` tests membership for the record use cases. [UNAPPROVED Shapes]
  *
- * Core declares the participant; an extension declares another through a `PayerKindSource` (the
- * congregation share, S29), and this read adds the kinds that apply to the event. A source that throws fails the
- * record use case (inside the transaction, so the run rolls back); in the detail read (`$contained`) that kind is
- * treated as not applying and the failure is only logged, as `ThemeAdapters` does (the stored failure record of
- * "Failure isolation" is not built yet for any contribution). [UNAPPROVED N366]
+ * Core declares the participant; an extension declares another through a `PayerKindSource` (the congregation share,
+ * S29), and this read adds the kinds that apply to the event. A source that throws fails the record use case (inside
+ * the transaction, so the run rolls back); in the detail and status reads (`$contained`) that kind is treated as not
+ * applying and the failure is only logged, as `ThemeAdapters` does (the stored failure record of "Failure isolation"
+ * is not built yet for any contribution). [UNAPPROVED N366]
  */
 final class PayerKinds
 {

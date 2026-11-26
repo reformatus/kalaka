@@ -51,7 +51,7 @@ corrections
 - The payer kinds are the participant and the kinds modules declare through a `PayerKindSource`
   (`Contributions::payerKindSource()`; `PayerKinds` reads them): a source gives a kind (an ID and a label) and
   says per event whether it applies (`appliesTo(PayerKindInput)`), a plain read that runs inside the record use
-  cases and in the admin detail read (a throw rolls the use case back; in the read it is contained: the kind is
+  cases, in the admin detail read and in the participant status read (a throw rolls the use case back; in a read it is contained: the kind is
   treated as not applying and logged, as `ThemeAdapters` does), and runs no other code. What the dialog shows is what the server accepts, by one rule (`PayerKinds::payersOf()` lists a
   registration's payers, `mayRecordFor()` tests membership): the participant, the event's applying kinds, and every
   payer that has lines on the registration. A payment, refund, correction, Díj or Kedvezmény is accepted for
