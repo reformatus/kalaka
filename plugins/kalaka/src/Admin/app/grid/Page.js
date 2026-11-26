@@ -31,6 +31,7 @@ import { writeClipboard } from './clipboard';
 import * as api from './api';
 import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
+import BulkSlot from './BulkSlot';
 import SumRow from './SumRow';
 import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
@@ -380,6 +381,7 @@ export default function Page( { config } ) {
 		}
 	};
 
+	const selectedRows = data.rows.filter( ( row ) => selection.includes( row.key ) );
 	const [ busy, setBusy ] = useState( false );
 	const copy = async () => {
 		if ( busy ) {
@@ -387,7 +389,8 @@ export default function Page( { config } ) {
 		}
 		setBusy( true );
 		try {
-			const rows = await api.fetchAll( config, tab, sort, desc, narrow );
+			// Ticked rows when there are any, else every row the filters leave. [UNAPPROVED N915]
+			const rows = selectedRows.length ? selectedRows : await api.fetchAll( config, tab, sort, desc, narrow );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
 			say( fmt( GRID.copied, rows.length ), 'success' );
 		} catch {
@@ -559,11 +562,11 @@ export default function Page( { config } ) {
 						/>
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
-							{ narrowed ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
+							<BulkSlot actions={ actions } rows={ selectedRows } />
+							{ narrowed && selectedRows.length === 0 ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
 						</div>
 					</div>
 					<DataViews.Layout />
-					<DataViews.BulkActionToolbar />
 					<div className="kg-dv-foot">
 						{ perPage }
 						<DataViews.Pagination />
