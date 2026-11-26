@@ -45,7 +45,24 @@ page, and the account area
 - The transfer block renders nothing unless the registration is `registered`,
   its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank
-  details are set.
+  details are set. The first four are one rule, `Api\PayableNow`, which starting a
+  card payment (Payments) reads too, through `StatusRead::payableNow()`: from the
+  participant's balance in `Ledger::balancesOf()`, never from the display summary.
+- What the registrant can do is decided on the server and carried by the status read: `can.payCard` is `PayableNow`
+  and a payment provider that accepts the event's currency, and no request in flight or paid and not yet
+  recorded; `cardPayment` is the provider's latest request
+  (`latestOf()`: state and since). A provider is an outside point: one that throws is reported and read as absent,
+  so the page never breaks on it. The status block links to the card payment route only while `can.payCard`
+  (a bare form, no look; the button is the owner's to approve).
+- `POST kalaka-portal/v1/card-payment` (`Rest\CardPaymentRoute`) starts a card payment for the active registration
+  through `Payments\Api\CardPayments::start()` and nothing else: JSON gets `{url}`, a plain form post a 303 to it; a refused plain form post gets a 303 back to the same-site
+  return address (else the referrer, else home), clean of any query, with the refusal's code in the flash cookie
+  `kalaka_card_refusal` (`CardRefusalCookie`: the code only, a known one or the generic; 120 seconds, `HttpOnly`,
+  `SameSite=Lax`, `Secure` on https). On `template_redirect`, after canonical redirection, Portal reads it once
+  and expires it; every status read of that request shows it as `cardRefusal`; a reload shows nothing. A JSON refusal is the error's
+  code and generic text (anything not a Kaláka error is `kalaka_system_failure`), never a raw message.
+  The bare button's class is `Forms\Api\ThemeStyle::buttonClass()`.
+  It is open to the holder of the active registration (the signed cookie) and answers `no-store`.
 - Payment due and overdue are computed on every read, never stored. Payment
   due is Events' date type (`Events\Api\Event::paymentDue()`), read through the
   registration's fact source (`RegistrationFacts::paymentDue()`), which holds

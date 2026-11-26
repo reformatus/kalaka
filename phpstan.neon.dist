@@ -25,6 +25,8 @@ parameters:
         - plugins/kalaka-share/src
         - plugins/kalaka-share/kalaka-share.php
         - plugins/kalaka-share/uninstall.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php

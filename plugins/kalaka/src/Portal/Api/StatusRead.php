@@ -10,11 +10,17 @@ use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Entry\Boundary;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Ledger\Api\Payer;
 use Kalaka\Ledger\Api\PayerKinds;
 use Kalaka\Ledger\Api\PayerSummary;
+use Kalaka\Payments\Api\PaymentProviderInput;
+use Kalaka\Payments\Api\PaymentProviders;
+use Kalaka\Payments\Api\PaymentsInFlight;
+use Kalaka\Portal\CardRefusalState;
 use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Confirmations;
@@ -56,6 +62,8 @@ final class StatusRead
         private readonly LineLabels $labels = new LineLabels(),
         ?MoneyRead $money = null,
         private readonly PayerKinds $payerKinds = new PayerKinds(),
+        private readonly PaymentProviders $providers = new PaymentProviders(),
+        private readonly PaymentsInFlight $inFlight = new PaymentsInFlight(),
     ) {
         $this->money = $money ?? new MoneyRead(labels: $labels);
     }
@@ -65,26 +73,30 @@ final class StatusRead
     {
         $key = ActiveRegistration::current();
 
-        return $key === null ? null : $this->of($key);
+        // The one-shot refusal of a card payment form post is shown by the page that follows it, never by a mail.
+        return $key === null ? null : $this->read($key, CardRefusalState::code());
     }
 
     /** The registration's view, or null when it or its event does not exist. */
     public function of(RegistrationKey $key): ?RegistrationStatusView
+    {
+        return $this->read($key, null);
+    }
+
+    private function read(RegistrationKey $key, ?string $cardRefusal): ?RegistrationStatusView
     {
         $registration = $this->registrations->find($key);
         $event = $registration === null ? null : $this->events->find($key->eventId);
         if ($registration === null || $event === null) {
             return null;
         }
-        $availability = match ($event->state()) {
-            EventState::Published => Availability::Open,
-            EventState::Archived => Availability::Archived,
-            default => Availability::EventClosed,
-        };
+        $availability = self::availability($event);
 
         $confirmation = null;
         $payment = null;
         $transfer = null;
+        $can = new RegistrationCan();
+        $card = null;
         if ($registration->status === RegistrationStatus::Registered) {
             $now = Runner::current()->clock()->now();
             $decisions = $this->decisions->currentOf($key);
@@ -96,7 +108,10 @@ final class StatusRead
             $facts = $this->registrations->factsOf($key, $event, $now);
             $awaits = $facts !== null && $facts->awaitsAnswer;
             $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
-            $transfer = $this->transfer($key, $event, $availability, $payment);
+            // One balance read per status read: the rule's input is the balance, never the display summary.
+            $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
+            $transfer = $this->transfer($key, $event, $availability, $payment, $balance);
+            [$can, $card] = $this->card($key, $event, $availability, $payment, $balance);
         }
 
         return new RegistrationStatusView(
@@ -110,6 +125,9 @@ final class StatusRead
             $transfer,
             $this->money->of($key, $event->currency),
             $registration->status->showsDetails() ? $this->otherPayerMoney($key, $event->currency) : [],
+            $can,
+            $card,
+            $cardRefusal,
         );
     }
 
@@ -140,6 +158,68 @@ final class StatusRead
         }
 
         return $tables;
+    }
+
+    /**
+     * What the registration can be paid now, by the one rule of the transfer block (`PayableNow`): null unless it
+     * is registered. The same reads as `of()` makes for the transfer, and no more.
+     */
+    public function payableNow(RegistrationKey $key): ?Money
+    {
+        $registration = $this->registrations->find($key);
+        $event = $registration === null ? null : $this->events->find($key->eventId);
+        if ($registration === null || $event === null || $registration->status !== RegistrationStatus::Registered) {
+            return null;
+        }
+        $facts = $this->registrations->factsOf($key, $event, Runner::current()->clock()->now());
+        $balance = $this->ledger->balancesOf($key)->of(Payer::PARTICIPANT, $event->currency);
+        $availability = self::availability($event);
+
+        return PayableNow::amount($availability, $facts !== null && $facts->awaitsAnswer, $balance);
+    }
+
+    /**
+     * Card payment: whether it can be started (the one payable rule and a provider that accepts the currency) and
+     * the latest request. A provider is an outside point: one that throws is reported and read as not there, never
+     * breaking the page.
+     *
+     * @return array{RegistrationCan, ?CardPaymentView}
+     */
+    private function card(
+        RegistrationKey $key,
+        Event $event,
+        Availability $availability,
+        PaymentView $payment,
+        Money $balance,
+    ): array {
+        $provider = $this->providers->active();
+        if ($provider === null) {
+            return [new RegistrationCan(), null];
+        }
+        try {
+            $payable = PayableNow::amount($availability, $payment->awaitsAnswer, $balance) !== null;
+            $lookup = PaymentProviderInput::forLookup($key, $event->currency);
+            $latest = $provider->latestOf($lookup);
+            // Not while a request is in flight (the start's own rule): a failed one is paid again, and a pending
+            // one is the order the next start reuses.
+            $idle = !$this->inFlight->is($provider, $key, $latest);
+            $can = new RegistrationCan($payable && $idle && $provider->accepts($lookup));
+
+            return [$can, $latest === null ? null : new CardPaymentView($latest->state, $latest->since)];
+        } catch (\Throwable $e) {
+            Boundary::report('Card payment state of ' . $provider->id(), $e);
+
+            return [new RegistrationCan(), null];
+        }
+    }
+
+    private static function availability(Event $event): Availability
+    {
+        return match ($event->state()) {
+            EventState::Published => Availability::Open,
+            EventState::Archived => Availability::Archived,
+            default => Availability::EventClosed,
+        };
     }
 
     private static function phase(RegistrationStatus $status, bool $confirmed): Phase
@@ -182,14 +262,12 @@ final class StatusRead
         Event $event,
         Availability $availability,
         PaymentView $payment,
+        Money $balance,
     ): ?TransferDetails {
-        $amount = $payment->participant->balance->roundedUpToPayableUnit();
+        $amount = PayableNow::amount($availability, $payment->awaitsAnswer, $balance);
         $beneficiary = trim((string) $event->transferBeneficiary);
         $account = trim((string) $event->transferAccount);
-        if (
-            $availability !== Availability::Open || $payment->awaitsAnswer || !$amount->isPositive()
-            || $beneficiary === '' || $account === ''
-        ) {
+        if ($amount === null || $beneficiary === '' || $account === '') {
             return null;
         }
         $prefix = trim((string) $event->transferReferencePrefix);
