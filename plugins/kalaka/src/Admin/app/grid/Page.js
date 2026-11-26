@@ -519,22 +519,41 @@ export default function Page( { config } ) {
 		}
 		return Array.from( document.querySelectorAll( '[data-kg-menu]' ) ).find( ( b ) => b.dataset.kgMenu === target.column ) || null;
 	};
+	// It keeps at it for a few seconds, because the grid redraws again when its reload answers; it gives up as soon as
+	// the user presses a key or clicks somewhere.
 	const focusOpener = ( target ) => {
 		const until = Date.now() + 3000;
 		let tries = 0;
+		let stopped = false;
+		const stop = () => {
+			stopped = true;
+			document.removeEventListener( 'pointerdown', stop, true );
+			document.removeEventListener( 'keydown', stop, true );
+		};
 		const attempt = () => {
+			if ( stopped ) {
+				return;
+			}
 			const element = openerOf( target );
-			if ( element ) {
+			const active = document.activeElement;
+			const lost = ! active || active === document.body || ( active.closest && active.closest( '.components-popover' ) );
+			if ( element && element !== active && lost ) {
 				element.focus();
-				if ( document.activeElement === element ) {
-					return;
-				}
 			}
 			tries++;
-			if ( tries < 200 && Date.now() < until ) {
+			if ( tries < 400 && Date.now() < until ) {
 				window.requestAnimationFrame( attempt );
+			} else {
+				stop();
 			}
 		};
+		// The keydown or click that chose the menu item has already happened; a later one is the user moving on.
+		window.setTimeout( () => {
+			if ( ! stopped ) {
+				document.addEventListener( 'pointerdown', stop, true );
+				document.addEventListener( 'keydown', stop, true );
+			}
+		}, 0 );
 		window.requestAnimationFrame( attempt );
 	};
 	useEffect( () => {
