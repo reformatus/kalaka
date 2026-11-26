@@ -71,6 +71,13 @@ final class SignUpPage
         . 'window.close();}}catch(e){}setTimeout(function(){location.replace(p);},500);})(%s);';
 
     /**
+     * The popup return page's style: `hidden` hides the line and the button. WordPress's login CSS gives
+     * `.button` and `.login .message` a `display` of their own, which beats the browser's `[hidden]` rule.
+     */
+    public const POPUP_HIDDEN_STYLE = '[data-kalaka-return-line][hidden],[data-kalaka-return-close][hidden]'
+        . '{display:none!important}';
+
+    /**
      * The popup return page's script (the return page with `popup=1`, no `%s`): it tells the page that opened
      * the window (same origin only) that someone logged in and tries to close the window; it never goes to
      * another page. After 300 ms, if the window is still open, it shows the line and the close button.
@@ -297,6 +304,10 @@ final class SignUpPage
     private function popupPage(): void
     {
         nocache_headers();
+        add_action('login_head', static function (): void {
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a constant
+            echo '<style>' . self::POPUP_HIDDEN_STYLE . '</style>';
+        });
         login_header(get_bloginfo('name'));
         printf(
             '<p class="message" data-kalaka-return-line hidden>%1$s</p>'

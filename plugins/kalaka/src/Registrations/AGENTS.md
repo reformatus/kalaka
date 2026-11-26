@@ -108,8 +108,8 @@ the waitlist and reference codes
   registration links, `registration_redirect` and `login_redirect`, each
   through the return page (`Account\SignUpPage::returnPage()`, on
   `login_form_kalaka_account`) to the form's page found on the server
-  (`Forms\Api\SignUp::page()`), never an address from the request. The
-  return page prints no text; it tells only a window opener of its own
+  (`Forms\Api\SignUp::page()`), never an address from the request. Without
+  the popup marker the return page prints no text; it tells only a window opener of its own
   origin, and otherwise goes to the form's page. With the marker
   `popup=1` (`SignUp::POPUP`, exactly `1`; carried through every path
   above, the password-reset login link included) it never goes anywhere:

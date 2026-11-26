@@ -363,6 +363,11 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertStringContainsString(SignUpPage::RETURN_CLOSE_LINE, $popup);
         self::assertStringContainsString(SignUpPage::RETURN_CLOSE_BUTTON, $popup);
         self::assertStringContainsString('<noscript>', $popup);
+        // `hidden` must beat the login CSS's `display` on `.button` and `.message`, and no script, no button.
+        self::assertStringContainsString('<style>' . SignUpPage::POPUP_HIDDEN_STYLE . '</style>', $popup);
+        self::assertSame(1, preg_match('#<noscript>(.*?)</noscript>#s', $popup, $noscript));
+        self::assertStringNotContainsString('<button', $noscript[1]);
+        self::assertStringContainsString(SignUpPage::RETURN_CLOSE_LINE, $noscript[1]);
         self::assertStringContainsString('window.close()', $popup);
         self::assertStringContainsString('postMessage({kalaka:"account"},location.origin)', $popup);
 

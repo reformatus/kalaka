@@ -7,7 +7,9 @@ declare(strict_types=1);
 if (!function_exists('login_header')) {
     function login_header(string $title = ''): void
     {
-        echo '<div id="login-frame">';
+        echo '<head>';
+        do_action('login_head');
+        echo '</head><div id="login-frame">';
     }
 }
 
