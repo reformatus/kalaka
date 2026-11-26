@@ -140,10 +140,26 @@ final class ActionMailCommandTest extends MailBodyTestCase
         self::assertNull(json_decode(\WP_CLI::$calls[0][1], true)['body']);
     }
 
+    public function testABodyWithAnUnknownPlaceholderIsRefusedWithItsText(): void
+    {
+        $event = $this->create();
+        $file = $this->file($this->paragraph('Szia {{ nem jelölő }}'));
+
+        $text = $this->fails(
+            fn () => $this->command()->body([(string) $event, 'waitlisted'], ['file' => $file, 'title' => 'Várólista'])
+        );
+
+        self::assertStringEndsWith(
+            'Ismeretlen jelölő: {{ nem jelölő }}. A mentéshez javítani vagy törölni kell.',
+            $text
+        );
+        self::assertSame(0, $this->postCount());
+    }
+
     public function testABodyIsSavedPublishedAssignedAndTheMailSwitchedOnAndOff(): void
     {
         $event = $this->create();
-        $content = $this->paragraph('Szia {{ nem jelölő }} <strong>Teszt</strong>');
+        $content = $this->paragraph('Szia {{ recipient.name }} <strong>Teszt</strong>');
         $file = $this->file($content);
 
         $this->command()->body([(string) $event, 'waitlisted'], ['file' => $file, 'title' => 'Várólista']);
