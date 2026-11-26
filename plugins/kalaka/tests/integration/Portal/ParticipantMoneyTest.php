@@ -538,8 +538,9 @@ final class ParticipantMoneyTest extends PortalTestCase
         // The registration, the event, the decisions, the summary, the participant's balance (the rule of what is
         // payable now reads `balancesOf()`, never the summary), the statement, the manual fees and the lines
         // (`entriesOf()`, which finds the other payers: none here, so no more). The fact source (`factsOf()`, for
-        // awaits-an-answer and the due date) is counted in the same statements: TODO adjust after the run.
-        self::assertSame(8, $counts[0]);
+        // awaits-an-answer and the due date) is counted in the same statements: the field values and the
+        // participant fields it reads. None of them grows with the line count.
+        self::assertSame(10, $counts[0]);
     }
 
     // ----- The table's markup (owner topics 10 and 11, rounds 2 and 3) -----

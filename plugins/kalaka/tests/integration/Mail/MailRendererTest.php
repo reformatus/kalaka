@@ -154,10 +154,10 @@ final class MailRendererTest extends MailBodyTestCase
 
         self::assertSame(
             ['yes'],
-            $values->context($asking)->get('registration.awaits_answer')->data
+            $values->context($asking, self::now())->get('registration.awaits_answer')->data
         );
-        self::assertSame('', $values->context($asking)->get('registration.awaits_answer')->text);
-        self::assertSame(['no'], $values->context($plain)->get('registration.awaits_answer')->data);
+        self::assertSame('', $values->context($asking, self::now())->get('registration.awaits_answer')->text);
+        self::assertSame(['no'], $values->context($plain, self::now())->get('registration.awaits_answer')->data);
         self::assertSame(
             ValueType::Choice,
             $values->types($event)['registration.awaits_answer']
