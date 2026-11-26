@@ -15,10 +15,11 @@ use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
- * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one guest order with one item
- * of the hidden product per line, paid on WooCommerce's own order-pay page with whatever gateway the shop
- * has. A new request cancels the registration's never-paid orders (pending, failed) and makes one new order; a paid
- * order is never touched, and an order in any other open state refuses the start (see `latestOf()`).
+ * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one order (a guest order, or the
+ * owner account's when it is the one paying; see `OrderOwner`) with one item of the hidden product per line, paid
+ * on WooCommerce's own order-pay page with whatever gateway the shop has. A new request cancels the registration's
+ * never-paid orders (pending, failed) and makes one new order; a paid order is never touched,
+ * and an order in any other open state refuses the start (see `latestOf()`).
  */
 final class WooProvider extends AbstractPaymentProvider
 {
@@ -31,6 +32,8 @@ final class WooProvider extends AbstractPaymentProvider
         private readonly OrderFinder $finder = new OrderFinder(),
         private readonly HiddenProduct $product = new HiddenProduct(),
         private readonly CardSurcharge $surcharge = new CardSurcharge(),
+        private readonly OrderOwner $owner = new OrderOwner(),
+        private readonly BillingSource $billing = new NoBilling(),
     ) {
     }
 
@@ -170,9 +173,38 @@ final class WooProvider extends AbstractPaymentProvider
         return $total;
     }
 
+    /**
+     * [UNAPPROVED N818] The billing details of the request's first registration, when the source has any: the whole
+     * name in the first-name field (the last name stays empty; WooCommerce needs neither for an order made here),
+     * and only the non-empty values.
+     */
+    private function setBilling(\WC_Order $order, PaymentRequest $request): void
+    {
+        $details = $this->billing->of($request->lines[0]->registration);
+        if ($details === null) {
+            return;
+        }
+        if ($details->name !== null && $details->name !== '') {
+            $order->set_billing_first_name($details->name);
+        }
+        if ($details->country !== null && $details->country !== '') {
+            $order->set_billing_country(strtoupper($details->country));
+        }
+        if ($details->postcode !== null && $details->postcode !== '') {
+            $order->set_billing_postcode($details->postcode);
+        }
+        if ($details->city !== null && $details->city !== '') {
+            $order->set_billing_city($details->city);
+        }
+        if ($details->address !== null && $details->address !== '') {
+            $order->set_billing_address_1($details->address);
+        }
+    }
+
     private function create(PaymentRequest $request, string $returnUrl): \WC_Order
     {
-        $order = wc_create_order(['status' => 'pending', 'customer_id' => 0]);
+        // [UNAPPROVED N327] The owner account's order when it is the one paying, else a guest order.
+        $order = wc_create_order(['status' => 'pending', 'customer_id' => $this->owner->customerOf($request)]);
         if (!$order instanceof \WC_Order) {
             throw new \RuntimeException('WooCommerce did not create the order.');
         }
@@ -185,6 +217,7 @@ final class WooProvider extends AbstractPaymentProvider
         if ($request->email !== null && $request->email !== '') {
             $order->set_billing_email($request->email);
         }
+        $this->setBilling($order, $request);
         $productId = $this->product->id();
         $product = wc_get_product($productId);
         foreach ($request->lines as $line) {

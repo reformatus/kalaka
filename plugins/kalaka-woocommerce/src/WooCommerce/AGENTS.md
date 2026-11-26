@@ -38,8 +38,16 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   work), and two options: `kalaka_woocommerce_product_id`, the ID of the one hidden product (private, and not purchasable by any
   filter, so only an order of this plugin holds it), and `kalaka_woocommerce_card_surcharge`, the per-event card
   surcharge. It has no table.
-- A payment request is one guest order (billing email only, no name, address or country, and the customer IP
-  address and user agent WooCommerce stores on a new order are cleared; the order's currency is the request's) with one item of the
+- A payment request is one order, with the billing email and, when a `BillingSource` gives any, the payer's name
+  (whole, in the first-name field), country, postcode, city and address (only the non-empty ones; the default
+  source `NoBilling` gives none, so today an order carries the email only), and the customer IP
+  address and user agent WooCommerce stores on a new order are cleared; the order's currency is the request's. The
+  order is the owner account's (`customer_id`) only when every line's registration has that same owner account
+  and the paying visitor is logged in as that user (`OrderOwner`: WooCommerce's pay page lets only the customer
+  pay a customer order, so a logged-out registrant or another user would be refused); in every other case, lines
+  of several owners included, it is a guest order, which anyone holding its key can pay. The visitor is read
+  from the logged-in cookie (`wp_validate_auth_cookie()`, read-only: the card start is a REST post without a
+  `wp_rest` nonce, which REST reads as logged out), and decides nothing but that customer. The order has one item of the
   hidden product per request line: quantity 1, subtotal and total the amount, name the line's label, item meta
   `_kalaka_registration` (`12:47K3`, composed and parsed only through `Payments\Api\RegistrationRef`) and
   `_kalaka_payer`. The order carries `_kalaka`, one `_kalaka_registration` row per line, `_kalaka_return_url`
