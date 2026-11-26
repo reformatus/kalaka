@@ -85,4 +85,9 @@ final class PrefillingHost implements FormHost
     {
         return $this->inner->slotRequiredKeys($form);
     }
+
+    public function labelFallbacks(Form $form): array
+    {
+        return $this->inner->labelFallbacks($form);
+    }
 }
