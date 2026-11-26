@@ -7,15 +7,15 @@ namespace Kalaka\Registrations\Draft;
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PublicUseCase;
-use Kalaka\Registrations\Api\DraftClaim;
 
 /**
  * A link's or the quiz's answers handed over to a registration form (S74, owner ruling 2026-11-14: the quiz
- * handoff is a guest draft): kept as a guest draft under the new claim token's hash for
- * `DraftClaim::LIFETIME_DAYS`. The earlier guest draft of the same browser (`replaces`, the hash of the
- * cookie it had) is deleted: one browser holds one. Anyone may run it, a guest included. The answers come
- * through the constructor, already the ones the form's types accept; never input, so they never reach a
- * failed run's audit entry, and the draft's audit records only that they were set.
+ * handoff is a guest draft): kept as a guest draft under the new claim token's hash, with no expiry of its
+ * own (it lives until the form is sent or the registration has closed; owner ruling 2026-11-26). The earlier
+ * guest draft of the same browser (`replaces`, the hash of the cookie it had) is deleted: one browser holds
+ * one. Anyone may run it, a guest included. The answers come through the constructor, already the ones the
+ * form's types accept; never input, so they never reach a failed run's audit entry, and the draft's audit
+ * records only that they were set.
  */
 final class HandOverPrefill implements PublicUseCase
 {
@@ -53,8 +53,7 @@ final class HandOverPrefill implements PublicUseCase
         return [];
     }
 
-    /** @return \DateTimeImmutable when the guest draft expires: the one instant the cookie's expiry follows too */
-    public function execute(array $input, Context $context): \DateTimeImmutable
+    public function execute(array $input, Context $context): null
     {
         if (isset($input['replaces'])) {
             $earlier = $this->drafts->ofClaim((string) $input['replaces'], $context);
@@ -63,7 +62,6 @@ final class HandOverPrefill implements PublicUseCase
             }
         }
         $now = $context->now();
-        $expires = $now->modify('+' . DraftClaim::LIFETIME_DAYS . ' days');
         $this->drafts->upsert(new Draft(
             (int) $input['event_id'],
             (int) $input['form_id'],
@@ -74,9 +72,8 @@ final class HandOverPrefill implements PublicUseCase
             0,
             $now,
             $now,
-            $expires,
         ), $context);
 
-        return $expires;
+        return null;
     }
 }

@@ -142,13 +142,8 @@ flowchart TB
   cleans to nothing or that the type does not accept, is dropped, silently.
   What is left is kept as a guest
   draft ([Submissions and values](registrations-and-identity.md#submissions-and-values))
-  under a claim token in a cookie, and the request is answered with a 303 to
+  under a claim token in a cookie, in every account mode, and the request is answered with a 303 to
   the page without them. The form then opens with them, as editable values.
-  Where the event's account mode is `off` there are no drafts: the answers
-  are kept instead as a one-shot row of the drafts table, under the hash of
-  a token in a cookie, for five minutes, and the one page load after the 303
-  opens the form with them and deletes the row; it is never listed or
-  claimed as a draft, and the periodic run deletes one that is never read.
   A link-only field never takes public prefill. Nothing of the request is
   logged.
 - **Forms start from the active registration**
@@ -233,9 +228,10 @@ flowchart TB
   that shows; there is no progress indicator.
 - **Answers stay in the browser while the page is open:** a hidden answer
   is kept and only the answers of what shows are sent; a ticked option that
-  stops being offered is ticked again when it returns. A guest's answers
-  are not kept across a reload; a logged-in person's are, in their draft,
-  which the autosave keeps, unless the event's account mode is off
+  stops being offered is ticked again when it returns. A guest's own
+  typing is not kept across a reload, but the answers a link or the quiz
+  handed over are, in their guest draft; a logged-in person's are, in
+  their draft, which the autosave keeps
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **While the server is asked** (a re-fetch, a page check, a submit) the
   form is dimmed and its fields take no input; after 2 seconds a spinner in
@@ -272,8 +268,9 @@ flowchart TB
   no request. A terminal page holds no fields and has a condition: it shows
   its content and cannot be sent, and the server refuses a submit while one
   shows. The contact email and the display name never sit on a conditional
-  page. A guest's answers are not kept across a reload; a logged-in
-  person's are, in their draft, unless the event's account mode is off
+  page. A guest's own typing is not kept across a reload, but the answers
+  a link or the quiz handed over are, in their guest draft; a logged-in
+  person's are, in their draft
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you

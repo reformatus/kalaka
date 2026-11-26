@@ -10,7 +10,7 @@ use Kalaka\Registrations\Module;
 use Kalaka\Tests\Integration\Foundation\IndexCheck;
 use WP_UnitTestCase;
 
-/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3, with their `kind`). */
+/** AC1: the tables of the module (S74 adds the drafts, schema 4, after S15's 3). */
 final class RegistrationsSchemaTest extends WP_UnitTestCase
 {
     private const COLUMNS = [
@@ -47,7 +47,6 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'id' => 'bigint(20) unsigned',
             'version' => 'int(10) unsigned',
             'claims' => 'int(10) unsigned',
-            'kind' => 'varchar(8)',
             'form_id' => 'bigint(20) unsigned',
             'form_version' => 'bigint(20) unsigned',
             'user_id' => 'bigint(20) unsigned null',
@@ -58,7 +57,6 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             'page' => 'smallint(5) unsigned',
             'created_at' => 'datetime(6)',
             'updated_at' => 'datetime(6)',
-            'expires_at' => 'datetime(6) null',
         ],
     ];
 
@@ -68,7 +66,6 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
         'kalaka_field_values.field_key' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.submit_token' => 'utf8mb4_nopad_bin',
         'kalaka_submissions.answers_hash' => 'utf8mb4_nopad_bin',
-        'kalaka_drafts.kind' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.claim_hash' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.resolved_claim' => 'utf8mb4_nopad_bin',
         'kalaka_drafts.resolved_choice' => 'utf8mb4_nopad_bin',
@@ -158,7 +155,7 @@ final class RegistrationsSchemaTest extends WP_UnitTestCase
             [
                 'PRIMARY:event_id:0', 'PRIMARY:id:0',
                 'owner:event_id:0', 'owner:form_id:0', 'owner:user_id:0',
-                'claim:claim_hash:0', 'id:id:1', 'expires:expires_at:1',
+                'claim:claim_hash:0', 'id:id:1',
             ],
             array_map(
                 static fn (array $row): string

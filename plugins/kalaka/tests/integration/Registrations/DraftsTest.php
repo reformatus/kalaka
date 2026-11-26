@@ -87,7 +87,14 @@ final class DraftsTest extends FormsTestCase
             new AnswerSet($answers),
             $earlier,
             new GuestActor()
-        )[0];
+        );
+    }
+
+    /** After the registration closes (2026-12-15 20:00 Budapest). */
+    private function afterClose(): void
+    {
+        $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-16 08:00:00', new \DateTimeZone('UTC'))));
+        Runner::publish($this->runner);
     }
 
     /** @return list<array<string, ?string>> */
@@ -123,7 +130,6 @@ final class DraftsTest extends FormsTestCase
         self::assertCount(1, $rows);
         self::assertSame((string) $anna->userId, $rows[0]['user_id']);
         self::assertNull($rows[0]['claim_hash']);
-        self::assertNull($rows[0]['expires_at']);
         self::assertSame('2', $rows[0]['page']);
         self::assertSame(self::ANSWERS, AnswerSet::fromJson((string) $rows[0]['answers'])->answers);
 
@@ -162,7 +168,7 @@ final class DraftsTest extends FormsTestCase
         );
     }
 
-    public function testAHandoffKeepsAGuestDraftUnderTheTokensHashForSevenDays(): void
+    public function testAHandoffKeepsAGuestDraftUnderTheTokensHash(): void
     {
         $token = $this->handOver(['note' => 'a kvízből']);
 
@@ -171,75 +177,10 @@ final class DraftsTest extends FormsTestCase
         self::assertCount(1, $rows);
         self::assertNull($rows[0]['user_id']);
         self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
-        self::assertSame('2026-12-07 08:00:00.000000', $rows[0]['expires_at']);
 
         $opening = $this->drafts->opening($this->event, $this->form, null, $token);
         self::assertSame(['note' => 'a kvízből'], $opening->answers->answers);
         self::assertFalse($opening->autosave);
-    }
-
-    /** @return string the token of a one-shot prefill (N676) */
-    private function stash(array $answers): string
-    {
-        return $this->drafts->stashPrefill(
-            $this->event,
-            $this->form,
-            $this->version(),
-            new AnswerSet($answers),
-            new GuestActor()
-        )[0];
-    }
-
-    /** N676: the stash is a row of our table under the token's hash, and one read gives it and deletes it. */
-    public function testAPrefillIsKeptUnderTheTokensHashForFiveMinutesAndOneReadDeletesIt(): void
-    {
-        $token = $this->stash(['note' => 'a kvízből']);
-
-        $rows = $this->draftRows();
-        self::assertCount(1, $rows);
-        self::assertSame('prefill', $rows[0]['kind']);
-        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
-        self::assertNull($rows[0]['user_id']);
-        self::assertSame('2026-11-30 08:05:00.000000', $rows[0]['expires_at']);
-        self::assertStringNotContainsString($token, (string) wp_json_encode($rows));
-
-        $taken = $this->drafts->takePrefill($this->form, $token, new GuestActor());
-        self::assertNotNull($taken);
-        self::assertSame(['note' => 'a kvízből'], $taken->answers);
-        self::assertSame([], $this->draftRows());
-        self::assertNull($this->drafts->takePrefill($this->form, $token, new GuestActor()));
-    }
-
-    public function testAPrefillAfterItsFiveMinutesIsNotGivenAndANeverReadOneIsSwept(): void
-    {
-        $read = $this->stash(['note' => 'a']);
-        $this->stash(['note' => 'b']);
-        $this->useClock(new TestClock(new \DateTimeImmutable('2026-11-30 08:06:00', new \DateTimeZone('UTC'))));
-        Runner::publish($this->runner);
-        $drafts = new Drafts($this->runner);
-
-        self::assertNull($drafts->takePrefill($this->form, $read, new GuestActor()));
-        self::assertCount(1, $this->draftRows());
-
-        (new DraftSweep($this->runner))->run();
-        self::assertSame([], $this->draftRows());
-    }
-
-    public function testAPrefillIsNeverADraftOfAnyListingOrClaim(): void
-    {
-        $token = $this->stash(['note' => 'a']);
-        $person = $this->person();
-
-        $opening = $this->drafts->opening($this->event, $this->form, $person->userId, $token);
-        self::assertTrue($opening->answers->isEmpty());
-        self::assertFalse($opening->claimConflict);
-        self::assertSame(DraftClaimOutcome::Gone, $this->drafts->claim($this->form, $token, $person));
-        self::assertTrue($this->drafts->opening($this->event, $this->form, null, $token)->answers->isEmpty());
-        self::assertFalse($this->drafts->holds($token));
-        self::assertCount(1, $this->draftRows());
-        // Another form's page leaves it alone.
-        self::assertNull($this->drafts->takePrefill($this->form + 1, $token, new GuestActor()));
-        self::assertCount(1, $this->draftRows());
     }
 
     public function testASecondHandoffReplacesTheBrowsersEarlierGuestDraft(): void
@@ -264,7 +205,6 @@ final class DraftsTest extends FormsTestCase
         self::assertCount(1, $rows);
         self::assertSame((string) $anna->userId, $rows[0]['user_id']);
         self::assertNull($rows[0]['claim_hash']);
-        self::assertNull($rows[0]['expires_at']);
         self::assertSame(DraftClaimOutcome::Gone, $this->drafts->claim($this->form, $token, $anna));
     }
 
@@ -367,12 +307,12 @@ final class DraftsTest extends FormsTestCase
         self::assertSame($after, $this->draftRows());
     }
 
-    public function testAChoiceOnAnExpiredGuestDraftIsRefused(): void
+    public function testAChoiceOnAGuestDraftTheSweepDeletedIsRefused(): void
     {
         $anna = $this->person();
         $token = $this->conflict($anna);
-        $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-08 08:00:00', new \DateTimeZone('UTC'))));
-        Runner::publish($this->runner);
+        $this->afterClose();
+        (new DraftSweep($this->runner))->run();
 
         $this->expectException(DraftClaimRefused::class);
         (new Drafts($this->runner))->resolve($this->event, $this->form, $token, DraftClaimChoice::Merge, $anna);
@@ -391,7 +331,7 @@ final class DraftsTest extends FormsTestCase
         $this->drafts->resolve($this->event, $this->form, $settled, DraftClaimChoice::Merge, $anna);
     }
 
-    public function testAGuestDraftOfAnotherFormOrAnExpiredOneIsNotClaimed(): void
+    public function testAGuestDraftOfAnotherFormOrOneTheSweepDeletedIsNotClaimed(): void
     {
         $anna = $this->person();
         $token = $this->handOver(['note' => 'x']);
@@ -399,8 +339,8 @@ final class DraftsTest extends FormsTestCase
 
         self::assertSame(DraftClaimOutcome::OtherForm, $this->drafts->claim($other, $token, $anna));
 
-        $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-08 08:00:00', new \DateTimeZone('UTC'))));
-        Runner::publish($this->runner);
+        $this->afterClose();
+        (new DraftSweep($this->runner))->run();
         self::assertSame(DraftClaimOutcome::Gone, (new Drafts($this->runner))->claim($this->form, $token, $anna));
     }
 
@@ -475,15 +415,46 @@ final class DraftsTest extends FormsTestCase
     {
         $this->save($this->person(), self::ANSWERS);
 
-        // After the registration closes (2026-12-15 20:00 Budapest).
-        $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-16 08:00:00', new \DateTimeZone('UTC'))));
-        Runner::publish($this->runner);
+        $this->afterClose();
         (new DraftSweep($this->runner))->run();
 
         self::assertSame([], $this->draftRows());
     }
 
-    public function testTheSweepKeepsOpenAndUnpublishedDraftsAndDeletesArchivedAndExpiredOnes(): void
+    public function testAGuestDraftLivesPastSevenDaysUntilTheRegistrationClosesAndTheSweepThenDeletesIt(): void
+    {
+        $token = $this->handOver(['note' => 'a kvízből']);
+
+        // Handed over 2026-11-30; 15 days later the registration is still open (it closes 2026-12-15 20:00 Budapest).
+        $this->useClock(new TestClock(new \DateTimeImmutable('2026-12-15 18:00:00', new \DateTimeZone('UTC'))));
+        Runner::publish($this->runner);
+        (new DraftSweep($this->runner))->run();
+        self::assertTrue($this->drafts->holds($token));
+        $opening = $this->drafts->opening($this->event, $this->form, null, $token);
+        self::assertSame(['note' => 'a kvízből'], $opening->answers->answers);
+
+        $this->afterClose();
+        (new DraftSweep($this->runner))->run();
+        self::assertSame([], $this->draftRows());
+        self::assertFalse($this->drafts->holds($token));
+    }
+
+    public function testTheSweepDeletesTheGuestDraftsOfAnEventWhoseAccountModeIsOffAfterTheClose(): void
+    {
+        $off = $this->published();
+        $offForm = $this->insertForm($this->slotFields() . $this->field('text', 'note'), ['kalaka_event_id' => $off]);
+        $version = $this->readForm($offForm)->version;
+        $answers = new AnswerSet(['note' => 'x']);
+        $token = $this->drafts->handOver($off, $offForm, $version, $answers, null, new GuestActor());
+        self::assertTrue($this->drafts->holds($token));
+
+        $this->afterClose();
+        (new DraftSweep($this->runner))->run();
+
+        self::assertFalse($this->drafts->holds($token));
+    }
+
+    public function testTheSweepKeepsOpenAndUnpublishedDraftsAndDeletesArchivedOnes(): void
     {
         $this->save($this->person(), self::ANSWERS);
         $archived = $this->published();
@@ -502,8 +473,7 @@ final class DraftsTest extends FormsTestCase
         (new DraftSweep($this->runner))->run();
 
         $rows = $this->draftRows();
-        self::assertCount(1, $rows);
-        self::assertNotNull($rows[0]['user_id']);
+        self::assertCount(2, $rows, 'the open event keeps its user draft and its guest draft');
         global $wpdb;
         self::assertSame('0', $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_drafts WHERE event_id = %d",

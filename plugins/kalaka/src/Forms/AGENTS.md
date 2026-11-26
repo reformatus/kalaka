@@ -242,7 +242,8 @@ values and conditions, prefill and form links
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
   answers of fields that show. It keeps nothing across a reload itself: a
-  logged-in person's answers survive only as their draft, which the autosave
+  guest's handed-over answers survive as their guest draft, and a
+  logged-in person's own answers only as their draft, which the autosave
   sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
   once a send starts, once the person's choice on a link's answers is sent,
   or once the route refuses a save as from before a claim.
@@ -254,8 +255,8 @@ values and conditions, prefill and form links
   cleaned by its type's prefill rules (`FieldType::prefill()`, as a stored
   value is: bad parts dropped, the rest kept, null drops it), then checked
   alone with the type (`Forms::linkAnswers()`). What is left becomes a
-  guest draft, and the request ends in an
-  uncached 303 without them. No value of the request is logged. A logged-in
+  guest draft (in every account mode, the cookie lasting until the event's registration closes), and the
+  request ends in an uncached 303 without them. No value of the request is logged. A logged-in
   request to that page claims the cookie's guest draft there, never in the
   render.
 - The claim popup (`Blocks/form/claim.js`, a `@wordpress/components` Modal)
@@ -280,7 +281,7 @@ values and conditions, prefill and form links
   refusals and the window, the key problem against keys beyond the form, the
   stored values the form opens with, the person's draft (`draft()`,
   `saveDraft()`, `resolveDraftClaim()`; an event form's host also keeps the
-  handoff's and the claim's, and none in the account mode `off`, where a handoff only prefills the one page load after it (`kalaka_prefill`, five minutes, read once); `DraftHandoff` counts each handoff request through `SubmitGuard::checkHandoff()`, the submit's budget), the submit token and the submit, the
+  handoff's and the claim's, in every account mode; `DraftHandoff` counts each handoff request through `SubmitGuard::checkHandoff()`, the submit's budget), the submit token and the submit, the
   after-submit section's keys, and whether the form needs an account
   (`accountStep()`). Kaláka's
   event form, `EventFormHost`, is the first host; `Api\Forms` and the form

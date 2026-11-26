@@ -5,53 +5,29 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Unit\Registrations;
 
 use Kalaka\Forms\Api\AnswerSet;
-use Kalaka\Registrations\Api\DraftClaim;
 use Kalaka\Registrations\Draft\Draft;
 use PHPUnit\Framework\TestCase;
 
-/** The one test of "a usable guest draft of the form" (S74). */
+/** The one test of "a guest draft of the form" (S74): no time of its own; owner ruling 2026-11-26. */
 final class DraftTest extends TestCase
 {
-    private function draft(?int $user, ?\DateTimeImmutable $expires, int $form = 7): Draft
+    private function draft(?int $user, int $form = 7): Draft
     {
         $at = new \DateTimeImmutable('2026-11-20 10:00:00', new \DateTimeZone('UTC'));
 
-        return new Draft(1, $form, 1, $user, 'hash', new AnswerSet([]), 0, $at, $at, $expires);
+        return new Draft(1, $form, 1, $user, 'hash', new AnswerSet([]), 0, $at, $at);
     }
 
-    public function testAGuestDraftIsUsableForItsFormUntilItExpires(): void
+    public function testAGuestDraftIsOfItsFormWhateverItsAge(): void
     {
-        $now = new \DateTimeImmutable('2026-11-24 10:00:00', new \DateTimeZone('UTC'));
-        $live = $this->draft(null, $now->modify('+1 day'));
-        $expired = $this->draft(null, $now->modify('-1 second'));
+        $guest = $this->draft(null);
 
-        self::assertTrue($live->isUsableGuestOf(7, $now));
-        self::assertFalse($live->isUsableGuestOf(8, $now));
-        self::assertTrue($live->isUsableGuest($now));
-        self::assertFalse($expired->isUsableGuest($now));
-        self::assertFalse($expired->isUsableGuestOf(7, $now));
-        // The submit's deletion also takes an expired one.
-        self::assertTrue($expired->isGuestOf(7));
-        self::assertFalse($expired->isGuestOf(8));
+        self::assertTrue($guest->isGuestOf(7));
+        self::assertFalse($guest->isGuestOf(8));
     }
 
     public function testAUserDraftIsNeverAGuestDraft(): void
     {
-        $now = new \DateTimeImmutable('2026-11-24 10:00:00', new \DateTimeZone('UTC'));
-        $own = $this->draft(5, $now->modify('+1 day'));
-
-        self::assertFalse($own->isGuestOf(7));
-        self::assertFalse($own->isUsableGuest($now));
-        self::assertFalse($this->draft(null, null)->isUsableGuest($now));
-    }
-
-    public function testOnlyANullTokenDeletesTheClaimCookie(): void
-    {
-        $at = new \DateTimeImmutable('2026-11-24 10:00:00', new \DateTimeZone('UTC'));
-
-        self::assertSame(-1, DraftClaim::cookieExpiry(null, $at));
-        self::assertSame(-1, DraftClaim::cookieExpiry(null, null));
-        self::assertSame(0, DraftClaim::cookieExpiry('token', null));
-        self::assertSame($at->getTimestamp(), DraftClaim::cookieExpiry('token', $at));
+        self::assertFalse($this->draft(5)->isGuestOf(7));
     }
 }

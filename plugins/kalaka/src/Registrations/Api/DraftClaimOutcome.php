@@ -25,6 +25,6 @@ enum DraftClaimOutcome: string
     /** The guest draft is for another form: the cookie stays for that one. */
     case OtherForm = 'other_form';
 
-    /** No such guest draft, or it expired: the cookie is done. */
+    /** No such guest draft (sent, swept or claimed): the cookie is done. */
     case Gone = 'gone';
 }

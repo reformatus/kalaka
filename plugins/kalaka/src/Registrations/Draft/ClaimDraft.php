@@ -19,7 +19,7 @@ use Kalaka\Registrations\Api\DraftClaimOutcome;
  * the guest draft becomes theirs. With one, the link's answers wait for the person's choice
  * (`ResolveDraftClaim`) only when they set a value the draft does not hold (`Forms::changedKeys()`, against
  * the form's latest definition, read before the run); when they change nothing, it is settled as keep_draft
- * at once: the guest draft is deleted, and there is nothing to choose. A guest draft that is gone, expired or
+ * at once: the guest draft is deleted, and there is nothing to choose. A guest draft that is gone or
  * for another form claims nothing.
  *
  * When the guest draft becomes theirs, the draft's `claims` count goes up, so an autosave sent from a page
@@ -68,7 +68,7 @@ final class ClaimDraft implements PortalUseCase
             throw $error;
         }
         $guest = $this->drafts->ofClaim((string) $input['claim_hash'], $context);
-        if ($guest === null || !$guest->isUsableGuest($context->now())) {
+        if ($guest === null || $guest->userId !== null) {
             return DraftClaimOutcome::Gone;
         }
         if ($guest->formId !== (int) $input['form_id']) {
@@ -92,7 +92,6 @@ final class ClaimDraft implements PortalUseCase
         $guest->resolvedClaim = $guest->claimHash;
         $guest->resolvedChoice = null;
         $guest->claimHash = null;
-        $guest->expiresAt = null;
         $guest->updatedAt = $context->now();
         ++$guest->claims;
         $this->drafts->upsert($guest, $context);

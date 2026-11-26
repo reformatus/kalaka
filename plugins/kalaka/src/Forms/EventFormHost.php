@@ -164,14 +164,10 @@ final class EventFormHost implements FormHost
      * A registration form's draft (S74): the logged-in person's own, or a link's or the quiz's guest draft
      * the cookie names. An additional form has none (re-asked with S60).
      *
-     * None in the event's account mode `off` (S15-6, N9), where a handoff's answers open the one page load
-     * after it (`DraftHandoff::prefilledNow()`). [UNAPPROVED N9] [UNAPPROVED N676]
+     * In every account mode, `off` included: a guest's guest draft needs no account (owner ruling 2026-11-26).
      */
     public function draft(Form $form): FormDraft
     {
-        if ($this->prefillsOnly($form)) {
-            return new FormDraft(DraftHandoff::prefilledNow() ?? new AnswerSet());
-        }
         if (!$this->keepsDrafts($form)) {
             return new FormDraft();
         }
@@ -205,19 +201,21 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * A link's or the quiz's accepted answers as a guest draft (S74, the handoff): the claim token and its
-     * expiry; null when the form keeps no drafts (an additional form, an event with accounts `off`, N9).
-     * [UNAPPROVED N677]
+     * A link's or the quiz's accepted answers as a guest draft (S74, the handoff), in every account mode: the
+     * claim token, and the instant the cookie lives until, the event's registration closing; null when the
+     * form keeps no drafts (an additional form) or its event is gone. [UNAPPROVED N677]
      *
      * @return array{string, \DateTimeImmutable}|null
      */
     public function handOver(Form $form, int $version, AnswerSet $accepted, ?string $claimToken, Actor $actor): ?array
     {
-        if (!$this->keepsDrafts($form)) {
+        $event = $this->keepsDrafts($form) ? $this->event($form) : null;
+        if ($event === null || $event->registrationCloses === null) {
             return null;
         }
+        $token = $this->drafts->handOver($form->eventId, $form->id, $version, $accepted, $claimToken, $actor);
 
-        return $this->drafts->handOver($form->eventId, $form->id, $version, $accepted, $claimToken, $actor);
+        return [$token, $event->registrationCloses];
     }
 
     /** A logged-in person's claim of the cookie's guest draft, on the `wp` request. [UNAPPROVED N677] */
@@ -232,44 +230,10 @@ final class EventFormHost implements FormHost
         return $this->drafts->settledChoice($form->eventId, $form->id, $userId, $token);
     }
 
-    /**
-     * Whether a handoff to the form only prefills one page load, with no draft stored: a registration form of
-     * an event whose account mode is `off` (N9, N676).
-     */
-    public function prefillsOnly(Form $form): bool
-    {
-        $event = $form->placement === FormPlacement::Registration ? $this->event($form) : null;
-
-        return $event !== null && $event->accountMode === AccountMode::Off;
-    }
-
-    /**
-     * Keeps a prefill-only handoff's answers for one page load: a one-shot row of our table under the hash of a
-     * new token (N676); the token and the expiry for the cookie. [UNAPPROVED N676]
-     *
-     * @return array{string, \DateTimeImmutable}
-     */
-    public function stashPrefill(Form $form, int $version, AnswerSet $accepted, Actor $actor): array
-    {
-        return $this->drafts->stashPrefill($form->eventId, $form->id, $version, $accepted, $actor);
-    }
-
-    /** The stashed answers, once: they are gone after this read. [UNAPPROVED N676] */
-    public function takePrefill(Form $form, string $token, Actor $actor): ?AnswerSet
-    {
-        return $this->drafts->takePrefill($form->id, $token, $actor);
-    }
-
-    /** Whether the form has drafts: a registration form of an event whose account mode is not `off` (N9). */
+    /** Whether the form has drafts: a registration form, whatever the event's account mode. */
     private function keepsDrafts(Form $form): bool
     {
-        if ($form->placement !== FormPlacement::Registration) {
-            return false;
-        }
-
-        $event = $this->event($form);
-
-        return $event !== null && $event->accountMode !== AccountMode::Off;
+        return $form->placement === FormPlacement::Registration && $this->event($form) !== null;
     }
 
     public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void

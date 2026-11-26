@@ -9,8 +9,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
 
 /**
  * Deletes drafts that are done (S74, owner ruling 2026-11-14: drafts are deleted when registration closes):
- * every draft of the event named, or, with none named, every guest draft whose lifetime has passed. Run by
- * the periodic run as the system (`DraftSweep`), which decides which events are done.
+ * every draft of the event named. Run by the periodic run as the system (`DraftSweep`), which decides which
+ * events are done; a draft has no time of its own to expire (owner ruling 2026-11-26).
  */
 final class SweepDrafts implements AdminUseCase
 {
@@ -28,6 +28,7 @@ final class SweepDrafts implements AdminUseCase
         return [
             'type' => 'object',
             'properties' => ['event_id' => ['type' => 'integer', 'minimum' => 1]],
+            'required' => ['event_id'],
             'additionalProperties' => false,
         ];
     }
@@ -50,9 +51,7 @@ final class SweepDrafts implements AdminUseCase
     /** @return int how many drafts it deleted */
     public function execute(array $input, Context $context): int
     {
-        $done = isset($input['event_id'])
-            ? $this->drafts->ofEvent((int) $input['event_id'], $context)
-            : $this->drafts->expired($context->now(), $context);
+        $done = $this->drafts->ofEvent((int) $input['event_id'], $context);
         foreach ($done as $draft) {
             $this->drafts->delete($draft, $context);
         }

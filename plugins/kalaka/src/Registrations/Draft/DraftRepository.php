@@ -36,18 +36,7 @@ final class DraftRepository extends EntityRepository
     /** The guest draft under the claim token's hash, `FOR UPDATE` when a run is given. */
     public function ofClaim(string $claimHash, ?Context $forUpdate = null): ?Draft
     {
-        return $this->findWhere('claim_hash = %s AND kind = %s', [$claimHash, Draft::KIND_DRAFT], $forUpdate)[0]
-            ?? null;
-    }
-
-    /** The one-shot prefill under the token's hash, `FOR UPDATE`; never a draft (N676). */
-    public function ofPrefill(string $claimHash, Context $forUpdate): ?Draft
-    {
-        return $this->findWhere(
-            'claim_hash = %s AND kind = %s',
-            [$claimHash, Draft::KIND_PREFILL],
-            $forUpdate
-        )[0] ?? null;
+        return $this->findWhere('claim_hash = %s', [$claimHash], $forUpdate)[0] ?? null;
     }
 
     /** @return list<int> the events that have drafts; a plain read */
@@ -64,12 +53,6 @@ final class DraftRepository extends EntityRepository
     public function ofEvent(int $eventId, Context $forUpdate): array
     {
         return $this->findWhere('event_id = %d', [$eventId], $forUpdate);
-    }
-
-    /** @return list<Draft> the guest drafts expired at the moment, `FOR UPDATE` */
-    public function expired(\DateTimeImmutable $now, Context $forUpdate): array
-    {
-        return $this->findWhere('expires_at <= %s', [Instant::toStorage($now)], $forUpdate);
     }
 
     /**
@@ -114,7 +97,6 @@ final class DraftRepository extends EntityRepository
             'id' => $entity->id,
             'version' => $entity->version,
             'claims' => $entity->claims,
-            'kind' => $entity->kind,
             'form_id' => $entity->formId,
             'form_version' => $entity->formVersion,
             'user_id' => $entity->userId,
@@ -125,7 +107,6 @@ final class DraftRepository extends EntityRepository
             'page' => $entity->page,
             'created_at' => Instant::toStorage($entity->createdAt),
             'updated_at' => Instant::toStorage($entity->updatedAt),
-            'expires_at' => $entity->expiresAt === null ? null : Instant::toStorage($entity->expiresAt),
         ];
     }
 
@@ -141,13 +122,11 @@ final class DraftRepository extends EntityRepository
             (int) $row['page'],
             Instant::fromStorage((string) $row['created_at']),
             Instant::fromStorage((string) $row['updated_at']),
-            $row['expires_at'] === null ? null : Instant::fromStorage((string) $row['expires_at']),
             (int) $row['id'],
             (int) $row['version'],
             (int) $row['claims'],
             $row['resolved_claim'],
             $row['resolved_choice'],
-            (string) $row['kind'],
         );
     }
 

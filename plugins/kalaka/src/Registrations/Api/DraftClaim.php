@@ -7,8 +7,8 @@ namespace Kalaka\Registrations\Api;
 /**
  * The claim token of a guest draft (S74): what a link or the quiz handed over is kept on the server under
  * it, and the visitor's browser holds it in the cookie `kalaka_draft` until the draft is claimed, submitted
- * or expired. 128 random bits as 22 characters of unpadded base64url; only its SHA-256 is stored. A secret:
- * never in a log line, a URL or the audit.
+ * or swept after the registration's close. 128 random bits as 22 characters of unpadded base64url; only its
+ * SHA-256 is stored. A secret: never in a log line, a URL or the audit.
  *
  * The cookie follows the registrant cookie policy (`RegistrantCookie`), like the active registration's: `Lax`
  * is what lets it travel on the 303 that answers the quiz's cross-site POST and back through WordPress's login
@@ -19,9 +19,6 @@ final class DraftClaim
     public const COOKIE = 'kalaka_draft';
 
     public const PATTERN = '^[A-Za-z0-9_-]{22}$';
-
-    /** How long a guest draft and its cookie live (owner question Q1; recommended, [UNAPPROVED N3]). */
-    public const LIFETIME_DAYS = 7;
 
     public static function generate(): string
     {
@@ -48,7 +45,10 @@ final class DraftClaim
         return is_string($token) && self::isValid($token) ? $token : null;
     }
 
-    /** Sets the cookie until the instant, or clears it with null. Nothing once the headers are sent. */
+    /**
+     * Sets the cookie until the instant (the event's registration closing), or clears it with null. Nothing once
+     * the headers are sent.
+     */
     public static function setCookie(?string $token, ?\DateTimeImmutable $expires = null): void
     {
         if ($token === null) {
@@ -59,17 +59,7 @@ final class DraftClaim
         RegistrantCookie::set(
             self::COOKIE,
             $token ?? '',
-            self::cookieExpiry($token, $expires),
+            $token === null || $expires === null ? -1 : $expires->getTimestamp(),
         );
-    }
-
-    /** The cookie's expiry: -1 deletes it (no token), 0 is a session cookie (a token without an expiry). */
-    public static function cookieExpiry(?string $token, ?\DateTimeImmutable $expires): int
-    {
-        if ($token === null) {
-            return -1;
-        }
-
-        return $expires === null ? 0 : $expires->getTimestamp();
     }
 }

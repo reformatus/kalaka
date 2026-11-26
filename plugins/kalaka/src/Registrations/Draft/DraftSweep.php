@@ -12,8 +12,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 
 /**
  * The periodic run's step that deletes drafts that are done (S74): every draft of an event whose
- * registration has closed (its closing instant has passed), that is archived or gone, one run per event;
- * then the guest drafts whose lifetime has passed. An unpublished event keeps its drafts: it may open again.
+ * registration has closed (its closing instant has passed), that is archived or gone, one run per event. A
+ * draft has no time of its own to expire (owner ruling 2026-11-26). An unpublished event keeps its drafts: it
+ * may open again.
  * [UNAPPROVED N8]
  */
 final class DraftSweep implements PeriodicStep
@@ -43,6 +44,5 @@ final class DraftSweep implements PeriodicStep
                 $runner->run(new SweepDrafts(), ['event_id' => $eventId], new SystemActor());
             }
         }
-        $runner->run(new SweepDrafts(), [], new SystemActor());
     }
 }

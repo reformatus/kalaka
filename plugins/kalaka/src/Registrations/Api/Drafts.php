@@ -11,7 +11,6 @@ use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
-use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Draft\ClaimDraft;
 use Kalaka\Registrations\Draft\Draft;
@@ -19,8 +18,6 @@ use Kalaka\Registrations\Draft\DraftRepository;
 use Kalaka\Registrations\Draft\HandOverPrefill;
 use Kalaka\Registrations\Draft\ResolveDraftClaim;
 use Kalaka\Registrations\Draft\SaveDraft;
-use Kalaka\Registrations\Draft\StashPrefill;
-use Kalaka\Registrations\Draft\TakePrefill;
 
 /**
  * Drafts of registration forms (S74, owner ruling 2026-11-14), for the event form's host and the handoff:
@@ -67,7 +64,7 @@ final class Drafts
     /**
      * What a link's or the quiz's answers (the guest draft under the token) would change in the person's own
      * draft of the form: each key whose value they set differently, with the link's answer as sent. Empty
-     * when there is nothing to choose: no own draft, no usable guest draft, or no value changed. Ready for
+     * when there is nothing to choose: no own draft, no guest draft, or no value changed. Ready for
      * the claim popup (S74, pass 2), but not in the page's context yet: what the popup shows is the owner's.
      *
      * @return array<string, mixed> field key → the link's answer
@@ -102,13 +99,12 @@ final class Drafts
         return $own->resolvedChoice === null ? null : DraftClaimChoice::tryFrom($own->resolvedChoice);
     }
 
-    /** The usable guest draft of the form under the token: not claimed, not expired; a plain read. */
+    /** The guest draft of the form under the token: not claimed; a plain read. */
     private function guest(int $formId, string $claimToken): ?Draft
     {
         $found = $this->drafts->ofClaim(DraftClaim::hash($claimToken));
-        $now = $this->runner()->clock()->now();
 
-        return $found !== null && $found->isUsableGuestOf($formId, $now) ? $found : null;
+        return $found !== null && $found->isGuestOf($formId) ? $found : null;
     }
 
     /**
@@ -168,11 +164,11 @@ final class Drafts
 
     /**
      * Keeps a link's or the quiz's answers as a guest draft under a new claim token, replacing the earlier
-     * one of the same browser, and returns the token for the cookie with the instant the draft expires (the
-     * cookie's expiry, from the run's own clock).
+     * one of the same browser, and returns the token for the cookie. The draft has no expiry of its own: it
+     * lives until the form is sent or the registration has closed (owner ruling 2026-11-26).
      *
      * @param ?string $earlierToken the token of the request's cookie
-     * @return array{string, \DateTimeImmutable} the token and the expiry
+     * @return string the claim token
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
     public function handOver(
@@ -182,7 +178,7 @@ final class Drafts
         AnswerSet $answers,
         ?string $earlierToken,
         Actor $actor
-    ): array {
+    ): string {
         $token = DraftClaim::generate();
         $input = [
             'event_id' => $eventId,
@@ -193,53 +189,9 @@ final class Drafts
         if ($earlierToken !== null) {
             $input['replaces'] = DraftClaim::hash($earlierToken);
         }
-        $expires = $this->runner()->run(new HandOverPrefill($answers), $input, $actor);
-        if (!$expires instanceof \DateTimeImmutable) {
-            $error = new SystemFailure(null, new \LogicException('The hand-over gave no expiry.'));
-            throw $error;
-        }
+        $this->runner()->run(new HandOverPrefill($answers), $input, $actor);
 
-        return [$token, $expires];
-    }
-
-    /**
-     * A handoff's answers for one page load, where the event's accounts are `off` and drafts are none (N676):
-     * a one-shot row under the hash of a new token, which only the cookie holds.
-     *
-     * @return array{string, \DateTimeImmutable} the token and the expiry
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException
-     */
-    public function stashPrefill(int $eventId, int $formId, int $version, AnswerSet $answers, Actor $actor): array
-    {
-        $token = DraftClaim::generate();
-        $expires = $this->runner()->run(new StashPrefill($answers), [
-            'event_id' => $eventId,
-            'form_id' => $formId,
-            'form_version' => $version,
-            'claim_hash' => DraftClaim::hash($token),
-        ], $actor);
-        if (!$expires instanceof \DateTimeImmutable) {
-            $error = new SystemFailure(null, new \LogicException('The stash gave no expiry.'));
-            throw $error;
-        }
-
-        return [$token, $expires];
-    }
-
-    /**
-     * The stashed answers of the token, once: the row is deleted by this read.
-     *
-     * @throws \Kalaka\Foundation\Api\Error\KalakaException
-     */
-    public function takePrefill(int $formId, string $token, Actor $actor): ?AnswerSet
-    {
-        $answers = $this->runner()->run(
-            new TakePrefill(),
-            ['form_id' => $formId, 'claim_hash' => DraftClaim::hash($token)],
-            $actor
-        );
-
-        return $answers instanceof AnswerSet ? $answers : null;
+        return $token;
     }
 
     /**

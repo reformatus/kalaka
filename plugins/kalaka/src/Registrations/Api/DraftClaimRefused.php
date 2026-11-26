@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 
 /**
  * A choice on a link's answers that cannot be applied (S74, pass 2): the request carries no claim token,
- * its guest draft is gone or expired, it is for another form, or the claim was already settled with another
+ * its guest draft is gone, it is for another form, or the claim was already settled with another
  * choice (or without one, on the form's page). A repeat of the choice that settled it is no refusal: it
  * answers as the first did (`ResolveDraftClaim`). Not audited: nothing was changed.
  */

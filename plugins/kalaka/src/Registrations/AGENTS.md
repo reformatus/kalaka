@@ -114,14 +114,12 @@ the waitlist and reference codes
 - Drafts (`kalaka_drafts`, S74) are keyed event first: a user draft is one
   per event, form and user; a guest draft is found only by the SHA-256 of
   its claim token (`Api\DraftClaim`), which is never stored, logged or
-  audited. A draft's answers and claim hash are secret columns: the audit
+  audited. A guest draft has no expiry of its own: it lives until the form is sent (the submit deletes
+  it) or the event's registration has closed (the periodic run's `DraftSweep`; owner ruling 2026-11-26),
+  in every account mode. A draft's answers and claim hash are secret columns: the audit
   names the draft, never their values.
 - A draft is written only by its use cases: `kalaka-portal/save-draft` (a
   logged-in person only), `kalaka-portal/hand-over-prefill`,
-  `kalaka-portal/stash-prefill` and `kalaka-portal/take-prefill` (the one-shot
-  row of account mode `off`: `kind` is `prefill`, never a draft, found only by
-  `ofPrefill()`, five minutes, deleted by its first read, swept like an
-  expired draft; N676),
   `kalaka-portal/claim-draft`, `kalaka-portal/resolve-draft-claim`,
   `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
   the cookie's guest draft of the form in its own transaction. A draft never
@@ -134,6 +132,6 @@ the waitlist and reference codes
 - A claim is settled once per claim token. The person's draft records the
   token's hash and the choice (`resolved_claim`, `resolved_choice`, a secret
   column and its choice); the same choice again changes nothing and answers
-  the same, and any other choice, or a claim gone or expired, is refused
+  the same, and any other choice, or a claim gone, is refused
   (`DraftClaimRefused`).
 - Only Registrations writes its tables.

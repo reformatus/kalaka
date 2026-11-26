@@ -74,8 +74,9 @@ SQL;
     /**
      * S74: a form's answers kept before its submit, keyed by event first. A user draft has `user_id`
      * (one per event, form and user: MariaDB lets the guest drafts' NULLs repeat under `owner`); a guest
-     * draft has the SHA-256 of its claim token and `expires_at` instead. `answers` is a JSON object
-     * (`Forms\Api\AnswerSet`); `page` is the last page shown, not read yet. `claims` counts the claims that
+     * draft has the SHA-256 of its claim token instead and no expiry of its own: it lives until the form is
+     * sent or the event's registration has closed. `answers` is a JSON object (`Forms\Api\AnswerSet`); `page` is
+     * the last page shown, not read yet. `claims` counts the claims that
      * changed the person's draft: an autosave carries the count its page opened with, and a stale one is
      * refused. `resolved_claim` and `resolved_choice` are the hash of the last claim settled into a user
      * draft and its choice, so a repeated choice answers as the first did. [UNAPPROVED N1] [UNAPPROVED N11]
@@ -86,7 +87,6 @@ CREATE TABLE {prefix}kalaka_drafts (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   version int(10) unsigned NOT NULL,
   claims int(10) unsigned NOT NULL DEFAULT 0,
-  kind varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL DEFAULT 'draft',
   form_id bigint(20) unsigned NOT NULL,
   form_version bigint(20) unsigned NOT NULL,
   user_id bigint(20) unsigned DEFAULT NULL,
@@ -97,12 +97,10 @@ CREATE TABLE {prefix}kalaka_drafts (
   page smallint(5) unsigned NOT NULL DEFAULT 0,
   created_at datetime(6) NOT NULL,
   updated_at datetime(6) NOT NULL,
-  expires_at datetime(6) DEFAULT NULL,
   PRIMARY KEY  (event_id,id),
   KEY id (id),
   UNIQUE KEY owner (event_id,form_id,user_id),
-  UNIQUE KEY claim (claim_hash),
-  KEY expires (expires_at)
+  UNIQUE KEY claim (claim_hash)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 

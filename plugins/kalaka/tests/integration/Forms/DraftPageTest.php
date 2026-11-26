@@ -88,7 +88,7 @@ final class DraftPageTest extends FormsTestCase
     {
         Runner::publish($this->previous);
         $GLOBALS['wp_rest_server'] = null;
-        unset($_COOKIE[DraftClaim::COOKIE], $_COOKIE[DraftHandoff::PREFILL_COOKIE]);
+        unset($_COOKIE[DraftClaim::COOKIE]);
         DraftHandoff::forget();
         wp_set_current_user(0);
         parent::tear_down();
@@ -248,32 +248,6 @@ final class DraftPageTest extends FormsTestCase
         );
     }
 
-    /**
-     * C2-1: the account never keeps a handoff out (`FormPage::withoutAccount()`, as the page and its routes):
-     * a guest's quiz handoff is kept and opens the form prefilled in the mandatory and the optional mode.
-     *
-     * @dataProvider accountModes
-     */
-    public function testAGuestsHandoffIsKeptWhereTheEventNeedsOrOffersAccounts(string $mode): void
-    {
-        $this->accountMode($mode);
-
-        $handoff = new DraftHandoff();
-        self::assertTrue($handoff->handle($this->page(), ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
-
-        self::assertSame(['size' => 'm', 'note' => 'a kvízből'], $this->storedAnswers());
-        self::assertNotNull(DraftClaim::current());
-        $html = $this->render();
-        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
-        self::assertMatchesRegularExpression('#name="note"[^>]* value="a kvízből"#', $html);
-    }
-
-    /** @return array<string, array{string}> */
-    public static function accountModes(): array
-    {
-        return ['mandatory' => ['mandatory'], 'optional' => ['optional']];
-    }
-
     /** N675: a handoff writes a row, so it counts like a submit, with the guest submit's budget. */
     public function testTheHandoffAfterTheGuestBudgetIsRefusedAndWritesNoRow(): void
     {
@@ -292,76 +266,56 @@ final class DraftPageTest extends FormsTestCase
         self::assertNull(DraftClaim::current());
     }
 
-    /** N676 (N9): no drafts while the event's accounts are `off`. */
-    public function testNoDraftInTheAccountModeOff(): void
+    /**
+     * Owner ruling 2026-11-26 (reverses N9 and N676): in the account mode `off` a guest keeps the same guest
+     * draft the other modes do, a reload keeps the handed-over answers, and the send deletes the draft.
+     */
+    public function testAGuestKeepsAGuestDraftInTheAccountModeOffAndTheSendDeletesIt(): void
+    {
+        $this->accountMode('off');
+        $handoff = new DraftHandoff();
+        self::assertTrue($handoff->handle($this->page(), ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]['user_id']);
+        $token = DraftClaim::current();
+        self::assertNotNull($token);
+        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+
+        // A reload: the form opens with them again, and still no autosave for a guest.
+        $html = $this->render();
+        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
+        self::assertStringContainsString('a kvízből', $html);
+        self::assertArrayNotHasKey('draftUrl', $this->context($html));
+        self::assertCount(1, $this->draftRows());
+
+        (new EventFormHost())->submit(
+            $this->form,
+            $this->version(),
+            ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org', 'size' => 'm', 'note' => 'a kvízből'],
+            (new EventFormHost())->submitToken(),
+            [],
+            false,
+            new GuestActor()
+        );
+
+        self::assertSame([], $this->draftRows());
+        self::assertNull(DraftClaim::current());
+    }
+
+    /** In `off` a logged-in person has the draft they have in the other modes: the host keeps and opens it. */
+    public function testALoggedInPersonsDraftWorksInTheAccountModeOff(): void
     {
         $this->accountMode('off');
         $form = (new Forms())->form($this->form);
         self::assertNotNull($form);
         $host = new EventFormHost();
         $user = $this->logIn();
-        (new Drafts($this->runner))->save(
-            $this->event,
-            $this->form,
-            $this->version(),
-            new AnswerSet(['note' => 'félkész']),
-            0,
-            0,
-            new AccountActor($user)
-        );
 
-        self::assertTrue($host->draft($form)->answers->isEmpty());
+        $host->saveDraft($form, $form->version, new AnswerSet(['note' => 'félkész']), 0, 0, new AccountActor($user));
 
-        try {
-            $host->saveDraft($form, $form->version, new AnswerSet(['note' => 'x']), 0, 0, new AccountActor($user));
-            self::fail('The save was accepted.');
-        } catch (NotFound) {
-            self::assertSame('félkész', $this->storedAnswers()['note']);
-        }
-
-        wp_set_current_user(0);
-    }
-
-    /** N676: in mode `off` a handoff prefills the one page load after it and stores no draft. */
-    public function testAHandoffInTheAccountModeOffPrefillsOneLoadAndStoresNoDraft(): void
-    {
-        $this->accountMode('off');
-        $page = $this->page();
-        $handoff = new DraftHandoff();
-
-        self::assertTrue($handoff->handle($page, ['size' => 'm', 'note' => 'a kvízből'], new GuestActor()));
-        // Only the one-shot row, never a draft; the raw token is in the cookie alone.
-        $rows = $this->draftRows();
-        self::assertCount(1, $rows);
-        self::assertSame('prefill', $rows[0]['kind']);
-        self::assertNull(DraftClaim::current());
-        self::assertTrue(DraftHandoff::hasWork(null, 0, null, DraftHandoff::prefillToken()));
-
-        // The redirected load: the form opens with the answers, once.
-        self::assertFalse($handoff->handle($page, null, new GuestActor()));
-        $html = $this->render();
-        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
-        self::assertMatchesRegularExpression('#name="note"[^>]* value="a kvízből"#', $html);
-        self::assertArrayNotHasKey('draftUrl', $this->context($html));
-        self::assertSame([], $this->draftRows());
-
-        // A reload keeps nothing: the cookie is cleared and the stash is gone.
-        DraftHandoff::forget();
-        self::assertFalse(DraftHandoff::hasWork(null, 0, null, DraftHandoff::prefillToken()));
-        self::assertStringNotContainsString('a kvízből', $this->render());
-    }
-
-    /** N675 holds in mode `off` too. */
-    public function testTheOffModeHandoffCountsAgainstTheBudgetAndStashesNothingOverIt(): void
-    {
-        $this->accountMode('off');
-        $handoff = new DraftHandoff();
-        for ($i = 0; $i < SubmitGuard::ADDRESS_LIMIT; $i++) {
-            self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
-        }
-        unset($_COOKIE[DraftHandoff::PREFILL_COOKIE]);
-        self::assertTrue($handoff->handle($this->page(), ['size' => 'm'], new GuestActor()));
-        self::assertArrayNotHasKey(DraftHandoff::PREFILL_COOKIE, $_COOKIE);
+        self::assertSame('félkész', $host->draft($form)->answers->answers['note']);
     }
 
     public function testAGuestHasNoAutosaveRoute(): void
