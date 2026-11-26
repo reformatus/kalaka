@@ -159,14 +159,15 @@ export const MANUAL = {
 	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording [UNAPPROVED T920]
 	layout: 'Levélkeret használata', // „levélkeret” is approved
 	// With nothing ticked the send is to every row the filters and search leave; the dialog says so and how many.
-	// [UNAPPROVED T926] [UNAPPROVED T927]
-	scopeAll: 'Nincs kijelölve jelentkező, ezért az összes jelentkezőre vonatkozik: %d jelentkező.',
-	scopeNarrowed: 'Nincs kijelölve jelentkező, ezért a szűrés és a keresés összes találatára vonatkozik: %d jelentkező.',
+	// [UNAPPROVED T926] [UNAPPROVED T927] Worded by the lektor (pass 2). T927 says „a szűrés és a keresés” also when only
+	// one of the two is on: a hole for the lektor's next pass (filter only, search only, both). [UNAPPROVED N946]
+	scopeAll: 'Nincs kijelölt jelentkező, ezért a küldés mindenkire vonatkozik (%d jelentkező).',
+	scopeNarrowed: 'Nincs kijelölt jelentkező, ezért a küldés a szűrés és a keresés összes találatára vonatkozik (%d jelentkező).',
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
 	skipped: 'Nem kap levelet:',
 	unknown: 'Ismeretlen kód:',
-	reason_withdrawn: 'visszavont', // approved status words, lowercase after a code (reworded per the lektor)
+	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9) [UNAPPROVED T931]
 	reason_removed: 'törölt',
 	tooMany: 'Egyszerre legfeljebb 1000 jelentkezőnek küldhető levél.',
 	send: 'Küldés',
@@ -197,9 +198,9 @@ export const BATCHES = {
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
 	members: 'Jelentkezők',
 	open: '%d. csoportos levél részletei',
-	// After a code, lowercase, as the manual mail dialog writes it („16F5 – visszavont”); reworded per the lektor (pass 2).
+	// After a code, lowercase, as the manual mail dialog writes it („16F5 – lemondott”); reworded per the lektor (pass 2).
 	outcome_queued: 'sorba került',
-	outcome_skipped_withdrawn: 'kimaradt: visszavont',
+	outcome_skipped_withdrawn: 'kimaradt: lemondott', // the owner's rename (lektor 1, J11) [UNAPPROVED T932]
 	outcome_skipped_removed: 'kimaradt: törölt',
 	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing [UNAPPROVED T294]
 };
