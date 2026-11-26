@@ -180,6 +180,35 @@ describe('the autosave and the claim', () => {
 		expect(draftCalls()).toHaveLength(0);
 	});
 
+	test('starts again when the choice could not be sent: later typing is saved', async () => {
+		globalThis.fetch = jest.fn((url) =>
+			Promise.resolve(
+				url === CLAIM_URL
+					? respond(409, { code: 'kalaka_draft_claim_refused' })
+					: respond(200, { saved: true })
+			)
+		);
+		await load(
+			form(text('name') + choice('merge'), {
+				draftUrl: DRAFT_URL,
+				draftClaimUrl: CLAIM_URL,
+			})
+		);
+
+		root().querySelector('button[value="merge"]').click();
+		await settle();
+		expect(claimCalls()).toHaveLength(1);
+
+		jest.useFakeTimers();
+		type(root(), 'name', 'Teszt Anna');
+		jest.advanceTimersByTime(3000);
+
+		expect(draftCalls()).toHaveLength(1);
+		expect(JSON.parse(draftCalls()[0][1].body).answers).toEqual({
+			name: 'Teszt Anna',
+		});
+	});
+
 	test('takes the choice from a script outside the form (a modal), and sends nothing by itself', async () => {
 		document.body.innerHTML = form(text('name'), {
 			draftUrl: DRAFT_URL,

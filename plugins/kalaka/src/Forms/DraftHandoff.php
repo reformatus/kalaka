@@ -214,7 +214,10 @@ final class DraftHandoff
         if ($found === null) {
             return null;
         }
-        $refusals = FormsPage::refusalsOf($this->host, $found, $post, Runner::current()->clock()->now());
+        // The account never refuses a handoff (N681): a guest's link or quiz answers are kept in every mode.
+        $refusals = FormsPage::withoutAccount(
+            FormsPage::refusalsOf($this->host, $found, $post, Runner::current()->clock()->now())
+        );
 
         return $refusals === [] ? $found : null;
     }

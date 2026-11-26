@@ -485,6 +485,21 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayHasKey('draftUrl', $this->context($html));
     }
 
+    /** N681: a guest's quiz or link handoff is kept on a mandatory-account event too. */
+    public function testAGuestsHandoffIsKeptInTheMandatoryAccountMode(): void
+    {
+        $this->accountMode('mandatory');
+
+        $redirect = (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
+
+        self::assertTrue($redirect);
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]['user_id']);
+        self::assertSame(['note' => 'a kvízből'], AnswerSet::fromJson((string) $rows[0]['answers'])->answers);
+        self::assertNotNull(DraftClaim::current());
+    }
+
     /**
      * The quiz may send only its ranking, with none of its answers (stakeholder ruling 2026-11-17): a body
      * with one key opens the form with that answer, every other field empty, and nothing marked as an error.
@@ -794,11 +809,12 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayHasKey('draftClaimUrl', $context);
         self::assertSame(1, $context['draftClaimChanges'], 'only polo changes; szallas is the same');
         self::assertArrayNotHasKey('draftClaimNotice', $context);
-        // The popup's texts, word for word as the owner approved them on 2026-11-17, the count in merge's line.
+        // The popup's texts, word for word (title and intro: stand-ins T1100, T1101), the count in merge's line.
         self::assertSame([
-            'title' => 'Előre kitöltött linkből bejövő válaszok',
-            'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. Most egy előre '
-                . 'kitöltött linkből is érkeztek válaszok. Hogyan folytassuk?',
+            'title' => 'Bejelentkezés előtti válaszok',
+            'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. Ezen az eszközön '
+                . 'bejelentkezés előtt is érkeztek válaszok: amit beírtál, vagy egy előre kitöltött linkből jött. '
+                . 'Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el vagy '
                 . 'jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, így az '
                 . 'egyesítés a későbbi válaszaidat is megváltoztathatja. Beküldés előtt nézd át az egész űrlapot.',

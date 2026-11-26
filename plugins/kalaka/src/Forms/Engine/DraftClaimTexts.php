@@ -7,8 +7,9 @@ namespace Kalaka\Forms\Engine;
 use Kalaka\Forms\Api\DraftClaimChoice;
 
 /**
- * The texts of the claim popup (S74), approved by the owner on 2026-11-17 word for word: the popup that asks
- * the person's choice when a prefilled link's answers meet their draft, its second confirmation before
+ * The texts of the claim popup (S74), approved by the owner on 2026-11-17 word for word, except the title and
+ * the intro (T1100, T1101: stand-ins, since the guest draft may hold the guest's own typing, N965): the popup
+ * that asks the person's choice when a guest draft's answers meet their draft, its second confirmation before
  * keep_link, the button that reloads the page after a refused claim, and the one-line notice on the load
  * after the choice. The refused claim's own text is `Registrations\Api\DraftClaimRefused`'s message.
  */
@@ -23,9 +24,12 @@ final class DraftClaimTexts
     public static function popup(int $changes): array
     {
         return [
-            'title' => 'Előre kitöltött linkből bejövő válaszok',
+            // [UNAPPROVED T1100] stand-in: the draft may be the guest's own typing, not only a link's.
+            'title' => 'Bejelentkezés előtti válaszok',
+            // [UNAPPROVED T1101] stand-in, as T1100.
             'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
-                . 'Most egy előre kitöltött linkből is érkeztek válaszok. Hogyan folytassuk?',
+                . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amit beírtál, '
+                . 'vagy egy előre kitöltött linkből jött. Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el '
                 . 'vagy jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, '
                 . 'így az egyesítés a későbbi válaszaidat is megváltoztathatja. '

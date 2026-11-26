@@ -468,7 +468,8 @@ function showButtons(form) {
 
 /**
  * Shows a page and hides the others. With `move`, the form's top scrolls into view and the focus moves to
- * the page's title, or to the form when the page has none.
+ * the page's title, or to the form when the page has none. Answers that wait for the autosave are saved at
+ * once; a move with no changed answer saves nothing (the draft's page is stored but never read).
  */
 function showPage(form, number, move = true) {
 	const started = forms.get(form);
@@ -711,17 +712,18 @@ function applyAccount(form, account) {
 
 /**
  * The autosave (S74): while the page has a draft route (a registration form), the answers that show are
- * kept as the person's draft, or a guest's guest draft, once they rest for `DRAFT_DELAY`, on every page move,
- * and when the page is left (`keepalive`). A guest's page with no guest draft yet (`draftStart`) saves the
- * first answer change at once, which gives the guest the draft cookie (owner ruling 2026-11-26); until that
- * save is answered no other goes out, so that it is the cookie's draft the next ones update. It shows nothing: a failed save is tried again with the next
- * change. A send takes what waits: the submit deletes the draft. Each save carries the draft's claim count
- * the page opened with (`draftClaims`).
+ * kept as the person's draft, or a guest's guest draft, once they rest for `DRAFT_DELAY`, at once on a page
+ * move when answers changed and wait (a move alone saves nothing: the stored page is not read), and when the
+ * page is left (`keepalive`). A guest's page with no guest draft yet (`draftStart`) saves the first answer
+ * change at once, which gives the guest the draft cookie (owner ruling 2026-11-26); until that save is
+ * answered no other goes out, so that it is the cookie's draft the next ones update. It shows nothing: a
+ * failed save is tried again with the next change. A send takes what waits: the submit deletes the draft.
+ * Each save carries the draft's claim count the page opened with (`draftClaims`).
  *
- * The autosave stops for good once the person's choice on a link's answers is sent
- * (`resolveDraftClaim()`), or once the server refuses a save as from before a claim (`kalaka_version_conflict`): the page's
- * answers are then older than the draft, and nothing waiting or sent when the page is left may bring them
- * back.
+ * The autosave stops once the person's choice on a link's answers is sent (`resolveDraftClaim()`; for good
+ * once the route has answered ok, and it starts again when the choice failed), and for good once the server
+ * refuses a save as from before a claim (`kalaka_version_conflict`): the page's answers are then older than
+ * the draft, and nothing waiting or sent when the page is left may bring them back.
  */
 function draftChanged(form) {
 	const started = forms.get(form);
@@ -841,7 +843,26 @@ function resolveDraftClaim(form, choice) {
 	}
 	stopDraft(form);
 
-	return post(started.draftClaimUrl, { choice }, started.nonce);
+	return post(started.draftClaimUrl, { choice }, started.nonce).then((answer) => {
+		if (!answer.ok) {
+			// The choice did not reach the draft: the autosave goes on, so the typing is not lost.
+			restartDraft(form);
+		}
+
+		return answer;
+	});
+}
+
+/** Starts the autosave again after `stopDraft()`; what the page holds is saved once it rests. */
+function restartDraft(form) {
+	const started = forms.get(form);
+	if (started === undefined) {
+		return;
+	}
+	started.draftStopped = false;
+	started.draftDirty = true;
+	clearTimeout(started.draftTimer);
+	started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
 }
 
 /**

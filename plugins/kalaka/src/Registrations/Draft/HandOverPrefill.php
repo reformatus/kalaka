@@ -55,21 +55,29 @@ final class HandOverPrefill implements PublicUseCase
 
     public function execute(array $input, Context $context): null
     {
+        $formId = (int) $input['form_id'];
+        $answers = $this->answers;
+        $page = 0;
         if (isset($input['replaces'])) {
             $earlier = $this->drafts->ofClaim((string) $input['replaces'], $context);
             if ($earlier !== null && $earlier->userId === null) {
+                if ($earlier->isGuestOf($formId)) {
+                    // [UNAPPROVED N1106] the link wins on its keys; typing on other keys is kept.
+                    $answers = $earlier->answers->overwrittenBy($this->answers);
+                    $page = $earlier->page;
+                }
                 $this->drafts->delete($earlier, $context);
             }
         }
         $now = $context->now();
         $this->drafts->upsert(new Draft(
             (int) $input['event_id'],
-            (int) $input['form_id'],
+            $formId,
             (int) $input['form_version'],
             null,
             (string) $input['claim_hash'],
-            $this->answers,
-            0,
+            $answers,
+            $page,
             $now,
             $now,
         ), $context);

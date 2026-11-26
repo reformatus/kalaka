@@ -196,8 +196,9 @@ final class Drafts
     }
 
     /**
-     * Keeps a link's or the quiz's answers as a guest draft under a new claim token, replacing the earlier
-     * one of the same browser, and returns the token for the cookie. The draft has no expiry of its own: it
+     * Keeps a link's or the quiz's answers as a guest draft under a new claim token, in place of the earlier
+     * one of the same browser (of the same form: its typed answers are kept on the keys the link does not
+     * carry; [UNAPPROVED N1106]), and returns the token for the cookie. The draft has no expiry of its own: it
      * lives until the form is sent or the registration has closed (owner ruling 2026-11-26).
      *
      * @param ?string $earlierToken the token of the request's cookie

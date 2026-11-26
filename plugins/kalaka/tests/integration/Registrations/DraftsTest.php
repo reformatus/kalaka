@@ -218,6 +218,40 @@ final class DraftsTest extends FormsTestCase
         self::assertFalse($this->drafts->holds($first));
     }
 
+    /** [UNAPPROVED N1106] a link onto a guest's typed draft: the link wins on its keys, other typing is kept. */
+    public function testAHandoffMergesIntoTheGuestsTypedDraftKeyByKey(): void
+    {
+        $typed = $this->drafts->save(
+            $this->event,
+            $this->form,
+            $this->version(),
+            new AnswerSet(['name' => 'Gépelt Anna', 'note' => 'gépelt']),
+            2,
+            0,
+            new GuestActor()
+        );
+        self::assertNotNull($typed);
+        $token = $this->handOver(['note' => 'linkből', 'email' => 'link@example.org'], $typed);
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        self::assertSame(
+            ['name' => 'Gépelt Anna', 'note' => 'linkből', 'email' => 'link@example.org'],
+            AnswerSet::fromJson((string) $rows[0]['answers'])->answers
+        );
+    }
+
+    public function testAHandoffWithNoEarlierDraftKeepsOnlyTheLinksAnswers(): void
+    {
+        $token = $this->handOver(['note' => 'linkből']);
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        self::assertSame(['note' => 'linkből'], AnswerSet::fromJson((string) $rows[0]['answers'])->answers);
+    }
+
     public function testALoggedInPersonWithNoDraftClaimsTheGuestDraft(): void
     {
         $anna = $this->person();
