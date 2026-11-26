@@ -22,7 +22,7 @@ use Kalaka\Pricing\SetFixedPrice;
  * as the command line without a user (full access), or, with WP-CLI's `--user`, checked as that user, and is
  * audited like the use cases it runs. Every verb is checked as the write of the same data, the fixed price's
  * save (`SetFixedPrice`, full access only), before it reads or writes anything. The screen for the same is
- * S72's. [UNAPPROVED N3]
+ * S72's.
  */
 final class MoneySettingsCommand
 {
