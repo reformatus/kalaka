@@ -18,7 +18,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * a field is written only by its use case, like the aid award; `staff` fields stay writable from forms
  * (owner ruling 2026-11-13). A form that joins an `extension` field with options offers only options the
  * extension declared, any subset of them, retired ones included (`extension_option`): their values are the
- * declarer's, like the field's texts. [UNAPPROVED, #200 N9] First of all, no
+ * declarer's, like the field's texts. First of all, no
  * two blocks of one form hold the same key (`duplicate_key`), whatever the form's status.
  *
  * A request field (`Api\RequestFieldType`, S44-1; a block that names no set is none) names one request-mode

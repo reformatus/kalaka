@@ -94,7 +94,7 @@ final class ParticipantFields
     /**
      * An extension declares one field of the event, source `extension` (`kalaka/declare-extension-field`), nested
      * in the extension's own use case: its type, title and choice options (the declarer's texts; an option it no
-     * longer declares is retired, its label kept) and whether forms may hold its key. [UNAPPROVED, #200 N10]
+     * longer declares is retired, its label kept) and whether forms may hold its key.
      *
      * @param ?list<array{value: string, label: string}> $options null for a field without options
      * @throws \Kalaka\Foundation\Api\Error\KalakaException anything the run throws: `RuleViolation` when the key is
