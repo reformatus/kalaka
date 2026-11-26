@@ -10,7 +10,6 @@ use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\GuestActor;
-use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\DraftClaim;
@@ -25,7 +24,7 @@ use Kalaka\Tests\Integration\Forms\FormsTestCase;
 use Kalaka\Tests\Integration\Foundation\TestClock;
 
 /**
- * S74: drafts. The autosave keeps a logged-in person's answers; a handoff keeps a link's answers as a
+ * S74: drafts. The autosave keeps a logged-in person's or a guest's answers; a handoff keeps a link's answers as a
  * guest draft under a claim token; a logged-in person claims it, or chooses when it meets their own draft;
  * the submit deletes the draft; the periodic step deletes the drafts of closed (or archived) events; a
  * draft has no lifetime of its own. The audit never holds a draft's answers.
@@ -139,19 +138,44 @@ final class DraftsTest extends FormsTestCase
         self::assertFalse($opening->claimConflict);
     }
 
-    public function testAGuestHasNoAutosave(): void
+    /** Owner ruling 2026-11-26: a guest's save is the guest draft the handoff writes: created, then updated. */
+    public function testAGuestsSaveCreatesTheGuestDraftAndALaterOneUpdatesIt(): void
     {
-        $this->expectException(PermissionDenied::class);
-
-        $this->drafts->save(
+        $token = $this->drafts->save(
             $this->event,
             $this->form,
             $this->version(),
-            new AnswerSet(['name' => 'x']),
+            new AnswerSet(['name' => 'Teszt Anna']),
             0,
             0,
             new GuestActor()
         );
+        self::assertNotNull($token);
+        self::assertTrue($this->drafts->holdsOf($this->form, $token));
+
+        $again = $this->drafts->save(
+            $this->event,
+            $this->form,
+            $this->version(),
+            new AnswerSet(['name' => 'Teszt Anna', 'size' => 'm']),
+            0,
+            0,
+            new GuestActor(),
+            $token
+        );
+
+        self::assertSame($token, $again);
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]['user_id']);
+        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        $opening = $this->drafts->opening($this->event, $this->form, null, $token);
+        self::assertSame(['name' => 'Teszt Anna', 'size' => 'm'], $opening->answers->answers);
+        self::assertTrue($opening->autosave);
+        self::assertFalse($opening->guestStart);
+        self::assertTrue($this->drafts->opening($this->event, $this->form, null, null)->guestStart);
+        $entry = $this->entries()[array_key_last($this->entries())];
+        self::assertStringNotContainsString('Teszt Anna', (string) $entry['changes']);
     }
 
     public function testTheAuditNamesTheDraftButNeverItsAnswers(): void
@@ -180,7 +204,7 @@ final class DraftsTest extends FormsTestCase
 
         $opening = $this->drafts->opening($this->event, $this->form, null, $token);
         self::assertSame(['note' => 'a kvízből'], $opening->answers->answers);
-        self::assertFalse($opening->autosave);
+        self::assertTrue($opening->autosave);
     }
 
     public function testASecondHandoffReplacesTheBrowsersEarlierGuestDraft(): void

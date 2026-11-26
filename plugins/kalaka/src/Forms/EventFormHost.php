@@ -22,9 +22,11 @@ use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
+use Kalaka\Forms\Engine\SubmitGuard;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Registrations\Api\DraftClaim;
@@ -52,6 +54,7 @@ final class EventFormHost implements FormHost
         private readonly ?RegistrationSubmit $registrationSubmit = null,
         private readonly Drafts $drafts = new Drafts(),
         private readonly AssignmentSets $sets = new AssignmentSets(),
+        private readonly SubmitGuard $guard = new SubmitGuard(),
     ) {
     }
 
@@ -166,8 +169,8 @@ final class EventFormHost implements FormHost
     }
 
     /**
-     * A registration form's draft (S74): the logged-in person's own, or a link's or the quiz's guest draft
-     * the cookie names. An additional form has none (re-asked with S60).
+     * A registration form's draft (S74): the logged-in person's own, or a guest draft the cookie names (a
+     * link's or the quiz's handoff, or the guest's own typing). An additional form has none (re-asked with S60).
      *
      * In every account mode, `off` included: a guest's guest draft needs no account (owner ruling 2026-11-26).
      */
@@ -202,7 +205,28 @@ final class EventFormHost implements FormHost
             $error = new NotFound();
             throw $error;
         }
-        $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
+        if (!$actor instanceof GuestActor) {
+            $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, $claims, $actor);
+
+            return;
+        }
+        // A guest's save (owner ruling 2026-11-26): the first one creates the guest draft and gives the cookie,
+        // lasting until the event's registration closes; the same draft, cookie and lifetime as a handoff's.
+        $closes = $this->event($form)?->registrationCloses;
+        if ($closes === null) {
+            $error = new NotFound();
+            throw $error;
+        }
+        $token = DraftClaim::current();
+        if ($token === null || !$this->drafts->holdsOf($form->id, $token)) {
+            // A save that creates a row counts like a handoff, per address (`SubmitGuard::checkHandoff()`); a
+            // save into the draft the cookie names is bounded by the body limit, as a logged-in person's is.
+            $this->guard->checkHandoff($actor);
+        }
+        $kept = $this->drafts->save($form->eventId, $form->id, $version, $answers, $page, 0, $actor, $token);
+        if ($kept !== null) {
+            DraftClaim::setCookie($kept, $closes);
+        }
     }
 
     /**

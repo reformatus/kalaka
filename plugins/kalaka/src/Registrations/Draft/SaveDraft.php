@@ -6,14 +6,18 @@ namespace Kalaka\Registrations\Draft;
 
 use Kalaka\Forms\Api\AnswerSet;
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\UseCase\Context;
-use Kalaka\Foundation\Api\UseCase\PortalUseCase;
+use Kalaka\Foundation\Api\UseCase\PublicUseCase;
 
 /**
  * The autosave (S74): keeps the answers as the logged-in person's draft of the form, one per event, form
- * and person, created at the first answer. A guest is refused: a guest's typing stays in the page. The
+ * and person, created at the first answer; or, for a guest (owner ruling 2026-11-26), as the guest draft under
+ * the claim token's hash (`claim_hash`), the one a link's or the quiz's handoff writes: the first save creates
+ * it (and deletes the guest draft of another form the same browser held, `replaces`: one browser holds one),
+ * a later one updates it. A guest draft takes no claim count: nothing claims it while it is typed into. The
  * answers come through the constructor, already reduced to the form's own keys by the route; they are
  * never input, so they never reach a failed run's audit entry.
  *
@@ -23,7 +27,7 @@ use Kalaka\Foundation\Api\UseCase\PortalUseCase;
  * change the count, so two tabs' saves still both go in, the last one winning. A first save, with no draft
  * yet, starts the draft at the count it carries.
  */
-final class SaveDraft implements PortalUseCase
+final class SaveDraft implements PublicUseCase
 {
     public function __construct(
         private readonly AnswerSet $answers,
@@ -38,9 +42,13 @@ final class SaveDraft implements PortalUseCase
 
     public function inputSchema(): array
     {
+        $hash = ['type' => 'string', 'pattern' => '^[0-9a-f]{64}$'];
+
         return [
             'type' => 'object',
             'properties' => [
+                'claim_hash' => $hash,
+                'replaces' => $hash,
                 'event_id' => ['type' => 'integer', 'minimum' => 1],
                 'form_id' => ['type' => 'integer', 'minimum' => 1],
                 'form_version' => ['type' => 'integer', 'minimum' => 1],
@@ -60,6 +68,9 @@ final class SaveDraft implements PortalUseCase
     public function execute(array $input, Context $context): null
     {
         $actor = $context->actor();
+        if ($actor instanceof GuestActor && isset($input['claim_hash'])) {
+            return $this->executeGuest($input, $context);
+        }
         if (!$actor instanceof AccountActor) {
             $error = new PermissionDenied();
             throw $error;
@@ -97,6 +108,48 @@ final class SaveDraft implements PortalUseCase
             // A page from before a claim that changed the draft (S74, pass 2): its answers are not kept.
             $error = new VersionConflict();
             throw $error;
+        }
+        $draft->formVersion = (int) $input['form_version'];
+        $draft->answers = $this->answers;
+        $draft->page = (int) $input['page'];
+        $draft->updatedAt = $now;
+        $this->drafts->upsert($draft, $context);
+
+        return null;
+    }
+
+    /**
+     * A guest's save: the guest draft of the form under the hash is updated, or created when there is none
+     * (the first answer, or one swept or deleted since).
+     *
+     * @param array<string, mixed> $input
+     */
+    private function executeGuest(array $input, Context $context): null
+    {
+        $eventId = (int) $input['event_id'];
+        $formId = (int) $input['form_id'];
+        if (isset($input['replaces'])) {
+            $earlier = $this->drafts->ofClaim((string) $input['replaces'], $context);
+            if ($earlier !== null && $earlier->userId === null) {
+                $this->drafts->delete($earlier, $context);
+            }
+        }
+        $now = $context->now();
+        $draft = $this->drafts->ofClaim((string) $input['claim_hash'], $context);
+        if ($draft === null || !$draft->isGuestOf($formId)) {
+            $this->drafts->upsert(new Draft(
+                $eventId,
+                $formId,
+                (int) $input['form_version'],
+                null,
+                (string) $input['claim_hash'],
+                $this->answers,
+                (int) $input['page'],
+                $now,
+                $now,
+            ), $context);
+
+            return null;
         }
         $draft->formVersion = (int) $input['form_version'];
         $draft->answers = $this->answers;

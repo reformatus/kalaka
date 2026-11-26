@@ -271,8 +271,9 @@ final class FormPage
     }
 
     /**
-     * The script's part of the draft (S74): the autosave route while the person's draft is saved, and the
-     * claim route while a link's answers wait for the person's choice against the draft. Nothing otherwise.
+     * The script's part of the draft (S74): the autosave route while the person's (or a guest's) draft is
+     * saved, and the claim route while a link's answers wait for the person's choice against the draft.
+     * Nothing otherwise.
      *
      * @return array<string, mixed>
      */
@@ -284,6 +285,10 @@ final class FormPage
             $data['draftUrl'] = rest_url('kalaka-portal/v1/forms/' . $form->id . '/draft');
             // The draft's claim count, sent back with every save: a save from before a claim is refused.
             $data['draftClaims'] = $draft->claims;
+            if ($draft->guestStart) {
+                // A guest with no guest draft: the first answer is saved at once, which gives the cookie.
+                $data['draftStart'] = true;
+            }
         }
         if ($draft->claimConflict) {
             // `Rest\FormRoutes::resolveDraftClaim()`; the choice is the person's (the popup, UX).

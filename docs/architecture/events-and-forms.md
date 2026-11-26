@@ -228,10 +228,10 @@ flowchart TB
   that shows; there is no progress indicator.
 - **Answers stay in the browser while the page is open:** a hidden answer
   is kept and only the answers of what shows are sent; a ticked option that
-  stops being offered is ticked again when it returns. A guest's own
-  typing is not kept across a reload, but the answers a link or the quiz
-  handed over are, in their guest draft; a logged-in person's are, in
-  their draft, which the autosave keeps
+  stops being offered is ticked again when it returns. A reload keeps the
+  answers, a guest's own typing and what a link or the quiz handed over in
+  their guest draft, a logged-in person's in their draft, which the
+  autosave keeps
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **While the server is asked** (a re-fetch, a page check, a submit) the
   form is dimmed and its fields take no input; after 2 seconds a spinner in
@@ -239,7 +239,7 @@ flowchart TB
 - **One request in flight per form:** changes made while a request runs
   coalesce into one follow-up with the latest answers. A click on Next or
   Send during a request is queued, not lost; Back is ignored while the form
-  is busy. The autosave of a logged-in person's draft is apart: it runs
+  is busy. The autosave of a person's or a guest's draft is apart: it runs
   beside these requests, never dims the form, and sends nothing once a send
   has started.
 - **The server validates against the same form definition:** only declared,
@@ -268,9 +268,8 @@ flowchart TB
   no request. A terminal page holds no fields and has a condition: it shows
   its content and cannot be sent, and the server refuses a submit while one
   shows. The contact email and the display name never sit on a conditional
-  page. A guest's own typing is not kept across a reload, but the answers
-  a link or the quiz handed over are, in their guest draft; a logged-in
-  person's are, in their draft
+  page. A reload keeps the answers, a guest's in their guest draft and a
+  logged-in person's in their draft
   ([Submissions and values](registrations-and-identity.md#submissions-and-values)).
 - **After a successful submit** the form is replaced by its **after-submit
   section**, part of the form document and edited with it (the thank-you

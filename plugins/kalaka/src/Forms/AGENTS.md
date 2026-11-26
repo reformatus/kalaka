@@ -248,9 +248,9 @@ values and conditions, prefill and form links
   `EventFormHost` gives none yet.
 - The script keeps every answer while the page is open and sends only the
   answers of fields that show. It keeps nothing across a reload itself: a
-  guest's handed-over answers survive as their guest draft, and a
-  logged-in person's own answers only as their draft, which the autosave
-  sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
+  guest's answers, handed over or typed, survive as their guest
+  draft, and a logged-in person's own answers as their draft, which the
+  autosave sends to the draft route (`FormHost::saveDraft()`), and which nothing saves
   once a send starts, once the person's choice on a link's answers is sent,
   or once the route refuses a save as from before a claim.
 - A form opens with its host's draft (`FormHost::draft()`) over its stored
@@ -287,7 +287,9 @@ values and conditions, prefill and form links
   refusals and the window, the key problem against keys beyond the form, the
   stored values the form opens with, the person's draft (`draft()`,
   `saveDraft()`, `resolveDraftClaim()`; an event form's host also keeps the
-  handoff's and the claim's, in every account mode; `DraftHandoff` counts each
+  handoff's and the claim's, in every account mode, and a guest's save, which
+  creates their guest draft and sets its cookie on the first answer, counted
+  through `SubmitGuard::checkHandoff()` only when it creates one; `DraftHandoff` counts each
   handoff request through `SubmitGuard::checkHandoff()`, the submit's budget),
   the options and window of the set a request field names, the submit token
   and the submit, the after-submit section's keys, and whether the form needs

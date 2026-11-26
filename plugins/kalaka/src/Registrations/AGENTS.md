@@ -127,7 +127,8 @@ the waitlist and reference codes
   in every account mode. A draft's answers and claim hash are secret columns: the audit
   names the draft, never their values.
 - A draft is written only by its use cases: `kalaka-portal/save-draft` (a
-  logged-in person only), `kalaka-portal/hand-over-prefill`,
+  logged-in person's draft, or a guest's guest draft under their cookie's
+  token: the first save creates it), `kalaka-portal/hand-over-prefill`,
   `kalaka-portal/claim-draft`, `kalaka-portal/resolve-draft-claim`,
   `kalaka/sweep-drafts`, and the submit, which deletes the person's draft and
   the cookie's guest draft of the form in its own transaction. A draft never

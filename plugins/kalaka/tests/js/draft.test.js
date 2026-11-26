@@ -63,7 +63,7 @@ describe('the autosave', () => {
 		expect(draftCalls()).toHaveLength(1);
 	});
 
-	test('is not there without a draft route (a guest)', async () => {
+	test('is not there without a draft route', async () => {
 		await load(form(text('name')));
 		jest.useFakeTimers();
 
@@ -71,6 +71,56 @@ describe('the autosave', () => {
 		jest.advanceTimersByTime(5000);
 
 		expect(draftCalls()).toHaveLength(0);
+	});
+
+	test("a guest's first answer change saves at once, the rest after the rest (owner 2026-11-26)", async () => {
+		await load(form(text('name'), { draftUrl: DRAFT_URL, draftStart: true }));
+		jest.useFakeTimers();
+
+		type(root(), 'name', 'T');
+		expect(draftCalls()).toHaveLength(1);
+		expect(JSON.parse(draftCalls()[0][1].body).answers).toEqual({ name: 'T' });
+		expect(draftCalls()[0][1].headers['X-WP-Nonce']).toBeUndefined();
+
+		await jest.advanceTimersByTimeAsync(0);
+		type(root(), 'name', 'Teszt Anna');
+		expect(draftCalls()).toHaveLength(1);
+		await jest.advanceTimersByTimeAsync(3000);
+		expect(draftCalls()).toHaveLength(2);
+		expect(JSON.parse(draftCalls()[1][1].body).answers).toEqual({
+			name: 'Teszt Anna',
+		});
+	});
+
+	test("a guest's changes wait for the save that gives the cookie", async () => {
+		let answer;
+		globalThis.fetch = jest.fn(
+			() =>
+				new Promise((resolve) => {
+					answer = resolve;
+				})
+		);
+		await load(form(text('name'), { draftUrl: DRAFT_URL, draftStart: true }));
+		jest.useFakeTimers();
+
+		type(root(), 'name', 'T');
+		type(root(), 'name', 'Te');
+		await jest.advanceTimersByTimeAsync(3000);
+		expect(draftCalls()).toHaveLength(1);
+
+		answer(respond(200, { saved: true }));
+		await jest.advanceTimersByTimeAsync(3000);
+		expect(draftCalls()).toHaveLength(2);
+	});
+
+	test('a guest whose page holds a draft saves on the rest, not at once', async () => {
+		await load(form(text('name'), { draftUrl: DRAFT_URL }));
+		jest.useFakeTimers();
+
+		type(root(), 'name', 'T');
+		expect(draftCalls()).toHaveLength(0);
+		jest.advanceTimersByTime(3000);
+		expect(draftCalls()).toHaveLength(1);
 	});
 
 	test('saves what is waiting when the page is left, kept alive', async () => {

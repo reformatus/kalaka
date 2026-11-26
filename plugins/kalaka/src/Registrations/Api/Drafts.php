@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\Forms;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\AccountActor;
+use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Draft\ClaimDraft;
@@ -37,8 +38,9 @@ final class Drafts
 
     /**
      * What the form opens with for the person: a logged-in person's own draft (saved as they go), with a
-     * guest draft of the form under the cookie's token waiting for their choice; a guest's guest draft
-     * (never saved as they type). An empty one when there is none.
+     * guest draft of the form under the cookie's token waiting for their choice; a guest's guest draft (the
+     * one a link's handoff wrote or their own typing was saved into). An empty one when there is none, and
+     * for a guest then `$guestStart`: their first answer gets the cookie.
      *
      * The guest draft waits for the person's choice (`claimConflict`) only when it sets a value their draft
      * does not hold (`linkChanges()`); the `wp` request's claim settles it otherwise, before the render.
@@ -50,7 +52,12 @@ final class Drafts
     {
         $guest = $claimToken === null ? null : $this->guest($formId, $claimToken);
         if ($userId === null) {
-            return new FormDraft($guest === null ? new AnswerSet() : $guest->answers, false, false);
+            return new FormDraft(
+                $guest === null ? new AnswerSet() : $guest->answers,
+                true,
+                false,
+                guestStart: $guest === null
+            );
         }
         $own = $this->drafts->ofUser($eventId, $formId, $userId);
         if ($own === null) {
@@ -133,10 +140,15 @@ final class Drafts
     }
 
     /**
-     * The autosave: the answers as the logged-in person's draft of the form.
+     * The autosave: the answers as the logged-in person's draft of the form; or, for a guest (owner ruling
+     * 2026-11-26), as the guest draft under the cookie's token, created at the first save. A guest draft is
+     * found again only by the token's hash, which is never stored: a guest with no draft of this form under
+     * their token gets a new token (the cookie's other-form draft, if any, is deleted: one browser holds one).
      *
-     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`)
-     * @throws PermissionDenied for anyone not logged in
+     * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`); a guest's is 0
+     * @param ?string $claimToken the token of the request's cookie
+     * @return ?string the claim token for the cookie when the actor is a guest; null for a logged-in person
+     * @throws PermissionDenied for any other actor
      * @throws \Kalaka\Foundation\Api\Error\VersionConflict when a claim changed the draft since the page opened
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
@@ -147,19 +159,40 @@ final class Drafts
         AnswerSet $answers,
         int $page,
         int $claims,
-        Actor $actor
-    ): void {
-        if (!$actor instanceof AccountActor) {
-            $error = new PermissionDenied();
-            throw $error;
-        }
-        $this->runner()->run(new SaveDraft($answers), [
+        Actor $actor,
+        ?string $claimToken = null
+    ): ?string {
+        $input = [
             'event_id' => $eventId,
             'form_id' => $formId,
             'form_version' => $version,
             'page' => min($page, 65535),
             'claims' => $claims,
-        ], $actor);
+        ];
+        if ($actor instanceof GuestActor) {
+            $held = $claimToken !== null && $this->holdsOf($formId, $claimToken);
+            $token = $held ? $claimToken : DraftClaim::generate();
+            $input['claim_hash'] = DraftClaim::hash($token);
+            if (!$held && $claimToken !== null) {
+                $input['replaces'] = DraftClaim::hash($claimToken);
+            }
+            $this->runner()->run(new SaveDraft($answers), $input, $actor);
+
+            return $token;
+        }
+        if (!$actor instanceof AccountActor) {
+            $error = new PermissionDenied();
+            throw $error;
+        }
+        $this->runner()->run(new SaveDraft($answers), $input, $actor);
+
+        return null;
+    }
+
+    /** Whether a guest draft of the form is kept under the token: a save of it updates, any other creates. */
+    public function holdsOf(int $formId, string $claimToken): bool
+    {
+        return $this->guest($formId, $claimToken) !== null;
     }
 
     /**

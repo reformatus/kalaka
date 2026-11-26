@@ -49,7 +49,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  *   through `SubmitGuard` and what the host's submit does (`FormHost::submit()`; in an event form
  *   `Registrations\Api\RegistrationSubmit`).
  * - `POST kalaka-portal/v1/forms/{id}/draft` `{version, answers, page, claims}` → `{saved: true}` (S74, the
- *   autosave): the host keeps the answers as the logged-in person's draft (`FormHost::saveDraft()`). The
+ *   autosave): the host keeps the answers as the logged-in person's draft, or a guest's guest draft, whose
+ *   cookie the first save sets (`FormHost::saveDraft()`; a guest's save that creates a draft is rate-limited
+ *   like a handoff, `RateLimited` 429). The
  *   body is at most `DRAFT_LIMIT` bytes; only the form's own keys are kept, as sent. `claims` is the
  *   draft's claim count the page opened with: after a claim changed the draft, the save is a
  *   `kalaka_version_conflict` (409).
@@ -308,7 +310,8 @@ final class FormRoutes
 
     /**
      * The autosave (S74): the form's own keys of the answers, as sent, kept as the logged-in person's draft
-     * while the form can be used. A guest is refused by the host (its answers stay in the page).
+     * while the form can be used; a guest's go into the guest draft under their cookie, which the first save
+     * gives (owner ruling 2026-11-26). The account never refuses it, as it never refuses the page.
      *
      * @return array{saved: true}
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
@@ -367,7 +370,8 @@ final class FormRoutes
      */
     private function usableForm(\WP_REST_Request $request): Form
     {
-        [$form, , $refusals] = $this->lookup($request);
+        [$form, , $all] = $this->lookup($request);
+        $refusals = FormsPage::withoutAccount($all);
         if ($refusals !== []) {
             $error = new FormRefused($refusals);
             throw $error;

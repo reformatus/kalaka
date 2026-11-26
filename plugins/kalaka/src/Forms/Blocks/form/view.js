@@ -710,9 +710,11 @@ function applyAccount(form, account) {
 }
 
 /**
- * The autosave (S74): while the page has a draft route (a logged-in person on a registration form), the
- * answers that show are kept as the person's draft once they rest for `DRAFT_DELAY`, on every page move,
- * and when the page is left (`keepalive`). It shows nothing: a failed save is tried again with the next
+ * The autosave (S74): while the page has a draft route (a registration form), the answers that show are
+ * kept as the person's draft, or a guest's guest draft, once they rest for `DRAFT_DELAY`, on every page move,
+ * and when the page is left (`keepalive`). A guest's page with no guest draft yet (`draftStart`) saves the
+ * first answer change at once, which gives the guest the draft cookie (owner ruling 2026-11-26); until that
+ * save is answered no other goes out, so that it is the cookie's draft the next ones update. It shows nothing: a failed save is tried again with the next
  * change. A send takes what waits: the submit deletes the draft. Each save carries the draft's claim count
  * the page opened with (`draftClaims`).
  *
@@ -728,6 +730,13 @@ function draftChanged(form) {
 	}
 	started.draftDirty = true;
 	clearTimeout(started.draftTimer);
+	if (started.draftStart) {
+		started.draftStart = false;
+		started.draftIssuing = true;
+		saveDraft(form, false, true);
+
+		return;
+	}
 	started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
 }
 
@@ -742,14 +751,21 @@ function stopDraft(form) {
 	started.draftTimer = null;
 }
 
-function saveDraft(form, keepalive = false) {
+function saveDraft(form, keepalive = false, issuing = false) {
 	const started = forms.get(form);
 	if (!started?.draftUrl || started.draftStopped) {
 		return;
 	}
 	clearTimeout(started.draftTimer);
 	started.draftTimer = null;
+	if (!issuing && started.draftIssuing && !keepalive) {
+		// The save that gives the cookie is on its way: the answers wait for it (`draftSettled()`).
+		return;
+	}
 	if (!started.draftDirty || started.sending || started.done) {
+		if (issuing) {
+			draftSettled(form);
+		}
 		return;
 	}
 	started.draftDirty = false;
@@ -758,7 +774,7 @@ function saveDraft(form, keepalive = false) {
 		headers['X-WP-Nonce'] = started.nonce;
 	}
 	try {
-		fetch(started.draftUrl, {
+		const sent = fetch(started.draftUrl, {
 			method: 'POST',
 			keepalive,
 			headers,
@@ -788,8 +804,26 @@ function saveDraft(form, keepalive = false) {
 			.catch(() => {
 				started.draftDirty = true;
 			});
+		if (issuing) {
+			sent.finally(() => draftSettled(form));
+		}
 	} catch {
 		started.draftDirty = true;
+		if (issuing) {
+			draftSettled(form);
+		}
+	}
+}
+
+/** The save that gives a guest the cookie was answered (or failed): what changed meanwhile goes after the rest. */
+function draftSettled(form) {
+	const started = forms.get(form);
+	if (started === undefined) {
+		return;
+	}
+	started.draftIssuing = false;
+	if (started.draftDirty && !started.draftStopped && !started.draftTimer) {
+		started.draftTimer = setTimeout(() => saveDraft(form), DRAFT_DELAY);
 	}
 }
 

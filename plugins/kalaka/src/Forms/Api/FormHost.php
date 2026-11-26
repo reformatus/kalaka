@@ -77,8 +77,9 @@ interface FormHost
     public function draft(Form $form): FormDraft;
 
     /**
-     * Keeps the answers as the person's draft of the form (S74, the autosave), as a use case. Only a
-     * logged-in person has a draft that is saved; anyone else is refused.
+     * Keeps the answers as the person's draft of the form (S74, the autosave), as a use case: a logged-in
+     * person's draft, or a guest's guest draft under the claim token of the request's cookie, which the host
+     * sets (owner ruling 2026-11-26). Any other actor is refused.
      *
      * @param int $version the form version the answers were given against
      * @param int $claims the draft's claim count the page opened with (`FormDraft::$claims`)

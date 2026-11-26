@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 /**
- * The claim token of a guest draft (S74): what a link or the quiz handed over is kept on the server under
- * it, and the visitor's browser holds it in the cookie `kalaka_draft` until the draft is claimed, submitted
- * or swept after the registration's close. 128 random bits as 22 characters of unpadded base64url; only its
- * SHA-256 is stored. A secret: never in a log line, a URL or the audit.
+ * The claim token of a guest draft (S74): what a link or the quiz handed over, or the guest's own typing, is
+ * kept on the server under it, and the visitor's browser holds it in the cookie `kalaka_draft` until the draft
+ * is claimed, submitted or swept after the registration's close. 128 random bits as 22 characters of unpadded
+ * base64url; only its SHA-256 is stored. A secret: never in a log line, a URL or the audit.
  *
  * The cookie follows the registrant cookie policy (`RegistrantCookie`), like the active registration's: `Lax`
  * is what lets it travel on the 303 that answers the quiz's cross-site POST and back through WordPress's login

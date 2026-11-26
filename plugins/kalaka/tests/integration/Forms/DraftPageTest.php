@@ -283,11 +283,13 @@ final class DraftPageTest extends FormsTestCase
         self::assertNotNull($token);
         self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
 
-        // A reload: the form opens with them again, and still no autosave for a guest.
+        // A reload: the form opens with them again, and the guest's own typing goes into the same draft.
         $html = $this->render();
         self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
         self::assertStringContainsString('a kvízből', $html);
-        self::assertArrayNotHasKey('draftUrl', $this->context($html));
+        $context = $this->context($html);
+        self::assertArrayHasKey('draftUrl', $context);
+        self::assertArrayNotHasKey('draftStart', $context);
         self::assertCount(1, $this->draftRows());
 
         (new EventFormHost())->submit(
@@ -318,9 +320,143 @@ final class DraftPageTest extends FormsTestCase
         self::assertSame('félkész', $host->draft($form)->answers->answers['note']);
     }
 
-    public function testAGuestHasNoAutosaveRoute(): void
+    /** Owner ruling 2026-11-26: a guest's page carries the autosave route; with no draft yet the first answer starts it. */
+    public function testAGuestsPageCarriesTheAutosaveRouteAndStartsItOnlyWithNoDraftYet(): void
     {
-        self::assertArrayNotHasKey('draftUrl', $this->context($this->render()));
+        $context = $this->context($this->render());
+        self::assertStringEndsWith('/kalaka-portal/v1/forms/' . $this->form . '/draft', (string) $context['draftUrl']);
+        self::assertTrue($context['draftStart']);
+        self::assertSame('', $context['nonce']);
+
+        (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
+        $context = $this->context($this->render());
+        self::assertArrayHasKey('draftUrl', $context);
+        self::assertArrayNotHasKey('draftStart', $context);
+    }
+
+    /**
+     * Owner ruling 2026-11-26: a guest's own typing autosaves into the guest draft a link's handoff writes: the
+     * first save creates it and gives the cookie, later ones update the same row, a reload opens with it, and
+     * the send deletes it. Any account mode: `mandatory` shows the form to a guest too.
+     *
+     * @dataProvider accountModes
+     */
+    public function testAGuestsTypingAutosavesIntoTheGuestDraftAndTheSendDeletesIt(string $mode): void
+    {
+        $this->accountMode($mode);
+        self::assertNull(DraftClaim::current());
+
+        $first = $this->autosave(['note' => 'T', 'stranger' => 'x']);
+
+        self::assertSame(200, $first->get_status());
+        self::assertSame(['saved' => true], $first->get_data());
+        $token = DraftClaim::current();
+        self::assertNotNull($token);
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]['user_id']);
+        self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
+        self::assertSame(['note' => 'T'], $this->storedAnswers());
+        self::assertSame(FormCaching::CACHE_CONTROL, $first->get_headers()['Cache-Control'] ?? null);
+
+        // The next save, with the cookie, updates the same draft and keeps the token.
+        self::assertSame(200, $this->autosave(['note' => 'Teszt jegyzet', 'size' => 'm'])->get_status());
+        self::assertSame($token, DraftClaim::current());
+        self::assertCount(1, $this->draftRows());
+        self::assertSame(['note' => 'Teszt jegyzet', 'size' => 'm'], $this->storedAnswers());
+
+        // A reload: the form opens with them.
+        $html = $this->render();
+        self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
+        self::assertStringContainsString('Teszt jegyzet', $html);
+        self::assertArrayNotHasKey('draftStart', $this->context($html));
+
+        if ($mode === 'mandatory') {
+            // A guest cannot send in this mode (the account is the send's); a reload keeps their typing all the same.
+            return;
+        }
+        (new EventFormHost())->submit(
+            $this->form,
+            $this->version(),
+            ['name' => 'Teszt Anna', 'email' => 'teszt.anna@example.org', 'size' => 'm', 'note' => 'Teszt jegyzet'],
+            (new EventFormHost())->submitToken(),
+            [],
+            false,
+            new GuestActor()
+        );
+        self::assertSame([], $this->draftRows());
+        self::assertNull(DraftClaim::current());
+    }
+
+    /** @return array<string, array{string}> */
+    public static function accountModes(): array
+    {
+        return ['off' => ['off'], 'optional' => ['optional'], 'mandatory' => ['mandatory']];
+    }
+
+    /** A guest save that creates a draft counts like a handoff, per address; an update of their own draft does not. */
+    public function testAGuestSaveThatCreatesADraftIsRateLimitedAndAnUpdateIsNot(): void
+    {
+        $last = null;
+        for ($i = 0; $i < SubmitGuard::ADDRESS_LIMIT; $i++) {
+            // No cookie: each save is a new browser's first one.
+            unset($_COOKIE[DraftClaim::COOKIE]);
+            self::assertSame(200, $this->autosave(['note' => 'a' . $i])->get_status());
+            $last = DraftClaim::current();
+        }
+        self::assertNotNull($last);
+        self::assertCount(SubmitGuard::ADDRESS_LIMIT, $this->draftRows());
+
+        unset($_COOKIE[DraftClaim::COOKIE]);
+        $refused = $this->autosave(['note' => 'túl sok']);
+        self::assertSame(429, $refused->get_status());
+        self::assertCount(SubmitGuard::ADDRESS_LIMIT, $this->draftRows());
+        self::assertNull(DraftClaim::current());
+
+        // The last browser keeps typing into its own draft, which takes no budget.
+        $_COOKIE[DraftClaim::COOKIE] = $last;
+        self::assertSame(200, $this->autosave(['note' => 'tovább'])->get_status());
+        self::assertCount(SubmitGuard::ADDRESS_LIMIT, $this->draftRows());
+    }
+
+    /** A cookie naming no draft of this form (swept, sent, another form's) is replaced: one browser holds one. */
+    public function testAGuestWhoseCookieNamesNoDraftOfTheFormGetsANewTokenAndTheOldOneIsDeleted(): void
+    {
+        $other = $this->insertForm(
+            $this->field('text', 'note'),
+            ['kalaka_event_id' => $this->event]
+        );
+        $otherForm = (new Forms())->form($other);
+        self::assertNotNull($otherForm);
+        $host = new EventFormHost();
+        $host->saveDraft($otherForm, $otherForm->version, new AnswerSet(['note' => 'másik']), 0, 0, new GuestActor());
+        $earlier = DraftClaim::current();
+        self::assertNotNull($earlier);
+
+        $this->autosave(['note' => 'ez']);
+
+        $now = DraftClaim::current();
+        self::assertNotNull($now);
+        self::assertNotSame($earlier, $now);
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame(DraftClaim::hash($now), $rows[0]['claim_hash']);
+        self::assertSame($this->form, (int) $rows[0]['form_id']);
+    }
+
+    /** The guest draft a guest typed becomes the person's draft when they log in, as a link's does. */
+    public function testALoggedInPagesClaimMakesAGuestsTypedDraftThePersons(): void
+    {
+        $this->autosave(['note' => 'vendég']);
+        $user = $this->logIn();
+
+        (new DraftHandoff())->handle($this->page(), null, new AccountActor($user));
+
+        $rows = $this->draftRows();
+        self::assertCount(1, $rows);
+        self::assertSame((string) $user, $rows[0]['user_id']);
+        self::assertSame(['note' => 'vendég'], $this->storedAnswers());
+        self::assertNull(DraftClaim::current());
     }
 
     public function testTheHandoffKeepsTheAcceptedAnswersAsAGuestDraftAndAnswers303(): void
@@ -343,10 +479,10 @@ final class DraftPageTest extends FormsTestCase
         self::assertNotNull($token);
         self::assertSame(DraftClaim::hash($token), $rows[0]['claim_hash']);
 
-        // The guest's page opens with them; there is no autosave.
+        // The guest's page opens with them, and their own typing is saved into the same draft.
         $html = $this->render();
         self::assertMatchesRegularExpression('#name="size"\s+value="m"[^>]* checked#', $html);
-        self::assertArrayNotHasKey('draftUrl', $this->context($html));
+        self::assertArrayHasKey('draftUrl', $this->context($html));
     }
 
     /**
@@ -572,13 +708,16 @@ final class DraftPageTest extends FormsTestCase
         }
     }
 
-    public function testTheAutosaveRouteRefusesAGuestAndATooLargeBody(): void
+    public function testTheAutosaveRouteRefusesATooLargeBodyFromAGuestToo(): void
     {
-        $guest = $this->post(
-            'draft',
-            ['version' => $this->version(), 'answers' => ['name' => 'x'], 'page' => 0, 'claims' => 0]
-        );
-        self::assertGreaterThanOrEqual(400, $guest->get_status());
+        $large = $this->post('draft', [
+            'version' => $this->version(),
+            'answers' => ['note' => str_repeat('x', FormRoutes::DRAFT_LIMIT)],
+            'page' => 0,
+            'claims' => 0,
+        ]);
+        self::assertSame(400, $large->get_status());
+        self::assertSame([], $this->draftRows());
 
         $this->logIn();
         $large = $this->post('draft', [
