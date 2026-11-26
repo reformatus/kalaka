@@ -105,6 +105,9 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-none { color: #50575e; margin: 8px 0; }
 .kg-tabs-money .components-tab-panel__tabs { border-bottom: 1px solid #dcdcde; margin-bottom: 12px; }
 .kg-tabs-money .components-tab-panel__tab-content { padding: 0; }
+/* Four tabs do not fit a 375px panel at the default padding: narrower tab padding at phone width, so the panel never scrolls
+   sideways. [UNAPPROVED N1008] */
+@media (max-width: 600px) { .kg-tabs-money .components-tab-panel__tabs-item { padding-inline: 12px; } }
 .kg-table-wrap { overflow-x: auto; margin: 0 0 12px; }
 table.kg-money { border-collapse: collapse; width: 100%; font-size: 13px; }
 table.kg-money th, table.kg-money td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
