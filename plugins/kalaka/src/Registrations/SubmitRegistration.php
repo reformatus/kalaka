@@ -232,7 +232,7 @@ final class SubmitRegistration implements PublicUseCase
      * A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): for it
      * everything limited acts as full, so any claim on a pool with a limit refuses the submit on that choice, with
      * the same refusal and text as a full pool (`SeatsFull::TEXT`), before anything is written.
-     * Unlimited pools are not refused. [UNAPPROVED N5, N654: the "full" text is kept]
+     * Unlimited pools are not refused.
      *
      * @throws InvalidAnswers
      */

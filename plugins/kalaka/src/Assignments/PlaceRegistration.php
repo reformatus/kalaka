@@ -28,7 +28,7 @@ use Kalaka\Registrations\Api\Seats;
  * over the capacity. A registration that is not (waitlisted, withdrawn, removed) holds no seat, so the
  * assignment is written without one; the seat follows when it becomes `registered` (`Api\AssignmentSeats::retake()`).
  * The seat in the option the registration held in the set before is freed either way (never moved to anyone
- * else). [UNAPPROVED N9]
+ * else).
  */
 final class PlaceRegistration implements AdminUseCase
 {
