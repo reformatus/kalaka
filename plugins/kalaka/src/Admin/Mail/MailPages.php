@@ -24,6 +24,8 @@ final class MailPages
 {
     private const EVENT_SLUG = 'kalaka-event-%d-mail';
     private const SITE_SLUG = 'kalaka-mail';
+    /** The top-level „Kaláka” item; the dashboard is deferred, so it lands on the same page as „Levelezés”. */
+    private const TOP_SLUG = 'kalaka';
     private const HANDLE = 'kalaka-admin-mail';
     private const NAMESPACE = 'kalaka-admin/v1';
     /** After core's separator (4), before the events (4.01 and up). */
@@ -49,23 +51,22 @@ final class MailPages
         if (!Access::mayReachAdmin($userId) || !(new Access())->isFull(new UserActor($userId))) {
             return;
         }
-        // A new top-level item with one submenu item, the page the banner names. Its icon is the Kaláka logo, as the
-        // owner's menu ruling has it (a plain „K” until the logo exists, as in the menu mock), drawn as a CSS mask
-        // (`menuStyle()`). Its place is the mock's: right after core's separator and right before the events, which
-        // the grid page puts at 4.01 and up (the approved menu code, #204, keeps the events there). WordPress shows a
-        // submenu only when it has a second item, so „Levelezés” stays out of the sidebar until the ruling's
-        // „Irányítópult” exists. [UNAPPROVED N271, T270]
+        // A new top-level item with its own submenu: WordPress lists the item itself first and „Levelezés” under it,
+        // so „Levelezés” has its own entry. The item lands on the same page until the dashboard exists. Its icon is
+        // the Kaláka logo, as the owner's menu ruling has it (a plain „K” until the logo exists, as in the menu
+        // mock), drawn as a CSS mask (`menuStyle()`). Its place is the mock's: right after core's separator and
+        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271, N926, T270]
         add_menu_page(
             Texts::SITE_PAGE,
             Texts::SITE_MENU,
             'read',
-            self::SITE_SLUG,
+            self::TOP_SLUG,
             [self::class, 'render'],
             'none',
             self::KALAKA_POSITION
         );
         add_submenu_page(
-            self::SITE_SLUG,
+            self::TOP_SLUG,
             Texts::SITE_PAGE,
             Texts::SITE_PAGE,
             'read',
@@ -98,7 +99,7 @@ final class MailPages
     {
         $present = false;
         foreach ((array) ($GLOBALS['menu'] ?? []) as $item) {
-            if (is_array($item) && ($item[2] ?? '') === self::SITE_SLUG) {
+            if (is_array($item) && ($item[2] ?? '') === self::TOP_SLUG) {
                 $present = true;
             }
         }
@@ -106,7 +107,7 @@ final class MailPages
             return;
         }
         $icon = esc_attr(self::LOGO);
-        $css = '#toplevel_page_' . self::SITE_SLUG . ' div.wp-menu-image::before { content: ""; display: block; '
+        $css = '#toplevel_page_' . self::TOP_SLUG . ' div.wp-menu-image::before { content: ""; display: block; '
             . 'width: 20px; height: 20px; margin: 7px auto 0; padding: 0; background-color: currentColor; '
             . '-webkit-mask: url("' . $icon . '") center / 20px 20px no-repeat; '
             . 'mask: url("' . $icon . '") center / 20px 20px no-repeat; }';
@@ -206,7 +207,7 @@ final class MailPages
     {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
         $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
-        if ($page === self::SITE_SLUG) {
+        if ($page === self::SITE_SLUG || $page === self::TOP_SLUG) {
             return 0;
         }
 
