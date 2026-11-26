@@ -121,6 +121,8 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 						__nextHasNoMarginBottom
 					/>
 				) }
+				{ /* The label swap („Indoklás” for a yes to an offer, else „Megjegyzés”) is kept as built, though no reason is
+				     required now: an owner hole. [UNAPPROVED N1043] */ }
 				<TextareaControl
 					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
 					value={ note }

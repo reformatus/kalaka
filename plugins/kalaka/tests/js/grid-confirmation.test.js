@@ -42,9 +42,9 @@ describe( 'the confirmation decision of a read', () => {
 } );
 
 describe( 'the reason', () => {
-	test( 'is required: empty and blank are refused with the message', () => {
-		expect( validateReason( '' ) ).toBe( CONFIRM.reasonEmpty );
-		expect( validateReason( '   \n ' ) ).toBe( CONFIRM.reasonEmpty );
+	test( 'is optional: empty and blank are accepted', () => {
+		expect( validateReason( '' ) ).toBe( '' );
+		expect( validateReason( '   \n ' ) ).toBe( '' );
 	} );
 
 	test( 'any text is accepted', () => {

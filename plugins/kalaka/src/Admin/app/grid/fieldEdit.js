@@ -73,8 +73,8 @@ export function inputOf( event, code, field, picked, reason, preview = false ) {
 	};
 	if ( preview ) {
 		input.preview = true;
-	} else {
-		input.reason = reason;
+	} else if ( reason !== '' ) {
+		input.reason = reason; // optional (J21)
 	}
 	return input;
 }

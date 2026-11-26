@@ -135,7 +135,7 @@ describe( 'each dialog', () => {
 		expect( done ).toHaveBeenCalledWith( name );
 	} );
 
-	test( 'withdraw, admit and restore send without a reason; remove needs one', async () => {
+	test( 'every act sends without a reason when none is given, remove included', async () => {
 		await render( 'withdraw' );
 		await submit();
 		expect( writes()[ 0 ].data.input ).toEqual( { event_id: 7, code: '92F7' } );
@@ -144,8 +144,11 @@ describe( 'each dialog', () => {
 		apiFetch.mockReset();
 		await render( 'remove' );
 		await submit();
-		expect( writes() ).toHaveLength( 0 );
-		expect( host.textContent ).toContain( CONFIRM.reasonEmpty );
+		expect( writes()[ 0 ].data.input ).toEqual( { event_id: 7, code: '92F7' } );
+		await act( async () => root.unmount() );
+		host.remove();
+		apiFetch.mockReset();
+		await render( 'remove' );
 		await write( 'a'.repeat( 501 ) );
 		await submit();
 		expect( writes() ).toHaveLength( 0 );

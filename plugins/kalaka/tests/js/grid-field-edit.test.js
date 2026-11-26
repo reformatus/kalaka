@@ -183,11 +183,8 @@ describe( 'the dialog', () => {
 		expect( done ).toHaveBeenCalledWith( { changed: true, over_limit: [] } );
 	} );
 
-	test( 'the reason is required and at most 500 characters', async () => {
+	test( 'the reason is optional and at most 500 characters', async () => {
 		await dialog( NAME );
-		await submit();
-		expect( apiFetch ).not.toHaveBeenCalled();
-		expect( host.textContent ).toContain( CONFIRM.reasonEmpty );
 		await type( textarea(), 'a'.repeat( 501 ) );
 		await submit();
 		expect( apiFetch ).not.toHaveBeenCalled();

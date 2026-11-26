@@ -62,7 +62,7 @@ export const PANEL = {
 	panel: 'Jelentkező részletei',
 	close: 'Bezárás',
 	tabsLabel: 'Részletek',
-	// The two new tabs reuse the blocks' headings, FIELDS.heading and REQUESTS.heading. [UNAPPROVED T951] [UNAPPROVED T952]
+	// The two new tabs: „Adatok” was the field list's heading (T230), „Kérelmek” the requests block's (T3). [UNAPPROVED T951] [UNAPPROVED T952]
 	tabFields: 'Adatok',
 	tabRequests: 'Kérelmek',
 	tabMoney: 'Pénzügyek',
@@ -183,7 +183,6 @@ export const CONFIRM = {
 	// The unconfirm button and its dialog title, approved by the owner 2026-11-20 (T24).
 	unconfirm: 'Visszaigazolás visszavonása',
 	reasonField: 'Indoklás',
-	reasonEmpty: 'Add meg az indoklást.',
 	reasonTooLong: 'Az indoklás legfeljebb 500 karakter lehet.', // [UNAPPROVED T45]
 	setLine: 'Befizetés nélkül visszaigazolta: %1$s, %2$s',
 	setLineAnon: 'Befizetés nélkül visszaigazolva: %s',
@@ -203,13 +202,15 @@ export const CONFIRM = {
  * warning, [UNAPPROVED T11] the missing award. The amount field says Ft whatever the currency (T8).
  */
 export const REQUESTS = {
-	heading: 'Kérelmek',
 	awaiting: 'Válaszra vár',
 	approved: 'Jóváhagyva',
 	refused: 'Elutasítva',
 	award: 'Jóváhagyva (%s)', // [UNAPPROVED T6]
 	answer: 'Megválaszolás',
 	change: 'Válasz módosítása',
+	// The two buttons' screen-reader names, naming the request: „Megválaszolás: <kérelem>”. [UNAPPROVED T961] [UNAPPROVED T962]
+	answerLabel: 'Megválaszolás: %s',
+	changeLabel: 'Válasz módosítása: %s',
 	dialogTitle: 'Kérelem megválaszolása',
 	answerField: 'Válasz',
 	answerEmpty: 'Add meg a választ.',
@@ -226,34 +227,32 @@ export const REQUESTS = {
 
 /**
  * The four status acts of the detail panel (S39 on #247). Every visible string is unapproved until the owner ticks
- * its box (T700..T723), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and „Add meg az indoklást.”
+ * its box (T700..T723, the renamed ones T953..T959), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás”
  * (CONFIRM) and the generic failure (MONEY.saveFail). The „full” warning and the server's refusals are shown with
  * the server's own text (the preview's `warnings`, the error's `message`) and are not here.
  */
 export const STATUS_ACTS = {
-	// The four buttons. [UNAPPROVED T700] [UNAPPROVED T701] [UNAPPROVED T702] [UNAPPROVED T703]
+	// The four buttons. [UNAPPROVED T700] [UNAPPROVED T703]; withdraw and remove are T953 and T954
 	admit: 'Felvétel a várólistáról',
-	withdraw: 'Jelentkezés visszavonása',
-	remove: 'Jelentkezés törlése',
+	withdraw: 'Megjelölés lemondottként', // [UNAPPROVED T953] J1
+	remove: 'Megjelölés töröltként', // [UNAPPROVED T954] J2
 	restore: 'Jelentkezés visszaállítása',
-	// The dialog titles. [UNAPPROVED T704] [UNAPPROVED T705] [UNAPPROVED T706] [UNAPPROVED T707]
+	// The dialog titles. [UNAPPROVED T704] [UNAPPROVED T707]; withdraw and remove are T955 and T956
 	admitTitle: 'Jelentkező felvétele a várólistáról',
-	withdrawTitle: 'Jelentkezés visszavonása',
-	removeTitle: 'Jelentkezés törlése',
+	withdrawTitle: 'Megjelölés lemondottként', // [UNAPPROVED T955] J3
+	removeTitle: 'Megjelölés töröltként', // [UNAPPROVED T956] J4
 	restoreTitle: 'Jelentkezés visszaállítása',
-	// What will happen. [UNAPPROVED T708] [UNAPPROVED T709] [UNAPPROVED T710] [UNAPPROVED T711]
+	// What will happen. [UNAPPROVED T708] [UNAPPROVED T710] [UNAPPROVED T711]; withdraw is T957
 	admitBody: 'A jelentkezés rögzített állapotba kerül.',
-	withdrawBody: 'A jelentkezés visszavont állapotba kerül. A várólistáról senki sem kerül be automatikusan.',
+	withdrawBody: 'A jelentkezés lemondott állapotba kerül. A várólistáról senki sem kerül be automatikusan.', // [UNAPPROVED T957] J5 (J6, T710, keeps its word „törölt”)
 	removeBody: 'A jelentkezés törölt állapotba kerül. A várólistáról senki sem kerül be automatikusan.',
 	restoreBody: 'A jelentkezés rögzített állapotba kerül.',
-	// Under the reason field when it is optional. [UNAPPROVED T712]
-	reasonOptional: 'Nem kötelező.',
 	// Under the admit dialog's warning. [UNAPPROVED T713]
 	serialEnd: 'A felvett jelentkező az utolsó sorszámot kapja.',
-	// The snackbars. [UNAPPROVED T714] [UNAPPROVED T715] [UNAPPROVED T716] [UNAPPROVED T717]
+	// The snackbars. [UNAPPROVED T714] [UNAPPROVED T717]; withdraw and remove are T958 and T959
 	admitted: 'Jelentkező felvéve a várólistáról.',
-	withdrawn: 'Jelentkezés visszavonva.',
-	removed: 'Jelentkezés törölve.',
+	withdrawn: 'Jelentkezés lemondottként megjelölve.', // [UNAPPROVED T958] J7
+	removed: 'Jelentkezés töröltként megjelölve.', // [UNAPPROVED T959] J8
 	restored: 'Jelentkezés visszaállítva.',
 	// The money section's heading (the earlier prototype's S16). [UNAPPROVED T718]
 	moneyHeading: 'Pénzügyi hatás',
@@ -272,14 +271,12 @@ export const STATUS_ACTS = {
 
 /**
  * Staff editing of a registration's field values (B5-2 on #249). Every string is unapproved until the owner ticks
- * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and its two messages
- * (CONFIRM), the generic failure (MONEY.saveFail), „Nincs válasz” (GRID.unanswered), „–” (an empty value, MONEY's
+ * its box (T230..T233), except the reused ones: „Mentés” and „Mégse” (MONEY), „Indoklás” and its length message
+ * (CONFIRM, its length message), the generic failure (MONEY.saveFail), „Nincs válasz” (GRID.unanswered), „–” (an empty value, MONEY's
  * preview dash) and the „full” warning (the preview's `warnings`, the server's text). Server refusals are shown
  * with the server's own text.
  */
 export const FIELDS = {
-	// The block's heading. [UNAPPROVED T230]
-	heading: 'Adatok',
 	// The button of a writable field. [UNAPPROVED T231]
 	edit: 'Szerkesztés',
 	// The button's screen-reader name, „Szerkesztés: <mező>”. [UNAPPROVED T233]

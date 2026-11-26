@@ -18,9 +18,6 @@ export const actsFor = ( can ) => ACTS.filter( ( act ) => !! ( can && can[ act ]
 /** The ability an act runs (#247). */
 export const abilityOf = ( act ) => `kalaka/${ act }-registration`;
 
-/** Whether the reason is required (#247: remove only). [UNAPPROVED N703] */
-export const reasonRequired = ( act ) => act === 'remove';
-
 /**
  * The act's input; the reason only when there is one. A preview carries no reason: the server takes none on a
  * preview, remove's included. [UNAPPROVED N706]
@@ -35,13 +32,8 @@ export function inputOf( event, code, reason, preview = false ) {
 	return input;
 }
 
-/** The reason's message, '' when fine: required for remove, at most 500 characters otherwise. [UNAPPROVED N703] */
-export function reasonProblem( act, reason ) {
-	if ( reasonRequired( act ) ) {
-		return validateReason( reason );
-	}
-	return String( reason ).trim() === '' ? '' : validateReason( reason );
-}
+/** The reason's message, '' when fine: no act requires a reason (J18), at most 500 characters. [UNAPPROVED N703] */
+export const reasonProblem = ( act, reason ) => validateReason( reason );
 
 /**
  * The warnings of a preview, the server's own text (`warnings`: the "full" text when a pool would go over);

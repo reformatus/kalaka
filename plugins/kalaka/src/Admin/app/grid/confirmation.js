@@ -29,16 +29,13 @@ export const markOf = ( state ) => MARK[ state ] || [ 'dashicons-marker', '' ];
 export const REASON_MAX = 500;
 
 /**
- * The dialog's checks, on the text that is sent (trimmed): the reason is required and at most 500 characters
+ * The dialog's check, on the text that is sent (trimmed): the reason is optional (J14, J21) and at most 500 characters
  * (counted as the server counts them, by character, not by UTF-16 unit); a message, or an empty string when it may
  * be sent. The field itself has no length limit: its own `maxLength` would count UTF-16 units, not characters.
  * [UNAPPROVED N73] [UNAPPROVED T45]
  */
 export function validateReason( reason ) {
 	const text = String( reason ).trim();
-	if ( text === '' ) {
-		return CONFIRM.reasonEmpty;
-	}
 	return Array.from( text ).length > REASON_MAX ? CONFIRM.reasonTooLong : '';
 }
 

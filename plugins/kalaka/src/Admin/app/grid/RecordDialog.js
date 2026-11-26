@@ -2,7 +2,7 @@
  * The two recording dialogs of the „Pénzügyek” tab (S38), split by the owner's topic 6a G12 and topic 10: one
  * „Tétel rögzítése” dialog whose first field is „Típus” (Befizetés, Visszafizetés, Díj, Kedvezmény: only the
  * types the read allows, none preselected unless exactly one is allowed); the correction keeps its own dialog
- * (`kalaka/record-correction`: a direction and a required reason, no method, no date). The amount is always
+ * (`kalaka/record-correction`: a direction and an optional reason, no method, no date). The amount is always
  * typed positive and the type gives the direction. A Díj or Kedvezmény has a participant-visible title instead
  * of the method and date, and may be saved „completed immediately”. The amount is never prefilled, the payer is
  * asked only with several payers, and „Tartozás” before and after follows the amount as it is typed. A failed

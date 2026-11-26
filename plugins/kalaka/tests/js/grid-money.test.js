@@ -433,7 +433,7 @@ describe( 'the recording dialog\'s checks', () => {
 		const blank = { several: true, payer: '', amount: '', date: '', method: '', note: '', title: '', kind: '', direction: '', completed: false };
 		expect( validateEntry( blank, day ) ).toEqual( { type: 'Válassz típust.' } );
 		// A correction has its own field errors, as before.
-		expect( Object.keys( validateEntry( { ...blank, kind: 'correction' }, day ) ).sort() ).toEqual( [ 'amount', 'direction', 'note', 'payer' ] );
+		expect( Object.keys( validateEntry( { ...blank, kind: 'correction' }, day ) ).sort() ).toEqual( [ 'amount', 'direction', 'payer' ] );
 	} );
 
 	test( 'a charge and a discount need a title and no method or date', () => {
@@ -491,13 +491,13 @@ describe( 'the recording dialog\'s checks', () => {
 		expect( MONEY.directionEmpty ).toBe( 'Válassz irányt.' );
 	} );
 
-	test( 'a correction needs a direction and its reason, and no method or date', () => {
+	test( 'a correction needs a direction, and its reason is optional, and no method or date', () => {
 		const fix = { ...ok, kind: 'correction', method: '', date: '', direction: 'out', note: 'Téves befizetés' };
 		expect( validateEntry( fix, day ) ).toEqual( {} );
 		expect( validateEntry( { ...fix, direction: 'in' }, day ) ).toEqual( {} );
 		expect( validateEntry( { ...fix, direction: '' }, day ).direction ).toBe( MONEY.directionEmpty );
-		expect( validateEntry( { ...fix, note: '   ' }, day ).note ).toBe( MONEY.noteRequired );
-		expect( validateEntry( { ...fix, note: '' }, day ).note ).toBe( MONEY.noteRequired );
+		expect( validateEntry( { ...fix, note: '   ' }, day ) ).toEqual( {} );
+		expect( validateEntry( { ...fix, note: '' }, day ) ).toEqual( {} );
 		expect( validateEntry( { ...fix, amount: '0' }, day ).amount ).toBe( MONEY.amountBad );
 	} );
 

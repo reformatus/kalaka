@@ -149,7 +149,9 @@ export function buildCall( event, entry, can ) {
 	};
 	if ( kind === 'correction' ) {
 		input.direction = entry.direction;
-		input.reason = entry.note;
+		if ( entry.note ) {
+			input.reason = entry.note; // optional (J13)
+		}
 	} else if ( kind === 'charge' || kind === 'discount' ) {
 		input.title = entry.title;
 		if ( entry.completed ) {
@@ -310,7 +312,7 @@ export function today( zone, now = new Date() ) {
  * The recording dialog's checks, the server's rules ahead of the request: an object of messages by field
  * (`payer`, `type`, `direction`, `amount`, `title`, `value_date`, `method`, `note`), empty when the entry may be
  * sent. The „Tétel rögzítése” dialog has a type (`kind`: `payment`, `refund`, `charge` or `discount`, empty until
- * picked); the correction a direction and a required reason, no method and no date. A payment and a refund
+ * picked); the correction a direction and an optional reason, no method and no date. A payment and a refund
  * have a method and a date and an optional note; a charge and a discount a required title (the participant sees
  * it) and no method or date, unless they are saved „completed immediately”, which adds the paid-side line's
  * method and date.
@@ -341,9 +343,7 @@ export function validateEntry( entry, day ) {
 		errors.amount = MONEY.amountBad;
 	}
 	if ( correction ) {
-		if ( String( entry.note ).trim() === '' ) {
-			errors.note = MONEY.noteRequired;
-		}
+		// The correction's reason is optional (J13).
 		return errors;
 	}
 	if ( owedSide ) {

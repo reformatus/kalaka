@@ -123,13 +123,12 @@ describe( 'the warning before the unconfirm', () => {
 } );
 
 describe( 'the reason', () => {
-	test( 'is required: nothing is sent', async () => {
+	test( 'is optional: an empty one is sent without a reason', async () => {
 		await render();
 		await write( '   ' );
 		await submit();
-		expect( apiFetch ).not.toHaveBeenCalled();
-		expect( host.textContent ).toContain( CONFIRM.reasonEmpty );
-		expect( done ).not.toHaveBeenCalled();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input.reason ).toBeUndefined();
 	} );
 
 	test( 'is at most 500 characters: nothing is sent, the message says so', async () => {

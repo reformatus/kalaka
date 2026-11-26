@@ -16,7 +16,6 @@ import {
 	failureOf,
 	moneyRowsOf,
 	reasonProblem,
-	reasonRequired,
 	retentionLineOf,
 	spokenOf,
 	seatLinesOf,
@@ -55,7 +54,6 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 	const [ preview, setPreview ] = useState( null );
 	const sending = useRef( false );
 	const form = useRef();
-	const required = reasonRequired( act );
 
 	const focusField = ( wait ) =>
 		setTimeout( () => {
@@ -191,13 +189,14 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 					) }
 					{ act === 'admit' && <p>{ STATUS_ACTS.serialEnd }</p> }
 				</div>
+				{ /* No act requires the reason, and no „Nem kötelező.” hint is shown (T712 stays out). [UNAPPROVED N1042] */ }
 				<TextareaControl
 					label={ CONFIRM.reasonField }
 					value={ reason }
 					onChange={ setReason }
 					rows={ 3 }
 					aria-invalid={ error ? 'true' : undefined }
-					help={ error ? <span className="kg-err">{ error }</span> : required ? undefined : STATUS_ACTS.reasonOptional }
+					help={ error ? <span className="kg-err">{ error }</span> : undefined }
 					__nextHasNoMarginBottom
 				/>
 				{ failed && (
