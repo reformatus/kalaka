@@ -91,6 +91,9 @@ title: Engineering
 - **REST follows WordPress core conventions** (paging, search, sorting,
   totals, schemas), so the admin screens use WordPress's own data layer and
   admin components (DataViews, DataForm) over core-data entities.
+- **A page that changes majorly is rendered in PHP:** the server renders
+  the page, and only its dynamic parts re-render in the browser (on a save,
+  for example). Existing pages are not reworked for this before launch.
 - **Admin actions are also WordPress abilities** (create a payment link,
   award aid, apply money settings, admit from the waitlist, …):
   schema-checked input, permission checks and REST access come from
