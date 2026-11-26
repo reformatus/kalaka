@@ -405,8 +405,6 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertSame(400, $this->rest('POST', $route, ['codes' => []])->get_status());
         self::assertSame(400, $this->rest('POST', $route, [])->get_status());
         self::assertSame(400, $this->rest('POST', $route, ['codes' => ['00A0', '00A0']])->get_status());
-        $many = array_map(static fn (int $n): string => '00A' . $n, range(1, 1001));
-        self::assertSame(400, $this->rest('POST', $route, ['codes' => $many])->get_status());
     }
 
     public function testAGrantHolderPreviewsInsideTheViewAndGetsTheSameRefusalForAnUnknownAndAnOutsideCode(): void

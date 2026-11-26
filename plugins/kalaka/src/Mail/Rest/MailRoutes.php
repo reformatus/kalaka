@@ -90,7 +90,7 @@ final class MailRoutes
             'permission_callback' => $full,
             'args' => ['id' => $id, 'batch' => ['type' => 'integer', 'minimum' => 1, 'required' => true]],
         ]);
-        // The codes are the use case's own schema (1 to 1000, each once), so a client learns the cap before a send.
+        // The codes are the use case's own schema (at least one, each once), so a client learns the rule before a send.
         $codes = (new SendManualMail())->inputSchema()['properties']['codes'] ?? [];
         Boundary::route(self::NAMESPACE, self::EVENT . '/mail/manual/preview', [
             'methods' => 'POST',
