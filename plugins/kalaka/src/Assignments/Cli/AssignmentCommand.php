@@ -48,7 +48,7 @@ final class AssignmentCommand
     {
         Boundary::cli(static function () use ($args): void {
             $registration = new RegistrationKey((int) $args[0], $args[1]);
-            $actor = new CliActor(get_current_user_id() ?: null);
+            $actor = CliActor::current();
             $input = [
                 'event_id' => (int) $args[0],
                 'code' => $args[1],
