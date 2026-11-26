@@ -80,6 +80,34 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
 .kg-sumtd .kg-sumopen { vertical-align: middle; }
 
+/* The start columns stay while the table scrolls sideways: the selection checkbox, Kód and the name (the host's
+   `data-kg-sticky` says how many; `sticky.js` measures where each starts). The cells are opaque in the row's own colour
+   (DataViews' own surface and selected colours, at a specificity below the hover and open-row colours) so nothing shows
+   through, and the last one is
+   divided from the scrolling columns by a box-shadow line (a collapsed border would scroll away). The actions
+   column stays at the end, as DataViews makes it. [UNAPPROVED N942] */
+#kalaka-grid :where(
+	.kg-dv[data-kg-sticky="1"] tr > :nth-child(-n+1),
+	.kg-dv[data-kg-sticky="2"] tr > :nth-child(-n+2),
+	.kg-dv[data-kg-sticky="3"] tr > :nth-child(-n+3)
+) { position: sticky; }
+#kalaka-grid .kg-dv[data-kg-sticky] tr > :nth-child(1) { left: 0; }
+#kalaka-grid .kg-dv[data-kg-sticky] tr > :nth-child(2) { left: var(--kg-left-2, 0); }
+#kalaka-grid .kg-dv[data-kg-sticky] tr > :nth-child(3) { left: var(--kg-left-3, 0); }
+#kalaka-grid :where(.kg-dv[data-kg-sticky]) tbody tr > :where(:nth-child(-n+3)) { background-color: var(--wp-dataviews-color-background, var(--wpds-color-background-surface-neutral-strong, #fff)); z-index: 1; }
+#kalaka-grid :where(.kg-dv[data-kg-sticky]) tbody tr.is-selected > :where(:nth-child(-n+3)) { background-color: var(--wpds-color-background-interactive-brand-weak-active, color-mix(in oklch, var(--wp-admin-theme-color, #3858e9) 12%, white)); }
+#kalaka-grid .kg-dv[data-kg-sticky="1"] tbody tr > :nth-child(1),
+#kalaka-grid .kg-dv[data-kg-sticky="2"] tbody tr > :nth-child(2),
+#kalaka-grid .kg-dv[data-kg-sticky="3"] tbody tr > :nth-child(3),
+#kalaka-grid .kg-dv[data-kg-sticky="1"] thead tr > :nth-child(1),
+#kalaka-grid .kg-dv[data-kg-sticky="2"] thead tr > :nth-child(2),
+#kalaka-grid .kg-dv[data-kg-sticky="3"] thead tr > :nth-child(3) { box-shadow: inset -1px 0 0 #dcdcde; }
+#kalaka-grid .kg-dv[data-kg-sticky="1"] thead tr.kg-sumtr > :nth-child(1),
+#kalaka-grid .kg-dv[data-kg-sticky="2"] thead tr.kg-sumtr > :nth-child(2),
+#kalaka-grid .kg-dv[data-kg-sticky="3"] thead tr.kg-sumtr > :nth-child(3) { box-shadow: inset 0 1px 0 #dcdcde, inset 0 -1px 0 #dcdcde, inset -1px 0 0 #dcdcde; }
+/* The open row's mark sits on the row's first cell, which is sticky and would cover the row's own shadow. */
+#kalaka-grid tbody tr.kg-row-open > td:first-child { box-shadow: inset 3px 0 0 var(--wp-admin-theme-color, #3858e9); }
+
 /* The snackbar of the copy result, at the bottom of the window. */
 .kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
 .kg-grid-snacks .components-snackbar-list { position: static; }

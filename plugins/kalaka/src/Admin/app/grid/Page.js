@@ -36,6 +36,7 @@ import { selectionBody } from './selection';
 import SumRow from './SumRow';
 import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
+import useStickyColumns, { stickyCount } from './sticky';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import DetailPanel from './DetailPanel';
 import { manualMailAction } from '../mail/bulk';
@@ -488,6 +489,9 @@ export default function Page( { config } ) {
 		observer.observe( host, { childList: true, subtree: true } );
 		return () => observer.disconnect();
 	}, [ host, actions.length, rowNames ] );
+
+	// The start columns that stay while the table scrolls sideways: the checkbox, Kód and the name. [UNAPPROVED N942]
+	useStickyColumns( host, stickyCount( tab.columns, v.fields, actions.length > 0 ) );
 
 	const copyButton = (
 		<Button
