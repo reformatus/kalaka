@@ -10,12 +10,12 @@ import SenderPage from '../../src/Admin/app/mail/SenderPage';
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
 	return {
-		Button: ( { children, onClick, disabled, ...rest } ) => h( 'button', { onClick, disabled, 'aria-label': rest[ 'aria-label' ] }, children ),
+		Button: ( { children, onClick, disabled, ...rest } ) => h( 'button', { onClick, disabled, type: rest.type, 'aria-label': rest[ 'aria-label' ] }, children ),
 		Notice: ( { children } ) => h( 'div', null, children ),
 		SnackbarList: () => null,
 		Modal: ( { children } ) => h( 'div', null, children ),
-		TextControl: ( { value, onChange, label, help } ) =>
-			h( 'div', null, h( 'input', { 'aria-label': label, value, onChange: ( e ) => onChange( e.target.value ) } ), h( 'p', null, help ) ),
+		TextControl: ( { value, onChange, help, id, ...rest } ) =>
+			h( 'div', null, h( 'input', { id, value, onChange: ( e ) => onChange( e.target.value ), ...Object.fromEntries( Object.entries( rest ).filter( ( [ k ] ) => ! k.startsWith( '__' ) ) ) } ), h( 'p', { id: id + '__help' }, help ) ),
 	};
 } );
 jest.mock( '@wordpress/api-fetch', () => ( { __esModule: true, default: jest.fn() } ), { virtual: true } );
@@ -110,9 +110,10 @@ test( 'the budget control shows the stored value and the default, and a save sen
 	apiFetch.mockReset();
 	apiFetch.mockImplementation( ( { method } ) => ( method === 'POST' ? Promise.resolve( 60 ) : Promise.resolve( budgetRead( {} ) ) ) );
 	const host = await mount();
-	const input = host.querySelector( 'input[aria-label="Óránként legfeljebb küldhető levél"]' );
+	expect( host.querySelector( 'label[for="km-budget"]' ).textContent ).toBe( 'Óránként legfeljebb küldhető levél' );
+	const input = host.querySelector( '#km-budget' );
 	expect( input.value ).toBe( '240' );
-	expect( host.textContent ).toContain( 'alapértelmezés: 240' );
+	expect( host.textContent ).toContain( 'Alapértelmezés: 240' );
 	await act( async () => type( input, '60' ) );
 	await act( async () => press( host, 'Mentés' ).click() );
 	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
@@ -122,17 +123,37 @@ test( 'the budget control shows the stored value and the default, and a save sen
 
 test( 'a refused budget shows the server\'s own text and sends the value as typed; nothing is checked on the page', async () => {
 	apiFetch.mockReset();
-	const text = 'Az óránként legfeljebb küldhető levelek száma 1 és 2000 közötti egész szám lehet.';
+	const text = 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.';
 	apiFetch.mockImplementation( ( { method } ) =>
-		method === 'POST' ? Promise.reject( { code: 'kalaka_mail_budget_invalid', message: text } ) : Promise.resolve( budgetRead( {} ) )
+		method === 'POST' ? Promise.reject( { code: 'kalaka_mail_budget_invalid', message: 'A művelet nem hajtható végre. ' + text } ) : Promise.resolve( budgetRead( {} ) )
 	);
 	const host = await mount();
 	await act( async () => type( host.querySelector( 'input' ), '5000' ) );
 	await act( async () => press( host, 'Mentés' ).click() );
 	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
 	expect( post.data ).toEqual( { input: { hourly_budget: 5000 } } );
-	expect( host.textContent ).toContain( text );
-	expect( host.querySelector( 'input' ).value ).toBe( '5000' );
+	expect( host.querySelector( '#km-budget-error' ).textContent ).toBe( text );
+	// The field goes back to the stored value, marked invalid and tied to the refusal until the next edit.
+	const input = host.querySelector( '#km-budget' );
+	expect( input.value ).toBe( '240' );
+	expect( input.getAttribute( 'aria-invalid' ) ).toBe( 'true' );
+	expect( input.getAttribute( 'aria-describedby' ) ).toBe( 'km-budget__help km-budget-error' );
+	expect( host.querySelector( '#km-budget-error' ).textContent ).toContain( text );
+	await act( async () => type( input, '7' ) );
+	expect( input.getAttribute( 'aria-invalid' ) ).toBeNull();
+	expect( input.getAttribute( 'aria-describedby' ) ).toBe( 'km-budget__help' );
+} );
+
+test( 'Enter in the budget field saves: the field and the button are one form', async () => {
+	apiFetch.mockReset();
+	apiFetch.mockImplementation( ( { method } ) => ( method === 'POST' ? Promise.resolve( 60 ) : Promise.resolve( budgetRead( {} ) ) ) );
+	const host = await mount();
+	await act( async () => type( host.querySelector( '#km-budget' ), '60' ) );
+	const form = host.querySelector( 'form.km-budget' );
+	expect( form.contains( press( host, 'Mentés' ) ) ).toBe( true );
+	await act( async () => form.dispatchEvent( new Event( 'submit', { bubbles: true, cancelable: true } ) ) );
+	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
+	expect( post.data ).toEqual( { input: { hourly_budget: 60 } } );
 } );
 
 test( 'without can.set_budget the budget is shown read-only: no field, no save', async () => {
