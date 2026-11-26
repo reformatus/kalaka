@@ -310,7 +310,10 @@ values and conditions, prefill and form links
   accounts, and anywhere else it renders nothing. Its button opens
   WordPress's login page in a window of its own (`SignUp::url()`); a login
   there lands on the return page (`SignUp::returnUrl()`), which tells the
-  form's page by `postMessage` to its own origin only and closes. The page
+  form's page by `postMessage` to its own origin only and closes. The
+  script adds `popup=1` to the address it opens with `window.open` only
+  (the plain link stays the same-tab fallback), so the return page of the
+  window never redirects to a second form. The page
   then reads its REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`)
   and re-fetches with the block re-rendered, never reloading and never
   overwriting a typed answer; without a message it checks on focus or
