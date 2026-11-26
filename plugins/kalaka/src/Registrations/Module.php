@@ -191,7 +191,8 @@ SQL;
             new Status\RestoreRegistration(),
             'Jelentkezés visszaállítása',
             // [UNAPPROVED T981] The lektor's text; the label stays.
-            'Egy lemondott vagy törölt jelentkezés visszaállítása rögzített állapotba; újra lefoglalja a helyeit.'
+            'Egy lemondott vagy törölt jelentkezés visszaállítása az előző állapotába: ha rögzített volt, '
+            . 'újra lefoglalja a helyeit, ha várólistás volt, visszakerül a várólistára.'
         );
     }
 }
