@@ -4,13 +4,8 @@
 
 /* Above the table: the tab row. */
 .kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
-.kg-tabrow { display: flex; align-items: stretch; gap: 8px; border-bottom: 1px solid #c3c4c7; min-width: 0; }
-.kg-tabs-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: flex-end; }
-.kg-tabs-measure { position: absolute; visibility: hidden; white-space: nowrap; height: 0; overflow: hidden; display: flex; }
-.kg-tabs.nav-tab-wrapper { border-bottom: 0; padding-top: 0; display: flex; flex-wrap: nowrap; white-space: nowrap; }
-.kg-tabs .nav-tab, .kg-tabs-measure .nav-tab { float: none; margin-left: 0; margin-right: 6px; flex: none; }
-.kg-tabs .nav-tab { margin-bottom: -1px; }
-.kg-tabs .kg-more-toggle { cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; line-height: 1.71428571; }
+.kg-tabrow { min-width: 0; }
+.kg-tabrow .components-tab-panel__tabs { flex-wrap: wrap; }
 .kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px 0; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kg-spacer { flex: 1 1 auto; }

@@ -9,9 +9,6 @@ export const GRID = {
 	copied: '%d sor a vágólapra másolva.',
 	copyFail: 'A másolás nem sikerült.',
 	perPage: 'Oldalanként',
-	more: 'Több',
-	moreLabel: 'További nézetek',
-	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
 	// The reset of the sort and the counting only; the search, the filters and DataViews' own Reset are theirs.
 	// [UNAPPROVED T38]
