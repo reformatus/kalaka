@@ -61,8 +61,10 @@ plugin. It holds two fee components at the extras stage and is core money
   a label outside 1 to 191 characters, a malformed amount, more than 50
   charges, a property besides `key`, `label`, `amount` and `type`, a type
   besides `consent` and `number`, a key a staff or system field holds, a declared
-  field of another type, and a number field with the charge's key that allows
-  decimals.
+  field of another type, a number field with the charge's key that allows
+  decimals, and a number charge whose key a form of the event holds as a number
+  field with other decimals (`FieldDecimalsHeld`, at the preview and again at the
+  apply, so adopting the key never closes a form) [UNAPPROVED N808].
 - An extra charge has no condition. Each charge is **its own** ledger line,
   `extras:<key>` (the materializer keeps one line source per item and payer,
   `FeeTargets::ofItems()`); a charge key holds at most 40 characters, the
