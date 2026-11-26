@@ -6,7 +6,7 @@ namespace Kalaka\Registrations\Api;
 
 /**
  * One pool a `SeatClaimSource` can claim: the field a choice is made in, the option value of the choice and its
- * pool, limited or not. [UNAPPROVED N126]
+ * pool, limited or not.
  */
 final readonly class PoolEntry
 {

@@ -139,7 +139,7 @@ the waitlist and reference codes
   pool it reports `held`, `over` or `none` and never refuses, and never touches the event's "full" latch. A staff
   act reads the "full" warning from that outcome; the preview before the act reads `wouldOverfill()`. Only a
   `registered` submit takes its claims' seats: a waitlisted one holds none, and is refused when any claim is a
-  pool with a limit (see below). [UNAPPROVED R40, R100, R188]
+  pool with a limit (see below).
 - A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
   refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
   from one registration to another, and a count never hands a place on.
@@ -150,22 +150,20 @@ the waitlist and reference codes
   `Seats::wouldOverfill()` is the one "would go over" read; `Seats::left()` of the event's pool is 0 while its
   latch is set.
   A source claims only the registration's current entitlement: a choice that gives it no place now (an offer
-  whose request was refused) makes no claim, for a submit's answers and for stored values alike
-  [UNAPPROVED R6].
+  whose request was refused) makes no claim, for a submit's answers and for stored values alike.
 - A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): any claim
   on a pool with a limit is refused on that choice with the same refusal and text as a full pool
   (`SeatsFull::TEXT`; the field's own error, as a pool that filled up) and nothing is written; unlimited pools
   are not refused. "Goes to the waitlist" is the one read `Seats::left(eventPool) === 0`, under the event lock,
   the same read the form side uses. Admitted registrations' additional forms are unchanged.
-  [UNAPPROVED N5, R188; N654: the "full" text is kept]
 - The event's pool has no rows: its seats are the counted `registered` statuses, and the latch decides the
   waitlist as it always did. `Seats::left()` and `over()` are computed on read, never stored.
 - Removing a chosen item (a tier, an option, an offer) is refused through one call,
   `Registrations::refuseRemovingChosen()`, which throws `Api\ItemChosen` (`kalaka_item_chosen`); a module's own
-  removal guard calls it and does not throw its own refusal. [UNAPPROVED R101]
+  removal guard calls it and does not throw its own refusal.
 - `RegistrationStatus::showsDetails()` (true unless waitlisted) is the one read of what a waitlisted registrant
   sees (the registrant's page shows only that they are waitlisted: owner ruling 2026-11-25). It is not an action
-  gate: additional forms and payments stay on `=== Registered`. [UNAPPROVED N653]
+  gate: additional forms and payments stay on `=== Registered`.
 - A staff correction of a field value (`Api\FieldCorrections`, used by Admin's `EditFieldValue`) writes the value
   only through `FieldValueRepository` and moves seats only through the claim sources: the seats the old value
   claimed and the new one does not are freed, the others taken, never through per-field code. The pools to take are

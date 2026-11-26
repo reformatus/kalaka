@@ -67,7 +67,7 @@ final class Seats
      * value of the form-condition variable `event.seats_left` (the event's pool) or
      * `seats_left.<field key>.<option value>` (a set option's pool, by the ranking/request field key). The
      * event's pool reads 0 while its "full" latch is set, as the submit does: the latch, not the count, decides
-     * the waitlist (a freed place does not reopen a full event). [UNAPPROVED N126]
+     * the waitlist (a freed place does not reopen a full event).
      */
     public function left(SeatPool $pool): ?int
     {
@@ -85,7 +85,7 @@ final class Seats
     /**
      * Whether placing the registration in the pool would take it past its limit: the seats held by other
      * registrations have reached the limit. The one "would go over" read, for the staff warning and the answer
-     * that a choice is full; false when the pool has no limit. A plain read. [UNAPPROVED N127]
+     * that a choice is full; false when the pool has no limit. A plain read.
      */
     public function wouldOverfill(SeatPool $pool, RegistrationKey $registration): bool
     {
@@ -169,7 +169,6 @@ final class Seats
      * The one entry for admission and restore: takes the registration's seat in the pool again, over the limit
      * when the pool is full, and never refuses (a staff act; only a registrant's own submit is refused by a full
      * pool). The result tells the caller whether to show the "full" warning. The latch is never touched.
-     * [UNAPPROVED N6]
      *
      * In an event's pool there is no seat row: the seat is the `registered` status, which the act has set, so it
      * is `Held` while the count is within the capacity and `Over` past it, and `None` when the registration is
@@ -217,7 +216,6 @@ final class Seats
     /**
      * Frees every seat the registration holds: withdrawal and removal. A confirmed assignment stays as a record
      * (`Assignments`); a restore or an admission takes the seats again (`Seats::retake()`).
-     * [UNAPPROVED N6, N10]
      */
     public function releaseAll(RegistrationKey $registration, Context $context): void
     {
