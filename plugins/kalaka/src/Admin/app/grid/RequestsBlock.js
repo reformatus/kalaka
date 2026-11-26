@@ -5,11 +5,16 @@
  * without `can.answer_request` and nothing while the last read failed. One `useAnswering` owns the dialog and the
  * snackbar, so the strip's button and the tab's button open the same dialog. [UNAPPROVED N7] [UNAPPROVED N1000]
  * [UNAPPROVED N1001] [UNAPPROVED N1002]
+ *
+ * The two buttons of one awaiting request (the strip's and the tab's) are kept, as the owner's hole N1002 stands;
+ * each has a screen-reader name that says which request it answers (`REQUESTS.answerLabel`, `changeLabel`).
+ * [UNAPPROVED T961] [UNAPPROVED T962] [UNAPPROVED N1039]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import AnswerDialog from './AnswerDialog';
 import { itemsOf, stateText } from './requests';
+import { fmt } from './format';
 import { REQUESTS } from './texts';
 
 /** How long the success snackbar stays, as the other blocks'. */
@@ -48,14 +53,19 @@ export function useAnswering( config, code, reload, onSaved, fallback ) {
 		[]
 	);
 
+	// Two frames after the dialog closes, so the dialog's own focus return has run first: where focus lands is then
+	// the same every time. It lands on the opener while that button is still there (a cancel, Esc, or an answer
+	// from „Kérelmek”), else on the panel. [UNAPPROVED N1038]
 	const focusOpener = () =>
-		window.requestAnimationFrame( () => {
-			const target =
-				opener.current && opener.current.isConnected ? opener.current : fallback && fallback.current;
-			if ( target ) {
-				target.focus();
-			}
-		} );
+		window.requestAnimationFrame( () =>
+			window.requestAnimationFrame( () => {
+				const target =
+					opener.current && opener.current.isConnected ? opener.current : fallback && fallback.current;
+				if ( target ) {
+					target.focus();
+				}
+			} )
+		);
 	const done = async ( text ) => {
 		await reload();
 		onSaved();
@@ -104,7 +114,11 @@ export function useAnswering( config, code, reload, onSaved, fallback ) {
 }
 
 const answerButton = ( item, start ) => (
-	<Button variant="secondary" onClick={ ( e ) => start( item, e.currentTarget ) }>
+	<Button
+		variant="secondary"
+		aria-label={ fmt( item.state === 'awaiting' ? REQUESTS.answerLabel : REQUESTS.changeLabel, item.label ) }
+		onClick={ ( e ) => start( item, e.currentTarget ) }
+	>
 		{ item.state === 'awaiting' ? REQUESTS.answer : REQUESTS.change }
 	</Button>
 );

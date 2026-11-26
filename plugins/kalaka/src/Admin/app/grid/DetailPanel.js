@@ -89,17 +89,23 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	// sees only the tabs they may use; „Hamarosan…” stays last beside „Pénzügyek” as before. The default is the
 	// first tab. [UNAPPROVED N1004] [UNAPPROVED N1005] [UNAPPROVED N1006]
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
-	// After a failed re-read the data is stale: the tab list is hidden and the tabs show nothing but their
-	// snackbars, so only the load-failure message remains. [UNAPPROVED N24]
+	// After a failed re-read the data is stale: the tab list and the chosen tab stay, the tabs show no values
+	// („Adatok”, „Kérelmek” and „Pénzügyek” show nothing but their snackbars) and the strip is gone, so under the
+	// load-failure message nothing stale remains. The tab list is built from the last good read, so the tabs do not
+	// change and the panel does not jump to another tab. [UNAPPROVED N24] [UNAPPROVED N1036] [UNAPPROVED N1037]
+	// A tab list with one tab is still shown. [UNAPPROVED N1041]
+	// The tab panel shows only the chosen tab, so a tab's snackbar (a saved field, a money act) is gone when another
+	// tab is chosen within its five seconds; the answer's snackbar is not, it lives here. [UNAPPROVED N1040]
 	const stale = !! problem;
 	const hasMoney = !! ( detail && detail.can && detail.can.view_money && detail.money );
 	const fields = detail ? fieldsOf( detail ) : [];
 	const offered = offeredOf( detail, stale );
+	const listed = offeredOf( detail, false );
 	const tabs = [];
 	if ( fields.length > 0 ) {
 		tabs.push( { name: 'fields', title: PANEL.tabFields } );
 	}
-	if ( offered.length > 0 ) {
+	if ( listed.length > 0 ) {
 		tabs.push( { name: 'requests', title: PANEL.tabRequests } );
 	}
 	if ( hasMoney ) {
@@ -110,9 +116,8 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		const list = root.current && root.current.querySelector( '[role="tablist"]' );
 		if ( list ) {
 			list.setAttribute( 'aria-label', PANEL.tabsLabel );
-			list.style.display = stale ? 'none' : '';
 		}
-	}, [ tabNames, stale ] );
+	}, [ tabNames ] );
 	const answering = useAnswering( config, code, reload, onSaved, root );
 
 	const registration = ( detail && detail.registration ) || {};

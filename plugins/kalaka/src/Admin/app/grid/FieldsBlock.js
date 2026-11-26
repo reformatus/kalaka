@@ -1,5 +1,6 @@
 /**
- * The field list of the detail panel (B5-2 on #249), the „Adatok” tab (panel-tabs ruling 2026-11-26, its heading is the tab's name, N1007): each
+ * The field list of the detail panel (B5-2 on #249), the „Adatok” tab (panel-tabs ruling 2026-11-26): the list has no heading of its own, the tab's name is it
+ * [UNAPPROVED N1007]. While the last re-read failed (`stale`) the values are not shown, only the snackbar [UNAPPROVED N1037]: each
  * field the read lists with its text, and for a field the read calls `writable` (and a kind the panel has a
  * control for) an edit button that opens the dialog. Read-only fields have no button and no word: the panel shows
  * only what the read returns and never decides access. After a save the panel re-reads, the grid re-reads, a
@@ -27,7 +28,14 @@ import { FIELDS } from './texts';
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {Function} props.onSaved tells the grid something changed
  */
-export default function FieldsBlock( { config, code, detail, stale, reload, onSaved } ) {
+export default function FieldsBlock( {
+	config,
+	code,
+	detail,
+	stale,
+	reload,
+	onSaved,
+} ) {
 	const [ open, setOpen ] = useState( null ); // the field key being edited
 	const [ notices, setNotices ] = useState( [] );
 	const openers = useRef( {} );
@@ -64,40 +72,57 @@ export default function FieldsBlock( { config, code, detail, stale, reload, onSa
 		onSaved();
 		setOpen( null );
 		const id = String( Date.now() );
-		setNotices( ( list ) => withNotice( list, id, FIELDS.saved, 'success' ) );
-		timers.current.push( setTimeout( () => setNotices( ( list ) => withoutNotice( list, id ) ), SNACKBAR_MS ) );
+		setNotices( ( list ) =>
+			withNotice( list, id, FIELDS.saved, 'success' )
+		);
+		timers.current.push(
+			setTimeout(
+				() => setNotices( ( list ) => withoutNotice( list, id ) ),
+				SNACKBAR_MS
+			)
+		);
 		focusOpener( key );
 	};
 	const editing = open && fields.find( ( field ) => field.key === open );
 
 	return (
 		<div className="kg-fields">
-			<dl className="kg-field-list">
-				{ fields.map( ( field ) => {
-					const text = textOf( field );
-					return (
-						<div className="kg-field" key={ field.key }>
-							<dt>{ field.label }</dt>
-							<dd>
-								<span className="kg-field-value">{ text === '' ? FIELDS.empty : text }</span>
-								{ ! stale && controlOf( field ) !== null && (
-									<Button
-										variant="secondary"
-										size="small"
-										aria-label={ fmt( FIELDS.editLabel, field.label ) }
-										ref={ ( node ) => {
-											openers.current[ field.key ] = node;
-										} }
-										onClick={ () => setOpen( field.key ) }
-									>
-										{ FIELDS.edit }
-									</Button>
-								) }
-							</dd>
-						</div>
-					);
-				} ) }
-			</dl>
+			{ ! stale && (
+				<dl className="kg-field-list">
+					{ fields.map( ( field ) => {
+						const text = textOf( field );
+						return (
+							<div className="kg-field" key={ field.key }>
+								<dt>{ field.label }</dt>
+								<dd>
+									<span className="kg-field-value">
+										{ text === '' ? FIELDS.empty : text }
+									</span>
+									{ controlOf( field ) !== null && (
+										<Button
+											variant="secondary"
+											size="small"
+											aria-label={ fmt(
+												FIELDS.editLabel,
+												field.label
+											) }
+											ref={ ( node ) => {
+												openers.current[ field.key ] =
+													node;
+											} }
+											onClick={ () =>
+												setOpen( field.key )
+											}
+										>
+											{ FIELDS.edit }
+										</Button>
+									) }
+								</dd>
+							</div>
+						);
+					} ) }
+				</dl>
+			) }
 			{ editing && (
 				<FieldEditDialog
 					key={ editing.key }
@@ -110,7 +135,12 @@ export default function FieldsBlock( { config, code, detail, stale, reload, onSa
 				/>
 			) }
 			<div className="kg-snacks">
-				<SnackbarList notices={ notices } onRemove={ ( id ) => setNotices( ( list ) => withoutNotice( list, id ) ) } />
+				<SnackbarList
+					notices={ notices }
+					onRemove={ ( id ) =>
+						setNotices( ( list ) => withoutNotice( list, id ) )
+					}
+				/>
 			</div>
 		</div>
 	);

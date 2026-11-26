@@ -13,7 +13,7 @@ import { PANEL, REQUESTS } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h, useState } = require( 'react' );
-	const Button = ( { children, label, onClick } ) => h( 'button', { 'aria-label': label, onClick }, children );
+	const Button = ( { children, label, onClick, ...rest } ) => h( 'button', { 'aria-label': label || rest[ 'aria-label' ], onClick }, children );
 	const TabPanel = ( { tabs, initialTabName, children } ) => {
 		const [ name, setName ] = useState( initialTabName );
 		const tab = tabs.find( ( t ) => t.name === name ) || tabs[ 0 ];
@@ -33,7 +33,9 @@ jest.mock( '@wordpress/components', () => {
 	return { Button, TabPanel, SnackbarList: () => null };
 } );
 jest.mock( '../../src/Admin/app/grid/api', () => ( { fetchDetail: jest.fn(), detailProblem: jest.fn() } ) );
-jest.mock( '../../src/Admin/app/grid/AnswerDialog', () => ( { item } ) => require( 'react' ).createElement( 'div', { 'data-dialog': item.id } ) );
+jest.mock( '../../src/Admin/app/grid/AnswerDialog', () => ( { item, onDone } ) =>
+	require( 'react' ).createElement( 'div', { 'data-dialog': item.id }, require( 'react' ).createElement( 'button', { 'data-done': true, onClick: () => onDone( '' ) }, 'done' ) )
+);
 jest.mock( '../../src/Admin/app/grid/StatusActs', () => () => null );
 jest.mock( '../../src/Admin/app/grid/ManualConfirmation', () => () => null );
 jest.mock( '../../src/Admin/app/grid/MoneyTab', () => () => require( 'react' ).createElement( 'p', null, 'money-body' ) );
@@ -133,6 +135,42 @@ describe( 'the awaiting strip', () => {
 			strip().querySelector( 'button' ).click();
 		} );
 		expect( host.querySelector( '[data-dialog="aid"]' ) ).not.toBeNull();
+	} );
+} );
+
+describe( 'the screen-reader names of the answer buttons (review m1)', () => {
+	it( 'say which request each button answers, in the strip and on the tab', async () => {
+		await mount( detailOf() );
+		expect( strip().querySelector( 'button' ).getAttribute( 'aria-label' ) ).toBe( 'Megválaszolás: Részvételi támogatás' );
+		await act( async () => {
+			Array.from( host.querySelectorAll( '[role="tab"]' ) ).find( ( t ) => t.textContent === PANEL.tabRequests ).click();
+		} );
+		const labels = Array.from( host.querySelectorAll( '[data-tab] li button' ) ).map( ( b ) => b.getAttribute( 'aria-label' ) );
+		expect( labels ).toEqual( [ 'Megválaszolás: Részvételi támogatás', 'Válasz módosítása: Egyházi támogatás' ] );
+	} );
+} );
+
+describe( 'a failed re-read (review M1)', () => {
+	it( 'keeps the tab list and the chosen tab, shows the failure text and no stale values or strip', async () => {
+		const api = require( '../../src/Admin/app/grid/api' );
+		await mount( detailOf() );
+		await act( async () => {
+			Array.from( host.querySelectorAll( '[role="tab"]' ) ).find( ( t ) => t.textContent === PANEL.tabRequests ).click();
+		} );
+		api.fetchDetail.mockRejectedValue( new Error( 'down' ) );
+		api.detailProblem.mockReturnValue( 'failed' );
+		await act( async () => {
+			strip().querySelector( 'button' ).click();
+		} );
+		await act( async () => {
+			host.querySelector( '[data-done]' ).click();
+		} );
+		expect( host.querySelector( '.kg-load-fail' ).textContent ).toBe( PANEL.loadFail );
+		expect( tabTitles() ).toEqual( [ PANEL.tabFields, PANEL.tabRequests, PANEL.tabMoney, PANEL.tabSoon ] );
+		expect( host.querySelector( '[role="tablist"]' ).style.display ).not.toBe( 'none' );
+		expect( host.querySelector( '[data-tab]' ).dataset.tab ).toBe( 'requests' );
+		expect( host.querySelectorAll( '[data-tab] li' ) ).toHaveLength( 0 );
+		expect( strip() ).toBeNull();
 	} );
 } );
 
