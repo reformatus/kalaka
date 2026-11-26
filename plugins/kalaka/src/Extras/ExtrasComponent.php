@@ -25,7 +25,7 @@ use Kalaka\Registrations\Api\RegistrationFacts;
  * key equals the charge's key calls it, by the field's type: a consent counts the amount once (a `1`), a number
  * field whose stored decimals are 0 counts it a positive whole `n` times, and every other type charges
  * nobody. Each charge is its own ledger line, `extras:<charge key>` (one item per charge,
- * `FeeTargets::ofItems()`) [UNAPPROVED N15]. A charge has no condition of its own; anything else (no field with
+ * `FeeTargets::ofItems()`). A charge has no condition of its own; anything else (no field with
  * the key, empty, 0, negative, a field that allows decimals) charges nothing, with no warning. It reads only the
  * registration's facts and its own current settings, or the proposed ones in a preview. Support and the
  * congregation share compose earlier and never cover it.
@@ -63,7 +63,7 @@ final class ExtrasComponent implements ConfigurableFeeComponent
             $quantity = self::quantity($input->facts, $charge->key);
             if ($quantity > 0) {
                 // An amount times an answer, or a sum, that Money cannot hold charges nobody: the
-                // evaluation never throws on a user's answer. [UNAPPROVED N20]
+                // evaluation never throws on a user's answer.
                 try {
                     $line = $charge->amount->times($quantity);
                     $total = $total->plus($line);
