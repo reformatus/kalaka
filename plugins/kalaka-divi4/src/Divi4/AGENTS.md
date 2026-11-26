@@ -48,4 +48,7 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
 - Divi's button icon glyph keeps its look, with an empty text alternative
   (`content: "\35" / ""`), for Kaláka's own buttons only (the form's, the
   card payment button): a screen reader does not read it.
+- The card return page (core's `Portal\Rest\CardReturnPage`) sits in Divi's page frame: the adapter answers core's
+  filter `kalaka_card_return_frame` with Divi's `page.php` frame under Divi 4 and leaves core's neutral frame
+  otherwise, and adds `et_full_width_page` to that page's body (the sidebar layout classes off).
 - The plugin stores nothing.
