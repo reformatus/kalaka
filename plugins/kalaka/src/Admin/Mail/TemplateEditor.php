@@ -71,7 +71,9 @@ final class TemplateEditor
 				label: data.label,
 				showTooltip: true,
 				tooltipPosition: 'bottom',
-				icon: wp.icons ? wp.icons.chevronLeft : undefined
+				// A real core icon: `wp.icons` (the `@wordpress/icons` global) does not exist in core, so the button
+				// was rendering empty. A dashicon slug renders through the Button's own `Icon`. [UNAPPROVED N928]
+				icon: 'arrow-left-alt2'
 			} ) );
 		}
 	} );
