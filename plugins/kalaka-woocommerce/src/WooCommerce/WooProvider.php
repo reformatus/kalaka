@@ -180,7 +180,7 @@ final class WooProvider extends AbstractPaymentProvider
     }
 
     /**
-     * [UNAPPROVED N818] The billing details of the request's first registration, when the source has any: the whole
+     * The billing details of the request's first registration, when the source has any: the whole
      * name in the first-name field (the last name stays empty; WooCommerce needs neither for an order made here),
      * and only the non-empty values.
      */
@@ -262,7 +262,6 @@ final class WooProvider extends AbstractPaymentProvider
         if ($fee !== null) {
             // The card surcharge: one fee line, no tax, never ledger money (payments record only the items above).
             $line = new \WC_Order_Item_Fee();
-            // [UNAPPROVED T84]
             $line->set_name('Kártyás fizetés díja');
             $line->set_tax_status('none');
             $line->set_tax_class('');
