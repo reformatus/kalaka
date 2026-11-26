@@ -68,8 +68,9 @@ page, and the account area
   goes to that address with the flag, the flash cookie set. The
   return endpoint is open, `no-store` and behind the error boundary: without the flag a 303 to `to` (re-validated
   same-site, else home), with it the close page (`Rest/CardReturnPage`, HTML sent by `rest_pre_serve_request`: inside
-  the theme, in the content frame the filter `kalaka_card_return_frame` returns as `[opening HTML, closing HTML]`
-  (a neutral `div` by default; a theme adapter supplies the theme's own), or bare when the filter
+  a classic theme, in the content frame the theme adapter chooses from core's closed list `Forms\Api\ContentFrame`
+  (`neutral`, a plain `div`, by default; `page`, the classic page frame) and rendered by core, with the adapter's
+  `page_body` classes on the page's `body` and its dropped body classes off; a block theme has its own frame; or bare when the filter
   `kalaka_card_return_bare` is true; every answer is noindex), which posts `{type: 'kalaka-card-return'}` to
   its same-origin opener and tries `window.close()`, and shows a line, a close button and a link to the status page.
 - `RegistrationStatusView::cardAmounts` is non-null only while `can.payCard`: `full` is the payable now, `max` the same,

@@ -15,7 +15,6 @@ use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\CardRefusalCookie;
 use Kalaka\Portal\Rest\CardPaymentRoute;
-use Kalaka\Portal\StatusMarkup;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Forms\TestThemeAdapter;
 use Kalaka\Tests\Integration\Portal\PortalTestCase;
@@ -133,6 +132,26 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         $this->pay($key, '5000');
         self::assertStringNotContainsString('Fizetés bankkártyával', $this->statusBlock());
+    }
+
+    public function testTheBareLinkIsAPostFormCarryingThePagesAddressAsTheReturnUrlOnASingularPageOnly(): void
+    {
+        $this->owing();
+
+        // Not on a singular page: the form posts, and carries no return address (the route falls back).
+        $this->go_to(home_url('/'));
+        $off = $this->statusBlock();
+        self::assertStringContainsString('<form class="kalaka-pay-card" method="post" action="', $off);
+        self::assertStringNotContainsString('name="return_url"', $off);
+
+        $page = self::factory()->post->create(['post_type' => 'page', 'post_status' => 'publish']);
+        $this->go_to((string) get_permalink($page));
+        $on = $this->statusBlock();
+        self::assertStringContainsString('method="post"', $on);
+        self::assertStringContainsString(
+            '<input type="hidden" name="return_url" value="' . esc_attr((string) get_permalink($page)) . '">',
+            $on
+        );
     }
 
     private function post(string $contentType, string $body): \WP_REST_Response

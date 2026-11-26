@@ -30,4 +30,30 @@ final class ThemeStyle
     {
         return implode(' ', [self::BUTTON_CLASS, ...ThemeAdapters::current()->classes(ElementRole::SubmitButton)]);
     }
+
+    /** The adapter's content frame for a page core renders itself, neutral without one. [UNAPPROVED N826] */
+    public static function contentFrame(): ContentFrame
+    {
+        return ThemeAdapters::current()->frame;
+    }
+
+    /**
+     * The adapter's classes for that page's `body`. [UNAPPROVED N826]
+     *
+     * @return list<string>
+     */
+    public static function pageBodyClasses(): array
+    {
+        return ThemeAdapters::current()->classes(ElementRole::PageBody);
+    }
+
+    /**
+     * The theme's body classes the adapter's frame stands in place of. [UNAPPROVED N826]
+     *
+     * @return list<string>
+     */
+    public static function pageBodyOff(): array
+    {
+        return ThemeAdapters::current()->pageBodyOff();
+    }
 }

@@ -101,7 +101,7 @@ final class StatusMarkup
         if (!$view->can->payCard) {
             return '';
         }
-        $back = get_permalink();
+        $back = is_singular() ? get_permalink() : false;
 
         return '<form class="kalaka-pay-card" method="post" action="' . esc_url(CardPaymentRoute::url()) . '">'
             . ($back === false ? '' : '<input type="hidden" name="return_url" value="' . esc_attr($back) . '">')

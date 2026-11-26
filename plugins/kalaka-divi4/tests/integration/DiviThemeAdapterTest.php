@@ -6,6 +6,7 @@ namespace Kalaka\Tests\Integration\Divi4;
 
 use Kalaka\Divi4\DiviThemeAdapter;
 use Kalaka\Divi4\Module;
+use Kalaka\Forms\Api\ContentFrame;
 use Kalaka\Forms\Api\ElementRole;
 use Kalaka\Forms\Api\FieldWrapper;
 use Kalaka\Forms\Api\ThemeAdapterInput;
@@ -280,31 +281,13 @@ final class DiviThemeAdapterTest extends WP_UnitTestCase
         self::assertFalse(wp_style_is('kalaka-divi4', 'enqueued'));
     }
 
-    public function testTheCardReturnFrameIsDivisPageFrameUnderDivi4Only(): void
+    public function testTheCardReturnPageGetsDivisPageFrameAndFullWidthBodyFromTheClosedLists(): void
     {
-        $default = ['<div class="kalaka-card-return-frame">', '</div>'];
+        $adaptation = self::divi('4.27.4')->adapt(new ThemeAdapterInput('Divi', 'Divi'));
 
-        self::assertSame($default, (new Module())->returnFrame($default), 'not Divi');
-
-        $template = static fn (): string => 'Divi';
-        add_filter('template', $template);
-        try {
-            self::assertSame(Module::RETURN_FRAME, (new Module(self::divi('4.27.4')))->returnFrame($default));
-            self::assertSame($default, (new Module(self::divi('5.0.0')))->returnFrame($default), 'Divi 5');
-        } finally {
-            remove_filter('template', $template);
-        }
-    }
-
-    public function testTheCardReturnBodyIsDivisFullWidthPage(): void
-    {
-        // The transformation itself: the sidebar layout classes off, `et_full_width_page` on.
-        self::assertSame(['et_full_width_page'], Module::fullWidth([]));
-        self::assertSame(['et_full_width_page'], Module::fullWidth(['et_right_sidebar']));
-        self::assertSame(['et_full_width_page'], Module::fullWidth(['et_left_sidebar', 'et_right_sidebar']));
-        self::assertSame(['home', 'et_full_width_page'], Module::fullWidth(['home']));
-
-        // Outside a REST request (and without Divi) the body class filter changes nothing.
-        self::assertSame(['et_right_sidebar'], (new Module())->returnBodyClass(['et_right_sidebar']));
+        self::assertNotNull($adaptation);
+        self::assertSame(ContentFrame::Page, $adaptation->frame);
+        self::assertSame(['et_full_width_page'], $adaptation->classes(ElementRole::PageBody));
+        self::assertSame(['et_left_sidebar', 'et_right_sidebar'], $adaptation->pageBodyOff());
     }
 }
