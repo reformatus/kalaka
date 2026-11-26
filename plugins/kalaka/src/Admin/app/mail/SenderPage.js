@@ -9,8 +9,8 @@
  * settings, controls and the queue; the queue lives only there”): below the counts each event with failed, waiting-
  * after-an-error or stuck deliveries has its list, with the manual mail follow-up on the failed rows. [UNAPPROVED N285]
  */
-import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
-import { Button, Notice, SnackbarList } from '@wordpress/components';
+import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
+import { Button, Notice, SnackbarList, TextControl } from '@wordpress/components';
 import * as api from './api';
 import ConfirmModal from './ConfirmModal';
 import ListTable from './ListTable';
@@ -27,6 +27,7 @@ export default function SenderPage( { config } ) {
 	const [ busy, setBusy ] = useState( false );
 	const [ failed, setFailed ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
+	const [ draft, setDraft ] = useState( '' );
 	const timers = useRef( [] );
 	const names = Object.fromEntries( config.events.map( ( e ) => [ e.id, e ] ) );
 	const eventsById = Object.fromEntries( ( read.data ? read.data.events : [] ).map( ( e ) => [ e.event_id, e ] ) );
@@ -50,6 +51,20 @@ export default function SenderPage( { config } ) {
 		}
 		await read.reload();
 		setBusy( false );
+	};
+
+	// The budget field follows the read: after a save or a refusal the stored value is shown again on the next read.
+	const stored = read.data ? read.data.hourly_budget : null;
+	useEffect( () => {
+		if ( stored !== null ) {
+			setDraft( String( stored ) );
+		}
+	}, [ stored ] );
+	// The page checks nothing: the server's refusal (`kalaka_mail_budget_invalid`) is the one text for a bad value.
+	const saveBudget = () => {
+		const text = draft.trim();
+		const value = /^\d+$/.test( text ) ? Number( text ) : text;
+		return run( () => api.setBudget( value ), fmt( CONTROLS.budgetSaved, value ) );
 	};
 
 	const fields = useMemo(
@@ -118,7 +133,6 @@ export default function SenderPage( { config } ) {
 	const troubled = data.events.filter( ( row ) => row.failed + row.with_error + row.stuck_sending > 0 );
 	const rows = [
 		[ SENDER.errorsInRow, String( data.errors_in_row ) ],
-		[ SENDER.budget, String( data.hourly_budget ) ],
 		[ SENDER.queued, String( data.queued ) ],
 	];
 	return (
@@ -162,6 +176,32 @@ export default function SenderPage( { config } ) {
 							<dd>{ value }</dd>
 						</Fragment>
 					) ) }
+					<dt>{ SENDER.budget }</dt>
+					<dd>
+						{ data.can.set_budget ? (
+							<div className="km-budget">
+								<TextControl
+									label={ SENDER.budget }
+									hideLabelFromVision
+									type="number"
+									inputMode="numeric"
+									value={ draft }
+									onChange={ setDraft }
+									help={ fmt( SENDER.budgetDefault, data.hourly_budget_default ) }
+									__next40pxDefaultSize
+									__nextHasNoMarginBottom
+								/>
+								<Button variant="secondary" disabled={ busy } onClick={ saveBudget }>
+									{ COMMON.save }
+								</Button>
+							</div>
+						) : (
+							<Fragment>
+								{ String( data.hourly_budget ) }
+								<span className="km-budget-default">{ ' (' + fmt( SENDER.budgetDefault, data.hourly_budget_default ) + ')' }</span>
+							</Fragment>
+						) }
+					</dd>
 				</dl>
 				{ failed && (
 					<Notice status="error" isDismissible={ false }>

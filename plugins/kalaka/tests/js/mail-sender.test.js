@@ -14,6 +14,8 @@ jest.mock( '@wordpress/components', () => {
 		Notice: ( { children } ) => h( 'div', null, children ),
 		SnackbarList: () => null,
 		Modal: ( { children } ) => h( 'div', null, children ),
+		TextControl: ( { value, onChange, label, help } ) =>
+			h( 'div', null, h( 'input', { 'aria-label': label, value, onChange: ( e ) => onChange( e.target.value ) } ), h( 'p', null, help ) ),
 	};
 } );
 jest.mock( '@wordpress/api-fetch', () => ( { __esModule: true, default: jest.fn() } ), { virtual: true } );
@@ -75,4 +77,70 @@ test( 'the clear button\'s accessible name uses the event\'s name although the r
 	const label = host.querySelector( '[data-event="4"] button' ).getAttribute( 'aria-label' );
 	expect( label ).toContain( 'Tavaszi találkozó' );
 	expect( label ).not.toContain( '4. számú esemény' );
+} );
+
+const budgetRead = ( over ) => ( {
+	paused: null,
+	errors_in_row: 0,
+	hourly_budget: 240,
+	hourly_budget_default: 240,
+	queued: 0,
+	can: { set_budget: true },
+	events: [],
+	...over,
+} );
+const budgetConfig = { rest: '/kalaka-admin/v1', timezone: 'UTC', events: [] };
+
+async function mount() {
+	const host = document.createElement( 'div' );
+	document.body.appendChild( host );
+	await act( async () => createRoot( host ).render( createElement( SenderPage, { config: budgetConfig } ) ) );
+	await act( async () => {} );
+	return host;
+}
+
+const type = ( input, value ) => {
+	const setter = Object.getOwnPropertyDescriptor( window.HTMLInputElement.prototype, 'value' ).set;
+	setter.call( input, value );
+	input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+};
+const press = ( host, name ) => [ ...host.querySelectorAll( 'button' ) ].find( ( b ) => b.textContent === name );
+
+test( 'the budget control shows the stored value and the default, and a save sends the whole number through the ability', async () => {
+	apiFetch.mockReset();
+	apiFetch.mockImplementation( ( { method } ) => ( method === 'POST' ? Promise.resolve( 60 ) : Promise.resolve( budgetRead( {} ) ) ) );
+	const host = await mount();
+	const input = host.querySelector( 'input[aria-label="Óránként legfeljebb küldhető levél"]' );
+	expect( input.value ).toBe( '240' );
+	expect( host.textContent ).toContain( 'alapértelmezés: 240' );
+	await act( async () => type( input, '60' ) );
+	await act( async () => press( host, 'Mentés' ).click() );
+	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
+	expect( post.path ).toBe( '/wp-abilities/v1/abilities/kalaka/set-mail-budget/run' );
+	expect( post.data ).toEqual( { input: { hourly_budget: 60 } } );
+} );
+
+test( 'a refused budget shows the server\'s own text and sends the value as typed; nothing is checked on the page', async () => {
+	apiFetch.mockReset();
+	const text = 'Az óránként legfeljebb küldhető levelek száma 1 és 2000 közötti egész szám lehet.';
+	apiFetch.mockImplementation( ( { method } ) =>
+		method === 'POST' ? Promise.reject( { code: 'kalaka_mail_budget_invalid', message: text } ) : Promise.resolve( budgetRead( {} ) )
+	);
+	const host = await mount();
+	await act( async () => type( host.querySelector( 'input' ), '5000' ) );
+	await act( async () => press( host, 'Mentés' ).click() );
+	const post = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.method === 'POST' );
+	expect( post.data ).toEqual( { input: { hourly_budget: 5000 } } );
+	expect( host.textContent ).toContain( text );
+	expect( host.querySelector( 'input' ).value ).toBe( '5000' );
+} );
+
+test( 'without can.set_budget the budget is shown read-only: no field, no save', async () => {
+	apiFetch.mockReset();
+	apiFetch.mockResolvedValue( budgetRead( { can: {}, hourly_budget: 60 } ) );
+	const host = await mount();
+	expect( host.querySelector( 'input' ) ).toBeNull();
+	expect( press( host, 'Mentés' ) ).toBeUndefined();
+	expect( host.textContent ).toContain( '60' );
+	expect( host.textContent ).toContain( 'alapértelmezés: 240' );
 } );

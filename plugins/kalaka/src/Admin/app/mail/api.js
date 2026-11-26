@@ -26,6 +26,8 @@ export const saveLayout = ( event, html ) => runAbility( 'kalaka/set-event-mail-
 
 export const pause = () => runAbility( 'kalaka/pause-mail', {} );
 export const resume = () => runAbility( 'kalaka/resume-mail', {} );
+/** Sets the hourly sending budget; the server refuses anything but a whole number 1-2000 (`kalaka_mail_budget_invalid`). */
+export const setBudget = ( value ) => runAbility( 'kalaka/set-mail-budget', { hourly_budget: value } );
 export const clearQueue = () => runAbility( 'kalaka/clear-mail-queue', {} );
 export const clearEvent = ( event ) => runAbility( 'kalaka/clear-event-mail', { event_id: event } );
 

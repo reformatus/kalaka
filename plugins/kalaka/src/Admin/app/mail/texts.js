@@ -107,6 +107,7 @@ export const SENDER = {
 	error: 'Hibaüzenet', // reworded per the lektor
 	errorsInRow: 'Egymást követő hibák száma', // reworded per the lektor
 	budget: 'Óránként legfeljebb küldhető levél', // reworded per the lektor: no „keret” for the limit
+	budgetDefault: 'alapértelmezés: %d', // beside the budget field [UNAPPROVED T901]
 	queued: 'Küldésre váró levelek',
 	unknownEvent: '%d. számú esemény', // reworded per the lektor
 };
@@ -126,6 +127,7 @@ export const CONTROLS = {
 	alreadyPaused: 'A levélküldés már szünetel.',
 	notPaused: 'A levélküldés nem szünetel.',
 	cleared: '%d levél törölve.',
+	budgetSaved: 'Mentve: óránként legfeljebb %d levél küldhető.', // the snackbar after the budget is saved [UNAPPROVED T900]
 };
 
 /** The per-event counts on the sender page. [UNAPPROVED T280] */
