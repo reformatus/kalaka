@@ -64,12 +64,13 @@ export default function SenderPage( { config } ) {
 			setDraft( String( stored ) );
 		}
 	}, [ stored ] );
-	// The page checks nothing: the server's refusal (`kalaka_mail_budget_invalid`) is the one text for a bad value.
+	// The page checks nothing: the server's refusal (`kalaka_mail_budget_invalid`) is the one text for a bad value. [UNAPPROVED N904]
 	// After a refusal the field goes back to the stored value, so the page always shows the budget in force. [UNAPPROVED N907]
 	const saveBudget = ( event ) => {
 		event.preventDefault();
 		const text = draft.trim();
 		const value = /^\d+$/.test( text ) ? Number( text ) : text;
+		// Success is the snackbar and a failure the notice above the buttons, as for every act of this page. [UNAPPROVED N905]
 		return run( () => api.setBudget( value ), fmt( CONTROLS.budgetSaved, value ), ( error ) => {
 			setBudgetRefused( true );
 			setDraft( String( stored ) );
@@ -186,10 +187,15 @@ export default function SenderPage( { config } ) {
 							<dd>{ value }</dd>
 						</Fragment>
 					) ) }
+					{ /* The budget keeps its row in the state list (no section of its own) and is shown on this site page only; nothing
+					here says when a change takes effect or names the ceiling. [UNAPPROVED N900] [UNAPPROVED N906] */ }
 					<dt>{ data.can.set_budget ? <label htmlFor="km-budget">{ SENDER.budget }</label> : SENDER.budget }</dt>
 					<dd>
+						{ /* A field only when the read allows the budget to be set; otherwise the stored value as text. [UNAPPROVED N902] */ }
 						{ data.can.set_budget ? (
 							<form className="km-budget" onSubmit={ saveBudget }>
+								{ /* A number field with „Mentés” beside it, as pause and resume; nothing is saved on a change. [UNAPPROVED N901]
+								The field and the button are one form, so Enter in the field saves. [UNAPPROVED N908] */ }
 								<TextControl
 									id="km-budget"
 									type="number"
@@ -205,6 +211,7 @@ export default function SenderPage( { config } ) {
 									__next40pxDefaultSize
 									__nextHasNoMarginBottom
 								/>
+								{ /* The default is a text under the field, never a reset button (none is built). [UNAPPROVED N903] */ }
 								<Button type="submit" variant="secondary" disabled={ busy }>
 									{ COMMON.save }
 								</Button>

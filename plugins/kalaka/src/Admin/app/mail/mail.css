@@ -112,12 +112,13 @@
 	margin: 12px 0;
 }
 
+/* The lists scroll sideways inside their own box at narrow widths; the page itself never does. [UNAPPROVED N296] */
 .km-table {
 	max-width: 100%;
 	overflow-x: auto;
 }
 
-/* Bottom right, as the approved grid's snackbars (`.kg-snacks`). */
+/* Bottom right, as the approved grid's snackbars (`.kg-snacks`). [UNAPPROVED N297] */
 .km-snacks {
 	position: fixed;
 	left: auto;

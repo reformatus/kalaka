@@ -41,7 +41,8 @@ function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 	const refusal = mail.enabled ? mail.refusals.switch_off : mail.refusals.switch_on;
 	const allowed = mail.enabled ? mail.can.switch_off : mail.can.switch_on;
 	// A standing refusal is a state, not an error: the switch looks off-limits but can be reached, and the refusal's
-	// text is its description. [UNAPPROVED N273]
+	// text is its description. [UNAPPROVED N273] A change of it sends no act, so the refusal the read already shows is
+	// not shown a second time as an error. [UNAPPROVED N298]
 	const standing = ! busy && ! allowed;
 	const titleId = useId();
 	const current = mail.body_id === null ? '' : String( mail.body_id );
@@ -165,6 +166,7 @@ function LayoutEditor( { config, html, onChanged, say, drafts } ) {
 }
 
 export default function ActionMails( { config, data, onChanged, say, drafts } ) {
+	// Every mail of the read gets a card alike: none is marked as lacking a producer. [UNAPPROVED N279]
 	return (
 		<Fragment>
 			{ data.held && (

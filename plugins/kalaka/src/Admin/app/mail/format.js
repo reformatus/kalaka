@@ -41,7 +41,7 @@ export const outcomeWord = ( outcome ) => BATCHES[ 'outcome_' + outcome ] || out
  * The text an act's failure shows: the server's own text when it sent one (the typed refusals carry the approved
  * Hungarian text), else the fallback. A failed network request has a message too, in the browser's language, so
  * only an error that has a `code` counts as the server's. Core's own codes (`rest_invalid_param` and the like) have
- * English texts, so only `kalaka_`-prefixed codes and those with a Hungarian-looking text are shown.
+ * English texts, so only `kalaka_`-prefixed codes and those with a Hungarian-looking text are shown. [UNAPPROVED N298]
  */
 export function problemText( error, fallback ) {
 	if ( error && typeof error.code === 'string' && error.code.startsWith( 'kalaka_' ) && error.message ) {
