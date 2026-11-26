@@ -320,8 +320,8 @@ flowchart LR
   database access, no hooks ([Events](events-and-forms.md#date-references)).
 - **A decision** is an inside point: a transition rule in, a transition
   record or nothing out; core writes the record. It reads facts and core
-  decisions only, never another extension's decision. Late fee, price-tier
-  place and support place are decisions
+  decisions only, never another extension's decision. The late fee is a
+  decision; seats are facts, not decisions
   ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **An action-mail act** is an inside point: an extension's act (e.g. a
   check-in) that can cause an action mail, keyed by the act's record
