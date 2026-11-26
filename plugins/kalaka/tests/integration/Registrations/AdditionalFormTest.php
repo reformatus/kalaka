@@ -238,7 +238,7 @@ final class AdditionalFormTest extends FormsTestCase
 
     public function testAWaitlistedRegistrationIsRefusedNothingIsWrittenAndAWithdrawnOneMayNotEither(): void
     {
-        // Owner ruling 2026-11-25: a waitlisted registration has no additional forms.
+        // A waitlisted registration has no additional forms (owner ruling 2026-11-25).
         $form = $this->additional($this->field('text', 'note'));
         $submissions = $this->rowCount('kalaka_submissions');
 
@@ -262,28 +262,26 @@ final class AdditionalFormTest extends FormsTestCase
         self::assertSame('első', $this->values()['note']);
     }
 
-    public function testAWaitlistedRegistrationsLinkShowsItsStatusInsteadOfTheForm(): void
+    public function testAWaitlistedRegistrationsLinkShowsTheFormClosedAsAWithdrawnOnesDoes(): void
     {
+        // Owner ruling 2026-11-26: no status page and no redirect, the closed state a withdrawn registration gets.
         $form = $this->additional($this->field('text', 'note'));
-        $this->setStatus('waitlisted');
-        \Kalaka\Foundation\ObjectCache::clear();
-
-        $html = $this->render($form);
-
-        self::assertStringContainsString('class="kalaka-status"', $html);
-        self::assertStringContainsString('Várólistán vagy.', $html);
-        self::assertStringNotContainsString('<form', $html);
-        self::assertStringNotContainsString('data-kalaka-field', $html);
-
-        // A withdrawn registration keeps the refusal text: no status page, no form.
         $this->setStatus('withdrawn');
         \Kalaka\Foundation\ObjectCache::clear();
         $withdrawn = $this->render($form);
-        self::assertStringNotContainsString('class="kalaka-status"', $withdrawn);
-        self::assertStringNotContainsString('<form', $withdrawn);
+
+        $this->setStatus('waitlisted');
+        \Kalaka\Foundation\ObjectCache::clear();
+        $html = $this->render($form);
+
+        self::assertStringContainsString('Ez az űrlap jelenleg nem érhető el.', $html);
+        self::assertStringNotContainsString('class="kalaka-status"', $html);
+        self::assertStringNotContainsString('<form', $html);
+        self::assertStringNotContainsString('data-kalaka-field', $html);
+        self::assertSame($withdrawn, $html);
     }
 
-    public function testAWaitlistedRegistrationsLinkShowsItsStatusEvenOutsideTheFormsOpenPeriod(): void
+    public function testAWaitlistedRegistrationsLinkIsClosedOutsideTheFormsOpenPeriodToo(): void
     {
         $form = $this->additional(
             $this->field('text', 'note'),
@@ -294,8 +292,9 @@ final class AdditionalFormTest extends FormsTestCase
 
         $html = $this->render($form);
 
-        self::assertStringContainsString('class="kalaka-status"', $html);
-        self::assertStringNotContainsString('Ez az űrlap jelenleg nem érhető el.', $html);
+        self::assertStringContainsString('Ez az űrlap jelenleg nem érhető el.', $html);
+        self::assertStringNotContainsString('class="kalaka-status"', $html);
+        self::assertStringNotContainsString('<form', $html);
     }
 
     public function testWithoutAnActiveRegistrationOfTheEventNothingIsWritten(): void

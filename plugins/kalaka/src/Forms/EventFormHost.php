@@ -318,10 +318,7 @@ final class EventFormHost implements FormHost
             $refusals[] = AccessRefusal::NoActiveRegistration;
         } else {
             $status = $this->registrations()->find($target)?->status;
-            if ($status === RegistrationStatus::Waitlisted) {
-                // First, so the page shows the status whatever else holds the form shut (its open period, a password).
-                array_unshift($refusals, AccessRefusal::RegistrationWaitlisted);
-            } elseif (!self::maySubmit($status)) {
+            if (!self::maySubmit($status)) {
                 $refusals[] = AccessRefusal::RegistrationMayNotSubmit;
             }
         }
@@ -343,7 +340,10 @@ final class EventFormHost implements FormHost
         return $active instanceof RegistrationKey && $active->eventId === $form->eventId ? $active : null;
     }
 
-    /** Only a `registered` registration may submit an additional form (owner ruling 2026-11-25). */
+    /**
+     * Only a `registered` registration may submit an additional form (owner ruling 2026-11-25); the form of any
+     * other (waitlisted, withdrawn, removed) shows closed (owner ruling 2026-11-26).
+     */
     public static function maySubmit(?RegistrationStatus $status): bool
     {
         return $status === RegistrationStatus::Registered;

@@ -78,7 +78,7 @@ the waitlist and reference codes
   period among them) and the registration row `FOR UPDATE`, which must be
   `registered`: a `waitlisted` one has no additional forms (owner ruling 2026-11-25), so it is refused with
   `Api\RegistrationNotActive` (`kalaka_registration_not_active`) and nothing is written; its form page shows the
-  registration's status instead (`AccessRefusal::RegistrationWaitlisted`, the status block). It appends a submission with the next number
+  form closed (`AccessRefusal::RegistrationMayNotSubmit`, as for a withdrawn or removed one). It appends a submission with the next number
   and writes only the fields that showed: an answer replaces the value, a
   shown field left blank deletes a value the form showed (one its type
   prefills), and a field its participant field locks after its first write

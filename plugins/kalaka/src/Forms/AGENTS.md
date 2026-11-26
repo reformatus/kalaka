@@ -160,9 +160,9 @@ values and conditions, prefill and form links
   a fixed UTC instant or an event point; an end not set does not limit it,
   one that does not resolve closes the form). Its submit runs as that
   registration's `SecretLinkActor`; it never creates a registration.
-  A waitlisted registration has no additional forms (owner ruling 2026-11-25): the host's refusal is
-  `AccessRefusal::RegistrationWaitlisted`, `FormPageView::WAITLISTED`, and the embed block renders the Portal's
-  status block (`kalaka/status`, by name) in place of the form, with no text of its own.
+  A waitlisted registration has no additional forms (owner ruling 2026-11-26): the host's refusal is
+  `AccessRefusal::RegistrationMayNotSubmit`, as for a withdrawn or removed one, so its link shows the form closed
+  (`FormPageView::UNAVAILABLE`), with no status page and no text of its own.
 - A form opens with its host's stored values (`FormHost::prefill()`; for an
   additional form the registration's current field values), each turned into
   its field's answer by `FieldType::prefill()` (null opens it empty: a type

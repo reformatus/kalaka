@@ -110,8 +110,8 @@ flowchart TB
   toward capacity. It writes to the active registration
   ([Registrations](registrations-and-identity.md#access)) or to the one its
   form link targets, and only a `registered` registration may submit it: a
-  waitlisted registration has no additional forms, and its link shows its
-  status instead
+  waitlisted registration has no additional forms, and its link shows the
+  form closed, as for a withdrawn or removed one
   ([Changing participant fields after submit](#changing-participant-fields-after-submit)).
 - **The event's capacity is the only capacity on registrations**
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).

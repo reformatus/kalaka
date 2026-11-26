@@ -17,11 +17,6 @@ enum AccessRefusal: string
     case OutsideOpenPeriod = 'outside_open_period';
     /** An additional form with no active registration of its event to write to. */
     case NoActiveRegistration = 'no_active_registration';
-    /** An additional form whose registration is not `registered` and not `waitlisted` (withdrawn or removed). */
+    /** An additional form whose registration is not `registered` (waitlisted, withdrawn or removed): the form shows closed. */
     case RegistrationMayNotSubmit = 'registration_may_not_submit';
-    /**
-     * An additional form whose registration is `waitlisted` (owner ruling 2026-11-25): the page shows the
-     * registration's status in its waitlisted state instead of the form.
-     */
-    case RegistrationWaitlisted = 'registration_waitlisted';
 }
