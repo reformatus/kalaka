@@ -24,16 +24,29 @@ final class Texts
 
     /**
      * The `kalaka_mail` editor's overrides of core's „Közzététel” wording: the msgid in core's own English, then the
-     * Hungarian shown. [UNAPPROVED T910, T911, T912]
+     * Hungarian shown. The progress label is `Publishing…` (with the ellipsis), not the Preferences heading's bare
+     * `Publishing`, which is no longer overridden. The `Publish` override also renames the sidebar's date row and its
+     * date popover title, which share the msgid and cannot be excluded per use: boxed, not excluded. [UNAPPROVED T910,
+     * T911, T912, T914, T915, T916, T917, N929]
      *
      * @var array<string, string>
      */
     public const EDITOR_WORDS = [
         'Publish' => 'Elérhetővé tétel',
-        'Are you ready to publish?' => 'Elérhetővé teszed a sablont?',
-        'Publishing' => 'Elérhetővé tétel',
+        'Are you ready to publish?' => 'Elérhetővé teszed a levélsablont?',
+        'Publishing…' => 'Elérhetővé tétel…',
+        'Publish:' => 'Elérhetővé tétel:',
+        'Double-check your settings before publishing.' => 'Mielőtt elérhetővé teszed, nézd át a beállításokat.',
+        'Published' => 'Elérhető',
+        'is now live.' => 'mostantól elérhető.',
     ];
 
-    /** The editor's back button's label, tooltip and name. [UNAPPROVED T913] */
-    public const EDITOR_BACK = 'Vissza az esemény leveleihez';
+    /** The editor's back button's label, tooltip and name, when the template has an event. [UNAPPROVED T913] */
+    public const EDITOR_BACK = 'Vissza az esemény levélsablonjaihoz';
+
+    /**
+     * The back button's label when the template has no event (it lands on the site's „Levelezés” page). Proposed in
+     * the lektor's style; marked for the lektor's next pass. [UNAPPROVED T918]
+     */
+    public const EDITOR_BACK_SITE = 'Vissza a Levelezés oldalra';
 }

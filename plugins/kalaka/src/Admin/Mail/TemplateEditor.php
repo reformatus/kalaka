@@ -49,7 +49,7 @@ final class TemplateEditor
         $data = wp_json_encode([
             'words' => Texts::EDITOR_WORDS,
             'back' => MailPages::url($event),
-            'label' => Texts::EDITOR_BACK,
+            'label' => $event === null ? Texts::EDITOR_BACK_SITE : Texts::EDITOR_BACK,
         ]);
         $script = <<<'JS'
 ( function ( wp, data ) {
