@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Decision\DecisionTables;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Foundation\Api\Time\Instant;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationTables;
@@ -29,6 +30,9 @@ final class ViewQuery extends Query
     /** The most rows one page may ask for. */
     public const MAX_LIMIT = 500;
 
+    /** The most registration codes one call may ask the display names for. */
+    public const MAX_NAMES = 100;
+
     /** The columns a view lists for display only: neither sortable nor filterable. */
     private const DISPLAY_ONLY = ['registered_at', 'submitted_at'];
 
@@ -38,6 +42,7 @@ final class ViewQuery extends Query
     public function __construct(
         private readonly Serials $serials = new Serials(),
         private readonly Decisions $decisions = new Decisions(),
+        private readonly Forms $forms = new Forms(),
     ) {
         parent::__construct();
     }
@@ -448,6 +453,71 @@ final class ViewQuery extends Query
 
             return (int) ($rows[0]['found'] ?? 0) === count($codes);
         });
+    }
+
+    /**
+     * The display name of each given registration, as the view shows it: the value of the display-name field of
+     * the slot form's version the registration was submitted with (the name field is resolved through `Forms`,
+     * as the detail read does), or null when the view does not list that column (no name access), the code is
+     * no registration of the event, the view's filter does not hold it, or the field has no answer. Full access
+     * (the master view) sees every name. A name is personal data, so a code outside the view's filter is never
+     * read or revealed.
+     *
+     * The reads are the view's own conditions on the given codes (`heldCodes()`), their slot forms, and the
+     * name values; the name field is read through WordPress posts, outside the query's scope, so this read is
+     * for the screens, never inside a use case's transaction.
+     *
+     * @param list<string> $codes at most `MAX_NAMES`, each once
+     * @return array<string, ?string> the name by code, in the order the codes were given; null where there is none
+     * @throws InvalidInput when more than `MAX_NAMES` codes are given
+     */
+    public function namesOf(HeldView $view, array $codes): array
+    {
+        if (count($codes) > self::MAX_NAMES) {
+            throw new InvalidInput();
+        }
+        $codes = array_values(array_unique($codes));
+        if ($codes === []) {
+            return [];
+        }
+        $eventId = $view->eventId;
+        $shape = $view->shape();
+        $full = $shape === null;
+
+        $held = $this->scope(fn (): array => $this->heldCodes($view, $codes));
+        $slotForms = $this->scope(fn (): array => $this->slotForms($eventId, $codes));
+
+        // The display-name field key of each code's slot form, once per distinct version.
+        $nameKeys = [];
+        $resolved = [];
+        foreach ($slotForms as $code => $slot) {
+            $slotKey = $slot['form_id'] . ':' . $slot['form_version'];
+            $keys = $this->forms->contactKeys($slot['form_id'], $slot['form_version']);
+            $nameKeys[$code] = $resolved[$slotKey] ??= $keys['name'];
+        }
+
+        // Read a value only for a code the view holds and whose name column the view lists.
+        $readCodes = [];
+        $wanted = [];
+        foreach ($codes as $code) {
+            $nameKey = $nameKeys[$code] ?? null;
+            if (!isset($held[$code]) || $nameKey === null || (!$full && !$shape->lists('field:' . $nameKey))) {
+                continue;
+            }
+            $readCodes[] = $code;
+            $wanted[] = $nameKey;
+        }
+        $values = $readCodes === [] ? [] : $this->scope(
+            fn (): array => $this->fieldValues($eventId, $readCodes, array_values(array_unique($wanted)))
+        );
+
+        $names = [];
+        foreach ($codes as $code) {
+            $nameKey = $nameKeys[$code] ?? null;
+            $names[$code] = $nameKey === null ? null : ($values[$code][$nameKey] ?? null);
+        }
+
+        return $names;
     }
 
     /**
@@ -866,6 +936,57 @@ final class ViewQuery extends Query
         }
 
         return $values;
+    }
+
+    /**
+     * The given codes that are registrations of the event and that the view's filter holds now, as a set. One
+     * statement on the event's rows; the view's own conditions are reused, so a code outside the filter is left
+     * out and never read further.
+     *
+     * @param list<string> $codes
+     * @return array<string, true>
+     */
+    private function heldCodes(HeldView $view, array $codes): array
+    {
+        [$conditions, $conditionArgs] = $this->conditions($view->shape(), $view->bound());
+        $rows = $this->select(
+            'held_code',
+            'SELECT r.code FROM %i r WHERE r.event_id = %d AND r.code IN ('
+            . implode(', ', array_fill(0, count($codes), '%s')) . ')' . $conditions,
+            [$this->table(RegistrationTables::REGISTRATIONS), $view->eventId, ...$codes, ...$conditionArgs]
+        );
+        $held = [];
+        foreach ($rows as $row) {
+            $held[(string) $row['code']] = true;
+        }
+
+        return $held;
+    }
+
+    /**
+     * The slot form (its id and the submitted version) of each code's first submission, by code; a code without
+     * one is left out. One statement on the submissions' event-first key.
+     *
+     * @param list<string> $codes
+     * @return array<string, array{form_id: int, form_version: int}>
+     */
+    private function slotForms(int $eventId, array $codes): array
+    {
+        $rows = $this->select(
+            'slot_form',
+            'SELECT code, form_id, form_version FROM %i WHERE event_id = %d AND number = 1 AND code IN ('
+            . implode(', ', array_fill(0, count($codes), '%s')) . ')',
+            [$this->table(RegistrationTables::SUBMISSIONS), $eventId, ...$codes]
+        );
+        $forms = [];
+        foreach ($rows as $row) {
+            $forms[(string) $row['code']] = [
+                'form_id' => (int) $row['form_id'],
+                'form_version' => (int) $row['form_version'],
+            ];
+        }
+
+        return $forms;
     }
 
     /**

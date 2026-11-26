@@ -327,14 +327,15 @@ final class MailRoutesTest extends MailAdminTestCase
 
         self::assertCount(2, $rows);
         self::assertSame([
-            'id' => $one, 'code' => '00A0', 'mail' => 'registered', 'label' => 'Jelentkezés rögzítve',
+            'id' => $one, 'code' => '00A0', 'name' => 'Teszt Elek', 'mail' => 'registered',
+            'label' => 'Jelentkezés rögzítve',
             'kind' => 'action', 'status' => 'pending', 'attempts' => 2,
             'queued_at' => '2026-11-30T09:00:30Z', 'last_attempt_at' => '2026-11-24T07:55:00Z',
             'error' => 'send wp_mail_failed: SMTP Error: x', 'batch_id' => null,
         ], $rows[0]);
         self::assertSame(
-            ['manual', null, 'manual', 'failed', null, 12],
-            [$rows[1]['mail'], $rows[1]['label'], $rows[1]['kind'], $rows[1]['status'],
+            ['Teszt Elek', 'manual', null, 'manual', 'failed', null, 12],
+            [$rows[1]['name'], $rows[1]['mail'], $rows[1]['label'], $rows[1]['kind'], $rows[1]['status'],
                 $rows[1]['last_attempt_at'], $rows[1]['batch_id']]
         );
     }
@@ -365,9 +366,9 @@ final class MailRoutesTest extends MailAdminTestCase
             'queued' => 2, 'skipped' => 1,
         ], $list[0]);
         self::assertSame($list[0] + ['members' => [
-            ['code' => '00A0', 'outcome' => 'queued'],
-            ['code' => '00A2', 'outcome' => 'queued'],
-            ['code' => '00A8', 'outcome' => 'skipped_withdrawn'],
+            ['code' => '00A0', 'name' => 'Teszt Elek', 'outcome' => 'queued'],
+            ['code' => '00A2', 'name' => 'Teszt Elek', 'outcome' => 'queued'],
+            ['code' => '00A8', 'name' => 'Teszt Elek', 'outcome' => 'skipped_withdrawn'],
         ]], $one);
         self::assertArrayNotHasKey('request_key', $one);
     }
@@ -391,6 +392,7 @@ final class MailRoutesTest extends MailAdminTestCase
             'queue' => ['00A0'],
             'skipped' => [['code' => '00A8', 'reason' => 'withdrawn']],
             'unknown' => ['00A5'],
+            'names' => ['00A0' => 'Teszt Elek', '00A8' => 'Teszt Elek'],
             'bodies' => [['id' => $body, 'subject' => 'Sikeres jelentkezés']],
         ], $response->get_data());
         self::assertSame([], $this->deliveries());
@@ -418,6 +420,8 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertSame(200, $inside->get_status());
         self::assertSame(['00A0', '00A2'], $inside->get_data()['queue']);
         self::assertSame([], $inside->get_data()['unknown']);
+        // The holder's view lists no name column: the names are null.
+        self::assertSame(['00A0' => null, '00A2' => null], $inside->get_data()['names']);
         self::assertSame([['id' => $body, 'subject' => 'Sikeres jelentkezés']], $inside->get_data()['bodies']);
 
         $refusals = [];

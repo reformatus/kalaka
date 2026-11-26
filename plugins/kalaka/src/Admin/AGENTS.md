@@ -51,6 +51,13 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `Admin\Api\ViewQuery`, which reads only through a `HeldView` that `Access`
   hands out, or through full access. Only `ViewQuery` names a registration
   table (`RegistrationTablesTest`); it never selects the secret.
+- The display names of a list of registrations are read through
+  `ViewQuery::namesOf(HeldView, list<string>)`, at most `MAX_NAMES` (100) codes
+  (more is `InvalidInput`): the value of the display-name field of the slot
+  form's submitted version, resolved through `Forms`, returned only for a code
+  the view's filter holds and whose `field:<name>` column the view lists; null
+  otherwise (a viewer without name access, a code outside the view, no answer).
+  Full access (the master view) sees every name.
 - The abilities' permission callback, and the gate of the grid's
   `kalaka-admin/v1` routes, let through only full access or a grant holder;
   the runner's coarse check still decides each call.

@@ -6,6 +6,7 @@ namespace Kalaka\Mail\Rest;
 
 use Kalaka\Admin\Api\Access;
 use Kalaka\Admin\Api\AdminAccess;
+use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\EventState;
 use Kalaka\Events\Api\Events;
@@ -43,9 +44,12 @@ use Kalaka\Mail\Pause\MailState;
  * - `GET /mail`: the sender: the pause, the errors in a row, the budget and its default, the pending count and
  *   each event's name, counts and `can.clear_event` (an archived event is listed only while something of it is
  *   queued or failed).
- * - `GET /events/{id}/mail/troubled`: the event's deliveries that need a look, by registration code.
- * - `GET /events/{id}/mail/batches` and `…/batches/{batch}`: the manual mail's own record, never the deliveries.
- * - `POST /events/{id}/mail/manual/preview` with `{codes}`: who a send of those codes would reach.
+ * - `GET /events/{id}/mail/troubled`: the event's deliveries that need a look, each by registration `code` and
+ *   `name` (the display name through the viewer's held view; null without name access).
+ * - `GET /events/{id}/mail/batches` and `…/batches/{batch}`: the manual mail's own record, never the deliveries;
+ *   a batch's members carry `name` beside `code`.
+ * - `POST /events/{id}/mail/manual/preview` with `{codes}`: who a send of those codes would reach; `names` maps
+ *   each queued or skipped code to its display name through the viewer's held view (null without name access).
  */
 final class MailRoutes
 {
@@ -230,10 +234,16 @@ final class MailRoutes
     public static function troubled(\WP_REST_Request $request): \WP_REST_Response
     {
         $event = self::event($request);
+        $deliveries = (new Deliveries())->troubled($event->id);
+        $names = self::names(
+            $event->id,
+            array_map(static fn (TroubledDelivery $delivery): string => $delivery->code, $deliveries)
+        );
 
         return new \WP_REST_Response(array_map(static fn (TroubledDelivery $delivery): array => [
             'id' => $delivery->id,
             'code' => $delivery->code,
+            'name' => $names[$delivery->code] ?? null,
             'mail' => $delivery->mail,
             'label' => $delivery->action?->label(),
             'kind' => $delivery->kind->value,
@@ -243,7 +253,7 @@ final class MailRoutes
             'last_attempt_at' => self::time($delivery->lastAttemptAt),
             'error' => $delivery->error,
             'batch_id' => $delivery->batchId,
-        ], (new Deliveries())->troubled($event->id)));
+        ], $deliveries));
     }
 
     /**
@@ -268,14 +278,18 @@ final class MailRoutes
     {
         $event = self::event($request);
         $batch = (new ManualMails())->batch($event->id, (int) $request->get_param('batch')) ?? throw new NotFound();
+        $names = $batch->members === null
+            ? []
+            : self::names($event->id, array_column($batch->members, 'code'));
 
-        return new \WP_REST_Response(self::batchData($batch));
+        return new \WP_REST_Response(self::batchData($batch, $names));
     }
 
     /**
      * Who a send of the codes would reach. The read checks the actor's access to every code first, an unknown
      * code and one outside the view alike; only then does anything about the event come back, the bodies a
-     * send may use (published, `{id, subject}`) among it.
+     * send may use (published, `{id, subject}`) among it. `names` holds the display name of each queued or
+     * skipped code through the viewer's held view (null without name access).
      *
      * @param \WP_REST_Request<array<string, mixed>> $request
      */
@@ -286,11 +300,13 @@ final class MailRoutes
             ['event_id' => $eventId, 'codes' => $request->get_param('codes')],
             new UserActor(get_current_user_id())
         );
+        $codes = array_merge($plan['queue'], array_column($plan['skipped'], 'code'));
 
         return new \WP_REST_Response([
             'queue' => $plan['queue'],
             'skipped' => $plan['skipped'],
             'unknown' => $plan['unknown'],
+            'names' => self::names($eventId, $codes),
             'bodies' => (new MailBodies())->publishedOf($eventId),
         ]);
     }
@@ -316,8 +332,11 @@ final class MailRoutes
         return true;
     }
 
-    /** @return array<string, mixed> */
-    private static function batchData(BatchInfo $batch): array
+    /**
+     * @param ?array<string, ?string> $names the members' display names by code, when the batch carries members
+     * @return array<string, mixed>
+     */
+    private static function batchData(BatchInfo $batch, ?array $names = null): array
     {
         $data = [
             'id' => $batch->id,
@@ -331,10 +350,47 @@ final class MailRoutes
             'skipped' => $batch->skipped,
         ];
         if ($batch->members !== null) {
-            $data['members'] = $batch->members;
+            $data['members'] = array_map(static fn (array $member): array => [
+                'code' => $member['code'],
+                'name' => $names[$member['code']] ?? null,
+                'outcome' => $member['outcome'],
+            ], $batch->members);
         }
 
         return $data;
+    }
+
+    /**
+     * The display name of each code, through the requesting user's held view (full access: the master view,
+     * so every name; a grant holder: their held views, a name only where one lists the name column). A code
+     * without a name is null. `ViewQuery::namesOf()` is called in chunks of at most its own limit.
+     *
+     * @param list<string> $codes
+     * @return array<string, ?string>
+     */
+    private static function names(int $eventId, array $codes): array
+    {
+        if ($codes === []) {
+            return [];
+        }
+        $actor = new UserActor(get_current_user_id());
+        $access = new Access();
+        $query = new ViewQuery();
+        $views = $access->isFull($actor)
+            ? [$access->master($actor, $eventId)]
+            : $access->heldViews($actor, $eventId);
+        $names = array_fill_keys($codes, null);
+        foreach ($views as $view) {
+            foreach (array_chunk($codes, ViewQuery::MAX_NAMES) as $chunk) {
+                foreach ($query->namesOf($view, $chunk) as $code => $name) {
+                    if ($name !== null) {
+                        $names[$code] = $name;
+                    }
+                }
+            }
+        }
+
+        return $names;
     }
 
     private static function time(?\DateTimeImmutable $time): ?string

@@ -200,8 +200,10 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   is `Access::mayReachAdmin()` and `Api\ManualMails::preview()` runs
   `AdminAccess::check()` before the plan, so an unknown code and a code outside the
   view give the same refusal, and the event's existence is looked for after it.
-  The failed list and the batches show registration codes and the batch's own
-  record, never an address or a name.
+  The failed list and the batch's members show each registration's code and its
+  display name (resolved through `Admin\Api\ViewQuery::namesOf()` on the viewer's
+  held view, so a viewer without name access sees the code only), never an
+  address; the preview carries the same name in its `names` map.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.
