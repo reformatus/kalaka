@@ -49,7 +49,7 @@ page, and the account area
   owner approves it.
 - The registrant's withdrawal is presentation only: `StatusMarkup` shows the
   button on the server's `can.withdraw` and a confirmation step whose post is the
-  confirmed act; the page decides nothing and holds no rule. [UNAPPROVED N765 to N779, N1026]
+  confirmed act; the page decides nothing and holds no rule. [UNAPPROVED N765 to N779, N1026 to N1031]
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
 - The participant's own withdrawal (`POST kalaka-portal/v1/withdraw`, `Rest\WithdrawRoute`; `Api\Withdrawal`)

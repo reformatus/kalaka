@@ -220,6 +220,7 @@ final class StatusMarkup
             $text = null;
         }
         // [UNAPPROVED N1026] T991: the hint stands where the button would be, after the registration has closed.
+        // [UNAPPROVED N1028] On the confirm request after the close there is no confirmation: the hint shows instead.
         $hint = !$offer->canWithdraw && $offer->unavailable === 'registration_closed'
             ? '<p class="kalaka-withdraw-closed">' . esc_html(self::WITHDRAW_AFTER_CLOSE) . '</p>'
             : '';
@@ -235,6 +236,8 @@ final class StatusMarkup
         $open = '<div id="kalaka-withdraw" class="kalaka-withdraw" style="'
             . esc_attr('--kalaka-error-color: ' . $colour) . '">';
         if (!$offer->canWithdraw) {
+            // [UNAPPROVED N1027] The hint and a refusal show together, the hint first; the refusal keeps the fragment
+            // and focus (N779). [UNAPPROVED N1030] Any refusal code shows under the hint as it is.
             return $open . $hint . $error . '</div>';
         }
         // A refused post comes back to the error (N779: the fragment moves focus to it, so it is read out).
@@ -301,6 +304,7 @@ final class StatusMarkup
             'kalaka_withdraw_stale' => self::WITHDRAW_STALE,
             'kalaka_withdraw_unavailable', 'kalaka_status_act_refused' => self::WITHDRAW_UNAVAILABLE,
             'kalaka_version_conflict' => self::WITHDRAW_VERSION_CONFLICT,
+            // [UNAPPROVED N1029] The page maps `kalaka_withdraw_closed` itself (extends N771's table).
             'kalaka_withdraw_closed' => self::WITHDRAW_CLOSED,
             default => (new SystemFailure())->publicMessage(),
         };
