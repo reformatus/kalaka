@@ -26,7 +26,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * runs as the command line without a user (full access), or, with WP-CLI's `--user`, checked as that user, and
  * is audited like the use cases it runs. The screen for the same is S72's. Nothing here re-evaluates a
  * registration (a point or a setting is read at the time), so no command asks: `update --dry-run` runs the use
- * case with `preview`, which checks everything and saves nothing. [UNAPPROVED N1]
+ * case with `preview`, which checks everything and saves nothing.
  */
 final class EventCommand
 {
