@@ -7,6 +7,9 @@ namespace Kalaka\Tests\Integration\WooCommerce\Card;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Payments\Api\CardPaymentInFlight;
+use Kalaka\Payments\Api\CardPayments;
 use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Payments\Api\PaymentProviderInput;
@@ -14,6 +17,7 @@ use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\LogCapture;
+use Kalaka\WooCommerce\CardSurcharge;
 use Kalaka\WooCommerce\OrderMeta;
 use Kalaka\WooCommerce\ReconcileStep;
 use Kalaka\WooCommerce\WooProvider;
@@ -34,6 +38,9 @@ abstract class ProviderTestBase extends WooTestCase
         parent::set_up();
 
         $this->provider = new WooProvider();
+        // A card payment starts only on a published event.
+        global $wpdb;
+        $wpdb->update($wpdb->prefix . 'kalaka_events', ['state' => 'published'], ['id' => $this->event]);
         // The registrant's browser, as WooCommerce would store it on a new order.
         $_SERVER['REMOTE_ADDR'] = '203.0.113.7';
         $_SERVER['HTTP_USER_AGENT'] = 'Teszt Bongeszo/1.0';
@@ -79,6 +86,18 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertIsArray($orders);
 
         return array_values(array_filter($orders, static fn ($o): bool => $o instanceof \WC_Order));
+    }
+
+    /** A stored amount as the plain decimal it is: `206.00000000` is `206`. */
+    private function plain(string $amount): string
+    {
+        return rtrim(rtrim(wc_format_decimal($amount), '0'), '.');
+    }
+
+    /** @return list<string> the statuses of the plugin's orders, oldest first */
+    private function statuses(): array
+    {
+        return array_map(static fn (\WC_Order $o): string => $o->get_status(), $this->orders());
     }
 
     private function onlyOrder(): \WC_Order
@@ -216,29 +235,6 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertNotSame($first, (int) get_option(OrderMeta::PRODUCT_OPTION));
     }
 
-    public function testAnUnpaidOrderWithEqualLinesIsReused(): void
-    {
-        $anna = $this->owing('00A0');
-
-        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/egy/');
-        $second = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/ketto/');
-
-        self::assertSame($first, $second);
-        $order = $this->onlyOrder();
-        self::assertSame('pending', $order->get_status());
-        self::assertSame('https://example.org/ketto/', $order->get_meta(OrderMeta::RETURN_URL));
-    }
-
-    public function testAFailedOrderWithEqualLinesIsReusedToo(): void
-    {
-        $anna = $this->owing('00A0');
-        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
-        $this->onlyOrder()->update_status('failed');
-
-        self::assertSame($first, $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/'));
-        self::assertCount(1, $this->orders());
-    }
-
     public function testAChangedAmountCancelsTheOldOrderAndCreatesANewOne(): void
     {
         $anna = $this->owing('00A0');
@@ -335,7 +331,9 @@ abstract class ProviderTestBase extends WooTestCase
 
         self::assertSame([], $this->moneyLines());
         self::assertSame('failed', $this->onlyOrder()->get_status());
-        self::assertSame($first, $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/'));
+        // A declined card: the next start replaces the failed order.
+        self::assertNotSame($first, $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/'));
+        self::assertSame(['cancelled', 'pending'], $this->statuses());
     }
 
     public function testAnOrderThatLeavesPaidAfterwardsWritesNothing(): void
@@ -683,18 +681,339 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertSame(['00A2'], array_column($this->moneyLines(), 'code'));
     }
 
-    public function testAnOnHoldOrderBlocksWhateverTheNewestOrderIs(): void
+    public function testAnOnHoldOrderRefusesTheStartAndCancelsNothingWhateverTheNewestOrderIs(): void
     {
         $anna = $this->owing('00A0');
         $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
         $this->onlyOrder()->update_status('on-hold');
         self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
+        $this->assertStartRefused($anna);
+        self::assertSame(['on-hold'], $this->statuses());
 
         // A newer pending order of the same registration does not hide it.
         $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
-
-        self::assertCount(2, $this->orders());
         self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
+        $this->assertStartRefused($anna);
+        self::assertSame(['on-hold', 'pending'], $this->statuses());
+    }
+
+    /** The start as core makes it: refused as in flight, with no order cancelled or created. */
+    private function assertStartRefused(RegistrationKey $key): void
+    {
+        $before = array_map(
+            static fn (\WC_Order $o): string => $o->get_id() . ':' . $o->get_status(),
+            $this->orders()
+        );
+        try {
+            (new CardPayments())->start($key);
+            self::fail('The start was not refused.');
+        } catch (CardPaymentInFlight $e) {
+            self::assertSame('kalaka_card_payment_in_flight', $e->errorCode());
+        }
+        self::assertSame(
+            $before,
+            array_map(static fn (\WC_Order $o): string => $o->get_id() . ':' . $o->get_status(), $this->orders())
+        );
+    }
+
+    public function testAPendingOrderIsCancelledAndANewOneMadeWhateverItsLines(): void
+    {
+        $anna = $this->owing('00A0');
+        $first = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/egy/');
+
+        $second = $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/ketto/');
+
+        self::assertNotSame($first, $second);
+        self::assertSame(['cancelled', 'pending'], $this->statuses());
+        self::assertSame('https://example.org/ketto/', $this->orders()[1]->get_meta(OrderMeta::RETURN_URL));
+    }
+
+    public function testTwoQuickStartsLeaveExactlyOneUnpaidOrder(): void
+    {
+        $anna = $this->owing('00A0');
+
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+
+        self::assertSame(['cancelled', 'cancelled', 'pending'], $this->statuses());
+    }
+
+    public function testACancelledOrderIsNoRequestAndDoesNotBlock(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->onlyOrder()->update_status('cancelled');
+
+        self::assertNull($this->latestFor($anna));
+        $url = (new CardPayments())->start($anna);
+
+        self::assertStringContainsString('pay_for_order=true', $url);
+        self::assertSame(['cancelled', 'pending'], $this->statuses());
+    }
+
+    public function testAPaidAndRecordedOrderDoesNotBlockANewStart(): void
+    {
+        $anna = $this->owing('00A0', '20000');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->payOrder($this->onlyOrder());
+        self::assertNotSame('', (string) $this->freshOrder($this->onlyOrder())->get_meta(OrderMeta::RECORDED));
+
+        $url = (new CardPayments())->start($anna);
+
+        self::assertStringContainsString('pay_for_order=true', $url);
+        self::assertCount(2, $this->orders());
+        self::assertSame('pending', $this->orders()[1]->get_status());
+    }
+
+    public function testAPaidOrderNotYetRecordedRefusesTheStart(): void
+    {
+        $anna = $this->owing('00A0', '20000');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->missTheHooks();
+        $this->payOrder($this->onlyOrder());
+
+        $this->assertStartRefused($anna);
+    }
+
+    public function testAnOrderInAStatusKalakaDoesNotHandleRefusesTheStartAndCancelsNothing(): void
+    {
+        register_post_status('wc-kalaka-test', ['label' => 'Egyedi', 'public' => false]);
+        add_filter('wc_order_statuses', static function (array $statuses): array {
+            $statuses['wc-kalaka-test'] = 'Egyedi';
+
+            return $statuses;
+        });
+        $anna = $this->owing('00A0');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->onlyOrder()->update_status('kalaka-test');
+        self::assertSame('kalaka-test', $this->freshOrder($this->onlyOrder())->get_status());
+
+        self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
+        $this->assertStartRefused($anna);
+        // Whichever order is the newest.
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+        self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
+        $this->assertStartRefused($anna);
+        self::assertSame(['kalaka-test', 'pending'], $this->statuses());
+    }
+
+    public function testAnOrderInTheDraftStatusOfWooCommerceRefusesTheStart(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        $order->set_status('checkout-draft');
+        $order->save();
+        self::assertSame('checkout-draft', $this->freshOrder($order)->get_status());
+
+        self::assertSame(OpenPaymentState::Processing, $this->latestFor($anna)?->state);
+        $this->assertStartRefused($anna);
+    }
+
+    public function testAnOrderPaidAnywayWhileANewerOneIsPendingStillBlocksUntilItIsRecorded(): void
+    {
+        $anna = $this->owing('00A0', '20000');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7000']), 'https://example.org/');
+        $this->missTheHooks();
+        $this->payOrder($this->orders()[0]);
+
+        self::assertSame(OpenPaymentState::Paid, $this->latestFor($anna)?->state);
+        $this->assertStartRefused($anna);
+    }
+
+    private function surcharge(string $percent, ?string $fixed = null): void
+    {
+        (new CardSurcharge())->set($this->event, $percent, $fixed);
+    }
+
+    /** @return list<\WC_Order_Item_Fee> */
+    private function feeLines(\WC_Order $order): array
+    {
+        $fees = array_values($order->get_items('fee'));
+
+        return array_values(array_filter($fees, static fn ($f): bool => $f instanceof \WC_Order_Item_Fee));
+    }
+
+    public function testAnEventWithoutASurchargeAddsNoFeeLine(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+
+        self::assertSame([], $this->feeLines($this->onlyOrder()));
+        self::assertSame('10000', wc_format_decimal($this->onlyOrder()->get_total()));
+    }
+
+    public function testTheSurchargeIsOneTaxlessFeeLineRoundedUpAndTheItemKeepsTheRequestedAmount(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->surcharge('1.5', '100');
+        // 7001 x 1.5 % = 105.015, plus 100, rounded up to 206.
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '7001']), 'https://example.org/');
+
+        $order = $this->freshOrder($this->onlyOrder());
+        $fees = $this->feeLines($order);
+        self::assertCount(1, $fees);
+        self::assertSame('Kártyás fizetés díja', $fees[0]->get_name());
+        self::assertSame('206', $this->plain($fees[0]->get_total()));
+        self::assertSame('none', $fees[0]->get_tax_status());
+        self::assertSame('7001', $this->plain(array_values($order->get_items())[0]->get_total()));
+        self::assertSame('7207', wc_format_decimal($order->get_total()));
+        self::assertSame('0', wc_format_decimal($order->get_total_tax()));
+    }
+
+    public function testASurchargeOfOnlyAPercentOrOnlyAFixedAmountAndOffAndOtherEvents(): void
+    {
+        $anna = $this->owing('00A0');
+        $surcharge = new CardSurcharge();
+        $surcharge->set($this->event, '10', null);
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        self::assertSame('11000', wc_format_decimal($this->freshOrder($this->orders()[0])->get_total()));
+
+        $surcharge->set($this->event, '0', '50');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        self::assertSame('10050', wc_format_decimal($this->freshOrder($this->orders()[1])->get_total()));
+
+        $surcharge->set($this->event + 1, '50', null);
+        $surcharge->off($this->event);
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        self::assertSame('10000', wc_format_decimal($this->freshOrder($this->orders()[2])->get_total()));
+        self::assertSame([], $this->feeLines($this->orders()[2]));
+    }
+
+    public function testASurchargeThatIsNotValidIsRefusedAndOneStoredMalformedChargesNothing(): void
+    {
+        $surcharge = new CardSurcharge();
+        $bad = [['100.01', null], ['-1', null], ['1.234', null], ['abc', null], ['5', '-3'], ['5', '1,5']];
+        foreach ($bad as [$percent, $fixed]) {
+            try {
+                $surcharge->set($this->event, $percent, $fixed);
+                self::fail($percent . ' ' . $fixed . ' was accepted.');
+            } catch (InvalidInput) {
+                self::assertNull($surcharge->of($this->event));
+            }
+        }
+        $surcharge->set($this->event, '100', null);
+        self::assertSame(['percent' => '100', 'fixed' => null], $surcharge->of($this->event));
+
+        update_option(CardSurcharge::OPTION, [(string) $this->event => ['percent' => 'x']]);
+        [$log] = $this->captureLog(function () use ($surcharge): void {
+            self::assertNull($surcharge->of($this->event));
+        });
+        self::assertStringContainsString('malformed', $log);
+    }
+
+    public function testAPaidOrderWithAFeeRecordsExactlyTheItemAmountAndTheMailCarriesIt(): void
+    {
+        $anna = $this->owing('00A0');
+        global $wpdb;
+        $wpdb->replace($wpdb->prefix . 'kalaka_action_mails', [
+            'event_id' => $this->event,
+            'mail' => 'payment_recorded',
+            'version' => 1,
+            'enabled' => 1,
+            'body_id' => null,
+            'layout' => 1,
+        ]);
+        $this->surcharge('3', '40');
+        $this->payUrlFor($this->requestFor([$anna], ['00A0' => '10000']), 'https://example.org/');
+        $order = $this->onlyOrder();
+        self::assertSame('10340', wc_format_decimal($order->get_total()));
+
+        $this->payOrder($order);
+
+        $lines = $this->moneyLines();
+        self::assertCount(1, $lines);
+        self::assertSame('-10000.00000000', $lines[0]['amount']);
+        self::assertSame('0', $this->balance($anna));
+        // The mail is queued for the ledger line, whose amount is the item's: its content is read from that line.
+        self::assertSame(
+            1,
+            (int) $wpdb->get_var(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}kalaka_deliveries WHERE mail = 'payment_recorded'"
+            )
+        );
+    }
+
+    /** @return array{\WC_Order, \WC_Order_Item_Fee, \WC_Order_Item} an order of 10000 with a 300 fee, paid */
+    private function paidWithAFee(RegistrationKey $anna): array
+    {
+        $this->surcharge('3', null);
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        $order = $this->onlyOrder();
+        self::assertSame('10300', wc_format_decimal($order->get_total()));
+        $this->payOrder($order);
+        $order = $this->freshOrder($order);
+        $fees = $this->feeLines($order);
+        self::assertCount(1, $fees);
+
+        return [$order, $fees[0], array_values($order->get_items())[0]];
+    }
+
+    public function testAFullRefundByLineItemsOfTheItemAndTheFeeRecordsOnlyTheItem(): void
+    {
+        $anna = $this->owing('00A0');
+        [$order, $fee, $item] = $this->paidWithAFee($anna);
+
+        wc_create_refund([
+            'order_id' => $order->get_id(),
+            'amount' => 10300,
+            'line_items' => [
+                $item->get_id() => ['qty' => 0, 'refund_total' => 10000, 'refund_tax' => []],
+                $fee->get_id() => ['qty' => 0, 'refund_total' => 300, 'refund_tax' => []],
+            ],
+        ]);
+
+        self::assertSame(['10000.00000000'], array_column($this->refundLines(), 'amount'));
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testARefundOfOnlyTheFeeLineRecordsNothing(): void
+    {
+        $anna = $this->owing('00A0');
+        [$order, $fee] = $this->paidWithAFee($anna);
+
+        wc_create_refund([
+            'order_id' => $order->get_id(),
+            'amount' => 300,
+            'line_items' => [$fee->get_id() => ['qty' => 0, 'refund_total' => 300, 'refund_tax' => []]],
+        ]);
+
+        self::assertSame([], $this->refundLines());
+        self::assertSame('0', $this->balance($anna));
+    }
+
+    public function testAnAmountOnlyFullRefundOfTheItemAndTheFeeRecordsOnlyTheItem(): void
+    {
+        $anna = $this->owing('00A0');
+        [$order] = $this->paidWithAFee($anna);
+
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 10300]);
+
+        self::assertSame(['10000.00000000'], array_column($this->refundLines(), 'amount'));
+        self::assertSame('10000', $this->balance($anna));
+    }
+
+    public function testAPartialAmountOnlyRefundOfAnOrderWithAFeeGoesToTheItem(): void
+    {
+        $anna = $this->owing('00A0');
+        [$order] = $this->paidWithAFee($anna);
+
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 2500]);
+
+        self::assertSame(['2500.00000000'], array_column($this->refundLines(), 'amount'));
+    }
+
+    public function testASeparateFeeRefundAfterTheItemWasRefundedByAmountRecordsNothingMore(): void
+    {
+        $anna = $this->owing('00A0');
+        [$order] = $this->paidWithAFee($anna);
+
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 10000]);
+        wc_create_refund(['order_id' => $order->get_id(), 'amount' => 300]);
+
+        self::assertSame(['10000.00000000'], array_column($this->refundLines(), 'amount'));
     }
 
     public function testAnOrderCancelledByALaterClickThatIsPaidAnywayIsRecordedAndShowsAsAnOverpayment(): void
