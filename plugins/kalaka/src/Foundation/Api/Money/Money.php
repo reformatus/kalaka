@@ -75,6 +75,24 @@ final readonly class Money
         return $this->result($this->value->minus($other->value));
     }
 
+    /**
+     * This amount's `$percent` per cent (a decimal text of up to eight decimals): the amount times the percent, over
+     * a hundred, rounded up (toward positive infinity) to the eight decimals of the stored form.
+     *
+     * @throws InvalidInput When the percent is not a non-negative decimal text.
+     * @throws SystemFailure When the result leaves the DECIMAL(26,8) range.
+     */
+    public function percent(string $percent): self
+    {
+        if (preg_match('/\A[0-9]+(\.[0-9]{1,8})?\z/', $percent) !== 1) {
+            throw new InvalidInput();
+        }
+
+        return $this->result(
+            $this->value->multipliedBy($percent)->dividedBy('100', self::SCALE, RoundingMode::Ceiling)
+        );
+    }
+
     public function negated(): self
     {
         return $this->result($this->value->negated());
