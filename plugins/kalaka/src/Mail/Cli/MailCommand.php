@@ -22,14 +22,15 @@ use Kalaka\Mail\Pause\MailStateQuery;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\ResumeMail;
 use Kalaka\Mail\Pause\ResumeNeedsPerson;
+use Kalaka\Mail\Pause\SetMailBudget;
 
 /**
- * `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed`: the mail engine from the command line
- * (mail.md, "Pausing", "Failures"), through the use cases `PauseMail`, `ResumeMail`, `ClearMailQueue` and
- * `ClearEventMail`, never through SQL. It runs as the command line without a user (full access), or, with
- * WP-CLI's `--user`, checked as that user; `status` and `failed` read for full access only. Only a person
- * resumes sending: `ResumeMail` refuses an actor that is no person, and `resume` adds the hint to give
- * `--user`. The screen for the same is S41's.
+ * `wp kalaka mail status|pause|resume|budget|clear-queue|clear-event|failed`: the mail engine from the command
+ * line (mail.md, "Pausing", "Failures"), through the use cases `PauseMail`, `ResumeMail`, `SetMailBudget`,
+ * `ClearMailQueue` and `ClearEventMail`, never through SQL. It runs as the command line without a user (full
+ * access), or, with WP-CLI's `--user`, checked as that user; `status` and `failed` read for full access only.
+ * Only a person resumes sending: `ResumeMail` refuses an actor that is no person, and `resume` adds the hint to
+ * give `--user`. The screen for the same is S41's.
  */
 final class MailCommand
 {
@@ -148,6 +149,34 @@ final class MailCommand
                 throw new CommandFailure('Only a person resumes sending: give the user with --user=<user>.');
             }
             \WP_CLI::success($resumed === true ? 'Sending is resumed.' : 'Sending was not paused; nothing changed.');
+        });
+    }
+
+    /**
+     * Sets the hourly budget: how many mails the sender may send in an hour, from 1 to 2000. The next run
+     * uses it. Nothing changes when it already is that value.
+     *
+     * ## OPTIONS
+     *
+     * <n>
+     * : The hourly budget, a whole number from 1 to 2000.
+     *
+     * @param list<string> $args
+     * @param array<string, mixed> $assocArgs
+     */
+    public function budget(array $args, array $assocArgs): void
+    {
+        Boundary::cli(function () use ($args): void {
+            $given = $args[0] ?? '';
+            if (!preg_match('/^[0-9]{1,9}$/', $given)) {
+                $error = new CommandFailure('The hourly budget is a whole number from 1 to 2000.');
+                throw $error;
+            }
+            $input = ['hourly_budget' => (int) $given];
+            $changed = Runner::current()->run(new SetMailBudget(), $input, CliActor::current());
+            \WP_CLI::success($changed === true
+                ? 'The hourly budget is ' . (int) $given . '.'
+                : 'The hourly budget already was ' . (int) $given . '; nothing changed.');
         });
     }
 

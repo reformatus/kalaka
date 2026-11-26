@@ -235,13 +235,17 @@ final class MailRoutesTest extends MailAdminTestCase
         $this->as($this->admin->userId);
         $idle = $this->rest('GET', '/mail')->get_data();
         self::assertSame(
-            ['paused', 'errors_in_row', 'hourly_budget', 'queued', 'events', 'can'],
+            ['paused', 'errors_in_row', 'hourly_budget', 'hourly_budget_default', 'queued', 'events', 'can'],
             array_keys($idle)
         );
         self::assertSame([null, 0, 240, 0, []], [
             $idle['paused'], $idle['errors_in_row'], $idle['hourly_budget'], $idle['queued'], $idle['events'],
         ]);
-        self::assertSame(['pause' => true, 'resume' => false, 'clear_queue' => false], $idle['can']);
+        self::assertSame(240, $idle['hourly_budget_default']);
+        self::assertSame(
+            ['pause' => true, 'resume' => false, 'clear_queue' => false, 'set_budget' => true],
+            $idle['can']
+        );
 
         $this->queue($event, '00A0');
         $this->queue($event, '00A2', mail: 'confirmed', causeKey: 'c2');
@@ -277,7 +281,11 @@ final class MailRoutesTest extends MailAdminTestCase
             ],
             $data['events']
         );
-        self::assertSame(['pause' => false, 'resume' => true, 'clear_queue' => true], $data['can']);
+        self::assertSame(240, $data['hourly_budget_default'], 'The default stays when the budget is changed.');
+        self::assertSame(
+            ['pause' => false, 'resume' => true, 'clear_queue' => true, 'set_budget' => true],
+            $data['can']
+        );
     }
 
     public function testAPauseByHandNamesThePersonAndHasNoDelivery(): void

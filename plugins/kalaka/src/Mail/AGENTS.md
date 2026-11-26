@@ -132,7 +132,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   delivery, on the pause, in the audit diff and in the banner; the error log
   gets the same failure under the same correlation ID.
 - The pause lives in `kalaka_mail_states` (one row), written only by
-  `PauseMail`, `ResumeMail` and `RecordDelivery`; only a person resumes. The
+  `PauseMail`, `ResumeMail`, `SetMailBudget` and `RecordDelivery`; only a person resumes. The
   warnings read it, never the deliveries table.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it, except `kalaka/send-manual-mail`, an event use case carried by the
@@ -181,16 +181,16 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   `UpdateActionMail` and never switches a mail on. `list`, `show`, `body` and `layout` share
   `Cli\CliInput` (event ID, format, the read guard, which runs before an event is looked up) and
   `CliActor::current()`; so do `mail status`, `failed` and `batches` below.
-- `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
-  thin entry point: it changes only through `PauseMail`, `ResumeMail`, `ClearMailQueue` and
+- `wp kalaka mail status|pause|resume|budget|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
+  thin entry point: it changes only through `PauseMail`, `ResumeMail`, `SetMailBudget`, `ClearMailQueue` and
   `ClearEventMail`, as the command line or as WP-CLI's `--user`; `status` and `failed` read for
   full access only. Only a person resumes: `ResumeMail` refuses any actor that is no person
   (`ResumeNeedsPerson`), and `resume` adds the hint to give `--user`. The clears ask first
   (`--yes` skips), after the access check; `clear-event` runs the use case's own `ClearEventMail::refuse()`
   ahead of the question. Whether an event's mail is held is read once, in `Api\MailHold`, by the sender,
   the clear and, from #244, the manual send's warning.
-- The seven use cases `kalaka/update-action-mail`, `kalaka/set-event-mail-layout`,
-  `kalaka/pause-mail`, `kalaka/resume-mail`, `kalaka/clear-mail-queue`,
+- The eight use cases `kalaka/update-action-mail`, `kalaka/set-event-mail-layout`,
+  `kalaka/pause-mail`, `kalaka/resume-mail`, `kalaka/set-mail-budget`, `kalaka/clear-mail-queue`,
   `kalaka/clear-event-mail` and `kalaka/send-manual-mail` are abilities, registered
   in `Module::boot()`; each is the one entry a screen and the command line share,
   and only the two that read WordPress data first have a `$prepare`

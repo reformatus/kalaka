@@ -13,8 +13,9 @@ use Kalaka\Mail\ClearMailQueue;
 use Kalaka\Mail\Manual\SendManualMail;
 use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\ResumeMail;
+use Kalaka\Mail\Pause\SetMailBudget;
 
-/** The seven Mail use cases as abilities: one entry each, the same one the PHP entries and the command line run. */
+/** The eight Mail use cases as abilities: one entry each, the same one the PHP entries and the command line run. */
 final class MailAbilitiesTest extends MailAdminTestCase
 {
     /** @return array<string, array{\Kalaka\Foundation\Api\UseCase\AdminUseCase, string, string}> */
@@ -42,6 +43,11 @@ final class MailAbilitiesTest extends MailAdminTestCase
                 'Levélküldés folytatása',
                 'A szüneteltetett levélküldés folytatása.',
             ],
+            'set-mail-budget' => [
+                new SetMailBudget(),
+                'Levélküldési keret beállítása',
+                'Az óránként elküldhető levelek számának beállítása. [UNAPPROVED T-UX]',
+            ],
             'clear-mail-queue' => [
                 new ClearMailQueue(),
                 'Küldési sor ürítése',
@@ -60,7 +66,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
         ];
     }
 
-    public function testTheSevenAreAbilitiesOfTheKalakaCategoryWithTheirInputSchema(): void
+    public function testTheEightAreAbilitiesOfTheKalakaCategoryWithTheirInputSchema(): void
     {
         foreach (self::abilities() as $slug => [$useCase, $label, $description]) {
             $ability = $this->ability('kalaka/' . $slug);
@@ -159,6 +165,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
             'set-event-mail-layout' => ['event_id' => $event, 'html' => '{{content}}'],
             'pause-mail' => [],
             'resume-mail' => [],
+            'set-mail-budget' => ['hourly_budget' => 100],
             'clear-mail-queue' => [],
             'clear-event-mail' => ['event_id' => $event],
         ];

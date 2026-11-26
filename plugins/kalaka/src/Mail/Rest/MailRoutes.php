@@ -26,6 +26,7 @@ use Kalaka\Mail\Api\TroubledDelivery;
 use Kalaka\Mail\ClearEventMail;
 use Kalaka\Mail\EventMailNotHeld;
 use Kalaka\Mail\Manual\SendManualMail;
+use Kalaka\Mail\Pause\MailState;
 
 /**
  * The mail screens' reads under `kalaka-admin/v1`, each through `Boundary::route()`. Delivery only: every rule
@@ -39,8 +40,9 @@ use Kalaka\Mail\Manual\SendManualMail;
  *
  * - `GET /events/{id}/mail`: the event's mail page: the action mails with `can` and `refusals` of a switch, the
  *   bodies, the counts and `can.clear_event`.
- * - `GET /mail`: the sender: the pause, the errors in a row, the budget, the pending count and each event's name,
- *   counts and `can.clear_event` (an archived event is listed only while something of it is queued or failed).
+ * - `GET /mail`: the sender: the pause, the errors in a row, the budget and its default, the pending count and
+ *   each event's name, counts and `can.clear_event` (an archived event is listed only while something of it is
+ *   queued or failed).
  * - `GET /events/{id}/mail/troubled`: the event's deliveries that need a look, by registration code.
  * - `GET /events/{id}/mail/batches` and `…/batches/{batch}`: the manual mail's own record, never the deliveries.
  * - `POST /events/{id}/mail/manual/preview` with `{codes}`: who a send of those codes would reach.
@@ -208,10 +210,16 @@ final class MailRoutes
             ],
             'errors_in_row' => $site->errorsInRow,
             'hourly_budget' => $site->hourlyBudget,
+            'hourly_budget_default' => MailState::DEFAULT_HOURLY_BUDGET,
             'queued' => $site->queued,
             'events' => $events,
             // State, not refusals: each use case answers false or 0 to a no-op.
-            'can' => ['pause' => $paused === null, 'resume' => $paused !== null, 'clear_queue' => $site->queued > 0],
+            'can' => [
+                'pause' => $paused === null,
+                'resume' => $paused !== null,
+                'clear_queue' => $site->queued > 0,
+                'set_budget' => true,
+            ],
         ]);
     }
 

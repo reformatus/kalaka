@@ -30,6 +30,7 @@ use Kalaka\Mail\Pause\PauseMail;
 use Kalaka\Mail\Pause\PauseWarning;
 use Kalaka\Mail\Pause\RequestState;
 use Kalaka\Mail\Pause\ResumeMail;
+use Kalaka\Mail\Pause\SetMailBudget;
 use Kalaka\Mail\Rest\MailRoutes;
 
 final class Module extends AbstractModule
@@ -244,6 +245,11 @@ SQL;
             new ResumeMail(),
             'Levélküldés folytatása',
             'A szüneteltetett levélküldés folytatása.'
+        );
+        Abilities::register(
+            new SetMailBudget(),
+            'Levélküldési keret beállítása',
+            'Az óránként elküldhető levelek számának beállítása. [UNAPPROVED T-UX]'
         );
         Abilities::register(
             new ClearMailQueue(),
