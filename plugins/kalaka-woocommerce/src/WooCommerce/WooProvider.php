@@ -214,6 +214,21 @@ final class WooProvider extends AbstractPaymentProvider
         if (!$order instanceof \WC_Order) {
             throw new \RuntimeException('WooCommerce did not create the order.');
         }
+        // The order is saved by `wc_create_order()` already, before it carries the marker. If filling it in fails, the
+        // half-made order is deleted, so no unmarked pending order is left behind.
+        try {
+            $this->fill($order, $request, $returnUrl);
+        } catch (\Throwable $e) {
+            $order->delete(true);
+
+            throw $e;
+        }
+
+        return $order;
+    }
+
+    private function fill(\WC_Order $order, PaymentRequest $request, string $returnUrl): void
+    {
         // `wc_create_order()` takes the shop's currency whatever is passed, and stores the requesting browser's
         // address and user agent: the order holds the request's currency and none of the registrant's browser.
         $order->set_currency($request->currency->value);
@@ -259,7 +274,5 @@ final class WooProvider extends AbstractPaymentProvider
         $order->update_meta_data(OrderMeta::RETURN_URL, $returnUrl);
         $order->calculate_totals(false);
         $order->save();
-
-        return $order;
     }
 }

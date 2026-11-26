@@ -18,7 +18,7 @@ bar for that user. If core's API is absent or anything
 throws, the incoming value is returned and a throw is reported through
 `Foundation\Api\Entry\Boundary`.
 
-Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (extends `AbstractPaymentProvider`; each operation takes one `PaymentProviderInput`; `payUrl()` cancels the registrations' never-paid orders and creates an order (the owner account's when it is the one paying, else a guest order: `OrderOwner`; the billing details of a `BillingSource`, none by default: `BillingDetails`, `BillingSource`, `NoBilling`) with one item of the
+Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (extends `AbstractPaymentProvider`; each operation takes one `PaymentProviderInput`; `payUrl()` creates an order, then cancels the registrations' other never-paid orders (the owner account's when it is the one paying, else a guest order: `OrderOwner`; the billing details of a `BillingSource`, none by default: `BillingDetails`, `BillingSource`, `NoBilling`) with one item of the
 hidden product (`HiddenProduct`) per line, plus one fee line when the event has a card surcharge (`CardSurcharge`, the option `kalaka_woocommerce_card_surcharge`, set by `wp kalaka card-surcharge` in `Cli/CardSurchargeCommand`);
 `latestOf()` answers `processing` for any order open in a status Kaláka does not handle, so core refuses the start; `accepts()`), the hidden product is private and not purchasable (`HiddenProduct::purchasable()`), `OrderFinder` (`wc_get_orders()` by `meta_key`, valid in both storage modes), `KalakaOrder`
 and `KalakaItem` (an order as the plugin reads it), `OrderMeta` (the meta names and the option), `PaymentReporter`
