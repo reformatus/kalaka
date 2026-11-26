@@ -1,10 +1,14 @@
 /**
- * The field list of the detail panel (B5-2 on #249), under the requests block and above the money tabs: each
+ * The field list of the detail panel (B5-2 on #249), the „Adatok” tab (panel-tabs ruling 2026-11-26, its heading is the tab's name, N1007): each
  * field the read lists with its text, and for a field the read calls `writable` (and a kind the panel has a
  * control for) an edit button that opens the dialog. Read-only fields have no button and no word: the panel shows
  * only what the read returns and never decides access. After a save the panel re-reads, the grid re-reads, a
  * snackbar says it was done and focus returns to the field's edit button. [UNAPPROVED N230] [UNAPPROVED N231]
  * [UNAPPROVED N232] [UNAPPROVED N237] [UNAPPROVED N243]
+ *
+ * [UNAPPROVED N1010] Not built: the visual grouping of a request's ask and answer fields, with the pointer to that
+ * request on „Kérelmek”. The read does not say which fields belong to a request (`requests.items[]` has no field
+ * keys, `fields[]` has no request id): a server shape is needed, see internal/docs/panel-tabs-prototype.md.
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
@@ -68,7 +72,6 @@ export default function FieldsBlock( { config, code, detail, stale, reload, onSa
 
 	return (
 		<div className="kg-fields">
-			<h3 className="kg-requests-title">{ FIELDS.heading }</h3>
 			<dl className="kg-field-list">
 				{ fields.map( ( field ) => {
 					const text = textOf( field );

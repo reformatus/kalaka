@@ -62,6 +62,9 @@ export const PANEL = {
 	panel: 'Jelentkező részletei',
 	close: 'Bezárás',
 	tabsLabel: 'Részletek',
+	// The two new tabs reuse the blocks' headings, FIELDS.heading and REQUESTS.heading. [UNAPPROVED T951] [UNAPPROVED T952]
+	tabFields: 'Adatok',
+	tabRequests: 'Kérelmek',
 	tabMoney: 'Pénzügyek',
 	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
 	tabSoon: 'Hamarosan…',

@@ -15,9 +15,10 @@ import { confirmationOf, markOf, warningOf } from './confirmation';
 import FieldsBlock from './FieldsBlock';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import RequestsBlock from './RequestsBlock';
+import { AwaitingStrip, offeredOf, RequestsList, useAnswering } from './RequestsBlock';
 import StatusActs from './StatusActs';
 import StatusMark from './StatusMark';
+import { fieldsOf } from './fieldEdit';
 import { PANEL } from './texts';
 
 /**
@@ -84,18 +85,35 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		// Only a new activation of the row tries again.
 	}, [ again ] );
 
+	// The tabs: „Adatok”, „Kérelmek” and „Pénzügyek”, each only when the read has something for it, so a holder
+	// sees only the tabs they may use; „Hamarosan…” stays last beside „Pénzügyek” as before. The default is the
+	// first tab. [UNAPPROVED N1004] [UNAPPROVED N1005] [UNAPPROVED N1006]
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
-	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
-	// its snackbar, so only the load-failure message remains. [UNAPPROVED N24]
-	const showsTabs = !! ( detail && detail.can && detail.can.view_money && detail.money );
+	// After a failed re-read the data is stale: the tab list is hidden and the tabs show nothing but their
+	// snackbars, so only the load-failure message remains. [UNAPPROVED N24]
 	const stale = !! problem;
+	const hasMoney = !! ( detail && detail.can && detail.can.view_money && detail.money );
+	const fields = detail ? fieldsOf( detail ) : [];
+	const offered = offeredOf( detail, stale );
+	const tabs = [];
+	if ( fields.length > 0 ) {
+		tabs.push( { name: 'fields', title: PANEL.tabFields } );
+	}
+	if ( offered.length > 0 ) {
+		tabs.push( { name: 'requests', title: PANEL.tabRequests } );
+	}
+	if ( hasMoney ) {
+		tabs.push( { name: 'money', title: PANEL.tabMoney }, { name: 'soon', title: PANEL.tabSoon, disabled: true } );
+	}
+	const tabNames = tabs.map( ( tab ) => tab.name ).join( ',' );
 	useEffect( () => {
 		const list = root.current && root.current.querySelector( '[role="tablist"]' );
 		if ( list ) {
 			list.setAttribute( 'aria-label', PANEL.tabsLabel );
 			list.style.display = stale ? 'none' : '';
 		}
-	}, [ showsTabs, stale ] );
+	}, [ tabNames, stale ] );
+	const answering = useAnswering( config, code, reload, onSaved, root );
 
 	const registration = ( detail && detail.registration ) || {};
 	// While the last read failed the state on screen may be old: it is left out.
@@ -167,49 +185,51 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					onSaved={ onSaved }
 				/>
 			) }
-			{ detail && (
-				<RequestsBlock
-					config={ config }
-					code={ code }
-					detail={ detail }
-					stale={ !! problem }
-					reload={ reload }
-					onSaved={ onSaved }
-				/>
-			) }
-			{ detail && (
-				<FieldsBlock
-					config={ config }
-					code={ code }
-					detail={ detail }
-					stale={ !! problem }
-					reload={ reload }
-					onSaved={ onSaved }
-				/>
-			) }
-			{ showsTabs && (
+			{ detail && <AwaitingStrip items={ offered } start={ answering.start } /> }
+			{ tabs.length > 0 && (
 				<TabPanel
 					className="kg-tabs-money"
-					tabs={ [
-						{ name: 'money', title: PANEL.tabMoney },
-						{ name: 'soon', title: PANEL.tabSoon, disabled: true },
-					] }
-					initialTabName="money"
+					tabs={ tabs }
+					initialTabName={ tabs[ 0 ].name }
 					orientation="horizontal"
 				>
-					{ () => (
-						<MoneyTab
-							config={ config }
-							code={ code }
-							money={ detail.money }
-							stale={ stale }
-							can={ detail.can }
-							reload={ reload }
-							onSaved={ onSaved }
-						/>
-					) }
+					{ ( tab ) => {
+						if ( tab.name === 'fields' ) {
+							return (
+								<FieldsBlock
+									config={ config }
+									code={ code }
+									detail={ detail }
+									stale={ stale }
+									reload={ reload }
+									onSaved={ onSaved }
+								/>
+							);
+						}
+						if ( tab.name === 'requests' ) {
+							return (
+								<RequestsList
+									items={ offered }
+									currency={ detail.requests.currency }
+									start={ answering.start }
+								/>
+							);
+						}
+						return (
+							<MoneyTab
+								config={ config }
+								code={ code }
+								money={ detail.money }
+								stale={ stale }
+								can={ detail.can }
+								reload={ reload }
+								onSaved={ onSaved }
+							/>
+						);
+					} }
 				</TabPanel>
 			) }
+			{ detail && answering.dialog }
 		</aside>
 	);
 }
