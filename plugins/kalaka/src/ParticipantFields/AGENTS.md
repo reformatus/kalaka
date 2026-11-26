@@ -59,8 +59,9 @@ keeps of what it knows about its participants
   the column needs no backfill. `checkDeclarable()` and the declaration share one rule
   (`ParticipantFieldRecord::requireDeclarableBy()`, which throws `Api\FieldKeyHeld`, a `RuleViolation` with the code
   `kalaka_field_key_held`). A declared field is never retired by its declarer: a removed
-  item leaves it declared. [UNAPPROVED N3, N5, N300, N301 of #231]
+  item leaves it declared.
 - A field's `type` is a block name. The module reads only that block's
-  registered title from WordPress's block registry (the type label) and
-  nothing of Forms: which forms hold a field is Forms' to add
+  registered title from WordPress's block registry (the type label) and,
+  of Forms, only a field type's money-relevant capability (`MoneyRelevantFieldType`, through
+  `Contributions::fieldTypes()`, for `lockedAfterFirstWrite()`): which forms hold a field is Forms' to add
   (`ParticipantField::withForms()`).
