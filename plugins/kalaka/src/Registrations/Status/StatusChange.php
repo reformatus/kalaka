@@ -12,7 +12,6 @@ use Kalaka\Events\Api\EventCapacity;
 use Kalaka\Events\Api\Events;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Audit\Subject;
-use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\VersionConflict;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -36,6 +35,7 @@ use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\StatusAct;
 use Kalaka\Registrations\Api\StatusActRefused;
+use Kalaka\Registrations\Registration;
 use Kalaka\Registrations\RegistrationRepository;
 
 /**
@@ -44,35 +44,39 @@ use Kalaka\Registrations\RegistrationRepository;
  * one registration, carried by its grant action. The act writes only its facts; the runner's evaluation then follows
  * in the same run (money, then confirmation, then mail). [UNAPPROVED N510]
  *
- * - Input: the registration and a reason (at most 500 characters; required for a real remove, optional for the
- *   other real acts, kept in the audit entry's reason). [UNAPPROVED N514] With `preview` the act answers what it
- *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview needs no reason
- *   and ignores one, and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
+ * - Input: the registration and a reason (at most 500 characters, never required, kept in the audit entry's
+ *   reason). [UNAPPROVED N514] With `preview` the act answers what it
+ *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview ignores a
+ *   reason, and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
  *   status the act does not allow is `StatusActRefused`. [UNAPPROVED N512]
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
  *   the waitlist moves up. `registered_at` and `registered_by` stay as they were.
- * - Coming back (admit, restore): the status, `registered_at` (now) and `registered_by`, then every seat is taken
- *   again through `Seats::retake()`: the claims of the stored values, the event's own places and the confirmed
- *   assignments' options. A full pool never refuses a staff act: the seat goes over the limit and the result says
- *   so (`over`); the event's "full" latch is untouched. [UNAPPROVED N510, N511]
+ * - A restore is full access only and returns the registration to the status it left from: `registered` when it was
+ *   ever registered (it has a `registered_at`), `waitlisted` (at its place by submit time, nothing else written, no
+ *   seat) when it never was. [UNAPPROVED N510, N519]
+ * - Coming back to `registered` (admit, restore from registered): the status, `registered_at` (now) and
+ *   `registered_by`, then every seat is taken again through `Seats::retake()`: the claims of the stored values, the
+ *   event's own places and the confirmed assignments' options. A full pool never refuses a staff act: the seat goes
+ *   over the limit and the result says so (`over`); the event's "full" latch is untouched. [UNAPPROVED N510, N511]
  * - Lock order: the event row, the claimed quota pools in `Seats::inLockOrder()`, then the registration. The claims
  *   are read from the stored values before the locks and again under the registration's lock; a claim of a quota
  *   pool that was not locked (the values changed in between) refuses the act as an edit conflict, nothing written.
  *   [UNAPPROVED N515]
- * - Admission queues the "registered" mail (caused by the registration, as the submit's mail was); a restore, a
- *   withdrawal and a removal queue none. [UNAPPROVED N517]
+ * - Admission queues the "registered" mail (caused by the registration, as the submit's mail was); a restore queues
+ *   the mail of the status it returns to ("registered" or "waitlisted"), caused by the registration at the version
+ *   the restore wrote, so every restore mails; a withdrawal and a removal queue none. [UNAPPROVED N517, N970]
  *
  * Returns `{changed, status, over_capacity, seats, warnings}`: `seats` lists each pool the act took again (a claimed
  * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
  * warning when any went over. The preview adds, per seat, `taken` (held by other registrations), `taken_after` (the
  * pool's count once the act is done: `taken + 1` for an act that takes the seat, `taken` for one that frees it) and
- * `limit`, and the preview carries `requires_reason` (the act's own rule, N673); a leaving act lists the pools the
+ * `limit`, and `requires_reason` (always false); a leaving act lists the pools the
  * registration holds now, each with outcome `released`. Withdraw, remove and restore add `money`: per payer
  * `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the actor has no money-view, `money` is
  * null; false with a null `money`: the fee cannot be priced). Withdraw and remove add `retention`, the event's rule
  * (its ID, null for a holder without money-view).
- * [UNAPPROVED N530-N533, N535, N537, N538, N673]
+ * [UNAPPROVED N530-N533, N535, N537, N538]
  */
 abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
@@ -120,7 +124,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         ];
     }
 
-    public function action(): string
+    public function action(): ?string
     {
         return $this->act()->action();
     }
@@ -132,6 +136,12 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 
     public function targets(array $input): array
     {
+        // A restore carries no grant action and names no target, so only full access holds it (Admin: "an event use
+        // case with neither is full access only"); the registration is on the audit entry as it is touched.
+        if ($this->act() === StatusAct::Restore) {
+            return [];
+        }
+
         return [new RegistrationKey((int) $input['event_id'], (string) $input['code'])];
     }
 
@@ -148,18 +158,14 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
     {
         $act = $this->act();
         $key = new RegistrationKey((int) $input['event_id'], (string) $input['code']);
-        // The reason: required for a real removal, checked on the trimmed text (as the confirmation acts do). A
-        // preview does not need one and ignores one it is given (the dialog may preview after staff typed it).
+        // The reason is never required (N514); the runner keeps the trimmed text as the audit entry's reason.
         $preview = $this->isPreview($input);
-        $reason = isset($input['reason']) ? trim((string) $input['reason']) : '';
-        if (!$preview && $act->reasonRequired() && $reason === '') {
-            throw new InvalidInput();
-        }
 
         $event = $this->events->find($key->eventId) ?? throw new NotFound();
         $stored = $this->registrations->find($key) ?? throw new NotFound();
         $status = $stored->status;
-        if ($status === $act->target()) {
+        $target = $act->target($stored->registeredAt !== null);
+        if ($act->isRepeatFrom($status)) {
             return self::unchanged($status);
         }
         if (!$act->allowedFrom($status)) {
@@ -167,16 +173,19 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         }
 
         if ($preview) {
-            return $this->preview($act, $key, $event, $context);
+            return $this->preview($act, $target, $key, $event, $context);
         }
 
-        if ($act->enters()) {
+        if ($target === RegistrationStatus::Registered) {
             return $this->enter($act, $key, $event, $context);
+        }
+        if ($act === StatusAct::Restore) {
+            return $this->restoreToWaitlist($act, $target, $key, $context);
         }
 
         return $this->leaving->leave($act, $key, $context)
-            ? self::result($act->target(), false, [])
-            : self::unchanged($act->target());
+            ? self::result($target, false, [])
+            : self::unchanged($target);
     }
 
     /**
@@ -186,14 +195,21 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
      *
      * @return array<string, mixed>
      */
-    private function preview(StatusAct $act, RegistrationKey $key, Event $event, Context $context): array
-    {
+    private function preview(
+        StatusAct $act,
+        RegistrationStatus $target,
+        RegistrationKey $key,
+        Event $event,
+        Context $context,
+    ): array {
         $taken = [];
         $eventOutcome = SeatOutcome::Held;
-        if (!$act->enters()) {
+        $enters = $target === RegistrationStatus::Registered;
+        // A restore to the waitlist holds no seat and frees none.
+        if (!$enters && $act !== StatusAct::Restore) {
             $taken = $this->previewReleased($event, $key);
         }
-        if ($act->enters()) {
+        if ($enters) {
             foreach ($this->seats->inLockOrder($this->claims($event, $key)) as $claim) {
                 $taken[] = $this->previewSeat($claim->pool, $claim->fieldKey, $key);
             }
@@ -204,14 +220,14 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
                 $taken[] = $this->previewSeat($pool, null, $key);
             }
         }
-        $result = self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
-        // The act's own rule, for a caller that asks before it writes: a real remove needs a reason.
+        $result = self::result($target, $eventOutcome === SeatOutcome::Over, $taken);
+        // No act needs a reason (N514): kept in the shape, always false.
         $result['requires_reason'] = $act->reasonRequired();
         if ($act !== StatusAct::Admit) {
             $hidden = !$this->access->mayViewMoney($context->actor(), $key);
-            $result['money'] = $hidden ? null : $this->leaving->money($act, $key, $context);
+            $result['money'] = $hidden ? null : $this->leaving->money($target, $key, $context);
             $result['money_hidden'] = $hidden;
-            if (!$act->enters()) {
+            if ($act === StatusAct::Withdraw || $act === StatusAct::Remove) {
                 $result['retention'] = $hidden ? null : $this->settings->retentionId($key->eventId);
             }
         }
@@ -280,6 +296,27 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
     /**
      * @return array<string, mixed>
      */
+    private function restoreToWaitlist(
+        StatusAct $act,
+        RegistrationStatus $target,
+        RegistrationKey $key,
+        Context $context,
+    ): array {
+        $registration = $this->lock->locked($act, $key, $context);
+        if ($registration === null) {
+            return self::unchanged($target);
+        }
+        // `registered_at` and `registered_by` are null and stay so, and the registration held no seat: the status only.
+        $registration->status = $target;
+        $stored = $this->registrations->upsert($registration, $context);
+        $this->mails->due($context, ActionMail::Waitlisted, $key, self::restoreCause($key, $stored));
+
+        return self::result($target, false, []);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function enter(StatusAct $act, RegistrationKey $key, Event $event, Context $context): array
     {
         // Plain read of the claims, so the quota pools can be locked before the registration row.
@@ -310,7 +347,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         $registration->status = $act->target();
         $registration->registeredAt = $context->now();
         $registration->registeredBy = $act->registeredBy();
-        $this->registrations->upsert($registration, $context);
+        $stored = $this->registrations->upsert($registration, $context);
 
         $seatAct = $act->seatAct() ?? throw new \LogicException('An act that enters takes seats.');
         $taken = [];
@@ -335,6 +372,8 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 
         if ($act === StatusAct::Admit) {
             $this->mails->due($context, ActionMail::Registered, $key, Subject::registration($key));
+        } else {
+            $this->mails->due($context, ActionMail::Registered, $key, self::restoreCause($key, $stored));
         }
 
         return self::result($act->target(), $eventOutcome === SeatOutcome::Over, $taken);
@@ -352,6 +391,16 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
         $sources = $this->seatClaimSources ?? Contributions::current()->seatClaimSources();
 
         return SeatClaims::of($sources, $event, new ValidatedAnswers($values, $values));
+    }
+
+    /**
+     * The cause of a restore's mail: the registration at the version the restore wrote, so each restore mails once
+     * and a second restore after another leave mails again (the registration itself, the cause of the submit's and the
+     * admission's mail, would be queued already). [UNAPPROVED N970]
+     */
+    private static function restoreCause(RegistrationKey $key, Registration $stored): Subject
+    {
+        return new Subject('registration_restore', $key->eventId, $key->code . '.' . $stored->version);
     }
 
     /** @return array{pool: string, label: string, field: ?string, outcome: string} */

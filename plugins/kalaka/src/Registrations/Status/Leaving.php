@@ -12,6 +12,7 @@ use Kalaka\Ledger\Api\Ledger;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComposition;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\StatusAct;
 use Kalaka\Registrations\Api\StatusActRefused;
@@ -67,10 +68,10 @@ final class Leaving
      *
      * @return list<array{payer: string, paid: string, balance_now: string, balance_after: string}>|null
      */
-    public function money(StatusAct $act, RegistrationKey $key, Context $context): ?array
+    public function money(RegistrationStatus $target, RegistrationKey $key, Context $context): ?array
     {
         try {
-            $after = $this->composition->of($key, $context->now(), $act->target());
+            $after = $this->composition->of($key, $context->now(), $target);
         } catch (FeeComponentFailed) {
             return null;
         }

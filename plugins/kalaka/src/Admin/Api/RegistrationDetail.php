@@ -156,7 +156,10 @@ final class RegistrationDetail
             'unconfirm' => $canUnconfirm,
         ];
         foreach (StatusAct::cases() as $act) {
-            $read['can'][$act->value] = $carried($act->action()) && in_array($act, $statusActs, true);
+            // A restore carries no grant action: full access only.
+            $action = $act->action();
+            $held = $action === null ? $full : $carried($action);
+            $read['can'][$act->value] = $held && in_array($act, $statusActs, true);
         }
 
         return $read;

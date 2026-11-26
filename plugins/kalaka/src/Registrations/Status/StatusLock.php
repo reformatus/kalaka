@@ -35,7 +35,7 @@ final class StatusLock
     public function locked(StatusAct $act, RegistrationKey $key, Context $context): ?Registration
     {
         $registration = $this->registrations->findForUpdate($key, $context) ?? throw new NotFound();
-        if ($registration->status === $act->target()) {
+        if ($act->isRepeatFrom($registration->status)) {
             return null;
         }
         if (!$act->allowedFrom($registration->status)) {

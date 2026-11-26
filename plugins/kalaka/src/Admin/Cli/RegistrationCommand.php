@@ -199,8 +199,8 @@ final class RegistrationCommand
      * <code>
      * : The registration's reference code.
      *
-     * --reason=<text>
-     * : Why, 1 to 500 characters. Written to the audit entry.
+     * [--reason=<text>]
+     * : Why, up to 500 characters. Written to the audit entry.
      *
      * [--yes]
      * : Do not ask for confirmation.
@@ -214,10 +214,11 @@ final class RegistrationCommand
     }
 
     /**
-     * Restores a withdrawn or removed registration: it becomes registered and takes its seats again.
+     * Restores a withdrawn or removed registration to the status it left from: registered (it takes its seats again)
+     * or waitlisted (at its place by submit time).
      *
-     * Runs kalaka/restore-registration as the global --user (without --user the CLI has full access). A full pool
-     * never refuses it: the seat goes over the limit, and the output says so.
+     * Runs kalaka/restore-registration as the global --user; a restore is full access only (without --user the CLI
+     * has full access). A full pool never refuses it: the seat goes over the limit, and the output says so.
      *
      * ## OPTIONS
      *
@@ -244,8 +245,8 @@ final class RegistrationCommand
     /**
      * The wrapper of a status act: arguments in, the act as a preview first, the question, then the use case through
      * the runner, the outcome printed. Every rule (which status allows the act, the reason) is the use case's; a
-     * refusal prints its own message. The one thing the command does itself is to refuse a remove without
-     * `--reason` before it asks, from the preview's `requires_reason` (the use case's rule). [UNAPPROVED N522, N673]
+     * refusal prints its own message. The command holds no rule of its own; `--reason` is optional for every act.
+     * [UNAPPROVED N522]
      *
      * @param list<string> $args
      * @param array<string, mixed> $assoc
@@ -265,11 +266,6 @@ final class RegistrationCommand
             \WP_CLI::success($args[1] . ' is already ' . (string) $preview['status'] . '.');
 
             return;
-        }
-        if (($preview['requires_reason'] ?? false) === true && trim((string) $reason) === '') {
-            // The use case's own rule, as the preview reports it: refused before the operator is asked anything.
-            $error = new CommandFailure('--reason is required for ' . $act->value . '.');
-            throw $error;
         }
         foreach ((array) $preview['warnings'] as $warning) {
             \WP_CLI::warning((string) $warning);

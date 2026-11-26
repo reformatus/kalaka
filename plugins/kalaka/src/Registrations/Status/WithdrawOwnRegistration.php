@@ -108,7 +108,7 @@ final class WithdrawOwnRegistration implements PortalUseCase, PreviewableUseCase
         RegistrationKey $key,
         Context $context,
     ): array {
-        $rows = $allowed ? $leaving->money($act, $key, $context) : null;
+        $rows = $allowed ? $leaving->money($act->target(), $key, $context) : null;
         if ($rows === null) {
             return ['allowed' => $allowed, 'paid' => null, 'owed_after' => null];
         }
