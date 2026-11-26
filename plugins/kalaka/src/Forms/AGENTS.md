@@ -235,8 +235,12 @@ values and conditions, prefill and form links
 - A condition reads: in a form, its answers; in a mail, the
   recipient's registration; elsewhere, the visitor's active registration and
   its event. With no active registration, no branch of a chain renders.
-- A value is plain text, escaped where it renders; inline values are replaced
-  with the HTML API.
+- A value is plain text, escaped where it renders; placeholders typed as
+  `{{key}}` (text and attributes) and inline values are replaced with the HTML
+  API. A placeholder is filled in the blocks' own HTML before anything
+  renders, so a value's text is never read for one; a save refuses an unknown
+  key (`UnknownPlaceholder`, `kalaka_unknown_placeholder`), `{{content}}`
+  included. The inline-value span keeps rendering; no editor inserts it.
 - Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`
   in the evaluator (deptrac: the `Forms Engine` layer); no `Forms\Api` signature takes
   or returns a brick/math type.

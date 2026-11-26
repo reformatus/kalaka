@@ -85,10 +85,14 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   when the body cannot render for its own reason: none assigned (`no_body`),
   gone (`missing`), unpublished (`unpublished`) or of another event
   (`other_event`), or, by `Values::check()` against `MailValues::types()` (and `paths()`), an
-  undeclared key, an invalid condition, a misplaced branch; the delivery is failed with `body <problem>`, no attempt and no
+  undeclared key (a typed placeholder included: `unknown_placeholder {{key}}`), an invalid condition, a misplaced branch; the delivery is failed with `body <problem>`, no attempt and no
   count toward pausing. Any other throw is an error, recorded after the claim.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):
-  REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
+  a placeholder typed as `{{key}}` whose key the mail's context does not declare
+  (`{{content}}` always) is refused before anything else, with every such key
+  as typed (`Forms\Api\UnknownPlaceholder`, `kalaka_unknown_placeholder`, 422 on
+  REST; the same text as the notice, the log line and the command line's
+  refusal); any other problem is refused by REST with 400 `kalaka_mail_body`; any other path vetoes it
   gracefully (a published body keeps its content, another stays unpublished),
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.

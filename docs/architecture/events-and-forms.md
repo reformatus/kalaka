@@ -391,8 +391,8 @@ is no other participant-side edit.
 
 **One value API** serves mails, participant blocks and forms.
 
-- **Each document kind declares its context,** and pickers offer only that
-  context's keys:
+- **Each document kind declares its context,** and a saved placeholder must
+  name one of that context's keys:
   - mail: the recipient, the registration and its event's values
     (`event.*`);
   - a participant block: the active registration
@@ -408,10 +408,18 @@ is no other participant-side edit.
     account mode, an additional form), never no there.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
-- **Inline values** are a rich-text format stored as
-  `<span data-kalaka-value="key">Label</span>`. Editors insert one from a
-  toolbar picker, and it shows as a chip. The server replaces it using the
-  HTML API. The same span works in custom HTML.
+- **Placeholders** are typed by hand as `{{key}}` in the text, and also inside
+  attributes such as a button's link URL. A save is refused while a
+  placeholder names a key its document kind's context does not declare
+  (`kalaka_unknown_placeholder`, 422, the keys as typed); `{{content}}` is
+  known only in a mail's layout. The server replaces a placeholder using the
+  HTML API: a known key with no value gives an empty text, text is escaped,
+  and a URL attribute takes the URL fitting that attribute. A key that cannot
+  be resolved when the document renders fails that act (a mail is failed,
+  never sent with the raw placeholder; on a page the placeholder shows
+  nothing and the failure is logged). A value's text is never read for
+  placeholders. The older `<span data-kalaka-value="key">Label</span>` keeps
+  rendering, but no editor inserts it.
 - **Storage** is plain block markup in `post_content`. A friendlier editor
   later changes only the UI.
 - **WordPress 7.0 was checked on 2026-10-31:** no core way to bind part of a

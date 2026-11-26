@@ -113,7 +113,7 @@ activated.**
   placeholder; a layout without exactly one is refused. A new event's layout
   is exactly `{{content}}`, so mail works with no setup. The rendered body
   replaces `{{content}}`; everything but the outer design belongs in each
-  mail's body.
+  mail's body. Typed into a body, `{{content}}` is an unknown placeholder.
 
 ## Sending
 
