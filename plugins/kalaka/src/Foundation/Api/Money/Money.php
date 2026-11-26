@@ -77,7 +77,10 @@ final readonly class Money
 
     /**
      * This amount's `$percent` per cent (a decimal text of up to eight decimals): the amount times the percent, over
-     * a hundred, rounded up (toward positive infinity) to the eight decimals of the stored form.
+     * a hundred, rounded up (toward positive infinity) to the eight decimals of the stored form. Used by the
+     * WooCommerce card surcharge (#251).
+     *
+     * [UNAPPROVED N817]
      *
      * @throws InvalidInput When the percent is not a non-negative decimal text.
      * @throws SystemFailure When the result leaves the DECIMAL(26,8) range.
