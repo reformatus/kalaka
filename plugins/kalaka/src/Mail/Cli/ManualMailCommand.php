@@ -45,8 +45,8 @@ final class ManualMailCommand
      * mail of an unpublished event waits until it is published. A withdrawn or removed registration is
      * skipped and listed; a code that is no registration of the event refuses the whole send. Shows what it
      * would do and asks first (`--yes` skips); `--dry-run` only shows. A rerun with the same `--key` queues
-     * nothing and names the first batch; without a key every run is a new batch, a second copy. At most 1000
-     * codes. With `--user` the user's grants must hold every code.
+     * nothing and names the first batch; without a key every run is a new batch, a second copy. With `--user`
+     * the user's grants must hold every code.
      *
      * ## OPTIONS
      *
@@ -167,7 +167,7 @@ final class ManualMailCommand
      *
      * @param array<string, mixed> $assocArgs
      * @return list<string>
-     * @throws CommandFailure when none or too many are given, or one is not a reference code
+     * @throws CommandFailure when none are given, or one is not a reference code
      */
     private static function codes(array $assocArgs, int $eventId): array
     {

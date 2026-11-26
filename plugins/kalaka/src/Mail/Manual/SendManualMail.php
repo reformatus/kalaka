@@ -44,8 +44,6 @@ use Kalaka\Registrations\Api\Registrations;
  */
 final class SendManualMail implements AdminUseCase
 {
-    public const MAX_CODES = 1000;
-
     public function __construct(
         private readonly ?MailBody $body = null,
         private readonly Registrations $registrations = new Registrations(),
@@ -88,7 +86,6 @@ final class SendManualMail implements AdminUseCase
                     'type' => 'array',
                     'items' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 16],
                     'minItems' => 1,
-                    'maxItems' => self::MAX_CODES,
                     'uniqueItems' => true,
                 ],
                 'layout' => ['type' => 'boolean'],
