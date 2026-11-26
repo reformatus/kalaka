@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Kalaka\Forms;
 
 use Kalaka\Forms\Api\AccountStep;
+use Kalaka\Forms\Api\AnswerSet;
+use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\Form;
+use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
@@ -50,6 +53,27 @@ final class RequestScopeHost implements FormHost
     public function prefill(Form $form): array
     {
         return $this->host->prefill($form);
+    }
+
+    public function draft(Form $form): FormDraft
+    {
+        return $this->host->draft($form);
+    }
+
+    public function saveDraft(
+        Form $form,
+        int $version,
+        AnswerSet $answers,
+        int $page,
+        int $claims,
+        Actor $actor
+    ): void {
+        $this->host->saveDraft($form, $version, $answers, $page, $claims, $actor);
+    }
+
+    public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
+    {
+        $this->host->resolveDraftClaim($form, $choice, $actor);
     }
 
     public function requestOptions(Form $form, int $setId): ?RequestOptions
