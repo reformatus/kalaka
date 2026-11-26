@@ -43,6 +43,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 	const [ result, setResult ] = useState( null );
 	const sending = useRef( false );
 	const keyFor = useRef( null );
+	const bodyRef = useRef( null );
 	if ( ! keyFor.current ) {
 		keyFor.current = keys || pageKeys( event );
 	}
@@ -77,6 +78,19 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 			live = false;
 		};
 	}, [ previewPath, codes.join( ',' ) ] );
+
+	// The dialog's first focus is the template field once the read answers, not the primary „Küldés” button, which is
+	// the only focusable element while the preview is still loading. [UNAPPROVED N933]
+	const focusedBody = useRef( false );
+	useEffect( () => {
+		if ( plan && plan.bodies.length > 0 && ! focusedBody.current ) {
+			focusedBody.current = true;
+			const select = bodyRef.current && bodyRef.current.querySelector( 'select' );
+			if ( select ) {
+				select.focus();
+			}
+		}
+	}, [ plan ] );
 
 	const submit = async ( submitted ) => {
 		submitted.preventDefault();
@@ -185,20 +199,22 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 					{ plan.bodies.length === 0 ? (
 						<p>{ MANUAL.noBodies }</p>
 					) : (
-						<SelectControl
-							label={ MANUAL.body }
-							value={ bodyId }
-							options={ [
-								{ value: '', label: MANUAL.pick },
-								...plan.bodies.map( ( b ) => ( { value: String( b.id ), label: bodyLabel( b, plan.bodies ) } ) ),
-							] }
-							onChange={ ( value ) => {
-								setBodyId( value );
-								setNoBody( false );
-							} }
-							help={ noBody ? <span className="km-err">{ MANUAL.noBody }</span> : undefined }
-							__nextHasNoMarginBottom
-						/>
+						<div ref={ bodyRef }>
+							<SelectControl
+								label={ MANUAL.body }
+								value={ bodyId }
+								options={ [
+									{ value: '', label: MANUAL.pick },
+									...plan.bodies.map( ( b ) => ( { value: String( b.id ), label: bodyLabel( b, plan.bodies ) } ) ),
+								] }
+								onChange={ ( value ) => {
+									setBodyId( value );
+									setNoBody( false );
+								} }
+								help={ noBody ? <span className="km-err">{ MANUAL.noBody }</span> : undefined }
+								__nextHasNoMarginBottom
+							/>
+						</div>
 					) }
 					<CheckboxControl label={ MANUAL.layout } checked={ layout } onChange={ setLayout } __nextHasNoMarginBottom />
 				</Fragment>

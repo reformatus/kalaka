@@ -6,6 +6,9 @@
 .kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .kg-tabrow { min-width: 0; }
 .kg-tabrow .components-tab-panel__tabs { flex-wrap: wrap; }
+/* The grid's TabPanel has no content of its own (the table stays below), so its empty tabpanel is hidden: it is not
+   a keyboard stop, and the tabs' `aria-controls` points to nothing visible. [UNAPPROVED N934] */
+.kg-tabs .components-tab-panel__tab-content { display: none; }
 .kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px var(--wpds-dimension-padding-2xl, 24px); min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kg-spacer { flex: 1 1 auto; }

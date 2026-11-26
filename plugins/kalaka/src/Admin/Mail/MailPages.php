@@ -65,6 +65,16 @@ final class MailPages
             'none',
             self::KALAKA_POSITION
         );
+        // The first entry WordPress makes from the item's own title is overridden with the ruling's „Irányítópult”
+        // (the 2026-11-07 menu ruling names it so; the dashboard is deferred, so it lands on the „Levelezés” page).
+        add_submenu_page(
+            self::TOP_SLUG,
+            Texts::SITE_PAGE,
+            Texts::DASHBOARD,
+            'read',
+            self::TOP_SLUG,
+            [self::class, 'render']
+        );
         add_submenu_page(
             self::TOP_SLUG,
             Texts::SITE_PAGE,
