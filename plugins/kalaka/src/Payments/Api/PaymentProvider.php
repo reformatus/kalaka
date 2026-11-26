@@ -22,8 +22,9 @@ interface PaymentProvider
     public function accepts(PaymentProviderInput $input): bool;
 
     /**
-     * The address the registrant pays at. Creates the request, or reuses an open one that asks for the same
-     * lines, and cancels an open one that no longer matches: the provider's job.
+     * The address the registrant pays at. Cancels the registration's open requests that were never paid and
+     * creates a new one: the provider's job. It never reuses a request, and it is called only when `latestOf()`
+     * found nothing else open (core refuses the start first as `CardPaymentInFlight`).
      */
     public function payUrl(PaymentProviderInput $input): string;
 
