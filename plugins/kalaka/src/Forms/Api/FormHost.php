@@ -116,7 +116,7 @@ interface FormHost
     /**
      * The participant field keys the host's current state requires a registration form to hold, required and
      * outside any condition (`Engine\SlotRules::requiredFieldProblem()`); none for another placement. A form
-     * being served that lacks one is closed, like one without the account block. [UNAPPROVED, #200 N16]
+     * being served that lacks one is closed, like one without the account block.
      *
      * @return list<string>
      */

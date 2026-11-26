@@ -21,7 +21,7 @@ final readonly class FeeTargets
      * @param array<string, Money> $owed by payer-kind ID; a payer left out owes zero
      * @param array<array-key, array<string, Money>> $items item key → payer-kind ID → amount, when the component
      *     owes per item; then `owed` is their sum per payer and the materializer writes one line per item
-     * @param array<string, Value> $computed dotted keys the facts do not have yet [UNAPPROVED, #200 N12]
+     * @param array<string, Value> $computed dotted keys the facts do not have yet
      */
     public function __construct(public array $owed = [], public array $items = [], public array $computed = [])
     {
