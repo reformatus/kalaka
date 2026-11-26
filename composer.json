@@ -12,7 +12,8 @@
         "dealerdirect/phpcodesniffer-composer-installer": "^1.1",
         "phpunit/phpunit": "^9.6",
         "yoast/phpunit-polyfills": "^4.0",
-        "brianhenryie/strauss": "0.31.1"
+        "brianhenryie/strauss": "0.31.1",
+        "php-stubs/woocommerce-stubs": "^11.3"
     },
     "autoload-dev": {
         "psr-4": {
