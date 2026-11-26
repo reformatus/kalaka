@@ -15,12 +15,11 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Error\VersionConflict;
-use Kalaka\ParticipantFields\DeclareParticipantFields;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Registrations\RegistrationsTestCase;
 
 /**
- * S44: request-mode assignment sets, their options with eligibility conditions in the one format, the tie
+ * S44: request-mode assignment sets, their options, the tie
  * to the one request field (S44-1), and staff placing a registration by hand (an audited, confirmed fact,
  * at most one per set).
  */
@@ -38,17 +37,6 @@ final class AssignmentsTest extends RegistrationsTestCase
         update_option('timezone_string', 'Europe/Budapest');
         $this->sets = new AssignmentSets($this->runner);
         $this->event = (int) $this->runner->run(new CreateEvent(), ['name' => 'Tábor'], new CliActor(null));
-        $this->runner->run(new DeclareParticipantFields(), ['event_id' => $this->event, 'fields' => [[
-            'key' => 'szolgalati_terulet',
-            'type' => 'kalaka/choice-field',
-            'title' => 'Szolgálati terület',
-            'options' => [
-                ['value' => 'ifivezeto', 'label' => 'Ifivezető'],
-                ['value' => 'iskolamisszio', 'label' => 'Iskolamisszió'],
-                ['value' => 'pro', 'label' => 'PRO'],
-            ],
-            'latest' => true,
-        ]]], new CliActor(null));
     }
 
     /** @param array<string, mixed> $changes */
@@ -64,11 +52,8 @@ final class AssignmentsTest extends RegistrationsTestCase
         ], new CliActor(null));
     }
 
-    /**
-     * @param array<string, mixed>|null $condition
-     * @param array<string, mixed> $changes
-     */
-    private function newOption(int $set, string $label, ?array $condition = null, array $changes = []): string
+    /** @param array<string, mixed> $changes */
+    private function newOption(int $set, string $label, array $changes = []): string
     {
         return $this->sets->saveOption($changes + [
             'set_id' => $set,
@@ -76,26 +61,16 @@ final class AssignmentsTest extends RegistrationsTestCase
             'capacity' => 30,
             'leaders' => 'Teszt Vezető',
             'place' => 'Nagyterem',
-            'condition' => $condition,
             'position' => 0,
         ], new CliActor(null));
-    }
-
-    /** @return array<string, mixed> */
-    private static function trackIs(string $track): array
-    {
-        return [
-            'match' => 'all',
-            'items' => [['key' => 'szolgalati_terulet', 'operator' => 'equals', 'value' => $track]],
-        ];
     }
 
     public function testASetIsStoredWithItsOptionsInTheirOrderAndItsWindowInUtc(): void
     {
         $set = $this->newSet(['time_slot' => 'Délelőtt']);
-        self::assertSame('pro', $this->newOption($set, 'PRO', self::trackIs('pro'), ['position' => 8]));
-        self::assertSame('modul_a', $this->newOption($set, 'Modul A', null, ['position' => 1]));
-        self::assertSame('iskolamisszio', $this->newOption($set, 'Iskolamisszió', self::trackIs('iskolamisszio'), [
+        self::assertSame('pro', $this->newOption($set, 'PRO', ['position' => 8]));
+        self::assertSame('modul_a', $this->newOption($set, 'Modul A', ['position' => 1]));
+        self::assertSame('iskolamisszio', $this->newOption($set, 'Iskolamisszió', [
             'position' => 7,
         ]));
 
@@ -108,8 +83,6 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertNull($stored->requestFieldKey);
         self::assertSame('2026-12-01 07:00', $stored->windowOpens?->format('Y-m-d H:i'));
         self::assertSame(['modul_a', 'iskolamisszio', 'pro'], array_map(static fn ($o) => $o->key, $stored->options));
-        self::assertSame(self::trackIs('pro'), $stored->option('pro')?->availabilityCondition());
-        self::assertNull($stored->option('modul_a')?->availabilityCondition());
         self::assertSame([$set], array_map(static fn ($s) => $s->id, $this->sets->ofEvent($this->event)));
     }
 
@@ -129,7 +102,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame('modul_a', $this->newOption($set, 'Modul A'));
         self::assertSame('modul_a_1', $this->newOption($set, 'Modul A'));
 
-        $this->newOption($set, 'Modul Á, átnevezve', null, ['key' => 'modul_a', 'version' => 1]);
+        $this->newOption($set, 'Modul Á, átnevezve', ['key' => 'modul_a', 'version' => 1]);
         self::assertSame('Modul Á, átnevezve', $this->sets->find($set)?->option('modul_a')?->label);
     }
 
@@ -139,17 +112,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         $this->newOption($set, 'Modul A');
 
         $this->expectException(VersionConflict::class);
-        $this->newOption($set, 'Modul A', null, ['key' => 'modul_a']);
-    }
-
-    public function testAConditionReadingAKeyTheEventDoesNotHaveIsRefused(): void
-    {
-        $set = $this->newSet();
-
-        $this->expectException(InvalidInput::class);
-        $this->newOption($set, 'PRO', ['match' => 'all', 'items' => [
-            ['key' => 'nincs_ilyen', 'operator' => 'equals', 'value' => 'pro'],
-        ]]);
+        $this->newOption($set, 'Modul A', ['key' => 'modul_a']);
     }
 
     public function testASetOfAMissingEventIsNotFound(): void
@@ -198,11 +161,11 @@ final class AssignmentsTest extends RegistrationsTestCase
     {
         $set = $this->newSet();
         $this->newOption($set, 'Modul A');
-        $this->newOption($set, 'PRO', self::trackIs('pro'));
+        $this->newOption($set, 'PRO');
         $key = new RegistrationKey($this->event, '00A0');
         $this->seedRegistrations($key);
 
-        // C6: staff place by hand; eligibility is not checked (the registration has no track at all).
+        // C6: staff place by hand; only capacity is warned about.
         $this->place($key, $set, 'pro');
 
         $assignment = $this->sets->assignment($key, $set);
@@ -237,11 +200,10 @@ final class AssignmentsTest extends RegistrationsTestCase
         self::assertSame('modul_b', $this->sets->assignment($key, $set)?->optionKey);
     }
 
-    public function testStaffAreWarnedBeforePlacingIntoAFullOptionOrOneTheRegistrationDoesNotMeet(): void
+    public function testStaffAreWarnedBeforePlacingIntoAFullOption(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
-        $this->newOption($set, 'PRO', self::trackIs('pro'), ['capacity' => 5]);
+        $this->newOption($set, 'Modul A', ['capacity' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -261,14 +223,6 @@ final class AssignmentsTest extends RegistrationsTestCase
             $warn($second, 'modul_a')
         );
 
-        // PRO is open to the PRO track only: no track at all, and another one, do not meet it; PRO does.
-        $this->setTrack($second, null);
-        self::assertSame(['A jelentkező nem felel meg a lehetőség feltételeinek.'], $warn($second, 'pro'));
-        $this->setTrack($second, 'ifivezeto');
-        self::assertSame(['A jelentkező nem felel meg a lehetőség feltételeinek.'], $warn($second, 'pro'));
-        $this->setTrack($second, 'pro');
-        self::assertSame([], $warn($second, 'pro'));
-
         // Warnings never stop the placing (staff override), and an unknown option has none.
         $this->place($second, $set, 'modul_a');
         self::assertSame('modul_a', $this->sets->assignment($second, $set)?->optionKey);
@@ -278,7 +232,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAWarningIsNotComputedForARegistrationThePlacingWouldRefuse(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', ['capacity' => 1]);
         $missing = new RegistrationKey($this->event, '00A0');
 
         self::assertSame([], $this->sets->placementWarnings($missing, $set, 'modul_a'));
@@ -290,7 +244,7 @@ final class AssignmentsTest extends RegistrationsTestCase
     public function testAWarningIsNotComputedForASetOfAnotherEvent(): void
     {
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', ['capacity' => 1]);
         $other = new RegistrationKey($this->event + 1, '00A0');
         $this->seedRegistrations($other);
 
@@ -309,7 +263,7 @@ final class AssignmentsTest extends RegistrationsTestCase
         }
 
         $set = $this->newSet();
-        $this->newOption($set, 'Modul A', null, ['capacity' => 1]);
+        $this->newOption($set, 'Modul A', ['capacity' => 1]);
         $first = new RegistrationKey($this->event, '00A0');
         $second = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($first, $second);
@@ -334,17 +288,6 @@ final class AssignmentsTest extends RegistrationsTestCase
             static fn (array $call): bool => $call[0] === 'warning'
         )));
         self::assertSame('error', \WP_CLI::$calls[0][0]);
-    }
-
-    private function setTrack(RegistrationKey $key, ?string $track): void
-    {
-        global $wpdb;
-        $table = $wpdb->prefix . 'kalaka_field_values';
-        $row = ['event_id' => $key->eventId, 'code' => $key->code, 'field_key' => 'szolgalati_terulet'];
-        $wpdb->delete($table, $row);
-        if ($track !== null) {
-            $wpdb->insert($table, $row + ['version' => 1, 'value' => $track]);
-        }
     }
 
     public function testAnOptionOfAnotherSetIsRefused(): void

@@ -429,11 +429,12 @@ is no other participant-side edit.
 - **One availability base.** Whatever is shown or selectable is decided by
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
-  field's options, the options of an assignment set, price-ladder tiers,
-  offers and the adjudicated aid. In a form it reads the draft answers and
-  the event's values, on every render and again at submit; in the fee
-  components and the materializer it reads the registration's facts. It
-  never runs the materializer on a draft. Computed facts such as free seats
+  field's options (the options a ranking takes from an assignment set
+  included), price-ladder tiers, offers and the adjudicated aid. An
+  assignment-set option carries no condition of its own: the form's ranking
+  field decides who may pick it. In a form it reads the draft answers and
+  the event's values, on every render and again at submit; in the fee components and the materializer it reads the
+  registration's facts. It never runs the materializer on a draft. Computed facts such as free seats
   are put into the fact source by the caller; a congregation answer carries
   its ancestors in its own value, a snapshot of its path.
 - **Forms are rendered by the server; the page's script holds no
