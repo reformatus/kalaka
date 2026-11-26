@@ -16,6 +16,7 @@ use Kalaka\Foundation\Api\Actor\UserActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
+use Kalaka\Mail\Api\ManualMails;
 
 /**
  * The per-event „Jelentkezők” page with the grid (S37), and, until the admin frame (S72) is built, the
@@ -159,7 +160,7 @@ final class GridPage
         $mailGrants = [];
         if (!$full) {
             foreach ((new GrantQuery())->forUser($eventId, $actor->userId) as $grant) {
-                $mailGrants[$grant['id']] = in_array('kalaka_manual_mail', $grant['actions'], true);
+                $mailGrants[$grant['id']] = in_array(ManualMails::GRANT_ACTION, $grant['actions'], true);
             }
         }
         $tabs = array_map(static fn (HeldView $view): array => [
