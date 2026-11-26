@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Payments;
 
+use Kalaka\Forms\Api\ContentFrame;
+use Kalaka\Forms\Api\ElementRole;
+use Kalaka\Forms\Api\ThemeAdaptation;
+use Kalaka\Forms\Engine\ThemeAdapters;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Payments\Api\CardAmountLimits;
 use Kalaka\Payments\Api\OpenPayment;
@@ -12,6 +16,7 @@ use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\Rest\CardPaymentRoute;
 use Kalaka\Portal\Rest\CardReturnPage;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\Forms\TestThemeAdapter;
 use Kalaka\Tests\Integration\Portal\PortalTestCase;
 
 /** The card payment route's amount and popup input, its return endpoint, and the status read's `cardAmounts`. */
@@ -37,6 +42,7 @@ final class CardPopupTest extends PortalTestCase
     {
         delete_option(CardAmountLimits::OPTION);
         remove_all_filters(CardReturnPage::BARE_FILTER);
+        ThemeAdapters::reset();
         $GLOBALS['wp_rest_server'] = null;
 
         parent::tear_down();
@@ -274,6 +280,112 @@ final class CardPopupTest extends PortalTestCase
         self::assertStringStartsWith('Header', $html);
         self::assertStringContainsString("Footer\n", $html);
         self::assertStringNotContainsString('<!doctype', $html);
+    }
+
+    /** Makes a theme adapter that returns this (or throws it) the one in force. */
+    private function adaptation(ThemeAdaptation|\Closure $returns): void
+    {
+        $contributions = new Contributions();
+        $contributions->paymentProvider($this->provider);
+        $contributions->themeAdapter(new TestThemeAdapter($returns));
+        Contributions::record($contributions);
+        ThemeAdapters::reset();
+    }
+
+    private function popup(): string
+    {
+        return (string) $this->back(['to' => home_url('/jelentkezes/'), 'popup' => '1'])->get_data();
+    }
+
+    public function testAnAdaptersPageFrameIsRenderedByCoreAroundTheWholeBody(): void
+    {
+        $this->adaptation(new ThemeAdaptation([], frame: ContentFrame::Page));
+
+        $html = $this->popup();
+
+        self::assertStringContainsString(
+            '<div id="main-content"><div class="container"><div id="content-area" class="clearfix">'
+            . '<div id="left-area"><main class="kalaka-card-return">',
+            $html
+        );
+        self::assertStringContainsString("</script>\n</div></div></div></div>", $html);
+        self::assertStringNotContainsString('kalaka-card-return-frame', $html);
+    }
+
+    public function testAnAdaptersBodyClassesAreAddedAndItsDroppedOnesTakenOffOnThisPageOnly(): void
+    {
+        $this->adaptation(new ThemeAdaptation(
+            ['page_body' => ['full-width']],
+            pageBodyOff: ['right-sidebar']
+        ));
+        self::assertSame(
+            ['page', 'full-width'],
+            CardReturnPage::bodyClass(['page', 'right-sidebar', 'full-width'])
+        );
+
+        // The filter is hooked around the render only.
+        $this->popup();
+        self::assertFalse(has_filter('body_class', [CardReturnPage::class, 'bodyClass']));
+        self::assertFalse(has_filter('wp_robots', [CardReturnPage::class, 'robots']));
+    }
+
+    public function testAnAdapterValueOutsideTheClosedListsIsIgnoredAndTheNeutralFrameStays(): void
+    {
+        // A body class that is not one class name, and a role that does not exist: the adaptation is refused,
+        // the adapter is skipped, and the page is as with no adapter.
+        foreach (
+            [
+                static fn (): ThemeAdaptation => new ThemeAdaptation(
+                    ['page_body' => ['x"><script>']],
+                    frame: ContentFrame::Page
+                ),
+                static fn (): ThemeAdaptation => new ThemeAdaptation(['page_frame' => ['x']]),
+                // A frame outside the closed list: `ContentFrame::from()` throws a `ValueError`, an `Error`.
+                static fn (): ThemeAdaptation => new ThemeAdaptation([], frame: ContentFrame::from('free_html')),
+                static fn (): ThemeAdaptation => new ThemeAdaptation([], pageBodyOff: ['a b']),
+            ] as $malformed
+        ) {
+            $this->adaptation($malformed);
+
+            $html = $this->popup();
+
+            self::assertStringContainsString(
+                '<div class="kalaka-card-return-frame"><main class="kalaka-card-return">',
+                $html
+            );
+            self::assertStringNotContainsString('main-content', $html);
+            self::assertSame([], ThemeAdapters::current()->classes(ElementRole::PageBody));
+            self::assertSame(ContentFrame::Neutral, ThemeAdapters::current()->frame);
+        }
+    }
+
+    public function testAnAdapterThatThrowsLeavesTheNeutralFrame(): void
+    {
+        $this->adaptation(static function (): ThemeAdaptation {
+            throw new \RuntimeException('broken adapter');
+        });
+
+        self::assertStringContainsString('<div class="kalaka-card-return-frame">', $this->popup());
+    }
+
+    public function testABlockThemeHasItsOwnFrameAndTakesTheAdaptersBodyClasses(): void
+    {
+        if (!wp_get_theme('twentytwentyfive')->exists()) {
+            self::markTestSkipped('No block theme installed.');
+        }
+        switch_theme('twentytwentyfive');
+        $this->adaptation(new ThemeAdaptation(['page_body' => ['full-width']], frame: ContentFrame::Page));
+
+        $html = $this->popup();
+
+        self::assertTrue(wp_is_block_theme());
+        self::assertStringStartsWith('<!doctype html>', $html);
+        self::assertStringContainsString('<div class="wp-site-blocks">', $html);
+        self::assertStringContainsString('<main class="kalaka-card-return">', $html);
+        // No classic frame inside a block theme, and the adapter's body class on the body.
+        self::assertStringNotContainsString('main-content', $html);
+        self::assertStringNotContainsString('kalaka-card-return-frame', $html);
+        self::assertMatchesRegularExpression('/<body class="[^"]*\bfull-width\b/', $html);
     }
 
     public function testTheBareFilterGivesAMinimalDocumentInTheSitesLanguage(): void

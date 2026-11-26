@@ -105,14 +105,6 @@ final class Module extends AbstractModule
         . '.kalaka-pay-card .et_pb_button:focus-visible{outline:2px solid #333;outline-offset:2px}'
         . '.kalaka-pay-card .et_pb_button{margin-left:0}';
 
-    /**
-     * The card return page's content frame under Divi: `page.php`'s plain-page frame (`#main-content` →
-     * `.container` → `#content-area` → `#left-area`), which a page without the builder wraps its content in.
-     * [UNAPPROVED N820]
-     */
-    public const RETURN_FRAME = ['<div id="main-content"><div class="container">'
-        . '<div id="content-area" class="clearfix"><div id="left-area">', '</div></div></div></div>'];
-
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(private readonly DiviThemeAdapter $adapter = new DiviThemeAdapter())
     {
@@ -148,9 +140,6 @@ final class Module extends AbstractModule
         add_filter('et_required_module_assets', [$this, 'requiredAssets'], 10, 2);
         add_filter('et_dynamic_assets_modules_atf', [$this, 'aboveTheFoldAssets'], 11, 2);
         add_action('wp_enqueue_scripts', [$this, 'enqueue']);
-        add_filter('kalaka_card_return_frame', [$this, 'returnFrame']);
-        // After Divi's own `body_class` filters (priority 10), so its sidebar class is already there to be replaced.
-        add_filter('body_class', [$this, 'returnBodyClass'], 100);
     }
 
     /**
@@ -204,58 +193,6 @@ final class Module extends AbstractModule
         wp_register_style('kalaka-divi4', false, [], KALAKA_VERSION);
         wp_add_inline_style('kalaka-divi4', $css);
         wp_enqueue_style('kalaka-divi4');
-    }
-
-    /**
-     * The card return page's content frame: Divi's `page.php` frame, so the page sits in the theme's normal
-     * page content frame instead of flush left under the header. [UNAPPROVED N820]
-     *
-     * @internal the `kalaka_card_return_frame` filter
-     * @param mixed $frame core's neutral default, `[opening HTML, closing HTML]`
-     * @return mixed core's frame, or Divi's when the active theme is Divi 4
-     */
-    public function returnFrame($frame)
-    {
-        return $this->isDivi() ? self::RETURN_FRAME : $frame;
-    }
-
-    /**
-     * The card return page's body under Divi: Divi's full-width page body. The page has no layout meta of its own,
-     * so Divi's `body_class` filter leaves `#left-area` at its two-thirds default and, on the REST answer, adds a
-     * right-sidebar class; `et_full_width_page` makes the frame full-width and the sidebar classes are dropped.
-     * [UNAPPROVED N820]
-     *
-     * @internal the `body_class` filter
-     * @param list<string> $classes
-     * @return list<string>
-     */
-    public function returnBodyClass(array $classes): array
-    {
-        if (!$this->isDivi() || !self::isCardReturn()) {
-            return $classes;
-        }
-
-        return self::fullWidth($classes);
-    }
-
-    /**
-     * Divi's full-width page body: the sidebar layout classes off, `et_full_width_page` on.
-     *
-     * @param list<string> $classes
-     * @return list<string>
-     */
-    public static function fullWidth(array $classes): array
-    {
-        $classes = array_values(array_diff($classes, ['et_left_sidebar', 'et_right_sidebar']));
-        $classes[] = 'et_full_width_page';
-
-        return $classes;
-    }
-
-    /** Whether this request renders the card return page: the only `body_class` under a REST request. */
-    private static function isCardReturn(): bool
-    {
-        return defined('REST_REQUEST') && REST_REQUEST;
     }
 
     /**
