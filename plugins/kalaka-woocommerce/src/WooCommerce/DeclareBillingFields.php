@@ -16,7 +16,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * `billing_city` and `billing_address`, the code's own keys that a form field joins by key. A `form` field
  * of the same type under a key is adopted; a staff or system field, another type or another declarer's
  * field refuses the run. Run by `wp kalaka card-billing <event>`; there is no screen. (The owner's ruling
- * 2026-11-26.)
+ * 2026-11-26.) [UNAPPROVED N821]
  */
 final class DeclareBillingFields implements AdminUseCase
 {
