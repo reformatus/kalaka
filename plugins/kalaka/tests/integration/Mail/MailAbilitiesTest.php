@@ -113,7 +113,8 @@ final class MailAbilitiesTest extends MailAdminTestCase
         $this->as($this->admin->userId);
 
         $keyed = [
-            'event_id' => $event, 'body_id' => $body, 'codes' => ['00A0', '00A2'], 'request_key' => 'tesztkulcs01',
+            'event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => ['00A0', '00A2']],
+            'request_key' => 'tesztkulcs01',
         ];
         $first = $this->ability('kalaka/send-manual-mail')->execute($keyed);
         self::assertIsArray($first);
@@ -127,7 +128,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
         self::assertSame($first['batch_id'], $viaAbility['batch_id']);
 
         // The fresh path: the same keys, the same values; only the batch is a new one.
-        $fresh = ['event_id' => $event, 'body_id' => $body, 'codes' => ['00A0']];
+        $fresh = ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => ['00A0']]];
         $freshAbility = $this->ability('kalaka/send-manual-mail')->execute($fresh);
         $freshEntry = (new ManualMails())->send($fresh, $this->admin, $this->runner);
         self::assertIsArray($freshAbility);
@@ -136,10 +137,33 @@ final class MailAbilitiesTest extends MailAdminTestCase
         self::assertSame($freshEntry, $freshAbility);
     }
 
+    public function testTheAbilityResolvesAViewSelectionUnderTheCurrentUsersHeldView(): void
+    {
+        [$event, $body] = $this->ready();
+        $this->registration($event, '00A8', status: 'withdrawn');
+        $this->as($this->admin->userId);
+
+        $result = $this->ability('kalaka/send-manual-mail')->execute([
+            'event_id' => $event, 'body_id' => $body,
+            'selection' => [
+                'view' => 0,
+                'filters' => [['field' => 'status', 'operator' => 'isAny', 'value' => ['registered']]],
+            ],
+        ]);
+
+        self::assertIsArray($result);
+        self::assertSame(2, $result['queued']);
+        self::assertSame([], $result['skipped']);
+        self::assertCount(2, $this->deliveries());
+    }
+
     public function testTheSendResultCarriesThePauseAndTheHoldOnEveryPath(): void
     {
         [$event, $body] = $this->ready();
-        $input = ['event_id' => $event, 'body_id' => $body, 'codes' => ['00A0'], 'request_key' => 'tesztkulcs02'];
+        $input = [
+            'event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => ['00A0']],
+            'request_key' => 'tesztkulcs02',
+        ];
 
         $fresh = (new ManualMails())->send($input, $this->admin, $this->runner);
         self::assertFalse($fresh['paused']);
@@ -193,7 +217,7 @@ final class MailAbilitiesTest extends MailAdminTestCase
         $this->exec(new PauseMail(), []);
 
         $result = $this->ability('kalaka/send-manual-mail')->execute(
-            ['event_id' => $event, 'body_id' => $body, 'codes' => ['00A0', '00A2']]
+            ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => ['00A0', '00A2']]]
         );
 
         self::assertIsArray($result);
@@ -211,7 +235,9 @@ final class MailAbilitiesTest extends MailAdminTestCase
 
         $refusals = [];
         foreach (['00A5', '00A8'] as $code) {
-            $input = (string) wp_json_encode(['event_id' => $event, 'body_id' => $body, 'codes' => ['00A0', $code]]);
+            $input = (string) wp_json_encode([
+                'event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => ['00A0', $code]],
+            ]);
             $response = $this->runAbility('kalaka/send-manual-mail', $input);
             $data = $response->get_data();
             $refusals[] = [$response->get_status(), $data['code'] ?? null, $data['message'] ?? null];

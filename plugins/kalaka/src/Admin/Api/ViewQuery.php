@@ -84,6 +84,34 @@ final class ViewQuery extends Query
     }
 
     /**
+     * The codes of every registration the view's filter matches, narrowed by the grid's ad hoc filters and search
+     * when given: all of them, with no paging limit, in the default order (the sorszám order, then the code). The
+     * very conditions of `count()` and `page()`, so a bulk act on "everything the grid shows" reaches the rows
+     * the grid's pages add up to and no others. One statement.
+     *
+     * @return list<string>
+     * @throws InvalidInput when a narrowing filter names a column the view does not list
+     */
+    public function codesOf(HeldView $view, ?Narrowing $narrowing = null): array
+    {
+        [$conditions, $args] = $this->conditions($view->shape(), $view->bound());
+        [$narrow, $narrowArgs] = $this->narrowed($view, $narrowing);
+        $conditions .= $narrow;
+        array_push($args, ...$narrowArgs);
+
+        return $this->scope(function () use ($view, $conditions, $args): array {
+            $rows = $this->select(
+                'registration',
+                'SELECT r.code FROM %i r WHERE r.event_id = %d' . $conditions
+                . ' ORDER BY ' . RegistrationTables::serialOrder('r'),
+                [$this->table(RegistrationTables::REGISTRATIONS), $view->eventId, ...$args]
+            );
+
+            return array_map(static fn (array $row): string => (string) $row['code'], $rows);
+        });
+    }
+
+    /**
      * One page of the registrations the view's filter matches, each with the view's columns: the stored
      * status, the sorszám, the stored field values and the latest state of each listed decision kind
      * (null where there is none).

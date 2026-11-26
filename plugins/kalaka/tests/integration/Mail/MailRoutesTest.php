@@ -345,11 +345,12 @@ final class MailRoutesTest extends MailAdminTestCase
         [$event, $body] = $this->ready();
         $this->registration($event, '00A8', status: 'withdrawn');
         $this->as($this->admin->userId);
-        $first = $this->rest('POST', '/events/' . $event . '/mail/manual/preview', ['codes' => ['00A0']]);
+        $route = '/events/' . $event . '/mail/manual/preview';
+        $first = $this->rest('POST', $route, ['selection' => ['codes' => ['00A0']]]);
         self::assertSame(200, $first->get_status());
         self::assertSame([], $this->rest('GET', '/events/' . $event . '/mail/batches')->get_data());
         $sent = (new \Kalaka\Mail\Api\ManualMails())->send(
-            ['event_id' => $event, 'body_id' => $body, 'codes' => ['00A0', '00A2', '00A8']],
+            ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => ['00A0', '00A2', '00A8']]],
             $this->admin,
             $this->runner
         );
@@ -384,7 +385,7 @@ final class MailRoutesTest extends MailAdminTestCase
         $this->as($this->admin->userId);
 
         $response = $this->rest('POST', '/events/' . $event . '/mail/manual/preview', [
-            'codes' => ['00A0', '00A8', '00A5'],
+            'selection' => ['codes' => ['00A0', '00A8', '00A5']],
         ]);
 
         self::assertSame(200, $response->get_status());
@@ -392,6 +393,7 @@ final class MailRoutesTest extends MailAdminTestCase
             'queue' => ['00A0'],
             'skipped' => [['code' => '00A8', 'reason' => 'withdrawn']],
             'unknown' => ['00A5'],
+            'count' => 3,
             'names' => ['00A0' => 'Teszt Elek', '00A8' => 'Teszt Elek'],
             'bodies' => [['id' => $body, 'subject' => 'Sikeres jelentkezés']],
         ], $response->get_data());
@@ -404,9 +406,40 @@ final class MailRoutesTest extends MailAdminTestCase
         $this->as($this->admin->userId);
         $route = '/events/' . $event . '/mail/manual/preview';
 
-        self::assertSame(400, $this->rest('POST', $route, ['codes' => []])->get_status());
+        self::assertSame(400, $this->rest('POST', $route, ['selection' => ['codes' => []]])->get_status());
         self::assertSame(400, $this->rest('POST', $route, [])->get_status());
-        self::assertSame(400, $this->rest('POST', $route, ['codes' => ['00A0', '00A0']])->get_status());
+        $twice = ['selection' => ['codes' => ['00A0', '00A0']]];
+        self::assertSame(400, $this->rest('POST', $route, $twice)->get_status());
+    }
+
+    public function testThePreviewTakesAViewSelectionAndCountsTheRowsTheGridsFilterAndSearchLeave(): void
+    {
+        [$event] = $this->ready();
+        $this->registration($event, '00A8', status: 'withdrawn');
+        $this->as($this->admin->userId);
+        $route = '/events/' . $event . '/mail/manual/preview';
+
+        $all = $this->rest('POST', $route, ['selection' => ['view' => 0]]);
+        self::assertSame(200, $all->get_status());
+        self::assertSame(3, $all->get_data()['count']);
+        self::assertSame(['00A0', '00A2'], $all->get_data()['queue']);
+        self::assertSame([['code' => '00A8', 'reason' => 'withdrawn']], $all->get_data()['skipped']);
+
+        $filter = [['field' => 'status', 'operator' => 'isAny', 'value' => ['withdrawn']]];
+        $narrowed = $this->rest('POST', $route, ['selection' => ['view' => 0, 'filters' => $filter]]);
+        self::assertSame(1, $narrowed->get_data()['count']);
+        self::assertSame(['00A8'], array_keys($narrowed->get_data()['names']));
+
+        // The grid's own 400 for a filter it refuses, and the schema's for a malformed selection.
+        $bad = [['field' => 'nincs', 'operator' => 'contains', 'value' => 'a']];
+        $badFilter = ['selection' => ['view' => 0, 'filters' => $bad]];
+        self::assertSame(400, $this->rest('POST', $route, $badFilter)->get_status());
+        $both = ['selection' => ['view' => 0, 'codes' => ['00A0']]];
+        self::assertSame(400, $this->rest('POST', $route, $both)->get_status());
+
+        // A grant holder names their own view and grant; the master view is not theirs.
+        $this->as($this->holder($event));
+        self::assertSame(403, $this->rest('POST', $route, ['selection' => ['view' => 0]])->get_status());
     }
 
     public function testAGrantHolderPreviewsInsideTheViewAndGetsTheSameRefusalForAnUnknownAndAnOutsideCode(): void
@@ -416,7 +449,7 @@ final class MailRoutesTest extends MailAdminTestCase
         $this->as($this->holder($event));
         $route = '/events/' . $event . '/mail/manual/preview';
 
-        $inside = $this->rest('POST', $route, ['codes' => ['00A0', '00A2']]);
+        $inside = $this->rest('POST', $route, ['selection' => ['codes' => ['00A0', '00A2']]]);
         self::assertSame(200, $inside->get_status());
         self::assertSame(['00A0', '00A2'], $inside->get_data()['queue']);
         self::assertSame([], $inside->get_data()['unknown']);
@@ -426,7 +459,7 @@ final class MailRoutesTest extends MailAdminTestCase
 
         $refusals = [];
         foreach (['00A5', '00A8'] as $code) {
-            $response = $this->rest('POST', $route, ['codes' => ['00A0', $code]]);
+            $response = $this->rest('POST', $route, ['selection' => ['codes' => ['00A0', $code]]]);
             $data = $response->get_data();
             self::assertArrayNotHasKey('unknown', $data);
             self::assertArrayNotHasKey('bodies', $data);
@@ -440,7 +473,7 @@ final class MailRoutesTest extends MailAdminTestCase
     {
         [$event] = $this->ready();
         $this->as($this->holder($event));
-        $codes = ['codes' => ['00A0']];
+        $codes = ['selection' => ['codes' => ['00A0']]];
         self::assertSame(403, $this->rest('POST', '/events/99999/mail/manual/preview', $codes)->get_status());
 
         $this->as(self::factory()->user->create(['role' => 'subscriber']));

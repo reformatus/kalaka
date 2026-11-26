@@ -72,7 +72,10 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   view's own filter and bound value, never replaces them, so a grant holder never reaches a row the view does
   not hold. They apply only to the view's listed columns (anything else is `InvalidInput`), and their kind comes
   from the column's own type (`GridNarrowing`), never from the client. They reach `page()` (and its total) and
-  `aggregates()` only; `count()` for the dialog, `contains()` and the access checks never see them. The
+  `aggregates()` only, and `codesOf()`, which returns the codes of every matching row (no paging limit, the
+  same conditions as `page()`) for a bulk act on "all rows the grid shows" (`Api\GridSelection`, through the one
+  held-view path `Access::viewOf()` that the rows route also takes); `count()` for the dialog, `contains()` and
+  the access checks never see them. The
   sorszám range is computed in SQL as `RegistrationList` computes it. Text matches ignore case and accents
   (`utf8mb4_unicode_520_ci`); a stored `1` is yes, a stored `0` is no and no value is neither.
 - The counted members of a view (`counts`) are stored only by full access, and

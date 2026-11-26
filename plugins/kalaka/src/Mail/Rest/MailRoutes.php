@@ -48,8 +48,11 @@ use Kalaka\Mail\Pause\MailState;
  *   `name` (the display name through the viewer's held view; null without name access).
  * - `GET /events/{id}/mail/batches` and `…/batches/{batch}`: the manual mail's own record, never the deliveries;
  *   a batch's members carry `name` beside `code`.
- * - `POST /events/{id}/mail/manual/preview` with `{codes}`: who a send of those codes would reach; `names` maps
- *   each queued or skipped code to its display name through the viewer's held view (null without name access).
+ * - `POST /events/{id}/mail/manual/preview` with `{selection}`: who a send to the selection would reach. The
+ *   selection is `{codes}`, or `{view, grant, filters?, search?}`: every row of the viewer's held view that the
+ *   grid's filters and search leave, across all pages, resolved here as the grid's rows route reads them. `count`
+ *   is the number of codes the selection names now; `names` maps each queued or skipped code to its display name
+ *   through the viewer's held view (null without name access).
  */
 final class MailRoutes
 {
@@ -94,13 +97,14 @@ final class MailRoutes
             'permission_callback' => $full,
             'args' => ['id' => $id, 'batch' => ['type' => 'integer', 'minimum' => 1, 'required' => true]],
         ]);
-        // The codes are the use case's own schema (at least one, each once), so a client learns the rule before a send.
-        $codes = (new SendManualMail())->inputSchema()['properties']['codes'] ?? [];
+        // The selection is the use case's own schema (codes, or a view with the grid's filters and search), so a
+        // client learns the rule before a send.
+        $selection = (new SendManualMail())->inputSchema()['properties']['selection'] ?? [];
         Boundary::route(self::NAMESPACE, self::EVENT . '/mail/manual/preview', [
             'methods' => 'POST',
             'callback' => [self::class, 'preview'],
             'permission_callback' => [self::class, 'permissionToPreview'],
-            'args' => ['id' => $id, 'codes' => ['required' => true] + $codes],
+            'args' => ['id' => $id, 'selection' => ['required' => true] + $selection],
         ]);
     }
 
@@ -286,7 +290,7 @@ final class MailRoutes
     }
 
     /**
-     * Who a send of the codes would reach. The read checks the actor's access to every code first, an unknown
+     * Who a send to the selection would reach. The read checks the actor's access to every code first, an unknown
      * code and one outside the view alike; only then does anything about the event come back, the bodies a
      * send may use (published, `{id, subject}`) among it. `names` holds the display name of each queued or
      * skipped code through the viewer's held view (null without name access).
@@ -297,7 +301,7 @@ final class MailRoutes
     {
         $eventId = (int) $request->get_param('id');
         $plan = (new ManualMails())->preview(
-            ['event_id' => $eventId, 'codes' => $request->get_param('codes')],
+            ['event_id' => $eventId, 'selection' => $request->get_param('selection')],
             new UserActor(get_current_user_id())
         );
         $codes = array_merge($plan['queue'], array_column($plan['skipped'], 'code'));
@@ -306,6 +310,7 @@ final class MailRoutes
             'queue' => $plan['queue'],
             'skipped' => $plan['skipped'],
             'unknown' => $plan['unknown'],
+            'count' => $plan['count'],
             'names' => self::names($eventId, $codes),
             'bodies' => (new MailBodies())->publishedOf($eventId),
         ]);

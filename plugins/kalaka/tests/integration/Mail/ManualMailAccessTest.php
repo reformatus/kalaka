@@ -52,7 +52,7 @@ final class ManualMailAccessTest extends GrantTestCase
     {
         try {
             (new ManualMails())->send(
-                ['event_id' => $event ?? $this->event, 'body_id' => $this->body, 'codes' => $codes],
+                ['event_id' => $event ?? $this->event, 'body_id' => $this->body, 'selection' => ['codes' => $codes]],
                 $actor ?? new UserActor($this->user),
                 $this->runner
             );
@@ -118,11 +118,10 @@ final class ManualMailAccessTest extends GrantTestCase
 
     public function testThePreviewReadsTheSanitizedInputTheRunnerChecks(): void
     {
-        $input = ['event_id' => (string) $this->event, 'codes' => ['00A0']];
+        $input = ['event_id' => (string) $this->event, 'selection' => ['codes' => ['00A0']]];
 
         $checked = Runner::checkedInput(['type' => 'object', 'properties' => [
             'event_id' => ['type' => 'integer'],
-            'codes' => ['type' => 'array', 'items' => ['type' => 'string']],
         ]], $input, 'test');
         $plan = (new ManualMails())->preview($input, $this->admin);
 

@@ -136,7 +136,9 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   warnings read it, never the deliveries table.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it, except `kalaka/send-manual-mail`, an event use case carried by the
-  grant action `kalaka_manual_mail` for codes inside the grant's view.
+  grant action `kalaka_manual_mail` (`Api\ManualMails::GRANT_ACTION`) for the registrations its `selection` names,
+  which must all be inside the grant's view: listed codes, or the rows of a view the holder holds that the grid's
+  filters and search leave.
 - A manual mail is one send batch (`Manual\MailBatch`, `kalaka_mail_batches`)
   and its members (`kalaka_mail_batch_members`: a code and an outcome, queued
   or skipped because withdrawn or removed; never an address, a name or rendered
@@ -145,13 +147,19 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   registration gets a batch's mail once. `SendManualMail` only inserts the
   batch, the members and the pending deliveries, in one transaction, and
   writes no registration and runs no evaluation; it reads no WordPress data in
-  its transaction (the body's facts come from `SendManualMail::prepared()`, which
-  the ability's `$prepare` and `Api\ManualMails::send()` both call). The result
+  its transaction (the body's facts, and the codes of a view selection, come from
+  `SendManualMail::prepared()`, which the ability's `$prepare` and `Api\ManualMails::send()` both call). The
+  input's `selection` is `{codes}` (at least one, each once, no maximum) or `{view, grant, filters?, search?}`:
+  every row of the held view that the grid's filters and search leave, across all pages, resolved to codes by
+  `Admin\Api\GridSelection` (the grid's own held view, `Access::viewOf()`, and `ViewQuery::codesOf()`, so a
+  hidden row is never reached and a bad filter is the grid's own refusal), read again at every send, so it
+  follows the data; the access check then runs on the resolved codes, and a selection that matches nothing is
+  refused. The result
   carries the caller's warnings, `paused` and `held`, on every path: a grant
   holder cannot read the sender's state, so this is where they learn the mail waits. The
   optional `request_key` makes a repeat in the same event return the first
-  batch and queue nothing; the same key for another body or other codes is
-  refused. A send's plan (which codes queue, which are skipped and why, which
+  batch and queue nothing; the same key for another body or other codes (a view selection's included, as it
+  resolves now) is refused. A send's plan (which codes queue, which are skipped and why, which
   are no registration of the event) is the one `SendManualMail::plan()`, which
   the use case runs and the command line's preview shows; a code that is no
   registration of the event refuses the batch (`UnknownRegistrationCode`). Any
@@ -199,7 +207,8 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   read's own. They are for full access, except the manual mail's preview: its gate
   is `Access::mayReachAdmin()` and `Api\ManualMails::preview()` runs
   `AdminAccess::check()` before the plan, so an unknown code and a code outside the
-  view give the same refusal, and the event's existence is looked for after it.
+  view give the same refusal, and the event's existence is looked for after it. The preview takes the same
+  `selection` and returns `count`, the number of codes it resolves now, beside the plan.
   The failed list and the batch's members show each registration's code and its
   display name (resolved through `Admin\Api\ViewQuery::namesOf()` on the viewer's
   held view, so a viewer without name access sees the code only), never an

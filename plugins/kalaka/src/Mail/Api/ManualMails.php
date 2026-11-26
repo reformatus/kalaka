@@ -37,7 +37,8 @@ final class ManualMails
 
     /**
      * Runs the use case, the same one the ability runs: `SendManualMail::prepared()` reads the body's facts
-     * from WordPress first, outside the transaction, and the result carries the pause and the event's hold as
+     * from WordPress and resolves a view selection to codes under the actor's held view first, outside the
+     * transaction (the send reads the rows again every time it runs), and the result carries the pause and the event's hold as
      * the use case returns them.
      *
      * @param array<string, mixed> $input the use case's input
@@ -50,25 +51,29 @@ final class ManualMails
     public function send(array $input, Actor $actor, ?Runner $runner = null): array
     {
         /** @var array{batch_id: int, queued: int, skipped: list<array{code: string, reason: string}>, repeat: bool, paused: bool, held: bool} $result */
-        $result = ($runner ?? Runner::current())->run(SendManualMail::prepared($input), $input, $actor);
+        $result = ($runner ?? Runner::current())->run(SendManualMail::prepared($input, $actor), $input, $actor);
 
         return $result;
     }
 
     /**
-     * What a send of these codes would do, checked first and writing nothing: the shape of `event_id` and
-     * `codes` checked and sanitized by the Runner's own input check on the use case's schema, then the actor's
-     * access to those codes (`AdminAccess::check()`,
-     * the use case's own check, so an unknown code and a code outside the actor's view give the same refusal),
-     * then the event, and only then the use case's own plan (`SendManualMail::plan()`).
+     * What a send of this selection would do, checked first and writing nothing: the shape of `event_id` and
+     * `selection` checked and sanitized by the Runner's own input check on the use case's schema, a view
+     * selection resolved to codes under the actor's held view (`SendManualMail::resolving()`, the same
+     * resolution a send makes), then the actor's access to those codes (`AdminAccess::check()`, the use case's
+     * own check, so an unknown code and a code outside the actor's view give the same refusal), then the event,
+     * and only then the use case's own plan (`SendManualMail::plan()`). `count` is the number of codes the
+     * selection names now, whatever becomes of them.
      *
-     * @param array<string, mixed> $input `event_id` and `codes`
+     * @param array<string, mixed> $input `event_id` and `selection`
      * @return array{
      *     queue: list<string>, skipped: list<array{code: string, reason: string}>, unknown: list<string>,
-     *     outcomes: array<string, string>,
+     *     outcomes: array<string, string>, count: int,
      * }
-     * @throws InvalidInput when `event_id` or `codes` are not as the use case's schema has them
-     * @throws \Kalaka\Foundation\Api\Error\PermissionDenied when the actor's access does not hold every code
+     * @throws InvalidInput when `event_id` or `selection` are not as the use case's schema has them, or a view
+     *   selection's filter or search is one the grid refuses
+     * @throws \Kalaka\Foundation\Api\Error\PermissionDenied when the actor holds no such view, or the actor's
+     *   access does not hold every code
      * @throws NotFound when there is no such event
      */
     public function preview(array $input, Actor $actor): array
@@ -77,19 +82,21 @@ final class ManualMails
         $schema = $useCase->inputSchema();
         $shape = [
             'type' => 'object',
-            'properties' => array_intersect_key((array) $schema['properties'], ['event_id' => 1, 'codes' => 1]),
-            'required' => ['event_id', 'codes'],
+            'properties' => array_intersect_key((array) $schema['properties'], ['event_id' => 1, 'selection' => 1]),
+            'required' => ['event_id', 'selection'],
             'additionalProperties' => false,
         ];
         $input = Runner::checkedInput($shape, $input, $useCase::name());
+        $useCase = SendManualMail::resolving($input, $actor);
         AdminAccess::check($useCase, $input, $actor);
 
         $eventId = (int) $input['event_id'];
         $this->events->find($eventId) ?? throw new NotFound();
-        /** @var list<string> $codes */
-        $codes = array_values(array_map('strval', (array) $input['codes']));
+        $codes = $useCase->codesOf($input);
 
-        return SendManualMail::plan($codes, $this->registrations->statusesOf($eventId, $codes));
+        $plan = SendManualMail::plan($codes, $this->registrations->statusesOf($eventId, $codes));
+
+        return $plan + ['count' => count($codes)];
     }
 
     /**

@@ -30,7 +30,7 @@ final class SendManualMailTest extends MailBodyTestCase
      */
     private function input(int $event, int $body, array $codes, array $more = []): array
     {
-        return ['event_id' => $event, 'body_id' => $body, 'codes' => $codes] + $more;
+        return ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => $codes]] + $more;
     }
 
     /** @return array{int, int} the event and a published body of it, with two registered registrations */

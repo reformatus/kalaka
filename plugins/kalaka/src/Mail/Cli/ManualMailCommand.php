@@ -84,7 +84,7 @@ final class ManualMailCommand
             $input = [
                 'event_id' => $eventId,
                 'body_id' => self::body($assocArgs),
-                'codes' => self::codes($assocArgs, $eventId),
+                'selection' => ['codes' => self::codes($assocArgs, $eventId)],
             ];
             if (($assocArgs['layout'] ?? true) === false) {
                 $input['layout'] = false;
@@ -95,7 +95,7 @@ final class ManualMailCommand
             // The preview checks the actor's access first: a user holding a grant learns nothing about codes
             // outside their views, an unknown code included.
             $actor = CliActor::current();
-            $preview = $this->mails->preview(['event_id' => $eventId, 'codes' => $input['codes']], $actor);
+            $preview = $this->mails->preview(['event_id' => $eventId, 'selection' => $input['selection']], $actor);
             $skipped = array_map(
                 static fn (array $row): string => $row['code'] . ' (' . $row['reason'] . ')',
                 $preview['skipped']
