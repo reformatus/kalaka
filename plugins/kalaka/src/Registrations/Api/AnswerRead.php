@@ -9,7 +9,7 @@ use Kalaka\Foundation\Api\Money\Money;
 
 /**
  * One stored answering act of a registration (a fact): which request, what answer, who and when. Its `id` is the
- * key the "answered" mail will take, through `subject()`. A new one is built with id 0. [UNAPPROVED N1]
+ * key the "answered" mail takes, through `subject()`. A new one is built with id 0. [UNAPPROVED N1]
  */
 final readonly class AnswerRead
 {

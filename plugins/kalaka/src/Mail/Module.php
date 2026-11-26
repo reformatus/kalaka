@@ -15,6 +15,7 @@ use Kalaka\Mail\Api\MailQueue;
 use Kalaka\Mail\Body\ActionMailComposer;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\BodyInUse;
+use Kalaka\Mail\Body\MailBlocks;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
 use Kalaka\Mail\Pause\PauseCause;
@@ -105,8 +106,20 @@ CREATE TABLE {prefix}kalaka_mail_layouts (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
-    /** Kaláka's gated blocks a mail body may hold: the condition blocks (mail.md, "Content"). */
-    public const BODY_BLOCKS = ['kalaka/if', 'kalaka/else-if', 'kalaka/else'];
+    /**
+     * Kaláka's blocks a mail body may hold besides its own: the condition blocks (mail.md, "Content").
+     */
+    public const BODY_BLOCKS = [
+        'kalaka/if',
+        'kalaka/else-if',
+        'kalaka/else',
+    ];
+
+    /** The mail body's own blocks, which no other editor offers (`BlockHost::$hostOnly`): the two money blocks. */
+    public const OWN_BLOCKS = [
+        MailBlocks::MONEY_BLOCK,
+        MailBlocks::TRANSFER_BLOCK,
+    ];
 
     private ?Sender $sender = null;
 
@@ -131,7 +144,7 @@ SQL;
         $to->siteWarning(new PauseWarning(PauseCause::Errors, $state));
         $to->siteWarning(new PauseWarning(PauseCause::Manual, $state));
         $to->periodicStep($this->sender());
-        $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE));
+        $to->blockHost(new BlockHost(self::BODY_BLOCKS, MailPosts::POST_TYPE, hostOnly: self::OWN_BLOCKS));
     }
 
     public function boot(): void
@@ -148,6 +161,7 @@ SQL;
     {
         $this->registerPostType();
         $this->registerMeta();
+        MailBlocks::register();
 
         // A mail's version is a revision ID, so revisions of mail documents are never pruned.
         add_filter('wp_' . MailPosts::POST_TYPE . '_revisions_to_keep', static fn (): int => -1);

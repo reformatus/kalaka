@@ -39,4 +39,9 @@ Divi4 is the Divi 4 theme adapter: one extension plugin, `kalaka-divi4`
   Functional too: on an iPhone (Divi's `body.iphone`) it gives Kaláka's own
   checkboxes and radio buttons their native appearance back, which Divi's
   contact-form rule sets to `initial` (0×0).
+- The registrant's money table (`kalaka/status`) is mapped onto Divi's table look
+  by the same stylesheet, on pages whose content places that block or its
+  shortcode: Divi gives a `td` a `#eee` top line and a `th` none, so the first
+  column gets the same line (not on the rows core's own separator, `kalaka-rule`,
+  marks). Core keeps the table's structure and its emphasis (`em`, `strong`).
 - The plugin stores nothing.

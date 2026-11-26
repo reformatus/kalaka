@@ -63,8 +63,9 @@ be:
 
 A date type **may differ per registration** (e.g. 14 days after
 registering). It is computed only from registration facts and absolute points, never from another derived date. Core declares
-**payment due**: N days, configured per event, after the registration last
-became `registered` ([Money](money.md#core-money-scope)). Date types are an extension point that runs inside the
+**payment due**: N days, configured per event, after the later of the moment the registration last
+became `registered` and its last changed answer to a request, and none while a request awaits an answer
+([Money](money.md#core-money-scope)). Date types are an extension point that runs inside the
 transaction and takes one immutable input; the periodic run computes them
 in PHP for registrations in published events. If that ever becomes slow, the
 computed date is cached in a column on the registration.

@@ -9,13 +9,15 @@ title: Money
 - **Core:** a fixed price per registration, full payment, an event's extra
   charges and its donation, and manual charges and discounts, with its **payment due** date type. Core ships
   no money field types.
-- **Payment due** is N days after the registration last became `registered`
-  (at submit, admission or restore); N is configured per event (IVK: 7
-  days). A registration admitted from the waitlist counts from its
-  admission, and a restore restarts the clock. There are no absolute payment
-  deadlines. **Passing payment due never cancels a registration:** an
-  unconfirmed registration stays `registered` until someone withdraws or
-  removes it ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+- **Payment due** is N days after the later of the moment the registration
+  last became `registered` (at submit, admission or restore) and its last
+  answer to a request, a changed yes or no or amount (a note added alone does
+  not move it); N is configured per event (IVK: 7 days). While a request
+  awaits an answer it has no due date. A registration admitted from the
+  waitlist counts from its admission, and a restore restarts the clock. There
+  are no absolute payment deadlines. **Passing payment due never cancels a
+  registration:** an unconfirmed registration stays `registered` until
+  someone withdraws or removes it ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 - **Plugins:** deposits, payment tiers (the price ladder, with its tier
   quotas), late fees, financial aid, sponsor or church support, the
   congregation share and the wallet. Core keeps full support for extending it
@@ -342,7 +344,8 @@ such as lunch or a donation.
   it chose.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
-  "now" and never from the submit: payment due, everything. A price-ladder tier chosen at submit is kept, also at an
+  "now" and never from the submit: payment due, everything; payment due alone also restarts at a later answer to
+  a request. A price-ladder tier chosen at submit is kept, also at an
   admission from the waitlist, at the tier's current amount; any date guard on
   an early price is the form's condition on `price_tier`'s options, checked at
   submit. A waitlisted registration is not registered, so an admission from

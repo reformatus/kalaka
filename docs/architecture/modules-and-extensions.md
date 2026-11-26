@@ -345,9 +345,11 @@ flowchart LR
     [Failure isolation](#failure-isolation) is not built yet for any
     contribution. The source runs no other code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
-    blocks) that an editor other than a form's may insert, for a post type or a
-    block editor context. Forms gates its blocks by post type and lets a host
-    allow some elsewhere, without knowing the module that declares it.
+    blocks) that an editor other than a form's may insert, and its own blocks
+    that no other editor offers, for a post type or a block editor context.
+    Forms gates its blocks by post type and lets a host allow some elsewhere;
+    a host's own blocks it hides in every other editor and keeps out of forms,
+    without knowing the module that declares it.
 - **Date types** are an inside point: one immutable input (the
   registration's facts and the event's points) in, a date or nothing out; no
   database access, no hooks ([Events](events-and-forms.md#date-references)).

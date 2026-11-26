@@ -168,8 +168,10 @@ the waitlist and reference codes
     source names (`RequestSource::seatPool()`, a plain read; null, as for aid, means the request has no seat and no
     seat call; every offer has a pool, limited or not). The pool lock is taken before the registration lock. A full
     pool never refuses the "yes": the result says `over_limit`.
-  - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
-    confirmation, then mail) follows in the same run.
+  - The act writes no ledger line or decision; its one mail is "answered", queued in the act's own transaction
+    through `Mail\Api\ActionMails::due()`, keyed by the answer record (`AnswerRead::subject()`), so every
+    answering act mails once and a repeat that writes nothing queues none. The registration is touched, so the
+    evaluation (money, then confirmation, then mail) follows in the same run.
 
 - A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
   and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore,

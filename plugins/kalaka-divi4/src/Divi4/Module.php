@@ -91,6 +91,14 @@ final class Module extends AbstractModule
         . '.et_pb_contact_form [data-kalaka-ranking] [data-kalaka-dragging] [data-kalaka-row]'
         . '{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}';
 
+    /**
+     * The registrant's money table (`kalaka/status`) in Divi's look: Divi gives a table cell `td` a `#eee` line on
+     * its top edge and a row header `th` none, so the first column gets the same line and the rows read as one
+     * (every row but the ones with core's own darker separator, `kalaka-rule`). Core keeps the structure (the
+     * columns, the popover) and the emphasis (`em`, `strong`); nothing else of the table is styled here.
+     */
+    public const MONEY_TABLE = '.kalaka-status table.kalaka-money tr:not(.kalaka-rule)>th{border-top:1px solid #eee}';
+
     /** Constructing hooks nothing (extensions are collected again by the Playground smoke test). */
     public function __construct(private readonly DiviThemeAdapter $adapter = new DiviThemeAdapter())
     {
@@ -144,14 +152,17 @@ final class Module extends AbstractModule
     public function enqueue(): void
     {
         $post = get_post();
-        if (!$this->isDivi() || !is_singular() || $post === null || !self::holdsForm($post->post_content)) {
+        if (!$this->isDivi() || !is_singular() || $post === null) {
+            return;
+        }
+        $css = (self::holdsForm($post->post_content)
+            ? self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::NUMBER . self::RANKING : '')
+            . (self::holdsMoneyTable($post->post_content) ? self::MONEY_TABLE : '');
+        if ($css === '') {
             return;
         }
         wp_register_style('kalaka-divi4', false, [], KALAKA_VERSION);
-        wp_add_inline_style(
-            'kalaka-divi4',
-            self::DIV_FIELDS . self::IPHONE_CONTROLS . self::BASE . self::NUMBER . self::RANKING
-        );
+        wp_add_inline_style('kalaka-divi4', $css);
         wp_enqueue_style('kalaka-divi4');
     }
 
@@ -162,6 +173,12 @@ final class Module extends AbstractModule
     public static function holdsForm(string $content): bool
     {
         return has_block('kalaka/form', $content) || str_contains($content, '[kalaka_form');
+    }
+
+    /** Whether the content places the registrant's status block, which holds the money table: block or shortcode. */
+    public static function holdsMoneyTable(string $content): bool
+    {
+        return has_block('kalaka/status', $content) || str_contains($content, '[kalaka_status');
     }
 
     /** Whether the active theme is Divi 4 (the adapter's own rule). */
