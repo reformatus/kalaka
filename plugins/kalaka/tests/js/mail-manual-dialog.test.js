@@ -283,7 +283,8 @@ describe( 'the answer', () => {
 		await choose( '20' );
 		await submit();
 		expect( notices( 'info' ) ).toEqual( [ 'Ez a levél korábban már a küldési sorba került (2 levél), ezért újabb levél nem került a sorba.' ] );
-		expect( host.textContent ).not.toContain( 'a küldési sorba került.' + '1' );
+		// The repeat sentence replaces the queued one: „2 levél a küldési sorba került.” is absent.
+		expect( host.textContent ).not.toContain( '2 levél a küldési sorba került.' );
 	} );
 } );
 
