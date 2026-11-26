@@ -246,4 +246,39 @@ final class CardAmountTest extends PortalTestCase
         $this->expectException(CardPaymentInFlight::class);
         (new CardPayments())->start($key, null, '99999999');
     }
+
+    /** @dataProvider textuallyMalformedAmounts */
+    public function testNothingPayableIsUnavailableBeforeAMalformedAmount(string $amount): void
+    {
+        $key = $this->stored('12A3');
+
+        $this->expectException(CardPaymentUnavailable::class);
+        (new CardPayments())->start($key, null, $amount);
+    }
+
+    /** @dataProvider textuallyMalformedAmounts */
+    public function testARequestInFlightIsRefusedBeforeAMalformedAmount(string $amount): void
+    {
+        $key = $this->stored('12A3');
+        $this->charge($key, '12000');
+        $this->provider->latest = new OpenPayment(
+            OpenPaymentState::Processing,
+            new \DateTimeImmutable('2026-11-30 09:30:00'),
+            '501'
+        );
+
+        $this->expectException(CardPaymentInFlight::class);
+        (new CardPayments())->start($key, null, $amount);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function textuallyMalformedAmounts(): array
+    {
+        return [
+            'letters' => ['abc'],
+            'negative' => ['-5'],
+            'a space' => ['12 000'],
+            'empty' => [''],
+        ];
+    }
 }

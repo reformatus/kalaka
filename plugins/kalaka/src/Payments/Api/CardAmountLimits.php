@@ -9,8 +9,9 @@ use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 
 /**
- * The limits of a card payment's amount, computed once for the start (`StartCardPayment`) and for the status read
- * alike, so the page and the endpoint can never disagree. The maximum is what is payable now (`full`: no overpaying).
+ * The limits of a card payment's amount, computed once for the start (`StartCardPayment`) and, from #252 (part 3),
+ * for the status read alike, so the page and the endpoint can never disagree. The maximum is what is payable now
+ * (`full`: no overpaying).
  * The minimum is the site's (the option `kalaka_card_minimum`, below), or the payable unit when the site sets none
  * for the currency, and never above `full`: when `full` is below the minimum, only exactly `full` is accepted.
  *
