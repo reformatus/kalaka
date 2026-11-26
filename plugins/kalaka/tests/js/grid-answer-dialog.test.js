@@ -211,15 +211,12 @@ describe( 'one message per field', () => {
 } );
 
 describe( 'the note', () => {
-	test( 'a yes to an offer asks for its reason and sends nothing without it', async () => {
+	test( 'a yes to an offer names the note its reason and sends without one', async () => {
 		await render( offer );
 		await choose( 'yes' );
 		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( MONEY.reasonField );
 		await submit();
-		expect( host.textContent ).toContain( MONEY.noteRequired );
-		expect( apiFetch ).not.toHaveBeenCalled();
-		await typeNote( 'Telefonon megerősítve' );
-		await submit();
+		expect( host.textContent ).not.toContain( MONEY.noteRequired );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 

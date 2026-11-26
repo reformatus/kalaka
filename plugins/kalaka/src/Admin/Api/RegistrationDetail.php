@@ -146,13 +146,14 @@ final class RegistrationDetail
         }
         $answer = $carried(Requests::ANSWER);
         if ($answer) {
-            $read['requests'] = $this->requestsPart($key, $event->currency->value);
+            $read['requests'] = $this->requestsPart($key, $event->currency->value, $registered);
         }
         // The status acts: the grant carries the act's action and the status allows it now (the server decides, the
         // panel keeps no status logic). [UNAPPROVED N513]
         $statusActs = $this->statusActs->allowedFor($key);
         $read['can'] = [
-            'answer_request' => $answer,
+            // A request is answerable only while the registration is registered, as the grid column says (N655).
+            'answer_request' => $answer && $registered,
             'view_money' => $viewMoney,
             'record_money' => $record,
             // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
@@ -162,7 +163,10 @@ final class RegistrationDetail
             'unconfirm' => $canUnconfirm,
         ];
         foreach (StatusAct::cases() as $act) {
-            $read['can'][$act->value] = $carried($act->action()) && in_array($act, $statusActs, true);
+            // A restore carries no grant action: full access only.
+            $action = $act->action();
+            $held = $action === null ? $full : $carried($action);
+            $read['can'][$act->value] = $held && in_array($act, $statusActs, true);
         }
 
         return $read;
@@ -243,14 +247,16 @@ final class RegistrationDetail
 
     /**
      * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`
-     * while the source's answer field holds none (the field is the truth), else the act's record says
+     * while the source's answer field holds none (the field is the truth) and the registration is registered,
+     * `inactive` for such an unanswered request on a registration that is not registered (waitlisted, withdrawn,
+     * removed: the grid column's meaning, N655), else the act's record says
      * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
      * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
      * "yes" that would go over the limit (B1). No hold is read: awaiting is computed.
      *
      * @return array{currency: string, items: list<array<string, mixed>>}
      */
-    private function requestsPart(RegistrationKey $key, string $currency): array
+    private function requestsPart(RegistrationKey $key, string $currency, bool $registered): array
     {
         $items = [];
         foreach ($this->requests->states($key) as $state) {
@@ -262,7 +268,10 @@ final class RegistrationDetail
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
-                'state' => $state->awaits() ? 'awaiting' : ($answer?->approved === true ? 'approved' : 'refused'),
+                'fields' => ['ask' => $state->request->askFields, 'answer' => $state->request->answerField],
+                'state' => $state->awaits()
+                    ? ($registered ? 'awaiting' : 'inactive')
+                    : ($answer?->approved === true ? 'approved' : 'refused'),
                 'amount' => $answer?->amount?->amount(),
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved

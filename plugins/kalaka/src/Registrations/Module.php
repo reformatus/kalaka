@@ -143,7 +143,6 @@ SQL;
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
-            'kalaka_restore_registration',
             'kalaka_regenerate_link',
             Requests::ANSWER,
         ];
@@ -176,18 +175,24 @@ SQL;
         );
         Abilities::register(
             new Status\WithdrawRegistration(),
-            'Jelentkezés visszavonása',
-            'Egy jelentkezés visszavont állapotba helyezése, mert a jelentkező visszalépett; a helyei felszabadulnak.'
+            // [UNAPPROVED T977, T978] Before: 'Jelentkezés visszavonása', 'Egy jelentkezés visszavont állapotba
+            // helyezése, mert a jelentkező visszalépett; a helyei felszabadulnak.'
+            'Megjelölés lemondottként',
+            'Egy jelentkezés megjelölése lemondottként, ha a jelentkező lemondta; a helyei felszabadulnak.'
         );
         Abilities::register(
             new Status\RemoveRegistration(),
-            'Jelentkezés törlése',
-            'Egy jelentkezés törölt állapotba helyezése indoklással; a helyei felszabadulnak, az adatai megmaradnak.'
+            // [UNAPPROVED T979, T980] Before: 'Jelentkezés törlése', 'Egy jelentkezés törölt állapotba helyezése
+            // indoklással; a helyei felszabadulnak, az adatai megmaradnak.'
+            'Megjelölés töröltként',
+            'Egy jelentkezés megjelölése töröltként; a helyei felszabadulnak, az adatai megmaradnak.'
         );
         Abilities::register(
             new Status\RestoreRegistration(),
             'Jelentkezés visszaállítása',
-            'Egy visszavont vagy törölt jelentkezés visszaállítása rögzített állapotba; újra lefoglalja a helyeit.'
+            // [UNAPPROVED T981] The lektor's text; the label stays.
+            'Egy lemondott vagy törölt jelentkezés visszaállítása az előző állapotába: ha rögzített volt, '
+            . 'újra lefoglalja a helyeit, ha várólistás volt, visszakerül a várólistára.'
         );
     }
 }

@@ -8,7 +8,8 @@ namespace Kalaka\Registrations\Api;
  * The four acts that change a registration's status (registrations-and-identity.md, "Status, capacity and
  * waitlist"): admit from the waitlist, withdraw, remove and restore. Each is one staff act on one registration;
  * nothing else changes a status after the submit set it. The table of what each allows and does is here, once:
- * the use cases, the preview and the detail read's `can` flags all read it. [UNAPPROVED N510]
+ * the use cases, the preview and the detail read's `can` flags all read it. A restore is full access only: it
+ * carries no grant action (`action()` is null). [UNAPPROVED N510]
  */
 enum StatusAct: string
 {
@@ -17,14 +18,14 @@ enum StatusAct: string
     case Remove = 'remove';
     case Restore = 'restore';
 
-    /** The per-event grant action that carries the act (`Module::capabilities()`). */
-    public function action(): string
+    /** The per-event grant action that carries the act (`Module::capabilities()`); null for a restore (full access only). */
+    public function action(): ?string
     {
         return match ($this) {
             self::Admit => 'kalaka_admit_registration',
             self::Withdraw => 'kalaka_withdraw_registration',
             self::Remove => 'kalaka_remove_registration',
-            self::Restore => 'kalaka_restore_registration',
+            self::Restore => null,
         };
     }
 
@@ -34,11 +35,16 @@ enum StatusAct: string
         return 'kalaka/' . $this->value . '-registration';
     }
 
-    /** The status the act leaves the registration in: a restore always returns to `registered`. [UNAPPROVED N519] */
-    public function target(): RegistrationStatus
+    /**
+     * The status the act leaves the registration in. A restore returns the registration to the status it left from:
+     * `registered` when it was ever registered (`$wasRegistered`: it has a `registered_at`), `waitlisted` when it was
+     * never registered. [UNAPPROVED N519]
+     */
+    public function target(bool $wasRegistered = true): RegistrationStatus
     {
         return match ($this) {
-            self::Admit, self::Restore => RegistrationStatus::Registered,
+            self::Admit => RegistrationStatus::Registered,
+            self::Restore => $wasRegistered ? RegistrationStatus::Registered : RegistrationStatus::Waitlisted,
             self::Withdraw => RegistrationStatus::Withdrawn,
             self::Remove => RegistrationStatus::Removed,
         };
@@ -55,16 +61,25 @@ enum StatusAct: string
         };
     }
 
-    /** Whether the act makes the registration `registered` (and so takes its seats again). */
-    public function enters(): bool
+    /**
+     * Whether the registration already is where the act would put it, so the act is a repeat (`changed: false`). A
+     * restore's repeat is a `registered` registration; a waitlisted one never left, so it is the wrong status.
+     */
+    public function isRepeatFrom(RegistrationStatus $status): bool
     {
-        return $this->target() === RegistrationStatus::Registered;
+        return $status === ($this === self::Restore ? RegistrationStatus::Registered : $this->target());
     }
 
-    /** Whether the act needs a reason: removing does; the others take one optionally. [UNAPPROVED N514] */
+    /** Whether the act needs a reason: none does (N514); kept in the shape, always false. [UNAPPROVED N514] */
     public function reasonRequired(): bool
     {
-        return $this === self::Remove;
+        return false;
+    }
+
+    /** Whether the act makes the registration `registered` (and so takes its seats again). */
+    public function enters(bool $wasRegistered = true): bool
+    {
+        return $this->target($wasRegistered) === RegistrationStatus::Registered;
     }
 
     /** The registration's own act that takes the seats again; null for an act that leaves. */

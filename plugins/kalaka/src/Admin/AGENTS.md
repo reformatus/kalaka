@@ -78,9 +78,11 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The detail panel shows only what the registration detail read returns and
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
-- The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
-  its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
-  access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
+- The detail read carries the registration's `requests` (with their latest answers, the request's participant field
+  keys as `fields: {ask, answer}` and, for a refused offer, whether its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
+  access; `can.answer_request` says so, and is true only while the registration is `registered` (the grid
+  column's meaning: nothing awaits on a waitlisted, withdrawn or removed one). An unanswered request on such a
+  registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
 - A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one
   statement for the page's field values, none without a request source); it is a row value, not a column, so it is
@@ -105,10 +107,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   with `full`) and, for a consent, `full`. `full` is `FieldCorrections::fullValues()`: the choice's pool would
   go over for this registration, true only for a `registered` one. Reading it writes no audit entry and moves no
   seat. Placing into a tier or an offer by hand is this same act on `price_tier` or the offer's key.
-- The detail read's `can.admit`, `can.withdraw`, `can.remove` and `can.restore` are the act's grant action carried and
-  the status allowing it now (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
+- The detail read's `can.admit`, `can.withdraw` and `can.remove` are the act's grant action carried and the status
+  allowing it now; `can.restore` is full access and the status allowing it (a restore carries no grant action) (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
   command line runs them through `Registrations\Api\StatusActions` without a rule of its own: it previews first, prints
-  the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does; a remove without `--reason` is refused before the question, from the
-  preview's `requires_reason`. Whether an actor may see
+  the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does; `--reason` is optional (the preview's `requires_reason` is always false). Whether an actor may see
   money is one read, `Access::mayViewMoney()`, used by the detail read and the status-act preview. [UNAPPROVED N670]
 - Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.

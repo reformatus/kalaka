@@ -32,22 +32,25 @@ the waitlist and reference codes
   `Api\StatusAct`, one shape in `StatusChange`); nothing else updates a status.
   An act on a registration already in its target state writes nothing
   (`changed: false`); any other status it does not allow is `StatusActRefused`.
-  A removal needs a reason (the trimmed text); the reason is the audit entry's.
+  No act needs a reason; the one given is the audit entry's. A restore is full access only (no grant action) and
+  returns the registration to the status it left from: `registered` when it has a `registered_at` (it was ever
+  registered), `waitlisted` when it has none, with nothing else written.
 - `registered_at` is set only by the acts that make a registration
   `registered` (submit, admission, restore) and is never recomputed.
   `registered_by` (`Api\RegisteredBy`: `submit`, `admission`, `restore`) is
   written only together with it; withdraw and remove leave both as they are.
   `registration.from_waitlist` reads `registered_by = admission`.
-- Admission and restore lock the event row, then the quota pools their claims
+- Admission and a restore to `registered` lock the event row, then the quota pools their claims
   name (`Seats::inLockOrder()`), then the registration; the claims come from
   the stored values (`Api\SeatClaims`), read before the locks and again under
   the registration's, and a claim of a quota pool nobody locked is a
   `VersionConflict` (nothing written). They take seats only through
   `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
-  and queue the "registered" mail on admission only. Withdraw and remove free
-  seats only through `Seats::releaseAll()`. The preview (`preview: true`)
-  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it needs no
-  `reason` and ignores one, and says `requires_reason` (the act's own rule: a real remove needs one). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
+  and queue the "registered" mail (admission, caused by the registration; a restore, caused by the registration at
+  the version it wrote, so every restore mails). A restore to the waitlist queues the "waitlisted" mail the same way.
+  Withdraw and remove queue no mail and free seats only through `Seats::releaseAll()`. The preview (`preview: true`)
+  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
+  `reason`, and says `requires_reason` (kept in the shape, always false: no act needs a reason). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
   count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
   pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
   effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`) with
@@ -153,7 +156,9 @@ the waitlist and reference codes
   participant accounts' names (N21). Authors with posts keep theirs.
 - Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
   computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
-  ships none, so with no source every read is empty and costs no statement.
+  ships none, so with no source every read is empty and costs no statement. Each `Request` a source builds names its
+  participant fields as stored keys: `askFields` (what the participant asks with) and `answerField` (where its
+  answer is written), which the admin detail groups by.
   - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
     `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
     holds only their registrations); the runner checks the target against the view. The one action gates every
@@ -168,8 +173,8 @@ the waitlist and reference codes
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
-    award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
-    non-empty note, its reason; a refusal and aid take a note optionally.
+    award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
+    reason included, is always optional.
   - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
     source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
     offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
