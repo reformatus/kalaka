@@ -15,8 +15,8 @@ use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * Staff correct one field value of one registration, with an optional reason (events-and-forms.md, "Changing
- * participant fields after submit"; foundation.md, "Views and grants"). A field change: it carries no action, so a grant holds
- * it when the registration is inside its view, and the fine check inside `execute` needs the field's column
+ * participant fields after submit"; foundation.md, "Views and grants"). A field change: it carries no action, so a grant
+ * holds it when the registration is inside its view, and the fine check inside `execute` needs the field's column
  * read-write (`Access::mayWrite()`); full access passes both. The value arrives already in its stored form
  * (`PreparedEdit`, made by `FieldEditInput::prepare()` outside the run).
  *
