@@ -24,19 +24,23 @@ function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 	const [ failed, setFailed ] = useState( null );
 	const act = async ( change ) => {
 		if ( busy ) {
-			return;
+			return false;
 		}
 		setBusy( true );
 		setFailed( null );
+		let saved = false;
 		try {
 			await api.updateMail( config.event, mail.mail, change );
 			say( COMMON.saved );
+			saved = true;
 		} catch ( error ) {
 			setFailed( problemText( error, COMMON.actFail ) );
 		}
 		// Either way the page reads again, so what it shows is what the server holds.
 		await onChanged();
 		setBusy( false );
+		// Whether the server took the change: a draft is dropped only then, a refusal leaves it for another try.
+		return saved;
 	};
 	const refusal = mail.enabled ? mail.refusals.switch_off : mail.refusals.switch_on;
 	const allowed = mail.enabled ? mail.can.switch_off : mail.can.switch_on;
@@ -89,8 +93,9 @@ function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 								disabled={ busy }
 								accessibleWhenDisabled
 								onClick={ async () => {
-									await act( { body_id: chosen === '' ? null : parseInt( chosen, 10 ) } );
-									drafts.clear( 'body:' + mail.mail );
+									if ( await act( { body_id: chosen === '' ? null : parseInt( chosen, 10 ) } ) ) {
+										drafts.clear( 'body:' + mail.mail );
+									}
 								} }
 							>
 								{ MAILS.saveBody }
