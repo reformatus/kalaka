@@ -65,6 +65,8 @@ final class AidTest extends AidTestCase
         $asked = $source->requestsOf($without, ['aid_can_pay' => '1000']);
         self::assertSame(['aid'], array_map(static fn ($request): string => $request->id, $asked));
         self::assertSame('Teszt ösztöndíj', $asked[0]->label);
+        self::assertSame(['aid_can_pay'], $asked[0]->askFields);
+        self::assertSame('aid_award', $asked[0]->answerField);
         self::assertSame([], $source->requestsOf($without, ['aid_can_pay' => '']));
 
         // An event without aid: a stated amount is not a request.

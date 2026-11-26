@@ -49,7 +49,13 @@ final class AidRequests implements RequestSource
         }
         $settings = $this->settings->find($registration->eventId);
 
-        return $settings === null ? [] : [new Request(self::ID, RequestKind::Aid, $settings->label)];
+        return $settings === null ? [] : [new Request(
+            self::ID,
+            RequestKind::Aid,
+            $settings->label,
+            [self::CAN_PAY_FIELD],
+            AidComponent::AWARD_FIELD,
+        )];
     }
 
     /** The award is the truth: empty is awaiting, `0` is a refusal, an amount is granted. [UNAPPROVED N363] */

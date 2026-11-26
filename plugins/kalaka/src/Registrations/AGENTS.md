@@ -156,7 +156,9 @@ the waitlist and reference codes
   participant accounts' names (N21). Authors with posts keep theirs.
 - Requests and their answers (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions and
   computed values"; slice B). A request is named by a `RequestSource` a module contributes (an inside point); core
-  ships none, so with no source every read is empty and costs no statement.
+  ships none, so with no source every read is empty and costs no statement. Each `Request` a source builds names its
+  participant fields as stored keys: `askFields` (what the participant asks with) and `answerField` (where its
+  answer is written), which the admin detail groups by.
   - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
     `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
     holds only their registrations); the runner checks the target against the view. The one action gates every
@@ -171,8 +173,8 @@ the waitlist and reference codes
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
-    award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
-    non-empty note, its reason; a refusal and aid take a note optionally.
+    award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
+    reason included, is always optional.
   - "Awaits an answer" is computed, never stored (`Requests::awaits()`, batched `awaitsOf()`): a request whose
     source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
     offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is not
