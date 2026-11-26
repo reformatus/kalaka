@@ -59,14 +59,6 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  */
 final class SubmitRegistration implements PublicUseCase
 {
-    /** The code on each limited field a waitlisted submit chose (the refusal rides `InvalidAnswers::$codes`). */
-    public const WAITLIST_LIMITED_CODE = 'kalaka_waitlist_limited';
-
-    /** What a registrant is told on a limited choice when the submit lands on the waitlist. [UNAPPROVED T853] */
-    public const WAITLIST_LIMITED_TEXT =
-        'Az eseményen jelenleg nincs szabad hely, ezért csak várólistára jelentkezhetsz. '
-        . 'Ezt a lehetőséget így nem választhatod.';
-
     /**
      * @param int $eventVersion the version of the event the answers were checked against
      * @param list<string> $roles the current user's roles
@@ -239,24 +231,22 @@ final class SubmitRegistration implements PublicUseCase
     /**
      * A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): for it
      * everything limited acts as full, so any claim on a pool with a limit refuses the submit on that choice, with
-     * its own code and text (the option may have room: it is the event that is full), before anything is written.
-     * Unlimited pools are not refused. [UNAPPROVED N5, N654]
+     * the same refusal and text as a full pool (`SeatsFull::TEXT`), before anything is written.
+     * Unlimited pools are not refused. [UNAPPROVED N5, N654: the "full" text is kept]
      *
      * @throws InvalidAnswers
      */
     private function refuseLimitedClaims(): void
     {
         $refused = [];
-        $codes = [];
         foreach ($this->seatClaims as $claim) {
             if ($claim->pool->limit() !== null) {
-                $refused[$claim->fieldKey] = self::WAITLIST_LIMITED_TEXT;
-                $codes[$claim->fieldKey] = self::WAITLIST_LIMITED_CODE;
+                $refused[$claim->fieldKey] = SeatsFull::TEXT;
             }
         }
         if ($refused !== []) {
-            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- field keys and fixed texts
-            throw new InvalidAnswers($refused, codes: $codes);
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- field keys and a fixed text
+            throw new InvalidAnswers($refused);
         }
     }
 

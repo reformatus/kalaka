@@ -9,17 +9,9 @@ use Kalaka\Foundation\Api\Error\KalakaException;
 /** Answers that are missing or wrong, with the Hungarian message of each field. */
 final class InvalidAnswers extends KalakaException
 {
-    /**
-     * @param array<string, string> $fields field key → message
-     * @param array<string, string> $codes field key → the error code of a refusal that has its own (a subset of
-     *     the keys of `$fields`); a field without one is a plain answer error
-     */
-    public function __construct(
-        public readonly array $fields,
-        ?string $context = null,
-        ?\Throwable $previous = null,
-        public readonly array $codes = [],
-    ) {
+    /** @param array<string, string> $fields field key → message */
+    public function __construct(public readonly array $fields, ?string $context = null, ?\Throwable $previous = null)
+    {
         parent::__construct($context, $previous);
     }
 
@@ -45,11 +37,10 @@ final class InvalidAnswers extends KalakaException
 
     public function toWpError(): \WP_Error
     {
-        $data = ['status' => $this->status(), 'fields' => $this->fields];
-        if ($this->codes !== []) {
-            $data['codes'] = $this->codes;
-        }
-
-        return new \WP_Error($this->errorCode(), $this->getMessage(), $data);
+        return new \WP_Error(
+            $this->errorCode(),
+            $this->getMessage(),
+            ['status' => $this->status(), 'fields' => $this->fields]
+        );
     }
 }

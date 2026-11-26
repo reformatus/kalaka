@@ -26,6 +26,7 @@ use Kalaka\Registrations\Api\SeatClaimSource;
 use Kalaka\Registrations\Api\SeatOutcome;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\Seats;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Registrations\Api\SubmitResult;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Registrations\Registration;
@@ -245,9 +246,7 @@ final class SubmitSeatsTest extends FormsTestCase
             $this->submit();
             self::fail('The limited choice should have refused the waitlisted submit.');
         } catch (InvalidAnswers $invalid) {
-            self::assertSame(['modul' => SubmitRegistration::WAITLIST_LIMITED_TEXT], $invalid->fields);
-            self::assertSame(['modul' => 'kalaka_waitlist_limited'], $invalid->codes);
-            self::assertSame('kalaka_waitlist_limited', $invalid->toWpError()->get_error_data()['codes']['modul']);
+            self::assertSame(['modul' => SeatsFull::TEXT], $invalid->fields);
         }
 
         self::assertSame(1, $this->registrationCount());
