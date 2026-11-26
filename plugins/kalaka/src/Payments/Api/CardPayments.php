@@ -21,8 +21,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * outside the transaction, never inside the use case (modules-and-extensions.md, "The extension surface").
  *
  * One start per registration at a time: a named lock per registration is held from the provider's read of the
- * latest request until the pay URL is made, so two clicks at once find the one order the first made instead of
- * making two. A start that cannot get the lock within the wait is refused as in flight.
+ * latest request until the pay URL is made, so two clicks at once make one request after the other (the second
+ * replaces the first, which the provider cancels) instead of two open ones. A start that cannot get the lock
+ * within the wait is refused as in flight.
  */
 final class CardPayments
 {

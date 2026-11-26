@@ -7,7 +7,7 @@ use cases that record what it reports
 ## Sections it implements
 
 - money.md: [Payments](../../../../docs/architecture/money.md#payments) (the port: create a request, return the
-  pay URL, reuse an open request, report paid and refunded), and the payment lines of
+  pay URL, replace an unpaid open request, report paid and refunded), and the payment lines of
   [Ledger](../../../../docs/architecture/money.md#ledger) it writes.
 - modules-and-extensions.md: the payment method of
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface) (an

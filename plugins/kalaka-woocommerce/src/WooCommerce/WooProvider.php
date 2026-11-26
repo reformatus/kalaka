@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\WooCommerce;
 
-use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Payments\Api\AbstractPaymentProvider;
@@ -17,7 +17,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 /**
  * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one guest order with one item
  * of the hidden product per line, paid on WooCommerce's own order-pay page with whatever gateway the shop
- * has. Only unpaid orders (pending, failed) are ever reused or cancelled; a paid order is never touched.
+ * has. A new request cancels the registration's never-paid orders (pending, failed) and makes one new order; a paid
+ * order is never touched, and an order in any other open state refuses the start (see `latestOf()`).
  */
 final class WooProvider extends AbstractPaymentProvider
 {
@@ -29,6 +30,7 @@ final class WooProvider extends AbstractPaymentProvider
     public function __construct(
         private readonly OrderFinder $finder = new OrderFinder(),
         private readonly HiddenProduct $product = new HiddenProduct(),
+        private readonly CardSurcharge $surcharge = new CardSurcharge(),
     ) {
     }
 
@@ -54,72 +56,70 @@ final class WooProvider extends AbstractPaymentProvider
     public function payUrl(PaymentProviderInput $input): string
     {
         $request = $input->request();
-        $returnUrl = $input->returnUrl();
-        $wanted = array_map(
-            static fn (RequestLine $line): string => KalakaItem::signatureOf(
-                $line->registration,
-                $line->payer,
-                $line->amount
-            ),
-            $request->lines
-        );
-        sort($wanted);
-
-        $reusable = null;
+        // A new start never reuses an order: every unpaid order of these registrations is cancelled, then one new
+        // order is made, so at most one unpaid order exists. Core makes this call under the registration's lock,
+        // and only when `latestOf()` found nothing open at the gateway (anything else refuses the start first).
         foreach ($this->unpaidOf($request) as $order) {
-            $mine = new KalakaOrder($order);
-            $have = array_map(static fn (KalakaItem $item): string => $item->signature(), $mine->items());
-            sort($have);
-            if ($reusable === null && $have === $wanted && $order->get_currency() === $request->currency->value) {
-                $reusable = $order;
-                continue;
-            }
             // Re-read: only an order that is still unpaid is cancelled.
             $fresh = wc_get_order($order->get_id());
             if ($fresh instanceof \WC_Order && !$fresh->is_paid() && $fresh->has_status(['pending', 'failed'])) {
                 $fresh->update_status('cancelled');
             }
         }
-        if ($reusable !== null) {
-            // The same request: the return address may differ.
-            $reusable->update_meta_data(OrderMeta::RETURN_URL, $returnUrl);
-            $reusable->save();
 
-            return $reusable->get_checkout_payment_url();
-        }
-
-        return $this->create($request, $returnUrl)->get_checkout_payment_url();
+        return $this->create($request, $input->returnUrl())->get_checkout_payment_url();
     }
 
+    /**
+     * The latest payment request, and whether anything is still open: an order that is neither closed nor an
+     * unpaid one (pending, failed) is money that may be on its way, so it is answered before the newest order is
+     * looked at, whichever order it is. `Processing` is the answer for every such order Kaláka does not handle
+     * itself (on hold, and any status another plugin or WooCommerce added): core reads it as "an earlier card
+     * payment is still open" and refuses the start before anything is cancelled or created.
+     */
     public function latestOf(PaymentProviderInput $input): ?OpenPayment
     {
-        $key = $input->registration();
-        $orders = $this->finder->of($key, ['any']);
-        // An authorised payment that is not paid yet blocks a new one, whichever order is the newest.
+        $orders = $this->finder->of($input->registration(), $this->everyStatus());
         foreach ($orders as $order) {
-            if ($order->get_status() === 'on-hold') {
-                return $this->open(OpenPaymentState::Processing, $order);
+            $open = $this->blocking($order);
+            if ($open !== null) {
+                return $this->open($open, $order);
             }
         }
-        foreach ($orders as $order) {
-            $state = match ($order->get_status()) {
-                'pending' => OpenPaymentState::Pending,
-                'failed' => OpenPaymentState::Failed,
-                // Paid: the request ends once its payment is recorded (the money table shows it from then on).
-                'processing', 'completed' => (new KalakaOrder($order))->isRecorded()
-                    ? null
-                    : OpenPaymentState::Paid,
-                default => null,
-            };
-            if ($state === null) {
-                // Cancelled, refunded in full, a draft, paid and recorded: the request is over, and any before it.
-                return null;
-            }
-
-            return $this->open($state, $order);
+        $newest = $orders[0] ?? null;
+        if ($newest === null) {
+            return null;
         }
+        $state = match ($newest->get_status()) {
+            'pending' => OpenPaymentState::Pending,
+            'failed' => OpenPaymentState::Failed,
+            // Cancelled, refunded in full, or nothing: no open request.
+            default => null,
+        };
 
-        return null;
+        return $state === null ? null : $this->open($state, $newest);
+    }
+
+    /**
+     * Whether the order is open in a way that blocks a new start. Fail closed: the statuses that do not block are
+     * listed, so a status nobody foresaw blocks.
+     */
+    private function blocking(\WC_Order $order): ?OpenPaymentState
+    {
+        return match ($order->get_status()) {
+            // Never paid: a new start cancels it. Closed: cancelled, refunded (and trashed, which is not read).
+            'pending', 'failed', 'cancelled', 'refunded', 'trash' => null,
+            // Paid: it ends once its payment is recorded (the money table shows it from then on).
+            'processing', 'completed' => (new KalakaOrder($order))->isRecorded() ? null : OpenPaymentState::Paid,
+            // On hold, a draft, or any status Kaláka does not handle.
+            default => OpenPaymentState::Processing,
+        };
+    }
+
+    /** @return list<string> every status an order can have (but trash), with the draft status of the blocks */
+    private function everyStatus(): array
+    {
+        return [...array_keys(wc_get_order_statuses()), 'wc-checkout-draft'];
     }
 
     private function open(OpenPaymentState $state, \WC_Order $order): OpenPayment
@@ -149,6 +149,25 @@ final class WooProvider extends AbstractPaymentProvider
         krsort($orders);
 
         return array_values($orders);
+    }
+
+    /** The request's card surcharge: the fee of each event's lines, added up; null when there is none. */
+    private function feeOf(PaymentRequest $request): ?Money
+    {
+        $perEvent = [];
+        foreach ($request->lines as $line) {
+            $event = $line->registration->eventId;
+            $perEvent[$event] = isset($perEvent[$event]) ? $perEvent[$event]->plus($line->amount) : $line->amount;
+        }
+        $total = null;
+        foreach ($perEvent as $event => $amount) {
+            $fee = $this->surcharge->feeFor($event, $amount);
+            if ($fee !== null) {
+                $total = $total === null ? $fee : $total->plus($fee);
+            }
+        }
+
+        return $total;
     }
 
     private function create(PaymentRequest $request, string $returnUrl): \WC_Order
@@ -184,6 +203,18 @@ final class WooProvider extends AbstractPaymentProvider
             $order->add_item($item);
             // One row per line, so the order is found by its registration without reading its items.
             $order->add_meta_data(OrderMeta::REGISTRATION, RegistrationRef::compose($line->registration), false);
+        }
+        $fee = $this->feeOf($request);
+        if ($fee !== null) {
+            // The card surcharge: one fee line, no tax, never ledger money (payments record only the items above).
+            $line = new \WC_Order_Item_Fee();
+            // [UNAPPROVED T84]
+            $line->set_name('Kártyás fizetés díja');
+            $line->set_tax_status('none');
+            $line->set_tax_class('');
+            $line->set_total(wc_format_decimal($fee->amount()));
+            $line->set_taxes([]);
+            $order->add_item($line);
         }
         $order->update_meta_data(OrderMeta::MARKER, '1');
         $order->update_meta_data(OrderMeta::RETURN_URL, $returnUrl);
