@@ -49,3 +49,18 @@ describe( 'a dimmed row', () => {
 		expect( css ).not.toContain( '#646970' );
 	} );
 } );
+
+describe( 'the confirmation column', () => {
+	const confirmation = { column: 'decision:confirmation', type: 'decision', states: { confirmed: 'Visszaigazolva', unconfirmed: 'Nincs visszaigazolva' } };
+	const state = ( value ) => ( { values: { code: '00A0', 'decision:confirmation': value } } );
+
+	test( 'a confirmed state draws the confirmed mark, an unconfirmed one the plain marker', () => {
+		expect( html( confirmation, state( 'confirmed' ) ) ).toContain( 'dashicons-yes-alt kg-ok' );
+		expect( html( confirmation, state( 'unconfirmed' ) ) ).toContain( 'dashicons-marker' );
+	} );
+
+	test( 'another decision column keeps the one marker whatever its state', () => {
+		expect( html( columns.decision, row( 'registered' ) ) ).toContain( 'dashicons-marker' );
+		expect( html( columns.decision, row( 'registered' ) ) ).not.toContain( 'dashicons-yes-alt' );
+	} );
+} );
