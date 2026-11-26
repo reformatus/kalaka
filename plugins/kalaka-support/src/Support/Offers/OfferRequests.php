@@ -59,7 +59,13 @@ final class OfferRequests implements RequestSource
                     continue;
                 }
             }
-            $requests[] = new Request(self::PREFIX . $offer->key, RequestKind::Offer, $offer->label);
+            $requests[] = new Request(
+                self::PREFIX . $offer->key,
+                RequestKind::Offer,
+                $offer->label,
+                [$offer->key],
+                $offer->key . SetSupportOffers::ANSWER_SUFFIX,
+            );
         }
 
         return $requests;
