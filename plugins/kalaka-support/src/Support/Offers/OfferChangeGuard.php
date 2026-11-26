@@ -12,8 +12,9 @@ use Kalaka\Support\Api\OfferSelected;
  * The rule that keeps a settings save from taking something from somebody (Q-B0-6, [UNAPPROVED N99]): an offer
  * an open (`registered` or `waitlisted`) registration has selected cannot be removed or have its "must be
  * requested" flag flipped (a line or a refusal would be taken or overridden), judged by the one shared read
- * `Registrations::openHolds()`. The refusal is `OfferSelected`, a kind of core's `ItemChosen`: a flag flip is not a
- * removal, and `refuseRemovingChosen()` throws the plain `ItemChosen`, which would lose the offer's own code. A
+ * `Registrations::openHolds()`. The refusal is `OfferSelected`, its own rule violation and not core's final
+ * `ItemChosen`: a flag flip is not a removal, and `refuseRemovingChosen()` throws the plain `ItemChosen`, which
+ * would lose the offer's own code. A
  * limit may be added, lowered or raised at any time (every chooser holds a seat row, so the count is right): a
  * lower limit only makes the pool stand over. It runs in the preview and before any save of an apply, and again
  * inside the use case as a guard. A plain read: the selections are one statement
