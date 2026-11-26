@@ -37,6 +37,11 @@ use cases that record what it reports
   `Paid` means paid and not yet reported as recorded: a provider answers null or a newer request once its report
   is recorded, and core also checks the ledger for the request's lines (key prefix
   `online:<provider>:order:<request>:`) before it treats a paid request as in flight.
+- A card payment asks for the amount the registrant enters (input `amount`; absent is the whole payable amount):
+  at most the participant's payable amount (no overpaying) and at least the effective minimum, both from
+  `Api\CardAmountLimits`, the one place of the limits (a page that shows them reads them there too); an amount
+  outside them is a `CardAmountRefused`, a malformed one (no whole multiple of the payable unit) an `InvalidInput`. The ledger records
+  what was paid, whatever the amount asked.
 - The use cases take everything they act on in their schema-checked input (the registration of a start; the whole
   report of a recording), and name their registrations from it; the ref patterns of the schemas come from
   `Api\OnlineRefs`. A report names each item ref once.
