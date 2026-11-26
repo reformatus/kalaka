@@ -30,12 +30,13 @@ final class DocumentCheck
 
     /**
      * @param array<string, ValueType> $declared
+     * @param list<string> $paths the declared keys whose value is a path (`Api\PathFieldType`): never `equals`
      * @throws SystemFailure the first problem, `<code> <subject>`: `orphan_branch`, `invalid_condition <key>`,
      *     `unknown_value_key <key>`, `field_in_document <block>`, `form_block_in_document <block>`
      */
-    public function check(string $content, array $declared): void
+    public function check(string $content, array $declared, array $paths = []): void
     {
-        $scope = new DeclaredScope($declared);
+        $scope = new DeclaredScope($declared, $paths);
         $fieldTypes = Contributions::current()->fieldTypes();
         // A document never holds a field block or a form-only block (a page, the after-submit section), as a
         // form's after-submit section holds no field block (`field_in_after_submit`).

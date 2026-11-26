@@ -12,6 +12,7 @@ use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\PathFieldType;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Cli\FormSeeder;
 use Kalaka\Forms\Engine\Condition\DateReference;
@@ -290,11 +291,13 @@ final class Module extends AbstractModule
 
     /**
      * What the form editor needs from the server, so it copies none of it: the registered field-type
-     * block names (extension field types included) with the value type of each answer, the keys a form's
+     * block names (extension field types included) with the value type of each answer, those whose value is
+     * a path (`Api\PathFieldType`, never compared with `equals`), the keys a form's
      * and the after-submit section's conditions may read, and a date reference's bounds.
      *
      * @return array{
      *     fieldTypes: array<string, string>,
+     *     pathFieldTypes: list<string>,
      *     eventTypes: array<string, string>,
      *     afterSubmitTypes: array<string, string>,
      *     dateReference: array{maxYears: int, maxDays: int}
@@ -309,6 +312,10 @@ final class Module extends AbstractModule
                 static fn (FieldType $type): string => $type->valueType()->value,
                 Contributions::current()->fieldTypes()
             ),
+            'pathFieldTypes' => array_keys(array_filter(
+                Contributions::current()->fieldTypes(),
+                static fn (FieldType $type): bool => $type instanceof PathFieldType
+            )),
             'eventTypes' => array_map($value, EventValues::FORM_TYPES),
             'afterSubmitTypes' => array_map($value, AfterSubmit::TYPES),
             'dateReference' => ['maxYears' => DateReference::MAX_YEARS, 'maxDays' => DateReference::MAX_DAYS],

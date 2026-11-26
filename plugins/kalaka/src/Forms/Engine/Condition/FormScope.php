@@ -6,6 +6,7 @@ namespace Kalaka\Forms\Engine\Condition;
 
 use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\OptionsFieldType;
+use Kalaka\Forms\Api\PathFieldType;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -54,6 +55,15 @@ final readonly class FormScope implements ConditionScope
         return ($this->contributions->fieldTypes()[$field->blockName] ?? null) instanceof OptionsFieldType
             ? ChoiceFieldType::optionValues($field->attributes)
             : null;
+    }
+
+    public function isPath(string $key): bool
+    {
+        if (isset($this->declared[$key])) {
+            return false;
+        }
+
+        return ($this->contributions->fieldTypes()[$this->field($key)->blockName] ?? null) instanceof PathFieldType;
     }
 
     /** @throws SystemFailure problem `condition_key_not_earlier` */

@@ -179,7 +179,7 @@ flowchart TB
 - **Creation, revocation and use are audited.** The link a registration came
   through is stored on it as a fact.
 - **Link-only fields** can be set only by a link, never by the registrant. **Link-only options** are choice options shown only when a
-  link sets them (e.g. an invitation-only track or partner).
+  link sets them (e.g. an invitation-only partner).
 - **Secret sections** are ordinary conditional sections whose condition reads
   a link-only field. The server re-checks conditions at submit
   ([Conditions](#conditions)).
@@ -451,9 +451,9 @@ is no other participant-side edit.
   offers and the adjudicated aid. In a form it reads the draft answers and
   the event's values, on every render and again at submit; in the fee
   components and the materializer it reads the registration's facts. It
-  never runs the materializer on a draft. Computed facts such as a
-  congregation's ancestors or free seats are put into the fact source by the
-  caller.
+  never runs the materializer on a draft. Computed facts such as free seats
+  are put into the fact source by the caller; a congregation answer carries
+  its ancestors in its own value, a snapshot of its path.
 - **Forms are rendered by the server; the page's script holds no
   condition.** A branch whose conditions read only the form's own answers
   is sent hidden and shown when it holds for the current answers; so is one
@@ -491,7 +491,9 @@ is no other participant-side edit.
   equals X". Groups follow the same three values: `all` with an unknown item
   and no false is unknown, `any` with a true is true, and `not` on a group
   leaves unknown unknown. A condition that is unknown counts as not matched.
-- **Typed comparison:** values compare as number, date, text or choice.
+- **Typed comparison:** values compare as number, date, text or choice. A
+  choice that is a path (the congregation field) is only asked whether it
+  contains a node, never whether it equals one.
 - **A date can be compared with a date reference:** another date key of the
   fact source moved by whole years and days, e.g. the event's start minus 16
   years for "under 16 at the event's start". A day the moved month does not

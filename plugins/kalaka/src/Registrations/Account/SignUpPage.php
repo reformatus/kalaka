@@ -19,6 +19,8 @@ use Kalaka\Forms\Api\SignUp;
  * never handles a password: logging in is `wp_login_url()`, setting the password is WordPress's own
  * `?action=rp` screen, and any WordPress user counts.
  *
+ * Before both, `login_init` refuses a cross-site POST to any of these screens (`refuseCrossSite()`).
+ *
  * Two gates:
  * - **The flag** (`$flag`), set on every POST to `action=register` without `loginSocial` (social sign-ups are
  *   their plugin's): it sets the hidden login name (`LoginName`), an opaque nicename, the
@@ -46,6 +48,12 @@ final class SignUpPage
 {
     /** The user meta of an account Kaláka created whose password was never set: `1`. */
     public const UNVERIFIED = 'kalaka_unverified';
+
+    /**
+     * Social-login providers that post their callback back to the site (OAuth `response_mode=form_post`),
+     * by `loginSocial` value, with their origin (`scheme://host:port`, see `origin()`).
+     */
+    private const FORM_POST_PROVIDERS = ['apple' => 'https://appleid.apple.com:443'];
 
     /** How long a reset link lasts for an unverified account: 7 days. */
     public const EXPIRATION = 7 * DAY_IN_SECONDS;
@@ -81,6 +89,7 @@ final class SignUpPage
 
     public function register(): void
     {
+        add_action('login_init', [$this, 'refuseCrossSite'], 1);
         add_action('login_form_register', [$this, 'beforeRegister'], 10);
         add_action('register_form', [$this, 'markerField'], 5);
         add_action('login_enqueue_scripts', [$this, 'styles']);
@@ -122,6 +131,79 @@ final class SignUpPage
     {
         self::$flag = false;
         self::$firstPassword = null;
+    }
+
+    /**
+     * `login_init`: a POST to `wp-login.php` (any action) from another site is refused, so a page elsewhere
+     * cannot sign a visitor in to, or up as, an account of its choosing (login CSRF). `Sec-Fetch-Site`
+     * decides when the browser sends it (`same-origin`, or `none` for a direct navigation); else `Origin`, or
+     * failing that `Referer`, must be this site's address; with none of the three the request is let through
+     * (old clients). One cross-site POST is let through: a social-login callback posted back by a provider
+     * that uses OAuth `response_mode=form_post` (`FORM_POST_PROVIDERS`), when `loginSocial` names that
+     * provider, `Origin` (failing that the `Referer`'s origin) is the provider's own origin, and the POST
+     * carries the callback's `code` and `state`. A bare `loginSocial` exempts nothing.
+     *
+     * @internal
+     */
+    public function refuseCrossSite(): void
+    {
+        $method = strtoupper(self::input('server', 'REQUEST_METHOD') ?? 'GET');
+        if ($method !== 'POST' || self::sameSite() || self::providerCallback()) {
+            return;
+        }
+        wp_die(
+            esc_html(
+                'Az űrlapot nem erről a weboldalról küldték el. Nyisd meg újra itt, ezen a weboldalon, '
+                . 'és próbáld meg még egyszer.'
+            ),
+            '',
+            ['response' => 403, 'back_link' => false],
+        );
+    }
+
+    /** Whether this is a form_post social-login callback from the provider itself: see `refuseCrossSite()`. */
+    private static function providerCallback(): bool
+    {
+        $provider = self::input('request', 'loginSocial');
+        if ($provider === null || !isset(self::FORM_POST_PROVIDERS[$provider])) {
+            return false;
+        }
+        $from = self::input('server', 'HTTP_ORIGIN') ?? self::input('server', 'HTTP_REFERER');
+
+        return $from !== null
+            && self::origin($from) === self::FORM_POST_PROVIDERS[$provider]
+            && (self::input('post', 'code') ?? '') !== ''
+            && (self::input('post', 'state') ?? '') !== '';
+    }
+
+    /** Whether the request's headers allow it: see `refuseCrossSite()`. */
+    private static function sameSite(): bool
+    {
+        $fetch = self::input('server', 'HTTP_SEC_FETCH_SITE');
+        if ($fetch !== null) {
+            return in_array(strtolower($fetch), ['same-origin', 'none'], true);
+        }
+        $from = self::input('server', 'HTTP_ORIGIN') ?? self::input('server', 'HTTP_REFERER');
+        if ($from === null || $from === '') {
+            return true;
+        }
+        $origin = self::origin($from);
+
+        return $origin !== null && in_array($origin, [self::origin(home_url()), self::origin(site_url())], true);
+    }
+
+    /** `scheme://host:port` of an address, lower-case with the default port filled in; null when it has none. */
+    private static function origin(string $url): ?string
+    {
+        $parts = wp_parse_url($url);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+        $scheme = strtolower($parts['scheme']);
+
+        $port = $parts['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        return $scheme . '://' . strtolower($parts['host']) . ':' . $port;
     }
 
     /**

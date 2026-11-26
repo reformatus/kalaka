@@ -4,6 +4,13 @@
  */
 import { readAnswer } from '../../../kalaka/src/Forms/Blocks/form/answers';
 import {
+	form,
+	load,
+	respond,
+	settle,
+	submit,
+} from '../../../kalaka/tests/js/helpers';
+import {
 	LONG_PRESS,
 	SAY_AGAIN_DELAY,
 	addName,
@@ -16,14 +23,18 @@ import {
 	move,
 	placeAt,
 	removeName,
+	restart,
 	start,
 } from '../../src/Ranking/Blocks/ranking-field/view';
 
 const OPTIONS = ['modul_a', 'modul_b', 'modul_c'];
 
-/** The field as `render.php` renders it, with no option ranked: by default required, at least 1, at most 3. */
-function render({ min = 1, max = 3, required = true } = {}) {
-	const items = OPTIONS.map(
+/**
+ * The field as `render.php` renders it: by default required, at least 1, at most 3, no option ranked;
+ * `ticked` options come ticked (still unranked).
+ */
+function rankingMarkup({ min = 1, max = 3, required = true, options = OPTIONS, ticked = [] } = {}) {
+	const items = options.map(
 		(value, index) =>
 			`<li data-kalaka-option="${index}"><div data-kalaka-row>` +
 			`<span data-kalaka-handle aria-hidden="true" hidden>⠿</span>` +
@@ -34,19 +45,29 @@ function render({ min = 1, max = 3, required = true } = {}) {
 			`<svg></svg></button>` +
 			`<input type="checkbox" name="modulok[]" value="${value}" data-kalaka-toggle` +
 			` aria-label="${value} hozzáadása a sorrendhez"` +
-			` aria-describedby="kalaka-field-modulok-counter kalaka-field-modulok-minimum" autocomplete="off">` +
+			` aria-describedby="kalaka-field-modulok-counter kalaka-field-modulok-minimum" autocomplete="off"` +
+			`${ticked.includes(value) ? ' checked' : ''}>` +
 			`</span></div></li>`
 	).join('');
-	document.body.innerHTML =
-		`<form><div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking data-kalaka-min="${min}"` +
+	return (
+		`<div class="kalaka-field" data-kalaka-field="modulok" data-kalaka-ranking data-kalaka-min="${min}"` +
 		` data-kalaka-max="${max}"${required ? ' data-kalaka-required' : ''}><fieldset><legend>Modulok</legend>` +
 		`<ol data-kalaka-ranked role="list" aria-label="Választott sorrend"></ol>` +
 		`<ol data-kalaka-empty role="list" aria-label="Üres helyek a sorrendben" start="1"></ol>` +
 		`<p data-kalaka-counter id="kalaka-field-modulok-counter"></p>` +
 		`<ul data-kalaka-unranked role="list" aria-label="Többi lehetőség">${items}</ul></fieldset>` +
-		`<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span></div></form>`;
+		`<span class="kalaka-visually-hidden" aria-live="polite" data-kalaka-announce></span>` +
+		`<span id="kalaka-field-modulok-error" class="kalaka-field__error" hidden></span></div>`
+	);
+}
+
+/** Renders the field on its own and, unless `wire` is false, wires it. */
+function render({ wire = true, ...options } = {}) {
+	document.body.innerHTML = `<form>${rankingMarkup(options)}</form>`;
 	const field = document.querySelector('[data-kalaka-ranking]');
-	start(field);
+	if (wire) {
+		start(field);
+	}
 	return field;
 }
 
@@ -491,7 +512,18 @@ describe('dragging a ranked option', () => {
 			pointer('lostpointercapture', field.querySelector('[data-kalaka-ranked]'), 45);
 			pointer('pointerdown', handle, 10, { pointerType: 'mouse' });
 			pointer('pointermove', handle, 45, { pointerType: 'mouse', buttons: 0 });
+			expect(held()).toBe(0);
 
+			// A ranking the form re-rendered and restarted, again and again (S44): nothing stacks on the window.
+			for (let i = 0; i < 3; i++) {
+				const swapped = render({ ticked: ['modul_a', 'modul_b'], wire: false });
+				restart(swapped, ['modul_a', 'modul_b']);
+				layOut(swapped);
+				const grip = itemOf(swapped, 'modul_a').querySelector('[data-kalaka-handle]');
+				pointer('pointerdown', grip, 10);
+				expect(held()).toBe(2);
+				pointer('pointerup', grip, 10);
+			}
 			expect(held()).toBe(0);
 		} finally {
 			added.mockRestore();
@@ -589,6 +621,38 @@ describe('the keyboard and the screen reader', () => {
 
 		expect(ranked(field)).toEqual(['modul_a']);
 		expect(box(field, 'modul_b').checked).toBe(false);
+	});
+
+	test('a ranking the form re-rendered keeps the order of what it still offers (S44, C2)', () => {
+		// Ranked PRO, modul_c, modul_a; the track changed, so PRO is no longer offered. The form ticked the
+		// offered ones it remembered (core's swap) and hands the earlier order over.
+		const field = render({ options: ['modul_a', 'modul_b', 'modul_c'], ticked: ['modul_a', 'modul_c'], wire: false });
+		restart(field, ['pro', 'modul_c', 'modul_a']);
+
+		expect(ranked(field)).toEqual(['modul_c', 'modul_a']);
+		expect(unranked(field)).toEqual(['modul_b']);
+		expect(readAnswer(field, 'modulok')).toEqual({ present: true, value: ['modul_c', 'modul_a'] });
+		// The new markup is wired: a tick ranks at the end.
+		tick(field, 'modul_b');
+		expect(ranked(field)).toEqual(['modul_c', 'modul_a', 'modul_b']);
+	});
+
+	test('a swapped ranking is restarted from the form\'s event', () => {
+		const field = render({ options: ['modul_a', 'modul_b', 'pro'], ticked: ['pro', 'modul_b'], wire: false });
+		field.dispatchEvent(
+			new window.CustomEvent('kalaka:field-swapped', { bubbles: true, detail: { chosen: ['pro', 'modul_b'] } })
+		);
+
+		expect(ranked(field)).toEqual(['pro', 'modul_b']);
+	});
+
+	test('an option that comes back after the ranking changed is ranked last (S44, C2)', () => {
+		// Core remembers the ticked ones in order, then the ones no longer offered: PRO was hidden while the
+		// person re-ranked, so it comes back after them.
+		const field = render({ options: ['modul_a', 'modul_b', 'pro'], ticked: ['modul_a', 'modul_b', 'pro'], wire: false });
+		restart(field, ['modul_b', 'modul_a', 'pro']);
+
+		expect(ranked(field)).toEqual(['modul_b', 'modul_a', 'pro']);
 	});
 });
 
@@ -710,3 +774,31 @@ describe('the counter, the empty rows and the maximum (owner, Q1, Q2)', () => {
 	});
 });
 
+describe('the ranking field on a form page', () => {
+	test('a reorder clears the field’s message', async () => {
+		globalThis.fetch = jest.fn().mockResolvedValueOnce(
+			respond(400, {
+				code: 'kalaka_invalid_answers',
+				message: 'Hiba',
+				data: { status: 400, fields: { modulok: 'Hiba' } },
+			})
+		);
+		await load(form(rankingMarkup()));
+		const field = document.querySelector('[data-kalaka-ranking]');
+		start(field);
+		tick(field, 'modul_c');
+		tick(field, 'modul_a');
+		submit(document.querySelector('form'));
+		await settle();
+		const slot = document.querySelector(
+			'[data-kalaka-field="modulok"] .kalaka-field__error'
+		);
+		expect(slot.textContent).toBe('Hiba');
+
+		press(field, 'modul_a', 'up');
+
+		expect(ranked(field)).toEqual(['modul_a', 'modul_c']);
+		expect(slot.textContent).toBe('');
+		expect(slot.hidden).toBe(true);
+	});
+});

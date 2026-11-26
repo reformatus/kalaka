@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Mail\Body;
 
 use Kalaka\Forms\Api\Values;
+use Kalaka\Foundation\Api\Entry\SaveVeto;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\BodyUnusable;
 
@@ -52,7 +53,8 @@ final class BodyCheck
             return null;
         }
         try {
-            (new Values())->check($content, (new MailValues())->types($eventId));
+            $values = new MailValues();
+            (new Values())->check($content, $values->types($eventId), $values->paths($eventId));
         } catch (SystemFailure $e) {
             return BodyUnusable::of($e)->problem;
         }
@@ -151,6 +153,7 @@ final class BodyCheck
         if ($user > 0) {
             set_transient(self::NOTICE . $user, $message, HOUR_IN_SECONDS);
         }
+        SaveVeto::report('saving mail body ' . $id, $message, $problem ?? 'account_link ' . $id);
 
         return $data;
     }

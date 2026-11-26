@@ -16,6 +16,7 @@ use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\FormOutdated;
 use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Forms\Api\RequestFieldType;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Forms\Api\ValueContext;
@@ -113,16 +114,48 @@ final class FormEngine
     {
         $version ??= $form->version;
         $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
+        $definition = $this->definition($form, $version);
         $withheld = [];
-        foreach ($this->definition($form, $version)->withheldChains() as $number) {
+        foreach ($definition->withheldChains() as $number) {
             $withheld[$number] = $availability?->heldBranch($number);
         }
 
         // The after-submit section is never rendered with the form.
-        return array_values(array_filter(
+        return self::requestFields(array_values(array_filter(
             ChainMarks::prune($marked, $withheld),
             static fn (array $block): bool => ($block['blockName'] ?? null) !== ChainMarks::AFTER_SUBMIT_BLOCK
-        ));
+        )), $definition);
+    }
+
+    /**
+     * The blocks with each request field's attributes as its definition has them (its set's options in
+     * `options`, S44); a request field whose set's choice window is closed becomes an empty block (it does
+     * not show, and the inner content keeps its places).
+     *
+     * @param list<array<string, mixed>> $blocks
+     * @return list<array<string, mixed>>
+     */
+    private static function requestFields(array $blocks, FormDefinition $definition): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        foreach ($blocks as $index => $block) {
+            $name = $block['blockName'] ?? null;
+            $key = $block['attrs']['key'] ?? null;
+            $field = is_string($key) ? $definition->field($key) : null;
+            if (is_string($name) && ($types[$name] ?? null) instanceof RequestFieldType && $field !== null) {
+                $blocks[$index] = $field->closed
+                    ? ['blockName' => null, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => []]
+                    : ['attrs' => $field->attributes] + $block;
+                continue;
+            }
+            if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {
+                /** @var list<array<string, mixed>> $inner */
+                $inner = $block['innerBlocks'];
+                $blocks[$index]['innerBlocks'] = self::requestFields($inner, $definition);
+            }
+        }
+
+        return $blocks;
     }
 
     /**

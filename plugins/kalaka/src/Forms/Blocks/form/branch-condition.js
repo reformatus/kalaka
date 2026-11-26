@@ -11,6 +11,7 @@ import {
   dateReferenceBounds,
   eventTypes,
   fieldTypes,
+  pathFieldTypes,
 } from "./server";
 
 /** The text of a condition for the textarea; empty when there is none. */
@@ -107,7 +108,8 @@ const fail = (problem, key) => {
 
 /**
  * Checks a condition against a scope (`typeOf(key)` → 'text' | 'date' | 'choice' | 'number' | null for a
- * key it may not read; `choices(key)` → the option values of a choice field, or null). Returns null, or
+ * key it may not read; `choices(key)` → the option values of a choice field, or null; `isPath(key)`, when
+ * the scope has it → whether the key's value is a path, never compared with `equals`). Returns null, or
  * `{ problem, key }` with the first problem.
  */
 export const checkCondition = (condition, scope) => {
@@ -152,7 +154,10 @@ export const checkCondition = (condition, scope) => {
       fail("shape");
     }
     const type = typeOf(key);
-    if (!allowedFor(operator, type)) {
+    if (
+      !allowedFor(operator, type) ||
+      (operator === "equals" && scope.isPath?.(key) === true)
+    ) {
       fail("value", key);
     }
     if (operator === "empty") {
@@ -275,6 +280,7 @@ export const scopeOf = (store, clientId, inForm = true) => {
     if (type && typeof attributes.key === "string") {
       fields[attributes.key] = {
         type,
+        path: pathFieldTypes().includes(store.getBlockName(id)),
         choices: Array.isArray(attributes.options)
           ? attributes.options.map((o) => o?.value)
           : null,
@@ -285,6 +291,7 @@ export const scopeOf = (store, clientId, inForm = true) => {
   return {
     typeOf: (key) => events[key] ?? fields[key]?.type ?? null,
     choices: (key) => (events[key] ? null : (fields[key]?.choices ?? null)),
+    isPath: (key) => !events[key] && fields[key]?.path === true,
   };
 };
 

@@ -15,7 +15,6 @@ use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
-use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Forms\Engine\Value\InlineValues;
 use Kalaka\Forms\Engine\Value\RenderStack;
 use Kalaka\Foundation\Api\Entry\Boundary;
@@ -411,7 +410,8 @@ final class FormPage
     }
 
     /**
-     * A choice field block with only the options its field offers, wherever it sits; any other block as it is.
+     * A choice or request field block with only the options its field offers, wherever it sits; any other
+     * block as it is.
      *
      * @param array<string, mixed> $block
      * @return array<string, mixed>
@@ -426,7 +426,7 @@ final class FormPage
         }
         $key = $block['attrs']['key'] ?? null;
         $options = $block['attrs']['options'] ?? null;
-        if (($block['blockName'] ?? null) !== ChoiceFieldType::BLOCK_NAME || !is_string($key) || !is_array($options)) {
+        if (!ChoiceParts::offersOptions($block['blockName'] ?? null) || !is_string($key) || !is_array($options)) {
             return $block;
         }
         $offered = $availability->offeredOptions($key);

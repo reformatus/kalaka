@@ -3,6 +3,8 @@
  * printed before the editor script as `window.kalakaFormEditor`):
  * - `fieldTypes`: the registered field-type block names (`Contributions::fieldTypes()`, extension field
  *   types included), each with the value type of its answer (`valueType()`);
+ * - `pathFieldTypes`: the field-type block names whose value is a path (`Api\PathFieldType`), which a
+ *   condition never compares with `equals`;
  * - `eventTypes`: the event's keys a form's condition may read (`Api\EventValues::TYPES`);
  * - `afterSubmitTypes`: what the after-submit section's conditions may read (`Api\AfterSubmit::TYPES`);
  * - `hidden`: the gated blocks to hide in this editor (`Engine\BlockGate::hiddenHere()`; none in a form's).
@@ -18,6 +20,12 @@ const map = (value) => (value !== null && typeof value === 'object' ? value : {}
 
 /** Field block name → the value type of its answer ('text' | 'date' | 'choice' | 'number'). */
 export const fieldTypes = () => map(data().fieldTypes);
+
+/** The field block names whose value is a path: `equals` is refused on them. */
+export const pathFieldTypes = () => {
+	const names = data().pathFieldTypes;
+	return Array.isArray(names) ? names.filter((name) => typeof name === 'string') : [];
+};
 
 /** Event key → value type. */
 export const eventTypes = () => map(data().eventTypes);

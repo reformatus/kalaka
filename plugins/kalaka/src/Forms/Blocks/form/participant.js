@@ -74,7 +74,7 @@ const quoted = (text) => `„${text}”`;
 /** The status line of a verdict. */
 export const statusText = ({ state, field }) =>
 	({
-		new: 'Új résztvevői mező',
+		new: 'Új jelentkezői mező',
 		own: 'Csak ez az űrlap tölti ki',
 		join: field ? `Meglévő mezőhöz csatlakozik: ${quoted(plainText(field.title))}` : '',
 		rejoin: field ? `Visszavont mezőhöz csatlakozik: ${quoted(plainText(field.title))} (újra használatba kerül)` : '',
@@ -87,9 +87,9 @@ export const othersText = (others) => `Más is kitölti: ${others.join(', ')}`;
 export const problemOf = ({ state, field }) => {
 	switch (state) {
 		case 'clash':
-			return `Ezt az azonosítót már egy más típusú résztvevői mező használja: ${quoted(plainText(field.title))} (${field.type_label || field.type}).`;
+			return `Ezt az azonosítót már egy más típusú jelentkezői mező használja: ${quoted(plainText(field.title))} (${field.type_label || field.type}).`;
 		case 'readOnly':
-			return `Ezt a résztvevői mezőt nem űrlap tölti ki, ezért űrlap nem csatlakozhat hozzá: ${quoted(plainText(field.title))}.`;
+			return `Ezt a jelentkezői mezőt nem űrlap tölti ki, ezért űrlap nem csatlakozhat hozzá: ${quoted(plainText(field.title))}.`;
 		default:
 			return null;
 	}
@@ -103,7 +103,7 @@ export const draftText = (result) => {
 		case 'duplicate':
 			return 'Ez az azonosító már szerepel ezen az űrlapon.';
 		case 'new':
-			return 'Ezzel az azonosítóval új résztvevői mező jön létre.';
+			return 'Ezzel az azonosítóval új jelentkezői mező jön létre.';
 		case 'own':
 		case 'join':
 		case 'rejoin':

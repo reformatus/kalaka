@@ -12,9 +12,11 @@ const browser = {
 	HTMLElement: 'readonly',
 	KeyboardEvent: 'readonly',
 	MouseEvent: 'readonly',
+	Node: 'readonly',
 	fetch: 'readonly',
 	performance: 'readonly',
 	PopStateEvent: 'readonly',
+	URL: 'readonly',
 	setTimeout: 'readonly',
 	window: 'readonly',
 };

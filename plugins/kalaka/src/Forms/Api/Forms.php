@@ -8,6 +8,7 @@ use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
+use Kalaka\Forms\RequestScopeHost;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -55,6 +56,46 @@ final class Forms
     public function definition(Form $form, ?int $version = null, bool $serving = false): FormDefinition
     {
         return $this->engine->definition($form, $version, $serving);
+    }
+
+    /**
+     * Where each published form of the event holds a request field naming the set, what a condition of the
+     * set's options may read there (`RequestScope`): the fields before it and the host's keys. Each form is
+     * parsed with the set's options stripped of their conditions, so the read does not depend on them; a
+     * form broken for another reason is already closed and is left out. Reads WordPress posts: before a use
+     * case's transaction (S44).
+     *
+     * @return list<RequestScope>
+     */
+    public function requestScopes(int $eventId, int $setId): array
+    {
+        $engine = new FormEngine(new RequestScopeHost(new EventFormHost(), $setId));
+        $types = Contributions::current()->fieldTypes();
+        $scopes = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            if ($post->post_status !== 'publish') {
+                continue;
+            }
+            try {
+                $form = $engine->form($post->ID);
+                if ($form === null) {
+                    continue;
+                }
+                $definition = $engine->definition($form);
+            } catch (SystemFailure) {
+                continue;
+            }
+            $earlier = [];
+            foreach ($definition->fields as $field) {
+                $type = $types[$field->blockName] ?? null;
+                if ($type instanceof RequestFieldType && $type->requestSet($field->attributes) === $setId) {
+                    $scopes[] = new RequestScope($post->ID, $setId, $earlier, (new EventFormHost())->factTypes());
+                }
+                $earlier[] = $field;
+            }
+        }
+
+        return $scopes;
     }
 
     /**
@@ -157,10 +198,8 @@ final class Forms
      */
     public function participantValues(int $eventId, array $stored): array
     {
-        $types = Contributions::current()->fieldTypes();
         $values = [];
-        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
-            $type = $types[$field->type] ?? null;
+        foreach ($this->typedFields($eventId) as [$field, $type]) {
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -172,6 +211,41 @@ final class Forms
         }
 
         return $values;
+    }
+
+    /**
+     * The keys of the event's participant fields whose value is a path (`PathFieldType`, the congregation
+     * field), retired ones included: a condition reads them with `contains`, never `equals`.
+     *
+     * @return list<string>
+     */
+    public function pathKeys(int $eventId): array
+    {
+        $keys = [];
+        foreach ($this->typedFields($eventId) as [$field, $type]) {
+            if ($type instanceof PathFieldType) {
+                $keys[] = $field->key;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The event's participant fields, retired ones included, each with its contributed type (null when no
+     * type is contributed for it any more).
+     *
+     * @return list<array{ParticipantField, FieldType|null}>
+     */
+    private function typedFields(int $eventId): array
+    {
+        $types = Contributions::current()->fieldTypes();
+        $typed = [];
+        foreach ((new ParticipantFields())->of($eventId, true) as $field) {
+            $typed[] = [$field, $types[$field->type] ?? null];
+        }
+
+        return $typed;
     }
 
     /**

@@ -1,6 +1,6 @@
 /**
  * Field keys and choice option values in the block editor (events-and-forms.md, "Fields"). A key comes
- * from the field's title and an option's value from its label, the same way as `Kalaka\Forms\KeyDerivation`
+ * from the field's title and an option's value from its label, the same way as `Kalaka\Forms\Api\KeyDerivation`
  * on the server, and the editor sets each one once and never changes it after. A key is unique across the
  * form's event (its participant fields, retired ones included). The server takes any key it receives as
  * chosen on purpose: it derives only a missing or invalid one, and refuses a key repeated in the form.

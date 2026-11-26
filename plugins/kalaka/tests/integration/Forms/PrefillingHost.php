@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\DraftClaimChoice;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormDraft;
 use Kalaka\Forms\Api\FormHost;
+use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Actor\Actor;
 
@@ -70,6 +71,11 @@ final class PrefillingHost implements FormHost
     public function resolveDraftClaim(Form $form, DraftClaimChoice $choice, Actor $actor): void
     {
         $this->inner->resolveDraftClaim($form, $choice, $actor);
+    }
+
+    public function requestOptions(Form $form, int $setId): ?RequestOptions
+    {
+        return $this->inner->requestOptions($form, $setId);
     }
 
     public function submitToken(): string

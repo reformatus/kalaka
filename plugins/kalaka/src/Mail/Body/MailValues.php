@@ -102,6 +102,18 @@ final class MailValues
     }
 
     /**
+     * The participant fields of the event whose value is a path (`PathFieldType`,
+     * the congregation field): a mail's condition reads them with `contains`, never `equals`, as a form's
+     * does. Checked with `types()`.
+     *
+     * @return list<string>
+     */
+    public function paths(int $eventId): array
+    {
+        return $this->forms->pathKeys($eventId);
+    }
+
+    /**
      * The registration's contact email; null when its contact-email field has no answer. The sender asks for
      * it before the claim, so a data problem is a `RecipientUnavailable`, never another exception.
      *

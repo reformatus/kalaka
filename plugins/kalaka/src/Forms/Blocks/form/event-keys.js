@@ -116,7 +116,7 @@ export function KeyNotice({ attributes }) {
 		? el(
 				Notice,
 				{ status: 'warning', isDismissible: false, className: 'kalaka-editor-control', spokenMessage: null },
-				'Az esemény résztvevői mezői nem tölthetők be, ezért ennek a mezőnek még nincs azonosítója.'
+				'Az esemény jelentkezői mezői nem tölthetők be, ezért ennek a mezőnek még nincs azonosítója.'
 		  )
 		: null;
 }

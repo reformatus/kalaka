@@ -8,7 +8,9 @@ use Kalaka\Forms\Engine\Condition\ConditionEvaluator;
 use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\ContextScope;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
+use Kalaka\Forms\Engine\Condition\FormScope;
 use Kalaka\Foundation\Api\Error\SystemFailure;
+use Kalaka\Foundation\Api\Module\Contributions;
 
 /**
  * The one availability base (S76): every "is it shown, is it selectable" decision reads one
@@ -75,10 +77,25 @@ final class Availability
      *
      * @param array<array-key, mixed> $condition
      * @param array<string, ValueType> $declared
+     * @param list<string> $paths the declared keys whose value is a path (`PathFieldType`),
+     *     which a condition never compares with `equals`
      * @throws SystemFailure an invalid condition or a key that is not declared
      */
-    public function check(array $condition, array $declared): void
+    public function check(array $condition, array $declared, array $paths = []): void
     {
-        $this->parser->parse($condition, new DeclaredScope($declared));
+        $this->parser->parse($condition, new DeclaredScope($declared, $paths));
+    }
+
+    /**
+     * Checks a set option's condition where a live form holds the set's request field, as that form's
+     * definition would parse it: it may read only the fields before the request field and the host's keys.
+     * Pure, so a use case runs it inside its transaction on scopes read before it (S44).
+     *
+     * @param array<array-key, mixed> $condition
+     * @throws SystemFailure the problem the form's definition would have
+     */
+    public function checkInForm(array $condition, RequestScope $scope): void
+    {
+        $this->parser->parse($condition, new FormScope($scope->earlier, Contributions::current(), $scope->declared));
     }
 }

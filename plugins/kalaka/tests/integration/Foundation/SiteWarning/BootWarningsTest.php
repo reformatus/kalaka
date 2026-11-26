@@ -18,7 +18,7 @@ final class BootWarningsTest extends SiteWarningTestCase
 {
     private const LOAD_TITLE = 'A Kaláka nem töltődött be, ezért minden esemény zárva van';
 
-    private const LOAD_DESCRIPTION = 'A jelentkezés, a résztvevői oldalak és a levélküldés nem működik. A tárolt '
+    private const LOAD_DESCRIPTION = 'A jelentkezés, a jelentkezői oldalak és a levélküldés nem működik. A tárolt '
         . 'adatok érintetlenek; a hiba elhárítása után a Kaláka újra működik.';
 
     private const BINLOG_TITLE = 'Az adatbázis beállítása miatt a Kaláka nem tud adatot menteni';

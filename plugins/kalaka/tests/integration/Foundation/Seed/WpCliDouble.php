@@ -36,6 +36,11 @@ namespace {
                 self::$calls[] = ['success', $message];
             }
 
+            public static function warning(string $message, bool $group = false): void
+            {
+                self::$calls[] = ['warning', $message];
+            }
+
             public static function error(string $message, int $exitCode = 1): void
             {
                 self::$calls[] = ['error', [$message, $exitCode]];

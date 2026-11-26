@@ -109,11 +109,11 @@ export function useTextsWatch(clientId, isSelected) {
 /** The rename's refusal as the organiser reads it. */
 const refusalText = (error) =>
 	({
-		400: 'A résztvevői mezőt nem lehet módosítani: valamelyik szöveg üres vagy hibás.',
-		403: 'A résztvevői mezőt nem lehet módosítani: ehhez nincs jogosultságod.',
-		404: 'A résztvevői mezőt nem lehet módosítani: nem található.',
-		422: 'A résztvevői mezőt nem lehet módosítani: a szövegeit a rendszer vagy egy bővítmény adja.',
-	})[error?.data?.status] ?? 'A résztvevői mezőt nem sikerült módosítani.';
+		400: 'A jelentkezői mezőt nem lehet módosítani: valamelyik szöveg üres vagy hibás.',
+		403: 'A jelentkezői mezőt nem lehet módosítani: ehhez nincs jogosultságod.',
+		404: 'A jelentkezői mezőt nem lehet módosítani: nem található.',
+		422: 'A jelentkezői mezőt nem lehet módosítani: a szövegeit a rendszer vagy egy bővítmény adja.',
+	})[error?.data?.status] ?? 'A jelentkezői mezőt nem sikerült módosítani.';
 
 /** The buttons of a question: the safe choice first, so it takes the focus. */
 const Choices = ({ children }) => el(Flex, { justify: 'flex-end' }, children);
@@ -123,7 +123,7 @@ function ArrivalQuestion({ label, field, onNew, onJoin }) {
 	return el(
 		Modal,
 		{
-			title: 'Csatlakozzon a mező a meglévő résztvevői mezőhöz?',
+			title: 'Csatlakozzon a mező a meglévő jelentkezői mezőhöz?',
 			focusOnMount: 'firstContentElement',
 			isDismissible: false,
 			shouldCloseOnEsc: false,
@@ -131,12 +131,12 @@ function ArrivalQuestion({ label, field, onNew, onJoin }) {
 			onRequestClose: () => {},
 			aria: { describedby: 'kalaka-pf-question' },
 		},
-		el('p', { id: 'kalaka-pf-question' }, `A beillesztett „${label}” mező azonosítóját már használja az esemény egyik résztvevői mezője: „${plainText(field.title)}”.`),
-		el('p', null, 'Csatlakozáskor ez az űrlap is ebbe a résztvevői mezőbe írja a válaszokat, egyébként új résztvevői mező jön létre.'),
+		el('p', { id: 'kalaka-pf-question' }, `A beillesztett „${label}” mező azonosítóját már használja az esemény egyik jelentkezői mezője: „${plainText(field.title)}”.`),
+		el('p', null, 'Csatlakozáskor ez az űrlap is ebbe a jelentkezői mezőbe írja a válaszokat, egyébként új jelentkezői mező jön létre.'),
 		el(
 			Choices,
 			null,
-			el(Button, { variant: 'secondary', onClick: onNew }, 'Új résztvevői mező létrehozása'),
+			el(Button, { variant: 'secondary', onClick: onNew }, 'Új jelentkezői mező létrehozása'),
 			el(Button, { variant: 'primary', onClick: onJoin }, 'Csatlakozás')
 		)
 	);
@@ -161,7 +161,7 @@ function TextsQuestion({ eventId, field, found, onDone, onDecline }) {
 	const picked = found.filter((item, index) => chosen[index]);
 	const rename = () => {
 		if (picked.some((item) => tooLong(item.to))) {
-			setError(`A résztvevői mezőt nem lehet módosítani: egy szöveg legfeljebb ${MAX_TEXT} karakter lehet.`);
+			setError(`A jelentkezői mezőt nem lehet módosítani: egy szöveg legfeljebb ${MAX_TEXT} karakter lehet.`);
 			return;
 		}
 		setBusy(true);
@@ -177,7 +177,7 @@ function TextsQuestion({ eventId, field, found, onDone, onDecline }) {
 	return el(
 		Modal,
 		{
-			title: onlyTitle ? 'Módosuljon a résztvevői mező címe is?' : 'Módosuljanak a résztvevői mező szövegei is?',
+			title: onlyTitle ? 'Módosuljon a jelentkezői mező címe is?' : 'Módosuljanak a jelentkezői mező szövegei is?',
 			focusOnMount: false,
 			onRequestClose: () => !busy && onDecline(),
 			aria: { describedby: 'kalaka-pf-question' },
@@ -186,9 +186,9 @@ function TextsQuestion({ eventId, field, found, onDone, onDecline }) {
 			? el(
 					'p',
 					{ id: 'kalaka-pf-question' },
-					`A mező kérdése ezen az űrlapon: „${plainText(found[0].to)}”. A résztvevői mező címe: „${plainText(found[0].from)}”.`
+					`A mező kérdése ezen az űrlapon: „${plainText(found[0].to)}”. A jelentkezői mező címe: „${plainText(found[0].from)}”.`
 			  )
-			: el('p', { id: 'kalaka-pf-question' }, 'Ezen az űrlapon más a szöveg, mint a résztvevői mezőben:'),
+			: el('p', { id: 'kalaka-pf-question' }, 'Ezen az űrlapon más a szöveg, mint a jelentkezői mezőben:'),
 		!onlyTitle &&
 			(found.length === 1
 				? el('p', null, differenceText(found[0]))
@@ -205,8 +205,8 @@ function TextsQuestion({ eventId, field, found, onDone, onDecline }) {
 			'p',
 			null,
 			onlyTitle
-				? 'A résztvevői mező címe a mezők listájában, a levelekben és a nézetekben jelenik meg. A többi űrlapon a kérdés szövege nem változik.'
-				: 'A résztvevői mező címe és lehetőségei a mezők listájában, a levelekben és a nézetekben jelennek meg. A többi űrlapon a kérdés és a lehetőségek szövege nem változik.'
+				? 'A jelentkezői mező címe a mezők listájában, a levelekben és a nézetekben jelenik meg. A többi űrlapon a kérdés szövege nem változik.'
+				: 'A jelentkezői mező címe és lehetőségei a mezők listájában, a levelekben és a nézetekben jelennek meg. A többi űrlapon a kérdés és a lehetőségek szövege nem változik.'
 		),
 		error && el(Notice, { status: 'error', isDismissible: false }, error),
 		el(
@@ -300,8 +300,8 @@ function Prompts() {
 				'info',
 				// Not joinable: a field of another type, or one no form writes.
 				question.field.form_writable
-					? `A beillesztett „${label}” mező új résztvevői mező lett: a meglévő „${plainText(question.field.title)}” mező más típusú.`
-					: `A beillesztett „${label}” mező új résztvevői mező lett: a meglévő „${plainText(question.field.title)}” mezőt nem űrlap tölti ki.`,
+					? `A beillesztett „${label}” mező új jelentkezői mező lett: a meglévő „${plainText(question.field.title)}” mező más típusú.`
+					: `A beillesztett „${label}” mező új jelentkezői mező lett: a meglévő „${plainText(question.field.title)}” mezőt nem űrlap tölti ki.`,
 				{ type: 'snackbar' }
 			);
 			done(item.id);

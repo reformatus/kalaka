@@ -19,7 +19,7 @@ final class LoadFailureWarning implements SiteWarning
 {
     private const TITLE = 'A Kaláka nem töltődött be, ezért minden esemény zárva van';
 
-    private const DESCRIPTION = 'A jelentkezés, a résztvevői oldalak és a levélküldés nem működik. A tárolt adatok '
+    private const DESCRIPTION = 'A jelentkezés, a jelentkezői oldalak és a levélküldés nem működik. A tárolt adatok '
         . 'érintetlenek; a hiba elhárítása után a Kaláka újra működik.';
 
     public function id(): string

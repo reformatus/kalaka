@@ -61,6 +61,12 @@ import { readAnswer } from './answers';
  */
 const forms = new WeakMap();
 
+/**
+ * The event a re-rendered field's new wrapper gets once it is in place, with the values it was ticked with
+ * (`detail.chosen`, in the order they were ticked in or held), for a field type's own script.
+ */
+export const SWAPPED = 'kalaka:field-swapped';
+
 /** Kaláka's own error codes: only their messages are shown as they come. */
 const OWN_CODE = /^kalaka_/;
 
@@ -288,7 +294,8 @@ function remember(form, key) {
 			? []
 			: earlier.filter((value) => !offered.includes(value))
 		: earlier.filter((value) => !offered.includes(value));
-	started.ticks.set(key, [...kept, ...ticked]);
+	// Ticked first, in document order (a ranking's order), then the remembered ones not offered now (S44).
+	started.ticks.set(key, [...ticked, ...kept]);
 }
 
 /**
@@ -328,6 +335,10 @@ function swap(form, key, html) {
 			: chosen.includes(control.value);
 	}
 	old.replaceWith(template.content);
+	// A field type with a script of its own (the module ranking, S44) wires the new markup and orders it.
+	wrapperOf(form, key)?.dispatchEvent(
+		new window.CustomEvent(SWAPPED, { bubbles: true, detail: { chosen: [...chosen] } })
+	);
 
 	if (focused !== null) {
 		const fresh = wrapperOf(form, key);
@@ -377,6 +388,12 @@ function apply(form, { availability, parts }) {
 	if (Array.isArray(availability.pages) && hasPages(started)) {
 		started.pages = availability.pages;
 		showButtons(form);
+	}
+	// A field that no longer shows loses its message, so a stale one never comes back with it.
+	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
+		if (!shows(wrapper)) {
+			clearFieldMessage(wrapper);
+		}
 	}
 }
 
@@ -979,6 +996,26 @@ function messageIdOf(key) {
 	return `kalaka-field-${key}-error`;
 }
 
+/** Empties one field's error element and stops its controls being invalid or described by it. */
+function clearFieldMessage(wrapper) {
+	const slot = slotOf(wrapper);
+	if (slot !== null) {
+		slot.textContent = '';
+		slot.hidden = true;
+	}
+	for (const control of controlsOf(wrapper)) {
+		control.removeAttribute('aria-invalid');
+		const ids = (control.getAttribute('aria-describedby') ?? '')
+			.split(/\s+/)
+			.filter((id) => id !== '' && id !== slot?.id);
+		if (ids.length > 0) {
+			control.setAttribute('aria-describedby', ids.join(' '));
+		} else {
+			control.removeAttribute('aria-describedby');
+		}
+	}
+}
+
 function clearMessages(form) {
 	alertOf(form).textContent = '';
 	const account = form.querySelector('#kalaka-account-error');
@@ -987,22 +1024,7 @@ function clearMessages(form) {
 		account.hidden = true;
 	}
 	for (const wrapper of form.querySelectorAll('[data-kalaka-field]')) {
-		const slot = slotOf(wrapper);
-		if (slot !== null) {
-			slot.textContent = '';
-			slot.hidden = true;
-		}
-		for (const control of controlsOf(wrapper)) {
-			control.removeAttribute('aria-invalid');
-			const ids = (control.getAttribute('aria-describedby') ?? '')
-				.split(/\s+/)
-				.filter((id) => id !== '' && id !== slot?.id);
-			if (ids.length > 0) {
-				control.setAttribute('aria-describedby', ids.join(' '));
-			} else {
-				control.removeAttribute('aria-describedby');
-			}
-		}
+		clearFieldMessage(wrapper);
 	}
 }
 
@@ -1420,9 +1442,21 @@ async function send(form) {
 
 store('kalaka/form', {
 	actions: {
+		// A field's message clears on the first edit of that field.
+		edited(event) {
+			const form = getElement().ref;
+			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
+			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
+				clearFieldMessage(wrapper);
+			}
+		},
 		update(event) {
 			const form = getElement().ref;
 			const started = forms.get(form);
+			const wrapper = event?.target?.closest?.('[data-kalaka-field]');
+			if (wrapper !== null && wrapper !== undefined && form.contains(wrapper)) {
+				clearFieldMessage(wrapper);
+			}
 			const name = event?.target?.name;
 			if (started === undefined || typeof name !== 'string') {
 				return undefined;
