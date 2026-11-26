@@ -96,6 +96,7 @@ export default function Page( { config } ) {
 	// The one column menu: which column's is open, and the header button it was opened from (null: from the arrow).
 	// [UNAPPROVED N943]
 	const [ menuState, setMenuState ] = useState( null );
+	const keepFocus = useRef( false );
 	// The ticked rows' keys (the codes), for the bulk action „Levél küldése”: of this page only (DataViews drops
 	// the ones not on the page), and cleared with the tab, the page, the order and the filters. [UNAPPROVED N288]
 	const [ selection, setSelection ] = useState( [] );
@@ -442,6 +443,7 @@ export default function Page( { config } ) {
 	// A filter is added the way DataViews' own „Add filter” adds it: an entry with no value yet, then the filter bar and
 	// the new chip are shown. [UNAPPROVED N944]
 	const addFilter = ( column ) => {
+		keepFocus.current = true; // the new chip's popover takes focus, so it does not go back to the opener
 		const operators = ( filterSpec( column ).filterBy || {} ).operators;
 		if ( ! operators ) {
 			return;
@@ -562,7 +564,11 @@ export default function Page( { config } ) {
 		} else if ( lastFrom.current ) {
 			const target = lastFrom.current;
 			lastFrom.current = null;
-			focusOpener( target );
+			if ( keepFocus.current ) {
+				keepFocus.current = false;
+			} else {
+				focusOpener( target );
+			}
 		}
 	}, [ menuState ] );
 	// The header button the menu was opened from says it is open.
