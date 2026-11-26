@@ -11,7 +11,7 @@
  * Requires Plugins: kalaka
  */
 
-// The plugin name is UI text: the share's approved wording (T66) under the family prefix. [UNAPPROVED]
+// The plugin name is UI text: the share's approved wording (T66) under the family prefix. [UNAPPROVED T502]
 
 declare(strict_types=1);
 
