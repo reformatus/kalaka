@@ -71,7 +71,9 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .kg-serial { font-variant-numeric: tabular-nums; }
 
 /* The sum row inside DataViews' <thead>. */
-#kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
+/* The table collapses its borders, and a collapsed border belongs to the table's grid, so it scrolls away from the
+   sticky head. The sum row's two lines are drawn inside its own cells instead. [UNAPPROVED N936] */
+#kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border: 0; box-shadow: inset 0 1px 0 #dcdcde, inset 0 -1px 0 #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
 /* The frame cell under the sticky actions column is sticky too, so no sum shows through below the header. */
 #kalaka-grid thead tr.kg-sumtr td.kg-sumtd-actions { position: sticky; right: 0; }
