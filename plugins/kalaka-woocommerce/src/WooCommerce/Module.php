@@ -18,6 +18,7 @@ final class Module extends AbstractModule
         private readonly ReconcileStep $reconcile = new ReconcileStep(),
         private readonly ReturnAddress $returnAddress = new ReturnAddress(),
         private readonly HiddenProduct $product = new HiddenProduct(),
+        private readonly LoginRedirects $login = new LoginRedirects(),
     ) {
     }
 
@@ -50,6 +51,10 @@ final class Module extends AbstractModule
     {
         add_filter('woocommerce_prevent_admin_access', [$this->gate, 'prevent']);
         add_filter('woocommerce_disable_admin_bar', [$this->gate, 'keepAdminBar']);
+
+        // One login and one password screen: WordPress's own. After WooCommerce's handlers (priority 10).
+        $this->login->removeLostPasswordOverride();
+        add_action('template_redirect', [$this->login, 'redirect'], 20);
 
         // A paid order is recorded by one function whichever of the three hooks announces it first.
         add_action('woocommerce_payment_complete', [$this, 'paid'], 10, 1);
