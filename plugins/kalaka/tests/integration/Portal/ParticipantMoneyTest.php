@@ -535,7 +535,8 @@ final class ParticipantMoneyTest extends PortalTestCase
         }
 
         self::assertSame($counts[0], $counts[1]);
-        // The registration, the event, the decisions, the summary, the statement and the manual fees.
-        self::assertSame(6, $counts[0]);
+        // The registration, the event, the decisions, the summary, the statement, the manual fees and the lines
+        // (`entriesOf()`, which finds the other payers: none here, so no more).
+        self::assertSame(7, $counts[0]);
     }
 }
