@@ -485,7 +485,7 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayHasKey('draftUrl', $this->context($html));
     }
 
-    /** N681: a guest's quiz or link handoff is kept on a mandatory-account event too. */
+    /** N681: on a mandatory-account event a guest's quiz or link handoff is accepted and its draft written. */
     public function testAGuestsHandoffIsKeptInTheMandatoryAccountMode(): void
     {
         $this->accountMode('mandatory');

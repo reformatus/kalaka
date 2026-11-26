@@ -214,7 +214,8 @@ final class DraftHandoff
         if ($found === null) {
             return null;
         }
-        // The account never refuses a handoff (N681): a guest's link or quiz answers are kept in every mode.
+        // The account never refuses a handoff (N681): in `mandatory` a guest's answers are kept too, and the guest
+        // lands on page 1 of the form with the login, able to advance only once logged in.
         $refusals = FormsPage::withoutAccount(
             FormsPage::refusalsOf($this->host, $found, $post, Runner::current()->clock()->now())
         );
