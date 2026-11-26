@@ -353,6 +353,9 @@ final class SignUpPageTest extends AccountsTestCase
         $plain = $this->returnPageOutput();
         self::assertStringContainsString('location.replace(p)', $plain);
         self::assertStringNotContainsString('data-kalaka-return', $plain);
+        self::assertFalse(has_filter('login_site_html_link'));
+        self::assertFalse(has_filter('the_privacy_policy_link'));
+        self::assertFalse(has_filter('login_display_language_dropdown'));
 
         $_REQUEST = [SignUp::MARKER => (string) $form, 'popup' => '1'];
         $popup = $this->returnPageOutput();
@@ -370,6 +373,13 @@ final class SignUpPageTest extends AccountsTestCase
         self::assertStringContainsString(SignUpPage::RETURN_CLOSE_LINE, $noscript[1]);
         self::assertStringContainsString('window.close()', $popup);
         self::assertStringContainsString('postMessage({kalaka:"account"},location.origin)', $popup);
+        // The window cannot navigate away: core's footer links and language form are suppressed, and only here.
+        self::assertStringNotContainsString('Go to site', $popup);
+        self::assertStringNotContainsString('privacy', $popup);
+        self::assertStringNotContainsString('language-switcher', $popup);
+        self::assertFalse(has_filter('login_site_html_link'));
+        self::assertFalse(has_filter('login_display_language_dropdown'));
+        self::assertStringContainsString('Go to site', (string) apply_filters('login_site_html_link', 'Go to site'));
 
         $_REQUEST = [SignUp::MARKER => (string) $form, 'popup' => 'yes'];
         self::assertStringContainsString('location.replace(p)', $this->returnPageOutput());

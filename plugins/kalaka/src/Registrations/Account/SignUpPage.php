@@ -308,6 +308,11 @@ final class SignUpPage
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- a constant
             echo '<style>' . self::POPUP_HIDDEN_STYLE . '</style>';
         });
+        // The window must not navigate away: no "Go to site" link, no privacy policy link, no language form.
+        $noLink = static fn (): string => '';
+        add_filter('login_site_html_link', $noLink);
+        add_filter('the_privacy_policy_link', $noLink);
+        add_filter('login_display_language_dropdown', '__return_false');
         login_header(get_bloginfo('name'));
         printf(
             '<p class="message" data-kalaka-return-line hidden>%1$s</p>'
@@ -319,6 +324,9 @@ final class SignUpPage
         );
         wp_print_inline_script_tag(self::POPUP_RETURN_SCRIPT);
         login_footer();
+        remove_filter('login_site_html_link', $noLink);
+        remove_filter('the_privacy_policy_link', $noLink);
+        remove_filter('login_display_language_dropdown', '__return_false');
     }
 
     /** Whether the request carries the popup marker: `popup=1` exactly (`SignUp::isPopup()`). */
