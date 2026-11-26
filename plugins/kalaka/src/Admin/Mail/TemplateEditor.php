@@ -8,7 +8,8 @@ namespace Kalaka\Admin\Mail;
  * The mail templates (`kalaka_mail` posts) in WordPress's own screens: they leave the native post list, and the
  * editor (`post.php`) is kept, with core's „Közzététel” wording overridden and its back link on the event's „Levelek”
  * page. The post type has no menu item (`show_in_menu` is false). The type and the event meta are named here as
- * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N923, N924, N925]
+ * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N923, N924, N925, N928,
+ * N929, N930]
  */
 final class TemplateEditor
 {
@@ -32,6 +33,24 @@ final class TemplateEditor
         $page = is_string($query['page'] ?? null) ? $query['page'] : '';
         $found = preg_match('/^kalaka-event-([1-9][0-9]*)-(?:mail|registrations)$/', $page, $m) === 1;
         $event = $found ? (int) $m[1] : null;
+        // The editor's „Lomtárba” (and its restore and delete) come with `ids`, the posts moved, and a `post.php`
+        // referer, which has no `page`: the event is then the post's own `kalaka_event_id`, so the admin lands back
+        // on that event's „Levelek” page, not the site-wide „Levelezés”. [UNAPPROVED N930]
+        if ($event === null) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
+            $ids = isset($_GET['ids']) ? sanitize_text_field(wp_unslash($_GET['ids'])) : '';
+            foreach (explode(',', $ids) as $id) {
+                $postId = (int) trim($id);
+                if ($postId <= 0) {
+                    continue;
+                }
+                $meta = get_post_meta($postId, self::META_EVENT_ID, true);
+                if (is_scalar($meta) && preg_match('/\A[1-9][0-9]*\z/', (string) $meta) === 1) {
+                    $event = (int) $meta;
+                    break;
+                }
+            }
+        }
         wp_safe_redirect(MailPages::url($event));
         exit;
     }
