@@ -300,7 +300,8 @@ final class OffersTest extends OffersTestCase
         $this->applyOffers([self::offer('keret', '8000', request: true, limit: 1)]);
         $key = $this->registerSelecting('00A0', 'keret');
 
-        self::assertFalse($this->awaits($key));
+        // The panel reads no request; the rule (and so awaits()) does not test seats: a submit always holds one.
+        self::assertSame([], (new Requests())->states($key));
         self::assertSame('30000', $this->balance($key));
     }
 
@@ -637,7 +638,8 @@ final class OffersTest extends OffersTestCase
         $key = $this->register('00A0', RegistrationStatus::Waitlisted);
         $this->writeValue($key, 'keret', '1');
 
-        self::assertFalse($this->awaits($key));
+        // The panel reads no request; the rule (and so awaits()) does not test seats, and a waitlisted one awaits.
+        self::assertSame([], (new Requests())->states($key));
         self::assertSame([], $this->lineSources($key));
     }
 
