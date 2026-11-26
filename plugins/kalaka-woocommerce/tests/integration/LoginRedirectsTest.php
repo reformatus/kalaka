@@ -19,8 +19,12 @@ final class LoginRedirectsTest extends WP_UnitTestCase
     {
         parent::set_up();
 
-        $this->account = self::factory()->post->create(['post_type' => 'page', 'post_content' => '[woocommerce_my_account]']);
-        $this->checkout = self::factory()->post->create(['post_type' => 'page', 'post_content' => '[woocommerce_checkout]']);
+        $this->account = self::factory()->post->create(
+            ['post_type' => 'page', 'post_content' => '[woocommerce_my_account]']
+        );
+        $this->checkout = self::factory()->post->create(
+            ['post_type' => 'page', 'post_content' => '[woocommerce_checkout]']
+        );
         update_option('woocommerce_myaccount_page_id', $this->account);
         update_option('woocommerce_checkout_page_id', $this->checkout);
         wp_set_current_user(0);
@@ -145,7 +149,8 @@ final class LoginRedirectsTest extends WP_UnitTestCase
     {
         $_GET['show-reset-form'] = 'true';
 
-        self::assertNull($this->redirectOf(home_url('/?page_id=' . $this->account . '&lost-password&show-reset-form=true')));
+        $url = home_url('/?page_id=' . $this->account . '&lost-password&show-reset-form=true');
+        self::assertNull($this->redirectOf($url));
     }
 
     public function testTheLostPasswordEndpointIsLeftAloneForALoggedInUser(): void
@@ -170,6 +175,7 @@ final class LoginRedirectsTest extends WP_UnitTestCase
     private function redirectOf(string $url): ?string
     {
         $this->go_to($url);
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- the test sets the request it simulates.
         $_GET = array_merge($_GET, (array) wp_parse_args((string) wp_parse_url($url, PHP_URL_QUERY)));
 
         $location = null;
@@ -210,6 +216,8 @@ final class LoginRedirectsTest extends WP_UnitTestCase
 
     private function payUrl(\WC_Order $order, ?string $key = null): string
     {
-        return home_url('/?page_id=' . $this->checkout . '&order-pay=' . $order->get_id() . '&key=' . ($key ?? $order->get_order_key()));
+        $key ??= $order->get_order_key();
+
+        return home_url('/?page_id=' . $this->checkout . '&order-pay=' . $order->get_id() . '&key=' . $key);
     }
 }
