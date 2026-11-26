@@ -19,7 +19,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * type, so a key `ParticipantFields::checkDeclarable()` refuses (a `staff` or `system` field, a field of another
  * type, another declarer's field) is refused here as the declaration would refuse it, and a number field that
  * multiplies the amount must take whole numbers (decimals 0). It reads the event's participant fields
- * (no post). [UNAPPROVED N13]
+ * (no post).
  */
 final class ChargeField
 {
