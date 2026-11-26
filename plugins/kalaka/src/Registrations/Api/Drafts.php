@@ -220,7 +220,8 @@ final class Drafts
      * same choice again answers as the first did.
      *
      * @throws PermissionDenied for anyone not logged in
-     * @throws DraftClaimRefused the claim is gone, expired, of another form, or settled with another choice
+     * @throws DraftClaimRefused the claim is gone (deleted on send or swept after the close), of another form,
+     *                           or settled with another choice
      * @throws \Kalaka\Foundation\Api\Error\KalakaException
      */
     public function resolve(int $eventId, int $formId, string $token, DraftClaimChoice $choice, Actor $actor): void

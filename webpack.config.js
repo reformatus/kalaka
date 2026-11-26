@@ -3,7 +3,7 @@
  * every `block.json`, with one more classic script entry: the claim popup of a form page
  * (`Forms/Blocks/form/claim.js`, a `@wordpress/components` Modal), which no `block.json` names because it
  * is enqueued only on a page with a pending claim (`Forms\Module::CLAIM_SCRIPT`). The entry belongs to the
- * Kaláka plugin's build only: the other build (`kalaka-ranking`) has the plain configuration.
+ * Kaláka plugin's build only: the other builds (`kalaka-ranking`, `kalaka-support`) have the plain configuration.
  */
 const defaults = require('@wordpress/scripts/config/webpack.config');
 

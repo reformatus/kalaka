@@ -159,6 +159,8 @@ final class DraftHandoff
             return;
         }
         $kept = $this->host->handOver($form, $definition->version, $accepted, DraftClaim::current(), $actor);
+        // An event with no closing date keeps nothing on handoff (`EventFormHost::handOver`). That branch is
+        // unreachable: publishing requires a closing date (`PublishEvent`, `registrationClosesAt`).
         if ($kept !== null) {
             DraftClaim::setCookie($kept[0], $kept[1]);
         }

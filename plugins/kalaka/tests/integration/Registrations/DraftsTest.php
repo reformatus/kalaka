@@ -27,8 +27,8 @@ use Kalaka\Tests\Integration\Foundation\TestClock;
 /**
  * S74: drafts. The autosave keeps a logged-in person's answers; a handoff keeps a link's answers as a
  * guest draft under a claim token; a logged-in person claims it, or chooses when it meets their own draft;
- * the submit deletes the draft; the periodic step deletes the drafts of closed events and expired guest
- * drafts. The audit never holds a draft's answers.
+ * the submit deletes the draft; the periodic step deletes the drafts of closed (or archived) events; a
+ * draft has no lifetime of its own. The audit never holds a draft's answers.
  */
 final class DraftsTest extends FormsTestCase
 {
