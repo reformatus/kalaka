@@ -1,13 +1,14 @@
 /**
  * One event's failed deliveries, on the „Levelezés” page (the owner's ruling: the queue lists live there only): the event's deliveries that need a look (failed, pending with the error of an
- * earlier attempt, stuck in „sending”), by registration code only: Mail reads no registration values and the
- * read has no code-list narrowing, so no name is shown (Backend's N549; ViewQuery has no code-list filter). The error
+ * earlier attempt, stuck in „sending”), by registration code and, when the read gives one, the name (the viewer's
+ * held view decides: `name` is null without name access). The error
  * is shown as the server stored it. The one follow-up is a manual mail to that code, the same dialog as the grid's.
  * Only a failed delivery offers the follow-up: a mail that still waits (with the error of an earlier attempt) or is
  * stuck in „sending” may yet go out, so a second copy would be a duplicate. [UNAPPROVED N285] [UNAPPROVED N286]
  */
 import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
+import CodeName from './CodeName';
 import ListTable from './ListTable';
 import ManualMailDialog from './ManualMailDialog';
 import { pageKeys } from './manual';
@@ -22,7 +23,14 @@ export default function Troubled( { config, version } ) {
 	const keys = useRef( pageKeys( config.event ) );
 	const fields = useMemo(
 		() => [
-			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => codeName( item.code, item.name ), enableHiding: false },
+			{
+				id: 'code',
+				label: TROUBLED.code,
+				getValue: ( { item } ) => codeName( item.code, item.name ),
+				// The code in its mark, as the batch members and the dialog's lists show it. [UNAPPROVED N949]
+				render: ( { item } ) => <CodeName code={ item.code } name={ item.name } />,
+				enableHiding: false,
+			},
 			{
 				id: 'mail',
 				label: TROUBLED.mail,
