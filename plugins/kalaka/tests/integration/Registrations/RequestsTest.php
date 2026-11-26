@@ -173,14 +173,15 @@ final class RequestsTest extends RegistrationsTestCase
         self::assertCount(2, array_unique($keys), 'Each answering act has its own key.');
     }
 
-    public function testAWithdrawnOrRemovedRegistrationAwaitsNothingAndAWaitlistedOneDoes(): void
+    public function testOnlyARegisteredRegistrationAwaitsAnAnswer(): void
     {
         $key = $this->asking();
         $requests = new Requests([new TestRequestSource()]);
 
         self::assertFalse($requests->awaits($key, RegistrationStatus::Withdrawn));
         self::assertFalse($requests->awaits($key, RegistrationStatus::Removed));
-        self::assertTrue($requests->awaits($key, RegistrationStatus::Waitlisted));
+        self::assertFalse($requests->awaits($key, RegistrationStatus::Waitlisted));
+        self::assertTrue($requests->awaits($key, RegistrationStatus::Registered), 'true again at admission');
     }
 
     public function testNoSourcesMeansNoRequestsAndNoStatement(): void

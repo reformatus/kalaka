@@ -138,18 +138,26 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
         $page = $this->query()->page($this->held(), limit: 50);
 
         foreach ($page->rows as $row) {
-            $anyAwaiting = array_filter(
+            $unanswered = array_filter(
                 $requests->states($row->key),
                 static fn ($state): bool => $state->awaits()
             ) !== [];
             foreach (RegistrationStatus::cases() as $status) {
-                $inactive = $status === RegistrationStatus::Withdrawn || $status === RegistrationStatus::Removed;
+                // The panel (RegistrationDetail::requestsPart()) says 'awaiting' for an unanswered request only
+                // while the registration is registered, 'inactive' otherwise.
+                $panel = $status === RegistrationStatus::Registered && $unanswered;
                 self::assertSame(
-                    !$inactive && $anyAwaiting,
+                    $panel,
                     $requests->awaits($row->key, $status),
                     $row->key->code . ' as ' . $status->value
                 );
             }
+            $actual = RegistrationStatus::from((string) $row->values['status']);
+            self::assertSame(
+                $row->awaitsAnswer,
+                $requests->awaits($row->key, $actual),
+                $row->key->code . ' grid column equals the fact'
+            );
         }
     }
 

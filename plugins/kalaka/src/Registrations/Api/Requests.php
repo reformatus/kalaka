@@ -81,17 +81,21 @@ final class Requests
      * Whether some source's `AwaitingRule` holds over the registration's field values, evaluated in PHP with
      * `AwaitingRule::matches()`: the one definition `awaitingCondition()` compiles to SQL, so the two agree for a
      * `registered` registration (the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`, which
-     * the rule must mean exactly). False for a withdrawn or removed registration; a waitlisted one awaits (the
-     * grid shows none). One statement (the field values, which hold every answer); none with no source or for a
-     * withdrawn or removed registration.
+     * the rule must mean exactly). False for every status but `registered`, the gate `awaitingCondition()` has,
+     * so the fact, the grid column and the detail panel mean one thing; a waitlisted registration awaits again by
+     * itself at admission. One statement (the field values, which hold every answer); none with no source or for a
+     * registration that is not registered.
+     * (Behaviour) "Awaits an answer" has one meaning: the fact `registration.awaits_answer` (`awaits()`) is false
+     * for every status but registered, as the grid column and the panel; it becomes true again by itself at
+     * admission. Alternative: keep #232's rule (a waitlisted registration's awaits stays true; the column and
+     * panel differ). [UNAPPROVED N690]
      */
     public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
     {
         $sources = $this->sources ?? Contributions::current()->requestSources();
         if (
             $sources === []
-            || $status === RegistrationStatus::Withdrawn
-            || $status === RegistrationStatus::Removed
+            || $status !== RegistrationStatus::Registered
         ) {
             return false;
         }

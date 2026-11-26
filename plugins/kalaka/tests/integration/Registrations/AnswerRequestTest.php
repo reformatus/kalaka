@@ -443,7 +443,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addValue($this->event, '00B0', 'support', 'church');
 
         self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
-        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
     }
 
     public function testAPartnerAnswersOnlyInsideTheirViewAndOnlyWithTheAction(): void
@@ -499,12 +499,16 @@ final class AnswerRequestTest extends ManualEntryTestCase
         self::assertSame('approved', (new Registrations())->values($this->key('00B0'))['support_answer']);
     }
 
-    public function testAWaitlistedRegistrationStillAwaitsAnAnswerAsAFact(): void
+    public function testAWaitlistedRegistrationAwaitsNothingUntilAdmission(): void
     {
         $this->addRegistration($this->event, '00B0', 'waitlisted');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+
+        $this->admit('00B0');
+
+        self::assertTrue($this->requests->awaits($this->key('00B0'), RegistrationStatus::Registered));
     }
 
     private function admit(string $code): void
