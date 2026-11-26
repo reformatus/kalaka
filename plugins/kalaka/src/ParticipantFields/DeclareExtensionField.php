@@ -16,7 +16,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * declares is retired with its label kept, and one declared again is active again. A key no row has yet
  * is added after every field declared before. A key that is held by another source or with another type is
  * refused: the declaration never takes over a form's, staff or system field. Run nested in the declarer's own
- * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save. [UNAPPROVED, #200 N10]
+ * use case (`ParticipantFields::declareExtensionField()`), e.g. the price ladder's save.
  */
 final class DeclareExtensionField implements AdminUseCase
 {
