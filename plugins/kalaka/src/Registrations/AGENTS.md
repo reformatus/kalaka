@@ -143,8 +143,8 @@ the waitlist and reference codes
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
-    award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
-    non-empty note, its reason; a refusal and aid take a note optionally.
+    award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
+    reason included, is always optional.
   - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request whose source says it is not
     answered (`RequestSource::isAnswered()`, read from the source's own answer field: an offer's `<key>_answer`, the
     aid award, empty = awaiting, "0" = refused), for a registration that is `registered`. The field is the truth: the
