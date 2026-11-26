@@ -23,12 +23,12 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Pricing\Cli\SettingsDocument;
-use Kalaka\Support\Api\OfferSelected;
 use Kalaka\Support\Offers\OfferClaims;
 use Kalaka\Support\Offers\OfferRequests;
 use Kalaka\Support\Offers\OfferSeatPool;
@@ -380,8 +380,8 @@ final class OffersTest extends OffersTestCase
             $this->applyOffers([self::offer('csalad', '3000')]);
             self::fail('The save went through.');
         } catch (RuleViolation $refused) {
-            self::assertInstanceOf(OfferSelected::class, $refused);
-            self::assertSame('kalaka_offer_selected', $refused->errorCode());
+            self::assertInstanceOf(ItemChosen::class, $refused);
+            self::assertSame('kalaka_item_chosen', $refused->errorCode());
             self::assertCount(2, $this->offers->offers($this->event));
         }
 

@@ -27,8 +27,8 @@ use Kalaka\Pricing\CoreFeeComponents;
  */
 final class SettingsDocument
 {
-    /** The code of kalaka-support's `OfferSelected`: an offer a save would change is selected by open registrations. */
-    private const OFFER_SELECTED = 'kalaka_offer_selected';
+    /** The code of core's `ItemChosen`: an item a save would remove is chosen by open registrations. [UNAPPROVED N699] */
+    private const ITEM_CHOSEN = 'kalaka_item_chosen';
 
     public function __construct(
         private readonly MoneySettings $settings = new MoneySettings(),
@@ -133,9 +133,9 @@ final class SettingsDocument
                 );
                 throw $error;
             } catch (RuleViolation $refused) {
-                // By code, not by type: only an offer selected by open registrations is named here; any other
+                // By code, not by type: only an item chosen by open registrations is named here; any other
                 // rule violation goes on to the command's boundary as it is.
-                if ($refused->errorCode() !== self::OFFER_SELECTED) {
+                if ($refused->errorCode() !== self::ITEM_CHOSEN) {
                     throw $refused;
                 }
                 $error = new CommandFailure(

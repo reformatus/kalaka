@@ -74,7 +74,7 @@ It holds the directory, the congregation picker and the support offers.
   is also an item key, `support:<key>`), an unknown node, a label outside 1 to 191 characters, an amount that is
   not positive, a limit under 0 (a limit of 0 is a full offer), more than 50 offers and any unknown property. It
   also refuses to remove an offer, or to flip its "must be requested" flag, while an open registration has
-  selected it (`OfferChangeGuard`, through the shared `Registrations::openHolds()`): in the preview (`Api\Offers::propose()`) and before any save of an
+  selected it (`OfferChangeGuard`, which calls `Registrations::refuseRemovingChosen()`; the refusal is core's `ItemChosen`, `kalaka_item_chosen`, and the guard throws nothing of its own [UNAPPROVED N699]): in the preview (`Api\Offers::propose()`) and before any save of an
   apply, so an apply never half-saves; the use case checks again as a guard.
 - The save declares the offer's fields in the same transaction, through core's `declareExtensionField()` as
   declarer `support` (the module's ID, `SetSupportOffers::DECLARER`), money relevant: the selection, a consent field whose key is the offer's key

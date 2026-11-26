@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Kalaka\Support\Offers;
 
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Support\Api\Offer;
-use Kalaka\Support\Api\OfferSelected;
 
 /**
  * The rule that keeps a settings save from taking something from somebody (Q-B0-6, [UNAPPROVED N99]): an offer
  * an open (`registered` or `waitlisted`) registration has selected cannot be removed or have its "must be
  * requested" flag flipped (a line or a refusal would be taken or overridden), judged by the one shared read
- * `Registrations::openHolds()`. The refusal is `OfferSelected`, its own rule violation and not core's final
- * `ItemChosen`: a flag flip is not a removal, and `refuseRemovingChosen()` throws the plain `ItemChosen`, which
- * would lose the offer's own code. A
+ * `Registrations::openHolds()`. Switching an offer off, or flipping its flag, counts as removing a chosen item: the
+ * guard calls `Registrations::refuseRemovingChosen()` and lets it throw core's `ItemChosen` (`kalaka_item_chosen`),
+ * one refusal and one code; it throws nothing of its own. [UNAPPROVED N699] A
  * limit may be added, lowered or raised at any time (every chooser holds a seat row, so the count is right): a
  * lower limit only makes the pool stand over. It runs in the preview and before any save of an apply, and again
  * inside the use case as a guard. A plain read: the selections are one statement
@@ -36,7 +36,7 @@ final class OfferChangeGuard
      * saves anything.
      *
      * @param list<Offer> $proposed
-     * @throws OfferSelected when a watched offer is selected on an open registration
+     * @throws ItemChosen when a watched offer is selected on an open registration
      */
     public function checkAgainstStored(int $eventId, array $proposed): void
     {
@@ -50,7 +50,7 @@ final class OfferChangeGuard
     /**
      * @param array<string, OfferRecord> $stored by key
      * @param list<Offer> $proposed
-     * @throws OfferSelected when a watched offer is selected on an open registration
+     * @throws ItemChosen when a watched offer is selected on an open registration
      */
     public function check(int $eventId, array $stored, array $proposed): void
     {
@@ -61,8 +61,8 @@ final class OfferChangeGuard
         foreach ($stored as $key => $record) {
             $next = $kept[$key] ?? null;
             $changes = $next === null || $record->needsRequest !== $next->needsRequest;
-            if ($changes && $this->registrations->openHolds($eventId, $key, '1')) {
-                throw new OfferSelected();
+            if ($changes) {
+                $this->registrations->refuseRemovingChosen($eventId, $key, '1');
             }
         }
     }
