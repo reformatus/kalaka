@@ -20,7 +20,7 @@ use Kalaka\Pricing\CoreFeeComponents;
  * `{"fixed_price": "15000", "components": {"<component ID>": {…that component's settings…}}}`. Core writes
  * and reads the fixed price; every other component is a `ConfigurableFeeComponent` that does its own.
  * Reading follows `ProposedMoneySettings`: a `fixed_price` that is null or missing, and a component not
- * named, stay as they are; what `show` prints read back changes nothing. [UNAPPROVED N2]
+ * named, stay as they are; what `show` prints read back changes nothing.
  */
 final class SettingsDocument
 {
