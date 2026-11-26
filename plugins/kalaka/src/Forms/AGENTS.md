@@ -181,7 +181,8 @@ values and conditions, prefill and form links
 - "Now" in a condition is the date reference `{"ref": "now"}`, read from the
   fact source's `Facts::NOW` (`EventValues::now($at)`: the moment the caller
   holds, one clock passed down, a datetime to the second in the site's time
-  zone): never a key a condition names, never read from a clock by the
+  zone): a value-side reference never names the key `time.now` (the left
+  side of a comparison may, as a datetime, N694), never read from a clock by the
   evaluator. A chain that reads it is withheld.
   One way: every fact source a condition is evaluated over carries it
   (`EventValues::now($now)` in each `ValueContext` built for conditions, with

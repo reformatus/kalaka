@@ -504,8 +504,9 @@ is no other participant-side edit.
   submit the submit time, and after submit (mails, participant blocks,
   views) the clock time of the read that renders them (the runner's
   `Clock`); the evaluator reads it from the fact source like any value,
-  never from a clock of its own. It is a reference only, never a key a
-  condition names. A branch that reads it is held server-side like one that
+  never from a clock of its own. As a date reference it is only
+  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
+  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
   reads an event value, and the page re-fetches it with the form's other
   re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.

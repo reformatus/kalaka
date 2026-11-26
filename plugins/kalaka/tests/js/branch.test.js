@@ -293,6 +293,47 @@ describe("datetimes as the server reads them", () => {
   });
 });
 
+describe("time.now as the left key (N694)", () => {
+  const scope = { typeOf: () => null, choices: () => null };
+  const cond = (key, operator, value) => ({
+    match: "all",
+    items: [{ key, operator, value }],
+  });
+  const literals = require("../fixtures/datetime-literals.json");
+
+  test.each(literals.valid)("a datetime literal passes (%s)", (literal) => {
+    expect(checkCondition(cond("time.now", "lessThan", literal), scope)).toBeNull();
+  });
+
+  test.each(literals.invalid.filter((literal) => literal !== "2026-12-01"))(
+    "a datetime literal is refused (%s)",
+    (literal) => {
+      expect(
+        checkCondition(cond("time.now", "lessThan", literal), scope),
+      ).toEqual({ problem: "value", key: "time.now" });
+    },
+  );
+
+  test("a day, every operator but contains, and a value-side ref pass", () => {
+    expect(checkCondition(cond("time.now", "lessOrEqual", "2026-12-01"), scope)).toBeNull();
+    expect(checkCondition(cond("time.now", "lessThan", { ref: "now", days: 1 }), scope)).toBeNull();
+    expect(checkCondition(cond("time.now", "contains", "2026-12-01"), scope)).toEqual({
+      problem: "value",
+      key: "time.now",
+    });
+  });
+
+  test("the value side never names time.now as a key; a bare now is an ordinary key", () => {
+    expect(
+      checkCondition(cond("time.now", "lessThan", { key: "time.now" }), scope),
+    ).toEqual({ problem: "value", key: "time.now" });
+    expect(checkCondition(cond("now", "lessThan", "2026-12-01"), scope)).toEqual({
+      problem: "key",
+      key: "now",
+    });
+  });
+});
+
 describe("the scope of where a condition stands", () => {
   const withSection = editor([
     { clientId: "name", name: "kalaka/name-field", attributes: { key: "nev" } },
