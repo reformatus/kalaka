@@ -17,6 +17,7 @@ use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Pricing\SetRetention;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Portal\ActiveRegistrationState;
+use Kalaka\Portal\ParticipantBlocks;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\Api\WithdrawStale;
 use Kalaka\Portal\Api\WithdrawUnavailable;
@@ -338,6 +339,33 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         LoadState::record([new LoadFailure('x', 'y')]);
         self::assertFalse($read->of($this->key('00A5'))?->can->withdraw);
+    }
+
+    /** The block render hands the status markup the real offer: the button, the route's address, the hint after the close. */
+    public function testTheBlockOffersTheWithdrawalFromTheStatusRead(): void
+    {
+        $this->closesAt(null);
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $_GET['kalaka_withdraw'] = '';
+        $open = ParticipantBlocks::status();
+        self::assertStringContainsString('Jelentkezés lemondása', $open);
+        self::assertStringContainsString(rest_url('kalaka-portal/v1/withdraw'), $open);
+        self::assertStringNotContainsString('Biztosan lemondod', $open);
+
+        $_GET['kalaka_withdraw'] = 'confirm';
+        self::assertStringContainsString('Biztosan lemondod a jelentkezésedet?', ParticipantBlocks::status());
+        unset($_GET['kalaka_withdraw']);
+
+        $this->closesAt('2026-12-01 08:00:00');
+        $closed = ParticipantBlocks::status();
+        self::assertStringNotContainsString('Jelentkezés lemondása', $closed);
+        self::assertStringContainsString(
+            'A jelentkezés lezárult, ezért ezt a jelentkezést itt már nem tudod lemondani.',
+            $closed
+        );
+
+        ActiveRegistrationState::set(null, false);
+        self::assertStringNotContainsString('Jelentkezés lemondása', ParticipantBlocks::status());
     }
 
     private function closesAt(?string $at): void

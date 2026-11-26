@@ -4,11 +4,21 @@ declare(strict_types=1);
 
 namespace Kalaka\Portal;
 
+use Kalaka\Events\Api\Events;
+use Kalaka\Forms\Api\ElementRole;
+use Kalaka\Forms\Api\FieldMarkup;
 use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Portal\Api\RegistrationStatusView;
 use Kalaka\Portal\Api\StatusRead;
+use Kalaka\Portal\Api\WithdrawOffer;
+use Kalaka\Portal\Api\Withdrawal;
+use Kalaka\Portal\Api\WithdrawStale;
+use Kalaka\Portal\Rest\WithdrawRoute;
+use Kalaka\Registrations\Api\RegistrationStatus;
 
 /**
  * The participant blocks' renders, shared by each block and its shortcode: the status block
@@ -36,7 +46,9 @@ final class ParticipantBlocks
         return Boundary::render('status block', static function (): string {
             LoadState::current()->requireOpen();
 
-            return StatusMarkup::status((new StatusRead())->forActive(), ActiveRegistration::followsBadLink());
+            $view = (new StatusRead())->forActive();
+
+            return StatusMarkup::status($view, ActiveRegistration::followsBadLink(), self::withdrawOffer($view));
         });
     }
 
@@ -62,6 +74,63 @@ final class ParticipantBlocks
         return has_block(self::STATUS_BLOCK, $content) || has_block(self::TRANSFER_BLOCK, $content)
             || str_contains($content, '[' . self::STATUS_SHORTCODE)
             || str_contains($content, '[' . self::TRANSFER_SHORTCODE);
+    }
+
+    /**
+     * The registrant's own withdrawal as the status markup needs it: the server's facts only (`can.withdraw`, the
+     * refusal that came back, the preview of the confirmation step), nothing decided here. [UNAPPROVED N765 to N779]
+     */
+    private static function withdrawOffer(?RegistrationStatusView $view): ?WithdrawOffer
+    {
+        if ($view === null) {
+            return null;
+        }
+        $canWithdraw = $view->can->withdraw;
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a plain GET that only opens the step
+        $asked = isset($_GET['kalaka_withdraw']) ? sanitize_key(wp_unslash($_GET['kalaka_withdraw'])) : '';
+        $confirming = $canWithdraw && $asked === 'confirm';
+        $paid = null;
+        $owedAfter = null;
+        $previewFailed = false;
+        if ($confirming) {
+            try {
+                $preview = (new Withdrawal())->run(ActiveRegistration::current(), $view->key->code, true);
+                $currency = (new Events())->find($view->key->eventId)?->currency;
+                $amounts = is_string($preview['paid'] ?? null) && is_string($preview['owed_after'] ?? null);
+                if ($amounts && $currency !== null) {
+                    $paid = Money::of($preview['paid'], $currency);
+                    $owedAfter = Money::of($preview['owed_after'], $currency);
+                } else {
+                    $previewFailed = $view->status === RegistrationStatus::Registered;
+                }
+            } catch (WithdrawStale) {
+                // The registration is no longer the active one: no offer at all.
+                return null;
+            } catch (\Throwable) {
+                $previewFailed = $view->status === RegistrationStatus::Registered;
+            }
+        }
+        $buttonClass = '';
+        $attribute = FieldMarkup::classAttribute(ElementRole::SubmitButton, 'wp-element-button');
+        if (preg_match('/class="([^"]*)"/', $attribute, $found) === 1) {
+            $buttonClass = html_entity_decode($found[1]);
+        }
+        $returnUrl = get_permalink();
+
+        return new WithdrawOffer(
+            $canWithdraw,
+            WithdrawRoute::url(),
+            $returnUrl !== false ? $returnUrl : home_url('/'),
+            $view->key->code,
+            $buttonClass,
+            null, // the adapter's error colour: `ThemeStyle::errorColor()` once #252 is on main (not in Forms\Api here)
+            $confirming,
+            $view->withdrawRefusal,
+            $paid,
+            $owedAfter,
+            $previewFailed,
+            $view->can->withdrawUnavailable,
+        );
     }
 
     /**

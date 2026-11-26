@@ -21,7 +21,7 @@ final class ParticipantBlocksTest extends PortalTestCase
         $block = do_blocks('<!-- wp:kalaka/status /--><!-- wp:kalaka/transfer /-->');
         $shortcode = do_shortcode('[kalaka_status][kalaka_transfer]');
 
-        self::assertSame($this->statusBlock() . $this->transferBlock(), $shortcode);
+        self::assertSame(ParticipantBlocks::status() . $this->transferBlock(), $shortcode);
         self::assertSame(trim($shortcode), trim(str_replace("\n", '', $block)));
         self::assertStringContainsString('<section class="kalaka-transfer">', $block);
         self::assertTrue(defined('DONOTCACHEPAGE'));
