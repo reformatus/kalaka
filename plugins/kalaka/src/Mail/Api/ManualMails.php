@@ -21,6 +21,12 @@ use Kalaka\Registrations\Api\Registrations;
  */
 final class ManualMails
 {
+    /**
+     * The grant action that carries `kalaka/send-manual-mail`: a grant holds it for the codes inside its view.
+     * The use case's `action()` and the module's grant actions both name it from here.
+     */
+    public const GRANT_ACTION = 'kalaka_manual_mail';
+
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
         private readonly Events $events = new Events(),

@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailQueue;
+use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\BodyInUse;
 use Kalaka\Mail\Body\KindComposer;
@@ -187,7 +188,7 @@ SQL;
      */
     public function capabilities(): array
     {
-        return ['kalaka_manual_mail'];
+        return [ManualMails::GRANT_ACTION];
     }
 
     public function contribute(Contributions $to): void

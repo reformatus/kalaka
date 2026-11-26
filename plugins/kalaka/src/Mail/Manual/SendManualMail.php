@@ -17,6 +17,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailKind;
 use Kalaka\Mail\Api\MailQueue;
+use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Catalogue\BodyUnpublished;
 use Kalaka\Mail\Catalogue\MailBody;
 use Kalaka\Mail\Pause\MailStateQuery;
@@ -98,7 +99,7 @@ final class SendManualMail implements AdminUseCase
 
     public function action(): string
     {
-        return 'kalaka_manual_mail';
+        return ManualMails::GRANT_ACTION;
     }
 
     public function event(array $input): int
