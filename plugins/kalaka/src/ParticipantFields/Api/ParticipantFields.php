@@ -137,8 +137,7 @@ final class ParticipantFields
      * Whether the key is free for this declarer to declare as a field of this type, as `DeclareExtensionField`
      * would judge it: no field holds it, a `form` field of the same type does (it will be adopted, retired or
      * not), or an `extension` field of the same type does that this declarer declared or no one is recorded for.
-     * A `staff` or `system` field, another type and another declarer's field refuse. `$decimals` is the declarer's
-     * fixed decimals for a number field; the key rule does not read it.
+     * A `staff` or `system` field, another type and another declarer's field refuse.
      *
      * @throws FieldKeyHeld when the key is not free
      */
@@ -147,7 +146,6 @@ final class ParticipantFields
         string $key,
         string $type,
         string $declarer,
-        ?int $decimals = null,
     ): void {
         foreach ((new ParticipantFieldQuery())->forEvent($eventId) as $record) {
             if ($record->key === $key) {

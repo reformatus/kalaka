@@ -190,6 +190,33 @@ final class Forms
     }
 
     /**
+     * The forms of the event (every status whose fields count, `FormPosts::HOLDING_STATUSES`) whose number
+     * field under the key has other decimals than given: what a declaration that fixes the key's decimals
+     * (an extra charge) must not close. A field counts with `(int) ($settings['decimals'] ?? 0)`, as
+     * `SharedKeyCheck` reads it, and only a number field does. It reads the event's form posts, so it runs
+     * outside a use case's transaction. [UNAPPROVED N808]
+     *
+     * @return list<array{form_id: int, title: string}> by ascending form ID
+     */
+    public function formsWithOtherDecimals(int $eventId, string $key, int $decimals): array
+    {
+        $contributions = Contributions::current();
+        $found = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            $field = FieldBlocks::of($post->post_content, $contributions)[$key] ?? null;
+            if (
+                $field !== null
+                && $field['type'] === FieldKind::NUMBER
+                && (int) ($field['settings']['decimals'] ?? 0) !== $decimals
+            ) {
+                $found[] = ['form_id' => $post->ID, 'title' => $post->post_title];
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * The values of one registration's stored answers over the event's participant fields (a document's value
      * context): one value for every field of the event, retired ones included, so a key that only another
      * form holds reads as `Value::none()` of its type and never fails. A field with no stored answer, a
