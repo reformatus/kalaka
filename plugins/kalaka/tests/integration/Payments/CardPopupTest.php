@@ -218,15 +218,15 @@ final class CardPopupTest extends PortalTestCase
         $html = (string) $response->get_data();
         self::assertStringContainsString('<main class="kalaka-card-return">', $html);
         self::assertStringContainsString(
-            '<p class="kalaka-card-return__text">A fizetési oldal bezárult. Ezt a lapot most már bezárhatod.</p>',
+            '<p class="kalaka-card-return__text">Bezárhatod ezt a lapot.</p>',
             $html
         );
         self::assertStringContainsString(
-            '<p><button type="button" class="wp-element-button" data-kalaka-close>Bezárás</button></p>',
+            '<p><button type="button" class="wp-element-button" data-kalaka-close>Lap bezárása</button></p>',
             $html
         );
         self::assertStringContainsString(
-            '<p><a href="' . esc_url(home_url('/jelentkezes/')) . '">Vissza a jelentkezésem állapotához</a></p></main>',
+            '<p><a href="' . esc_url(home_url('/jelentkezes/')) . '">Jelentkezésem állapota</a></p></main>',
             $html
         );
         self::assertStringContainsString(

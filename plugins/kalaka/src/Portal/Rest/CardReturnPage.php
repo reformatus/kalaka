@@ -89,13 +89,14 @@ final class CardReturnPage
 
     private static function body(string $statusPage): void
     {
-        // [UNAPPROVED T85] the line, [UNAPPROVED T86] the close button, [UNAPPROVED T87] the link to the status page
+        // [UNAPPROVED T891] the line, [UNAPPROVED T892] the close button, [UNAPPROVED T893] the link to the status page
+        // (UX's texts, lektored; T893 is the status block's heading)
         echo '<main class="kalaka-card-return"><p class="kalaka-card-return__text">'
-            . esc_html('A fizetési oldal bezárult. Ezt a lapot most már bezárhatod.') . '</p>'
+            . esc_html('Bezárhatod ezt a lapot.') . '</p>'
             . '<p><button type="button" class="' . esc_attr(ThemeStyle::buttonClass()) . '" data-kalaka-close>'
-            . esc_html('Bezárás') . '</button></p>'
+            . esc_html('Lap bezárása') . '</button></p>'
             . '<p><a href="' . esc_url($statusPage) . '">'
-            . esc_html('Vissza a jelentkezésem állapotához') . '</a></p></main>';
+            . esc_html('Jelentkezésem állapota') . '</a></p></main>';
         wp_print_inline_script_tag(self::SCRIPT);
     }
 }
