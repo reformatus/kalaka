@@ -21,4 +21,19 @@ final class Texts
 
     /** The event's submenu item and its mail page. [UNAPPROVED T271] */
     public const EVENT_PAGE = 'Levelek';
+
+    /**
+     * The `kalaka_mail` editor's overrides of core's „Közzététel” wording: the msgid in core's own English, then the
+     * Hungarian shown. [UNAPPROVED T910, T911, T912]
+     *
+     * @var array<string, string>
+     */
+    public const EDITOR_WORDS = [
+        'Publish' => 'Elérhetővé tétel',
+        'Are you ready to publish?' => 'Elérhetővé teszed a sablont?',
+        'Publishing' => 'Elérhetővé tétel',
+    ];
+
+    /** The editor's back button's label, tooltip and name. [UNAPPROVED T913] */
+    public const EDITOR_BACK = 'Vissza az esemény leveleihez';
 }

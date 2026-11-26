@@ -16,6 +16,7 @@ use Kalaka\Admin\Grant\SaveGrant;
 use Kalaka\Admin\Grid\GridPage;
 use Kalaka\Admin\Grid\Texts as GridTexts;
 use Kalaka\Admin\Mail\MailPages;
+use Kalaka\Admin\Mail\TemplateEditor;
 use Kalaka\Admin\Rest\GridRoutes;
 use Kalaka\Admin\View\DeleteView;
 use Kalaka\Admin\View\SaveView;
@@ -154,6 +155,10 @@ SQL;
         add_action('admin_menu', [MailPages::class, 'menu'], 20);
         add_action('admin_enqueue_scripts', [MailPages::class, 'enqueue']);
         add_action('admin_head', [MailPages::class, 'menuStyle']);
+        // The mail templates leave WordPress's native post list; the editor stays (prototype).
+        add_action('load-edit.php', [TemplateEditor::class, 'redirectNativeScreens']);
+        add_action('load-post-new.php', [TemplateEditor::class, 'redirectNativeScreens']);
+        add_action('enqueue_block_editor_assets', [TemplateEditor::class, 'editorAssets']);
         add_action('rest_api_init', [GridRoutes::class, 'register']);
 
         if (defined('WP_CLI') && WP_CLI) {

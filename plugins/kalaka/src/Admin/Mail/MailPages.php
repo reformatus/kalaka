@@ -213,6 +213,21 @@ final class MailPages
         return preg_match('/^kalaka-event-([1-9][0-9]*)-mail$/', $page, $m) === 1 ? (int) $m[1] : null;
     }
 
+    /**
+     * The address of the event's „Levelek” page on the bodies tab, or the site's „Levelezés” page without an event;
+     * the page an archived or unknown event has no menu item for falls back to the site's.
+     */
+    public static function url(?int $eventId): string
+    {
+        foreach ($eventId === null ? [] : (new Events())->notArchived() as $event) {
+            if ($event->id === $eventId) {
+                return admin_url('admin.php?page=' . self::slug($event) . '&tab=bodies');
+            }
+        }
+
+        return admin_url('admin.php?page=' . self::SITE_SLUG);
+    }
+
     private static function slug(Event|int $event): string
     {
         return sprintf(self::EVENT_SLUG, $event instanceof Event ? $event->id : $event);
