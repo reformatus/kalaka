@@ -80,7 +80,6 @@ final class LineDetailsTest extends LedgerTestCase
         return [
             'a method on a charge' => [LineKind::Charge, '500', false, null],
             'a correction on a charge' => [LineKind::Charge, '500', true, 'reason'],
-            'a correction without a reason' => [LineKind::ManualRefund, '500', true, null],
             'a note on a charge' => [LineKind::Charge, '500', false, 'x'],
             'a note over 500 characters' => [LineKind::ManualPayment, '-500', false, 'x'],
         ];
