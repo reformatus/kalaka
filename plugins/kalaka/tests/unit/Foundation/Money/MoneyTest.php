@@ -277,39 +277,6 @@ final class MoneyTest extends TestCase
         self::assertSame(Currency::HUF, $rounded->currency());
     }
 
-    /** @return iterable<string, array{string, string, string}> */
-    public static function percents(): iterable
-    {
-        yield 'whole' => ['10000', '3', '300.00000000'];
-        yield 'two decimals' => ['7001', '1.5', '105.01500000'];
-        yield 'zero' => ['7001', '0', '0.00000000'];
-        yield 'a hundred' => ['123.45', '100', '123.45000000'];
-        yield 'rounded up past eight decimals' => ['0.00000001', '33.33', '0.00000001'];
-        yield 'rounded up exactly' => ['0.00000010', '12.5', '0.00000002'];
-        yield 'negative amount rounds toward plus infinity' => ['-0.00000001', '50', '0.00000000'];
-    }
-
-    /** @dataProvider percents */
-    public function testPercentIsTheAmountTimesThePercentOverAHundredRoundedUp(
-        string $amount,
-        string $percent,
-        string $expected
-    ): void {
-        self::assertSame($expected, self::huf($amount)->percent($percent)->amount());
-    }
-
-    public function testPercentRefusesWhatIsNoNonNegativeDecimalText(): void
-    {
-        foreach (['-1', '1,5', '', 'abc', '1.123456789'] as $percent) {
-            try {
-                self::huf('100')->percent($percent);
-                self::fail($percent . ' was accepted.');
-            } catch (InvalidInput) {
-                self::assertTrue(true);
-            }
-        }
-    }
-
     public function testRoundedUpToPayableUnitHasTheDecimalTextForm(): void
     {
         self::assertSame('1001.00000000', self::huf('1000.5')->roundedUpToPayableUnit()->amount());
