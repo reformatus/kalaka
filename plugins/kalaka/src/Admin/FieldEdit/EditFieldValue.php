@@ -27,7 +27,6 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * With `preview` the act does everything but the write and the seat moves: the right, the conflict and the unchanged
  * value are checked as in the real run, and it returns what the real run would report, so a caller can warn before
  * it asks. A preview is an audited run too, with no changes.
- * [UNAPPROVED N160, N161, N165, N167, N168, N169]
  *
  * Lock order: the pools of the seats to take (quota level), then the registration, then the value.
  */

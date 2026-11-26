@@ -29,7 +29,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  *
  * Staff may edit a field of source `form` or `staff`, and an `extension` field that a form may write. They never
  * edit a `system` field, an `extension` field only its own act writes, or a retired field. No form condition is
- * walked: staff override, as for placing into a set option. [UNAPPROVED N162, N164]
+ * walked: staff override, as for placing into a set option.
  */
 final class FieldEditInput
 {
