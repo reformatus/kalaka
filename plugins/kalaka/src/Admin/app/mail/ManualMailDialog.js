@@ -16,6 +16,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/eleme
 import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
 import { isTooMany, pageKeys, stateReads } from './manual';
+import { isAllMatching, isNarrowedSelection, selectionSignature } from '../grid/selection';
 import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
 import { COMMON, MANUAL, RESULT } from './texts';
@@ -26,13 +27,14 @@ const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
  * @param {Object}   props
  * @param {number}   props.event       the event
  * @param {string}   props.previewPath the preview route, after the site's REST root
- * @param {string[]} props.codes       the registrations' codes
+ * @param {Object}   props.selection   `{ codes }` of the ticked rows, or the grid's view with its filters and search
+ *                                   (`grid/selection.js`): the server resolves the latter itself
  * @param {Function} props.onClose     closes the dialog
  * @param {Function} props.onSent      called with the answer once a send is made
  * @param {Function} [props.keys]    the page's request keys (`createKeys()`), so reopening the dialog with the same
  *                                   rows and body is the same request
  */
-export function ManualMailForm( { event, previewPath, codes, onClose, onSent, keys } ) {
+export function ManualMailForm( { event, previewPath, selection, onClose, onSent, keys } ) {
 	const [ plan, setPlan ] = useState( null );
 	const [ planError, setPlanError ] = useState( null );
 	const [ bodyId, setBodyId ] = useState( '' );
@@ -68,7 +70,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 
 	useEffect( () => {
 		let live = true;
-		api.previewManual( previewPath, codes ).then(
+		api.previewManual( previewPath, selection ).then(
 			( data ) => live && setPlan( data ),
 			( error ) =>
 				live &&
@@ -77,7 +79,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 		return () => {
 			live = false;
 		};
-	}, [ previewPath, codes.join( ',' ) ] );
+	}, [ previewPath, selectionSignature( selection ) ] );
 
 	// The dialog's first focus is the template field once the read answers, not the primary „Küldés” button, which is
 	// the only focusable element while the preview is still loading. [UNAPPROVED N933]
@@ -107,7 +109,7 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 		setBusy( true );
 		try {
 			const id = parseInt( bodyId, 10 );
-			const answer = await api.sendManual( event, id, codes, layout, keyFor.current( id, layout, codes ) );
+			const answer = await api.sendManual( event, id, selection, layout, keyFor.current( id, layout, selection ) );
 			setResult( answer );
 			if ( onSent ) {
 				onSent( answer );
@@ -174,6 +176,9 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 			) }
 			{ plan && (
 				<Fragment>
+					{ isAllMatching( selection ) && (
+						<p>{ fmt( isNarrowedSelection( selection ) ? MANUAL.scopeNarrowed : MANUAL.scopeAll, plan.count ) }</p>
+					) }
 					<p role="status">
 						<strong>
 							{ plan.queue.length ? fmt( MANUAL.toQueue, plan.queue.length ) : MANUAL.toQueueNone }
@@ -247,13 +252,13 @@ export function ManualMailForm( { event, previewPath, codes, onClose, onSent, ke
 }
 
 /** The form in a modal of its own (the failed deliveries' follow-up). */
-export default function ManualMailDialog( { config, codes, onClose, onSent, keys } ) {
+export default function ManualMailDialog( { config, selection, onClose, onSent, keys } ) {
 	return (
 		<Modal title={ MANUAL.title } onRequestClose={ onClose } size="medium" shouldCloseOnClickOutside={ false }>
 			<ManualMailForm
 				event={ config.event }
 				previewPath={ `${ config.rest }/events/${ config.event }/mail/manual/preview` }
-				codes={ codes }
+				selection={ selection }
 				onClose={ onClose }
 				onSent={ onSent }
 				keys={ keys }

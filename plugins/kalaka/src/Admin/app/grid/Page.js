@@ -32,6 +32,7 @@ import * as api from './api';
 import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import BulkSlot from './BulkSlot';
+import { selectionBody } from './selection';
 import SumRow from './SumRow';
 import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
@@ -389,7 +390,8 @@ export default function Page( { config } ) {
 		}
 		setBusy( true );
 		try {
-			// Ticked rows when there are any, else every row the filters leave. [UNAPPROVED N915]
+			// Ticked rows when there are any, else every row the filters and search leave, all pages, in the grid's order.
+			// Nothing is said while it pages (the button is busy), and a failure halfway copies nothing and says the existing error. [UNAPPROVED N915] [UNAPPROVED N939]
 			const rows = selectedRows.length ? selectedRows : await api.fetchAll( config, tab, sort, desc, narrow );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
 			say( fmt( GRID.copied, rows.length ), 'success' );
@@ -562,7 +564,13 @@ export default function Page( { config } ) {
 						/>
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
-							<BulkSlot actions={ actions } rows={ selectedRows } />
+							<BulkSlot
+								actions={ actions }
+								rows={ selectedRows }
+								selectionOf={ ( items ) => selectionBody( items, tab, narrow ) }
+								total={ data.total }
+								narrowed={ narrowed }
+							/>
 							{ narrowed && selectedRows.length === 0 ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
 						</div>
 					</div>

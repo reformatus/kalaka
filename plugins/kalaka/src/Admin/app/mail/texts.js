@@ -158,6 +158,10 @@ export const MANUAL = {
 	pick: '– válassz –',
 	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording [UNAPPROVED T920]
 	layout: 'Levélkeret használata', // „levélkeret” is approved
+	// With nothing ticked the send is to every row the filters and search leave; the dialog says so and how many.
+	// [UNAPPROVED T926] [UNAPPROVED T927]
+	scopeAll: 'Nincs kijelölve jelentkező, ezért az összes jelentkezőre vonatkozik: %d jelentkező.',
+	scopeNarrowed: 'Nincs kijelölve jelentkező, ezért a szűrés és a keresés összes találatára vonatkozik: %d jelentkező.',
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
 	skipped: 'Nem kap levelet:',
@@ -203,6 +207,10 @@ export const BATCHES = {
 /** The grid's bulk action. [UNAPPROVED T284] */
 export const GRIDACTION = {
 	label: 'Levél küldése',
+	// The button's words with nothing ticked: the action then acts on every row the filters and search leave.
+	// [UNAPPROVED T928] [UNAPPROVED T929]
+	labelAll: 'Levél küldése mindenkinek',
+	labelNarrowed: 'Levél küldése a találatoknak',
 	selectRow: 'Jelentkezés kijelölése: %s', // the row checkbox's accessible name [UNAPPROVED T286]
 };
 

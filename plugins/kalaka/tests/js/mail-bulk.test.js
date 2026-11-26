@@ -91,6 +91,19 @@ describe( 'the grid\'s bulk action', () => {
 		const asked = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.path.endsWith( '/preview' ) );
 		expect( asked.data ).toEqual( { selection: { codes: [ 'Q1', 'Q2' ] } } );
 	} );
+
+	test( 'the grid\'s slot passes the selection it built; with nothing ticked that is the view with its filters', async () => {
+		const action = manualMailAction( { eligible: true, event: 1, previewPath: '/kalaka-admin/v1/events/1/mail/manual/preview', onSent: () => {} } );
+		host = document.createElement( 'div' );
+		document.body.appendChild( host );
+		root = createRoot( host );
+		const selection = { view: 2, grant: 0, search: 'kov' };
+		await act( async () => {
+			root.render( createElement( action.RenderModal, { items: [], selection, closeModal: () => {} } ) );
+		} );
+		const asked = apiFetch.mock.calls.map( ( c ) => c[ 0 ] ).find( ( c ) => c.path.endsWith( '/preview' ) );
+		expect( asked.data ).toEqual( { selection } );
+	} );
 } );
 
 test( 'the selection is cleared when the dialog closes after a send, not while the answer is on screen', async () => {

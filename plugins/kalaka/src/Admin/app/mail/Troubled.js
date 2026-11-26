@@ -93,7 +93,7 @@ export default function Troubled( { config, version } ) {
 			{ sending && (
 				<ManualMailDialog
 					config={ config }
-					codes={ [ sending ] }
+					selection={ { codes: [ sending ] } }
 					keys={ keys.current }
 					onClose={ () => setSending( null ) }
 					onSent={ () => read.reload() }

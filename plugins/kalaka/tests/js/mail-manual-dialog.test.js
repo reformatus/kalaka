@@ -11,6 +11,7 @@ import apiFetch from '@wordpress/api-fetch';
 import { ManualMailForm } from '../../src/Admin/app/mail/ManualMailDialog';
 import { createKeys } from '../../src/Admin/app/mail/manual';
 import { MANUAL, RESULT } from '../../src/Admin/app/mail/texts';
+import { fmt } from '../../src/Admin/app/grid/format';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
@@ -94,7 +95,7 @@ async function render( props = {} ) {
 			createElement( ManualMailForm, {
 				event: 1,
 				previewPath: '/kalaka-admin/v1/events/1/mail/manual/preview',
-				codes: [ 'A1', 'A2', 'A3', 'A4' ],
+				selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] },
 				onClose: closed,
 				onSent: sent,
 				...props,
@@ -328,16 +329,63 @@ describe( 'a double send across reopenings', () => {
 
 	test( 'another selection is another request', async () => {
 		const keys = createKeys();
-		await render( { keys, codes: [ 'A1', 'A2' ] } );
+		await render( { keys, selection: { codes: [ 'A1', 'A2' ] } } );
 		await choose( '20' );
 		await submit();
 		await act( async () => root.unmount() );
 		host.remove();
-		await render( { keys, codes: [ 'A1', 'A3' ] } );
+		await render( { keys, selection: { codes: [ 'A1', 'A3' ] } } );
 		await choose( '20' );
 		await submit();
 		const sent = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
 		expect( new Set( sent ).size ).toBe( 2 );
+	} );
+} );
+
+describe( 'with nothing ticked: every row the filters and search leave', () => {
+	const ALL = { view: 0, grant: 0 };
+	const NARROWED = { view: 3, grant: 5, filters: [ { field: 'status', operator: 'isAny', value: [ 'registered' ] } ], search: 'kov' };
+
+	test( 'the preview asks with the view, the grant, the filters and the search, and the dialog says how many rows', async () => {
+		route( { plan: { ...PLAN, count: 612 } } );
+		await render( { selection: NARROWED } );
+		expect( calls( 'preview' )[ 0 ].data ).toEqual( { selection: NARROWED } );
+		expect( host.textContent ).toContain( fmt( MANUAL.scopeNarrowed, 612 ) );
+		expect( host.textContent ).toContain( 'A levelet 2 jelentkező kapja meg.' );
+	} );
+
+	test( 'a whole view with no filter says it is every registration', async () => {
+		route( { plan: { ...PLAN, count: 612 } } );
+		await render( { selection: ALL } );
+		expect( host.textContent ).toContain( fmt( MANUAL.scopeAll, 612 ) );
+	} );
+
+	test( 'ticked codes carry no scope line', async () => {
+		await render();
+		expect( host.textContent ).not.toContain( 'Nincs kijelölve' );
+	} );
+
+	test( 'the send carries the same selection, with one request key per selection', async () => {
+		const keys = createKeys();
+		route( { plan: { ...PLAN, count: 3 } } );
+		await render( { keys, selection: NARROWED } );
+		await choose( '20' );
+		await submit();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { keys, selection: { ...NARROWED } } );
+		await choose( '20' );
+		await submit();
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { keys, selection: { ...NARROWED, search: 'nagy' } } );
+		await choose( '20' );
+		await submit();
+		const sends = calls( 'send-manual-mail' );
+		expect( sends[ 0 ].data.input.selection ).toEqual( NARROWED );
+		expect( sends[ 0 ].data.input.codes ).toBeUndefined();
+		expect( sends[ 1 ].data.input.request_key ).toBe( sends[ 0 ].data.input.request_key );
+		expect( sends[ 2 ].data.input.request_key ).not.toBe( sends[ 0 ].data.input.request_key );
 	} );
 } );
 
