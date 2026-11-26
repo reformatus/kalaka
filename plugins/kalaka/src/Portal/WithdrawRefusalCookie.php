@@ -66,6 +66,7 @@ final class WithdrawRefusalCookie
             (new SiteClosed())->errorCode(),
             (new VersionConflict())->errorCode(),
             (new \Kalaka\Registrations\Api\StatusActRefused())->errorCode(),
+            (new \Kalaka\Registrations\Api\WithdrawClosed())->errorCode(),
             self::GENERIC,
         ], true);
     }

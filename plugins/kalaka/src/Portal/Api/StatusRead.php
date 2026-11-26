@@ -106,10 +106,23 @@ final class StatusRead
             $transfer,
             $this->money->of($key, $event->currency),
             // The staff withdrawal's own table says which statuses may leave; a closed site refuses every use case.
-            new RegistrationCan(
-                LoadState::current()->isOpen() && StatusAct::Withdraw->allowedFrom($registration->status)
-            ),
+            $this->can($registration->status, $event),
             $withdrawRefusal,
+        );
+    }
+
+    /**
+     * What the registrant may do now. The participant's own withdrawal ends when registration closes (N661), so
+     * `withdraw` is false then and `withdrawUnavailable` says why.
+     */
+    private function can(RegistrationStatus $status, Event $event): RegistrationCan
+    {
+        $allowed = LoadState::current()->isOpen() && StatusAct::Withdraw->allowedFrom($status);
+        $closed = $allowed && $event->registrationHasClosed(Runner::current()->clock()->now());
+
+        return new RegistrationCan(
+            $allowed && !$closed,
+            $closed ? RegistrationCan::WITHDRAW_REGISTRATION_CLOSED : null
         );
     }
 

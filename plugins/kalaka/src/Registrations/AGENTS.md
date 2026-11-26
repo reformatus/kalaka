@@ -63,7 +63,9 @@ the waitlist and reference codes
   the event's `retention` rule; `money` and `retention` are only for a holder of money-view.
 - The participant's own withdrawal is `StatusAct::Withdraw` run by the secret-link actor, through the runner
   (`Api\OwnWithdrawal`, which Portal's `Withdrawal` calls after holding the actor to the active registration):
-  allowed from `registered` and `waitlisted` only, no reason, no mail, no deadline, nobody on the waitlist moves up.
+  allowed from `registered` and `waitlisted` only, and only until the event's registration closes (after that it is
+  refused as `Api\WithdrawClosed`, `kalaka_withdraw_closed`, and the preview says `allowed: false`; only staff can
+  withdraw), no reason, no mail, nobody on the waitlist moves up.
   Its preview (`preview: true`) is `{allowed, paid, owed_after}` for the registrant's own payer only (the
   `participant` payer of the same composition the staff preview uses), writes nothing and leaves no audit entry; a
   status that changed under the lock is `StatusActRefused`. [UNAPPROVED N660-N663, N666]

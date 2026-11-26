@@ -57,5 +57,7 @@ page, and the account area
   once (`WithdrawRefusalState`, read through `StatusRead`; it becomes one portal flash cookie with the card
   payment's when both exist). A plain form post is never a preview. The act, its rule and its audit are
   Registrations'; Portal adds no rule and shows no seat, no other payer's money and no reason. `can.withdraw`
-  (`Api\RegistrationCan`) is decided in `StatusRead` from `StatusAct::Withdraw`'s allowed statuses and
-  `LoadState`, never in the page. [UNAPPROVED N660-N666]
+  (`Api\RegistrationCan`) is decided in `StatusRead` from `StatusAct::Withdraw`'s allowed statuses, `LoadState` and
+  the event's registration close (the participant may withdraw only until it closes; after that the use case refuses
+  as `Registrations\Api\WithdrawClosed`, `kalaka_withdraw_closed`, also known to the flash cookie), never in the page;
+  `can.withdrawUnavailable` is `registration_closed` when only the close makes `withdraw` false, else null. [UNAPPROVED N660-N666]

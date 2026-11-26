@@ -25,6 +25,7 @@ use Kalaka\Portal\WithdrawRefusalCookie;
 use Kalaka\Portal\WithdrawRefusalState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\StatusActRefused;
+use Kalaka\Registrations\Api\WithdrawClosed;
 use Kalaka\Registrations\Api\OwnWithdrawal;
 use Kalaka\Tests\Integration\Admin\FieldEdit\StaffEditTestCase;
 
@@ -337,6 +338,81 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         LoadState::record([new LoadFailure('x', 'y')]);
         self::assertFalse($read->of($this->key('00A5'))?->can->withdraw);
+    }
+
+    private function closesAt(?string $at): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_events',
+            ['registration_closes_at' => $at === null ? null : $at . '.000000'],
+            ['id' => $this->event]
+        );
+        // The write went behind the repository: drop what the row cache holds.
+        \Kalaka\Foundation\ObjectCache::clear();
+    }
+
+    /** N661: the participant may withdraw only until the event's registration closes; after that, only staff. */
+    public function testAfterTheRegistrationClosesOnlyStaffCanWithdraw(): void
+    {
+        // The clock is at 2026-12-01 10:00 site time (09:00 UTC); the closing instant itself is already closed.
+        foreach (['2026-12-01 08:00:00', '2026-12-01 09:00:00'] as $closes) {
+            $this->closesAt($closes);
+            foreach (['00A0', '00A5'] as $code) {
+                try {
+                    $this->withdraw($code);
+                    self::fail('Closed: ' . $code . ' ' . $closes);
+                } catch (WithdrawClosed $e) {
+                    self::assertSame('kalaka_withdraw_closed', $e->errorCode());
+                    self::assertNotSame((new WithdrawUnavailable())->errorCode(), $e->errorCode());
+                }
+                self::assertNotSame('withdrawn', $this->status($code));
+                self::assertSame(
+                    ['allowed' => false, 'paid' => null, 'owed_after' => null],
+                    $this->withdraw($code, preview: true)
+                );
+            }
+            self::assertSame('kalaka_withdraw_closed', WithdrawRefusalCookie::codeFor('kalaka_withdraw_closed'));
+        }
+
+        // Staff still can.
+        $staff = new \Kalaka\Registrations\Status\WithdrawRegistration([]);
+        $this->exec($staff, ['event_id' => $this->event, 'code' => '00A0']);
+        self::assertSame('withdrawn', $this->status('00A0'));
+    }
+
+    public function testBeforeTheCloseAndWithoutOneTheParticipantCanWithdraw(): void
+    {
+        $this->closesAt('2026-12-01 09:00:01');
+        $this->withdraw('00A0');
+        self::assertSame('withdrawn', $this->status('00A0'));
+
+        $this->closesAt(null);
+        $this->withdraw('00A5');
+        self::assertSame('withdrawn', $this->status('00A5'));
+    }
+
+    public function testTheStatusReadSaysWhyWithdrawalIsUnavailableAfterTheClose(): void
+    {
+        // A fresh read each time: a reader keeps the event it loaded.
+        $read = static fn (): StatusRead => new StatusRead();
+        $can = $read()->of($this->key('00A0'))?->can;
+        self::assertTrue($can?->withdraw);
+        self::assertNull($can->withdrawUnavailable);
+
+        $this->closesAt('2026-12-01 08:59:59');
+        $can = $read()->of($this->key('00A0'))?->can;
+        self::assertFalse($can?->withdraw);
+        self::assertSame('registration_closed', $can->withdrawUnavailable);
+        self::assertFalse($read()->of($this->key('00A5'))?->can->withdraw);
+
+        // A status that cannot withdraw anyway gives no closing reason.
+        $this->closesAt('2026-12-15 23:00:00');
+        $this->withdraw('00A0');
+        $this->closesAt('2026-12-01 08:59:59');
+        $can = $read()->of($this->key('00A0'))?->can;
+        self::assertFalse($can?->withdraw);
+        self::assertNull($can->withdrawUnavailable);
     }
 
     // --- the route ---
