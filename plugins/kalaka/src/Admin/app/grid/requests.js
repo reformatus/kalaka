@@ -12,8 +12,15 @@ export const NOTE_MAX = 500;
 /** The requests of a read: `{ currency, items }`, or an empty list when the read does not carry them. */
 export const itemsOf = ( read ) => ( ( read && read.requests && read.requests.items ) || [] );
 
-/** The state line of a request: „Válaszra vár”, „Jóváhagyva”, „Elutasítva”, or the award of a granted aid. */
+/**
+ * The state line of a request: „Válaszra vár”, „Jóváhagyva”, „Elutasítva”, or the award of a granted aid. An inactive
+ * request (its registration is not registered, N655) has no state word, so it never reads „Válaszra vár” while the
+ * grid column says Nem. [UNAPPROVED N1044]
+ */
 export function stateText( item, currency ) {
+	if ( item.state === 'inactive' ) {
+		return '';
+	}
 	if ( item.state === 'awaiting' ) {
 		return REQUESTS.awaiting;
 	}

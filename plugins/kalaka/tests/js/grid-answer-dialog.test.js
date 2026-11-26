@@ -216,7 +216,6 @@ describe( 'the note', () => {
 		await choose( 'yes' );
 		expect( noteField().closest( 'div' ).parentElement.textContent ).toContain( MONEY.reasonField );
 		await submit();
-		expect( host.textContent ).not.toContain( MONEY.noteRequired );
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 

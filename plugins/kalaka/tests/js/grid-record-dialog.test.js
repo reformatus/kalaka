@@ -480,7 +480,6 @@ describe( 'the note fields carry the participant-visible hint (topic 11, T36)', 
 		await pick( radios( MONEY.directionField )[ 0 ] );
 		await setValue( field( MONEY.amountField ), '500' );
 		await submit();
-		expect( noteHint( MONEY.reasonField ) ).not.toContain( MONEY.noteRequired );
 		expect( noteHint( MONEY.reasonField ) ).toContain( MONEY.titleHint );
 	} );
 } );

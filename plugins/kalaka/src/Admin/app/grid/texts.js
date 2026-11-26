@@ -165,7 +165,6 @@ export const MONEY = {
 	dateFuture: 'A dátum nem lehet jövőbeli.',
 	methodEmpty: 'Válassz fizetési módot.',
 	payerEmpty: 'Válassz fizetőt.',
-	noteRequired: 'Add meg az indoklást.',
 	saveFail: 'A mentés nem sikerült. Próbáld újra.',
 };
 
@@ -211,6 +210,8 @@ export const REQUESTS = {
 	// The two buttons' screen-reader names, naming the request: „Megválaszolás: <kérelem>”. [UNAPPROVED T961] [UNAPPROVED T962]
 	answerLabel: 'Megválaszolás: %s',
 	changeLabel: 'Válasz módosítása: %s',
+	// The pointer of a request's field group on „Adatok”: it opens that request on „Kérelmek”. [UNAPPROVED T960]
+	goTo: 'Ugrás a kérelemhez',
 	dialogTitle: 'Kérelem megválaszolása',
 	answerField: 'Válasz',
 	answerEmpty: 'Add meg a választ.',
