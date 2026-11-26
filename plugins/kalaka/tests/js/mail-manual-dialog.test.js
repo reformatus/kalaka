@@ -347,17 +347,21 @@ describe( 'code and name', () => {
 		route( {
 			plan: {
 				...PLAN,
-				skipped: [ { code: 'A3', name: 'Kiss Anna', reason: 'withdrawn' }, { code: 'A4', name: null, reason: 'removed' } ],
+				skipped: [ { code: 'A3', reason: 'withdrawn' }, { code: 'A4', reason: 'removed' } ],
+				names: { A3: 'Kiss Anna', A4: null },
 			},
 		} );
 		await render();
-		expect( host.textContent ).toContain( 'A3 · Kiss Anna – ' + MANUAL.reason_withdrawn );
+		expect( host.textContent ).toContain( 'A3 · Kiss Anna – lemondott' );
 		expect( host.textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
 		expect( host.textContent ).not.toContain( 'A4 ·' );
 	} );
 
-	test( 'the answer of a send names the skipped ones the same way', async () => {
-		route( { send: () => Promise.resolve( { ...SENT, skipped: [ { code: 'A3', name: 'Kiss Anna', reason: 'withdrawn' } ] } ) } );
+	test( 'the answer of a send lists codes only, so it takes the names from the preview names map', async () => {
+		route( {
+			plan: { ...PLAN, names: { A3: 'Kiss Anna' } },
+			send: () => Promise.resolve( { ...SENT, skipped: [ { code: 'A3', reason: 'withdrawn' } ] } ),
+		} );
 		await render();
 		await choose( '20' );
 		await submit();

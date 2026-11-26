@@ -128,6 +128,10 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 		[ plan, bodyId ]
 	);
 
+	// The preview gives the names as one map by code (`names`); the send's answer lists only codes, so both lists
+	// take the name from that map. [UNAPPROVED N945]
+	const nameOf = ( code ) => ( plan && plan.names && plan.names[ code ] ) || null;
+
 	if ( result ) {
 		return (
 			<div className="km-dialog">
@@ -146,7 +150,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 						<ul className="km-members">
 							{ result.skipped.map( ( s ) => (
 								<li key={ s.code }>
-									<CodeName code={ s.code } name={ s.name } /> – { reasonWord( s.reason ) }
+									<CodeName code={ s.code } name={ nameOf( s.code ) } /> – { reasonWord( s.reason ) }
 								</li>
 							) ) }
 						</ul>
@@ -177,6 +181,8 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 			) }
 			{ plan && (
 				<Fragment>
+					{ /* A view selection that matches nothing gives count 0 (the server refuses a send to it): the line says 0 and the
+					   send is disabled, as for an empty queue. [UNAPPROVED N947] */ }
 					{ isAllMatching( selection ) && (
 						<p>{ fmt( isNarrowedSelection( selection ) ? MANUAL.scopeNarrowed : MANUAL.scopeAll, plan.count ) }</p>
 					) }
@@ -191,7 +197,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 							<ul className="km-members">
 								{ plan.skipped.map( ( s ) => (
 									<li key={ s.code }>
-										<CodeName code={ s.code } name={ s.name } /> – { reasonWord( s.reason ) }
+										<CodeName code={ s.code } name={ nameOf( s.code ) } /> – { reasonWord( s.reason ) }
 									</li>
 								) ) }
 							</ul>
