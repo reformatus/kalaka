@@ -248,8 +248,9 @@ SQL;
         );
         Abilities::register(
             new SetMailBudget(),
-            'Levélküldési keret beállítása',
-            'Az óránként elküldhető levelek számának beállítása. [UNAPPROVED T-UX]'
+            // [UNAPPROVED T903, T904]
+            'Óránként küldhető levelek számának beállítása',
+            'Annak beállítása, hogy óránként legfeljebb hány levelet küldhet a Kaláka.'
         );
         Abilities::register(
             new ClearMailQueue(),

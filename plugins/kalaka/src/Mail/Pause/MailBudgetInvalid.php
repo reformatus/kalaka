@@ -11,8 +11,8 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
  */
 final class MailBudgetInvalid extends RuleViolation
 {
-    /** UX writes the text. [UNAPPROVED T-UX] */
-    public const MESSAGE = '[UNAPPROVED T-UX] Az óránkénti levélkeret 1 és 2000 közötti egész szám lehet.';
+    /** [UNAPPROVED T902] */
+    public const MESSAGE = 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.';
 
     public function __construct()
     {

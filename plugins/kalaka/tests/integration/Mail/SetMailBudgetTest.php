@@ -67,7 +67,7 @@ final class SetMailBudgetTest extends MailTestCase
             } catch (RuleViolation $refused) {
                 self::assertInstanceOf(MailBudgetInvalid::class, $refused);
                 self::assertSame('kalaka_mail_budget_invalid', $refused->errorCode());
-                self::assertStringContainsString('[UNAPPROVED T-UX]', $refused->getMessage());
+                self::assertStringEndsWith(MailBudgetInvalid::MESSAGE, $refused->getMessage());
             }
         }
         self::assertSame('2000', $this->stateRow()['hourly_budget'] ?? null, 'A refusal wrote nothing.');

@@ -32,7 +32,9 @@ final class SetMailBudget implements AdminUseCase
     {
         return [
             'type' => 'object',
-            'properties' => ['hourly_budget' => ['type' => 'integer']],
+            // Any scalar, so a wrong value reaches `execute()` and gets the typed refusal, not core's
+            // `ability_invalid_input`.
+            'properties' => ['hourly_budget' => ['type' => ['integer', 'number', 'string', 'boolean', 'null']]],
             'required' => ['hourly_budget'],
             'additionalProperties' => false,
         ];
@@ -59,8 +61,8 @@ final class SetMailBudget implements AdminUseCase
      */
     public function execute(array $input, Context $context): bool
     {
-        $budget = $input['hourly_budget'] ?? null;
-        if (!is_int($budget) || $budget < self::MIN || $budget > self::MAX) {
+        $budget = self::budgetOf($input['hourly_budget'] ?? null);
+        if ($budget === null) {
             throw new MailBudgetInvalid();
         }
         $state = $this->states->forUpdate($context);
@@ -73,5 +75,15 @@ final class SetMailBudget implements AdminUseCase
         $this->states->upsert($state, $context);
 
         return true;
+    }
+
+    /** A whole number from 1 to 2000, given as an integer or as its digits; null for anything else. */
+    private static function budgetOf(mixed $value): ?int
+    {
+        if (is_string($value) && preg_match('/\A[0-9]{1,4}\z/D', $value) === 1) {
+            $value = (int) $value;
+        }
+
+        return is_int($value) && $value >= self::MIN && $value <= self::MAX ? $value : null;
     }
 }

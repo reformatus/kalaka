@@ -45,8 +45,8 @@ final class MailAbilitiesTest extends MailAdminTestCase
             ],
             'set-mail-budget' => [
                 new SetMailBudget(),
-                'Levélküldési keret beállítása',
-                'Az óránként elküldhető levelek számának beállítása. [UNAPPROVED T-UX]',
+                'Óránként küldhető levelek számának beállítása',
+                'Annak beállítása, hogy óránként legfeljebb hány levelet küldhet a Kaláka.',
             ],
             'clear-mail-queue' => [
                 new ClearMailQueue(),
@@ -253,5 +253,18 @@ final class MailAbilitiesTest extends MailAdminTestCase
             'A művelet nem hajtható végre. Csak nem közzétett esemény küldésre váró levelei törölhetők.',
             $response->get_data()['message'] ?? null
         );
+    }
+
+    /** Through the run endpoint, any wrong value is the typed refusal, never core's schema refusal. */
+    public function testThroughTheRunEndpointAnyWrongValueIsTheTypedRefusalAndDigitsCount(): void
+    {
+        $this->as($this->admin->userId);
+        foreach (['"1.5"', '""', '"abc"', '1.5', 'null', 'true', '0', '2001'] as $bad) {
+            $response = $this->runAbility('kalaka/set-mail-budget', '{"hourly_budget":' . $bad . '}');
+            self::assertSame(422, $response->get_status(), 'Status for ' . $bad);
+            self::assertSame('kalaka_mail_budget_invalid', $response->get_data()['code'] ?? null, 'Code for ' . $bad);
+        }
+        self::assertTrue($this->runAbility('kalaka/set-mail-budget', '{"hourly_budget":"300"}')->get_data());
+        self::assertSame('300', $this->stateRow()['hourly_budget'] ?? null);
     }
 }
