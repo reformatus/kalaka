@@ -155,9 +155,11 @@ the waitlist and reference codes
   whose request was refused) makes no claim, for a submit's answers and for stored values alike
   [UNAPPROVED R6].
 - A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): any claim
-  on a pool with a limit is refused with the "full" text on that choice and nothing is written; unlimited pools are
-  not refused. "Goes to the waitlist" is the one read `Seats::left(eventPool) === 0`, under the event lock, the same
-  read the form side uses. Admitted registrations' additional forms are unchanged. [UNAPPROVED N5, R188]
+  on a pool with a limit is refused on that choice with the same refusal and text as a full pool
+  (`SeatsFull::TEXT`; the field's own error, as a pool that filled up) and nothing is written; unlimited pools
+  are not refused. "Goes to the waitlist" is the one read `Seats::left(eventPool) === 0`, under the event lock,
+  the same read the form side uses. Admitted registrations' additional forms are unchanged.
+  [UNAPPROVED N5, R188; N654: the "full" text is kept]
 - The event's pool has no rows: its seats are the counted `registered` statuses, and the latch decides the
   waitlist as it always did. `Seats::left()` and `over()` are computed on read, never stored.
 - Removing a chosen item (a tier, an option, an offer) is refused through one call,
