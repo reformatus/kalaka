@@ -66,6 +66,7 @@ export default function ColumnMenu( {
 				size: 'small',
 				variant: 'tertiary',
 				accessibleWhenDisabled: true,
+				'data-kg-menu': column.column,
 				disabled: ! sortable && ! counts && ! filterable && ! children,
 			} }
 			{ ...( open === undefined ? {} : { open, onToggle: onOpenChange } ) }

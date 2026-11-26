@@ -504,15 +504,46 @@ export default function Page( { config } ) {
 			event.stopPropagation(); // the click the browser then makes opens the menu
 		}
 	};
-	// Focus returns to the header button the menu was opened from.
+	// Focus returns to the opener when the menu closes: the header button, or the arrow in the sum row, whichever it was
+	// opened from. A sort reloads the grid and DataViews redraws the header (and the sum row its cells), so the opener
+	// the menu was opened from can be gone by then: it is looked up again by its column each time, for a short while,
+	// until focus is on it. [UNAPPROVED N948]
 	const lastFrom = useRef( null );
+	const openerOf = ( target ) => {
+		if ( target.header ) {
+			if ( ! host ) {
+				return null;
+			}
+			const mark = Array.from( host.querySelectorAll( '.kg-hd[data-column]' ) ).find( ( m ) => m.dataset.column === target.column );
+			return mark ? mark.closest( '.dataviews-view-table-header-button' ) : null;
+		}
+		return Array.from( document.querySelectorAll( '[data-kg-menu]' ) ).find( ( b ) => b.dataset.kgMenu === target.column ) || null;
+	};
+	const focusOpener = ( target ) => {
+		const until = Date.now() + 3000;
+		let tries = 0;
+		const attempt = () => {
+			const element = openerOf( target );
+			if ( element ) {
+				element.focus();
+				if ( document.activeElement === element ) {
+					return;
+				}
+			}
+			tries++;
+			if ( tries < 200 && Date.now() < until ) {
+				window.requestAnimationFrame( attempt );
+			}
+		};
+		window.requestAnimationFrame( attempt );
+	};
 	useEffect( () => {
-		if ( menuState && menuState.from ) {
-			lastFrom.current = menuState.from;
-		} else if ( ! menuState && lastFrom.current ) {
-			const button = lastFrom.current;
+		if ( menuState ) {
+			lastFrom.current = { column: menuState.column, header: !! menuState.from };
+		} else if ( lastFrom.current ) {
+			const target = lastFrom.current;
 			lastFrom.current = null;
-			window.requestAnimationFrame( () => button.isConnected && button.focus() );
+			focusOpener( target );
 		}
 	}, [ menuState ] );
 	// The header button the menu was opened from says it is open.

@@ -34,7 +34,7 @@ jest.mock( '@wordpress/dataviews/wp', () => {
 		return h(
 			'div',
 			null,
-			h( 'button', { className: 'dataviews-view-table-header-button', id: 'native', onClick: () => globalThis.nativeOpened() }, fields[ 0 ].header ),
+			h( 'button', { key: JSON.stringify( view.sort ), className: 'dataviews-view-table-header-button', id: 'native', onClick: () => globalThis.nativeOpened() }, fields[ 0 ].header ),
 			children
 		);
 	};
@@ -157,4 +157,14 @@ test( 'a filter is added once, as the entry DataViews adds: the column, its firs
 	expect( globalThis.dvView.filters ).toEqual( [ { field: 'state', operator: 'contains', value: undefined } ] );
 	expect( globalThis.dvView.page ).toBe( 1 );
 	expect( globalThis.menuProps.filtered ).toBe( true );
+} );
+
+test( 'after a sort chosen in the menu the grid redraws its header, and focus still ends on the new header button', async () => {
+	await act( async () => header().click() );
+	const before = header();
+	await act( async () => globalThis.menuProps.onSort( { field: 'state', direction: 'desc' } ) );
+	expect( header() ).not.toBe( before );
+	await act( async () => host.querySelector( '#menu' ).click() );
+	await flush();
+	expect( document.activeElement ).toBe( header() );
 } );
