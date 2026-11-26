@@ -257,6 +257,43 @@ final class ConditionDatetimeTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function invalidLiterals(): iterable
+    {
+        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads the test's own fixture
+        $file = file_get_contents(__DIR__ . '/../../fixtures/datetime-literals.json');
+        self::assertIsString($file);
+        $literals = json_decode($file, true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($literals);
+        foreach ($literals['invalid'] as $literal) {
+            // A bare day is no datetime literal, but a date key and a datetime key both take it as a day.
+            if ($literal === '2026-12-01') {
+                continue;
+            }
+            yield 'invalid ' . $literal => [$literal];
+        }
+    }
+
+    /** @dataProvider invalidLiterals */
+    public function testEveryInvalidFixtureLiteralIsRefusedAsAValue(string $literal): void
+    {
+        $facts = new ValueContext([
+            'day' => Value::date('2026-12-15', ''),
+            'closes' => self::local('2026-12-15 18:00:00'),
+        ]);
+        foreach (['day', 'closes'] as $key) {
+            try {
+                (new ConditionParser())->parse(
+                    ['match' => 'all', 'items' => [['key' => $key, 'operator' => 'equals', 'value' => $literal]]],
+                    new ContextScope($facts)
+                );
+                self::fail($key . ' ' . $literal);
+            } catch (SystemFailure $failure) {
+                self::assertStringEndsWith('invalid_condition ' . $key, $failure->getMessage());
+            }
+        }
+    }
+
     public function testTheParserRefusesAnInvalidLiteralAndAnInstantOnAnotherType(): void
     {
         $facts = new ValueContext([
