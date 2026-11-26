@@ -100,4 +100,9 @@ final class RequestScopeHost implements FormHost
     {
         return $this->host->slotRequiredKeys($form);
     }
+
+    public function labelFallbacks(Form $form): array
+    {
+        return $this->host->labelFallbacks($form);
+    }
 }
