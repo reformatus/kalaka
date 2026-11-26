@@ -19,7 +19,8 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * whose `lines` go when the blocks switch to it. `can` is what the registrant may do now, and `cardPayment` the
  * latest card payment request (null for none, for a registration that is not registered, and while no provider
  * is contributed). `cardRefusal` is the code a refused no-script card payment post came back with, read once
- * by the active registration's page (null otherwise).
+ * by the active registration's page (null otherwise). `cardAmounts` is what a card payment may ask for, set only while
+ * `can.payCard`.
  */
 final readonly class RegistrationStatusView
 {
@@ -36,6 +37,7 @@ final readonly class RegistrationStatusView
         public RegistrationCan $can = new RegistrationCan(),
         public ?CardPaymentView $cardPayment = null,
         public ?string $cardRefusal = null,
+        public ?CardAmountsView $cardAmounts = null,
     ) {
     }
 

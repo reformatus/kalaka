@@ -14,6 +14,7 @@ use Kalaka\Payments\Api\OpenPayment;
 use Kalaka\Payments\Api\OpenPaymentState;
 use Kalaka\Portal\Api\StatusRead;
 use Kalaka\Portal\CardRefusalCookie;
+use Kalaka\Portal\Rest\CardPaymentRoute;
 use Kalaka\Portal\StatusMarkup;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\Forms\TestThemeAdapter;
@@ -157,7 +158,7 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         self::assertSame(200, $response->get_status());
         self::assertSame(['url' => 'https://pay.example.test/1'], $response->get_data());
-        self::assertSame(home_url('/vissza/'), $this->provider->returnUrls[0]);
+        self::assertSame(CardPaymentRoute::returnUrl(home_url('/vissza/'), false), $this->provider->returnUrls[0]);
         self::assertStringContainsString('no-store', (string) $response->get_headers()['Cache-Control']);
     }
 
@@ -178,7 +179,7 @@ final class CardPaymentPortalTest extends PortalTestCase
 
         $this->post('application/json', (string) wp_json_encode(['return_url' => 'https://elsewhere.example.net/']));
 
-        self::assertSame(home_url('/'), $this->provider->returnUrls[0]);
+        self::assertSame(CardPaymentRoute::returnUrl(home_url('/'), false), $this->provider->returnUrls[0]);
     }
 
     public function testWithoutAnActiveRegistrationItIsRefusedWithItsCode(): void

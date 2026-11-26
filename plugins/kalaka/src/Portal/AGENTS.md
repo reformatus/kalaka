@@ -61,6 +61,17 @@ page, and the account area
   code and generic text (anything not a Kaláka error is `kalaka_system_failure`), never a raw message.
   The bare button's class is `Forms\Api\ThemeStyle::buttonClass()`.
   It is open to the holder of the active registration (the signed cookie) and answers `no-store`.
+  Its input is `{return_url?, amount?, popup?}`: `amount` goes to `start()` as it is (absent is the whole payable amount;
+  its refusals are the use case's), `popup=1` says the page's script opened the popup window. The order's return URL is
+  always `GET kalaka-portal/v1/card-payment/return?to=<status page>` (`popup=1` added with the flag), the status page being
+  the same-site return address; a refused post from a popup goes to that address with the flag, the flash cookie set. The
+  return endpoint is open, `no-store` and behind the error boundary: without the flag a 303 to `to` (re-validated
+  same-site, else home), with it the close page (`Rest/CardReturnPage`, HTML sent by `rest_pre_serve_request`: inside
+  the theme, or bare when the filter `kalaka_card_return_bare` is true), which posts `{type: 'kalaka-card-return'}` to
+  its same-origin opener and tries `window.close()`, and shows a line, a close button and a link to the status page.
+- `RegistrationStatusView::cardAmounts` is non-null only while `can.payCard`: `full` is the payable now, `max` the same,
+  `min` is `Payments\Api\CardAmountLimits::of($full)->min` (one rule for the page and the endpoint), and `advance` stays
+  null until the deposit extension fills it with money.md's deposit payment request.
 - Payment due and overdue are computed on every read, never stored. Payment
   due is Events' date type (`Events\Api\Event::paymentDue()`), read through the
   registration's fact source (`RegistrationFacts::paymentDue()`), which holds
