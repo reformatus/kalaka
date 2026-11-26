@@ -81,7 +81,6 @@ final class StatusActsTest extends StaffEditTestCase
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
-            'kalaka_restore_registration',
             'kalaka_view_money',
             'kalaka_record_money',
         ]));
@@ -279,20 +278,13 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertTrue($this->isFull());
     }
 
-    public function testRemovingNeedsAReasonAndWorksFromTheWaitlist(): void
+    public function testNoActNeedsAReasonAndRemovingWorksFromTheWaitlist(): void
     {
-        try {
-            $this->act(StatusAct::Remove, '00A5');
-            self::fail('A removal needs a reason.');
-        } catch (InvalidInput) {
-            self::assertSame('waitlisted', $this->row('00A5')['status']);
-        }
-        try {
-            $this->act(StatusAct::Remove, '00A5', ['reason' => '   ']);
-            self::fail('A blank reason is no reason.');
-        } catch (InvalidInput) {
-            self::assertSame('waitlisted', $this->row('00A5')['status']);
-        }
+        $this->act(StatusAct::Withdraw, '00A0');
+        $this->act(StatusAct::Restore, '00A0');
+        $this->act(StatusAct::Remove, '00A0', ['reason' => '   ']);
+        self::assertSame('removed', $this->row('00A0')['status']);
+        self::assertNull($this->lastEntry()['reason']);
 
         $result = $this->act(StatusAct::Remove, '00A5', ['reason' => 'Dupla jelentkezés']);
 
@@ -473,7 +465,7 @@ final class StatusActsTest extends StaffEditTestCase
         }
     }
 
-    public function testARestoreIsRegisteredAgainWithItsOwnStampAndNoRegisteredMail(): void
+    public function testARestoreIsRegisteredAgainWithItsOwnStampAndMailsRegisteredEachTime(): void
     {
         $this->addValue($this->event, '00A0', 'tier', 'a');
         $this->seat('00A0', $this->poolA);
@@ -488,17 +480,70 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertSame('restore', $row['registered_by']);
         self::assertSame('2026-12-01 09:00:00.000000', $row['registered_at']);
         self::assertSame(1, $this->seats->held($this->poolA));
-        self::assertNotContains('registered', $this->deliveries('00A0'));
+        self::assertSame(['registered'], $this->deliveries('00A0'));
+
+        // A second restore after another leave mails again: each restore is its own cause.
+        $this->act(StatusAct::Withdraw, '00A0');
+        self::assertSame(['registered'], $this->deliveries('00A0'), 'Leaving sends nothing.');
+        $this->act(StatusAct::Restore, '00A0');
+        self::assertSame(['registered', 'registered'], $this->deliveries('00A0'));
     }
 
-    public function testAWaitlistedRegistrationThatLeftIsRestoredToRegistered(): void
+    public function testAWaitlistedRegistrationThatLeftIsRestoredToTheWaitlistAtItsPlace(): void
     {
-        $this->act(StatusAct::Withdraw, '00A5');
+        $this->mailOn('waitlisted');
+        $this->addRegistration($this->event, '00A8', 'waitlisted', '2026-11-30 09:00:00');
+        $this->addRegistration($this->event, '00B0', 'waitlisted', '2026-11-30 10:00:00');
+        $this->act(StatusAct::Remove, '00A8');
 
-        $this->act(StatusAct::Restore, '00A5');
+        $preview = $this->act(StatusAct::Restore, '00A8', ['preview' => true]);
+        self::assertSame('waitlisted', $preview['status']);
+        self::assertSame([], $preview['seats']);
+        $result = $this->act(StatusAct::Restore, '00A8');
 
-        self::assertSame('registered', $this->row('00A5')['status']);
-        self::assertSame('restore', $this->row('00A5')['registered_by']);
+        self::assertSame('waitlisted', $result['status']);
+        $row = $this->row('00A8');
+        self::assertSame('waitlisted', $row['status']);
+        self::assertNull($row['registered_at']);
+        self::assertNull($row['registered_by']);
+        self::assertSame('2026-11-30 09:00:00.000000', $row['created_at']);
+        // The waitlist mail of the status it returns to, once per restore.
+        self::assertSame(['waitlisted'], $this->deliveries('00A8'));
+        $this->act(StatusAct::Remove, '00A8');
+        $this->act(StatusAct::Restore, '00A8');
+        self::assertSame(['waitlisted', 'waitlisted'], $this->deliveries('00A8'));
+        // Its place in the list follows its submit time: 00A5 (08:00) first, then 00A8 (09:00), then 00B0 (10:00).
+        $list = (new \Kalaka\Registrations\RegistrationList())->forEvent($this->event);
+        $serials = array_column($list, 'serial', 'code');
+        self::assertSame([1, 2, 3], [$serials['00A5'], $serials['00A8'], $serials['00B0']]);
+    }
+
+    public function testARegisteredRegistrationThatLeftIsRestoredAsRegisteredAtTheEnd(): void
+    {
+        $this->act(StatusAct::Withdraw, '00A0');
+
+        $this->act(StatusAct::Restore, '00A0');
+
+        self::assertSame('registered', $this->row('00A0')['status']);
+        self::assertSame('restore', $this->row('00A0')['registered_by']);
+    }
+
+    public function testARestoreIsFullAccessOnly(): void
+    {
+        $this->act(StatusAct::Withdraw, '00A0');
+        $user = $this->plainUser();
+        $this->saveGrant($this->event, $user, ['actions' => [
+            'kalaka_withdraw_registration', 'kalaka_remove_registration', 'kalaka_admit_registration',
+        ]]);
+
+        try {
+            $this->act(StatusAct::Restore, '00A0', [], new UserActor($user));
+            self::fail('A grant cannot hold a restore.');
+        } catch (PermissionDenied) {
+            self::assertSame('withdrawn', $this->row('00A0')['status']);
+        }
+        $this->act(StatusAct::Restore, '00A0');
+        self::assertSame('registered', $this->row('00A0')['status']);
     }
 
     public function testRestoringAPaidRegistrationWritesANewConfirmationAndItsMail(): void
@@ -512,7 +557,7 @@ final class StatusActsTest extends StaffEditTestCase
         $this->act(StatusAct::Restore, '00A0');
 
         self::assertSame(['confirmed', 'unconfirmed', 'confirmed'], $this->confirmations('00A0'));
-        self::assertSame(['confirmed', 'confirmed'], $this->deliveries('00A0'));
+        self::assertSame(['confirmed', 'registered', 'confirmed'], $this->deliveries('00A0'));
     }
 
     public function testARestoreWithoutEnoughPaidIsNotConfirmed(): void
@@ -523,7 +568,7 @@ final class StatusActsTest extends StaffEditTestCase
         $this->act(StatusAct::Restore, '00A0');
 
         self::assertNotContains('confirmed', $this->confirmations('00A0'));
-        self::assertSame([], $this->deliveries('00A0'));
+        self::assertSame(['registered'], $this->deliveries('00A0'));
     }
 
     public function testAdmittingAPaidWaitlistedRegistrationConfirmsItAtOnceWithBothMails(): void
@@ -705,10 +750,8 @@ final class StatusActsTest extends StaffEditTestCase
             self::assertTrue($without['changed'], $act->value);
             self::assertSame($without, $with, $act->value);
         }
-        // The previews changed nothing; a real remove still needs a reason.
+        // The previews changed nothing.
         self::assertSame('registered', $this->row('00A2')['status']);
-        $this->expectException(InvalidInput::class);
-        $this->act(StatusAct::Remove, '00A2');
     }
 
     public function testALeavingPreviewListsTheSeatsItFreesWithTheCountAfter(): void
@@ -814,23 +857,15 @@ final class StatusActsTest extends StaffEditTestCase
         $this->act(StatusAct::Withdraw, '00A0', [], $actor);
         self::assertSame('withdrawn', $this->row('00A0')['status']);
 
-        // A restore through a view that holds only `registered` registrations: the target is outside it now.
-        $view = $this->viewWithColumns(
-            [['column' => 'code', 'write' => false]],
-            [['column' => 'status', 'in' => ['registered']]]
-        );
+        // A restore is full access only: no grant action holds it, whatever its view.
         $other = $this->plainUser();
-        $this->saveGrant($this->event, $other, ['view_id' => $view, 'actions' => ['kalaka_restore_registration']]);
+        $this->saveGrant($this->event, $other, ['actions' => ['kalaka_withdraw_registration']]);
         try {
             $this->act(StatusAct::Restore, '00A0', [], new UserActor($other));
-            self::fail('The withdrawn target is outside the view.');
+            self::fail('A restore needs full access.');
         } catch (PermissionDenied) {
             self::assertSame('withdrawn', $this->row('00A0')['status']);
         }
-        $third = $this->plainUser();
-        $this->saveGrant($this->event, $third, ['actions' => ['kalaka_restore_registration']]);
-        $this->act(StatusAct::Restore, '00A0', [], new UserActor($third));
-        self::assertSame('registered', $this->row('00A0')['status']);
     }
 
     // --- the command line ---
@@ -866,40 +901,14 @@ final class StatusActsTest extends StaffEditTestCase
         self::assertStringContainsString((new StatusActRefused())->getMessage(), (string) $last[1][0]);
         self::assertSame('waitlisted', $this->row('00B0')['status']);
 
-        // A removal needs its reason: refused before anything is asked, and nothing changes.
+        // No act needs a reason, the command included.
         \WP_CLI::reset();
-        try {
-            $command->remove([(string) $this->event, '00A2'], []);
-            self::fail('A removal needs its reason.');
-        } catch (\RuntimeException $stopped) {
-            self::assertSame('WP_CLI::error', $stopped->getMessage());
-        }
-        $last = \WP_CLI::$calls[array_key_last(\WP_CLI::$calls)];
-        self::assertSame('error', $last[0]);
-        self::assertStringContainsString('--reason is required for remove.', (string) $last[1][0]);
-        self::assertSame('registered', $this->row('00A2')['status']);
+        \WP_CLI::$answersYes = true;
+        $command->remove([(string) $this->event, '00A2'], []);
+        self::assertSame('removed', $this->row('00A2')['status']);
+        $command->restore([(string) $this->event, '00A2'], []);
         $command->withdraw([(string) $this->event, '00A2'], ['reason' => 'Telefon']);
         self::assertSame('withdrawn', $this->row('00A2')['status']);
-    }
-
-    public function testARemoveWithoutAReasonIsRefusedBeforeTheOperatorIsAsked(): void
-    {
-        require_once __DIR__ . '/../Foundation/Seed/WpCliDouble.php';
-        \WP_CLI::reset();
-        $command = new RegistrationCommand($this->runner, $this->corrections(), new StatusActions($this->runner));
-        self::assertTrue($this->act(StatusAct::Remove, '00A2', ['preview' => true])['requires_reason']);
-        self::assertFalse($this->act(StatusAct::Withdraw, '00A2', ['preview' => true])['requires_reason']);
-
-        try {
-            $command->remove([(string) $this->event, '00A2'], []);
-            self::fail('A removal needs its reason.');
-        } catch (\RuntimeException $stopped) {
-            self::assertSame('WP_CLI::error', $stopped->getMessage());
-        }
-
-        $kinds = array_map(static fn (array $call): string => $call[0], \WP_CLI::$calls);
-        self::assertNotContains('confirm', $kinds);
-        self::assertSame('registered', $this->row('00A2')['status']);
     }
 
     public function testTheCommandPreviewsAsksFirstAndADeclineChangesNothingAndYesSkipsTheQuestion(): void

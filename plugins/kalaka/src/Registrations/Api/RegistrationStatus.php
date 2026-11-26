@@ -21,7 +21,8 @@ enum RegistrationStatus: string
         return match ($this) {
             self::Registered => 'rögzített',
             self::Waitlisted => 'várólistás',
-            self::Withdrawn => 'visszavont',
+            // [UNAPPROVED T976] Before: 'visszavont'.
+            self::Withdrawn => 'lemondott',
             self::Removed => 'törölt',
         };
     }

@@ -711,6 +711,13 @@ final class AssignmentsTest extends RegistrationsTestCase
         $key = new RegistrationKey($this->event, '00A0');
         $other = new RegistrationKey($this->event, '00A2');
         $this->seedRegistrations($key, $other);
+        // A registered registration has its `registered_at` (what a restore reads to return it as registered).
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            'UPDATE %i SET registered_at = created_at WHERE event_id = %d',
+            $wpdb->prefix . 'kalaka_registrations',
+            $this->event
+        ));
         $seats = new Seats();
         $pool = $this->sets->seatPool($set, 'modul_a');
         self::assertNotNull($pool);

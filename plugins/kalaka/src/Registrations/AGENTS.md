@@ -32,22 +32,25 @@ the waitlist and reference codes
   `Api\StatusAct`, one shape in `StatusChange`); nothing else updates a status.
   An act on a registration already in its target state writes nothing
   (`changed: false`); any other status it does not allow is `StatusActRefused`.
-  A removal needs a reason (the trimmed text); the reason is the audit entry's.
+  No act needs a reason; the one given is the audit entry's. A restore is full access only (no grant action) and
+  returns the registration to the status it left from: `registered` when it has a `registered_at` (it was ever
+  registered), `waitlisted` when it has none, with nothing else written.
 - `registered_at` is set only by the acts that make a registration
   `registered` (submit, admission, restore) and is never recomputed.
   `registered_by` (`Api\RegisteredBy`: `submit`, `admission`, `restore`) is
   written only together with it; withdraw and remove leave both as they are.
   `registration.from_waitlist` reads `registered_by = admission`.
-- Admission and restore lock the event row, then the quota pools their claims
+- Admission and a restore to `registered` lock the event row, then the quota pools their claims
   name (`Seats::inLockOrder()`), then the registration; the claims come from
   the stored values (`Api\SeatClaims`), read before the locks and again under
   the registration's, and a claim of a quota pool nobody locked is a
   `VersionConflict` (nothing written). They take seats only through
   `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
-  and queue the "registered" mail on admission only. Withdraw and remove free
-  seats only through `Seats::releaseAll()`. The preview (`preview: true`)
-  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it needs no
-  `reason` and ignores one, and says `requires_reason` (the act's own rule: a real remove needs one). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
+  and queue the "registered" mail (admission, caused by the registration; a restore, caused by the registration at
+  the version it wrote, so every restore mails). A restore to the waitlist queues the "waitlisted" mail the same way.
+  Withdraw and remove queue no mail and free seats only through `Seats::releaseAll()`. The preview (`preview: true`)
+  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
+  `reason`, and says `requires_reason` (kept in the shape, always false: no act needs a reason). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
   count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
   pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money
   effect from the same composition the materializer records (`FeeComposition::of(.., $becoming)`) with

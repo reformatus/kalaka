@@ -572,7 +572,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         );
     }
 
-    /** The status acts' flags: the grant carries the act's action and the status allows it now. */
+    /** The status acts' flags: the grant carries the act's action and the status allows it now; restore: full access. */
     public function testTheStatusActFlagsFollowTheGrantAndTheStatus(): void
     {
         $before = ActionCatalogue::current();
@@ -581,10 +581,8 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             'kalaka_withdraw_registration',
             'kalaka_remove_registration',
             'kalaka_admit_registration',
-            'kalaka_restore_registration',
         ]));
-        $acts = ['kalaka_admit_registration', 'kalaka_withdraw_registration', 'kalaka_remove_registration',
-            'kalaka_restore_registration'];
+        $acts = ['kalaka_admit_registration', 'kalaka_withdraw_registration', 'kalaka_remove_registration'];
         $holder = $this->plainUser();
         $this->grant($holder, [], [['column' => 'code', 'write' => false]], $acts);
         $withdrawOnly = $this->plainUser();
@@ -606,12 +604,20 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                 $flags($this->detail($holder, '00A5'))
             );
             self::assertSame(
-                ['admit' => false, 'withdraw' => false, 'remove' => false, 'restore' => true],
+                ['admit' => false, 'withdraw' => false, 'remove' => false, 'restore' => false],
                 $flags($this->detail($holder, '00A8'))
             );
             self::assertSame(
                 ['admit' => false, 'withdraw' => true, 'remove' => false, 'restore' => false],
                 $flags($this->detail($withdrawOnly))
+            );
+            $full = self::factory()->user->create();
+            $fullUser = get_userdata($full);
+            self::assertInstanceOf(\WP_User::class, $fullUser);
+            $fullUser->add_cap(\Kalaka\Admin\Api\AdminAccess::FULL_ACCESS);
+            self::assertSame(
+                ['admit' => false, 'withdraw' => false, 'remove' => false, 'restore' => true],
+                $flags($this->detail($full, '00A8'))
             );
         } finally {
             ActionCatalogue::record($before);
@@ -654,7 +660,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     {
         yield 'registered' => ['registered', 'Rögzített'];
         yield 'waitlisted' => ['waitlisted', 'Várólistás'];
-        yield 'withdrawn' => ['withdrawn', 'Visszavont'];
+        yield 'withdrawn' => ['withdrawn', 'Lemondott'];
         yield 'removed' => ['removed', 'Törölt'];
     }
 

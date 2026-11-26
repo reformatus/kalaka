@@ -92,10 +92,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   retired field. The edit is not a submission; the write goes through `Registrations\Api\FieldCorrections`, and the
   runner's evaluation (money, confirmation, mail) follows it; the edit sends no mail of its own. An identical value
   writes nothing, and a stored value other than `expected` is a `VersionConflict`.
-- The detail read's `can.admit`, `can.withdraw`, `can.remove` and `can.restore` are the act's grant action carried and
-  the status allowing it now (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
+- The detail read's `can.admit`, `can.withdraw` and `can.remove` are the act's grant action carried and the status
+  allowing it now; `can.restore` is full access and the status allowing it (a restore carries no grant action) (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
   command line runs them through `Registrations\Api\StatusActions` without a rule of its own: it previews first, prints
-  the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does; a remove without `--reason` is refused before the question, from the
-  preview's `requires_reason`. Whether an actor may see
+  the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does; `--reason` is optional (the preview's `requires_reason` is always false). Whether an actor may see
   money is one read, `Access::mayViewMoney()`, used by the detail read and the status-act preview. [UNAPPROVED N670]
 - Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.
