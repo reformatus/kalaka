@@ -232,7 +232,7 @@ final class EventFormHost implements FormHost
     /**
      * A link's or the quiz's accepted answers as a guest draft (S74, the handoff), in every account mode: the
      * claim token, and the instant the cookie lives until, the event's registration closing; null when the
-     * form keeps no drafts (an additional form) or its event is gone. [UNAPPROVED N677]
+     * form keeps no drafts (an additional form) or its event is gone.
      *
      * @return array{string, \DateTimeImmutable}|null
      */
@@ -247,13 +247,13 @@ final class EventFormHost implements FormHost
         return [$token, $event->registrationCloses];
     }
 
-    /** A logged-in person's claim of the cookie's guest draft, on the `wp` request. [UNAPPROVED N677] */
+    /** A logged-in person's claim of the cookie's guest draft, on the `wp` request. */
     public function claimDraft(Form $form, string $token, AccountActor $actor): DraftClaimOutcome
     {
         return $this->drafts->claim($form->id, $token, $actor);
     }
 
-    /** The choice that settled the person's claim of the guest draft; null when none. [UNAPPROVED N677] */
+    /** The choice that settled the person's claim of the guest draft; null when none. */
     public function settledChoice(Form $form, int $userId, string $token): ?DraftClaimChoice
     {
         return $this->drafts->settledChoice($form->eventId, $form->id, $userId, $token);

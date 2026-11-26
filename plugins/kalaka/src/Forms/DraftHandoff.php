@@ -50,7 +50,6 @@ use Kalaka\Registrations\Api\DraftClaimOutcome;
  *   load after it: the cookie is cleared, and the page carries the choice once (`settledNow()`).
  *
  * Any other page view (no `kalaka`, and no claim cookie of a logged-in visitor) returns before any read.
- * [UNAPPROVED N6] [UNAPPROVED N7]
  */
 final class DraftHandoff
 {

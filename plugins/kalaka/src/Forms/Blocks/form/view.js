@@ -101,7 +101,7 @@ const NONCE = /^[0-9a-f]{10}$/;
 /** How long a request runs before the spinner shows. */
 export const SPINNER_DELAY = 2000;
 
-/** How long the answers rest before the autosave keeps them (S74). [UNAPPROVED N5] */
+/** How long the answers rest before the autosave keeps them (S74). */
 export const DRAFT_DELAY = 3000;
 
 /** How long the claim notice's live region waits for its text, so a screen reader announces it (S74). */

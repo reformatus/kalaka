@@ -232,7 +232,6 @@ final class FormEngine
      * nothing of (an option not offered) are dropped and the rest kept, and a value it makes nothing of is
      * dropped whole. The cleaned answers are then checked as `accepted()` checks them. A list the request
      * carries is read as the JSON text a list is stored as, and must clean to a list; a text must not.
-     * [UNAPPROVED N6]
      */
     public function linkAnswers(FormDefinition $definition, AnswerSet $answers): AnswerSet
     {
@@ -300,7 +299,7 @@ final class FormEngine
     /**
      * The text answers its fields' types find an error in, as typed: what a person had half typed into a
      * text-like control (an e-mail address without its domain) when the autosave kept it. The form opens
-     * with it in the control, in error until it is corrected, rather than empty. [UNAPPROVED N10]
+     * with it in the control, in error until it is corrected, rather than empty.
      *
      * @return array<string, string> field key → the text as typed
      */

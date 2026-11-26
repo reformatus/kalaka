@@ -26,7 +26,7 @@ use Kalaka\Registrations\Api\DraftClaimRefused;
  * claim it settled and the choice (`resolvedClaim`, `resolvedChoice`). Once the guest draft is gone, the same
  * choice again changes nothing and answers as the first did. Another choice, a guest draft that is gone
  * (sent, or swept once registration closed) or of another form, and a claim settled on the form's page with
- * no choice are refused (`DraftClaimRefused`), and nothing is changed. [UNAPPROVED N11]
+ * no choice are refused (`DraftClaimRefused`), and nothing is changed.
  */
 final class ResolveDraftClaim implements PortalUseCase
 {

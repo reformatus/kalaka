@@ -14,7 +14,7 @@ namespace Kalaka\Forms\Api;
  *
  * For the claim popup (S74, pass 2): how many fields the link's answers would change in the draft
  * (`$linkChanges`, while `$claimConflict`), and the choice that settled a claim on the request before this
- * one (`$claimNotice`), shown once on the page that loads after the choice. [UNAPPROVED N12]
+ * one (`$claimNotice`), shown once on the page that loads after the choice.
  *
  * `$guestStart` (owner ruling 2026-11-26): a guest's page that holds no guest draft yet, so that the first
  * answer is saved at once and gets the cookie; a guest's page that holds one is saved on the usual rest.

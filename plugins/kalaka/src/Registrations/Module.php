@@ -79,7 +79,7 @@ SQL;
      * the last page shown, not read yet. `claims` counts the claims that
      * changed the person's draft: an autosave carries the count its page opened with, and a stale one is
      * refused. `resolved_claim` and `resolved_choice` are the hash of the last claim settled into a user
-     * draft and its choice, so a repeated choice answers as the first did. [UNAPPROVED N1] [UNAPPROVED N11]
+     * draft and its choice, so a repeated choice answers as the first did.
      */
     private const DRAFTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_drafts (

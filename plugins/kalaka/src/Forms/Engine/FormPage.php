@@ -300,7 +300,7 @@ final class FormPage
         }
         if ($draft->claimNotice !== null) {
             // The choice that settled the claim, on the load after it, and its one-line notice, shown once
-            // above the form by the form's script. [UNAPPROVED N12]
+            // above the form by the form's script.
             $data['draftClaimNotice'] = $draft->claimNotice->value;
             $data['draftClaimNoticeText'] = DraftClaimTexts::notice($draft->claimNotice);
         }
