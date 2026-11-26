@@ -12,7 +12,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * and `max` is the same (no overpaying); `min` is the effective minimum, never above `full`. `advance` is the
  * advance the registrant may pay instead of the whole: null for now. The deposit extension fills it later with
  * money.md's deposit payment request, max(0, threshold - payments so far), capped at the remaining balance, shown
- * only while it is above zero. [UNAPPROVED N814]
+ * only while it is above zero.
  */
 final readonly class CardAmountsView
 {
