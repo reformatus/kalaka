@@ -968,7 +968,9 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertSame('pending', $this->freshOrder($old)->get_status());
         self::assertSame([$old->get_id()], array_map(static fn (\WC_Order $o): int => $o->get_id(), $this->orders()));
         // The half-made order is gone too, not left as an unmarked pending order.
-        $unmarked = wc_get_orders(['limit' => -1, 'status' => ['pending'], 'exclude' => [$old->get_id()], 'return' => 'ids']);
+        $unmarked = wc_get_orders(
+            ['limit' => -1, 'status' => ['pending'], 'exclude' => [$old->get_id()], 'return' => 'ids']
+        );
         self::assertSame([], $unmarked);
     }
 
