@@ -147,6 +147,7 @@ SQL;
         // The per-event „Jelentkezők” grid (S37): its menu, its app and its REST routes.
         add_action('admin_menu', [GridPage::class, 'menu']);
         add_action('admin_enqueue_scripts', [GridPage::class, 'enqueue']);
+        add_action('admin_head', [GridPage::class, 'menuStyle']);
         // The page fills the window like a spreadsheet (topic 6a G9).
         add_filter('admin_body_class', [GridPage::class, 'bodyClass']);
         // The mail screens: the event's „Levelek” page and the site's „Levelezés” page (prototype).
