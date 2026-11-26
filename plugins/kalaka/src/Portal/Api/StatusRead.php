@@ -157,8 +157,8 @@ final class StatusRead
             $payable = PayableNow::amount($availability, $payment->awaitsAnswer, $balance) !== null;
             $lookup = PaymentProviderInput::forLookup($key, $event->currency);
             $latest = $provider->latestOf($lookup);
-            // Not while a request is in flight (the start's own rule): a failed one is paid again, and a pending
-            // one is the order the next start reuses.
+            // Not while a request is in flight (the start's own rule): a failed or pending one is never paid, so
+            // the next start replaces it.
             $idle = !$this->inFlight->is($provider, $key, $latest);
             $can = new RegistrationCan($payable && $idle && $provider->accepts($lookup));
 

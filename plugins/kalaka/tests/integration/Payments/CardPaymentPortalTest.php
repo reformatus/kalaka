@@ -217,8 +217,8 @@ final class CardPaymentPortalTest extends PortalTestCase
     public static function statesAndWhetherItCanPay(): array
     {
         return [
-            'pending: the next start reuses the order' => [OpenPaymentState::Pending, true],
-            'failed: paid again' => [OpenPaymentState::Failed, true],
+            'pending: the next start replaces the order' => [OpenPaymentState::Pending, true],
+            'failed: the next start replaces the order' => [OpenPaymentState::Failed, true],
             'processing: in flight' => [OpenPaymentState::Processing, false],
             'paid, not yet recorded' => [OpenPaymentState::Paid, false],
         ];
