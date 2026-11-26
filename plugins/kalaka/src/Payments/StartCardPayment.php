@@ -6,9 +6,13 @@ namespace Kalaka\Payments;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
 use Kalaka\Ledger\Api\Payer;
+use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Payments\Api\CardAmountLimits;
+use Kalaka\Payments\Api\CardAmountRefused;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
 use Kalaka\Payments\Api\CardPaymentInFlight;
 use Kalaka\Payments\Api\PaymentRequest;
@@ -21,9 +25,11 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * Starts a card payment for the active registration (money.md, "Payments"): under the registration's lock it
  * checks again that something is payable, by the one rule of the transfer block (`StatusRead::payableNow()`), and
- * builds the one-line request for the participant's due, rounded up. It writes nothing and calls no provider:
- * a provider is an outside point, so `Api\CardPayments` asks it (whether it accepts the currency, the state of
- * the latest request, the pay URL) outside the transaction and hands the use case what it read.
+ * builds the one-line request for the amount the registrant asked for: the participant's due, rounded up (`full`),
+ * when the input names none, else the input's `amount`, between the limits of `CardAmountLimits`. It writes
+ * nothing and calls no provider: a provider is an outside point, so `Api\CardPayments` asks it (whether it accepts
+ * the currency, the state of the latest request, the pay URL) outside the transaction and hands the use case what
+ * it read.
  */
 final class StartCardPayment implements PortalUseCase
 {
@@ -57,6 +63,9 @@ final class StartCardPayment implements PortalUseCase
                 'event_id' => ['type' => 'integer', 'minimum' => 1],
                 'code' => ['type' => 'string', 'pattern' => '^[0-9]{2}[AKBEGJTZFLRSXI][0-9]{1,13}\\z'],
                 'return_url' => ['type' => 'string', 'maxLength' => 2000],
+                // [UNAPPROVED N810] a non-negative decimal text in the event's currency; absent is the full amount.
+                // Its form is checked in `requestedAmount()`, after the unavailable and in-flight checks.
+                'amount' => ['type' => 'string', 'maxLength' => 40],
             ],
             'required' => ['event_id', 'code'],
             'additionalProperties' => false,
@@ -78,6 +87,8 @@ final class StartCardPayment implements PortalUseCase
      * @param array<string, mixed> $input
      * @throws CardPaymentUnavailable when nothing is payable now
      * @throws CardPaymentInFlight when the latest request is in flight at the provider
+     * @throws InvalidInput when the amount is malformed or no multiple of the payable unit
+     * @throws CardAmountRefused when the amount is below the minimum or above what is payable now
      */
     public function execute(array $input, Context $context): StartedCardPayment
     {
@@ -97,6 +108,8 @@ final class StartCardPayment implements PortalUseCase
             throw new CardPaymentInFlight();
         }
 
+        $requested = $this->requestedAmount($input, $amount);
+
         $returnUrl = isset($input['return_url']) ? wp_validate_redirect((string) $input['return_url'], '') : '';
 
         return new StartedCardPayment(
@@ -105,15 +118,46 @@ final class StartCardPayment implements PortalUseCase
                     new RequestLine(
                         $key,
                         Payer::PARTICIPANT,
-                        $amount,
+                        $requested,
                         // [UNAPPROVED T80] the order item's name; "{event name}: befizetés ({code})"
                         $event->name . ': befizetés (' . $key->code . ')'
                     ),
                 ],
-                $amount->currency(),
+                $requested->currency(),
                 $this->email
             ),
             $returnUrl === '' ? $this->fallbackUrl : $returnUrl
         );
+    }
+
+    /**
+     * The amount asked for: `full` when the input names none. A text that is no non-negative decimal, or no whole
+     * multiple of the payable unit, is malformed; one outside the limits is refused with them.
+     *
+     * @param array<string, mixed> $input
+     * @param Money $full what is payable now
+     * @throws InvalidInput when the amount is malformed or no multiple of the payable unit
+     * @throws CardAmountRefused when the amount is below the minimum or above `full`
+     */
+    private function requestedAmount(array $input, Money $full): Money
+    {
+        if (!isset($input['amount'])) {
+            return $full;
+        }
+        $text = (string) $input['amount'];
+        if (preg_match('/\A[0-9]{1,18}(\.[0-9]{1,8})?\z/', $text) !== 1) {
+            throw new InvalidInput();
+        }
+        $amount = Money::of($text, $full->currency());
+        if (!$amount->isEqualTo($amount->roundedUpToPayableUnit())) {
+            throw new InvalidInput();
+        }
+        $limits = CardAmountLimits::of($full);
+        if ($amount->isLessThan($limits->min) || $amount->isGreaterThan($limits->max)) {
+            $refused = new CardAmountRefused($limits->min, $limits->max);
+            throw $refused;
+        }
+
+        return $amount;
     }
 }

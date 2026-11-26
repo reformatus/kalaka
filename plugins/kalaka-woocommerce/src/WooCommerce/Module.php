@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\WooCommerce;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\WooCommerce\Cli\CardSurchargeCommand;
 use Kalaka\Foundation\Api\Module\Contributions;
 
 final class Module extends AbstractModule
@@ -59,6 +60,9 @@ final class Module extends AbstractModule
         add_action('woocommerce_trash_order', [$this->reporter, 'trashed'], 10, 1);
         add_filter('woocommerce_get_return_url', [$this->returnAddress, 'of'], 10, 2);
         add_filter('woocommerce_is_purchasable', [$this->product, 'purchasable'], 10, 2);
+        if (defined('WP_CLI') && WP_CLI) {
+            CardSurchargeCommand::register();
+        }
     }
 
     /**

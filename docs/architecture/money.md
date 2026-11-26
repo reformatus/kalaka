@@ -409,7 +409,10 @@ flowchart LR
   - create a payment request for N registration lines, each for one payer, up
     to that payer's balance;
   - return the pay URL;
-  - reuse an open request;
+  - replace an open request that was never paid (a new request cancels it and
+    makes one new one, so a registration has at most one unpaid request); a
+    request open in any other state (in flight at the provider, or paid and
+    not yet recorded) refuses the new one;
   - report paid, refunded and failed.
 - **Payment methods are pluggable,** so more automatic methods (another
   gateway, bank-statement import, …) can be added without changing core.
@@ -427,6 +430,10 @@ flowchart LR
     ([Registrations](registrations-and-identity.md#registrations));
   - WooCommerce payment and refund events write ledger lines **exactly
     once**, keyed by WooCommerce order and refund IDs;
+  - an event may have a card surcharge, a per-event setting of the extension:
+    one WooCommerce fee line on the order, never ledger money (a payment
+    records only the registration lines, and a refund gives a fee line to no
+    registration);
   - a billing country is a valid ISO code or left out.
 - Wallet top-ups are their own payment requests and never mix with
   registration payments. The wallet is designed later
