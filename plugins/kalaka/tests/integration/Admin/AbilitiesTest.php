@@ -50,7 +50,7 @@ final class AbilitiesTest extends GrantTestCase
             'edit-field-value' => [
                 new EditFieldValue(),
                 'Jelentkezési adat módosítása',
-                'Egy jelentkezés egyik adatának módosítása indoklással.',
+                'Egy jelentkezés egyik adatának módosítása.',
             ],
             'delete-view' => [new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.'],
             'save-grant' => [
