@@ -261,6 +261,31 @@ final class AccountMailKeysTest extends MailBodyTestCase
         self::assertInstanceOf(\WP_Error::class, check_password_reset_key((string) $query['key'], $user->user_login));
     }
 
+    public function testTheLinkIsBuiltOnWordPressLostPasswordAddress(): void
+    {
+        $event = $this->event('mandatory');
+        $this->switchOn($event, 'registered', $this->document($event, $this->withLink()));
+        $key = $this->registration($event);
+        $user = get_userdata($this->user(true));
+        $this->own($key, $user->ID);
+        $filter = static fn (): string => 'https://login.example.test/elfelejtett/';
+        add_filter('lostpassword_url', $filter);
+
+        try {
+            $html = $this->render($event, $key);
+        } finally {
+            remove_filter('lostpassword_url', $filter);
+        }
+
+        $pattern = '/Jelszó: <span[^>]*>([^<]+action=rp[^<]+)</';
+        self::assertSame(1, preg_match($pattern, html_entity_decode($html), $match));
+        self::assertStringStartsWith('https://login.example.test/elfelejtett/?', $match[1]);
+        self::assertStringNotContainsString('wp-login.php', $match[1]);
+        parse_str((string) wp_parse_url($match[1], PHP_URL_QUERY), $query);
+        self::assertSame('rp', $query['action']);
+        self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
+    }
+
     public function testAGuestAVerifiedOwnerOrAnotherAddressReadsNone(): void
     {
         $event = $this->event('optional');

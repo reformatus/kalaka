@@ -22,7 +22,7 @@ final class Accounts
 
     /**
      * A fresh link to WordPress's own "set new password" screen for the account
-     * (`wp-login.php?action=rp&key=…&login=…`), from `get_password_reset_key()`. WordPress keeps one key per
+     * (`action=rp&key=…&login=…` on `wp_lostpassword_url()`), from `get_password_reset_key()`. WordPress keeps one key per
      * user, so making one replaces the last: the newest link wins. It writes WordPress's user row, so it
      * runs outside any use case (the sender renders a mail outside one). Null when there is no such user or
      * WordPress refuses a key.
@@ -42,9 +42,11 @@ final class Accounts
             return null;
         }
 
-        $link = network_site_url(
-            'wp-login.php?action=rp&key=' . rawurlencode($key) . '&login=' . rawurlencode($user->user_login),
-            'login'
+        // WordPress's own lost-password address (it passes `lostpassword_url`, so a login-page plugin's
+        // screen is used) with the reset screen's arguments, never a fixed `wp-login.php` address.
+        $link = add_query_arg(
+            ['action' => 'rp', 'key' => $key, 'login' => $user->user_login],
+            wp_lostpassword_url()
         );
 
         return $formId === null ? $link : $link . '&' . SignUp::MARKER . '=' . $formId;
