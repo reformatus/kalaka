@@ -6,7 +6,7 @@
 .kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .kg-tabrow { min-width: 0; }
 .kg-tabrow .components-tab-panel__tabs { flex-wrap: wrap; }
-.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px 0; min-height: 32px; }
+.kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 8px var(--wpds-dimension-padding-2xl, 24px); min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .kg-spacer { flex: 1 1 auto; }
 .kg-bulkbar .dataviews-search { width: 240px; max-width: 100%; }
@@ -28,7 +28,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .dataviews-wrapper { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 #kalaka-grid .dataviews-layout__container { flex: 1 1 auto; min-height: 0; overflow: auto; }
 #kalaka-grid thead { position: sticky; top: 0; z-index: 3; }
-#kalaka-grid .kg-dv-foot { flex: none; padding: 8px 0; }
+#kalaka-grid .kg-dv-foot { flex: none; padding: 8px var(--wpds-dimension-padding-2xl, 24px); }
 @media (max-width: 600px) { .kg-above { margin-top: 4px; } }
 
 /* The table's own empty texts and a failed load. */
