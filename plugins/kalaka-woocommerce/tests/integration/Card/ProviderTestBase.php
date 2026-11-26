@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\WooCommerce\Card;
 
 use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\ObjectCache;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Foundation\Api\Error\InvalidInput;
@@ -17,10 +18,13 @@ use Kalaka\Payments\Api\PaymentRequest;
 use Kalaka\Payments\Api\RequestLine;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Tests\Integration\LogCapture;
+use Kalaka\WooCommerce\BillingDetails;
+use Kalaka\WooCommerce\BillingSource;
 use Kalaka\WooCommerce\CardSurcharge;
 use Kalaka\WooCommerce\OrderMeta;
 use Kalaka\WooCommerce\ReconcileStep;
 use Kalaka\WooCommerce\WooProvider;
+use Kalaka\WooCommerce\NoBilling;
 
 /**
  * The card payment through real WooCommerce orders. The cases are written once; a concrete class runs them in
@@ -192,6 +196,212 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertSame('hidden', $product->get_catalog_visibility());
         self::assertTrue($product->is_virtual());
         self::assertSame('private', $product->get_status());
+    }
+
+    /** The registration's owner account, as an account sets it on sign-up. */
+    private function ownedBy(RegistrationKey $key, int $user): void
+    {
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'kalaka_registrations',
+            ['owner_user_id' => $user],
+            ['event_id' => $key->eventId, 'code' => $key->code]
+        );
+        // The repositories keep the rows they read for the request.
+        ObjectCache::clear();
+    }
+
+    /**
+     * The visitor as the card start sees it: a REST post with no `wp_rest` nonce, so the current user is 0 whatever
+     * the cookie says; the logged-in cookie is there when the visitor is logged in.
+     */
+    private function visitAs(int $user): void
+    {
+        wp_set_current_user(0);
+        unset($_COOKIE[LOGGED_IN_COOKIE]);
+        if ($user > 0) {
+            $token = \WP_Session_Tokens::get_instance($user)->create(time() + HOUR_IN_SECONDS);
+            $_COOKIE[LOGGED_IN_COOKIE] = wp_generate_auth_cookie($user, time() + HOUR_IN_SECONDS, 'logged_in', $token);
+        }
+    }
+
+    public function testAnOrderBelongsToTheOwnerAccountWhenThatUserIsThePayingVisitor(): void
+    {
+        $anna = $this->owing('00A0');
+        $user = self::factory()->user->create(['role' => 'subscriber']);
+        $this->ownedBy($anna, $user);
+        $this->visitAs($user);
+
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+
+        $order = $this->onlyOrder();
+        self::assertSame($user, $order->get_customer_id());
+        // The cookie was read, nobody was logged in by it.
+        self::assertSame(0, get_current_user_id());
+        self::assertSame('teszt@example.com', $order->get_billing_email());
+        // It is in the user's WooCommerce orders (My Account), and the user can pay it without the e-mail step.
+        self::assertSame([$order->get_id()], array_map(
+            static fn ($o): int => $o instanceof \WC_Order ? $o->get_id() : 0,
+            (array) wc_get_orders(['customer_id' => $user, 'limit' => -1, 'status' => 'any'])
+        ));
+        wp_set_current_user($user);
+        self::assertTrue(current_user_can('pay_for_order', $order->get_id()));
+        self::assertStringContainsString('order_review', $this->payPage($order, $order->get_order_key()));
+    }
+
+    public function testAnOrderIsAGuestOrderWhenTheOwnersRegistrantIsLoggedOut(): void
+    {
+        $anna = $this->owing('00A0');
+        $user = self::factory()->user->create(['role' => 'subscriber']);
+        $this->ownedBy($anna, $user);
+        $this->visitAs(0);
+
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+
+        $order = $this->onlyOrder();
+        self::assertSame(0, $order->get_customer_id());
+        // The logged-out registrant reaches WooCommerce's pay page.
+        wp_set_current_user(0);
+        self::assertStringContainsString('order_review', $this->payPage($order, $order->get_order_key()));
+    }
+
+    public function testAnOrderIsAGuestOrderWhenAnotherUserIsLoggedIn(): void
+    {
+        $anna = $this->owing('00A0');
+        $owner = self::factory()->user->create(['role' => 'subscriber']);
+        $other = self::factory()->user->create(['role' => 'subscriber']);
+        $this->ownedBy($anna, $owner);
+        $this->visitAs($other);
+
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+
+        self::assertSame(0, $this->onlyOrder()->get_customer_id());
+    }
+
+    public function testAnOrderIsAGuestOrderWhenTheRegistrationHasNoOwnerOrTheCookieIsForged(): void
+    {
+        $anna = $this->owing('00A0');
+        $user = self::factory()->user->create(['role' => 'subscriber']);
+        $this->visitAs($user);
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        self::assertSame(0, $this->onlyOrder()->get_customer_id());
+
+        // An owner, and a cookie that names the owner but is not signed by the site.
+        $this->ownedBy($anna, $user);
+        wp_set_current_user(0);
+        $_COOKIE[LOGGED_IN_COOKIE] = $user . '|' . (time() + 3600) . '|token|hmac';
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/');
+        self::assertSame([0, 0], array_map(static fn (\WC_Order $o): int => $o->get_customer_id(), $this->orders()));
+        unset($_COOKIE[LOGGED_IN_COOKIE]);
+    }
+
+    public function testSeveralLinesAreOneOwnersOrderOnlyWhenEveryLineHasThatOwner(): void
+    {
+        $anna = $this->owing('00A0');
+        $bela = $this->register('00A2');
+        $user = self::factory()->user->create(['role' => 'subscriber']);
+        $other = self::factory()->user->create(['role' => 'subscriber']);
+        $this->ownedBy($anna, $user);
+        $this->ownedBy($bela, $user);
+        $this->visitAs($user);
+        $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/');
+        self::assertSame($user, $this->onlyOrder()->get_customer_id());
+
+        // Two owners, then one registration without an owner: a guest order, whoever pays.
+        $this->ownedBy($bela, $other);
+        $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/');
+        $this->payUrlFor($this->requestFor([$bela, $anna]), 'https://example.org/');
+        global $wpdb;
+        $wpdb->query($wpdb->prepare(
+            'UPDATE %i SET owner_user_id = NULL WHERE code = %s',
+            $wpdb->prefix . 'kalaka_registrations',
+            $bela->code
+        ));
+        $this->payUrlFor($this->requestFor([$anna, $bela]), 'https://example.org/');
+        self::assertSame(
+            [$user, 0, 0, 0],
+            array_map(static fn (\WC_Order $o): int => $o->get_customer_id(), $this->orders())
+        );
+    }
+
+    public function testTheBillingSourcesDetailsAreSetOnTheOrder(): void
+    {
+        $anna = $this->owing('00A0');
+        $source = new class implements BillingSource {
+            /** @var list<string> */
+            public array $asked = [];
+
+            public function of(RegistrationKey $registration): ?BillingDetails
+            {
+                $this->asked[] = $registration->code;
+
+                return new BillingDetails('Minta Anna', 'hu', '1234', 'Mintaváros', 'Minta utca 1.');
+            }
+        };
+        $provider = new WooProvider(billing: $source);
+
+        $provider->payUrl(PaymentProviderInput::forStart($this->requestFor([$anna]), 'https://example.org/'));
+
+        $order = $this->onlyOrder();
+        self::assertSame(['00A0'], $source->asked);
+        self::assertSame('Minta Anna', $order->get_billing_first_name());
+        self::assertSame('', $order->get_billing_last_name());
+        self::assertSame('HU', $order->get_billing_country());
+        self::assertSame('1234', $order->get_billing_postcode());
+        self::assertSame('Mintaváros', $order->get_billing_city());
+        self::assertSame('Minta utca 1.', $order->get_billing_address_1());
+        self::assertSame('teszt@example.com', $order->get_billing_email());
+    }
+
+    public function testOnlyTheNonEmptyDetailsAreSet(): void
+    {
+        $anna = $this->owing('00A0');
+        $source = new class implements BillingSource {
+            public function of(RegistrationKey $registration): ?BillingDetails
+            {
+                return new BillingDetails(null, 'HU', '', 'Mintaváros', null);
+            }
+        };
+        (new WooProvider(billing: $source))->payUrl(
+            PaymentProviderInput::forStart($this->requestFor([$anna]), 'https://example.org/')
+        );
+
+        $order = $this->onlyOrder();
+        self::assertSame('', $order->get_billing_first_name());
+        self::assertSame('HU', $order->get_billing_country());
+        self::assertSame('', $order->get_billing_postcode());
+        self::assertSame('Mintaváros', $order->get_billing_city());
+        self::assertSame('', $order->get_billing_address_1());
+        self::assertSame('teszt@example.com', $order->get_billing_email());
+    }
+
+    public function testASourceThatKnowsNobodyLeavesTheBillingEmailOnly(): void
+    {
+        $anna = $this->owing('00A0');
+        $source = new class implements BillingSource {
+            public function of(RegistrationKey $registration): ?BillingDetails
+            {
+                return null;
+            }
+        };
+        foreach ([new WooProvider(billing: $source), new WooProvider(billing: new NoBilling())] as $provider) {
+            $provider->payUrl(PaymentProviderInput::forStart($this->requestFor([$anna]), 'https://example.org/'));
+        }
+
+        foreach ($this->orders() as $order) {
+            self::assertSame('teszt@example.com', $order->get_billing_email());
+            self::assertSame('', $order->get_billing_first_name());
+            self::assertSame('', $order->get_billing_country());
+            self::assertSame('', $order->get_billing_city());
+            self::assertSame('', $order->get_billing_address_1());
+        }
+        self::assertCount(2, $this->orders());
+    }
+
+    public function testABillingCountryIsTwoLetters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        new BillingDetails(country: 'Hungary');
     }
 
     public function testTheOrderHasTheRequestsCurrencyWhateverTheShopsIsAtThatMoment(): void
