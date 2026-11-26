@@ -19,6 +19,7 @@ import { isTooMany, pageKeys, stateReads } from './manual';
 import { isAllMatching, isNarrowedSelection, selectionSignature } from '../grid/selection';
 import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
+import CodeName from './CodeName';
 import { COMMON, MANUAL, RESULT } from './texts';
 
 const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
@@ -145,7 +146,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 						<ul className="km-members">
 							{ result.skipped.map( ( s ) => (
 								<li key={ s.code }>
-									<span className="km-code-text">{ s.code }</span> – { reasonWord( s.reason ) }
+									<CodeName code={ s.code } name={ s.name } /> – { reasonWord( s.reason ) }
 								</li>
 							) ) }
 						</ul>
@@ -190,7 +191,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 							<ul className="km-members">
 								{ plan.skipped.map( ( s ) => (
 									<li key={ s.code }>
-										<span className="km-code-text">{ s.code }</span> – { reasonWord( s.reason ) }
+										<CodeName code={ s.code } name={ s.name } /> – { reasonWord( s.reason ) }
 									</li>
 								) ) }
 							</ul>

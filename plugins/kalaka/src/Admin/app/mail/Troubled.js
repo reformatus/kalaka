@@ -13,7 +13,7 @@ import ManualMailDialog from './ManualMailDialog';
 import { pageKeys } from './manual';
 import useRead from './useRead';
 import { deliveryStatus, moment } from './format';
-import { fmt } from '../grid/format';
+import { codeName, fmt } from '../grid/format';
 import { COMMON, TROUBLED } from './texts';
 
 export default function Troubled( { config, version } ) {
@@ -22,7 +22,7 @@ export default function Troubled( { config, version } ) {
 	const keys = useRef( pageKeys( config.event ) );
 	const fields = useMemo(
 		() => [
-			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => item.code, enableHiding: false },
+			{ id: 'code', label: TROUBLED.code, getValue: ( { item } ) => codeName( item.code, item.name ), enableHiding: false },
 			{
 				id: 'mail',
 				label: TROUBLED.mail,
@@ -60,7 +60,7 @@ export default function Troubled( { config, version } ) {
 				getValue: () => '',
 				render: ( { item } ) =>
 					item.status === 'failed' ? (
-						<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, item.code ) }>
+						<Button variant="secondary" size="compact" onClick={ () => setSending( item.code ) } aria-label={ fmt( TROUBLED.sendFor, codeName( item.code, item.name ) ) }>
 							{ TROUBLED.send }
 						</Button>
 					) : null,

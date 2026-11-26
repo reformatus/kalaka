@@ -342,6 +342,29 @@ describe( 'a double send across reopenings', () => {
 	} );
 } );
 
+describe( 'code and name', () => {
+	test( 'a skipped registration is named with its code and name; without a name the code stands alone', async () => {
+		route( {
+			plan: {
+				...PLAN,
+				skipped: [ { code: 'A3', name: 'Kiss Anna', reason: 'withdrawn' }, { code: 'A4', name: null, reason: 'removed' } ],
+			},
+		} );
+		await render();
+		expect( host.textContent ).toContain( 'A3 · Kiss Anna – ' + MANUAL.reason_withdrawn );
+		expect( host.textContent ).toContain( 'A4 – ' + MANUAL.reason_removed );
+		expect( host.textContent ).not.toContain( 'A4 ·' );
+	} );
+
+	test( 'the answer of a send names the skipped ones the same way', async () => {
+		route( { send: () => Promise.resolve( { ...SENT, skipped: [ { code: 'A3', name: 'Kiss Anna', reason: 'withdrawn' } ] } ) } );
+		await render();
+		await choose( '20' );
+		await submit();
+		expect( host.textContent ).toContain( 'A3 · Kiss Anna – ' + MANUAL.reason_withdrawn );
+	} );
+} );
+
 describe( 'with nothing ticked: every row the filters and search leave', () => {
 	const ALL = { view: 0, grant: 0 };
 	const NARROWED = { view: 3, grant: 5, filters: [ { field: 'status', operator: 'isAny', value: [ 'registered' ] } ], search: 'kov' };

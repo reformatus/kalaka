@@ -16,7 +16,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
 import { update } from '@wordpress/icons';
 import { DataViews } from '@wordpress/dataviews/wp';
-import { cellText, fmt, plainText, tableHtml } from './format';
+import { cellText, codeName, fmt, plainText, tableHtml } from './format';
 import Cell from './Cell';
 import {
 	conditionField,
@@ -150,6 +150,10 @@ export default function Page( { config } ) {
 		tab.columns.find( ( c ) => c.type !== 'serial' ) ||
 		tab.columns[ 0 ] || { column: null }
 	).column;
+	// The registration's name, when the view lists the name column: shown beside the code wherever the grid names a
+	// row (the open button, the row's checkbox). Without it the code stands alone. [UNAPPROVED N940]
+	const nameColumn = tab.columns.find( ( c ) => c.name );
+	const nameOf = ( row ) => ( nameColumn ? row.values[ nameColumn.column ] || null : null );
 	const closePanel = () => {
 		const key = openRef.current;
 		setOpen( null );
@@ -349,7 +353,7 @@ export default function Page( { config } ) {
 							setOpen( item.key );
 							setAgain( ( n ) => n + 1 );
 						} }
-						aria-label={ fmt( PANEL.openRow, cellText( column, item ) || item.key ) }
+						aria-label={ fmt( PANEL.openRow, codeName( item.key, nameOf( item ) ) ) }
 					>
 						<Cell column={ column } item={ item } />
 					</button>
@@ -470,19 +474,20 @@ export default function Page( { config } ) {
 				: [],
 		[ tab.manualMail, config.event, config.rest ]
 	);
-	// Each row's selection checkbox is named with the registration's code (DataViews says „(no title)”). [UNAPPROVED T286]
-	const rowKeys = data.rows.map( ( row ) => row.key ).join( '\u0000' );
+	// Each row's selection checkbox is named with the registration's code and name (DataViews says „(no title)”).
+	// [UNAPPROVED T286] [UNAPPROVED N940]
+	const rowNames = data.rows.map( ( row ) => codeName( row.key, nameOf( row ) ) ).join( '\u0000' );
 	useLayoutEffect( () => {
 		if ( ! host || actions.length === 0 ) {
 			return undefined;
 		}
-		const keys = rowKeys === '' ? [] : rowKeys.split( '\u0000' );
-		const run = () => labelRowCheckboxes( host, keys, ( key ) => fmt( GRIDACTION.selectRow, key ) );
+		const names = rowNames === '' ? [] : rowNames.split( '\u0000' );
+		const run = () => labelRowCheckboxes( host, names, ( text ) => fmt( GRIDACTION.selectRow, text ) );
 		run();
 		const observer = new window.MutationObserver( run );
 		observer.observe( host, { childList: true, subtree: true } );
 		return () => observer.disconnect();
-	}, [ host, actions.length, rowKeys ] );
+	}, [ host, actions.length, rowNames ] );
 
 	const copyButton = (
 		<Button

@@ -75,7 +75,7 @@ export const BODIES = {
 
 /** The failed deliveries tab. [UNAPPROVED T277] */
 export const TROUBLED = {
-	code: 'Kód', // approved
+	code: 'Jelentkező', // the column holds the code and the name beside it [UNAPPROVED T930]
 	mail: 'Levél',
 	manual: '%d. csoportos levél', // reworded per the lektor
 	status: 'Állapot', // approved

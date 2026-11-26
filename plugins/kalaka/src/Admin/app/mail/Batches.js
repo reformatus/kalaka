@@ -9,6 +9,7 @@ import ListTable from './ListTable';
 import useRead from './useRead';
 import { batchSubject, moment, outcomeWord } from './format';
 import { fmt } from '../grid/format';
+import CodeName from './CodeName';
 import { BATCHES, COMMON, WHO } from './texts';
 
 function Members( { config, id, onClose } ) {
@@ -26,7 +27,7 @@ function Members( { config, id, onClose } ) {
 					<ul className="km-members">
 						{ ( read.data.members || [] ).map( ( member ) => (
 							<li key={ member.code }>
-								<span className="km-code-text">{ member.code }</span>{ ' – ' }
+								<CodeName code={ member.code } name={ member.name } />{ ' – ' }
 								{ outcomeWord( member.outcome ) }
 							</li>
 						) ) }
