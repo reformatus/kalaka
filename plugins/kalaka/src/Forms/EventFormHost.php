@@ -53,7 +53,7 @@ use Kalaka\Registrations\Api\SubmitToken;
  *
  * An additional form (S60) writes to the active registration (`Portal\Api\ActiveRegistration`, set by the
  * registration's secret link) when it belongs to the form's event and is `registered` (a waitlisted registration
- * has no additional forms and its page shows its status, owner ruling 2026-11-25); it opens with that
+ * has no additional forms and its link shows the form closed, owner ruling 2026-11-26); it opens with that
  * registration's current field values, and its submit runs as the secret link's actor.
  */
 final class EventFormHost implements FormHost
