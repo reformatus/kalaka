@@ -224,6 +224,7 @@ final class ExtrasFormDecimalsTest extends ExtrasTestCase
         $this->applyCharges([]);
 
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $this->field('adomany')?->source);
+        self::assertSame(2, $this->field('adomany')?->settings['decimals'] ?? null);
     }
 
     private function forms(): \Kalaka\Forms\Api\Forms
