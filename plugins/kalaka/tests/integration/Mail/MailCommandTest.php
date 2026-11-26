@@ -181,6 +181,25 @@ final class MailCommandTest extends MailTestCase
         self::assertSame($user, (int) $entries[count($entries) - 1]['actor_user_id']);
     }
 
+    public function testBudgetPassesTheArgumentToTheUseCaseWhichRefusesEveryWrongValue(): void
+    {
+        wp_set_current_user($this->fullUser());
+        $this->command()->budget(['150'], []);
+        $this->command()->budget(['150'], []);
+        self::assertSame(
+            ['The hourly budget is 150.', 'The hourly budget already was 150; nothing changed.'],
+            $this->lines()
+        );
+        self::assertSame(150, (int) $this->stateRow()['hourly_budget']);
+        \WP_CLI::reset();
+
+        foreach (['0', '2001', 'abc', '1.5', ''] as $wrong) {
+            $message = $this->fails(fn () => $this->command()->budget($wrong === '' ? [] : [$wrong], []));
+            self::assertStringContainsString('1 és 2000', $message);
+        }
+        self::assertSame(150, (int) $this->stateRow()['hourly_budget']);
+    }
+
     public function testClearQueueAsksFirstAndDeletesOnlyPendingDeliveries(): void
     {
         $event = $this->published();

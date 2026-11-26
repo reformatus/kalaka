@@ -145,9 +145,12 @@ final class UpdateActionMail implements AdminUseCase
         ?MailBody $body,
         array $others,
     ): void {
-        foreach ($others as $other) {
-            if ($after->bodyId !== null && $other->action !== $action && $other->bodyId === $after->bodyId) {
-                throw new BodyTaken();
+        // Only a body that actually changes can be taken: switching a mail off, or its layout, passes.
+        if ($after->bodyId !== null && $after->bodyId !== $storedBody) {
+            foreach ($others as $other) {
+                if ($other->action !== $action && $other->bodyId === $after->bodyId) {
+                    throw new BodyTaken();
+                }
             }
         }
         if ($after->enabled && $after->bodyId === null) {

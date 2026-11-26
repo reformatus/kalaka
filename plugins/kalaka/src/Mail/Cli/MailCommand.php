@@ -167,16 +167,13 @@ final class MailCommand
     public function budget(array $args, array $assocArgs): void
     {
         Boundary::cli(function () use ($args): void {
+            // The raw argument goes to the use case, whose one typed refusal answers every wrong value.
             $given = $args[0] ?? '';
-            if (!preg_match('/^[0-9]{1,9}$/', $given)) {
-                $error = new CommandFailure('The hourly budget is a whole number from 1 to 2000.');
-                throw $error;
-            }
-            $input = ['hourly_budget' => (int) $given];
-            $changed = Runner::current()->run(new SetMailBudget(), $input, CliActor::current());
+            $changed = Runner::current()->run(new SetMailBudget(), ['hourly_budget' => $given], CliActor::current());
+            $budget = (int) $given;
             \WP_CLI::success($changed === true
-                ? 'The hourly budget is ' . (int) $given . '.'
-                : 'The hourly budget already was ' . (int) $given . '; nothing changed.');
+                ? 'The hourly budget is ' . $budget . '.'
+                : 'The hourly budget already was ' . $budget . '; nothing changed.');
         });
     }
 

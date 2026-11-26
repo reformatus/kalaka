@@ -86,12 +86,20 @@ final class MailRefusalCodesTest extends MailBodyTestCase
                 $event,
                 ActionMail::Waitlisted,
                 $after,
-                41,
+                null,
                 true,
                 $facts,
                 [new ActionMailEntry($event->id, ActionMail::Confirmed, false, 41)]
             ))
         );
+        // Judged only when the body changes: a mail already on a body shared with another switches off and flips
+        // its layout without the refusal (N564); the stored state cannot hold it (the body column is unique),
+        // so the check is given such a state directly.
+        $shared = [new ActionMailEntry($event->id, ActionMail::Confirmed, false, 41)];
+        $off = new ActionMailEntry($event->id, ActionMail::Waitlisted, false, 41);
+        $flipped = new ActionMailEntry($event->id, ActionMail::Waitlisted, true, 41, false);
+        UpdateActionMail::refuse($event, ActionMail::Waitlisted, $off, 41, true, null, $shared);
+        UpdateActionMail::refuse($event, ActionMail::Waitlisted, $flipped, 41, true, null, $shared);
         // A body newly given with no facts read is the caller's programming error, never a refusal.
         $this->expectException(SystemFailure::class);
         UpdateActionMail::refuse($event, ActionMail::Waitlisted, $after, null, false, null, []);
