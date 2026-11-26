@@ -51,8 +51,9 @@ final class EventValues
      * The key a date reference to "now" reads (`Facts::NOW`): the clock's time, to the second, in the site's time
      * zone (a datetime), of the moment `$at` the caller holds (the act's, never a clock read here: one read, one
      * clock). A fact
-     * source whose conditions may use the reference adds it to the event's keys; it is no key a condition may
-     * name itself, so it is in no `TYPES`.
+     * source whose conditions may use the reference adds it to the event's keys. The value side of a comparison
+     * may only use the reference (a `key` naming it there is refused); the left side may name it, as a datetime
+     * [UNAPPROVED N694]. It is in no `TYPES`.
      *
      * @return array<string, Value>
      */

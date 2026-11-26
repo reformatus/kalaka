@@ -312,8 +312,10 @@ flowchart TB
   request: the form editor asks the organizer whether to carry a changed
   label over, or staff edit it in the field list (`form` and `staff` fields;
   a `system` or `extension` field's texts are its declarer's). A form shows
-  its own labels; mails, views and the participant blocks show the
-  participant field's.
+  its own labels, and shows the participant field's only where it leaves a
+  label empty (for an `extension` field, the declarer's text, which is the
+  admin name); mails, views and the participant blocks show the participant
+  field's.
 - **Designing a form designs participant fields.** A new form field creates
   a new participant field. A form field joins an existing participant field
   only explicitly, by taking its key (below); several forms writing one
@@ -364,8 +366,9 @@ flowchart TB
   taking its key and never creates it. The field with that key is what the
   code reads; a declared key no form field holds does nothing. When a form
   field already holds the key, with the same type, the declaration adopts
-  it: the field becomes an `extension` field with the declarer's title, and
-  its values stay. A key a `staff` or `system` field holds, or a field of
+  it: the field becomes an `extension` field with the declarer's title (the
+  participant field's own; every form keeps its own labels), and its values
+  stay. A key a `staff` or `system` field holds, or a field of
   another type, refuses the declaration. A key another code declarer holds
   is refused.
 - **Explicit markings:** the contact email (exactly one per form in the
@@ -516,8 +519,9 @@ is no other participant-side edit.
   submit the submit time, and after submit (mails, participant blocks,
   views) the clock time of the read that renders them (the runner's
   `Clock`); the evaluator reads it from the fact source like any value,
-  never from a clock of its own. It is a reference only, never a key a
-  condition names. A branch that reads it is held server-side like one that
+  never from a clock of its own. As a date reference it is only
+  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
+  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
   reads an event value, and the page re-fetches it with the form's other
   re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.

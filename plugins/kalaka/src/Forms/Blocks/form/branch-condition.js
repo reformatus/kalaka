@@ -47,6 +47,9 @@ export const AFTER_SUBMIT = "kalaka/after-submit";
 /** A key whose type the editor cannot know (a condition outside a form): any operator and value pass. */
 const ANY = "any";
 
+/** [UNAPPROVED N694] The fact key of the moment itself (`Facts::NOW`): a left key, always a datetime. */
+const NOW_KEY = "time.now";
+
 const MATCH = ["all", "any"];
 const OPERATORS = [
   "equals",
@@ -169,7 +172,11 @@ export const checkCondition = (condition, scope) => {
       }
       return;
     }
-    if (![ANY, "date", "datetime"].includes(typeOf(data.key))) {
+    // The value side spells the moment `{ "ref": "now" }`, never the key (N694).
+    if (
+      data.key === NOW_KEY ||
+      ![ANY, "date", "datetime"].includes(typeOf(data.key))
+    ) {
       fail("value", key);
     }
   };
@@ -185,7 +192,7 @@ export const checkCondition = (condition, scope) => {
     ) {
       fail("shape");
     }
-    const type = typeOf(key);
+    const type = key === NOW_KEY ? "datetime" : typeOf(key);
     if (
       !allowedFor(operator, type) ||
       (operator === "equals" && scope.isPath?.(key) === true)
@@ -361,7 +368,9 @@ export const summary = (condition) => {
     if (Array.isArray(item.items)) {
       return "(" + summary(item) + ")";
     }
-    const value = isObject(item.value) ? item.value.key : (item.value ?? "");
+    const value = isObject(item.value)
+      ? (item.value.key ?? item.value.ref)
+      : (item.value ?? "");
     return [
       item.not ? "¬" : "",
       item.key,

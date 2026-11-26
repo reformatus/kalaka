@@ -58,7 +58,10 @@ values and conditions, prefill and form links
   and changed only by `ParticipantFields::rename()` (a `form` or `staff` field; a
   `system` or `extension` field's texts are its declarer's). Mails, views
   and the status page show the participant field's labels; a form shows its
-  own.
+  own, and the participant field's only where it leaves one empty (a field
+  block's `label`, a choice option's `label` by value): the engine fills them
+  from the host (`FormHost::labelFallbacks()`, `Engine\LabelFallback`), so the
+  page, the definition and the answers' texts read the same [UNAPPROVED N806 of #231].
 - A form's event is set when it is created and fixed once the form has
   fields or submissions refer to it (`Registrations\Api\FormSubmissions`),
   on every path that writes the setting, with one known gap: code that sets
@@ -190,7 +193,8 @@ values and conditions, prefill and form links
 - "Now" in a condition is the date reference `{"ref": "now"}`, read from the
   fact source's `Facts::NOW` (`EventValues::now($at)`: the moment the caller
   holds, one clock passed down, a datetime to the second in the site's time
-  zone): never a key a condition names, never read from a clock by the
+  zone): a value-side reference never names the key `time.now` (the left
+  side of a comparison may, as a datetime, N694), never read from a clock by the
   evaluator. A chain that reads it is withheld.
   One way: every fact source a condition is evaluated over carries it
   (`EventValues::now($now)` in each `ValueContext` built for conditions, with
@@ -292,7 +296,8 @@ values and conditions, prefill and form links
   refusals and the window, the key problem against keys beyond the form, the
   stored values the form opens with, the options and window of the set a
   request field names, the submit token and the submit, the after-submit
-  section's keys, and whether the form needs an account (`accountStep()`).
+  section's keys, the participant fields' texts for a label the form leaves empty (`labelFallbacks()`),
+  and whether the form needs an account (`accountStep()`).
   Kaláka's event form, `EventFormHost`, is the first host; `Api\Forms` and
   the form page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to
   the engine.

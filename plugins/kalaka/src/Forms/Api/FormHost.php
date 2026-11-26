@@ -12,11 +12,12 @@ use Kalaka\Foundation\Api\Actor\Actor;
  * never imports Events, Registrations, ParticipantFields or Admin; it asks here (deptrac: the
  * `Forms Engine` layer). Like `BlockHost`, it lets the engine work without knowing the module behind it.
  *
- * The eight ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
+ * The nine ways in: the facts a condition reads besides the answers (`factTypes()`, `facts()`), the
  * access refusals (`refusals()`, `window()`), the scope a field key must be unique in (`keyProblem()`),
  * the values the form opens with (`prefill()`), the options of the set a request field names
  * (`requestOptions()`), what a submit does (`submitToken()`, `submit()`), what the after-submit section
- * reads (`afterSubmitTypes()`), and whether the form needs an account (`accountStep()`).
+ * reads (`afterSubmitTypes()`), whether the form needs an account (`accountStep()`), and the texts it
+ * shows where a form leaves a label empty (`labelFallbacks()`).
  */
 interface FormHost
 {
@@ -120,4 +121,15 @@ interface FormHost
      * @return list<string>
      */
     public function slotRequiredKeys(Form $form): array;
+
+    /**
+     * The participant fields' own texts by field key, which a form shows where it leaves a label empty
+     * (events-and-forms.md, "Fields"): `title` for a field block's empty question title, and each option's label by
+     * its value (retired options included, so a stored value still reads) for a choice option's empty label. Asked
+     * only when a form's field block has an empty label, and read when the definition is parsed or the blocks are
+     * rendered, outside any transaction. A key the host has no field for is left out. [UNAPPROVED N807 of #231]
+     *
+     * @return array<string, array{title: string, options: array<string, string>}>
+     */
+    public function labelFallbacks(Form $form): array;
 }
