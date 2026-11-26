@@ -110,9 +110,10 @@ feasible; the date is not fixed. It builds on everything in IVK's release.
 2. **Card payment through WooCommerce** on REFISZ's store; it is not
    sacrificed for REFISZ.
 3. **Money as at the summer camps, with smaller amounts:** the price ladder
-   with its tiers and any tier quotas (places held at registration, reassigned
-   only by staff); the deposit as the confirmation threshold, and a deposit
-   payment request of the threshold minus what has been paid, capped at the
+   with its tiers and any tier quotas (places are seats, taken at registration
+   and freed on leaving, by the one seat rule in
+   [Foundation](foundation.md#facts-decisions-and-computed-values)); the
+   deposit as the confirmation threshold, and a deposit payment request of the threshold minus what has been paid, capped at the
    remaining balance; a donation and an invoice request.
 4. **Mails as at the summer camps:** application received, waitlisted,
    confirmed and fully paid. Someone who pays everything at once gets only the

@@ -370,8 +370,8 @@ is no other participant-side edit.
 - **Every submit appends a submission;** earlier submissions stay as they
   are. The latest write wins in the field values, and each change is
   audited.
-- **Only fields the form shows are written,** plus hidden fields its form
-  link sets. Fields the form does not hold,
+- **Only fields the form shows are written,** plus hidden fields that get a
+  value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
   form showed the current value, so blank is the answer. A field whose type

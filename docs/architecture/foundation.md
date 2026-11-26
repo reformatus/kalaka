@@ -575,8 +575,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     takes the seat even over the limit, with a "full" warning, and leaves the
     event's "full" latch as it is.
 - **Decisions** are made by the system: confirmation in core
-  ([Money](money.md#confirmation)), and the late fee, price-tier place and
-  support place from extensions ([Money](money.md#quota-places)).
+  ([Money](money.md#confirmation)), and the late fee from an extension.
+  Seats are facts, not decisions (the seat rule above).
   - **Each decision is an append-only transition record** with kind, state,
     effective time, recorded time, cause (record type, event and key) and
     actor. The current state is the latest record.
