@@ -39,10 +39,16 @@ final class TestRequestSource implements RequestSource
     {
         $requests = [];
         if (($values['support'] ?? '') === 'church') {
-            $requests[] = new Request(self::OFFER, RequestKind::Offer, 'Egyházi támogatás');
+            $requests[] = new Request(
+                self::OFFER,
+                RequestKind::Offer,
+                'Egyházi támogatás',
+                ['support'],
+                'support_answer',
+            );
         }
         if ((float) ($values['aid_asked'] ?? '0') > 0) {
-            $requests[] = new Request(self::AID, RequestKind::Aid, 'Támogatási kérelem');
+            $requests[] = new Request(self::AID, RequestKind::Aid, 'Támogatási kérelem', ['aid_asked'], 'aid_award');
         }
 
         return $requests;

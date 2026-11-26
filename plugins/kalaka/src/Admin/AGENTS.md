@@ -78,8 +78,8 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - The detail panel shows only what the registration detail read returns and
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
-- The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
-  its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
+- The detail read carries the registration's `requests` (with their latest answers, the request's participant field
+  keys as `fields: {ask, answer}` and, for a refused offer, whether its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
   access; `can.answer_request` says so, and is true only while the registration is `registered` (the grid
   column's meaning: nothing awaits on a waitlisted, withdrawn or removed one). An unanswered request on such a
   registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The answer act is `kalaka/answer-request` (Registrations); the panel's
