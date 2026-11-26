@@ -18,7 +18,7 @@ bar for that user. If core's API is absent or anything
 throws, the incoming value is returned and a throw is reported through
 `Foundation\Api\Entry\Boundary`.
 
-Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (extends `AbstractPaymentProvider`; each operation takes one `PaymentProviderInput`; `payUrl()` cancels the registrations' never-paid orders and creates an order (the owner account's when it is the one paying, else a guest order: `OrderOwner`; the billing details of a `BillingSource` — `BillingDetails`, `BillingSource`, the default `DeclaredFieldsBilling` reading the registration's billing fields, or `NoBilling` — and the billing email always) with one item of the
+Card payment (`Payments\Api\PaymentProvider`): `WooProvider` (extends `AbstractPaymentProvider`; each operation takes one `PaymentProviderInput`; `payUrl()` creates an order, then cancels the registrations' other never-paid orders (the owner account's when it is the one paying, else a guest order: `OrderOwner`; the billing details of a `BillingSource` — `BillingDetails`, `BillingSource`, the default `DeclaredFieldsBilling` reading the registration's billing fields, or `NoBilling` — and the billing email always) with one item of the
 hidden product (`HiddenProduct`) per line, plus one fee line when the event has a card surcharge (`CardSurcharge`, the option `kalaka_woocommerce_card_surcharge`, set by `wp kalaka card-surcharge` in `Cli/CardSurchargeCommand`);
 `latestOf()` answers `processing` for any order open in a status Kaláka does not handle, so core refuses the start; `accepts()`), the hidden product is private and not purchasable (`HiddenProduct::purchasable()`), `OrderFinder` (`wc_get_orders()` by `meta_key`, valid in both storage modes), `KalakaOrder`
 and `KalakaItem` (an order as the plugin reads it), `OrderMeta` (the meta names and the option), `PaymentReporter`
@@ -33,4 +33,4 @@ holder through WooCommerce's own `prevent_admin_access()`, a plain customer
 that WooCommerce really redirects, full access, an administrator and the
 missing-API guard; the card payment on real `WC_Order`s in both order-storage modes, with a test-only stand-in gateway).
 
-Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`; the periodic step `woocommerce_reconcile`.
+Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`, `woocommerce_is_purchasable`; the CLI command `wp kalaka card-surcharge`; the periodic step `woocommerce_reconcile`.

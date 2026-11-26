@@ -54,8 +54,9 @@ WooCommerce is the WooCommerce integration: one extension plugin,
   `_kalaka_payer`. The order carries `_kalaka`, one `_kalaka_registration` row per line, `_kalaka_return_url`
   and, once recorded, `_kalaka_recorded`. No tax is added.
 - A new start never reuses an order. Only a never-paid order (pending, failed, a declined card) is cancelled,
-  re-read first; a paid order is never touched. `payUrl()` cancels the request's registrations' never-paid orders and
-  then creates one new order, under the start's lock in core, so at most one unpaid order exists. Any other open
+  re-read first; a paid order is never touched. `payUrl()` creates one new order and then cancels the request's
+  registrations' never-paid orders (the new one excluded), under the start's lock in core, so at most one unpaid
+  order exists. Any other open
   order refuses the start: `latestOf()` looks at every order of the registration before the newest, and answers
   `processing` for an order on hold or in any status Kaláka does not handle (the closed ones, `cancelled`,
   `refunded` and `trash`, and the never-paid ones are the only statuses it passes over, so an unforeseen status
