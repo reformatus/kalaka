@@ -38,8 +38,8 @@ final class ManualMails
     /**
      * Runs the use case, the same one the ability runs: `SendManualMail::prepared()` reads the body's facts
      * from WordPress and resolves a view selection to codes under the actor's held view first, outside the
-     * transaction (the send reads the rows again every time it runs), and the result carries the pause and the event's hold as
-     * the use case returns them.
+     * transaction (the send reads the rows again every time it runs), and the result carries the pause and the
+     * event's hold as the use case returns them.
      *
      * @param array<string, mixed> $input the use case's input
      * @return array{

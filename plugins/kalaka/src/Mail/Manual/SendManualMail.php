@@ -42,7 +42,8 @@ use Kalaka\Registrations\Api\Registrations;
  * WordPress data in its transaction: the body's facts (`MailBody`) and the codes of a view selection are read
  * before the run by `prepared()`, which the ability's `$prepare` and `Api\ManualMails::send()` both call; run
  * without them it refuses. The access check then runs on the resolved codes, so a grant holder reaches only
- * codes inside a view of theirs that carries the action, whichever form the selection took. Its result carries the caller's warnings, `paused` and `held`, on every path.
+ * codes inside a view of theirs that carries the action, whichever form the selection took. Its result carries
+ * the caller's warnings, `paused` and `held`, on every path.
  *
  * - A withdrawn or removed registration is skipped and listed; a waitlisted one is sent to.
  * - A code that is no registration of the event refuses the whole batch (`UnknownRegistrationCode`); a selection
