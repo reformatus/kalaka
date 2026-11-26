@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Share;
+namespace Kalaka\Share;
 
 use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 
 /**
- * The only writer of `kalaka_support_share`. The key is the event's ID; a row means the share is on.
+ * The only writer of `kalaka_share_settings`. The key is the event's ID; a row means the share is on.
  *
  * @extends EntityRepository<int, ShareSettings>
  */
@@ -16,7 +16,7 @@ final class ShareSettingsRepository extends EntityRepository
 {
     protected function table(): string
     {
-        return 'kalaka_support_share';
+        return 'kalaka_share_settings';
     }
 
     protected function keyColumns(): array

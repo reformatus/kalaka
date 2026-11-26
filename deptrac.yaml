@@ -7,6 +7,7 @@ deptrac:
     - plugins/kalaka-woocommerce/src
     - plugins/kalaka-price-ladder/src
     - plugins/kalaka-aid/src
+    - plugins/kalaka-share/src
   layers:
     - name: Foundation
       collectors:
@@ -225,6 +226,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Aid\\Api\\'
+    - name: Share
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Share\\(?!Api\\)'
+    - name: Share Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Share\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -979,6 +988,25 @@ deptrac:
       - Foundation Api
       - Foundation Api Money
       - Events Api
+      - Pricing Api
+    Share:
+      - WordPress
+      - Share Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - ParticipantFields Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+    Share Api:
+      - WordPress
+      - Share
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - ParticipantFields Api
       - Pricing Api
     Decision tables: []
 

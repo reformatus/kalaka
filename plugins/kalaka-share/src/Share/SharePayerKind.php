@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Share;
+namespace Kalaka\Share;
 
 use Kalaka\Ledger\Api\PayerKind;
 use Kalaka\Ledger\Api\PayerKindInput;
 use Kalaka\Ledger\Api\PayerKindSource;
-use Kalaka\Support\Api\Share;
+use Kalaka\Share\Api\Share;
 
 /**
  * The congregation as a payer kind (money.md, "Congregation share"): it applies to the events whose share is on.

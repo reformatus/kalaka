@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Share;
+namespace Kalaka\Share;
 
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Money\Money;
@@ -16,7 +16,7 @@ use Kalaka\Pricing\Api\NamedFeeComponent;
 use Kalaka\Pricing\Api\ProposedComponentSettings;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
-use Kalaka\Support\Api\Share;
+use Kalaka\Share\Api\Share;
 
 /**
  * The congregation share's fee component, at the share stage (money.md, "Congregation share"). For an event

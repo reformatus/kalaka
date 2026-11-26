@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Share;
+namespace Kalaka\Share;
 
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * What the share needs checked before it is proposed or saved, for the preview and the save alike: its two field
- * keys are judged by core's `ParticipantFields::checkDeclarable()` as declarer `support` (the one rule for
+ * keys are judged by core's `ParticipantFields::checkDeclarable()` as declarer `share` (the one rule for
  * every extension: a form's field of the type is adopted; a staff or system field, another type or another
  * declarer's field refuses). [UNAPPROVED N154]
  */

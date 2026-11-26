@@ -22,6 +22,9 @@ parameters:
         - plugins/kalaka-aid/src
         - plugins/kalaka-aid/kalaka-aid.php
         - plugins/kalaka-aid/uninstall.php
+        - plugins/kalaka-share/src
+        - plugins/kalaka-share/kalaka-share.php
+        - plugins/kalaka-share/uninstall.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
@@ -30,4 +33,5 @@ parameters:
         - plugins/kalaka-woocommerce/vendor/autoload.php
         - plugins/kalaka-price-ladder/vendor/autoload.php
         - plugins/kalaka-aid/vendor/autoload.php
+        - plugins/kalaka-share/vendor/autoload.php
         - phpstan-bootstrap.php

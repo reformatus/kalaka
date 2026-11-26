@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Tests\Integration\Support\Share;
+namespace Kalaka\Tests\Integration\Share;
 
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Money\Currency;
@@ -11,7 +11,7 @@ use Kalaka\Ledger\Api\Payer;
 use Kalaka\Pricing\Api\ApplyReport;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Registrations\Api\RegistrationKey;
-use Kalaka\Support\Api\Share;
+use Kalaka\Share\Api\Share;
 use Kalaka\Tests\Integration\Support\Offers\OffersTestCase;
 
 /**

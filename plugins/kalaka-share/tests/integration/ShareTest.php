@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Tests\Integration\Support\Share;
+namespace Kalaka\Tests\Integration\Share;
 
 use Kalaka\Aid\Api\Aid;
 use Kalaka\Foundation\Api\Actor\CliActor;
@@ -31,9 +31,9 @@ use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Registrations\Answer\AnswerRequest;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
-use Kalaka\Support\Module;
-use Kalaka\Support\Share\SetShare;
-use Kalaka\Support\Share\ShareComponent;
+use Kalaka\Share\Module;
+use Kalaka\Share\SetShare;
+use Kalaka\Share\ShareComponent;
 use Kalaka\Tests\Integration\Pricing\ClosureComponent;
 
 /**
@@ -153,7 +153,7 @@ final class ShareTest extends ShareTestCase
         // The save itself checks too, with nothing declared or saved.
         try {
             $this->runner->run(
-                new \Kalaka\Support\Share\SetShare(),
+                new \Kalaka\Share\SetShare(),
                 ['event_id' => $this->event, 'on' => true],
                 new CliActor(null)
             );
@@ -189,7 +189,7 @@ final class ShareTest extends ShareTestCase
         $declared = $this->declared();
         foreach (['share_mode', 'share_amount'] as $key) {
             self::assertSame(ParticipantField::SOURCE_EXTENSION, $declared[$key]->source);
-            self::assertSame('support', $declared[$key]->declaredBy);
+            self::assertSame('share', $declared[$key]->declaredBy);
             self::assertTrue($declared[$key]->moneyRelevant);
         }
         self::assertSame((new Module())->id(), SetShare::DECLARER);
@@ -221,7 +221,7 @@ final class ShareTest extends ShareTestCase
         }
         try {
             $this->runner->run(
-                new \Kalaka\Support\Share\SetShare(),
+                new \Kalaka\Share\SetShare(),
                 ['event_id' => $this->event, 'on' => true],
                 new CliActor(null)
             );
@@ -257,7 +257,7 @@ final class ShareTest extends ShareTestCase
 
         $mode = $this->declared()['share_mode'];
         self::assertSame(ParticipantField::SOURCE_EXTENSION, $mode->source);
-        self::assertSame('support', $mode->declaredBy);
+        self::assertSame('share', $mode->declaredBy);
         $options = array_column($mode->options, null, 'value');
         self::assertTrue($options['half']['retired']);
         foreach (['none', 'shared', 'full'] as $value) {
@@ -265,9 +265,9 @@ final class ShareTest extends ShareTestCase
         }
         self::assertSame(
             [
-                'none' => \Kalaka\Support\Share\SetShare::NONE_LABEL,
-                'shared' => \Kalaka\Support\Share\SetShare::SHARED_LABEL,
-                'full' => \Kalaka\Support\Share\SetShare::FULL_LABEL,
+                'none' => \Kalaka\Share\SetShare::NONE_LABEL,
+                'shared' => \Kalaka\Share\SetShare::SHARED_LABEL,
+                'full' => \Kalaka\Share\SetShare::FULL_LABEL,
             ],
             array_combine(
                 ['none', 'shared', 'full'],

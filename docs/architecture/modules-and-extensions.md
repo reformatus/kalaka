@@ -23,10 +23,11 @@ title: Modules and extensions
   site, the WooCommerce extension lets anyone who may reach Kaláka's admin
   (full access or any grant) into wp-admin.
 - **Sponsor and church support is one extension plugin, `kalaka-support`:**
-  the organization directory, the congregation picker, the support offers
-  ([Money](money.md#sponsor-and-church-support)) and the congregation share
-  ([Money](money.md#congregation-share)). Core holds no organization
+  the organization directory, the congregation picker and the support offers
+  ([Money](money.md#sponsor-and-church-support)). Core holds no organization
   data.
+- **The congregation share is its own extension plugin, `kalaka-share`**
+  ([Money](money.md#congregation-share)).
 
 ```mermaid
 flowchart LR

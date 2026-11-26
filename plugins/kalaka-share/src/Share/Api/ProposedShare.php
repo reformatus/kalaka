@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Api;
+namespace Kalaka\Share\Api;
 
 use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Pricing\Api\ProposedComponentSettings;
 use Kalaka\Pricing\Api\SettingsSave;
-use Kalaka\Support\Share\SetShare;
-use Kalaka\Support\Share\ShareComponent;
-use Kalaka\Support\Share\ShareInput;
+use Kalaka\Share\SetShare;
+use Kalaka\Share\ShareComponent;
+use Kalaka\Share\ShareInput;
 
 /** Proposed share settings for an event, for a money settings preview and apply (`Share::propose()`). */
 final readonly class ProposedShare implements ProposedComponentSettings

@@ -1,11 +1,10 @@
 # Support
 
-Support is the organization directory, the congregation picker, the support
-offers and the congregation share: one feature plugin, `kalaka-support` (module `support`), an
+Support is the organization directory, the congregation picker and the
+support offers: one feature plugin, `kalaka-support` (module `support`), an
 extension that uses only core's public API
 ([Packaging](../../../../docs/architecture/modules-and-extensions.md#packaging)).
-It holds the directory, the congregation picker, the support offers and the
-congregation share.
+It holds the directory, the congregation picker and the support offers.
 
 ## Sections it implements
 
@@ -19,7 +18,6 @@ congregation share.
   snapshot),
   [Views and grants](../../../../docs/architecture/foundation.md#views-and-grants)
   (a congregation level matches the answer's stored path snapshot).
-- money.md: [Congregation share](../../../../docs/architecture/money.md#congregation-share).
 - modules-and-extensions.md: [The Module interface](../../../../docs/architecture/modules-and-extensions.md#the-module-interface),
   [Identifiers](../../../../docs/architecture/modules-and-extensions.md#identifiers),
   [Schema ownership](../../../../docs/architecture/modules-and-extensions.md#schema-ownership),
@@ -108,36 +106,3 @@ congregation share.
   until the offer is answered (D2), so the grid's `registered` condition already holds the seat test.
 - Only this module writes `kalaka_support_offers`. Offers are settings, so an offer left out is deleted; the
   directory's nodes are never deleted.
-
-## Congregation share (`Share/`)
-
-- The share is on for an event when it has a row in `kalaka_support_share`, written only through `kalaka/set-share`,
-  which the money settings apply runs (`Api\Share::propose()`, the component `share`'s settings document
-  `{"on": bool}`; any other shape is refused). On, the save declares the two participant fields in the same
-  transaction through core's `declareExtensionField()` as declarer `support` (the module's ID, `SetShare::DECLARER`), money relevant: `share_mode`,
-  a choice of the fixed values `none`, `shared` and `full`, and `share_amount`, a number with no declared minimum,
-  maximum or decimals; both extension-sourced and form-writable. The form links to them by key, and any subset of
-  the modes may be offered, never an added one. Their keys are judged by core's
-  `ParticipantFields::checkDeclarable()` in the proposal and the save: a form's field of the type is adopted (the
-  setup order does not matter); a staff or system field, another type or another declarer's field refuses with
-  `RuleViolation`. Off, the row is deleted; the fields and their values stay, and the apply takes the pairs away.
-  [UNAPPROVED N141, N142, N152, N153, N154]
-- The component reads the registration's facts (its two answers), its own setting and the stage totals; never a
-  charge line. A missing answer, a form without the field or `none` is no share; `share_amount` is read only for
-  `shared`, and an empty, zero, negative or non-numeric amount is no share (no refusal). `share_mode` is not a slot
-  requirement. X' = max(0, min(share, base - support)), with the base the tier stage's participant total and the
-  support the support stage's; an X' of zero returns `FeeTargets::none()`, so an earlier pair is reversed and no
-  zero line is written. The pair is one undivided `share` line per payer, participant -X' and congregation +X'.
-  [UNAPPROVED N144, N145, N150]
-- Nothing re-checks `share_mode` against the tier at evaluation: the form's option conditions are the judge at
-  submit. Both answers are money relevant; once CF4's lock after the first write lands (#245, D5; not enforced on
-  this base) an additional form cannot overwrite them. A mismatch is reachable where one of the two was never
-  written (an additional form that holds one of `price_tier` and `share_mode` but not the other), or through a
-  staff correction (#243, N163). Author both together. [UNAPPROVED N146]
-- The module declares the payer kind `congregation` (label „Gyülekezet”) through a `PayerKindSource` (`Share/SharePayerKind`), so a
-  congregation payment can be recorded by hand and is credited to the congregation alone. The kind applies per event, only
-  where the share is on (`Share::isOn()`). One rule for the money tab and the server (`PayerKinds::payersOf()` and
-  `mayRecordFor()`): a payment, refund, correction, Díj or Kedvezmény is accepted for the congregation where the
-  share is on or where it already has lines on the registration, and a payer that already has lines stays shown.
-  [UNAPPROVED N147, T65]
-- Only this module writes `kalaka_support_share`.

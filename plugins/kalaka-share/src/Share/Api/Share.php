@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Api;
+namespace Kalaka\Share\Api;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\RuleViolation;
-use Kalaka\Support\Share\ShareInput;
-use Kalaka\Support\Share\ShareSettingsRepository;
+use Kalaka\Share\ShareInput;
+use Kalaka\Share\ShareSettingsRepository;
 
 /**
  * The event's congregation share for the settings screen (S72) and the money settings (preview → confirm →

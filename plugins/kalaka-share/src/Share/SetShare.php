@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Support\Share;
+namespace Kalaka\Share;
 
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
-use Kalaka\Support\Offers\SetSupportOffers;
 
 /**
  * Turns an event's congregation share on or off: a step of a money settings apply (`Pricing\Api\MoneySettings::apply()`
@@ -22,8 +21,8 @@ use Kalaka\Support\Offers\SetSupportOffers;
  */
 final class SetShare implements AdminUseCase
 {
-    /** The declarer the share's fields are declared with (`declared_by`): the support module's ID, as the offers'. */
-    public const DECLARER = SetSupportOffers::DECLARER;
+    /** The declarer the share's fields are declared with (`declared_by`): the module's own ID, `share`. */
+    public const DECLARER = 'share';
 
     /** The block types of the two fields, core's. */
     public const CHOICE_TYPE = 'kalaka/choice-field';
