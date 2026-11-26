@@ -133,26 +133,27 @@ the waitlist and reference codes
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
     award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
     non-empty note, its reason; a refusal and aid take a note optionally.
-  - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request whose
-    source says it is not answered (`RequestSource::isAnswered()`, read from the source's own answer field: an
-    offer's `<key>_answer`, the aid award, empty = awaiting, "0" = refused), for a registration that is
-    `registered`. The field is the truth: the `kalaka_answers` rows record the act (who, when, the note,
-    `lastAnsweredAt`, the mail key) and decide nothing else; a request re-stated after an answer reads as
-    answered until staff answer again. It is `registration.awaits_answer` in the fact source, and it
-    hides the due date and the transfer block in Portal. It never blocks confirmation.
+  - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request whose source says it is not
+    answered (`RequestSource::isAnswered()`, read from the source's own answer field: an offer's `<key>_answer`, the
+    aid award, empty = awaiting, "0" = refused), for a registration that is `registered`. The field is the truth: the
+    `kalaka_answers` rows record the act (who, when, the note, `lastAnsweredAt`, the mail key) and decide nothing
+    else; a request re-stated after an answer reads as answered until staff answer again. It is
+    `registration.awaits_answer` in the fact source, and it hides the due date and the transfer block in Portal. It
+    never blocks confirmation.
   - The admin grid asks the same question in SQL (`Requests::awaitingCondition()`, no statement of its own): the
     registration is `registered` and some source's `RequestSource::awaitingRule()` holds. The rule is data (an
     `AwaitingRule`: any-of groups of all-of `FieldTest`s: filled, empty, one of, none of, over the registration's
     field values); core alone compiles it to SQL (no source writes SQL or gets database access) and `awaits()`
-    evaluates the same rule in PHP with `matches()`, and it must mean exactly what the source's `requestsOf()` and `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
+    evaluates the same rule in PHP with `matches()`, and it must mean exactly what the source's `requestsOf()` and
+    `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
     `registered` is false there, so a waitlisted registration shows none; `awaits()` (the rule in PHP) is false for
     every status but `registered` too, one meaning for the fact, the column and the panel.
-  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits
-    until admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`);
-    `awaits_answer` is false for it and true again by itself at
-    admission. A refusing offer answer frees the offer's seat and a "yes" after a refusal takes one. Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it lands) with
-    the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat call). The
-    pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
+  - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits until
+    admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`); `awaits_answer`
+    is false for it and true again by itself at admission. A refusing offer answer frees the offer's seat and a "yes"
+    after a refusal takes one. Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it
+    lands) with the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat
+    call). The pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.
   - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
     confirmation, then mail) follows in the same run.

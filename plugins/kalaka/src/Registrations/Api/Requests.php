@@ -14,9 +14,9 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  * answer". Nothing is stored for the latter: a registration awaits an answer while it has a request its source
  * says is not answered, read from the source's own answer field (its `AwaitingRule`, the one definition), whatever
  * the answer says ("no", or an award of 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record
- * the act (who, when, the note, the mail's key) and decide nothing else. A withdrawn or removed registration awaits
- * nothing; a waitlisted one does (the fact stays computed, but nothing shows it while the registration is
- * inactive, and the request is answerable only once it is `registered`). [UNAPPROVED N10] [UNAPPROVED N136]
+ * the act (who, when, the note, the mail's key) and decide nothing else. Only a `registered` registration awaits
+ * an answer: a waitlisted, withdrawn or removed one awaits nothing, and a waitlisted one awaits again by itself
+ * at admission, when its request becomes answerable. [UNAPPROVED N10] [UNAPPROVED N136] [UNAPPROVED N690]
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
@@ -78,17 +78,13 @@ final class Requests
     }
 
     /**
-     * Whether some source's `AwaitingRule` holds over the registration's field values, evaluated in PHP with
-     * `AwaitingRule::matches()`: the one definition `awaitingCondition()` compiles to SQL, so the two agree for a
-     * `registered` registration (the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`, which
-     * the rule must mean exactly). False for every status but `registered`, the gate `awaitingCondition()` has,
-     * so the fact, the grid column and the detail panel mean one thing; a waitlisted registration awaits again by
-     * itself at admission. One statement (the field values, which hold every answer); none with no source or for a
-     * registration that is not registered.
-     * (Behaviour) "Awaits an answer" has one meaning: the fact `registration.awaits_answer` (`awaits()`) is false
-     * for every status but registered, as the grid column and the panel; it becomes true again by itself at
-     * admission. Alternative: keep #232's rule (a waitlisted registration's awaits stays true; the column and
-     * panel differ). [UNAPPROVED N690]
+     * Whether the registration awaits an answer: it is `registered` and some source's `AwaitingRule` holds over its
+     * field values, evaluated in PHP with `AwaitingRule::matches()`. The rule is the one definition
+     * `awaitingCondition()` compiles to SQL, with the same `registered` gate, so the fact, the grid column and the
+     * detail panel mean one thing; the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`,
+     * which the rule must mean exactly. A waitlisted registration awaits nothing and awaits again by itself at
+     * admission. One statement (the field values, which hold every answer); none with no source or for a
+     * registration that is not registered. [UNAPPROVED N690]
      */
     public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
     {
