@@ -249,16 +249,13 @@ final class FormWalk
     }
 
     /**
-     * The value a sent answer stores, by the one rule a walk and every other reader of answers share: null for no
-     * answer (see `noAnswer()`) or for an answer its type refuses.
+     * The value a sent answer stores, by the one rule a walk and every other reader of answers share: null for an
+     * answer its type refuses.
      *
      * @throws InvalidInput
      */
     public static function storedOf(FormField $field, FieldType $type, mixed $sent): ?string
     {
-        if (self::noAnswer($field, $sent)) {
-            return null;
-        }
         $answer = $type->answer(new FieldTypeInput($sent, $field->attributes));
 
         return $answer->error === null ? $answer->value : null;

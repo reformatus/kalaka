@@ -503,21 +503,6 @@ final class DraftPageTest extends FormsTestCase
         self::assertSame([], $this->draftRows());
     }
 
-    public function testALinkAnswerThatIsBlankIsNoAnswerForTheRestoreTheCountAndTheHandoff(): void
-    {
-        $engine = new FormEngine(new EventFormHost());
-        $form = $engine->form($this->form);
-        self::assertNotNull($form);
-        $definition = $engine->definition($form);
-        $draft = new AnswerSet(['note' => 'Teszt Anna']);
-        $link = new AnswerSet(['note' => '   ', 'size' => 'm']);
-
-        // The walk's rule: whitespace only is no answer, so it neither restores nor counts as a change.
-        self::assertSame(['size' => 'm'], $engine->acceptedValues($definition, $link));
-        self::assertSame(['size'], $engine->changedKeys($definition, $draft, $link));
-        self::assertSame(['size' => 'm'], $engine->linkAnswers($definition, $link)->answers);
-    }
-
     public function testALoggedInPagesClaimMakesTheGuestDraftThePersonsAndClearsTheCookie(): void
     {
         (new DraftHandoff())->handle($this->page(), ['note' => 'a kvízből'], new GuestActor());
