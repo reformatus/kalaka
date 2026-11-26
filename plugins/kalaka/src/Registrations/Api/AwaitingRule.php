@@ -7,10 +7,10 @@ namespace Kalaka\Registrations\Api;
 /**
  * When a request source's request awaits an answer, stated as data (`RequestSource::awaitingRule()`): any-of groups
  * of all-of field tests. The rule holds when every test of at least one group holds. Core compiles it to SQL for the
- * admin grid's "awaits an answer" column (`Requests::awaitingCondition()`) and evaluates it in PHP with `matches()`,
- * so both mean the same; a source writes no SQL and gets no database access. A source has no rule when its event
- * can have no request from it (`awaitingRule()` returns null); a rule has at least one group and every group at
- * least one test. [UNAPPROVED N669]
+ * admin grid's "awaits an answer" column (`Requests::awaitingCondition()`) and `Requests::awaits()` evaluates it in
+ * PHP with `matches()`, so both mean the same; a source writes no SQL and gets no database access. A source has no
+ * rule when its event can have no request from it (`awaitingRule()` returns null); a rule has at least one group and
+ * every group at least one test. [UNAPPROVED N669]
  */
 final readonly class AwaitingRule
 {

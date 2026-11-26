@@ -55,6 +55,18 @@ final class AwaitingRuleTest extends TestCase
         new FieldTest('k', FieldTestKind::OneOf);
     }
 
+    public function testAnEmptyStringAmongTheValuesIsRefused(): void
+    {
+        foreach ([FieldTestKind::OneOf, FieldTestKind::NoneOf] as $kind) {
+            try {
+                new FieldTest('k', $kind, ['a', '']);
+                self::fail('An empty value must be refused.');
+            } catch (\InvalidArgumentException) {
+                self::assertTrue(true);
+            }
+        }
+    }
+
     public function testAnEmptyRuleIsRefused(): void
     {
         $this->expectException(\LogicException::class);

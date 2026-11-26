@@ -12,11 +12,11 @@ use Kalaka\Registrations\FieldValue\FieldValueRepository;
  * The reads behind "answer a request" (money.md, "Sponsor and church support"; foundation.md, "Facts, decisions
  * and computed values"): a registration's requests with their latest answers, and the computed "awaits an
  * answer". Nothing is stored for the latter: a registration awaits an answer while it has a request its source
- * says is not answered, read from the source's own answer field, whatever the answer says ("no", or an award of
- * 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record the act (who, when, the note, the
- * mail's key) and decide nothing else. A withdrawn or removed registration awaits nothing; a waitlisted one
- * does (the fact stays computed, but nothing shows it while the registration is inactive, and the request is
- * answerable only once it is `registered`). [UNAPPROVED N10] [UNAPPROVED N136]
+ * says is not answered, read from the source's own answer field (its `AwaitingRule`, the one definition), whatever
+ * the answer says ("no", or an award of 0 Ft, is an answer). The field is the truth; the `kalaka_answers` rows record
+ * the act (who, when, the note, the mail's key) and decide nothing else. A withdrawn or removed registration awaits
+ * nothing; a waitlisted one does (the fact stays computed, but nothing shows it while the registration is
+ * inactive, and the request is answerable only once it is `registered`). [UNAPPROVED N10] [UNAPPROVED N136]
  *
  * The requests come from the `RequestSource`s modules contribute; with none, every read is empty and costs no
  * statement. With some, `states()` costs two (the field values and the answer rows) and `awaits()` one (the field
@@ -78,9 +78,12 @@ final class Requests
     }
 
     /**
-     * Whether the registration has a request its source says is not answered (from its answer field); false for a
-     * withdrawn or removed registration. One statement (the field values, which hold every answer); none with no
-     * source or for a withdrawn or removed registration.
+     * Whether some source's `AwaitingRule` holds over the registration's field values, evaluated in PHP with
+     * `AwaitingRule::matches()`: the one definition `awaitingCondition()` compiles to SQL, so the two agree for a
+     * `registered` registration (the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`, which
+     * the rule must mean exactly). False for a withdrawn or removed registration; a waitlisted one awaits (the
+     * grid shows none). One statement (the field values, which hold every answer); none with no source or for a
+     * withdrawn or removed registration.
      */
     public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
     {
@@ -97,8 +100,8 @@ final class Requests
         foreach ($this->values->forRegistration($registration) as $value) {
             $values[$value->fieldKey] = $value->value;
         }
-        foreach ($this->requestsOf($registration, $values, $sources) as [$request, $source]) {
-            if (!$source->isAnswered($request, $values)) {
+        foreach ($sources as $source) {
+            if ($source->awaitingRule($registration->eventId)?->matches($values) === true) {
                 return true;
             }
         }
@@ -112,7 +115,7 @@ final class Requests
      * `AwaitingRule` holds (`RequestSource::awaitingRule()`); false for every other status, so a waitlisted
      * registration shows no awaiting (it waits until admission), and false with no rule. Core alone writes the SQL:
      * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
-     * The rule is the one of `awaits()` for a `registered` registration. No statement is run.
+     * The rule is the one `awaits()` evaluates in PHP, for a `registered` registration. No statement is run.
      * (Access) any view may list the column; it tells that something awaits, not what. [UNAPPROVED N668]
      * (Shapes) a core-derived grid column over the sources' declarative rules. [UNAPPROVED N669]
      *

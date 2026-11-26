@@ -122,7 +122,34 @@ final class ViewAwaitsAnswerTest extends AdminTestCase
             self::assertSame($byRule, $row->awaitsAnswer, $code . ' by the rule in PHP');
             self::assertSame($byStates, $row->awaitsAnswer, $code . ' by the request states');
             self::assertSame(self::EXPECTED[$code], $row->awaitsAnswer, $code . ' by the fixture');
+            self::assertSame(
+                $status === RegistrationStatus::Registered && $requests->awaits($row->key, $status),
+                $row->awaitsAnswer,
+                $code . ' by Requests::awaits()'
+            );
             self::assertSame($row->awaitsAnswer ? '1' : '0', $row->values['awaits_answer'], $code);
+        }
+    }
+
+    public function testAwaitsAndThePanelsRequestStatesAgreeOnEveryFixtureForEveryStatus(): void
+    {
+        $this->seed();
+        $requests = new Requests([new TestRequestSource()]);
+        $page = $this->query()->page($this->held(), limit: 50);
+
+        foreach ($page->rows as $row) {
+            $anyAwaiting = array_filter(
+                $requests->states($row->key),
+                static fn ($state): bool => $state->awaits()
+            ) !== [];
+            foreach (RegistrationStatus::cases() as $status) {
+                $inactive = $status === RegistrationStatus::Withdrawn || $status === RegistrationStatus::Removed;
+                self::assertSame(
+                    !$inactive && $anyAwaiting,
+                    $requests->awaits($row->key, $status),
+                    $row->key->code . ' as ' . $status->value
+                );
+            }
         }
     }
 
