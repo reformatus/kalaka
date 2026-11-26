@@ -64,12 +64,12 @@ describe( 'the dialog', () => {
 		expect( validateAnswer( offer, 'yes', '' ) ).toBe( '' );
 	} );
 
-	test( 'needs the reason, the note, for a yes to an offer and for nothing else', () => {
+	test( 'names the note a reason for a yes to an offer only, and never requires it', () => {
 		expect( asksReason( offer, 'yes' ) ).toBe( true );
 		expect( asksReason( offer, 'no' ) ).toBe( false );
 		expect( asksReason( aid, 'yes' ) ).toBe( false );
-		expect( validateNote( offer, 'yes', '' ) ).toBe( MONEY.noteRequired );
-		expect( validateNote( offer, 'yes', '   ' ) ).toBe( MONEY.noteRequired );
+		expect( validateNote( offer, 'yes', '' ) ).toBe( '' );
+		expect( validateNote( offer, 'yes', '   ' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', 'Telefonon megerősítve' ) ).toBe( '' );
 		expect( validateNote( offer, 'no', '' ) ).toBe( '' );
 		expect( validateNote( aid, 'yes', '' ) ).toBe( '' );

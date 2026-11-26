@@ -1092,6 +1092,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'id' => 'offer:church',
                     'kind' => 'offer',
                     'label' => 'Egyházi támogatás',
+                    'fields' => ['ask' => ['support'], 'answer' => 'support_answer'],
                     'state' => 'awaiting',
                     'amount' => null,
                     'answered_at' => null,
@@ -1101,6 +1102,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'id' => 'aid',
                     'kind' => 'aid',
                     'label' => 'Támogatási kérelem',
+                    'fields' => ['ask' => ['aid_asked'], 'answer' => 'aid_award'],
                     'state' => 'awaiting',
                     'amount' => null,
                     'answered_at' => null,
@@ -1141,5 +1143,44 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertSame(['2026-12-04T09:00:00Z', '2026-12-04T09:00:00Z'], array_column($items, 'answered_at'));
         self::assertSame([true, false], array_column($items, 'seat_full'));
         self::assertSame([false, false], array_column($read($partner)['requests']['items'], 'seat_full'));
+    }
+
+    /**
+     * N655: the requests agree with the grid column. A request is answerable only while the registration is
+     * registered: on a waitlisted, withdrawn or removed one an unanswered request reads `inactive`, not
+     * `awaiting`, and `can.answer_request` is false; the requests and their answers still show.
+     *
+     * @return iterable<string, array{string, string, bool}>
+     */
+    public static function requestStatuses(): iterable
+    {
+        yield 'registered' => ['registered', 'awaiting', true];
+        yield 'waitlisted' => ['waitlisted', 'inactive', false];
+        yield 'withdrawn' => ['withdrawn', 'inactive', false];
+        yield 'removed' => ['removed', 'inactive', false];
+    }
+
+    /** @dataProvider requestStatuses */
+    public function testTheRequestsAgreeWithTheAwaitsColumn(string $status, string $state, bool $answerable): void
+    {
+        $this->addRegistration('00A0', $status);
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = fn (int $user): array => (new RegistrationDetail(
+            requests: new Requests([new TestRequestSource()]),
+            seats: new RecordingSeats(),
+        ))->of(new UserActor($user), $this->event, '00A0');
+
+        $holder = $this->plainUser();
+        $this->grant($holder, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $without = $this->plainUser();
+        $this->grant($without, [], [['column' => 'code', 'write' => false]], ['kalaka_view_money']);
+
+        foreach ([$this->admin->userId, $holder] as $user) {
+            $detail = $read($user);
+            self::assertSame([$state, $state], array_column($detail['requests']['items'], 'state'));
+            self::assertSame($answerable, $detail['can']['answer_request']);
+        }
+        self::assertFalse($read($without)['can']['answer_request']);
     }
 }
