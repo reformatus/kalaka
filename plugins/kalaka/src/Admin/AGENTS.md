@@ -94,9 +94,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   writes nothing, and a stored value other than `expected` is a `VersionConflict`. Admin never runs a field type:
   the stored form and the editor's data come from `Forms\Api\FieldEditing`. The ability registers with `$prepare`
   (`EditFieldValue::prepared()`) and takes `preview`, which does everything but the write and returns the
-  `warnings` (the approved "full" text, `AssignmentSets::FULL_WARNING`) beside `changed` and `over_limit`. A preview needs no
-  `reason` (the panel asks for the warning before staff type one) and, like every successful preview, writes no audit
-  entry (the runner's one rule, `PreviewableUseCase`); a save needs a reason and is audited, an unchanged one too.
+  `warnings` (the approved "full" text, `AssignmentSets::FULL_WARNING`) beside `changed` and `over_limit`. A reason is
+  optional (the panel asks for the warning before staff type one); like every successful preview, a preview writes
+  no audit entry (the runner's one rule, `PreviewableUseCase`); a save is audited, an unchanged one too.
 - The detail read tells, for each field it lists, whether staff may edit it (`writable`: the field is one staff
   edit and the actor's held view lists its column read-write while holding the registration, the same rule as
   `Access::mayWrite()` as a plain read, read once for all columns with `Access::writer()`; the act re-checks). A

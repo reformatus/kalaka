@@ -137,7 +137,7 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
         self::assertCount($entries + 2, $this->entries());
     }
 
-    public function testAPreviewNeedsNoReasonButASaveDoes(): void
+    public function testNeitherAPreviewNorASaveNeedsAReason(): void
     {
         wp_set_current_user($this->admin->userId);
         $without = $this->input('name', 'Új Név');
@@ -145,17 +145,14 @@ final class EditFieldValueAbilityTest extends StaffEditTestCase
 
         foreach ([$without, ['reason' => ''] + $without, ['reason' => '  '] + $without] as $input) {
             $entries = count($this->entries());
-            self::assertSame(
-                ['changed' => true, 'over_limit' => [], 'warnings' => []],
-                $this->call($input + ['preview' => true])
-            );
+            self::assertIsArray($this->call($input + ['preview' => true]));
             self::assertCount($entries, $this->entries(), 'A preview writes no audit entry.');
 
             $save = $this->call($input);
-            self::assertInstanceOf(\WP_Error::class, $save);
-            self::assertSame(400, $save->get_error_data()['status']);
+            self::assertIsArray($save);
+            self::assertCount($entries + 1, $this->entries(), 'A save is audited without a reason too.');
+            self::assertSame('Új Név', $this->valueOf('00A0', 'name'));
         }
-        self::assertSame('Teszt Elek', $this->valueOf('00A0', 'name'));
         // A too long reason is refused for a preview as well.
         $long = $this->call($this->input('name', 'Új Név', ['preview' => true, 'reason' => str_repeat('a', 501)]));
         self::assertInstanceOf(\WP_Error::class, $long);

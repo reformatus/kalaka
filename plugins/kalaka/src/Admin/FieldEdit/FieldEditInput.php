@@ -42,7 +42,7 @@ final class FieldEditInput
      *     anything about the field is looked up, so a missing field and one the actor may not write look the same
      * @throws NotFound the event has no such field
      * @throws FieldNotStaffEditable a field staff do not edit
-     * @throws InvalidInput a blank reason (a preview needs none), or a value the field type does not take
+     * @throws InvalidInput a reason over 500 characters, or a value the field type does not take
      */
     public function prepare(array $input, Actor $actor): PreparedEdit
     {
@@ -51,11 +51,8 @@ final class FieldEditInput
             $error = new PermissionDenied();
             throw $error;
         }
-        // A preview asks for the warning before a reason is typed; only a save needs one.
         $reason = $input['reason'] ?? null;
-        $preview = ($input['preview'] ?? false) === true;
-        $blank = !is_string($reason) || trim($reason) === '';
-        if (($blank && !$preview) || (is_string($reason) && mb_strlen($reason, 'UTF-8') > self::REASON_MAX)) {
+        if ($reason !== null && (!is_string($reason) || mb_strlen($reason, 'UTF-8') > self::REASON_MAX)) {
             $error = new InvalidInput();
             throw $error;
         }

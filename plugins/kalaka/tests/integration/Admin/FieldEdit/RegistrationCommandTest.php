@@ -152,7 +152,7 @@ final class RegistrationCommandTest extends StaffEditTestCase
         self::assertStringStartsWith('Nothing to change', (string) end(\WP_CLI::$calls)[1]);
     }
 
-    public function testTheValueAndTheReasonAreRequired(): void
+    public function testTheValueOrClearIsRequired(): void
     {
         foreach ([[['00A0', 'tier'], []], [['00A0', 'tier', 'a'], ['clear' => true]]] as [$args, $assoc]) {
             try {
@@ -162,12 +162,12 @@ final class RegistrationCommandTest extends StaffEditTestCase
                 self::assertSame('error', end(\WP_CLI::$calls)[0]);
             }
         }
-        try {
-            $this->command()->setField([(string) $this->event, '00A0', 'tier', 'b'], []);
-            self::fail('The reason is required.');
-        } catch (\RuntimeException) {
-            self::assertSame('a', $this->valueOf('00A0', 'tier'));
-        }
+    }
+
+    public function testTheReasonIsOptional(): void
+    {
+        $this->command()->setField([(string) $this->event, '00A0', 'tier', 'b'], []);
+        self::assertSame('b', $this->valueOf('00A0', 'tier'));
     }
 
     public function testABlankValueIsRefusedUnlessClearIsGiven(): void

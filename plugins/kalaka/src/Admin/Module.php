@@ -118,10 +118,11 @@ SQL;
             'Egy esemény nézetének létrehozása vagy módosítása.',
             SaveView::prepared(...)
         );
+        // [UNAPPROVED T985] the description without the reason (owner 2026-11-26).
         Abilities::register(
             new EditFieldValue(),
             'Jelentkezési adat módosítása',
-            'Egy jelentkezés egyik adatának módosítása indoklással.',
+            'Egy jelentkezés egyik adatának módosítása.',
             EditFieldValue::prepared(...)
         );
         Abilities::register(new DeleteView(), 'Nézet törlése', 'Egy esemény nézetének törlése.');
