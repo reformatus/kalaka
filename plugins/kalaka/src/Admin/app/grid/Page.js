@@ -2,11 +2,12 @@
  * The „Jelentkezők” page (S37): the view tabs, one toolbar row with DataViews' own search and filter button, the
  * filters (the view's own condition as DataViews' locked chip, then the viewer's chips with DataViews' own
  * add-filter and reset), one reset of the sort and the counting, and „Táblázat másolása"; then DataViews
- * (compact) with the sum row in its header. Every column has a filter in its header menu; the sums and the
+ * (compact) with the sum row in its header. Every column has a filter in its column menu; the sums and the
  * copy follow the filters and the search. Kód carries the default order and the reset returns to it. The title
  * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). Every sum cell's
- * arrow opens its column's menu, with the counting choices where the column counts (G10); the counting is the
- * viewer's own for the session, full access included, and is never saved (B1, round 3).
+ * arrow, and a click or key on the column's header, opens the one column menu (`ColumnMenu`: sort, add filter, and
+ * the counting choices where the column counts; G10); the counting is the viewer's own for the session, full access
+ * included, and is never saved (B1, round 3).
  *
  * S38: a row opens the detail panel (`DetailPanel`) over the grid, from the button in its first identifying cell
  * or a click on the row. The panel is not modal: another row switches it, and the grid's filters, search, sort,
@@ -36,6 +37,7 @@ import { selectionBody } from './selection';
 import SumRow from './SumRow';
 import { labelRowCheckboxes } from './selectionLabels';
 import ColumnMenu from './ColumnMenu';
+import revealFilter from './filterReveal';
 import useStickyColumns, { stickyCount } from './sticky';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import DetailPanel from './DetailPanel';
@@ -91,6 +93,9 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
+	// The one column menu: which column's is open, and the header button it was opened from (null: from the arrow).
+	// [UNAPPROVED N943]
+	const [ menuState, setMenuState ] = useState( null );
 	// The ticked rows' keys (the codes), for the bulk action „Levél küldése”: of this page only (DataViews drops
 	// the ones not on the page), and cleared with the tab, the page, the order and the filters. [UNAPPROVED N288]
 	const [ selection, setSelection ] = useState( [] );
@@ -127,6 +132,7 @@ export default function Page( { config } ) {
 		// A tab switch starts the new tab clean: no filters, search or sort carried over or brought back later.
 		setView( freshView( next, v.perPage ) );
 		setNotices( [] );
+		setMenuState( null );
 		setLoadError( false );
 		setSumsFail( false );
 		picks.current.reset();
@@ -340,7 +346,9 @@ export default function Page( { config } ) {
 			id: column.column,
 			label: column.label,
 			header: (
-				<span className={ filtered.has( column.column ) ? 'kg-hd is-filtered' : 'kg-hd' }>{ column.label }</span>
+				<span className={ filtered.has( column.column ) ? 'kg-hd is-filtered' : 'kg-hd' } data-column={ column.column }>
+					{ column.label }
+				</span>
 			),
 			getValue: ( { item } ) => cellText( column, item ),
 			render: ( { item } ) =>
@@ -431,6 +439,19 @@ export default function Page( { config } ) {
 		/>
 	);
 
+	// A filter is added the way DataViews' own „Add filter” adds it: an entry with no value yet, then the filter bar and
+	// the new chip are shown. [UNAPPROVED N944]
+	const addFilter = ( column ) => {
+		const operators = ( filterSpec( column ).filterBy || {} ).operators;
+		if ( ! operators ) {
+			return;
+		}
+		setView( { ...v, page: 1, filters: [ ...( v.filters || [] ), { field: column.column, operator: operators[ 0 ], value: undefined } ] } );
+		if ( host ) {
+			revealFilter( host, column.label );
+		}
+	};
+
 	const menuFor = ( column ) => (
 		<ColumnMenu
 			column={ column }
@@ -438,8 +459,73 @@ export default function Page( { config } ) {
 			onSort={ ( sorted ) => setView( { ...v, sort: sorted, page: 1 } ) }
 			chosen={ picks.current.chosen( column.column, chosenFor( column ) ) }
 			onToggle={ pick }
+			filterable={ !! ( filterSpec( column ).filterBy || {} ).operators }
+			filtered={ ( v.filters || [] ).some( ( f ) => f.field === column.column ) }
+			onAddFilter={ addFilter }
+			open={ !! menuState && menuState.column === column.column }
+			onOpenChange={ ( next ) => setMenuState( next ? { column: column.column, from: null } : null ) }
+			anchor={ menuState && menuState.column === column.column ? menuState.from || undefined : undefined }
 		/>
 	);
+
+	// A click or key on a column's header opens the same column menu (DataViews' own header menu is stopped before it
+	// opens), anchored to the header; the arrow in the sum row opens it too. Enter, Space and the arrow keys are the
+	// header button's own keyboard use, and focus goes back to the header when the menu closes. [UNAPPROVED N943]
+	const headerButton = ( event ) => ( event.target.closest ? event.target.closest( '.dataviews-view-table-header-button' ) : null );
+	const openFromHeader = ( button ) => {
+		const mark = button.querySelector( '.kg-hd[data-column]' );
+		if ( mark ) {
+			setMenuState( { column: mark.dataset.column, from: button } );
+		}
+	};
+	const stopHeader = ( event ) => {
+		if ( headerButton( event ) ) {
+			event.stopPropagation();
+		}
+	};
+	const onHeaderClick = ( event ) => {
+		const button = headerButton( event );
+		if ( button ) {
+			event.preventDefault();
+			event.stopPropagation();
+			openFromHeader( button );
+		}
+	};
+	const onHeaderKey = ( event ) => {
+		const button = headerButton( event );
+		if ( ! button ) {
+			return;
+		}
+		if ( event.key === 'ArrowDown' || event.key === 'ArrowUp' ) {
+			event.preventDefault();
+			event.stopPropagation();
+			openFromHeader( button );
+		} else if ( event.key === 'Enter' || event.key === ' ' ) {
+			event.stopPropagation(); // the click the browser then makes opens the menu
+		}
+	};
+	// Focus returns to the header button the menu was opened from.
+	const lastFrom = useRef( null );
+	useEffect( () => {
+		if ( menuState && menuState.from ) {
+			lastFrom.current = menuState.from;
+		} else if ( ! menuState && lastFrom.current ) {
+			const button = lastFrom.current;
+			lastFrom.current = null;
+			window.requestAnimationFrame( () => button.isConnected && button.focus() );
+		}
+	}, [ menuState ] );
+	// The header button the menu was opened from says it is open.
+	useLayoutEffect( () => {
+		if ( ! host ) {
+			return;
+		}
+		host.querySelectorAll( '.dataviews-view-table-header-button' ).forEach( ( button ) => {
+			const mark = button.querySelector( '.kg-hd[data-column]' );
+			const on = !! ( menuState && menuState.from && mark && mark.dataset.column === menuState.column );
+			button.setAttribute( 'aria-expanded', on ? 'true' : 'false' );
+		} );
+	} );
 
 	// A grant holder's counting is theirs too, and so is a full-access user's: the reset is enabled while only
 	// the sort or the counting differs from the view's default.
@@ -530,7 +616,15 @@ export default function Page( { config } ) {
 				narrowed={ narrowed }
 				framed={ actions.length > 0 }
 			/>
-			<div ref={ setHost } className="kg-dv" onClick={ onHostClick }>
+			<div
+				ref={ setHost }
+				className="kg-dv"
+				onClick={ onHostClick }
+				onPointerDownCapture={ stopHeader }
+				onMouseDownCapture={ stopHeader }
+				onClickCapture={ onHeaderClick }
+				onKeyDownCapture={ onHeaderKey }
+			>
 				<DataViews
 					key={ tab.key }
 					data={ data.rows }

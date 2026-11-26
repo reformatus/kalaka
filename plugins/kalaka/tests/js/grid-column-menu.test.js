@@ -10,8 +10,10 @@ jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( '@wordpress/element' );
 	const RealMenuItem = require( '../../../../node_modules/@wordpress/components/build/menu-item/index.cjs' ).default;
 	return {
-		DropdownMenu: ( { label, toggleProps, children } ) =>
-			h( 'div', null, h( 'button', { 'aria-label': label, disabled: toggleProps.disabled } ), children( { onClose: () => mockClose() } ) ),
+		DropdownMenu: ( { label, toggleProps, children, open, onToggle, popoverProps } ) => {
+			globalThis.lastDropdown = { open, onToggle, popoverProps };
+			return h( 'div', null, h( 'button', { 'aria-label': label, disabled: toggleProps.disabled } ), children( { onClose: () => mockClose() } ) );
+		},
 		MenuGroup: ( { label, children } ) => h( 'section', { 'data-group': label || '' }, children ),
 		MenuItem: RealMenuItem,
 		MenuItemsChoice: ( { choices, value, onSelect } ) =>
@@ -109,5 +111,45 @@ describe( 'a column’s menu', () => {
 		expect( mockClose ).toHaveBeenCalledTimes( 1 );
 		act( () => root.unmount() );
 		host.remove();
+	} );
+
+	test( '„Add filter” is DataViews\' own item: offered on a filterable column, once, and it closes the menu', () => {
+		const { createRoot } = require( 'react-dom/client' );
+		const { act } = require( 'react' );
+		const note = { column: 'field:note', label: 'Megjegyzés', sortable: true };
+		expect( html( note ) ).not.toContain( 'Add filter' );
+		expect( html( note, { filterable: true } ) ).toContain( 'Add filter' );
+		const added = html( note, { filterable: true, filtered: true } );
+		expect( added ).toMatch( /<button[^>]*disabled[^>]*>.*Add filter/ );
+
+		mockClose = jest.fn();
+		const onAddFilter = jest.fn();
+		const host = document.createElement( 'div' );
+		document.body.appendChild( host );
+		const root = createRoot( host );
+		globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+		act( () => root.render( createElement( ColumnMenu, props( note, { filterable: true, onAddFilter } ) ) ) );
+		const item = [ ...host.querySelectorAll( 'button' ) ].find( ( n ) => n.textContent.includes( 'Add filter' ) );
+		act( () => item.click() );
+		expect( onAddFilter ).toHaveBeenCalledWith( note );
+		expect( mockClose ).toHaveBeenCalledTimes( 1 );
+		act( () => root.unmount() );
+		host.remove();
+	} );
+
+	test( 'a column with only a filter to offer is not a disabled arrow', () => {
+		const time = { column: 'field:time', label: 'Érkezés', sortable: false };
+		expect( html( time, { filterable: true } ) ).not.toMatch( /<button[^>]*disabled/ );
+	} );
+
+	test( 'the header opens the same menu: the open state is controlled, anchored to the header it came from', () => {
+		const anchor = document.createElement( 'button' );
+		html( STATUS, { open: true, onOpenChange: () => {}, anchor } );
+		expect( globalThis.lastDropdown.open ).toBe( true );
+		expect( globalThis.lastDropdown.popoverProps.anchor ).toBe( anchor );
+		html( STATUS, { open: false, onOpenChange: () => {} } );
+		expect( globalThis.lastDropdown.popoverProps.anchor ).toBeUndefined();
+		html( STATUS );
+		expect( globalThis.lastDropdown.open ).toBeUndefined();
 	} );
 } );
