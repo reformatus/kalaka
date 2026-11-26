@@ -10,12 +10,19 @@ use Kalaka\Forms\Api\ThemeStyle;
  * The page the popup's payment tab comes back to (`GET kalaka-portal/v1/card-payment/return?popup=1`): inside the
  * theme, or bare when the filter `kalaka_card_return_bare` says so. On load its script tells the opener
  * `{type: 'kalaka-card-return'}` (same origin only) and tries to close the tab; when the tab stays open, it shows a
- * line, a close button and a link back to the status page.
+ * line, a close button and a link back to the status page. Inside the theme the body sits in the theme's content
+ * frame (the filter `kalaka_card_return_frame`; a neutral wrapper by default), and every answer is noindex.
  */
 final class CardReturnPage
 {
     /** The filter that renders the page bare (a minimal document, no theme): a bool, false by default. */
     public const BARE_FILTER = 'kalaka_card_return_bare';
+
+    /** The filter that gives the page's content frame inside the theme: [opening HTML, closing HTML]. [UNAPPROVED N820] */
+    public const FRAME_FILTER = 'kalaka_card_return_frame';
+
+    /** The neutral frame when no theme supplies one: a plain wrapper, no look of our own. */
+    public const NEUTRAL_FRAME = ['<div class="kalaka-card-return-frame">', '</div>'];
 
     private const SCRIPT = "(function () {\n"
         . "var button = document.querySelector('[data-kalaka-close]');\n"
@@ -33,6 +40,7 @@ final class CardReturnPage
     public static function render(string $statusPage): string
     {
         $bare = (bool) apply_filters(self::BARE_FILTER, false);
+        add_filter('wp_robots', [self::class, 'robots']);
         ob_start();
         try {
             if ($bare) {
@@ -42,10 +50,26 @@ final class CardReturnPage
             }
         } catch (\Throwable $e) {
             ob_end_clean();
+            remove_filter('wp_robots', [self::class, 'robots']);
             throw $e;
         }
 
-        return (string) ob_get_clean();
+        $html = (string) ob_get_clean();
+        remove_filter('wp_robots', [self::class, 'robots']);
+
+        return $html;
+    }
+
+    /**
+     * The `wp_robots` filter: this mid-flow answer is never indexed.
+     *
+     * @internal
+     * @param array<string, bool|int|string> $robots
+     * @return array<string, bool|int|string>
+     */
+    public static function robots(array $robots): array
+    {
+        return array_merge($robots, ['noindex' => true]);
     }
 
     /** The opening of a document: doctype, language, charset and viewport (the escaped values are core's own). */
@@ -59,6 +83,7 @@ final class CardReturnPage
     private static function bare(string $statusPage): void
     {
         echo self::open() // phpcs:ignore WordPress.Security.EscapeOutput -- built from escaped parts
+            . '<meta name="robots" content="noindex">'
             . '<title>' . esc_html(get_bloginfo('name')) . '</title></head><body>';
         self::body($statusPage);
         echo '</body></html>';
@@ -83,8 +108,38 @@ final class CardReturnPage
             return;
         }
         get_header();
-        self::body($statusPage);
+        self::framedBody($statusPage);
         get_footer();
+    }
+
+    /** The page's body inside the theme's content frame (a block theme has its own; the bare page stays unwrapped). */
+    private static function framedBody(string $statusPage): void
+    {
+        [$open, $close] = self::frame();
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the theme's own frame, escaped where built
+        echo $open;
+        self::body($statusPage);
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- the theme's own frame, escaped where built
+        echo $close;
+    }
+
+    /**
+     * The theme's content frame around the body, [opening HTML, closing HTML]: the filter `kalaka_card_return_frame`
+     * (a theme adapter's, or the theme's own), a neutral wrapper by default. [UNAPPROVED N820]
+     *
+     * @return array{0: string, 1: string}
+     */
+    private static function frame(): array
+    {
+        $frame = apply_filters(self::FRAME_FILTER, self::NEUTRAL_FRAME);
+        if (
+            is_array($frame) && array_is_list($frame) && count($frame) === 2
+            && is_string($frame[0]) && is_string($frame[1])
+        ) {
+            return $frame;
+        }
+
+        return self::NEUTRAL_FRAME;
     }
 
     private static function body(string $statusPage): void

@@ -143,14 +143,42 @@ final class CardPopupTest extends PortalTestCase
         $this->post(['return_url' => home_url('/jelentkezes/'), 'popup' => '0']);
 
         $plain = rest_url('kalaka-portal/v1/card-payment/return');
-        self::assertSame(add_query_arg(['to' => home_url('/jelentkezes/')], $plain), $this->provider->returnUrls[0]);
         self::assertSame(
-            add_query_arg(['to' => home_url('/jelentkezes/'), 'popup' => '1'], $plain),
+            add_query_arg(['to' => rawurlencode(home_url('/jelentkezes/'))], $plain),
+            $this->provider->returnUrls[0]
+        );
+        self::assertSame(
+            add_query_arg(['to' => rawurlencode(home_url('/jelentkezes/')), 'popup' => '1'], $plain),
             $this->provider->returnUrls[1]
         );
         self::assertSame($this->provider->returnUrls[0], $this->provider->returnUrls[2]);
         self::assertStringContainsString('popup=1', $this->provider->returnUrls[1]);
         self::assertStringNotContainsString('popup', $this->provider->returnUrls[0]);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function statusPages(): array
+    {
+        return [
+            'a query string' => [home_url('/jelentkezes/') . '?a=1&b=2'],
+            'a fragment' => [home_url('/jelentkezes/') . '#töredék'],
+        ];
+    }
+
+    /**
+     * A status page with its own query string or fragment stays one `to` argument: `rawurlencode`d when the
+     * URL is built, decoded exactly once by the REST reader.
+     *
+     * @dataProvider statusPages
+     */
+    public function testTheReturnUrlCarriesAStatusPageWithItsOwnQueryStringOrFragment(string $statusPage): void
+    {
+        $url = CardPaymentRoute::returnUrl($statusPage, true);
+
+        $query = wp_parse_url($url, PHP_URL_QUERY);
+        self::assertIsString($query);
+        wp_parse_str($query, $params);
+        self::assertSame($statusPage, $params['to']);
     }
 
     public function testAPopupPostStillGetsThePayAddress(): void
@@ -215,8 +243,16 @@ final class CardPopupTest extends PortalTestCase
 
         self::assertSame(200, $response->get_status());
         self::assertStringContainsString('no-store', (string) $response->get_headers()['Cache-Control']);
+        self::assertSame('noindex', $response->get_headers()['X-Robots-Tag'] ?? null);
         $html = (string) $response->get_data();
         self::assertStringContainsString('<main class="kalaka-card-return">', $html);
+        // The body sits in the neutral content frame, inside the theme's header and footer.
+        self::assertStringContainsString(
+            '<div class="kalaka-card-return-frame"><main class="kalaka-card-return">',
+            $html
+        );
+        // The frame closes after the body's inline script, so it wraps the whole body.
+        self::assertStringContainsString("</script>\n</div>", $html);
         self::assertStringContainsString(
             '<p class="kalaka-card-return__text">Bezárhatod ezt a lapot.</p>',
             $html
@@ -249,9 +285,18 @@ final class CardPopupTest extends PortalTestCase
         self::assertStringStartsWith('<!doctype html><html ', $html);
         self::assertStringContainsString('lang="', $html);
         self::assertStringContainsString('<meta charset="', $html);
+        self::assertStringContainsString('<meta name="robots" content="noindex">', $html);
         self::assertStringContainsString('<main class="kalaka-card-return">', $html);
+        // The bare page stays unwrapped: no frame, and no theme header or footer.
+        self::assertStringNotContainsString('kalaka-card-return-frame', $html);
         self::assertStringNotContainsString('Header', $html);
         self::assertStringNotContainsString('Footer', $html);
+    }
+
+    public function testTheRobotsFilterMarksThePageNoindex(): void
+    {
+        self::assertSame(['noindex' => true], CardReturnPage::robots([]));
+        self::assertSame(['index' => true, 'noindex' => true], CardReturnPage::robots(['index' => true]));
     }
 
     public function testAForeignStatusPageIsNotLinkedFromThePage(): void

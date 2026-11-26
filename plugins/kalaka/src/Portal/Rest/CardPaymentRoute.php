@@ -61,12 +61,13 @@ final class CardPaymentRoute
 
     /**
      * The return endpoint's address for a status page (`popup=1` added when the start came from a popup): what the
-     * order returns to.
+     * order returns to. The status page is `rawurlencode`d, so its own query string and fragment stay one `to`
+     * argument (the REST reader decodes it once).
      */
     public static function returnUrl(string $statusPage, bool $popup): string
     {
         return add_query_arg(
-            ['to' => $statusPage, ...($popup ? ['popup' => '1'] : [])],
+            ['to' => rawurlencode($statusPage), ...($popup ? ['popup' => '1'] : [])],
             rest_url(self::NAMESPACE . self::RETURN_ROUTE)
         );
     }
@@ -145,7 +146,7 @@ final class CardPaymentRoute
 
     /**
      * `GET kalaka-portal/v1/card-payment/return`: where the order returns to. Without `popup=1` a 303 to the status
-     * page (`to`, same-site, else the home page); with it the close page, HTML, no-store.
+     * page (`to`, same-site, else the home page); with it the close page, HTML, no-store and noindex.
      *
      * @internal the route's callback
      */
@@ -159,6 +160,7 @@ final class CardPaymentRoute
             $response->header('Location', $statusPage);
         } else {
             $response = new \WP_REST_Response(CardReturnPage::render($statusPage), 200);
+            $response->header('X-Robots-Tag', 'noindex');
         }
         $response->header('Cache-Control', FormCaching::CACHE_CONTROL);
 
