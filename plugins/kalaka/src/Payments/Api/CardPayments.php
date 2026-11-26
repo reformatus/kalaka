@@ -7,6 +7,7 @@ namespace Kalaka\Payments\Api;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Database\NamedLock;
+use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Mail\Api\MailRecipients;
@@ -40,13 +41,17 @@ final class CardPayments
 
     /**
      * @param ?string $returnUrl where to come back to; used only when it is on this site
+     * @param ?string $amount a decimal text, between the limits of `CardAmountLimits`; null asks for the whole
+     *                        payable amount
      * @return string the address to send the registrant to
      * @throws CardPaymentUnavailable when nothing is payable now
      * @throws CardPaymentInFlight when the latest request is in flight or another start of it is running
+     * @throws InvalidInput when the amount is malformed or no multiple of the payable unit
+     * @throws CardAmountRefused when the amount is below the minimum or above what is payable now
      * @throws NoPaymentProvider when no provider accepts the event's currency
      * @throws SystemFailure when the provider fails
      */
-    public function start(RegistrationKey $key, ?string $returnUrl = null): string
+    public function start(RegistrationKey $key, ?string $returnUrl = null, ?string $amount = null): string
     {
         $lock = new NamedLock('card_' . $key->eventId . '_' . strtolower($key->code));
         $waited = 0;
@@ -58,13 +63,13 @@ final class CardPayments
             $waited += self::RETRY;
         }
         try {
-            return $this->startLocked($key, $returnUrl);
+            return $this->startLocked($key, $returnUrl, $amount);
         } finally {
             $lock->release();
         }
     }
 
-    private function startLocked(RegistrationKey $key, ?string $returnUrl): string
+    private function startLocked(RegistrationKey $key, ?string $returnUrl, ?string $amount): string
     {
         $provider = $this->providers->active();
         $inFlight = false;
@@ -88,6 +93,7 @@ final class CardPayments
                 'event_id' => $key->eventId,
                 'code' => $key->code,
                 ...($returnUrl === null ? [] : ['return_url' => $returnUrl]),
+                ...($amount === null ? [] : ['amount' => $amount]),
             ],
             new SecretLinkActor($key)
         );
