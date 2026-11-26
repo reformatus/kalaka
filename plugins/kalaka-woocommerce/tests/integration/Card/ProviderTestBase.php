@@ -938,6 +938,37 @@ abstract class ProviderTestBase extends WooTestCase
         self::assertSame('https://example.org/ketto/', $this->orders()[1]->get_meta(OrderMeta::RETURN_URL));
     }
 
+    public function testAFailedOrderCreationLeavesTheOldPendingOrderUntouched(): void
+    {
+        $anna = $this->owing('00A0');
+        $this->payUrlFor($this->requestFor([$anna]), 'https://example.org/egy/');
+        $old = $this->onlyOrder();
+        self::assertSame('pending', $old->get_status());
+
+        // A billing source that throws makes `create()` fail before it returns: the new order is never made, so
+        // the registrant's earlier unpaid order is not cancelled (the start fails, but the pay link stays open).
+        $throwing = new class implements BillingSource {
+            public function of(RegistrationKey $registration): ?BillingDetails
+            {
+                throw new \RuntimeException('Teszt hiba az új rendelés létrehozása közben.');
+            }
+        };
+        $request = $this->requestFor([$anna], ['00A0' => '7000']);
+        $threw = false;
+        try {
+            (new WooProvider(billing: $throwing))->payUrl(
+                PaymentProviderInput::forStart($request, 'https://example.org/ketto/')
+            );
+        } catch (\RuntimeException) {
+            $threw = true;
+        }
+        self::assertTrue($threw, 'The failed start did not throw.');
+
+        // The old order is still the request, and no new unpaid order replaced it.
+        self::assertSame('pending', $this->freshOrder($old)->get_status());
+        self::assertSame([$old->get_id()], array_map(static fn (\WC_Order $o): int => $o->get_id(), $this->orders()));
+    }
+
     public function testTwoQuickStartsLeaveExactlyOneUnpaidOrder(): void
     {
         $anna = $this->owing('00A0');

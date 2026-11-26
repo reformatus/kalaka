@@ -17,8 +17,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 /**
  * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one order (a guest order, or the
  * owner account's when it is the one paying; see `OrderOwner`) with one item of the hidden product per line, paid
- * on WooCommerce's own order-pay page with whatever gateway the shop has. A new request cancels the registration's
- * never-paid orders (pending, failed) and makes one new order; a paid order is never touched,
+ * on WooCommerce's own order-pay page with whatever gateway the shop has. A new request makes one new order, then
+ * cancels the registration's never-paid orders (pending, failed); a paid order is never touched,
  * and an order in any other open state refuses the start (see `latestOf()`).
  */
 final class WooProvider extends AbstractPaymentProvider
@@ -59,18 +59,24 @@ final class WooProvider extends AbstractPaymentProvider
     public function payUrl(PaymentProviderInput $input): string
     {
         $request = $input->request();
-        // A new start never reuses an order: every unpaid order of these registrations is cancelled, then one new
-        // order is made, so at most one unpaid order exists. Core makes this call under the registration's lock,
-        // and only when `latestOf()` found nothing open at the gateway (anything else refuses the start first).
-        foreach ($this->unpaidOf($request) as $order) {
+        // A new start never reuses an order: one new order is made first, then every unpaid order of these
+        // registrations (the new one excluded) is cancelled, so at most one unpaid order exists. Core makes this
+        // call under the registration's lock, and only when `latestOf()` found nothing open at the gateway
+        // (anything else refuses the start first). Making the new order before cancelling the old ones means a
+        // failed create leaves the registrant's earlier unpaid order open.
+        $order = $this->create($request, $input->returnUrl());
+        foreach ($this->unpaidOf($request) as $unpaid) {
+            if ($unpaid->get_id() === $order->get_id()) {
+                continue;
+            }
             // Re-read: only an order that is still unpaid is cancelled.
-            $fresh = wc_get_order($order->get_id());
+            $fresh = wc_get_order($unpaid->get_id());
             if ($fresh instanceof \WC_Order && !$fresh->is_paid() && $fresh->has_status(['pending', 'failed'])) {
                 $fresh->update_status('cancelled');
             }
         }
 
-        return $this->create($request, $input->returnUrl())->get_checkout_payment_url();
+        return $order->get_checkout_payment_url();
     }
 
     /**

@@ -31,4 +31,4 @@ holder through WooCommerce's own `prevent_admin_access()`, a plain customer
 that WooCommerce really redirects, full access, an administrator and the
 missing-API guard; the card payment on real `WC_Order`s in both order-storage modes, with a test-only stand-in gateway).
 
-Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`; the periodic step `woocommerce_reconcile`.
+Entry points: `woocommerce_prevent_admin_access`, `woocommerce_disable_admin_bar`, `woocommerce_payment_complete`, `woocommerce_order_status_processing`, `woocommerce_order_status_completed`, `woocommerce_order_refunded`, `woocommerce_order_status_changed`, `woocommerce_trash_order`, `woocommerce_get_return_url`, `woocommerce_is_purchasable`; the CLI command `wp kalaka card-surcharge`; the periodic step `woocommerce_reconcile`.
