@@ -114,6 +114,12 @@
 	overflow-x: auto;
 }
 
+/* The „Események” table's clear button: its long label wraps instead of pushing the column past the box, so the
+   table fits the width (no sideways scroll, no clipped button) at 1440 and below. [UNAPPROVED N927] */
+.km-table .components-button {
+	white-space: normal;
+}
+
 /* Bottom right, as the approved grid's snackbars (`.kg-snacks`). [UNAPPROVED N297] */
 .km-snacks {
 	position: fixed;
