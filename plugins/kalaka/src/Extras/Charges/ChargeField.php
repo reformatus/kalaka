@@ -75,7 +75,7 @@ final class ChargeField
      * key with other decimals: adopting the key would close it (`SharedKeyCheck`'s `extension_decimals`). It reads
      * the event's form posts (every status whose fields count, `Forms::formsWithOtherDecimals()`), so it runs
      * outside a use case's transaction: at the preview and again just before the apply runs the save, never in
-     * the save. The record-based check of `check()` is the one inside it. [UNAPPROVED N808]
+     * the save. The record-based check of `check()` is the one inside it.
      *
      * @throws FieldDecimalsHeld when a form holds the key with other decimals
      */

@@ -194,7 +194,7 @@ final class Forms
      * field under the key has other decimals than given: what a declaration that fixes the key's decimals
      * (an extra charge) must not close. A field counts with `(int) ($settings['decimals'] ?? 0)`, as
      * `SharedKeyCheck` reads it, and only a number field does. It reads the event's form posts, so it runs
-     * outside a use case's transaction. [UNAPPROVED N808]
+     * outside a use case's transaction.
      *
      * @return list<array{form_id: int, title: string}> by ascending form ID
      */

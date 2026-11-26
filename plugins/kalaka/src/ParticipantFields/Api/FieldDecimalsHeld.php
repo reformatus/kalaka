@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
  * A declaration that fixes a number field's decimals (a number charge: 0) found forms of the event that hold a
  * number field under the key with other decimals, so adopting the key would close them (`SharedKeyCheck`'s
  * `extension_decimals`). It carries the key and the forms; no text of its own, the one CLI prints is English.
- * Its own code; the text is the rule violation's until one is approved. [UNAPPROVED N808]
+ * Its own code; the text is the rule violation's until one is approved.
  */
 final class FieldDecimalsHeld extends RuleViolation
 {

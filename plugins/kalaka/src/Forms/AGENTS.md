@@ -51,7 +51,7 @@ values and conditions, prefill and form links
   kept. An `extension` field's options are its declarer's: a form joining it
   offers any subset of them and never adds one (`extension_option`); a number
   field that joins an `extension` field whose declarer fixed its decimals (an
-  extra charge's) holds that many (`extension_decimals`) [UNAPPROVED N6 of #231].
+  extra charge's) holds that many (`extension_decimals`).
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
@@ -61,7 +61,7 @@ values and conditions, prefill and form links
   own, and the participant field's only where it leaves one empty (a field
   block's `label`, a choice option's `label` by value): the engine fills them
   from the host (`FormHost::labelFallbacks()`, `Engine\LabelFallback`), so the
-  page, the definition and the answers' texts read the same [UNAPPROVED N806 of #231].
+  page, the definition and the answers' texts read the same.
 - A form's event is set when it is created and fixed once the form has
   fields or submissions refer to it (`Registrations\Api\FormSubmissions`),
   on every path that writes the setting, with one known gap: code that sets

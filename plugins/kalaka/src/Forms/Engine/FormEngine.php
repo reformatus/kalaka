@@ -143,7 +143,7 @@ final class FormEngine
      * The content with each field block's empty label (and each choice option's) filled from the host's
      * participant-field texts (`FormHost::labelFallbacks()`), so the page, the definition and the answers' texts
      * all read the same labels. The host is asked only when a field block has an empty label; otherwise the
-     * content is returned as it is. A label the form wrote is never replaced. [UNAPPROVED N806 of #231]
+     * content is returned as it is. A label the form wrote is never replaced.
      */
     private function filled(Form $form, string $content): string
     {

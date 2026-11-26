@@ -127,7 +127,7 @@ interface FormHost
      * (events-and-forms.md, "Fields"): `title` for a field block's empty question title, and each option's label by
      * its value (retired options included, so a stored value still reads) for a choice option's empty label. Asked
      * only when a form's field block has an empty label, and read when the definition is parsed or the blocks are
-     * rendered, outside any transaction. A key the host has no field for is left out. [UNAPPROVED N807 of #231]
+     * rendered, outside any transaction. A key the host has no field for is left out.
      *
      * @return array<string, array{title: string, options: array<string, string>}>
      */

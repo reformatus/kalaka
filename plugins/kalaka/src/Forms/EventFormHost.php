@@ -241,7 +241,7 @@ final class EventFormHost implements FormHost
     /**
      * The event's participant fields' titles and option labels, retired fields and options included: what a form shows
      * where it leaves a label empty. For a code-declared (`extension`) field these are the declarer's texts, its admin
-     * name. [UNAPPROVED N806, N807 of #231]
+     * name.
      */
     public function labelFallbacks(Form $form): array
     {
