@@ -116,7 +116,7 @@ title: Money
   any recorded payment method. WooCommerce refunds keep their own path
   ([Refunds](#refunds)).
 - **A correction** is a "record payment" or "record refund" row of either
-  direction, flagged as a correction, with a required reason, **no method and
+  direction, flagged as a correction, with an optional reason, **no method and
   no value date**: it counts from the time it is recorded. It is a payment
   fact like any recorded payment, so confirmation and balances count it with no
   special case. One use case records it, under the same action as "record
