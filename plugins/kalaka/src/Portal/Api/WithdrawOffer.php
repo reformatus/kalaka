@@ -16,7 +16,8 @@ use Kalaka\Foundation\Api\Money\Money;
  * PROTOTYPE: the route and `can.withdraw` exist now (#253); this
  * object is built by the walk-only spike plugin (the block render's offer, F6); `canWithdraw` and `refusal` are the
  * status read's `can.withdraw` and `withdrawRefusal`. `owedAfter` is the preview's signed value (below zero: a
- * surplus); `previewFailed` is set when a registered one's preview gave nothing.
+ * surplus); `unavailable` is the status read's `can.withdrawUnavailable` (`registration_closed` shows the after-close
+ * hint, T991); `previewFailed` is set when a registered one's preview gave nothing.
  */
 final readonly class WithdrawOffer
 {
@@ -32,6 +33,7 @@ final readonly class WithdrawOffer
         public ?Money $paid = null,
         public ?Money $owedAfter = null,
         public bool $previewFailed = false,
+        public ?string $unavailable = null,
     ) {
     }
 }

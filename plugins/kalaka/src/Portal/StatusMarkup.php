@@ -69,6 +69,21 @@ final class StatusMarkup
     /** [UNAPPROVED T773] `kalaka_version_conflict`, in the registrant's wording (the lektor's alternative). */
     public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott. Nézd meg a mostani állapotát.';
 
+    /**
+     * [UNAPPROVED T992] `kalaka_withdraw_closed`: the registration closed between the confirmation page and the press.
+     * The lektor's wording may depend on whether the hint (T991) shows with it after the reload (it does).
+     */
+    public const WITHDRAW_CLOSED = 'A jelentkezés időközben lezárult, ezért a lemondás nem sikerült.';
+
+    /**
+     * [UNAPPROVED T991] Where the withdrawal button would be, once registration has closed
+     * (`can.withdrawUnavailable === 'registration_closed'`): plain text in the theme's paragraph style.
+     * Alternative, for the record only: „A jelentkezés lezárult, ezért ezt a jelentkezést már csak a szervezők
+     * tudják lemondani.”
+     */
+    public const WITHDRAW_AFTER_CLOSE = 'A jelentkezés lezárult, ezért ezt a jelentkezést itt már nem tudod lemondani.'
+        . ' Ha mégsem tudsz részt venni, jelezd a szervezőknek.';
+
     private const MINUS = "\u{2212}";
 
     /** The status block "Jelentkezésem állapota". */
@@ -204,7 +219,11 @@ final class StatusMarkup
         if ($offer->canWithdraw && $text === self::WITHDRAW_UNAVAILABLE) {
             $text = null;
         }
-        if (!$offer->canWithdraw && $text === null) {
+        // [UNAPPROVED N1026] T991: the hint stands where the button would be, after the registration has closed.
+        $hint = !$offer->canWithdraw && $offer->unavailable === 'registration_closed'
+            ? '<p class="kalaka-withdraw-closed">' . esc_html(self::WITHDRAW_AFTER_CLOSE) . '</p>'
+            : '';
+        if (!$offer->canWithdraw && $text === null && $hint === '') {
             return '';
         }
         $error = $text === null
@@ -216,7 +235,7 @@ final class StatusMarkup
         $open = '<div id="kalaka-withdraw" class="kalaka-withdraw" style="'
             . esc_attr('--kalaka-error-color: ' . $colour) . '">';
         if (!$offer->canWithdraw) {
-            return $open . $error . '</div>';
+            return $open . $hint . $error . '</div>';
         }
         // A refused post comes back to the error (N779: the fragment moves focus to it, so it is read out).
         $returnUrl = $offer->returnUrl;
@@ -282,6 +301,7 @@ final class StatusMarkup
             'kalaka_withdraw_stale' => self::WITHDRAW_STALE,
             'kalaka_withdraw_unavailable', 'kalaka_status_act_refused' => self::WITHDRAW_UNAVAILABLE,
             'kalaka_version_conflict' => self::WITHDRAW_VERSION_CONFLICT,
+            'kalaka_withdraw_closed' => self::WITHDRAW_CLOSED,
             default => (new SystemFailure())->publicMessage(),
         };
     }
