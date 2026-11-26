@@ -91,13 +91,13 @@ final class SignUpPage
         . 'setTimeout(function(){if(!window.closed){if(l){l.hidden=false;}if(b){b.hidden=false;}}},300);})();';
 
     /**
-     * The close button on the popup return page. [UNAPPROVED T892] A stand-in until UX's text is approved.
+     * The close button on the popup return page. A stand-in until UX's text is approved.
      */
     public const RETURN_CLOSE_BUTTON = 'Lap bezárása';
 
     /**
      * The line on the popup return page, shown when the window could not close itself.
-     * [UNAPPROVED T891] A stand-in until UX's text is approved.
+     * A stand-in until UX's text is approved.
      */
     public const RETURN_CLOSE_LINE = 'Bezárhatod ezt a lapot.';
 
