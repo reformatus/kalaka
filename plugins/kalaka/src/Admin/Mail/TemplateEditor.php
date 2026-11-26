@@ -98,6 +98,14 @@ final class TemplateEditor
 	} );
 }( window.wp, __DATA__ ) );
 JS;
+        // The sidebar's Állapot row takes its status words from a table the editor builds when its script loads
+        // (`postStatusesInfo`, `__( 'Published' )` evaluated once at load), so the words must be in place before
+        // `wp-editor` runs: core prints that script's translations, then this, then the script. [UNAPPROVED N1044]
+        wp_add_inline_script(
+            'wp-editor',
+            'wp.i18n.setLocaleData( ' . wp_json_encode(['Published' => [Texts::EDITOR_WORDS['Published']]]) . ", 'default' );",
+            'before'
+        );
         // Core prints each script's own translations just before it, so this runs after the editor's script.
         wp_add_inline_script('wp-edit-post', str_replace('__DATA__', (string) $data, $script), 'after');
     }
