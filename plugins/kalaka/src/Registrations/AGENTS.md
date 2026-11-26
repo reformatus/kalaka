@@ -143,10 +143,10 @@ the waitlist and reference codes
   - The admin grid asks the same question in SQL (`Requests::awaitingCondition()`, no statement of its own): the
     registration is `registered` and some source's `RequestSource::awaitingRule()` holds. The rule is data (an
     `AwaitingRule`: any-of groups of all-of `FieldTest`s: filled, empty, one of, none of, over the registration's
-    field values); core alone compiles it to SQL (no source writes SQL or gets database access) and evaluates it
-    with `matches()`, and it must mean exactly what the source's `requestsOf()` and `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
-    `registered` is false there, so a waitlisted registration shows none; `awaits()` stays the fact for the
-    panel and Portal.
+    field values); core alone compiles it to SQL (no source writes SQL or gets database access) and `awaits()`
+    evaluates the same rule in PHP with `matches()`, and it must mean exactly what the source's `requestsOf()` and `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
+    `registered` is false there, so a waitlisted registration shows none; `awaits()` (the rule in PHP, false only
+    for a withdrawn or removed registration) stays the fact for the panel and Portal.
   - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits
     until admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`);
     `awaits_answer` stays computed for it. A refusing offer answer frees the offer's seat and a "yes" after a
