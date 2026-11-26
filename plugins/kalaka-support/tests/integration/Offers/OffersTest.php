@@ -636,7 +636,7 @@ final class OffersTest extends OffersTestCase
         $key = $this->register('00A0', RegistrationStatus::Waitlisted);
         $this->writeValue($key, 'keret', '1');
 
-        // The panel reads no request; the rule (and so awaits()) does not test seats, and a waitlisted one awaits.
+        // The panel reads no request; the rule (and so awaits()) does not test seats, a waitlisted one awaits nothing.
         self::assertSame([], (new Requests())->states($key));
         self::assertSame([], $this->lineSources($key));
     }
