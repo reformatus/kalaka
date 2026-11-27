@@ -89,9 +89,11 @@ final class MailRenderer
         ?int $lineId = null,
     ): RenderedMail {
         $body = $this->posts->published($bodyId, $eventId);
+        // The typed `{{money_table}}` and `{{transfer_details}}` stand for their blocks (`MailBlocks::expand()`).
+        $content = MailBlocks::expand($body->content);
         try {
             $types = $this->values->types($eventId, $body->content);
-            $this->renderer->check($body->content, $types, $this->values->paths($eventId));
+            $this->renderer->check($content, $types, $this->values->paths($eventId));
         } catch (SystemFailure $e) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key, never output
             throw BodyUnusable::of($e);
@@ -104,7 +106,7 @@ final class MailRenderer
         );
         MailInProgress::push($registration);
         try {
-            $html = $this->renderer->render($body->content, $context);
+            $html = $this->renderer->render($content, $context);
         } finally {
             MailInProgress::pop();
         }

@@ -217,8 +217,7 @@ final class MailValues
         bool $passwordLink = false,
         array $pages = [],
         ?int $lineId = null
-    ): ValueContext
-    {
+    ): ValueContext {
         $record = $this->read($key);
         $link = $this->links->url($key, home_url('/'));
         if ($record === null || $link === null) {

@@ -104,7 +104,11 @@ activated.**
   A key that is not a participant field of the event stays an error. Actions and
   reminders add their own blocks (e.g. a payment table). The money table and the
   transfer block are such blocks: they render through the status page's read at
-  send time, so the mail and the page agree, in a look of their own. Besides
+  send time, so the mail and the page agree, in a look of their own. The same two
+  can be typed by hand: a paragraph or an HTML block that holds only
+  `{{money_table}}` or `{{transfer_details}}` is the money table or the transfer
+  block. They are not values: typed anywhere else in a body they are unknown
+  placeholders. Besides
   `registration.link`, a body may place a **page link** `page_<ID>.link`: the
   registrant's own secret link to that published page, declared only while the
   page is published.
