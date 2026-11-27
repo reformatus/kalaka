@@ -56,7 +56,7 @@ final class Texts
     /**
      * The event's „Levelek” page, rebuilt in PHP without tabs (owner 2026-11-27, walkthrough 8; section 8 of the build
      * list). The words it keeps are approved and reused as they are: „Tárgy”, „Állapot”, „Módosítva”, „Szerkesztés”,
-     * „Elérhető”, „Vázlat”, „Levélkeret”, „A levélkeret HTML-je”, „Mentés”, „Mégse”, „Bezárás”, „Csoportos levelek”,
+     * „Elérhető”, „Vázlat”, „Levélkeret”, „A levélkeret HTML-je”, „Mentés”, „Mégsem”, „Bezárás”, „Csoportos levelek”,
      * „Küldésre vár”, „Elküldve”, „Sikertelen”, „Jelentkező”, „Levél”, „Kihagyva”, „Sorszám”, „Sorba állítva”,
      * „%d. csoportos levél részletei” and the held sentence (the site page's and the old tabs'). Every new word is
      * boxed below.
@@ -108,7 +108,7 @@ final class Texts
     public const NO = 'Nem';
     public const NONE = '–';
     public const SAVE = 'Mentés';
-    public const CANCEL = 'Mégse';
+    public const CANCEL = 'Mégsem';
     public const CLOSE = 'Bezárás';
     public const PUBLISHED = 'Elérhető';
     public const DRAFT = 'Vázlat';
@@ -120,7 +120,7 @@ final class Texts
     public const SENT = 'Elküldve';
     public const FAILED = 'Sikertelen';
     public const STUCK = 'Küldés közben elakadt';
-    public const WITH_ERROR = 'A küldésre várók közül hiba után vár';
+    public const WITH_ERROR = 'Újrapróbálásra vár';
     public const TROUBLED_TITLE = 'Küldési hibák';
     public const TROUBLED_CODE = 'Jelentkező';
     public const TROUBLED_MAIL = 'Levél';
@@ -134,7 +134,7 @@ final class Texts
     public const BATCH_OPEN = '%d. csoportos levél részletei';
     public const BATCH_MANUAL = '%d. csoportos levél';
     public const BATCH_DETAILS_LABEL = 'Részletek';
-    public const NUMBERED = '%1$s (%2$d. számú levélsablon)';
+    public const NUMBERED = '%1$s (%2$d. levélsablon)';
     public const LAYOUT_LINK = 'Levélkeret';
     public const LAYOUT_TITLE = 'Levélkeret';
     public const LAYOUT_FIELD = 'A levélkeret HTML-je';
