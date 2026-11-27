@@ -15,7 +15,7 @@ use Kalaka\Registrations\Api\SeatClaimSource;
  * not (every chooser holds a seat row, so a limit added later counts correctly). It locks nothing, counts nothing
  * and writes nothing: the submit locks the pool (a full tier refuses the submit, with the message on that field)
  * and takes the seat when the registration becomes `registered`. Its pools are every tier's, for the form host's
- * `seats_left` variable. [UNAPPROVED N1]
+ * `seats_left` variable.
  */
 final class TierClaims implements SeatClaimSource
 {
