@@ -21,7 +21,7 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
 /**
  * Owner topic 15, Q7: "payment recorded" is queued by the recording act for money in and money out (manual and
- * online, a payment or a refund), keyed by the line; never for a correction, a „Díj” or a „Kedvezmény”; per event on
+ * online, a payment or a refund), keyed by the line; never for a correction or a „Díj” or „Kedvezmény” itself (its ticked paid entry is a payment like any other, N11); per event on
  * or off.
  */
 final class PaymentRecordedMailTest extends ManualEntryTestCase
@@ -200,7 +200,7 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
         self::assertSame([], $this->queued());
     }
 
-    public function testAManualChargeOrDiscountQueuesNoneEvenWhenItsPaymentIsTicked(): void
+    public function testAManualChargeQueuesNoneButItsTickedPaidEntryMailsLikeAnyPayment(): void
     {
         $this->switchMail(true);
         $fee = [
@@ -209,11 +209,21 @@ final class PaymentRecordedMailTest extends ManualEntryTestCase
         ];
         $tick = ['completed' => true, 'method' => 'cash', 'value_date' => '2026-11-29'];
 
+        // Not ticked: the charge is a fact and its charge line, no payment to announce.
         $this->exec(new RecordCharge(), $fee);
-        $this->exec(new RecordCharge(), $tick + ['idempotency_key' => 'f2'] + $fee);
-        $this->exec(new RecordDiscount(), $tick + ['idempotency_key' => 'f3'] + $fee);
-
         self::assertSame([], $this->queued());
+
+        // Ticked „Azonnal befizetve”: a full payment, one mail keyed by the paid line; a discount's refund likewise.
+        $charge = $this->exec(new RecordCharge(), $tick + ['idempotency_key' => 'f2'] + $fee);
+        $discount = $this->exec(new RecordDiscount(), $tick + ['idempotency_key' => 'f3'] + $fee);
+        $rows = $this->queued();
+        self::assertCount(2, $rows);
+        self::assertSame((string) $charge['line'], $rows[0]['cause_key']);
+        self::assertSame((string) $discount['line'], $rows[1]['cause_key']);
+
+        // A replay queues nothing more.
+        $this->exec(new RecordCharge(), $tick + ['idempotency_key' => 'f2'] + $fee);
+        self::assertCount(2, $this->queued());
     }
 
     public function testAnEventWithTheMailOffQueuesNone(): void
