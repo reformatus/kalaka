@@ -85,8 +85,8 @@ SQL;
     public function boot(): void
     {
         // The labels and descriptions of the abilities. [UNAPPROVED T4]
-        // [UNAPPROVED T982] replaces ticked T2: the description without the reason.
-        // [UNAPPROVED T983] replaces ticked T4: the description without the reason.
+        // replaces ticked T2: the description without the reason.
+        // replaces ticked T4: the description without the reason.
         Abilities::register(
             new SetManualConfirmation(),
             'Visszaigazolás befizetés nélkül',
