@@ -27,14 +27,20 @@ use Kalaka\Pricing\Api\LineNames;
 use Kalaka\Pricing\Api\Confirmations;
 use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\ManualConfirmations;
+use Kalaka\Registrations\Api\NoOfferSeats;
+use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\Requests;
 
 /**
  * The admin detail read of one registration (the data of `GET kalaka-admin/v1/events/{event}/registrations/{code}`).
  * Everything in it goes through views and grants: the registration data is read through `ViewQuery` for the
  * views that hold the registration (`Access::holding()`), or full access, so it shows only what their columns
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
- * The manual confirmation flag shows behind the same gate as the money. [UNAPPROVED Access] [UNAPPROVED N11]
+ * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
+ * answered) show only to a holder of the answer action of a grant whose view holds the registration.
+ * [UNAPPROVED Access] [UNAPPROVED N11] [UNAPPROVED N6]
  */
 final class RegistrationDetail
 {
@@ -50,6 +56,8 @@ final class RegistrationDetail
         private readonly ManualConfirmations $manualConfirmations = new ManualConfirmations(),
         private readonly ActionMails $actionMails = new ActionMails(),
         private readonly Confirmations $confirmations = new Confirmations(),
+        private readonly Requests $requests = new Requests(),
+        private readonly OfferSeats $seats = new NoOfferSeats(),
     ) {
     }
 
@@ -127,7 +135,12 @@ final class RegistrationDetail
             $read['registration']['manual_confirmation'] = $this->manualConfirmationPart($key);
             $read['money'] = $this->moneyPart($key, $event->currency->value);
         }
+        $answer = $carried(Requests::ANSWER);
+        if ($answer) {
+            $read['requests'] = $this->requestsPart($key, $event->currency->value);
+        }
         $read['can'] = [
+            'answer_request' => $answer,
             'view_money' => $viewMoney,
             'record_money' => $record,
             // A manual charge or discount is offered only while the registration is registered ([UNAPPROVED]).
@@ -212,6 +225,36 @@ final class RegistrationDetail
         }
 
         return $part;
+    }
+
+    /**
+     * The registration's requests with their latest answers, for the answer act's block: `state` is `awaiting`
+     * while the source's answer field holds none (the field is the truth), else the act's record says
+     * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
+     * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
+     * "yes" that would go over the limit (B1). No hold is read: awaiting is computed.
+     *
+     * @return array{currency: string, items: list<array<string, mixed>>}
+     */
+    private function requestsPart(RegistrationKey $key, string $currency): array
+    {
+        $items = [];
+        foreach ($this->requests->states($key) as $state) {
+            $answer = $state->answer;
+            $pool = $state->request->kind === RequestKind::Offer ? $state->source->seatPool($state->request) : null;
+            $items[] = [
+                'id' => $state->request->id,
+                'kind' => $state->request->kind->value,
+                'label' => $state->request->label,
+                'state' => $state->awaits() ? 'awaiting' : ($answer?->approved === true ? 'approved' : 'refused'),
+                'amount' => $answer?->amount?->amount(),
+                'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
+                'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
+                    && $pool !== null && $this->seats->isFull($key, $pool),
+            ];
+        }
+
+        return ['currency' => $currency, 'items' => $items];
     }
 
     /**

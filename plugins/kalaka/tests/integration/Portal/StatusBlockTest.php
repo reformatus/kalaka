@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Portal;
 
-use Kalaka\Ledger\Api\ChargeLine;
 use Kalaka\Events\Api\Phase;
 use Kalaka\Portal\Api\StatusRead;
-use Kalaka\Portal\LineLabels;
 use Kalaka\Pricing\Api\ConfirmationRule;
+use Kalaka\Portal\StatusMarkup;
+use Kalaka\Registrations\Api\Registrations;
+use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Tests\Integration\Registrations\TestRequestSource;
 
 /** The status block and the transfer block over every state of the frozen spec (2026-11-13). */
 final class StatusBlockTest extends PortalTestCase
 {
-    private const NOTE = 'A befizetéseket kézzel rögzítjük, ezért néhány napba is telhet, mire itt megjelennek.';
+    private const NOTE = 'Az átutalásokat kézzel rögzítjük, ezért néhány napba is telhet, mire itt megjelennek.';
 
     public function testWithoutAnActiveRegistrationTheBlockAsksForTheMailedLinkAndTheTransferBlockIsEmpty(): void
     {
@@ -56,18 +59,26 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('wp-block-group', $html);
         self::assertStringContainsString(
-            '<tr class="kalaka-rule kalaka-due"><th scope="row">Még fizetendő</th><td class="kalaka-sign"></td>'
-            . "<td class=\"kalaka-amount\"><strong>31\u{00A0}000\u{00A0}Ft</strong></td></tr>",
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
+            . '<td class="kalaka-sign"></td>'
+            . "<td class=\"kalaka-amount\"><strong>31\u{00A0}000\u{00A0}Ft</strong></td>"
+            . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
             $html
         );
         // Registered 2026-11-30 in Budapest + 7 days.
         self::assertStringContainsString('<p class="kalaka-deadline">Fizetési határidő: 2026. december 7.</p>', $html);
         self::assertSame(
-            'Jelentkezésem állapota Azonosító: 12A3 Fizetésre vár. Pénzügyek Fizetendő összesen 51 000 Ft'
-            . ' Befizetve 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. ' . self::NOTE,
+            'Jelentkezésem állapota Azonosító: 12A3 Fizetésre vár. Pénzügyek Részvételi díj + 51 000 Ft'
+            . ' Fizetendő összesen 51 000 Ft Befizetés + 20 000 Ft 2026. 11. 29. ⓘBefizetés · 2026. 11. 29.'
+            . ' Befizetve összesen 20 000 Ft Még fizetendő 31 000 Ft Fizetési határidő: 2026. december 7. '
+            . self::NOTE,
             self::text($html)
         );
-        self::assertSame(1, substr_count($html, '<strong>') - 1, 'only the state word and the amount are bold');
+        // The state word, and the last row's label and amount: the bold is in the markup, not in the CSS.
+        self::assertSame(2, substr_count($html, '<strong>') - 1, 'only the state word and the last row are bold');
+        self::assertStringContainsString('<th scope="row" colspan="2"><em>Fizetendő összesen</em></th>', $html);
+        self::assertStringContainsString('<th scope="row" colspan="2"><em>Befizetve összesen</em></th>', $html);
+        self::assertStringContainsString('<td class="kalaka-date"><em>2026. 11. 29.</em></td>', $html);
 
         self::assertSame(
             '<section class="kalaka-transfer"><p>Az átutaláshoz ezeket az adatokat add meg:</p>'
@@ -140,14 +151,14 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString('<strong>Fizetésre vár.</strong>', $this->statusBlock());
     }
 
-    public function testHeldShowsThePinkNoticeThePlainAmountNoDeadlineAndNoTransfer(): void
+    public function testAwaitingAnAnswerShowsThePinkNoticeTheBoldAmountNoDeadlineAndNoTransfer(): void
     {
         $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
         $this->charge($key, '48000');
-        $this->decide($key, StatusRead::PAYMENT_HOLD, 'held');
+        $read = $this->askingForAnAnswer($key);
         $this->activate($key);
 
-        $html = $this->statusBlock();
+        $html = $this->statusBlock($read);
         self::assertStringContainsString(
             'has-pale-pink-background-color has-text-color has-black-color"><p><strong>Elbírálás alatt.</strong>'
             . ' Kérjük, ne fizess, amíg e-mailben meg nem írjuk a végleges összeget.</p></div>',
@@ -155,16 +166,111 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('Lejárt', $html);
         self::assertStringContainsString(
-            '<tr class="kalaka-rule"><th scope="row">Még fizetendő</th><td class="kalaka-sign"></td>'
-            . "<td class=\"kalaka-amount\">48\u{00A0}000\u{00A0}Ft</td></tr>",
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
+            . '<td class="kalaka-sign"></td>'
+            . "<td class=\"kalaka-amount\"><strong>48\u{00A0}000\u{00A0}Ft</strong></td>"
+            . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
             $html
         );
         self::assertStringNotContainsString('Fizetési határidő', $html);
         self::assertStringContainsString(self::NOTE, $html);
-        self::assertSame('', $this->transferBlock());
+        self::assertSame('', StatusMarkup::transfer($read->forActive(), false));
+        self::assertNull($read->forActive()?->payment?->paymentDue);
+        self::assertTrue($read->forActive()?->payment?->awaitsAnswer);
     }
 
-    public function testConfirmedShowsTheGreenBoxAZeroAmountThatIsNotBoldAndNoTransfer(): void
+    public function testOnceAnsweredTheNoticeGoesAndTheDeadlineAndTheTransferBlockComeBack(): void
+    {
+        $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        $html = $this->statusBlock($read);
+        self::assertStringNotContainsString('Elbírálás alatt', $html);
+        self::assertStringContainsString('Fizetési határidő', $html);
+        self::assertStringContainsString('Fizetésre vár.', $html);
+        self::assertNotSame('', StatusMarkup::transfer($read->forActive(), false));
+        self::assertFalse($read->forActive()?->payment?->awaitsAnswer);
+    }
+
+    public function testAConfirmedRegistrationStillAwaitingAnAnswerShowsTheNoticeNotTheGreenBox(): void
+    {
+        // Pins the order as built (M10, a box for the owner): awaiting an answer comes before confirmed.
+        $key = $this->stored('12A3', at: '2026-11-30 10:00:00');
+        $this->charge($key, '48000');
+        $this->pay($key, '48000');
+        $this->decide($key, ConfirmationRule::KIND, 'confirmed');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+
+        $html = $this->statusBlock($read);
+        self::assertStringContainsString('<strong>Elbírálás alatt.</strong>', $html);
+        self::assertStringNotContainsString('Visszaigazolva', $html);
+    }
+
+    public function testAnAnswerLaterThanTheRegistrationRestartsTheDueClock(): void
+    {
+        // Registered 2026-11-20: due 2026-11-27 (23:00 UTC). Answered 2026-11-30 12:00 UTC: due 2026-12-07.
+        $key = $this->stored('12A3', at: '2026-11-20 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        self::assertSame('2026-12-07 23:00:00', $read->forActive()?->payment?->paymentDue?->format('Y-m-d H:i:s'));
+        self::assertStringContainsString('Fizetési határidő: 2026. december 7.', $this->statusBlock($read));
+    }
+
+    public function testAnAnswerEarlierThanTheRegistrationLeavesTheDueClockOnTheRegisteredTime(): void
+    {
+        $key = $this->stored('12A3', at: '2026-12-01 10:00:00');
+        $this->charge($key, '48000');
+        $read = $this->askingForAnAnswer($key);
+        $this->activate($key);
+        $this->answered($key, TestRequestSource::OFFER);
+
+        self::assertSame('2026-12-08 23:00:00', $read->forActive()?->payment?->paymentDue?->format('Y-m-d H:i:s'));
+    }
+
+    /** A request on the registration (a test source), and the read that sees it. */
+    private function askingForAnAnswer(RegistrationKey $key): StatusRead
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => 'support',
+            'version' => 1,
+            'value' => 'church',
+        ]);
+
+        return new StatusRead(registrations: new Registrations(requests: new Requests([new TestRequestSource()])));
+    }
+
+    /** An answering act's record, written behind the use case. */
+    private function answered(RegistrationKey $key, string $request): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_answers', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'request' => $request,
+            'approved' => 1,
+            'answered_at' => '2026-11-30 12:00:00.000000',
+        ]);
+        // The source's answer field is the truth: the act writes it beside the record.
+        $wpdb->replace($wpdb->prefix . 'kalaka_field_values', [
+            'event_id' => $key->eventId,
+            'code' => $key->code,
+            'field_key' => $request === TestRequestSource::AID ? 'aid_award' : 'support_answer',
+            'version' => 1,
+            'value' => $request === TestRequestSource::AID ? '9000' : 'approved',
+        ]);
+    }
+
+    public function testConfirmedShowsTheGreenBoxABoldZeroAmountAndNoTransfer(): void
     {
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
@@ -179,8 +285,10 @@ final class StatusBlockTest extends PortalTestCase
             $html
         );
         self::assertStringContainsString(
-            '<tr class="kalaka-rule"><th scope="row">Még fizetendő</th><td class="kalaka-sign"></td>'
-            . "<td class=\"kalaka-amount\">0\u{00A0}Ft</td></tr>",
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Még fizetendő</strong></th>'
+            . '<td class="kalaka-sign"></td>'
+            . "<td class=\"kalaka-amount\"><strong>0\u{00A0}Ft</strong></td>"
+            . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
             $html
         );
         self::assertStringNotContainsString('Fizetési határidő', $html);
@@ -199,13 +307,17 @@ final class StatusBlockTest extends PortalTestCase
         $html = $this->statusBlock();
         self::assertStringContainsString('<strong>Visszaigazolva.</strong></p></div>', $html);
         self::assertStringContainsString(
-            '<tr class="kalaka-rule"><th scope="row">Túlfizetés</th><td class="kalaka-sign"></td>'
-            . "<td class=\"kalaka-amount\">2\u{00A0}000\u{00A0}Ft</td></tr>",
+            '<tr class="kalaka-rule kalaka-due"><th scope="row" colspan="2"><strong>Túlfizetés</strong></th>'
+            . '<td class="kalaka-sign"></td>'
+            . "<td class=\"kalaka-amount\"><strong>2\u{00A0}000\u{00A0}Ft</strong></td>"
+            . '<td class="kalaka-date"></td><td class="kalaka-info"></td></tr>',
             $html
         );
         self::assertStringNotContainsString('Még fizetendő', $html);
         self::assertStringNotContainsString("\u{2212}", $html);
-        self::assertStringNotContainsString('-2', $html);
+        // The amount text only: a bare '-2' also matches element ids such as kalaka-info-20 in a full run.
+        self::assertStringNotContainsString("-2\u{00A0}000", $html);
+        self::assertStringNotContainsString('-2 000', $html);
         self::assertStringNotContainsString('SQ-8', $html);
         self::assertSame('', $this->transferBlock());
     }
@@ -242,25 +354,36 @@ final class StatusBlockTest extends PortalTestCase
         self::assertSame('', $this->transferBlock());
     }
 
-    public function testWithdrawnAndRemovedShowOneSentenceAndNoMoney(): void
+    public function testWithdrawnAndRemovedAlwaysShowTheMoneyTableWithoutDeadlineStateOrTransfer(): void
     {
         $withdrawn = $this->stored('12A3', RegistrationStatus::Withdrawn);
         $removed = $this->stored('00A0', RegistrationStatus::Removed);
         $this->charge($withdrawn, '48000');
+        $this->charge($removed, '48000');
 
         $this->activate($withdrawn);
-        self::assertStringEndsWith(
-            '<p><strong>Lemondtad ezt a jelentkezést.</strong></p></section>',
-            $this->statusBlock()
+        $html = $this->statusBlock();
+        self::assertStringContainsString(
+            '<p><strong>Lemondtad ezt a jelentkezést.</strong></p><h3>Pénzügyek</h3>',
+            $html
         );
-        self::assertStringNotContainsString('Pénzügyek', $this->statusBlock());
+        self::assertStringContainsString('<table class="kalaka-money">', $html);
+        self::assertStringContainsString(
+            "<td class=\"kalaka-amount\"><strong>48\u{00A0}000\u{00A0}Ft</strong></td>",
+            $html
+        );
+        self::assertStringEndsWith(self::NOTE . '</p></section>', $html);
+        self::assertStringNotContainsString('Fizetési határidő', $html);
+        self::assertStringNotContainsString('Fizetésre vár', $html);
         self::assertSame('', $this->transferBlock());
 
         $this->activate($removed);
-        self::assertStringEndsWith(
-            '<p><strong>A szervezők törölték ezt a jelentkezést.</strong></p></section>',
-            $this->statusBlock()
+        $html = $this->statusBlock();
+        self::assertStringContainsString(
+            '<p><strong>A szervezők törölték ezt a jelentkezést.</strong></p><h3>Pénzügyek</h3>',
+            $html
         );
+        self::assertStringContainsString('<table class="kalaka-money">', $html);
         self::assertSame('', $this->transferBlock());
     }
 
@@ -313,7 +436,7 @@ final class StatusBlockTest extends PortalTestCase
         self::assertStringContainsString("<td>38\u{00A0}000\u{00A0}Ft</td>", $this->transferBlock());
     }
 
-    public function testWithoutLabelsTheTableShowsTheTotalsOnlyAndWithLabelsOneRowPerLine(): void
+    public function testTheOwedLinesAreTheTablesRowsAndTheirSignsAreInTheirAmounts(): void
     {
         $key = $this->stored('12A3');
         $this->charge($key, '48000');
@@ -321,21 +444,12 @@ final class StatusBlockTest extends PortalTestCase
         $this->charge($key, '3000');
         $this->activate($key);
 
-        self::assertStringContainsString(
-            '<table class="kalaka-money"><tbody><tr><th scope="row">Fizetendő összesen</th>',
-            $this->statusBlock()
-        );
-
-        $labels = new class extends LineLabels {
-            public function labelOf(ChargeLine $line): ?string
-            {
-                return 'Tétel ' . $line->id;
-            }
-        };
-        $html = $this->statusBlock(new StatusRead(labels: $labels));
-        preg_match_all('/<tr[^>]*><th scope="row">([^<]*)<\/th><td class="kalaka-sign">([^<]*)<\/td>/u', $html, $rows);
-        self::assertSame(['', "\u{2212}", '+', '', '', ''], $rows[2]);
-        self::assertSame(['Fizetendő összesen', 'Befizetve', 'Még fizetendő'], array_slice($rows[1], 3));
-        self::assertStringContainsString("<td class=\"kalaka-amount\">10\u{00A0}000\u{00A0}Ft</td>", $html);
+        $html = $this->statusBlock();
+        $pattern = '/<tr[^>]*><th scope="row"[^>]*>(?:<(?:em|strong)>)?([^<]*)(?:<\/(?:em|strong)>)?<\/th>'
+            . '<td class="kalaka-sign">([^<]*)<\/td>/u';
+        preg_match_all($pattern, $html, $rows);
+        self::assertSame(['Részvételi díj', 'Fizetendő összesen', 'Befizetve összesen', 'Még fizetendő'], $rows[1]);
+        self::assertSame(['+', '', '', ''], $rows[2]);
+        self::assertSame(1, substr_count($html, 'Részvételi díj'));
     }
 }

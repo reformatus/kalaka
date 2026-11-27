@@ -37,8 +37,9 @@ corrections
   Payment facts are the lines of the paid side: kinds `payment`, `refund`,
   `manual_payment` and `manual_refund`; `charge` lines are owed, not payment
   facts. Rules never read charge lines: the Ledger `Api` gives them
-  payment facts, read from payment lines only. `Ledger::summaryOf()` reads
-  every line for display (the participant blocks); no rule calls it.
+  payment facts, read from payment lines only. `Ledger::summaryOf()` (every line)
+  and `Ledger::statementOf()` (one payer's lines with their notes) are display
+  reads; no rule calls either.
   `chargeTotalsOf()` is the materializer's read of its own lines, and only
   `Pricing\Api\Materializer` calls it (a test checks this).
 - A payment-fact line carries exactly one time, a UTC instant: `paid_at` on
@@ -59,6 +60,10 @@ corrections
   and marked as completed it writes the fact and the paid entry in one run
   under one audit row; the paid entry is never a correction and nothing links
   the two.
+- Recording a manual payment or refund decides the "payment recorded" mail in the
+  same run (`Mail\Api\ActionMails::lineRecorded()`); a correction, a replay, a
+  line of a payer other than the participant and every other use case decide
+  none.
 - One grant action, `kalaka_record_money`, carries every manual money use
   case: payment, refund, correction, charge and discount.
 - `record()` refuses unless the run holds the registration's lock

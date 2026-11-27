@@ -26,13 +26,15 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * transfer details, composed from the module Apis (one statement each) and the clock. It writes nothing
  * and never evaluates.
  *
- * Whether the registration is confirmed comes from Pricing's `Confirmations`; the decision kind read by name,
- * before the slice that writes it, is `payment_hold` (S32) with the state `held`.
+ * `money` is read for every status, the registration's own money table beside the totals of `payment`.
+ *
+ * Whether the registration is confirmed comes from Pricing's `Confirmations`. Whether a request awaits an answer
+ * is computed (`RegistrationFacts::awaitsAnswer`), never read from a stored flag: it replaces the old payment
+ * hold. [UNAPPROVED N12]
  */
 final class StatusRead
 {
-    /** A pending decision holds payment (money.md, "Core money scope"). */
-    public const PAYMENT_HOLD = 'payment_hold';
+    private readonly MoneyRead $money;
 
     public function __construct(
         private readonly Registrations $registrations = new Registrations(),
@@ -40,7 +42,9 @@ final class StatusRead
         private readonly Decisions $decisions = new Decisions(),
         private readonly Ledger $ledger = new Ledger(),
         private readonly LineLabels $labels = new LineLabels(),
+        ?MoneyRead $money = null,
     ) {
+        $this->money = $money ?? new MoneyRead(labels: $labels);
     }
 
     /** The active registration's view, or null when there is none (or it no longer exists). */
@@ -76,8 +80,9 @@ final class StatusRead
                 $confirmed,
                 $decisions[ConfirmationRule::KIND]->effectiveAt ?? null
             );
-            $held = isset($decisions[self::PAYMENT_HOLD]) && $decisions[self::PAYMENT_HOLD]->state === 'held';
-            $payment = $this->payment($registration, $event, $confirmed, $held, $now);
+            $facts = $this->registrations->factsOf($key, $event);
+            $awaits = $facts !== null && $facts->awaitsAnswer;
+            $payment = $this->payment($registration, $event, $confirmed, $awaits, $now, $facts?->paymentDue());
             $transfer = $this->transfer($key, $event, $availability, $payment);
         }
 
@@ -90,6 +95,7 @@ final class StatusRead
             $confirmation,
             $payment,
             $transfer,
+            $this->money->of($key, $event->currency),
         );
     }
 
@@ -107,8 +113,9 @@ final class StatusRead
         RegistrationRead $registration,
         Event $event,
         bool $confirmed,
-        bool $held,
+        bool $awaits,
         \DateTimeImmutable $now,
+        ?\DateTimeImmutable $due,
     ): PaymentView {
         $summary = $this->ledger->summaryOf($registration->key);
         $participant = self::amounts($summary->of(Payer::PARTICIPANT, $event->currency));
@@ -119,27 +126,14 @@ final class StatusRead
             }
         }
 
-        // SB-13: itemised only when every line has a label; otherwise the totals alone.
-        $lines = [];
-        foreach ($summary->chargeLinesOf(Payer::PARTICIPANT) as $line) {
-            $label = $this->labels->labelOf($line);
-            if ($label === null) {
-                $lines = [];
-                break;
-            }
-            $lines[] = new PaymentLine($label, $line->amount->isNegative() ? -1 : 1, $line->amount->isNegative()
-                ? $line->amount->negated() : $line->amount);
-        }
-
-        $due = $held ? null : $event->paymentDue($registration->registeredAt);
         // Overdue only while something is still payable, the same rule as the deadline line (SB-3).
         $owes = $participant->balance->roundedUpToPayableUnit()->isPositive();
-        $overdue = $owes && !$confirmed && !$held && $due !== null && $now >= $due;
+        $overdue = $owes && !$confirmed && !$awaits && $due !== null && $now >= $due;
 
-        return new PaymentView($participant, $lines, $others, $held, $due, $overdue);
+        return new PaymentView($participant, $others, $awaits, $due, $overdue);
     }
 
-    /** SB-4: registered, the event open, not held, a balance above zero after rounding, and bank details set. */
+    /** SB-4: registered, the event open, not awaiting an answer, a balance above zero after rounding, and bank details set. */
     private function transfer(
         RegistrationKey $key,
         Event $event,
@@ -150,7 +144,7 @@ final class StatusRead
         $beneficiary = trim((string) $event->transferBeneficiary);
         $account = trim((string) $event->transferAccount);
         if (
-            $availability !== Availability::Open || $payment->held || !$amount->isPositive()
+            $availability !== Availability::Open || $payment->awaitsAnswer || !$amount->isPositive()
             || $beneficiary === '' || $account === ''
         ) {
             return null;

@@ -28,7 +28,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertSame($event, $settings['event_id']);
         self::assertSame('{{content}}', $settings['layout_html']);
         self::assertSame(
-            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'link_regenerated'],
+            ['registered', 'waitlisted', 'payment_recorded', 'confirmed', 'answered', 'link_regenerated'],
             array_column($settings['mails'], 'mail')
         );
         self::assertSame('Jelentkezés rögzítve', $settings['mails'][0]['label']);

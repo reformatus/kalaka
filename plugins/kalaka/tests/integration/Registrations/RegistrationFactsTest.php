@@ -30,6 +30,7 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame('00A0', $facts->get(RegistrationFacts::CODE)->data);
         self::assertSame(['waitlisted'], $facts->get(RegistrationFacts::STATUS)->data);
+        self::assertSame('várólistás', $facts->get(RegistrationFacts::STATUS)->text);
         self::assertSame('Teszt tábor', $facts->get(EventValues::NAME)->data);
         self::assertNull($facts->registeredAt);
         self::assertNull((new Registrations())->factsOf(new RegistrationKey($event->id, '00A2'), $event));

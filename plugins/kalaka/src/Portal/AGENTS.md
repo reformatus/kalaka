@@ -31,18 +31,30 @@ page, and the account area
 - Showing a registration writes nothing and evaluates nothing: `StatusRead`
   reads the module Apis and the clock only.
 - The participant blocks show only the participant payer's side: totals,
-  lines and the transfer amount. A balance below zero shows as an overpayment,
-  never as a negative amount to pay. Only the amount still due is bold, and
-  only while it is payable now (above zero, not held).
+  owed lines, money movements with their notes, and the transfer amount; the
+  money table is read for every status. A balance below zero shows as an
+  overpayment, never as a negative amount to pay. Only the last row is bold:
+  „Még fizetendő”, or „Túlfizetés” when overpaid, whether or not anything is payable now.
+- The money table is built from `ParticipantMoney` alone (`StatusMarkup`; the mail look is `MailMarkup`, reached
+  through `Api\MailMoney`), with the owner's words in `MoneyWords`; the owed lines are the read's, signed, the base
+  price included. The page's popovers are native (`popover`, `popovertarget`), with an ID of their own per table
+  on a page. Whether a money table shows is one rule, `RegistrationStatusView::showsMoney()`, read by the page
+  and by the mail's money block: none for a waitlisted registration.
 - The transfer block renders nothing unless the registration is `registered`,
-  its event is published, payment is not held, the participant's balance is
+  its event is published, no request awaits an answer, the participant's balance is
   above zero after rounding up to the payable unit, and the event's bank
   details are set.
 - Payment due and overdue are computed on every read, never stored. Payment
-  due is Events' date type (`Events\Api\Event::paymentDue()`); Portal passes
-  it `registered_at`, the time the registration last became `registered`.
+  due is Events' date type (`Events\Api\Event::paymentDue()`), read through the
+  registration's fact source (`RegistrationFacts::paymentDue()`), which holds
+  `registered_at`, the time the registration last became `registered`, the
+  last changed answer (`Requests::lastAnsweredAt()`, not a note alone; the
+  later of the two counts) and whether a request awaits an answer (then there
+  is no due date). Portal assembles none of these itself.
 - The blocks have no look of their own: core preset classes and `portal.css`,
-  which is structural only; the texts read correctly without either. Every
-  text is the frozen spec's or approved.
+  which is structural only (the money table's emphasis is `em` and `strong` in
+  its markup; a theme's row lines and colours are the theme adapter's); the
+  texts read correctly without either. Every text is the frozen spec's or
+  approved.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.

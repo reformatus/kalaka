@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Kalaka\Registrations;
 
+use Kalaka\Admin\Api\Abilities;
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Registrations\Cli\RegistrationSeeder;
 use Kalaka\Foundation\Api\Module\Schema;
+use Kalaka\Registrations\Api\Requests;
+use Kalaka\Registrations\Cli\RegistrationSeeder;
 
 final class Module extends AbstractModule
 {
@@ -71,6 +73,29 @@ CREATE TABLE {prefix}kalaka_submissions (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * money.md, "Sponsor and church support" and foundation.md, "Facts": the answers to requests, a fact, one
+     * row per answering act (never an upsert: each act has its own id, the key the "answered" mail takes, and its
+     * own time). `request` is the request's id (`aid`, `offer:<key>`); the latest row per request is the current
+     * answer. `amount` and `currency` are set for aid, `note` is free text. [UNAPPROVED N1]
+     */
+    private const ANSWERS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_answers (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  request varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  approved tinyint(1) unsigned NOT NULL,
+  amount decimal(26,8) DEFAULT NULL,
+  currency char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin DEFAULT NULL,
+  note varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
+  answered_at datetime(6) NOT NULL,
+  answered_by bigint(20) unsigned DEFAULT NULL,
+  PRIMARY KEY  (id),
+  KEY event_registration (event_id,code,request,id)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'registrations';
@@ -83,7 +108,8 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
+        // 6, not 5: slice A (#229) takes 5 for its seats. Renumber to the next free version when the stacks meet.
+        return new Schema(6, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::ANSWERS]);
     }
 
     /**
@@ -96,6 +122,7 @@ SQL;
             'kalaka_remove_registration',
             'kalaka_admit_registration',
             'kalaka_regenerate_link',
+            Requests::ANSWER,
         ];
     }
 
@@ -109,5 +136,12 @@ SQL;
     {
         // S15: WordPress's own registration page as Kaláka's sign-up.
         (new Account\SignUpPage())->register();
+
+        // The answer act's label and description are placeholders until the owner's words. [UNAPPROVED T1, T2]
+        Abilities::register(
+            new Answer\AnswerRequest(),
+            'Kérelem megválaszolása',
+            'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
+        );
     }
 }

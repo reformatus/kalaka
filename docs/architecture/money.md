@@ -8,13 +8,15 @@ title: Money
 
 - **Core:** a fixed price per registration, full payment and manual charges
   and discounts, with its **payment due** date type. Core ships no money field types.
-- **Payment due** is N days after the registration last became `registered`
-  (at submit, admission or restore); N is configured per event (IVK: 7
-  days). A registration admitted from the waitlist counts from its
-  admission, and a restore restarts the clock. There are no absolute payment
-  deadlines. **Passing payment due never cancels a registration:** an
-  unconfirmed registration stays `registered` until someone withdraws or
-  removes it ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
+- **Payment due** is N days after the later of the moment the registration
+  last became `registered` (at submit, admission or restore) and its last
+  answer to a request, a changed yes or no or amount (a note added alone does
+  not move it); N is configured per event (IVK: 7 days). While a request
+  awaits an answer it has no due date. A registration admitted from the
+  waitlist counts from its admission, and a restore restarts the clock. There
+  are no absolute payment deadlines. **Passing payment due never cancels a
+  registration:** an unconfirmed registration stays `registered` until
+  someone withdraws or removes it ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
 - **Plugins:** deposits, payment tiers (the price ladder, with its tier
   quotas), late fees, financial aid, sponsor or church support, the
   congregation share and the wallet. Core keeps full support for extending it
@@ -27,8 +29,10 @@ title: Money
      participant's own part. Every request with a positive amount waits for a
      decision; automatic evaluation may come later. **The award is a
      participant field of source "extension,"** written only by the aid
-     extension's own use case, never by a form
-     ([Fields](events-and-forms.md#fields));
+     extension's own code, its request source, never by a form
+     ([Fields](events-and-forms.md#fields)); staff and partners answer aid and
+     offers alike through the one "answer a request" act, which calls the
+     request source's writer, so the extension stays the award's only writer;
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
 - Price-ladder tier quotas are separate from the event's waitlist. Each
@@ -139,8 +143,8 @@ title: Money
   records; nobody sets it directly. It is not a status
   ([Registrations](registrations-and-identity.md#status-capacity-and-waitlist)).
   It is checked once at the end of every pass, after money: a payment, a
-  correction, a „Kedvezmény”, an apply, an admission or a restore all lead to
-  the same check.
+  correction, a „Kedvezmény”, an answer, an apply, an admission or a restore
+  all lead to the same check.
 - **The threshold** is a target per payer. Each payer with something owed must
   reach its own target. In core the target is the full amount; the deposit
   extension lowers it to the deposit through a typed point. Like every
@@ -148,7 +152,8 @@ title: Money
   ([Money settings apply](#money-settings-apply)). A payer's target is what
   the fee composition says it owes now, manual charges and discounts
   included; **nothing is due** when every payer's target is zero or below.
-  Confirmation reads payment facts, never charge lines.
+  Confirmation reads payment facts, never charge lines. A request that
+  awaits an answer does not block it: payments still count.
 - **The manual flag** ("may come without paying") is a fact: set with a
   reason, audited, carrying its own set time. Staff can always take it back,
   through staff's unconfirm; that is allowed also when payments or nothing
@@ -307,7 +312,8 @@ such as lunch or a donation.
 - **Every time-dependent rule for a registration counts from the moment it
   last became `registered`** (`registered_at`, a personal fact), never from
   "now" and never from the submit: price-tier deadlines, payment due,
-  everything. A registration that became `registered` before an early price
+  everything; payment due alone also restarts at a later answer to a
+  request. A registration that became `registered` before an early price
   ended keeps that price at every later evaluation. A waitlisted registration
   is not registered, so an admission from the waitlist counts from its
   admission. A deadline's day ends at midnight in the site time zone

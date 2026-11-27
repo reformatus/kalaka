@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Ledger\Api;
 
 use Kalaka\Foundation\Api\Audit\Subject;
+use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Money\Money;
 
 /**
@@ -26,5 +27,23 @@ final readonly class LedgerEntry
         public bool $correction,
         public ?string $note,
     ) {
+    }
+
+    /** The paid time, or the value date: the instant a paid-side line counts from. Not for an owed line. */
+    public function valueAt(): \DateTimeImmutable
+    {
+        $at = $this->paidAt ?? $this->valueDate;
+        if ($at === null) {
+            $error = new SystemFailure(null, new \LogicException('A line without a paid time or a value date.'));
+            throw $error;
+        }
+
+        return $at;
+    }
+
+    /** The day `valueAt()` falls on in the site time zone, `Y-m-d`. */
+    public function valueDay(): string
+    {
+        return $this->valueAt()->setTimezone(wp_timezone())->format('Y-m-d');
     }
 }

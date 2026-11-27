@@ -43,7 +43,7 @@ final class ViewQueryTest extends AdminTestCase
         // Another event's data never shows.
         $this->addRegistration(self::EVENT + 1, '00A0');
         $this->addValue(self::EVENT + 1, '00A0', 'c_key', 'elsewhere');
-        $this->addDecision(self::EVENT + 1, '00A0', 'payment_hold', 'held');
+        $this->addDecision(self::EVENT + 1, '00A0', 'sample_kind', 'held');
     }
 
     /** @param list<array{column: string, write: bool}> $columns @return list<string> */
@@ -179,7 +179,7 @@ final class ViewQueryTest extends AdminTestCase
         $this->addDecision(self::EVENT, '00A0', 'room_hold', 'pending');
         $this->addDecision(self::EVENT, '00A2', 'room_hold', 'pending');
         $this->addDecision(self::EVENT, '00A2', 'room_hold', 'confirmed');
-        $this->addDecision(self::EVENT, '00A5', 'payment_hold', 'confirmed');
+        $this->addDecision(self::EVENT, '00A5', 'sample_kind', 'confirmed');
         $columns = [['column' => 'code', 'write' => false], ['column' => 'decision:room_hold', 'write' => false]];
 
         $rows = $this->viewRows($this->held(

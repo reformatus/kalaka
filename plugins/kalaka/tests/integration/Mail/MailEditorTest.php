@@ -192,6 +192,28 @@ final class MailEditorTest extends MailBodyTestCase
         self::assertSame($version, (new MailPosts())->published($id, $event)->revision);
     }
 
+    public function testOnlyAMailBodyOffersTheTwoMoneyBlocks(): void
+    {
+        $contributions = Contributions::current();
+        self::assertSame(['kalaka/mail-money', 'kalaka/mail-transfer'], Module::OWN_BLOCKS);
+        foreach (Module::OWN_BLOCKS as $name) {
+            self::assertNotContains($name, BlockGate::hidden('kalaka_mail', 'core/edit-post', $contributions));
+            foreach (['page', 'post', 'kalaka_form'] as $postType) {
+                $hiddenHere = BlockGate::hidden($postType, 'core/edit-post', $contributions);
+                // A form's editor takes its own allow-list instead: the money blocks are not in it.
+                self::assertTrue(
+                    $postType === 'kalaka_form'
+                        ? !in_array($name, BlockGate::allowed(true, $postType, 'core/edit-post', $contributions), true)
+                        : in_array($name, $hiddenHere, true),
+                    $name . ' in ' . $postType
+                );
+            }
+            // A list from another filter loses them outside a mail body and keeps them in one.
+            self::assertSame([], BlockGate::allowed([$name], 'page', 'core/edit-post', $contributions));
+            self::assertSame([$name], BlockGate::allowed([$name], 'kalaka_mail', 'core/edit-post', $contributions));
+        }
+    }
+
     public function testTheEditorOffersAMailTheConditionBlocksButNoFieldOrPageBlock(): void
     {
         $mail = get_post($this->document($this->create(), $this->paragraph('Szia')));

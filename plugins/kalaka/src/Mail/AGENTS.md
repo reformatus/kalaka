@@ -57,6 +57,17 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   acting use case, or inside the evaluation that use case runs (confirmed),
   which queues it only when the event has it switched on and
   looks at nothing else (not the event's state).
+- The "payment recorded" mail is decided by `Api\ActionMails::lineRecorded()` in the use case that recorded the
+  line: the participant's money in and out, a payment or a refund, by hand or online, and nothing for a
+  correction, a charge, a replay or another payer's line (which lines: `Api\PaymentRecordedLines::announces()`, the one rule, which the mail's read of the line through `Portal\Api\MailMoney` uses too); its cause is the ledger line (`ledger_line`, the line's ID), and the mail reads that line at send time
+  as the keys `payment.amount`, `payment.direction`, `payment.method` and `payment.date`, which every mail
+  declares and none but this one fills (`MailRenderer` hands the line to no other mail).
+- A mail body places the money table and the transfer block as the blocks `kalaka/mail-money` and
+  `kalaka/mail-transfer` (`Body\MailBlocks`). They render the registration whose mail is rendering
+  (`Body\MailInProgress`), through `Portal\Api\MailMoney` (the status page's own read), in mail markup, and nothing
+  outside a mail's render, and none for a waitlisted registration, as its page shows none. Only a mail body's
+  editor offers them (`Module::OWN_BLOCKS`, the mail `BlockHost`'s `hostOnly`). A mail is HTML only:
+  no plain-text twin.
 - A mail is rendered at send time by `Body\MailRenderer`, through
   `Forms\Api\Values::render()` with the mail's context and no evaluator of
   its own; the rendered body then replaces the layout's `{{content}}`, and
@@ -97,8 +108,11 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   tells the saving user in an admin notice, writes a log line and, on
   WP-CLI, warns and fails the command.
 - The catalogue lists every `ActionMail` case, whether or not a use case produces
-  it yet (no hand-kept "has a producer" list); it has five action mails; admission from the waitlist sends
-  "registered", and a body tells it apart with `registration.from_waitlist`.
+  it yet (no hand-kept "has a producer" list); it has six action mails ("answered", keyed by the answer record of Registrations' answer act, is the
+  sixth, and a body may branch on `registration.awaits_answer`, a yes/no choice with no display text). The mail
+  context takes `registration.code`, `registration.status` (with its word) and `registration.awaits_answer` from
+  the one source, `Registrations::factsOf()`, and adds only the mail's own keys.
+  Admission from the waitlist sends "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
   skipped and logged on read; no schema change removes it.
 - No Mail use case reads WordPress data in its transaction. `UpdateActionMail`
