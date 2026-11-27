@@ -26,6 +26,7 @@ final class RegistrationDetailControlTest extends RegistrationDetailTestCase
         $this->addValue('00A0', 'extras', '["a","b"]');
         $this->addValue('00A0', 'agree', '1');
         $this->addValue('00A0', 'declined', '0');
+        $this->addValue('00A0', 'born', '2010-05-17');
         $fields = [];
         foreach ($this->detail($this->admin->userId)['fields'] as $field) {
             $fields[(string) $field['key']] = $field;
@@ -45,11 +46,14 @@ final class RegistrationDetailControlTest extends RegistrationDetailTestCase
             'agree' => 'consent',
             'qty' => 'number',
             'note' => 'text',
-            'born' => 'text',
+            'born' => 'date',
         ];
         foreach ($controls as $key => $control) {
             self::assertSame($control, $fields[$key]['edit']['control'], $key);
         }
+        self::assertSame('2010-05-17', $fields['born']['edit']['answer']['value']);
+        self::assertSame('2010-05-17', $fields['born']['edit']['expected']);
+        self::assertArrayNotHasKey('min', $fields['born']['edit']);
         self::assertFalse($fields['size']['edit']['multiple']);
         self::assertTrue($fields['extras']['edit']['multiple']);
         self::assertSame(['a', 'b'], $fields['extras']['edit']['answer']['value']);

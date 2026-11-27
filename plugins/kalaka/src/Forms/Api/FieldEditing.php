@@ -122,7 +122,8 @@ final class FieldEditing
             $type instanceof ConsentFieldType => FieldEditor::CONSENT,
             $type instanceof NumberFieldType, $type instanceof ScaleFieldType => FieldEditor::NUMBER,
             $type instanceof TextFieldType, $type instanceof EmailFieldType, $type instanceof NameFieldType,
-                $type instanceof PhoneFieldType, $type instanceof DateFieldType => FieldEditor::TEXT,
+                $type instanceof PhoneFieldType => FieldEditor::TEXT,
+            $type instanceof DateFieldType => FieldEditor::DATE,
             default => null,
         };
     }
