@@ -34,10 +34,15 @@ describe( 'the confirmation decision of a read', () => {
 		expect( confirmationOf( undefined ) ).toBeNull();
 	} );
 
-	test( 'a state has its icon, an unknown one the grid\'s marker', () => {
-		expect( markOf( 'confirmed' ) ).toEqual( [ 'dashicons-yes-alt', 'kg-ok' ] );
-		expect( markOf( 'unconfirmed' ) ).toEqual( [ 'dashicons-marker', '' ] );
-		expect( markOf( 'whatever' ) ).toEqual( [ 'dashicons-marker', '' ] );
+	test( 'a state has the mark the server declares, and no entry has none', () => {
+		const marks = {
+			confirmed: { icon: 'yes-alt', tone: 'ok' },
+			unconfirmed: { icon: 'marker', tone: '' },
+		};
+		expect( markOf( marks, 'confirmed' ) ).toEqual( [ 'dashicons-yes-alt', 'kg-ok' ] );
+		expect( markOf( marks, 'unconfirmed' ) ).toEqual( [ 'dashicons-marker', '' ] );
+		expect( markOf( marks, 'whatever' ) ).toEqual( [ '', '' ] );
+		expect( markOf( [], 'confirmed' ) ).toEqual( [ '', '' ] );
 	} );
 } );
 

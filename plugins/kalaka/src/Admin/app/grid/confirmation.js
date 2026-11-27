@@ -7,12 +7,6 @@ import { CONFIRM } from './texts';
 /** The kind of the confirmation decision, as the read declares it. */
 export const CONFIRMATION_KIND = 'confirmation';
 
-/** The icon and tone of each state, like the grid's decision mark; an unknown state gets the grid's marker. [UNAPPROVED N30] */
-const MARK = {
-	confirmed: [ 'dashicons-yes-alt', 'kg-ok' ],
-	unconfirmed: [ 'dashicons-marker', '' ],
-};
-
 /**
  * The confirmation decision of the read's `registration`: `{ kind, label, state, state_label, effective_at }`,
  * or null when the read has none (the view lists no such column, or nothing is decided yet).
@@ -22,8 +16,18 @@ export function confirmationOf( registration ) {
 	return found || null;
 }
 
-/** The icon class and tone class of a state. */
-export const markOf = ( state ) => MARK[ state ] || [ 'dashicons-marker', '' ];
+/**
+ * The icon class and tone class of a state, from the kind's `marks` map as the server declares it (owner Q51 (b),
+ * 2026-11-26; N1107). A state with no entry has no mark: the grid and the panel draw exactly what the server
+ * declares. [UNAPPROVED N912, replaced]
+ */
+export const markOf = ( marks, state ) => {
+	const mark = marks && marks[ state ];
+	if ( ! mark || ! mark.icon ) {
+		return [ '', '' ];
+	}
+	return [ 'dashicons-' + mark.icon, mark.tone ? 'kg-' + mark.tone : '' ];
+};
 
 /** The longest reason the server takes (`kalaka/set-manual-confirmation` and `kalaka/unconfirm`), in characters. */
 export const REASON_MAX = 500;

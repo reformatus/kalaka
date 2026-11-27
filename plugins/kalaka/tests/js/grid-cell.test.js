@@ -51,7 +51,12 @@ describe( 'a dimmed row', () => {
 } );
 
 describe( 'the confirmation column', () => {
-	const confirmation = { column: 'decision:confirmation', type: 'decision', states: { confirmed: 'Visszaigazolva', unconfirmed: 'Nincs visszaigazolva' } };
+	const confirmation = {
+		column: 'decision:confirmation',
+		type: 'decision',
+		states: { confirmed: 'Visszaigazolva', unconfirmed: 'Nincs visszaigazolva' },
+		marks: { confirmed: { icon: 'yes-alt', tone: 'ok' }, unconfirmed: { icon: 'marker', tone: '' } },
+	};
 	const state = ( value ) => ( { values: { code: '00A0', 'decision:confirmation': value } } );
 
 	test( 'a confirmed state draws the confirmed mark, an unconfirmed one the plain marker', () => {
@@ -59,8 +64,9 @@ describe( 'the confirmation column', () => {
 		expect( html( confirmation, state( 'unconfirmed' ) ) ).toContain( 'dashicons-marker' );
 	} );
 
-	test( 'another decision column keeps the one marker whatever its state', () => {
-		expect( html( columns.decision, row( 'registered' ) ) ).toContain( 'dashicons-marker' );
-		expect( html( columns.decision, row( 'registered' ) ) ).not.toContain( 'dashicons-yes-alt' );
+	test( 'a decision kind with no declared marks shows the state text and no icon', () => {
+		const out = html( columns.decision, row( 'registered' ) );
+		expect( out ).not.toContain( 'dashicons-' );
+		expect( out ).toContain( 'Igen' );
 	} );
 } );

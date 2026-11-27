@@ -97,7 +97,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	const registration = ( detail && detail.registration ) || {};
 	// While the last read failed the state on screen may be old: it is left out.
 	const confirmation = problem ? null : confirmationOf( registration );
-	const [ confirmIcon, confirmTone ] = confirmation ? markOf( confirmation.state ) : [ '', '' ];
+	const [ confirmIcon, confirmTone ] = confirmation ? markOf( confirmation.marks, confirmation.state ) : [ '', '' ];
 	return (
 		<aside
 			className="kg-panel"
