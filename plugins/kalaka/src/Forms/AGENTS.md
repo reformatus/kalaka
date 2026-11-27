@@ -51,14 +51,19 @@ values and conditions, prefill and form links
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
   kept. An `extension` field's options are its declarer's: a form joining it
-  offers any subset of them and never adds one (`extension_option`).
+  offers any subset of them and never adds one (`extension_option`); a number
+  field that joins an `extension` field whose declarer fixed its decimals (an
+  extra charge's) holds that many (`extension_decimals`).
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
   and changed only by `ParticipantFields::rename()` (a `form` or `staff` field; a
   `system` or `extension` field's texts are its declarer's). Mails, views
   and the status page show the participant field's labels; a form shows its
-  own.
+  own, and the participant field's only where it leaves one empty (a field
+  block's `label`, a choice option's `label` by value): the engine fills them
+  from the host (`FormHost::labelFallbacks()`, `Engine\LabelFallback`), so the
+  page, the definition and the answers' texts read the same.
 - A form's event is set when it is created and fixed once the form has
   fields or submissions refer to it (`Registrations\Api\FormSubmissions`),
   on every path that writes the setting, with one known gap: code that sets
@@ -74,7 +79,8 @@ values and conditions, prefill and form links
   refuse (REST 400, else a graceful veto with an admin notice, a log line
   and, on WP-CLI, a warning and a failing exit), and
   `ParticipantFieldSync`, after the post and its settings are stored, writes
-  the participant fields through `ParticipantFields::declare()`; besides it
+  the participant fields through `ParticipantFields::declare()`, each field with `money_relevant` from its block
+  type (`MoneyRelevantFieldType`); besides it
   only the rename route (an explicit request) does, through
   `ParticipantFields::rename()`.
 - The form editor derives a key unique across the form's event: against the
@@ -306,7 +312,8 @@ values and conditions, prefill and form links
   refusals and the window, the key problem against keys beyond the form, the
   stored values the form opens with, the options and window of the set a
   request field names, the submit token and the submit, the after-submit
-  section's keys, and whether the form needs an account (`accountStep()`).
+  section's keys, the participant fields' texts for a label the form leaves empty (`labelFallbacks()`),
+  and whether the form needs an account (`accountStep()`).
   Kaláka's event form, `EventFormHost`, is the first host; `Api\Forms` and
   the form page's wiring (`Module.php`, `Blocks/form/render.php`) hand it to
   the engine.

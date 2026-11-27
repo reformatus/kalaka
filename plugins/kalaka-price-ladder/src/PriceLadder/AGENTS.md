@@ -44,7 +44,8 @@ answers (the share extension, S29), never by a tier.
   form without it. No fallback: a registration without an answer refuses.
 - The ladder declares `price_tier` (source `extension`, form-writable, a
   choice of the tiers: key as value, label as label) in every save, through
-  `ParticipantFields\Api\ParticipantFields::declareExtensionField()`; a
+  `ParticipantFields\Api\ParticipantFields::declareExtensionField()`, as declarer
+  `price_ladder` (the module's ID) and money relevant (its value is locked after its first write); a
   removed tier's option is retired. An empty ladder on an event that never
   had one declares nothing.
 - The applied tier reaches the later stages as the computed value

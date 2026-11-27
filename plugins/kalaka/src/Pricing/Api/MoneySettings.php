@@ -101,6 +101,12 @@ final class MoneySettings
     public function apply(int $eventId, ProposedMoneySettings $proposed, Actor $actor): ApplyReport
     {
         $this->check($proposed);
+        // Every component's save is asked for before anything is written: a settings object may refuse there (it
+        // reads what a transaction may not), and then nothing of the apply is written.
+        $saves = [];
+        foreach ($proposed->components as $settings) {
+            $saves[] = $settings->save();
+        }
         if ($proposed->fixedPrice !== null) {
             $this->runner()->run(
                 new SetFixedPrice(),
@@ -113,8 +119,7 @@ final class MoneySettings
             );
         }
 
-        foreach ($proposed->components as $settings) {
-            $save = $settings->save();
+        foreach ($saves as $save) {
             $this->runner()->run($save->useCase, $save->input, $actor);
         }
 

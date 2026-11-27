@@ -12,7 +12,6 @@ use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\FormRefused;
 use Kalaka\Forms\Api\Forms;
-use Kalaka\Forms\Api\MoneyRelevantFieldType;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\AccountActor;
 use Kalaka\Foundation\Api\Error\RuleViolation;
@@ -22,6 +21,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\PortalUseCase;
 use Kalaka\ParticipantFields\Api\ParticipantField;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\SubmitResult;
@@ -274,7 +274,9 @@ final class SubmitAdditionalForm implements PortalUseCase
     }
 
     /**
-     * A money-relevant field keeps its first write (B4): a different value, or a clear, is refused.
+     * A money-relevant field keeps its first write (B4): a different value, or a clear, is refused. The lock is the
+     * participant field's (`ParticipantFields::lockedAfterFirstWrite()`: the declarer's flag, or the type's own
+     * capability), not the form block's alone, so a field the ladder or a charge declared locks too.
      *
      * @param array<string, string> $written field key → the value to write ('' for a clear)
      * @param array<string, FieldValue> $current
@@ -282,14 +284,14 @@ final class SubmitAdditionalForm implements PortalUseCase
      */
     private function refuseLockedOverwrites(array $written, array $current): void
     {
-        $types = Contributions::current()->fieldTypes();
+        $locked = [];
+        $fields = new ParticipantFields();
+        foreach ($this->participantFields as $field) {
+            $locked[$field->key] = $fields->lockedAfterFirstWrite($field);
+        }
         foreach ($written as $fieldKey => $text) {
-            $field = $this->definition->field((string) $fieldKey);
             $value = $current[$fieldKey] ?? null;
-            if (
-                $field !== null && $value !== null && $value->value !== $text
-                && ($types[$field->blockName] ?? null) instanceof MoneyRelevantFieldType
-            ) {
+            if ($value !== null && $value->value !== $text && ($locked[(string) $fieldKey] ?? false)) {
                 $error = new RuleViolation();
                 throw $error;
             }

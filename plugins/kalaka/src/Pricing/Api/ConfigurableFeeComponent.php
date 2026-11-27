@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Pricing\Api;
 
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Error\RuleViolation;
 
 /**
  * A fee component whose settings can be written down as plain data and read back: what the money settings
@@ -27,6 +28,7 @@ interface ConfigurableFeeComponent extends FeeComponent
      *
      * @param array<array-key, mixed> $settings
      * @throws InvalidInput when the shape is not the one `settingsToArray()` gives, or the settings are not valid
+     * @throws RuleViolation when a rule refuses the settings (the operator's text is its context)
      */
     public function settingsFromArray(int $eventId, array $settings): ProposedComponentSettings;
 }

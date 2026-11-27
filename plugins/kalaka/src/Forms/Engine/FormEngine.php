@@ -69,7 +69,13 @@ final class FormEngine
     {
         $version ??= $form->version;
         $content = $this->posts->content($form, $version);
-        $definition = $this->parser->parse($form, $version, $content, Contributions::current(), $this->host);
+        $definition = $this->parser->parse(
+            $form,
+            $version,
+            $this->filled($form, $content),
+            Contributions::current(),
+            $this->host
+        );
         if ($version === $form->version) {
             $problem = $this->host->keyProblem($form, $content);
             if ($problem !== null) {
@@ -118,7 +124,8 @@ final class FormEngine
     public function blocks(Form $form, ?int $version = null, ?FormAvailability $availability = null): array
     {
         $version ??= $form->version;
-        $marked = ChainMarks::mark(array_values(parse_blocks($this->posts->content($form, $version))));
+        $content = $this->filled($form, $this->posts->content($form, $version));
+        $marked = ChainMarks::mark(array_values(parse_blocks($content)));
         $definition = $this->definition($form, $version);
         $withheld = [];
         foreach ($definition->withheldChains() as $number) {
@@ -130,6 +137,30 @@ final class FormEngine
             ChainMarks::prune($marked, $withheld),
             static fn (array $block): bool => ($block['blockName'] ?? null) !== ChainMarks::AFTER_SUBMIT_BLOCK
         )), $definition);
+    }
+
+    /**
+     * The content with each field block's empty label (and each choice option's) filled from the host's
+     * participant-field texts (`FormHost::labelFallbacks()`), so the page, the definition and the answers' texts
+     * all read the same labels. The host is asked only when a field block has an empty label; otherwise the
+     * content is returned as it is. A label the form wrote is never replaced.
+     */
+    private function filled(Form $form, string $content): string
+    {
+        $blocks = array_values(parse_blocks($content));
+        $types = array_keys(Contributions::current()->fieldTypes());
+        $keys = LabelFallback::keys($blocks, $types);
+        if ($keys === []) {
+            return $content;
+        }
+        /** @var list<array<string, mixed>> $blocks */
+        $filled = LabelFallback::fill($blocks, $types, $this->host->labelFallbacks($form));
+        if ($filled === $blocks) {
+            return $content;
+        }
+
+        /** @var array<array{blockName: string|null, attrs: array<string, mixed>, innerBlocks: array<array<string, mixed>>, innerHTML: string, innerContent: array<string|null>}> $filled */
+        return serialize_blocks($filled);
     }
 
     /**

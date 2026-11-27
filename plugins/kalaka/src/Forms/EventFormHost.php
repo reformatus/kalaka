@@ -25,6 +25,7 @@ use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\ParticipantFields\Api\ParticipantFields;
 use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -313,6 +314,25 @@ final class EventFormHost implements FormHost
         }
 
         return array_values(array_unique($keys));
+    }
+
+    /**
+     * The event's participant fields' titles and option labels, retired fields and options included: what a form shows
+     * where it leaves a label empty. For a code-declared (`extension`) field these are the declarer's texts, its admin
+     * name.
+     */
+    public function labelFallbacks(Form $form): array
+    {
+        $fallbacks = [];
+        foreach ((new ParticipantFields())->of($form->eventId, true) as $field) {
+            $options = [];
+            foreach ($field->options as $option) {
+                $options[$option['value']] = $option['label'];
+            }
+            $fallbacks[$field->key] = ['title' => $field->title, 'options' => $options];
+        }
+
+        return $fallbacks;
     }
 
     private function event(Form $form): ?Event

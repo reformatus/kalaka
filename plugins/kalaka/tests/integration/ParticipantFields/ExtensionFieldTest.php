@@ -53,7 +53,7 @@ final class ExtensionFieldTest extends FormsTestCase
         $this->runner->run(
             new AdminProbe(static function (array $input, Context $context) use ($key, $options, $title, $type): void {
                 (new ParticipantFields())
-                    ->declareExtensionField($context, self::EVENT, $key, $type, $title, $options, true);
+                    ->declareExtensionField($context, self::EVENT, $key, $type, $title, $options, true, 'test_module');
             }),
             [],
             new CliActor(null)
@@ -124,23 +124,70 @@ final class ExtensionFieldTest extends FormsTestCase
         self::assertFalse($this->declared('price_tier')->options[0]['retired']);
     }
 
-    public function testADeclarationNeverTakesOverAFieldOfAnotherSourceOrType(): void
+    public function testADeclarationAdoptsAFormFieldOfTheSameTypeAndRefusesAnotherType(): void
     {
         $this->insertChecked(
             $this->choiceOn('price_tier', [['value' => 'a', 'label' => 'A']]),
             ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional']
         );
+        self::assertSame(ParticipantField::SOURCE_FORM, $this->declared('price_tier')->source);
 
-        try {
-            $this->declare('price_tier', self::TIERS);
-            self::fail('The declaration took over a form field.');
-        } catch (RuleViolation) {
-            self::assertSame(ParticipantField::SOURCE_FORM, $this->declared('price_tier')->source);
-        }
+        $this->declare('price_tier', self::TIERS);
+        $adopted = $this->declared('price_tier');
+        self::assertSame(ParticipantField::SOURCE_EXTENSION, $adopted->source);
+        self::assertSame('Díjkategória', $adopted->title);
 
         $this->declare('aid', null, 'Támogatás', 'kalaka/text-field');
         $this->expectException(RuleViolation::class);
         $this->declare('aid', self::TIERS);
+    }
+
+    public function testAFormMayNotGiveANumberFieldTheDeclarerFixedAtWholeNumbersDecimals(): void
+    {
+        $this->runner->run(
+            new AdminProbe(static function (array $input, Context $context): void {
+                (new ParticipantFields())->declareExtensionField(
+                    $context,
+                    self::EVENT,
+                    'ejjel',
+                    'kalaka/number-field',
+                    'Éjszaka',
+                    null,
+                    true,
+                    'test_module',
+                    0
+                );
+            }),
+            [],
+            new CliActor(null)
+        );
+        $request = static function (int $decimals): \WP_REST_Response {
+            $request = new \WP_REST_Request('POST', '/wp/v2/kalaka_form');
+            $request->set_body_params([
+                'title' => 'Pótlap',
+                'status' => 'draft',
+                'content' => '<!-- wp:kalaka/number-field ' . wp_json_encode(
+                    ['key' => 'ejjel', 'label' => 'Éjszaka', 'decimals' => $decimals]
+                ) . ' /-->',
+                'meta' => ['kalaka_event_id' => self::EVENT, 'kalaka_placement' => 'additional'],
+            ]);
+            $response = rest_do_request($request);
+            self::assertInstanceOf(\WP_REST_Response::class, $response);
+
+            return $response;
+        };
+
+        $refused = $request(2);
+        self::assertSame(400, $refused->get_status());
+        $data = $refused->get_data();
+        self::assertIsArray($data);
+        self::assertSame(DefinitionCheck::message(SharedKeyCheck::EXTENSION_DECIMALS, 'ejjel'), $data['message']);
+        self::assertSame(201, $request(0)->get_status());
+        self::assertSame(
+            ['decimals' => 0],
+            $this->declared('ejjel')->settings['declared'] ?? null,
+            'The sync keeps what the declarer fixed.'
+        );
     }
 
     public function testAFormJoiningAnExtensionChoiceMayNotAddAnOption(): void
