@@ -53,10 +53,31 @@ final class ActionMails
 
     /**
      * The "payment recorded" mail (mail.md, "Five kinds of mail"), decided by the use case that recorded the
+     * line, keyed by the line: money in and money out, by hand or online (a payment or a refund), the paid entry
+     * of a „Díj” or a „Kedvezmény” ticked „Azonnal befizetve” included. A correction, a charge itself (a „Díj” or a
+     * „Kedvezmény” is a fact and its charge line), a replay of a line already written and a line of a payer other
+     * than the participant send none: the registrant sees only the participant's side (Portal), and the mail's
+     * table would not list that line. [UNAPPROVED N16] [UNAPPROVED N1165] The one rule of which lines mail, for
+     * every act that records a payment fact. Queued only when the event has the mail switched on.
+     *
+     * @return bool whether a delivery was queued: false when the mail is off or was already queued
+     * @throws SystemFailure on a cause of another event
+     */
+    public function due(Context $context, ActionMail $action, RegistrationKey $registration, Subject $cause): bool
+    {
+        if (!$this->isOn($registration->eventId, $action)) {
+            return false;
+        }
+
+        return $this->queue->add($context, $registration, $action->value, MailKind::Action, $cause);
+    }
+
+    /**
+     * The "payment recorded" mail (mail.md, "Five kinds of mail"), decided by the use case that recorded the
      * line, keyed by the line: money in and money out, by hand or online (a payment or a refund). A correction, a
      * charge (a „Díj” or a „Kedvezmény” is a fact and its charge line; its paid entry, ticked „Azonnal befizetve”, is a payment like any other), a replay of a line already written and a
      * line of a payer other than the participant send none: the registrant sees only the participant's side
-     * (Portal), and the mail's table would not list that line. [UNAPPROVED N16] [UNAPPROVED N1261] The one rule of which lines
+     * (Portal), and the mail's table would not list that line. [UNAPPROVED N16] [UNAPPROVED N1165] The one rule of which lines
      * mail, for every act that records a payment fact. Queued only when
      * the event has the mail switched on.
      *

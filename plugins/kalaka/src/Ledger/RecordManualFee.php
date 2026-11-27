@@ -199,7 +199,7 @@ abstract class RecordManualFee implements AdminUseCase
 
         if ($recordedPaid !== null) {
             // The paid entry is a full payment (or refund) like any other: it decides the "payment recorded" mail
-            // by the same rule, keyed by its line. [UNAPPROVED N1261]
+            // by the same rule, keyed by its line. [UNAPPROVED N1165]
             $this->mails->lineRecorded($context, $recordedPaid);
         }
 
