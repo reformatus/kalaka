@@ -36,7 +36,7 @@ export const warnsFull = ( item, answer ) => !! item.seat_full && answer === 'ye
 
 /**
  * The aid figures the dialog shows (owner 2026-11-27, walkthrough 6.8): the read's own amounts, labelled; empty
- * when the read carries none (a holder whose view/grant gives no money fields). [UNAPPROVED T1134]
+ * when the read carries none (a holder whose view/grant gives no money fields). [UNAPPROVED T8]
  */
 export function aidFigures( item ) {
 	const aid = item && item.kind === 'aid' ? item.aid : null;
@@ -57,7 +57,7 @@ export function hintedAmount( item ) {
 /**
  * The dialog's check: an aid "yes" needs an amount above zero and no more than the read's `max_award`, the full
  * price the act refuses above (`AidAbovePrice`, the same sentence); a message, or an empty string when it may be
- * sent. A holder without the aid figures gets the amount checks only, and the act still refuses. [UNAPPROVED T1134]
+ * sent. A holder without the aid figures gets the amount checks only, and the act still refuses. [UNAPPROVED T8]
  */
 export function validateAnswer( item, answer, amount ) {
 	if ( ! asksAmount( item, answer ) ) {

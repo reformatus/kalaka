@@ -117,7 +117,7 @@ export default function AnswerDialog( { config, code, currency, item, onClose, o
 						// Another choice starts afresh for the choice and the amount; the note's message stays.
 						setAnswer( value );
 						// A "yes" to an aid hints the amount asked for (owner 2026-11-27, walkthrough 6.8); the
-						// read carries it only for a holder with the money fields. [UNAPPROVED T1134]
+						// read carries it only for a holder with the money fields. [UNAPPROVED T8]
 						setAmount( asksAmount( item, value ) ? hintedAmount( item ) : '' );
 						setErrors( ( now ) => ( now.note ? { note: now.note } : {} ) );
 					} }
