@@ -7,6 +7,7 @@ deptrac:
     - plugins/kalaka-woocommerce/src
     - plugins/kalaka-price-ladder/src
     - plugins/kalaka-aid/src
+    - plugins/kalaka-deposits/src
   layers:
     - name: Foundation
       collectors:
@@ -225,6 +226,10 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Aid\\Api\\'
+    - name: Deposits
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Deposits\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -574,6 +579,14 @@ deptrac:
       - Mail Api
       - Portal Api
       - Admin Api
+    Deposits:
+      - WordPress
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Pricing Api
+      - Ledger Api
+      - Registrations Api
     Foundation Api:
       - WordPress
       - Foundation
