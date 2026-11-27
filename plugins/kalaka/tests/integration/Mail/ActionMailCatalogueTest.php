@@ -72,30 +72,41 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         self::assertFalse((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled']);
     }
 
-    public function testTheBodyOfAMailThatIsOnIsNotRemoved(): void
+    public function testUnassigningTheBodyOfAMailThatIsOnSwitchesItOff(): void
     {
         $event = $this->create();
         $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')));
 
-        $this->expectException(RuleViolation::class);
-        $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
+        $settings = $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => null]);
+
+        self::assertSame([false, null], [$settings['mails'][0]['enabled'], $settings['mails'][0]['body_id']]);
     }
 
-    public function testOnlyAPublishedBodyIsAssignedOrSwitchedOn(): void
+    public function testADraftBodyIsAssignedAndOnlyAPublishedOneSwitchesTheMailOn(): void
     {
         $event = $this->create();
         $draft = $this->document($event, $this->paragraph('Szia'));
         wp_update_post(['ID' => $draft, 'post_status' => 'draft']);
 
-        foreach ([['body_id' => $draft], ['body_id' => $draft, 'enabled' => true]] as $change) {
-            try {
-                $this->updateMail(['event_id' => $event, 'mail' => 'registered'] + $change);
-                self::fail('Expected a refusal.');
-            } catch (RuleViolation $e) {
-                self::assertSame('A művelet nem hajtható végre. Előbb tedd közzé a levélsablont.', $e->getMessage());
-            }
+        // A point that is off may hold a draft: the assignment is not refused, it switches the point off.
+        $settings = $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'body_id' => $draft]);
+        self::assertSame([false, $draft], [$settings['mails'][0]['enabled'], $settings['mails'][0]['body_id']]);
+
+        // Only a published body switches it on.
+        try {
+            $this->updateMail(['event_id' => $event, 'mail' => 'registered', 'enabled' => true]);
+            self::fail('Expected a refusal.');
+        } catch (RuleViolation $e) {
+            self::assertSame('kalaka_point_template_unpublished', $e->errorCode());
+            self::assertSame(
+                'A művelet nem hajtható végre. A küldési pont csak közzétett sablonnal kapcsolható be.',
+                $e->getMessage()
+            );
         }
-        self::assertNull((new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id']);
+        self::assertSame([false, $draft], [
+            (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['enabled'],
+            (new ActionMailSettings())->ofEvent($event)->toArray()['mails'][0]['body_id'],
+        ]);
 
         // A mail switched off keeps a body that is then unpublished, and is switched on again only once the
         // body is published again.
