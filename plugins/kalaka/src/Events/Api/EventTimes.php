@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Events\UpdateEvent;
 
 /**
- * [UNAPPROVED N1190] The seam an admin page saves an event's start and end through, so it does not depend on
+ * The seam an admin page saves an event's start and end through, so it does not depend on
  * Events' use case: runs `kalaka/update-event` through the runner as the current user. The use case keeps its
  * own permission check (full access); this adds none, so exactly who may update an event may save its times.
  *
