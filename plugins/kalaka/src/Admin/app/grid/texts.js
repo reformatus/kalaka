@@ -207,8 +207,8 @@ export const REQUESTS = {
 	award: 'Jóváhagyva (%s)', // [UNAPPROVED T6]
 	answer: 'Megválaszolás',
 	change: 'Válasz módosítása',
-	// The two buttons' screen-reader names, naming the request: „Megválaszolás: <kérelem>”. [UNAPPROVED T961] [UNAPPROVED T962]
-	answerLabel: 'Megválaszolás: %s',
+	// The two buttons' screen-reader names, naming the request: „Válasz: <kérelem>”. [UNAPPROVED T961] [UNAPPROVED T962]
+	answerLabel: 'Válasz: %s',
 	changeLabel: 'Válasz módosítása: %s',
 	// The pointer of a request's field group on „Adatok”: it opens that request on „Kérelmek”. [UNAPPROVED T960]
 	goTo: 'Ugrás a kérelemhez',
@@ -239,7 +239,7 @@ export const STATUS_ACTS = {
 	remove: 'Megjelölés töröltként', // [UNAPPROVED T954] J2
 	restore: 'Jelentkezés visszaállítása',
 	// The dialog titles. [UNAPPROVED T704] [UNAPPROVED T707]; withdraw and remove are T955 and T956
-	admitTitle: 'Jelentkező felvétele a várólistáról',
+	admitTitle: 'Jelentkezés felvétele a várólistáról',
 	withdrawTitle: 'Megjelölés lemondottként', // [UNAPPROVED T955] J3
 	removeTitle: 'Megjelölés töröltként', // [UNAPPROVED T956] J4
 	restoreTitle: 'Jelentkezés visszaállítása',
@@ -251,7 +251,7 @@ export const STATUS_ACTS = {
 	// Under the admit dialog's warning. [UNAPPROVED T713]
 	serialEnd: 'A felvett jelentkező az utolsó sorszámot kapja.',
 	// The snackbars. [UNAPPROVED T714] [UNAPPROVED T717]; withdraw and remove are T958 and T959
-	admitted: 'Jelentkező felvéve a várólistáról.',
+	admitted: 'Jelentkezés felvéve a várólistáról.',
 	withdrawn: 'Jelentkezés lemondottként megjelölve.', // [UNAPPROVED T958] J7
 	removed: 'Jelentkezés töröltként megjelölve.', // [UNAPPROVED T959] J8
 	restored: 'Jelentkezés visszaállítva.',
@@ -283,7 +283,7 @@ export const FIELDS = {
 	// The button's screen-reader name, „Szerkesztés: <mező>”. [UNAPPROVED T233]
 	editLabel: 'Szerkesztés: %s',
 	// The snackbar after a save, also after an answer that changed nothing. [UNAPPROVED T232]
-	saved: 'Adat mentve.',
+	saved: 'Az adat mentve.',
 	// An empty value in the list (reused: the preview's dash).
 	empty: '–',
 };

@@ -141,12 +141,12 @@ describe( 'the awaiting strip', () => {
 describe( 'the screen-reader names of the answer buttons (review m1)', () => {
 	it( 'say which request each button answers, in the strip and on the tab', async () => {
 		await mount( detailOf() );
-		expect( strip().querySelector( 'button' ).getAttribute( 'aria-label' ) ).toBe( 'Megválaszolás: Részvételi támogatás' );
+		expect( strip().querySelector( 'button' ).getAttribute( 'aria-label' ) ).toBe( 'Válasz: Részvételi támogatás' );
 		await act( async () => {
 			Array.from( host.querySelectorAll( '[role="tab"]' ) ).find( ( t ) => t.textContent === PANEL.tabRequests ).click();
 		} );
 		const labels = Array.from( host.querySelectorAll( '[data-tab] li button' ) ).map( ( b ) => b.getAttribute( 'aria-label' ) );
-		expect( labels ).toEqual( [ 'Megválaszolás: Részvételi támogatás', 'Válasz módosítása: Egyházi támogatás' ] );
+		expect( labels ).toEqual( [ 'Válasz: Részvételi támogatás', 'Válasz módosítása: Egyházi támogatás' ] );
 	} );
 } );
 
