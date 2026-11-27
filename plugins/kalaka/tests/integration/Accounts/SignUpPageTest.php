@@ -282,6 +282,117 @@ final class SignUpPageTest extends AccountsTestCase
         }
     }
 
+    /** The popup marker `popup=1`: the URL builders, every path to the return page, and exactly the string `1`. */
+    public function testThePopupMarkerIsCarriedThroughEveryPathToTheReturnPage(): void
+    {
+        $form = $this->openForm('mandatory');
+        $back = $this->placed($form);
+        $user = get_userdata($this->verifiedUser());
+        $page = new SignUpPage();
+        $inner = SignUp::returnUrl($form, $back, true);
+
+        // The builders: without it, as before; with it, on the return page and on the login or registration page.
+        self::assertStringNotContainsString('popup', SignUp::returnUrl($form, $back));
+        self::assertStringNotContainsString('popup', SignUp::url($form, $back));
+        self::assertStringNotContainsString('popup', SignUp::registerUrl($form, $back));
+        parse_str((string) wp_parse_url($inner, PHP_URL_QUERY), $query);
+        self::assertSame('1', $query['popup']);
+        self::assertSame($back, SignUp::requested($inner));
+        foreach ([SignUp::url($form, $back, true), SignUp::registerUrl($form, $back, true)] as $url) {
+            parse_str((string) wp_parse_url($url, PHP_URL_QUERY), $query);
+            self::assertSame('1', $query['popup']);
+            self::assertSame((string) $form, $query[SignUp::MARKER]);
+            self::assertSame($inner, $query['redirect_to'] ?? null);
+        }
+
+        // The filters and the hidden field, with the marker.
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'popup' => '1'];
+        self::assertSame($inner, apply_filters('login_redirect', admin_url(), '', $user));
+        self::assertSame($inner, apply_filters('registration_redirect', admin_url(), new \WP_Error()));
+        $login = wp_login_url();
+        self::assertStringContainsString('redirect_to=' . rawurlencode($inner), $login);
+        self::assertStringContainsString('popup=1', $login);
+        self::assertStringContainsString('redirect_to=' . rawurlencode($inner), wp_registration_url());
+        self::assertStringContainsString('popup=1', wp_registration_url());
+        self::assertSame(
+            '<input type="hidden" name="' . SignUp::MARKER . '" value="' . $form . '">'
+                . '<input type="hidden" name="popup" value="1">',
+            $this->captured($page->markerField(...))
+        );
+        self::assertStringContainsString('popup=1', $page->message(''));
+        $_REQUEST['action'] = 'register';
+        self::assertStringContainsString('popup=1', $page->message(''));
+
+        // The "Log in" link after a password reset: to the return page, with the marker.
+        foreach (['rp', 'resetpass'] as $action) {
+            $_REQUEST = ['action' => $action, SignUp::MARKER => (string) $form, 'popup' => '1'];
+            $url = wp_login_url();
+            self::assertStringContainsString('redirect_to=' . rawurlencode($inner), $url, $action);
+            self::assertStringContainsString('popup=1', $url, $action);
+        }
+
+        // Anything but the string 1 counts as absent.
+        foreach (['0', 'yes', 'true', '', ' 1', '11', ['1']] as $value) {
+            $_REQUEST = [SignUp::MARKER => (string) $form, 'popup' => $value];
+            self::assertSame(
+                SignUp::returnUrl($form, $back),
+                apply_filters('login_redirect', admin_url(), '', $user)
+            );
+            self::assertStringNotContainsString('popup', wp_login_url());
+            self::assertStringNotContainsString('popup', $this->captured($page->markerField(...)));
+        }
+    }
+
+    /** The return page with `popup=1` never redirects; without it, it is as before. */
+    public function testThePopupReturnPageNeverRedirectsAndTheOtherOneIsUnchanged(): void
+    {
+        $form = $this->openForm('optional');
+        $this->placed($form);
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $_REQUEST = [SignUp::MARKER => (string) $form];
+        $plain = $this->returnPageOutput();
+        self::assertStringContainsString('location.replace(p)', $plain);
+        self::assertStringNotContainsString('data-kalaka-return', $plain);
+        self::assertFalse(has_filter('login_site_html_link'));
+        self::assertFalse(has_filter('the_privacy_policy_link'));
+        self::assertFalse(has_filter('login_display_language_dropdown'));
+
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'popup' => '1'];
+        $popup = $this->returnPageOutput();
+        self::assertStringNotContainsString('location.replace', $popup);
+        self::assertStringNotContainsString('http-equiv="refresh"', $popup);
+        self::assertStringContainsString('data-kalaka-return-line hidden', $popup);
+        self::assertStringContainsString('data-kalaka-return-close hidden', $popup);
+        self::assertStringContainsString(SignUpPage::RETURN_CLOSE_LINE, $popup);
+        self::assertStringContainsString(SignUpPage::RETURN_CLOSE_BUTTON, $popup);
+        self::assertStringContainsString('<noscript>', $popup);
+        // `hidden` must beat the login CSS's `display` on `.button` and `.message`, and no script, no button.
+        self::assertStringContainsString('<style>' . SignUpPage::POPUP_HIDDEN_STYLE . '</style>', $popup);
+        self::assertSame(1, preg_match('#<noscript>(.*?)</noscript>#s', $popup, $noscript));
+        self::assertStringNotContainsString('<button', $noscript[1]);
+        self::assertStringContainsString(SignUpPage::RETURN_CLOSE_LINE, $noscript[1]);
+        self::assertStringContainsString('window.close()', $popup);
+        self::assertStringContainsString('postMessage({kalaka:"account"},location.origin)', $popup);
+        // The window cannot navigate away: core's footer links and language form are suppressed, and only here.
+        self::assertStringNotContainsString('Go to site', $popup);
+        self::assertStringNotContainsString('privacy', $popup);
+        self::assertStringNotContainsString('language-switcher', $popup);
+        self::assertFalse(has_filter('login_site_html_link'));
+        self::assertFalse(has_filter('login_display_language_dropdown'));
+        self::assertStringContainsString('Go to site', (string) apply_filters('login_site_html_link', 'Go to site'));
+
+        $_REQUEST = [SignUp::MARKER => (string) $form, 'popup' => 'yes'];
+        self::assertStringContainsString('location.replace(p)', $this->returnPageOutput());
+    }
+
+    /** What the return page prints (WordPress's login frame is `wp-login.php`'s, stubbed in `LoginFrame.php`). */
+    private function returnPageOutput(): string
+    {
+        require_once __DIR__ . '/LoginFrame.php';
+
+        return $this->captured((new SignUpPage())->renderReturnPage(...));
+    }
+
     public function testTheLoginAndRegistrationPagesNameTheEventAndLinkToEachOther(): void
     {
         $page = new SignUpPage();

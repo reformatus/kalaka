@@ -45,7 +45,9 @@ record, the check-in act, and so on.
   that account's own address, no when that account is verified, and none for
   a guest, another recipient or an event without accounts. While an event's
   account mode is mandatory or optional, its "registered" mail must contain the key and cannot be switched
-  off. WordPress keeps one such link per account, so each new one replaces
+  off, and a change of an event's account mode to one with accounts is refused
+  unless that mail is on and carries it
+  ([Events](events-and-forms.md#forms-and-the-registration-slot)). WordPress keeps one such link per account, so each new one replaces
   the last.
 - **Scheduled mails are defined freely by admins** at a date reference
   ([Events](events-and-forms.md#date-references)): a fixed date and time, a

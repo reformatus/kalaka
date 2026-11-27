@@ -21,8 +21,10 @@ interface MailComposer
     public function recipient(Delivery $delivery): ?string;
 
     /**
+     * `$now` is the sender's moment for this run: the one clock the body's `time.now` reads.
+     *
      * @throws BodyUnusable when the body cannot render for its own reason (the delivery fails with it)
      * @throws \Throwable when the mail cannot be rendered otherwise: an error, recorded after the claim
      */
-    public function compose(Delivery $delivery, string $to): MailMessage;
+    public function compose(Delivery $delivery, string $to, \DateTimeImmutable $now): MailMessage;
 }
