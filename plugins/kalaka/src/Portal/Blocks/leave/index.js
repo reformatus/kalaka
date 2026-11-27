@@ -7,8 +7,9 @@ import { useBlockProps } from '@wordpress/block-editor';
 import { createElement } from '@wordpress/element';
 import metadata from './block.json';
 
+// [UNAPPROVED T1181]
 const PLACEHOLDER =
-	'Kilépés: itt jelenik meg a Kilépés gomb, ha a látogató be van lépve, vagy van aktív jelentkezése.';
+	'Kijelentkezés: itt jelenik meg a „Kijelentkezés” gomb, ha a látogató be van jelentkezve a fiókjába, vagy van aktív jelentkezése.';
 
 registerBlockType( metadata.name, {
 	edit: function Edit() {
