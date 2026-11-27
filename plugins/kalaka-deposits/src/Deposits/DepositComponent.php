@@ -17,7 +17,7 @@ use Kalaka\Pricing\Api\ProposedComponentSettings;
  * deposit under the component ID `deposit`, and an apply saves it through `kalaka/set-deposit` and re-evaluates
  * every open registration (money.md, "Money settings apply"). It adds no fee line: the threshold, the advance
  * and the retention rule that read the deposit are the money side's, a later slice. It composes last (the
- * extras stage) and returns nothing. [UNAPPROVED N830, N836, N838]
+ * extras stage) and returns nothing.
  */
 final class DepositComponent implements ConfigurableFeeComponent
 {

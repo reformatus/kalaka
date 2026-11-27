@@ -13,7 +13,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * Saves an event's deposit amount, or turns it off with no amount: a step of a money settings apply
  * (`Pricing\Api\MoneySettings::apply()` with `Api\Deposits::propose()`), which then re-evaluates every open
  * registration. Saving alone touches no registration. Site-level, like core's fixed price: full access only.
- * Turning it off deletes the row only. [UNAPPROVED N830, N837]
+ * Turning it off deletes the row only.
  */
 final class SetDeposit implements AdminUseCase
 {

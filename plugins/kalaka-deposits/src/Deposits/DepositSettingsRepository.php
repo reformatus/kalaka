@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 use Kalaka\Foundation\Api\Repository\EntityRepository;
 
 /**
- * The only writer of `kalaka_deposit_settings`. The key is the event's ID. [UNAPPROVED N830, N835]
+ * The only writer of `kalaka_deposit_settings`. The key is the event's ID.
  *
  * @extends EntityRepository<int, DepositSettings>
  */

@@ -12,7 +12,7 @@ final class Module extends AbstractModule
 {
     /**
      * money.md, "Confirmation" and "Withdrawal, removal and substitution": an event's deposit, one row keyed by
-     * the event; `amount` is decimal text in the event's currency. [UNAPPROVED N830, N835]
+     * the event; `amount` is decimal text in the event's currency.
      */
     private const SETTINGS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_deposit_settings (

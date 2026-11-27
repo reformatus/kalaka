@@ -5,7 +5,6 @@ public API ([Packaging](../../../../docs/architecture/modules-and-extensions.md#
 It stores the per-event deposit amount; the threshold, the advance and the retention rule that read it are
 the money side's (money.md, [Confirmation](../../../../docs/architecture/money.md#confirmation) and
 [Withdrawal, removal and substitution](../../../../docs/architecture/money.md#withdrawal-removal-and-substitution)).
-[UNAPPROVED R90]
 
 ## Sections it implements
 
@@ -23,14 +22,14 @@ the money side's (money.md, [Confirmation](../../../../docs/architecture/money.m
 
 - This plugin stores only the per-event deposit amount: one row in `kalaka_deposit_settings`, keyed by the
   event, `amount` decimal text in the event's currency. No row means no deposit. Only this module writes the
-  table, `DepositSettingsRepository` being its only writer. [UNAPPROVED N830, N835]
+  table, `DepositSettingsRepository` being its only writer.
 - The deposit changes only through `kalaka/set-deposit`, the save step of a money settings apply
   (`Api\Deposits::propose()` with `Pricing\Api\MoneySettings`): preview, then apply. Turning it off deletes
-  the row only. [UNAPPROVED N837]
+  the row only.
 - The component `deposit` is a `Pricing\Api\ConfigurableFeeComponent`: the money settings file of
   `wp kalaka money-settings` reads and writes it through `settingsToArray()` and `settingsFromArray()`, which
   only call `Api\Deposits`. It composes last (the extras stage) and writes no fee line: the threshold, the
-  advance and the retention rule are the money side's (a later slice). [UNAPPROVED N836, N838]
+  advance and the retention rule are the money side's (a later slice).
 - The amount is a positive decimal text with at most two decimals; `0`, `0.00` and a negative are refused
   (N829). It is not turned into money here; the money side converts it with the event's currency.
 - No screen, route or participant text. The command line is `wp kalaka money-settings`, core's.
