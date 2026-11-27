@@ -118,7 +118,7 @@ final class Decisions
 
     /**
      * Every decision kind recorded in an event, and every kind with a base state (it holds where nothing is
-     * recorded), in byte order.
+     * recorded), in byte order. [UNAPPROVED N7]
      *
      * @return list<string>
      */
@@ -131,7 +131,7 @@ final class Decisions
     }
 
     /**
-     * The distinct states recorded for a kind in an event, and its base state, in byte order.
+     * The distinct states recorded for a kind in an event, and its base state, in byte order. [UNAPPROVED N7]
      *
      * @return list<string>
      */

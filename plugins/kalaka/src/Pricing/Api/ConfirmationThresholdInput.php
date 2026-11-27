@@ -9,7 +9,7 @@ use Kalaka\Registrations\Api\RegistrationFacts;
 
 /**
  * Everything a confirmation threshold gets (modules-and-extensions.md, "Contracts"): the registration's facts,
- * the payer, its target as the fee composition says now, and the run's moment.
+ * the payer, its target as the fee composition says now, and the run's moment. [UNAPPROVED N5]
  */
 final readonly class ConfirmationThresholdInput
 {
