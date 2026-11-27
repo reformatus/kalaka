@@ -20,7 +20,7 @@ import * as api from './api';
 import { unconfirmBlocked, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import { ConfirmationRow, StatusRow } from './PanelRows';
+import { StatusRow } from './PanelRows';
 import { tabClicks } from './panel';
 import { PANEL } from './texts';
 
