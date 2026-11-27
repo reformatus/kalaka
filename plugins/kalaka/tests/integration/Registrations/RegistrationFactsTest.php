@@ -10,6 +10,7 @@ use Kalaka\Events\EventRepository;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Forms\Api\EventValues;
+use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationFacts;
@@ -20,6 +21,26 @@ use Kalaka\Registrations\Api\RegistrationStatus;
 /** The registration fact source, with the field values (S25), and the open registrations of an event. */
 final class RegistrationFactsTest extends RegistrationsTestCase
 {
+    private static function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
+    }
+
+    public function testTimeNowIsTheMomentTheCallerPasses(): void
+    {
+        $event = $this->event();
+        $this->insertRegistration($this->newRegistration($event->id, '00A0'));
+        $key = new RegistrationKey($event->id, '00A0');
+
+        $first = (new Registrations())->factsOf($key, $event, self::now());
+        $later = (new Registrations())->factsOf($key, $event, self::now()->modify('+40 days'));
+
+        self::assertNotNull($first);
+        self::assertNotNull($later);
+        self::assertSame('2026-11-30T08:00:00+00:00', $first->get(Facts::NOW)->data);
+        self::assertSame('2027-01-09T08:00:00+00:00', $later->get(Facts::NOW)->data);
+    }
+
     public function testTheFactsHoldTheEventValuesTheCodeTheStatusAndNoRegisteredTimeWhileWaitlisted(): void
     {
         $event = $this->event();
@@ -27,14 +48,14 @@ final class RegistrationFactsTest extends RegistrationsTestCase
             $this->newRegistration($event->id, '00A0', RegistrationStatus::Waitlisted, '2026-12-10 09:30:00')
         );
 
-        $facts = (new Registrations())->factsOf(new RegistrationKey($event->id, '00A0'), $event);
+        $facts = (new Registrations())->factsOf(new RegistrationKey($event->id, '00A0'), $event, self::now());
 
         self::assertInstanceOf(RegistrationFacts::class, $facts);
         self::assertSame('00A0', $facts->get(RegistrationFacts::CODE)->data);
         self::assertSame(['waitlisted'], $facts->get(RegistrationFacts::STATUS)->data);
         self::assertSame('Teszt tábor', $facts->get(EventValues::NAME)->data);
         self::assertNull($facts->registeredAt);
-        self::assertNull((new Registrations())->factsOf(new RegistrationKey($event->id, '00A2'), $event));
+        self::assertNull((new Registrations())->factsOf(new RegistrationKey($event->id, '00A2'), $event, self::now()));
 
         $this->expectException(SystemFailure::class);
         $facts->get('megjegyzes');
@@ -52,7 +73,7 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         $key = new RegistrationKey($event->id, '00A0');
         $this->writeValue($key, 'tamogatas', 'teljes');
 
-        $facts = (new Registrations())->factsOf($key, $event);
+        $facts = (new Registrations())->factsOf($key, $event, self::now());
 
         self::assertNotNull($facts);
         self::assertSame(ValueType::Choice, $facts->get('tamogatas')->type);

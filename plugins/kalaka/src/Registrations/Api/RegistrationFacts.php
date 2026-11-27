@@ -36,6 +36,7 @@ final readonly class RegistrationFacts implements Facts
     private ValueContext $values;
 
     /**
+     * @param \DateTimeImmutable $now the moment `time.now` reads: the caller's, one clock for the whole read
      * @param array<string, Value> $fieldValues field key → value (`Forms::participantFacts()`)
      * @param array<string, FieldKind> $fieldKinds field key → its kind (the same call)
      */
@@ -44,10 +45,11 @@ final readonly class RegistrationFacts implements Facts
         public RegistrationStatus $status,
         public ?\DateTimeImmutable $registeredAt,
         Event $event,
+        \DateTimeImmutable $now,
         array $fieldValues = [],
         private array $fieldKinds = [],
     ) {
-        $this->values = new ValueContext($fieldValues + EventValues::of($event) + [
+        $this->values = new ValueContext($fieldValues + EventValues::of($event) + EventValues::now($now) + [
             self::CODE => Value::text($registration->code, $registration->code),
             self::STATUS => Value::choice([$status->value], ''),
         ]);
@@ -63,9 +65,10 @@ final readonly class RegistrationFacts implements Facts
     public static function declared(Event $event, array $fieldValues): array
     {
         $types = [];
-        foreach ($fieldValues + EventValues::of($event) as $key => $value) {
+        foreach ($fieldValues as $key => $value) {
             $types[$key] = $value->type;
         }
+        $types += EventValues::TYPES;
 
         return $types + [self::CODE => ValueType::Text, self::STATUS => ValueType::Choice];
     }

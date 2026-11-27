@@ -126,7 +126,7 @@ final class RankingStoredVersionTest extends MailBodyTestCase
         // The submission's mail reads the stored version and renders.
         $body = $this->document($this->event, $this->paragraph('Szia'));
         $this->switchOn($this->event, 'registered', $body);
-        $mail = (new MailRenderer())->render($this->event, 'registered', $key);
+        $mail = (new MailRenderer())->render($this->event, 'registered', $key, self::now());
         self::assertStringContainsString('Szia', $mail->html);
     }
 }

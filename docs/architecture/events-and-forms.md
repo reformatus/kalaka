@@ -485,14 +485,40 @@ is no other participant-side edit.
   equals X". Groups follow the same three values: `all` with an unknown item
   and no false is unknown, `any` with a true is true, and `not` on a group
   leaves unknown unknown. A condition that is unknown counts as not matched.
-- **Typed comparison:** values compare as number, date, text or choice. A
-  choice that is a path (the congregation field) is only asked whether it
-  contains a node, never whether it equals one.
-- **A date can be compared with a date reference:** another date key of the
-  fact source moved by whole years and days, e.g. the event's start minus 16
-  years for "under 16 at the event's start". A day the moved month does not
-  have becomes its last day (29 February to 28 February), so the age rule
-  holds for an event starting on 29 February.
+- **Typed comparison:** values compare as number, date, datetime, text or
+  choice. A date is a calendar day; a datetime is an instant. Two datetimes
+  compare as instants; a date against a date or a datetime compares on the
+  day (a datetime gives the site-time-zone day it falls on, never midnight),
+  so a day-only value keeps its whole-day meaning against `now`. The
+  registration's opening and closing (`event.registration_opens`,
+  `event.registration_closes`) are datetimes, the event's start and end
+  (`event.start`, `event.end`) dates. A choice that is a path (the
+  congregation field) is only asked whether it contains a node, never
+  whether it equals one.
+- **A date or datetime can be compared with a date reference:** another date
+  or datetime key of the fact source moved by whole years and days, e.g. the
+  event's start minus 16 years for "under 16 at the event's start". A day
+  the moved month does not have becomes its last day (29 February to 28
+  February), so the age rule holds for an event starting on 29 February. A
+  datetime moves its wall time in the site's time zone.
+- **A datetime can be a literal:** `YYYY-MM-DDTHH:MM:SS` with the site's
+  offset in force on that day (`Z` or `+HH:MM`), e.g.
+  `2026-12-01T18:00:00+01:00`; a date key or a datetime key takes it or a
+  plain day. The instant is fixed when stored. Against a date, a literal's
+  day is its date part as written. The editor and the server check it by the
+  same rules.
+- **A date reference can be "now":** the clock's time, to the second, in the
+  site's time zone (a datetime), moved by whole years and days like any date
+  reference (e.g. "now + 0 days"); no hours or minutes. While a form is
+  filled in it is the render time (the page render and every re-fetch), at
+  submit the submit time, and after submit (mails, participant blocks,
+  views) the clock time of the read that renders them (the runner's
+  `Clock`); the evaluator reads it from the fact source like any value,
+  never from a clock of its own. As a date reference it is only
+  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
+  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
+  reads an event value, and the page re-fetches it with the form's other
+  re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice
