@@ -4,12 +4,12 @@
  * user's grants allow. Positive means what the column's name says and a real minus the opposite; „Tartozás” is
  * Fizetendő − Befizetett, positive still owed, and a negative value reads „−5 000 Ft (túlfizetés)” (topic 10).
  * One „Tétel rögzítése” action records a payment, a refund, a charge or a discount, the correction keeps its
- * own (G12). [UNAPPROVED N39] [UNAPPROVED N42] [UNAPPROVED N17] [UNAPPROVED N18]
+ * own (G12). [UNAPPROVED N39] [UNAPPROVED N42] [UNAPPROVED N17] [UNAPPROVED N18] [UNAPPROVED N1203]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import RecordDialog from './RecordDialog';
-import { allowedTypes, canCorrect, entryColumns, formatBalance, formatDay, formatMoney, lineNote, typeWord } from './money';
+import { allowedTypes, canCorrect, entryColumns, formatBalance, formatDay, formatMoney, lineNote, showsPayerColumn, typeWord } from './money';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
 import { returnFocus } from './panel';
 import { MONEY } from './texts';
@@ -30,7 +30,8 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
 	const timers = useRef( [] );
-	const several = money.payers.length > 1;
+	const several = money.payers.length > 1; // the total row
+	const payerColumn = showsPayerColumn( money );
 
 	useEffect(
 		() => () => {
@@ -95,7 +96,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				<table className="kg-money">
 					<thead>
 						<tr>
-							<th scope="col">{ MONEY.payer }</th>
+							{ payerColumn && <th scope="col">{ MONEY.payer }</th> }
 							<th scope="col" className="is-num">
 								{ MONEY.owed }
 							</th>
@@ -110,7 +111,9 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 					<tbody>
 						{ summary.map( ( p ) => (
 							<tr key={ p.payer } className={ p.payer === '_total' ? 'is-total' : '' }>
-								<th scope="row">{ p.payer === '_total' ? p.label : payerName( p.payer ) }</th>
+								{ payerColumn && (
+									<th scope="row">{ p.payer === '_total' ? p.label : payerName( p.payer ) }</th>
+								) }
 								<td className="is-num">{ formatMoney( p.charged, money.currency ) }</td>
 								<td className="is-num">{ formatMoney( p.paid, money.currency ) }</td>
 								{ /* The total row's „Tartozás” nets one payer against another: a hole. */ }
@@ -146,7 +149,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 								<th scope="col">{ MONEY.date }</th>
 								<th scope="col">{ MONEY.type }</th>
 								{ /* Kept with several payers, though the owner's column list does not name it. */ }
-								{ several && <th scope="col">{ MONEY.payer }</th> }
+								{ payerColumn && <th scope="col">{ MONEY.payer }</th> }
 								<th scope="col" className="is-num">
 									{ MONEY.owed }
 								</th>
@@ -175,7 +178,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 											</Fragment>
 										) }
 									</td>
-									{ several && <td>{ payerName( line.payer ) }</td> }
+									{ payerColumn && <td>{ payerName( line.payer ) }</td> }
 									<td className="is-num kg-nowrap">{ side.owed }</td>
 									<td className="is-num kg-nowrap">{ side.paid }</td>
 									<td>{ line.method_label || '' }</td>

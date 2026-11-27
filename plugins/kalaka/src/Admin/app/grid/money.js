@@ -345,3 +345,13 @@ export function validateEntry( entry, day ) {
 	}
 	return errors;
 }
+
+/**
+ * The payer column (Fizető) is shown only when the registration has more than one payer row; with one the column
+ * says nothing and is hidden, in the summary table and the entries alike (owner 2026-11-19, 4.3). [UNAPPROVED N1203]
+ *
+ * @param {Object} money the read's money part
+ */
+export function showsPayerColumn( money ) {
+	return money.payers.length > 1;
+}

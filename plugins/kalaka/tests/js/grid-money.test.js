@@ -14,6 +14,7 @@ import {
 	lineSide,
 	pairPreview,
 	parseAmount,
+	showsPayerColumn,
 	previewAfter,
 	raisesDebt,
 	savedText,
@@ -504,5 +505,13 @@ describe( 'the recording dialog\'s checks', () => {
 	test( 'every wrong field is reported at once', () => {
 		const errors = validateEntry( { several: true, payer: '', amount: '', date: '2026-12-01', method: '', note: '', kind: 'payment', direction: '' }, day );
 		expect( Object.keys( errors ).sort() ).toEqual( [ 'amount', 'method', 'payer', 'value_date' ] );
+	} );
+} );
+
+describe( 'the payer column (4.3)', () => {
+	test( 'is hidden with one payer row and shown with several', () => {
+		expect( showsPayerColumn( { payers: [ { payer: 'participant' } ] } ) ).toBe( false );
+		expect( showsPayerColumn( { payers: [] } ) ).toBe( false );
+		expect( showsPayerColumn( { payers: [ { payer: 'participant' }, { payer: 'church' } ] } ) ).toBe( true );
 	} );
 } );
