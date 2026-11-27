@@ -30,7 +30,7 @@ final class Texts
     public const NO_TIMES = 'A kezdés és a befejezés nincs megadva.';
 
     /** The notice after a successful save. [UNAPPROVED T1008] */
-    public const SAVED = 'Az esemény adatai elmentve.';
+    public const SAVED = 'Az esemény adatai mentve.';
 
     /** The notice after a refused save. [UNAPPROVED T1009] */
     public const FAILED = 'A mentés nem sikerült. Ellenőrizd a dátumokat, majd próbáld újra.';
