@@ -116,19 +116,25 @@ final class MailPages
         echo '<style>' . $css . '</style>';
     }
 
-    /** `admin_enqueue_scripts`: the app's script and styles on the two mail pages only. */
+    /**
+     * `admin_enqueue_scripts`: the site page's app, and the event page's PHP page with its small script for the
+     * dynamic parts (the switch, the choose dialog, the X, the group-mail details, the clear and the layout save).
+     * [UNAPPROVED N1285]
+     */
     public static function enqueue(): void
     {
-        if (self::page() === null) {
+        $page = self::page();
+        if ($page === null) {
             return;
         }
         $built = dirname(KALAKA_FILE) . '/build/Admin/app/';
-        if (!is_file($built . 'mail.asset.php')) {
+        $entry = $page === 0 ? 'mail' : 'mail-event';
+        if (!is_file($built . $entry . '.asset.php')) {
             return;
         }
         /** @var array{dependencies: list<non-empty-string>, version: string} $asset */
-        $asset = require $built . 'mail.asset.php';
-        $src = plugins_url('build/Admin/app/mail.js', KALAKA_FILE);
+        $asset = require $built . $entry . '.asset.php';
+        $src = plugins_url('build/Admin/app/' . $entry . '.js', KALAKA_FILE);
         if ($src === '') {
             return;
         }
@@ -182,25 +188,27 @@ final class MailPages
             // The names of the events the page can name; an event the sender read lists and this does not (an
             // archived one) shows as its number. [UNAPPROVED N280]
             $config['kind'] = 'sender';
+            $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html(Texts::SITE_PAGE) . '</h1>';
             $config['events'] = array_map(static fn (Event $event): array => [
                 'id' => $event->id,
                 'name' => $event->name,
                 'url' => admin_url('admin.php?page=' . self::slug($event)),
             ], (new Events())->notArchived());
-            $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html(Texts::SITE_PAGE) . '</h1>';
-        } else {
-            $event = (new Events())->find($page) ?? throw new NotFound();
-            $config['kind'] = 'event';
-            $config['event'] = $event->id;
-            $config['eventName'] = $event->name;
-            $config['registrantsUrl'] = admin_url('admin.php?page=' . GridPage::slug($event));
-            $config['senderUrl'] = admin_url('admin.php?page=' . self::SITE_SLUG);
-            $head = '<div class="wrap kalaka-mail-wrap"><h1>' . esc_html($event->name) . '</h1>';
+            wp_add_inline_script(self::HANDLE, 'window.kalakaMail = ' . wp_json_encode($config) . ';', 'before');
+            wp_enqueue_script(self::HANDLE);
+
+            return $head . '<div id="kalaka-mail"></div></div>';
         }
-        wp_add_inline_script(self::HANDLE, 'window.kalakaMail = ' . wp_json_encode($config) . ';', 'before');
+        // The event's page is PHP's (`EventPage`); only its dynamic parts reach the client. [UNAPPROVED N1280]
+        $event = (new Events())->find($page) ?? throw new NotFound();
+        wp_add_inline_script(
+            self::HANDLE,
+            'window.kalakaMailPage = ' . wp_json_encode(EventPage::config($event)) . ';',
+            'before'
+        );
         wp_enqueue_script(self::HANDLE);
 
-        return $head . '<div id="kalaka-mail"></div></div>';
+        return EventPage::render($event);
     }
 
     /** The event's id, 0 for the site page, null for any other page. */
@@ -228,6 +236,18 @@ final class MailPages
         }
 
         return admin_url('admin.php?page=' . self::SITE_SLUG);
+    }
+
+    /** The event's own page slug, for other classes that link to it. */
+    public static function slugOf(Event|int $event): string
+    {
+        return self::slug($event);
+    }
+
+    /** The site page's slug (the top-level item's own page). */
+    public static function siteSlug(): string
+    {
+        return self::SITE_SLUG;
     }
 
     private static function slug(Event|int $event): string

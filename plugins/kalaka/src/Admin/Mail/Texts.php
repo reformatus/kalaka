@@ -59,4 +59,93 @@ final class Texts
      * the lektor's style; marked for the lektor's next pass. [UNAPPROVED T918]
      */
     public const EDITOR_BACK_SITE = 'Vissza a Levelezés oldalra';
+
+    /**
+     * The event's „Levelek” page, rebuilt in PHP without tabs (owner 2026-11-27, walkthrough 8; section 8 of the build
+     * list). The words it keeps are approved and reused as they are: „Tárgy”, „Állapot”, „Módosítva”, „Szerkesztés”,
+     * „Elérhető”, „Vázlat”, „Levélkeret”, „A levélkeret HTML-je”, „Mentés”, „Mégse”, „Bezárás”, „Csoportos levelek”,
+     * „Küldésre vár”, „Elküldve”, „Sikertelen”, „Jelentkező”, „Levél”, „Kimaradt”, „Sorszám”, „Sorba állítva”,
+     * „%d. csoportos levél részletei” and the held sentence (the site page's and the old tabs'). Every new word is
+     * boxed below.
+     */
+    public const SECTION_POINTS = 'Küldési pontok'; // [UNAPPROVED T1260]
+
+    public const SECTION_UNASSIGNED = 'Hozzá nem rendelt sablonok'; // [UNAPPROVED T1261]
+
+    public const OVERVIEW_TITLE = 'Áttekintés'; // [UNAPPROVED T1262]
+
+    public const POINT_COLUMN = 'Küldési pont'; // [UNAPPROVED T1263]
+
+    public const SWITCH_COLUMN = 'Levélküldés'; // [UNAPPROVED T1264]
+
+    /** The template cell of a point without a template. [UNAPPROVED T1265] */
+    public const NO_TEMPLATE = 'Nincs levélsablon.';
+
+    /** The choose button and its dialog's title. [UNAPPROVED T1266] */
+    public const CHOOSE_TEMPLATE = 'Sablon választása';
+
+    /** The new-template button. [UNAPPROVED T1267] */
+    public const NEW_TEMPLATE = 'Új sablon';
+
+    /** The X's accessible name. [UNAPPROVED T1268] */
+    public const REMOVE_TEMPLATE = 'A sablon eltávolítása';
+
+    /** The clear-queued act's confirm, on the overview card. [UNAPPROVED T1269] */
+    public const CLEAR_CONFIRM = 'Az esemény küldésre váró levelei törlődnek. Biztosan törlöd őket?';
+
+    /** The way back from the levélkeret screen. [UNAPPROVED T1270] */
+    public const BACK_TO_PAGE = 'Vissza a levelekhez';
+
+    /** The unassigned section with nothing in it. [UNAPPROVED T1271] */
+    public const NONE_UNASSIGNED = 'Minden sablon egy küldési ponthoz tartozik.';
+
+    /** The overview's link to the full failure list. [UNAPPROVED T1272] */
+    public const SENDER_LINK = 'A hibák teljes listája a Levelezés oldalon.';
+
+    /** An act that failed, with no server text of its own. [UNAPPROVED T1273] */
+    public const ACT_FAIL = 'A művelet nem sikerült. Próbáld újra.';
+
+    // The words the page keeps (approved elsewhere; not re-boxed):
+    public const TEMPLATE_COLUMN = 'Levélsablon';
+    public const TEMPLATE_STATUS = 'Állapot';
+    public const USES_FRAME = 'Levélkeret használata';
+    public const MODIFIED = 'Módosítva';
+    public const EDIT = 'Szerkesztés';
+    public const YES = 'Igen';
+    public const NO = 'Nem';
+    public const NONE = '–';
+    public const SAVE = 'Mentés';
+    public const CANCEL = 'Mégse';
+    public const CLOSE = 'Bezárás';
+    public const PUBLISHED = 'Elérhető';
+    public const DRAFT = 'Vázlat';
+    public const PENDING = 'Függőben';
+    public const SCHEDULED = 'Időzítve';
+    public const PRIVATE_STATUS = 'Privát';
+    public const HELD = 'Az esemény nincs közzétéve, ezért a levelek a küldési sorban várnak.';
+    public const QUEUED = 'Küldésre vár';
+    public const SENT = 'Elküldve';
+    public const FAILED = 'Sikertelen';
+    public const STUCK = 'Küldés közben elakadt';
+    public const WITH_ERROR = 'A küldésre várók közül hiba után vár';
+    public const TROUBLED_TITLE = 'Küldési hibák';
+    public const TROUBLED_CODE = 'Jelentkező';
+    public const TROUBLED_MAIL = 'Levél';
+    public const TROUBLED_STATUS = 'Állapot';
+    public const TROUBLED_ERROR = 'Hibaüzenet';
+    public const BATCHES_TITLE = 'Csoportos levelek';
+    public const BATCH_NUMBER = 'Sorszám';
+    public const BATCH_SUBJECT = 'Tárgy';
+    public const BATCH_QUEUED = 'Sorba került';
+    public const BATCH_SKIPPED = 'Kimaradt';
+    public const BATCH_OPEN = '%d. csoportos levél részletei';
+    public const BATCH_DETAILS_LABEL = 'Részletek';
+    public const NUMBERED = '%1$s (%2$d. számú levélsablon)';
+    public const LAYOUT_LINK = 'Levélkeret';
+    public const LAYOUT_TITLE = 'Levélkeret';
+    public const LAYOUT_FIELD = 'A levélkeret HTML-je';
+    public const CLEAR_QUEUED = 'Az esemény küldésre váró leveleinek törlése';
+    public const DELIVERY_FAILED = self::FAILED;
+    public const DELIVERY_SENDING = self::STUCK;
+    public const DELIVERY_PENDING = self::WITH_ERROR;
 }

@@ -12,6 +12,7 @@ scripts.entry = async () => ( {
 	...( typeof entry === 'function' ? await entry() : entry ),
 	'Admin/app/grid': './plugins/kalaka/src/Admin/app/grid/index.js',
 	'Admin/app/mail': './plugins/kalaka/src/Admin/app/mail/index.js',
+	'Admin/app/mail-event': './plugins/kalaka/src/Admin/app/mail/event-page.js',
 } );
 
 // DataViews' stylesheet is bundled with the app; a request under `@wordpress/` would be made a WordPress

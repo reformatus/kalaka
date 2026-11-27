@@ -77,6 +77,7 @@ final class TemplateEditor
             'words' => Texts::EDITOR_WORDS,
             'back' => MailPages::url($event),
             'label' => $event === null ? Texts::EDITOR_BACK_SITE : Texts::EDITOR_BACK,
+            'frame' => Texts::USES_FRAME,
         ]);
         $script = <<<'JS'
 ( function ( wp, data ) {
@@ -85,11 +86,33 @@ final class TemplateEditor
 		words[ key ] = [ data.words[ key ] ];
 	} );
 	wp.i18n.setLocaleData( words, 'default' );
+	var el = wp.element.createElement;
 	var slot = wp.editPost && wp.editPost.__experimentalMainDashboardButton;
-	if ( ! slot || ! wp.plugins ) {
+	// Whether the levélkeret wraps this template: the template's own property (walkthrough 8, item 7), in core's own
+	// sidebar panel beside the status; saved with the post. [UNAPPROVED N1287]
+	var statusInfo = wp.editPost.PluginPostStatusInfo;
+	if ( statusInfo && wp.data && wp.data.useSelect && wp.components.CheckboxControl ) {
+		var useSelect = wp.data.useSelect;
+		var useDispatch = wp.data.useDispatch;
+		var Panel = function () {
+			var meta = useSelect( function ( select ) {
+				return select( 'core/editor' ).getEditedPostAttribute( 'meta' ) || {};
+			}, [] );
+			var edit = useDispatch( 'core/editor' ).editPost;
+			var value = meta.kalaka_uses_frame;
+			return el( statusInfo, { className: 'kalaka-mail-frame' }, el( wp.components.CheckboxControl, {
+				label: data.frame,
+				checked: value !== false && value !== '0',
+				onChange: function ( next ) {
+					edit( { meta: { kalaka_uses_frame: next } } );
+				}
+			} ) );
+		};
+		wp.plugins.registerPlugin( 'kalaka-mail-frame', { render: Panel } );
+	}
+	if ( ! slot ) {
 		return;
 	}
-	var el = wp.element.createElement;
 	wp.plugins.registerPlugin( 'kalaka-mail-back', {
 		render: function () {
 			return el( slot, null, el( wp.components.Button, {

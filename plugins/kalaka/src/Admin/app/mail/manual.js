@@ -16,16 +16,16 @@ export function newRequestKey( random = Math.random ) {
 }
 
 /**
- * The keys of one page (the dialog is opened and closed on it as often as the admin likes): the same body, layout and
+ * The keys of one page (the dialog is opened and closed on it as often as the admin likes): the same body and
  * selection (the codes, or the view with its filters and search) always give the same key, so a retry after a lost
  * answer, a second click or a closed and reopened dialog is the same request and the server answers the first batch;
- * another body, layout or selection is another request and gets its own key. (The server compares the body and the codes of a repeat, never the layout,
- * which is why the layout is part of the key here.)
+ * another body or selection is another request and gets its own key. The levélkeret is the template's own property
+ * (walkthrough 8), so it is no input of the send and no part of the key.
  */
 export function createKeys( make = newRequestKey ) {
 	const keys = new Map();
-	return ( bodyId, layout, selection ) => {
-		const signature = [ bodyId, layout ? 1 : 0, selectionSignature( selection ) ].join( '|' );
+	return ( bodyId, selection ) => {
+		const signature = [ bodyId, selectionSignature( selection ) ].join( '|' );
 		if ( ! keys.has( signature ) ) {
 			keys.set( signature, make() );
 		}
