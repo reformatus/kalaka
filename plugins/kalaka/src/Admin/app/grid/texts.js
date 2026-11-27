@@ -199,6 +199,9 @@ export const CONFIRM = {
  * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar, [UNAPPROVED T10] the full-offer
  * warning, [UNAPPROVED T11] the missing award. The amount field says Ft whatever the currency (T8).
  */
+/** The spoken text next to a „–” (not applicable), so a screen reader tells it from „Nem”. [UNAPPROVED T1225] */
+export const NOT_APPLICABLE_SPOKEN = 'Nem értelmezhető';
+
 export const REQUESTS = {
 	heading: 'Kérelmek',
 	awaiting: 'Válaszra vár',
@@ -219,4 +222,7 @@ export const REQUESTS = {
 	full: 'Ennek a lehetőségnek már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
 	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
+	// An inactive request's state: the same „–” as the grid's awaits column (Texts::NOT_APPLICABLE, T1120), which the
+	// read does not carry to the panel. [UNAPPROVED T1224]
+	notApplicable: '–',
 };

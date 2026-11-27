@@ -3,11 +3,12 @@
  * request of the registration with its state, and with `can.answer_request` the button that opens the answer
  * dialog. It shows only what the read carries: the block shows when the read carries requests (only holders of the
  * answer ability get them), only the button needs `can.answer_request`, an inactive request shows its label
- * without a state word, and nothing shows while the last read failed. [UNAPPROVED N7] [UNAPPROVED N858]
+ * with „–” as its state, and nothing shows while the last read failed. [UNAPPROVED N7] [UNAPPROVED N1236]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import AnswerDialog from './AnswerDialog';
+import NotApplicable from './NotApplicable';
 import { itemsOf, stateText } from './requests';
 import { REQUESTS } from './texts';
 
@@ -61,7 +62,7 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 	};
 
 	// The read carries the requests only to a holder of the answer ability, so the block shows whenever it has items;
-	// `can.answer_request` (false while the registration is not registered, N655) only gives the button. [UNAPPROVED N858]
+	// `can.answer_request` (false while the registration is not registered, N655) only gives the button. [UNAPPROVED N7]
 	if ( items.length === 0 && notices.length === 0 ) {
 		return null;
 	}
@@ -75,8 +76,14 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 							<li key={ item.id }>
 								<span>
 									{ item.label }
-									{ stateText( item, detail.requests.currency ) !== '' &&
-										`: ${ stateText( item, detail.requests.currency ) }` }
+									{ item.state === 'inactive' ? (
+										<Fragment>
+											{ ': ' }
+											<NotApplicable text={ stateText( item, detail.requests.currency ) } />
+										</Fragment>
+									) : (
+										`: ${ stateText( item, detail.requests.currency ) }`
+									) }
 								</span>
 								{ can && item.state !== 'inactive' && (
 									<Button

@@ -1,7 +1,7 @@
 /**
  * The requests block of the detail panel: when it shows, the state word of each request and the button that
  * only `can.answer_request` gives. Real RequestsBlock with small stand-ins for wp-components and the dialog.
- * [UNAPPROVED N7] [UNAPPROVED N858]
+ * [UNAPPROVED N7] [UNAPPROVED N1236]
  */
 import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -11,8 +11,9 @@ import { REQUESTS } from '../../src/Admin/app/grid/texts';
 jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( 'react' );
 	const Button = ( { children, onClick } ) => h( 'button', { onClick }, children );
+	const VisuallyHidden = ( { children } ) => h( 'span', { className: 'vh' }, children );
 	const SnackbarList = () => null;
-	return { Button, SnackbarList };
+	return { Button, SnackbarList, VisuallyHidden };
 } );
 jest.mock( '../../src/Admin/app/grid/AnswerDialog', () => ( { __esModule: true, default: () => null } ) );
 
@@ -54,9 +55,12 @@ describe( 'the requests block', () => {
 		expect( host.querySelector( 'button' ).textContent ).toBe( REQUESTS.answer );
 	} );
 
-	test( 'an inactive request shows its label, with no state word and no button, without the ability', async () => {
+	test( 'an inactive request shows „–” as its state with a hidden „Nem értelmezhető”, and no button (N1236, T1224, T1225)', async () => {
 		await render( [ item( 'inactive' ) ], false );
-		expect( host.querySelector( 'li' ).textContent ).toBe( 'Egyházi támogatás' );
+		expect( host.querySelector( 'li span' ).textContent ).toBe( 'Egyházi támogatás: –Nem értelmezhető' );
+		expect( host.querySelector( 'li [aria-hidden="true"]' ).textContent ).toBe( '–' );
+		expect( host.querySelector( 'li .vh' ).textContent ).toBe( 'Nem értelmezhető' );
+		expect( host.textContent ).not.toMatch( /Nem(?! értelmezhető)/ );
 		expect( host.textContent ).not.toContain( REQUESTS.awaiting );
 		expect( host.querySelector( 'button' ) ).toBeNull();
 	} );
