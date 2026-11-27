@@ -19,6 +19,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * - Not idempotent on a confirmed registration: a repeat after an at-once re-confirm is a new act, with a
  *   second pair of records and a second audit entry.
  *
+ * [UNAPPROVED N12]
  */
 final class Unconfirm extends ManualConfirmationChange
 {

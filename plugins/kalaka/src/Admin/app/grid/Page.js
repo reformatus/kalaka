@@ -10,7 +10,7 @@
  *
  * S38: a row opens the detail panel (`DetailPanel`) over the grid, from the button in its first identifying cell
  * or a click on the row. The panel is not modal: another row switches it, and the grid's filters, search, sort,
- * page and scroll stay. × or Esc closes it and focus returns to the row.
+ * page and scroll stay. × or Esc closes it and focus returns to the row. [UNAPPROVED N1] [UNAPPROVED N3]
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
@@ -85,7 +85,7 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
-	// The code of the registration in the panel, or null.
+	// The code of the registration in the panel, or null. [UNAPPROVED N3]
 	const [ open, setOpen ] = useState( null );
 	const openRef = useRef( null );
 	openRef.current = open;
@@ -128,7 +128,7 @@ export default function Page( { config } ) {
 	};
 
 	// The reset of the sort and the counting: Kód ascending again, the stored counting again. It leaves the
-	// search and the filters alone; DataViews' own search clear, filter chips and Reset are theirs.
+	// search and the filters alone; DataViews' own search clear, filter chips and Reset are theirs. [UNAPPROVED N7]
 	const resetOrder = () => {
 		setView( { ...v, sort: defaultSort( tab ), page: 1 } );
 		picks.current.reset();
@@ -136,7 +136,7 @@ export default function Page( { config } ) {
 	};
 
 	// S38: the rows open the detail panel. The button sits in the first identifying cell: Kód, else the first
-	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód).
+	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód). [UNAPPROVED N3]
 	const opener = (
 		tab.columns.find( ( c ) => c.type === 'code' ) ||
 		tab.columns.find( ( c ) => c.type !== 'serial' ) ||
@@ -167,7 +167,7 @@ export default function Page( { config } ) {
 				return;
 			}
 			// Esc belongs to the control that has focus (a column menu, the search box); the panel takes it only
-			// from inside itself, from a row button, or when nothing has focus.
+			// from inside itself, from a row button, or when nothing has focus. [UNAPPROVED N3]
 			const active = document.activeElement;
 			if ( active && active !== document.body && ! active.closest( '.kg-panel' ) && ! active.classList.contains( 'kg-open' ) ) {
 				return;
@@ -179,7 +179,7 @@ export default function Page( { config } ) {
 		document.addEventListener( 'keydown', onKey, true );
 		return () => document.removeEventListener( 'keydown', onKey, true );
 	}, [] );
-	// The open row is marked, and every row with a button is clickable. The look is mine.
+	// The open row is marked, and every row with a button is clickable. The look is mine. [UNAPPROVED N2]
 	useLayoutEffect( () => {
 		if ( ! host ) {
 			return;
@@ -437,7 +437,7 @@ export default function Page( { config } ) {
 		// Filters or a search that match nothing say so.
 		empty = <p className="kg-no-match">{ GRID.noMatch }</p>;
 	} else {
-		// A view with no registrations at all.
+		// A view with no registrations at all. [UNAPPROVED N10]
 		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
 	}
 	const copyButton = (

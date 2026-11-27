@@ -9,7 +9,7 @@ use Kalaka\Foundation\Api\Audit\Subject;
 /**
  * What a rule decides: the new state, when it took effect, and the record that caused it. A rule returns
  * its transitions in order; core writes each one that changes the running state (foundation.md, "Facts,
- * decisions and computed values").
+ * decisions and computed values"). [UNAPPROVED N16]
  */
 final readonly class Transition
 {
