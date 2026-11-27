@@ -1038,7 +1038,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         ];
         self::assertSame($expected, $read($this->admin->userId)['requests']);
         // The partner holds the answer action but no money view: the requests come without a figure — no
-        // `amount` on an item and no `aid` context on the aid one ([UNAPPROVED N1134]).
+        // `amount` on an item and no `aid` context on the aid one ().
         $blind = $expected;
         $blind['items'][1]['amount'] = null;
         unset($blind['items'][1]['aid']);
@@ -1116,7 +1116,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             $items(30000)[1]['aid']
         );
         // A holder of the answer action without the money fields reads the request with no aid context at all
-        // ([UNAPPROVED N1134]); with the money view they read the same figures as full access does.
+        // with the money view they read the same figures as full access does.
         $partner = $this->plainUser();
         $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
         $asPartner = $read(30000)->of(new UserActor($partner), $this->event, '00A0');

@@ -2,7 +2,7 @@
  * The answer dialog (slice B): yes or no for a request, for an aid "yes" the amount awarded, and a note, optional
  * for every answer (a "yes" to an offer included: owner 2026-11-26, N985). A failed save keeps the dialog and what
  * was typed, and while it runs the dialog does not close. A refused "yes" over the limit is not refused: the warning
- * stands above the buttons and the answer may be given. [UNAPPROVED N7] [UNAPPROVED N352]
+ * stands above the buttons and the answer may be given.
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl, TextareaControl } from '@wordpress/components';
@@ -146,7 +146,7 @@ export default function AnswerDialog( { config, code, currency, item, onClose, o
 				) }
 				<TextareaControl
 					// The note is always „Megjegyzés”, never a reason, for every request kind (owner 2026-11-27,
-					// walkthrough 6.8). [UNAPPROVED N1183]
+					// walkthrough 6.8).
 					label={ REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }

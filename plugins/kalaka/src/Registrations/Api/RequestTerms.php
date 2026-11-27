@@ -10,7 +10,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * What an aid request is measured against (money.md, "Sponsor and church support"): `fullPrice`, what the
  * participant has to pay for the event before the aid, and `canPay`, what they stated they can pay (null when
  * they stated none). The aid asked is the difference, never below zero; an award above `fullPrice` is refused.
- * Both are in the event's currency. [UNAPPROVED N1131] [UNAPPROVED N1133]
+ * Both are in the event's currency.
  */
 final readonly class RequestTerms
 {

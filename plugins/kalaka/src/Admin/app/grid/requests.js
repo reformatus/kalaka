@@ -1,7 +1,7 @@
 /**
  * The pure logic of the requests block (slice B): what a request's state says, whether the dialog asks for an
  * amount, the one check of the dialog, and the ability's input. No WordPress imports, so Jest runs it as it is.
- * [UNAPPROVED N7]
+ *
  */
 import { amountString, formatMoney, parseAmount, toMinor } from './money';
 import { MONEY, REQUESTS } from './texts';
@@ -76,7 +76,7 @@ export function validateAnswer( item, answer, amount ) {
 
 /**
  * The note's check, on the text that is sent (trimmed): at most 500 characters, counted by character, not by UTF-16 unit, so the field has no
- * `maxLength` of its own (as the confirmation dialog's reason). A message, or an empty string. [UNAPPROVED T257]
+ * `maxLength` of its own (as the confirmation dialog's reason). A message, or an empty string.
  */
 export function validateNote( item, answer, note ) {
 	const text = String( note ).trim();

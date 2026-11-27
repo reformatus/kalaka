@@ -112,7 +112,7 @@ SQL;
 
     public function boot(): void
     {
-        // The labels and descriptions of the abilities. [UNAPPROVED T5, T6, T7, T8]
+        // The labels and descriptions of the abilities. [UNAPPROVED T7, T8]
         Abilities::register(
             new RecordPayment(),
             'Befizetés rögzítése',

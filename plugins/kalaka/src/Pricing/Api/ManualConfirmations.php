@@ -15,7 +15,7 @@ use Kalaka\Registrations\Api\Registrations;
  * sets the flag and unconfirms, the plain read of a registration's flag for display, and the dry run that
  * warns whether it would confirm again at once.
  * The flag is set only through `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
- * [UNAPPROVED N6, N12]
+ *
  */
 final class ManualConfirmations
 {
