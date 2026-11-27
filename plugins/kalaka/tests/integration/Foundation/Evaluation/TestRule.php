@@ -57,6 +57,14 @@ final class TestRule implements DecisionRule
         return $this->states;
     }
 
+    /** @var array<string, array{icon: string, tone: string}> */
+    public array $marks = [];
+
+    public function marks(): array
+    {
+        return $this->marks;
+    }
+
     public function defaultState(): ?DecisionDefault
     {
         return $this->default;
