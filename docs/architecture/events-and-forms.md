@@ -363,7 +363,10 @@ flowchart TB
   field with that key is what the thing reads. A backend key no field uses
   does nothing.
 - **Explicit markings:** the contact email (exactly one per form in the
-  registration slot) and the display name.
+  registration slot) and the display name. They stay on the registration
+  form's blocks and do not move to the participant-field list.
+- **An additional form holds neither explicit marking;** the save refuses it,
+  as the slot's rule does. A "change my e-mail" form waits for its own design.
 - **Money-relevance is a type capability** supplied by plugins; core ships no
   money field types. Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
@@ -383,9 +386,14 @@ is no other participant-side edit.
   value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
-  form showed the current value, so blank is the answer. A field whose type
+  form showed the current value, so blank is the answer. A shown consent left
+  unticked is not blank but the answer no, stored as `0`: withdrawing a consent
+  given earlier overwrites it and never clears it. A field whose type
   refuses prefill opens empty, so left blank it keeps the current value:
   the form never showed it.
+- **An additional form's submit sends no action mail;** the page shows the
+  form's after-submit text, or the supplement's default when it has none
+  ([Forms implementation](#forms-implementation)).
 - **The form opens with the current values** of the registration, as
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
