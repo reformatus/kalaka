@@ -18,7 +18,9 @@ title: Modules and extensions
   assignment sets ([Assignment sets](#assignment-sets)), not a general system
   that could build either organization's logic.
 - **The WooCommerce integration is our own extension plugin** on core's
-  payments port. Core has no WooCommerce dependency at all.
+  payments port. Core has no WooCommerce dependency at all. On a WooCommerce
+  site, the WooCommerce extension lets anyone who may reach Kaláka's admin
+  (full access or any grant) into wp-admin.
 - **Sponsor and church support is one extension plugin, `kalaka-support`:**
   the organization directory, the congregation picker and the support offers
   ([Money](money.md#sponsor-and-church-support)). Core holds no organization
@@ -85,14 +87,15 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   switch** (for a direct set, unpublished, it is hidden from participants
   and publishing opens the choice; a request set's field follows its choice
   window only).
-- **An option** has a capacity, leaders (display text), a place and
-  eligibility conditions on field values (e.g. age, gender).
+- **An option** has a capacity, leaders (display text) and a place. Who may
+  pick it is decided in the form: the form field that names the set may hold a
+  condition per option ([Conditions](events-and-forms.md#conditions)).
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
-    field writes a confirmed assignment; capacity and eligibility are checked
+    field writes a confirmed assignment; capacity is checked
     in the transaction under a lock on the option row; a full option cannot be
     chosen; the choice can be changed through an additional form holding it
     while the window is open, then only by staff;
@@ -108,13 +111,12 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
-    row and re-checks capacity and eligibility; items that no longer fit go
+    row and re-checks capacity; items that no longer fit go
     into the report;
   - **none** (talk groups, rooms, meal turns): staff place people, or a
     proposer proposes and staff confirm; shown once published.
   - Staff can place or override in every mode. Staff are warned first when
-    the option is full or the registration does not meet its conditions; the
-    warning never stops the placing.
+    the option is full; the warning never stops the placing.
 - **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
   set **computed from another set through an option map**, never stored,
   unless staff placed someone by hand, which is stored as a fact;

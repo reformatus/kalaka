@@ -5,13 +5,12 @@
  * `25`, silently), and which separator it takes depends on the browser's locale. This is a text input with
  * `inputmode="decimal"` that keeps what is typed and hands DataViews the number it reads (`decimal()` in
  * `narrow.js`: a comma or a dot is one decimal point), as a number, or `[ min, max ]` for the range, the shapes
- * DataViews' own control gives. Szám's range carries its approved hint under the two inputs (N11). [UNAPPROVED N65, N67, N69]
+ * DataViews' own control gives. The range keeps DataViews' own help line and no line of ours (N69). [UNAPPROVED N65, N67, N69]
  */
 import { BaseControl, Flex, TextControl } from '@wordpress/components';
 import { useEffect, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { decimal } from './narrow';
-import { GRID } from './texts';
 
 /** The number DataViews gets for a typed text, or '' when it is no number. */
 const numberOf = ( text ) => {
@@ -51,10 +50,9 @@ function useTyped( shown ) {
 }
 
 /**
- * @param {string} hint the help line of the range, or '' for none
  * @return {Function} the `Edit` component of a number field
  */
-export function numberEdit( hint ) {
+export function numberEdit() {
 	return function NumberFilter( { data, field, onChange, operator, hideLabelFromVision } ) {
 		const value = field.getValue( { item: data } );
 		const range = operator === 'between';
@@ -77,19 +75,7 @@ export function numberEdit( hint ) {
 			);
 		}
 		return (
-			<BaseControl
-				help={
-					<>
-						{ __( 'The max. value must be greater than the min. value.' ) }
-						{ hint && (
-							<>
-								<br />
-								{ hint }
-							</>
-						) }
-					</>
-				}
-			>
+			<BaseControl help={ __( 'The max. value must be greater than the min. value.' ) }>
 				<Flex direction="row" gap={ 4 }>
 					<DecimalInput
 						label={ __( 'Min.' ) }
@@ -109,14 +95,10 @@ export function numberEdit( hint ) {
 	};
 }
 
-/** The `Edit` of a number column and of Szám (with N11's hint under its range). */
-export const NumberEdit = numberEdit( '' );
-export const SerialEdit = numberEdit( GRID.serialHint );
+/** The `Edit` of a number column and of Szám. */
+export const NumberEdit = numberEdit();
 
 /** The field props that give a column this control: only Szám and the number columns. */
 export const editFor = ( column ) => {
-	if ( column.type === 'serial' ) {
-		return { Edit: SerialEdit };
-	}
-	return column.type === 'number' ? { Edit: NumberEdit } : {};
+	return column.type === 'serial' || column.type === 'number' ? { Edit: NumberEdit } : {};
 };

@@ -36,7 +36,6 @@ final class AssignmentsSchemaTest extends WP_UnitTestCase
             'capacity' => 'int(10) unsigned null',
             'leaders' => 'varchar(191)',
             'place' => 'varchar(191)',
-            'eligibility' => 'longtext null',
         ],
         'kalaka_assignments' => [
             'event_id' => 'bigint(20) unsigned',

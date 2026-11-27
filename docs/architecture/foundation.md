@@ -91,8 +91,10 @@ reached; the grant defines who holds the view.**
     by their role. The user who activates the plugin gets it while nobody
     holds it; after that a holder gives or takes it on the user's profile screen, or WP-CLI does
     (`wp kalaka full-access grant|revoke`), both through audited use cases.
-    The last holder cannot lose it. On multisite, super admins pass every
-    check.
+    The last holder cannot lose it through Kaláka's use cases, the WordPress
+    users screen, REST or WP-CLI; plain code can still delete the user, which
+    is logged, and re-activation restores a holder. On multisite, super admins
+    pass every check.
 - **Actions that are not a column** (withdraw, remove, admit, confirm without
   payment, record money, view money, regenerate link, notes, audit history)
   are carried by the grant, not by WordPress roles. An action is usable only
@@ -571,6 +573,15 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
+  - **Seats follow one rule:** the event's places, a set option's places, and
+    a limited tier's or offer's places. A seat is a fact. The form only
+    controls visibility; the backend takes the seat under a lock, inside the
+    registration's own act. Leaving frees it, and only another act can take
+    it again; a seat never moves by itself. A full pool turns away only the
+    registrant's own submit (a full event waitlists it). A staff act
+    (placing, admission, restore, answering a request, an admin's submit)
+    takes the seat even over the limit, with a "full" warning, and leaves the
+    event's "full" latch as it is.
 - **Decisions** are written by the system alone. A fact that changes does not
   recompute a decision; only a transition its rule names changes it (a
   withdrawal or removal, and staff's unconfirm, are facts that name one for
@@ -590,7 +601,8 @@ sort on the first two ([Views and grants](#views-and-grants)).
     (confirmation after staff's unconfirm: `unconfirmed`, then `confirmed`);
     core writes each one that changes the state.
   - **A kind is declared with a Hungarian label and its states, each with a
-    Hungarian label;** the grid shows them for every kind.
+    Hungarian label, and an icon and tone for each state;** the grid and the
+    registration's detail show them for every kind.
   - Extensions contribute transition rules through a decision point, and core
     writes the records
     ([Modules](modules-and-extensions.md#the-extension-surface)).

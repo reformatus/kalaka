@@ -13,9 +13,9 @@ export const GRID = {
 	moreLabel: 'További nézetek',
 	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
-	// The reset of the sort and the counting only; the search, the filters and DataViews' own Reset are theirs.
-	// [UNAPPROVED T38]
-	reload: 'Rendezés és számolás visszaállítása',
+	// The one reset (search, filters, sort and counting): DataViews' own, already approved „Visszaállítás”
+	// (`Translations::OVERRIDES`), so no new string. [UNAPPROVED T38]
+	reset: 'Visszaállítás',
 	// Filters and search. [UNAPPROVED N10]
 	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',
 	noMatch: 'Nincs megfelelő jelentkező.',
@@ -27,8 +27,6 @@ export const GRID = {
 	loadFail: 'A táblázat betöltése nem sikerült.',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
-	// Under the Sorszám range, approved by the owner 2026-11-18. [UNAPPROVED N11]
-	serialHint: 'Például 1–50: az első 50 jelentkező',
 };
 
 /** The sum row. */
@@ -38,17 +36,12 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
-	// The arrow of a sum cell opens the column's menu; its counting group. [UNAPPROVED T3, T4]
+	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
+	// [UNAPPROVED T3, T4]
 	counting: 'Számolás',
-	open: '%s oszlopmenüje',
+	open: 'Oszlopmenü: %s',
 	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
-};
-
-/** The hint under Kód's sort options in the column's menu. [UNAPPROVED T37] */
-export const COLUMN = {
-	codeAsc: 'Jelentkezés sorrendjében',
-	codeDesc: 'Jelentkezés fordított sorrendjében',
 };
 
 /** The average of a scale field: a new text. */

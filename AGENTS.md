@@ -99,8 +99,9 @@ about the 2026 systems. They are not authority. When replacing a 2026
 behavior, grep them for that topic's `Keep` and `Change` entries and test
 cases. When a spec is written, copy the relevant test cases into its
 acceptance criteria. Anything binding must be in `docs/architecture/` or the
-approved spec. Never copy from `internal/source-material/`: it holds personal
-data of minors.
+approved spec. `internal/source-material/` is sanitized and may be read
+locally (owner 2026-11-26); report any personal data found in it, and never
+copy it into commits, fixtures, issues or PRs.
 
 ## Pipeline
 

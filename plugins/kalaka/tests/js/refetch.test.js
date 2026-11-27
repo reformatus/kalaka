@@ -478,3 +478,51 @@ describe('rapid changes of triggers', () => {
 		expect(state.most).toBe(1);
 	});
 });
+
+describe('a field that stops showing after a re-fetch (N2)', () => {
+	const hideable = form(radios('fee', ['on', 'off']) + text('note'), {
+		triggers: ['fee'],
+	});
+	const slot = () =>
+		document.querySelector(
+			'[data-kalaka-field="note"] .kalaka-field__error'
+		);
+	const control = () => document.querySelector('[name="note"]');
+	const answer = (noteShows) =>
+		respond(200, {
+			availability: {
+				fields: { fee: true, note: noteShows },
+				chains: [],
+				options: {},
+				triggers: ['fee'],
+			},
+			parts: {},
+		});
+
+	test('loses its message, so a stale one never comes back when it shows again', async () => {
+		globalThis.fetch.mockResolvedValueOnce(
+			respond(400, {
+				code: 'kalaka_invalid_answers',
+				message: 'Néhány válasz hiányzik.',
+				data: { status: 400, fields: { note: 'Hiba' } },
+			})
+		);
+		await load(hideable);
+		submit(root());
+		await settle();
+		expect(slot().textContent).toBe('Hiba');
+
+		globalThis.fetch.mockResolvedValueOnce(answer(false));
+		choose(root(), 'fee', 'off');
+		await settle();
+		expect(control().disabled).toBe(true);
+		expect(slot().textContent).toBe('');
+		expect(slot().hidden).toBe(true);
+
+		globalThis.fetch.mockResolvedValueOnce(answer(true));
+		choose(root(), 'fee', 'on');
+		await settle();
+		expect(control().disabled).toBe(false);
+		expect(slot().textContent).toBe('');
+	});
+});

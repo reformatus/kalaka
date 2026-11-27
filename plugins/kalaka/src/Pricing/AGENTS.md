@@ -85,7 +85,7 @@ retention and the materializer
   `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
   Staff's unconfirm is a fact in `kalaka_unconfirmations` (the latest one per
   registration), written only by `kalaka/unconfirm`. Both use cases take the
-  per-event action `kalaka_confirm_manually` and a required reason. Setting a
+  per-event action `kalaka_confirm_manually` and an optional reason. Setting a
   set flag writes nothing; unconfirming a registration that is not confirmed
   writes nothing; unconfirming a confirmed one is a new act every time. A
   revoke keeps the flag's row with its revoke time. The flag is set on a

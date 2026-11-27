@@ -35,21 +35,9 @@ jobs:
     uses: WordPress/action-wp-playground-pr-preview/.github/workflows/preview-publish.yml@6c9250e3acf3cdd454aa9d18f9a3c925a0dad82a
     with:
       mode: comment
-      # The same setup as bin/playground-smoke.sh: core first, then the
-      # extension, then the seed, which refuses in the production environment.
-      blueprint: |
-        {
-          "$schema": "https://playground.wordpress.net/blueprint-schema.json",
-          "preferredVersions": { "php": "8.3", "wp": "latest" },
-          "landingPage": "/wp-admin/",
-          "login": true,
-          "steps": [
-            { "step": "defineWpConfigConsts", "consts": { "WP_ENVIRONMENT_TYPE": "development" } },
-            { "step": "installPlugin", "pluginData": { "resource": "url", "url": "{{ARTIFACT_URL:kalaka}}" }, "options": { "activate": true } },
-            { "step": "installPlugin", "pluginData": { "resource": "url", "url": "{{ARTIFACT_URL:kalaka-support}}" }, "options": { "activate": true } },
-            { "step": "wp-cli", "command": "wp kalaka seed" }
-          ]
-        }
+      # CI's zip job writes the blueprint into the bundle (blueprint.json), so
+      # the preview installs every plugin the pull request builds.
+      blueprint-from-artifact: true
 
   cleanup:
     if: github.event_name == 'pull_request_target'
