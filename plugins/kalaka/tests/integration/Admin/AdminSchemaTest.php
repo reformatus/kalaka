@@ -52,7 +52,7 @@ final class AdminSchemaTest extends AdminTestCase
     /** AC1 */
     public function testTheViewsTableExistsWithItsColumnsAndTheDeclaredCollation(): void
     {
-        self::assertSame(1, (int) get_option('kalaka_schema_admin'));
+        self::assertSame(2, (int) get_option('kalaka_schema_admin'));
         self::assertSame([], LoadState::current()->failures);
 
         self::assertSame(
@@ -63,6 +63,9 @@ final class AdminSchemaTest extends AdminTestCase
                 'name' => 'varchar(191)',
                 'filter' => 'longtext',
                 'columns' => 'longtext',
+                'counts' => 'longtext null',
+                'master' => 'tinyint(1)',
+                'master_event' => 'bigint(20) unsigned null',
             ],
             $this->declaredColumns('kalaka_views')
         );

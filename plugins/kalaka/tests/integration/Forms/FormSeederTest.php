@@ -55,7 +55,7 @@ final class FormSeederTest extends SeedTestCase
         self::assertNotSame([], wp_get_post_revisions($forms[0]->ID));
     }
 
-    public function testTheFormsDefinitionHasTheFourFieldsAndTheBranchOnTheChoice(): void
+    public function testTheFormsDefinitionHasItsFieldsAndTheBranchOnTheChoice(): void
     {
         $this->seeded();
         $forms = new Forms();
@@ -65,11 +65,14 @@ final class FormSeederTest extends SeedTestCase
         $definition = $forms->definition($form);
 
         self::assertSame(
-            ['nev', 'email', 'szallas', 'ejszakak'],
+            ['nev', 'email', 'szallas', 'ejszakak', 'ebed', 'programok', 'fenykep', 'megjegyzes'],
             array_map(static fn ($field): string => $field->key, $definition->fields)
         );
         self::assertSame(
-            ['Név', 'E-mail-cím', 'Kérsz szállást?', 'Hány éjszakára?'],
+            [
+                'Név', 'E-mail-cím', 'Kérsz szállást?', 'Hány éjszakára?', 'Ebéd', 'Délutáni programok',
+                'Készülhet rólam fénykép.', 'Megjegyzés',
+            ],
             array_map(static fn ($field): string => $field->label(), $definition->fields)
         );
         self::assertTrue($definition->fields[0]->isDisplayName());
@@ -82,6 +85,12 @@ final class FormSeederTest extends SeedTestCase
             )
         );
         self::assertCount(1, $definition->fields[3]->branches);
+        // S37: a field of each kind the admin grid sums.
+        self::assertTrue($definition->fields[4]->isRequired());
+        self::assertTrue($definition->fields[5]->attributes['multiple']);
+        self::assertSame('kalaka/consent-field', $definition->fields[6]->blockName);
+        self::assertFalse($definition->fields[7]->isRequired());
+        self::assertTrue($definition->fields[7]->attributes['multiline']);
     }
 
     public function testTheSeededFormIsOpenAtTheSeedDay(): void

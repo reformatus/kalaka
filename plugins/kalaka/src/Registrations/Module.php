@@ -6,6 +6,7 @@ namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Cli\RegistrationSeeder;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -121,6 +122,7 @@ SQL;
     public function contribute(Contributions $to): void
     {
         $to->siteWarning(new Account\SettingsWarning());
+        $to->seeder(new RegistrationSeeder());
     }
 
     public function boot(): void

@@ -13,7 +13,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
 /**
  * Deletes a view (with its `id` and current `version`) and the grants that use it, each through a nested
  * `kalaka/delete-grant` with its own audit entry, in the same run (S36-4, owner ruling 2026-11-16). A
- * site-level use case: only full access.
+ * site-level use case: only full access. Returns `['id' => the deleted view's id]`, so the ability's REST
+ * answer is never an empty body.
  */
 final class DeleteView implements AdminUseCase
 {
@@ -56,9 +57,14 @@ final class DeleteView implements AdminUseCase
         return [];
     }
 
-    public function execute(array $input, Context $context): null
+    /** @return array{id: int} */
+    public function execute(array $input, Context $context): array
     {
-        $view = $this->repository->findForUpdate((int) $input['id'], $context) ?? throw new NotFound();
+        $view = $this->repository->findForUpdate((int) $input['id'], $context);
+        // The event's master row (S37) is not a view that can be deleted.
+        if ($view === null || $view->master) {
+            throw new NotFound();
+        }
         // S36-4 (owner ruling 2026-11-16, (c)): the view's grants go with it, each through a nested
         // `kalaka/delete-grant`, so each has its own audit entry under this one.
         foreach ($this->grants->usingView($view->eventId, $view->id) as $grantId) {
@@ -67,6 +73,6 @@ final class DeleteView implements AdminUseCase
         $view->version = (int) $input['version'];
         $this->repository->delete($view, $context);
 
-        return null;
+        return ['id' => $view->id];
     }
 }
