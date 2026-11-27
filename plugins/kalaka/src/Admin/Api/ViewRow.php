@@ -15,7 +15,7 @@ final readonly class ViewRow
      * @param bool $awaitsAnswer the registration has a request nobody has answered (Registrations'
      *     `Requests`); a row value only, computed per page: not a column, so not filterable, sortable or
      *     summable. (Shapes) grid rows carry awaits_answer: bool, PHP-computed per page; not filterable, sortable
-     *     or summable (alt: a per-request-source SQL predicate seam, after opening). [UNAPPROVED N351]
+     *     or summable (alt: a per-request-source SQL predicate seam, after opening).
      */
     public function __construct(public RegistrationKey $key, public array $values, public bool $awaitsAnswer = false)
     {

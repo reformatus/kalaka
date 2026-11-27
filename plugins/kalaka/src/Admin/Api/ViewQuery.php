@@ -200,7 +200,7 @@ final class ViewQuery extends Query
             $serials = $shape->lists('serial') && $codes !== [] ? $this->serials->forEvent($eventId) : [];
             $submitted = $shape->lists('submitted_at') ? $this->firstSubmissionTimes($eventId, $codes) : [];
 
-            // [UNAPPROVED N351] a row value, not a column: read for the page's codes at a fixed cost.
+            // A row value, not a column: read for the page's codes at a fixed cost.
             $awaits = $this->requests->awaitsOf($eventId, $statuses);
 
             $rows = [];
