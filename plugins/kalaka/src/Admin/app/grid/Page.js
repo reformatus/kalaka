@@ -113,6 +113,8 @@ export default function Page( { config } ) {
 	const narrow = narrowOf( v, tab.columns );
 	const narrowKey = JSON.stringify( narrow );
 	const narrowed = isNarrowed( narrow );
+	// A search says „találat”, a filter alone „szűrt”, neither the tab's own total.
+	const searched = narrow.search !== '';
 	const [ said, setSaid ] = useState( '' );
 	const [ loadError, setLoadError ] = useState( false );
 	const loadedKey = useRef( null );
@@ -152,7 +154,7 @@ export default function Page( { config } ) {
 		tab.columns[ 0 ] || { column: null }
 	).column;
 	// The registration's name, when the view lists the name column: shown beside the code wherever the grid names a
-	// row (the open button, the row's checkbox). Without it the code stands alone. [UNAPPROVED N940]
+	// row (the open button, the row's checkbox). Without it the code stands alone.
 	const nameColumn = tab.columns.find( ( c ) => c.name );
 	const nameOf = ( row ) => ( nameColumn ? row.values[ nameColumn.column ] || null : null );
 	const closePanel = () => {
@@ -398,7 +400,7 @@ export default function Page( { config } ) {
 		setBusy( true );
 		try {
 			// Ticked rows when there are any, else every row the filters and search leave, all pages, in the grid's order.
-			// Nothing is said while it pages (the button is busy), and a failure halfway copies nothing and says the existing error. [UNAPPROVED N915] [UNAPPROVED N939]
+			// Nothing is said while it pages (the button is busy), and a failure halfway copies nothing and says the existing error.
 			const rows = selectedRows.length ? selectedRows : await api.fetchAll( config, tab, sort, desc, narrow );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
 			say( fmt( GRID.copied, rows.length ), 'success' );
@@ -477,7 +479,7 @@ export default function Page( { config } ) {
 		[ tab.manualMail, config.event, config.rest ]
 	);
 	// Each row's selection checkbox is named with the registration's code and name (DataViews says „(no title)”).
-	// [UNAPPROVED T286] [UNAPPROVED N940]
+	// [UNAPPROVED T286]
 	const rowNames = data.rows.map( ( row ) => codeName( row.key, nameOf( row ) ) ).join( '\u0000' );
 	useLayoutEffect( () => {
 		if ( ! host || actions.length === 0 ) {
@@ -492,7 +494,7 @@ export default function Page( { config } ) {
 	}, [ host, actions.length, rowNames ] );
 
 	// The start columns that stay while the table scrolls sideways: the checkbox, Kód and the name, and the actions
-	// column at the end, as many as fit a quarter of the visible width, in that order. [UNAPPROVED N942] [UNAPPROVED N1035]
+	// column at the end, as many as fit a quarter of the visible width, in that order.
 	useStickyColumns( host, stickyCount( tab.columns, v.fields, actions.length > 0 ), actions.length > 0 );
 
 	const copyButton = (
@@ -581,16 +583,16 @@ export default function Page( { config } ) {
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
 							{ /* The right-aligned bar: a separator, one prefix by state, then the buttons, which say what they act on: the
-							   ticked rows („X kiválasztva:”), else every row of the tab („X összesen:”), or of the filter and search („X szűrt:”).
-							   Hidden while the first read of a tab is on its way (the count would read 0). Replaces the manual mail dialog's
-							   old scope line. [UNAPPROVED N915] [UNAPPROVED T963] [UNAPPROVED T964] [UNAPPROVED T965] */ }
+							   ticked rows („X kiválasztva:”), else every row of the tab („X összesen:”), of the filter alone („X szűrt:”), or of
+							   the search („X találat:”, with or without a filter). Hidden while the first read of a tab is on its way (the
+							   count would read 0). Replaces the manual mail dialog's old scope line. */ }
 							{ ( ! loading || data.total > 0 ) && (
 								<>
 									<span className="kg-bulkbar-sep" role="separator" aria-orientation="vertical" />
 									<span className="kg-bulkbar-prefix">
 										{ selectedRows.length > 0
 											? fmt( GRID.prefixSelected, selectedRows.length )
-											: fmt( narrowed ? GRID.prefixFiltered : GRID.prefixTotal, data.total ) }
+											: fmt( searched ? GRID.prefixFound : narrowed ? GRID.prefixFiltered : GRID.prefixTotal, data.total ) }
 									</span>
 								</>
 							) }

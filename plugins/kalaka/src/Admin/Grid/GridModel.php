@@ -538,7 +538,7 @@ final class GridModel
             $meta['empty'] = true;
         }
         // The display name field's column says so, so the app can show the name beside the code (and keep both
-        // columns at the start of the table) without guessing which text column it is. [UNAPPROVED N941]
+        // columns at the start of the table) without guessing which text column it is.
         if ($field->type === self::NAME_TYPE) {
             $meta['name'] = true;
         }

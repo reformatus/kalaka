@@ -1,7 +1,7 @@
 /**
  * The registrations a send skips (withdrawn or removed), in the dialog and in its answer: only the per-status totals
  * („Kihagyva: 1 törölt, 1 lemondott”), and a text button that opens their list in a popup of its own. The button's label
- * never changes with the state. [UNAPPROVED N1033] [UNAPPROVED T970] [UNAPPROVED T971] [UNAPPROVED T972]
+ * never changes with the state.
  */
 import { useState } from '@wordpress/element';
 import { Button, Modal } from '@wordpress/components';

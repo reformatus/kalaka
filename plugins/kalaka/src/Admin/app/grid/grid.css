@@ -7,11 +7,10 @@
 .kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
 .kg-tabrow { min-width: 0; }
 /* Many view tabs scroll sideways in one row instead of wrapping onto more rows, and „Több ▾” stays out (owner ruling
-   9.2). [UNAPPROVED N919 reboxed: the tabs are one sideways-scrolling row; no „Több ▾”; they are not links; the empty
-   tabpanel stays; arrow keys switch at once; the „Nézetek” landmark name is gone] */
+   9.2). */
 .kg-tabrow .components-tab-panel__tabs { flex-wrap: nowrap; overflow-x: auto; }
 /* The grid's TabPanel has no content of its own (the table stays below), so its empty tabpanel is hidden: it is not
-   a keyboard stop, and the tabs' `aria-controls` points to nothing visible. [UNAPPROVED N934] */
+   a keyboard stop, and the tabs' `aria-controls` points to nothing visible. */
 .kg-tabs .components-tab-panel__tab-content { display: none; }
 .kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 16px; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -32,9 +31,7 @@
    16px on all four sides, at both widths, and the tab row above the toolbar gives up its 8px bottom margin so the
    toolbar's own padding is the whole space above its first control (owner ruling 9.3; the controls may sit slightly
    outside the table's inner content). Measured at 1440: 18 above and 17 beside the search box, 16/17 for the paging
-   row; at 375: 17/17 and 16/17 (the 1px is the card's border, and the search box is 1px shorter than its row).
-   [UNAPPROVED N1251] [UNAPPROVED N920 reboxed: the space above and beside them is one 16px instead of 8px above and
-   below with `var(--wpds-dimension-padding-2xl, 24px)` at the sides] */
+   row; at 375: 17/17 and 16/17 (the 1px is the card's border, and the search box is 1px shorter than its row). */
 /* The table fills the window (owner's walk, topic 6a G9): the title and the controls stay at the top,
    the rows scroll inside, and the header row, the horizontal scrollbar and the paging stay in view. */
 body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
@@ -85,7 +82,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 /* The sum row inside DataViews' <thead>. */
 /* The table collapses its borders, and a collapsed border belongs to the table's grid, so it scrolls away from the
-   sticky head. The sum row's two lines are drawn inside its own cells instead. [UNAPPROVED N936] */
+   sticky head. The sum row's two lines are drawn inside its own cells instead. */
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border: 0; box-shadow: inset 0 1px 0 #dcdcde, inset 0 -1px 0 #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
 /* The frame cell under the sticky actions column is sticky too, so no sum shows through below the header. */
@@ -95,7 +92,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 
 /* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
-   but has nothing counted yet shows a grey placeholder with a dotted underline. [UNAPPROVED N1046, N1047] */
+   but has nothing counted yet shows a grey placeholder with a dotted underline. */
 .kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
 .kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 .kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }
@@ -107,7 +104,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
    (DataViews' own surface and selected colours, at a specificity below the hover and open-row colours) so nothing shows
    through, and the last one is
    divided from the scrolling columns by a box-shadow line (a collapsed border would scroll away). The actions
-   column stays at the end, as DataViews makes it. [UNAPPROVED N942] */
+   column stays at the end, as DataViews makes it. */
 #kalaka-grid :where(
 	.kg-dv[data-kg-sticky="1"] tr > :nth-child(-n+1),
 	.kg-dv[data-kg-sticky="2"] tr > :nth-child(-n+2),
@@ -129,7 +126,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid .kg-dv[data-kg-sticky="3"] thead tr.kg-sumtr > :nth-child(3) { box-shadow: inset 0 1px 0 #dcdcde, inset 0 -1px 0 #dcdcde, inset -1px 0 0 #dcdcde; }
 /* The actions column is DataViews' own sticky one, stuck only while it fits the quarter of the visible width that the
    sticky columns share (`sticky.js`, the host's `data-kg-actions-loose`); loose, it scrolls with the table, and
-   DataViews' divider line, which hangs on the cell, goes with it. The sum row's cell under it follows. [UNAPPROVED N1035] */
+   DataViews' divider line, which hangs on the cell, goes with it. The sum row's cell under it follows. */
 #kalaka-grid .kg-dv[data-kg-actions-loose] .dataviews-view-table__actions-column--sticky,
 #kalaka-grid .kg-dv[data-kg-actions-loose] thead tr.kg-sumtr td.kg-sumtd-actions { position: static; }
 #kalaka-grid .kg-dv[data-kg-actions-loose] .dataviews-view-table__actions-column--stuck::after { display: none; }

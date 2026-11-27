@@ -62,7 +62,7 @@ export const BODIES = {
 	create: 'Létrehozás',
 	titleField: 'Tárgy',
 	titleEmpty: 'Add meg a tárgyat.',
-	status_publish: 'Elérhető', // the lektor's wording, matching the editor's status [UNAPPROVED T919]
+	status_publish: 'Elérhető', // the lektor's wording, matching the editor's status
 	status_draft: 'Vázlat', // reworded per the lektor (core's word)
 	status_pending: 'Függőben',
 	status_private: 'Privát',
@@ -75,7 +75,7 @@ export const BODIES = {
 
 /** The failed deliveries tab. [UNAPPROVED T277] */
 export const TROUBLED = {
-	code: 'Jelentkező', // the column holds the code and the name beside it [UNAPPROVED T930]
+	code: 'Jelentkező', // the column holds the code and the name beside it
 	mail: 'Levél',
 	manual: '%d. csoportos levél', // reworded per the lektor
 	status: 'Állapot', // approved
@@ -152,23 +152,23 @@ export const COUNTS = {
 /** The manual mail dialog. [UNAPPROVED T281] */
 export const MANUAL = {
 	title: 'Levél küldése',
-	loading: 'A címzettek ellenőrzése…',
-	previewFail: 'A címzettek ellenőrzése nem sikerült.',
+	loading: 'A jelentkezők ellenőrzése…',
+	previewFail: 'A jelentkezők ellenőrzése nem sikerült.',
 	body: 'Levélsablon', // approved
 	pick: '– válassz –',
-	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording [UNAPPROVED T920]
+	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording
 	layout: 'Levélkeret használata', // „levélkeret” is approved
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
 	// The ones who get no mail are told as per-status totals; their list is in a popup of its own, opened by a text button
-	// whose label never changes. [UNAPPROVED N1033] The totals read „Kihagyva: 1 törölt, 1 lemondott” (a count and the
-	// lowercase status word below), the popup lists „00A1 · Kiss Anna – lemondott”. [UNAPPROVED T970] [UNAPPROVED T971]
-	// [UNAPPROVED T972] Lektor next.
+	// whose label never changes. The totals read „Kihagyva: 1 törölt, 1 lemondott” (a count and the
+	// lowercase status word below), the popup lists „00A1 · Kiss Anna – lemondott”.
+	// Lektor next.
 	skippedTotals: 'Kihagyva: %s',
 	skippedOpen: 'Kihagyottak listája',
 	skippedTitle: 'Kihagyott jelentkezők',
 	unknown: 'Ismeretlen kód:',
-	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9) [UNAPPROVED T931]
+	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9)
 	reason_removed: 'törölt',
 	tooMany: 'Egyszerre legfeljebb 1000 jelentkezőnek küldhető levél.',
 	send: 'Küldés',
@@ -193,19 +193,18 @@ export const BATCHES = {
 	created: 'Sorba állítva', // reworded per the lektor: the batch's creation time, not a delivery
 	by: 'Küldte',
 	queued: 'Sorba került',
-	skipped: 'Kimaradt',
+	skipped: 'Kihagyva',
 	layout: 'Levélkerettel',
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
-	// The member list's disclosure button on a batch's card; the label never changes. [UNAPPROVED N1049] [UNAPPROVED T973]
-	// The lektor: „Tagok” would read as people belonging to a group; the list is who received the mail.
-	members: 'Címzettek',
+	// The member list's disclosure button on a batch's card; the label never changes.
+	members: 'Jelentkezők',
 	open: '%d. csoportos levél részletei',
 	// After a code, lowercase, as the manual mail dialog writes it („16F5 – lemondott”); reworded per the lektor (pass 2).
 	outcome_queued: 'sorba került',
-	outcome_skipped_withdrawn: 'kimaradt: lemondott', // the owner's rename (lektor 1, J11) [UNAPPROVED T932]
-	outcome_skipped_removed: 'kimaradt: törölt',
+	outcome_skipped_withdrawn: 'kihagyva: lemondott', // the owner's rename (lektor 1, J11)
+	outcome_skipped_removed: 'kihagyva: törölt',
 	// 7.1: a waitlisted registration is skipped like the withdrawn and the removed ones. [UNAPPROVED T1274]
-	outcome_skipped_waitlisted: 'kimaradt: várólistás',
+	outcome_skipped_waitlisted: 'kihagyva: várólistás',
 	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing [UNAPPROVED T294]
 };
 

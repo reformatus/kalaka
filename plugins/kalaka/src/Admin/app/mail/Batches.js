@@ -14,8 +14,7 @@ import { BATCHES, COMMON, WHO } from './texts';
 
 /**
  * A batch's card: its subject and its members. The member list can be hidden: the heading is a disclosure button with
- * one label, „Címzettek”, that never changes with the state (it says which by `aria-expanded`); the list starts shown.
- * [UNAPPROVED N1049] [UNAPPROVED T973]
+ * one label, „Jelentkezők”, that never changes with the state (it says which by `aria-expanded`); the list starts shown.
  */
 export function Members( { config, id, onClose } ) {
 	const [ shown, setShown ] = useState( true );

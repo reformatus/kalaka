@@ -65,7 +65,7 @@ export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 		supportsBulk: true,
 		isEligible: () => eligible,
 		// `selection` comes from the grid's own slot (the ticked rows' codes, or the view with its filters and search when
-		// nothing is ticked); DataViews' per-row menu passes only the row, which is its own code. [UNAPPROVED N937]
+		// nothing is ticked); DataViews' per-row menu passes only the row, which is its own code.
 		RenderModal: ( { items, selection, closeModal } ) => (
 			<BulkDialog event={ event } previewPath={ previewPath } items={ items } selection={ selection } closeModal={ closeModal } onSent={ onSent } keys={ keys } />
 		),

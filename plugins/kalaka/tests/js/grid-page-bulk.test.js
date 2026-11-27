@@ -132,7 +132,33 @@ describe( 'the action bar\'s count prefix', () => {
 		api.fetchPage.mockResolvedValue( { rows: [ { key: 'K1', values: { state: 'a' } } ], total: 3 } );
 		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, search: 'kov' } ) );
 		await flush();
-		expect( prefix().textContent ).toBe( '3 szűrt:' );
+		expect( prefix().textContent ).toBe( '3 találat:' );
+	} );
+
+	test( 'the four states tell a search from a filter: none, search, filter, both, ticked', async () => {
+		await load( 7 );
+		expect( prefix().textContent ).toBe( '7 összesen:' );
+		// A search on its own.
+		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, search: 'kov' } ) );
+		await flush();
+		expect( prefix().textContent ).toBe( '7 találat:' );
+		// A filter alone.
+		await act( async () =>
+			globalThis.lastDataViews.onChangeView( {
+				...globalThis.lastDataViews.view,
+				search: '',
+				filters: [ { field: 'state', operator: 'is', value: 'a' } ],
+			} )
+		);
+		await flush();
+		expect( prefix().textContent ).toBe( '7 szűrt:' );
+		// Both: the search wins.
+		await act( async () => globalThis.lastDataViews.onChangeView( { ...globalThis.lastDataViews.view, search: 'kov' } ) );
+		await flush();
+		expect( prefix().textContent ).toBe( '7 találat:' );
+		// Ticked rows beat every count.
+		await act( async () => globalThis.lastDataViews.onChangeSelection( [ 'K1' ] ) );
+		expect( prefix().textContent ).toBe( '1 kiválasztva:' );
 	} );
 
 	test( 'rows ticked: how many are ticked', async () => {

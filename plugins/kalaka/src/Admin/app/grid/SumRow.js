@@ -5,7 +5,7 @@
  *
  * A column that can count offers its counting menu from the number itself (owner, 2026-11-27): the number is
  * the trigger, there is no down arrow, and a column that can count but has nothing counted yet shows a grey
- * placeholder with a dotted underline. Columns that cannot count keep a plain value. [UNAPPROVED N1046]
+ * placeholder with a dotted underline. Columns that cannot count keep a plain value.
  *
  * When the table carries row actions, DataViews puts a selection column before the fields and an actions column
  * after them; `framed` adds an empty cell at each end so every sum stays under its own column. The cell under the
@@ -13,7 +13,7 @@
  * through below the sticky „Műveletek”. [UNAPPROVED N295]
  *
  * The cell under the select-all checkbox holds the count of the ticked rows (the number alone; screen readers get
- * „N kiválasztva”) and is empty while nothing is ticked. [UNAPPROVED N1034] [UNAPPROVED T969]
+ * „N kiválasztva”) and is empty while nothing is ticked.
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { fmt, sumParts } from './format';

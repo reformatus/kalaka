@@ -69,7 +69,7 @@ const REASON_ORDER = [ 'removed', 'withdrawn' ];
 
 /**
  * The skipped registrations as per-status totals: „1 törölt, 1 lemondott”. A known status comes in a fixed order, any
- * other reason after them in the order it first appears. Empty for none. [UNAPPROVED N1033] [UNAPPROVED T970]
+ * other reason after them in the order it first appears. Empty for none.
  */
 export function skippedTotals( skipped ) {
 	const counts = new Map();

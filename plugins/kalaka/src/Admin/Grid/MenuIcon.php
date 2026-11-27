@@ -8,7 +8,7 @@ namespace Kalaka\Admin\Grid;
  * The derived menu icon of an event item (carried over from the UX menu mock): two letters from the title on the first
  * line (the first letter and the first letter of the last word, or the last letter of a one-word title), and the last
  * two digits of the title on a second line when it has any. Drawn as a 20×20 SVG data URI; `GridPage::menuStyle()`
- * paints it as a CSS mask in the menu's own icon colour. [UNAPPROVED N921]
+ * paints it as a CSS mask in the menu's own icon colour.
  */
 final class MenuIcon
 {

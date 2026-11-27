@@ -5,7 +5,7 @@
  * (`selectionOf`, `grid/selection.js`); with nothing ticked and nothing matching the button is disabled. The rows
  * and the selection are taken when the button is pressed, so a refresh under an open dialog does not change what it
  * acts on. An action with `RenderModal` opens it in a modal, with `items` (the ticked rows, none for „all matching”)
- * and `selection`; one with `callback` is called with the rows. [UNAPPROVED N913] [UNAPPROVED N937]
+ * and `selection`; one with `callback` is called with the rows.
  */
 import { useState } from '@wordpress/element';
 import { Button, Modal } from '@wordpress/components';
@@ -29,7 +29,7 @@ export default function BulkSlot( { actions, rows, selectionOf, total = 0 } ) {
 	};
 	const close = () => setOpened( null );
 	// The label never changes with the state (nothing ticked, filtered, ticked): the action bar's count prefix says
-	// what the button acts on. [UNAPPROVED N915]
+	// what the button acts on.
 	const labelOf = ( action ) => ( typeof action.label === 'function' ? action.label( rows ) : action.label );
 	return (
 		<>

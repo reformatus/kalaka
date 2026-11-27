@@ -54,7 +54,7 @@ export const previewManual = ( path, selection ) =>
 
 /**
  * Sends a body to the selection: `{ batch_id, queued, skipped, repeat, paused, held }`. The server resolves the
- * selection again at send time (the alternative, freezing the preview's codes, is not built) [UNAPPROVED N938]. The request key makes a repeat (a retry, a double click) return the first batch and
+ * selection again at send time (the alternative, freezing the preview's codes, is not built). The request key makes a repeat (a retry, a double click) return the first batch and
  * queue nothing.
  */
 export const sendManual = ( event, bodyId, selection, requestKey ) =>

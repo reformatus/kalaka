@@ -37,7 +37,6 @@ export default function Cell( { column, item } ) {
 	}
 	if ( column.type === 'decision' ) {
 		// Every decision kind declares its own marks on the server (owner Q51 (b)); a kind with none has no mark.
-		// [UNAPPROVED N912, replaced]
 		const [ icon, color ] = markOf( column.marks, item.values[ column.column ] );
 		return (
 			<span className={ `kg-mark${ tone }` } title={ text }>
