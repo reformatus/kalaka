@@ -8,6 +8,8 @@ use Kalaka\Admin\Api\Abilities;
 use Kalaka\Admin\Cli\AdminSeeder;
 use Kalaka\Admin\Cli\FullAccessCommand;
 use Kalaka\Admin\FullAccess\GrantFullAccess;
+use Kalaka\Admin\FullAccess\LastHolderGuard;
+use Kalaka\Admin\FullAccess\OwnCapability;
 use Kalaka\Admin\FullAccess\ProfileField;
 use Kalaka\Admin\FullAccess\RevokeFullAccess;
 use Kalaka\Admin\FullAccess\UsersColumn;
@@ -108,6 +110,13 @@ SQL;
 
     public function boot(): void
     {
+        // Full access counts as the user's own capability, never a role's; WordPress cannot delete its
+        // last holder (foundation.md, "Views and grants"). Registered first, so an ability that throws
+        // later cannot leave a role-carried capability unguarded.
+        add_filter('user_has_cap', [OwnCapability::class, 'filter'], PHP_INT_MAX, 4);
+        add_filter('map_meta_cap', [LastHolderGuard::class, 'metaCaps'], 10, 4);
+        add_action('delete_user', [LastHolderGuard::class, 'deleting']);
+
         Abilities::registerCategory();
         // The labels of the abilities.
         Abilities::register(

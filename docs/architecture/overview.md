@@ -22,7 +22,7 @@ request.
 | [Money](money.md) | Ledger and payers, recording payments, confirmation, withdrawal, congregation share, sponsor and church support, money settings apply, materializer, payments, refunds |
 | [Mail](mail.md) | Kinds of mail, deliveries, the sender, configuration, content |
 | [Engineering](engineering.md) | Platform, repository layout, tooling, code style, tests and CI |
-| [Release plan](release-plan.md) | What each release contains, and what gives way first |
+| [Release plan](release-plan.md) | What each release contains |
 | [Deferred](deferred.md) | What is decided later, and when |
 
 ## Purpose

@@ -4,6 +4,7 @@ deptrac:
     - plugins/kalaka-support/src
     - plugins/kalaka-divi4/src
     - plugins/kalaka-ranking/src
+    - plugins/kalaka-woocommerce/src
   layers:
     - name: Foundation
       collectors:
@@ -190,6 +191,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\Ranking\\Api\\'
+    - name: WooCommerce
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\WooCommerce\\(?!Api\\)'
+    - name: WooCommerce Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\WooCommerce\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -467,6 +476,25 @@ deptrac:
     Ranking:
       - WordPress
       - Ranking Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    WooCommerce:
+      - WordPress
+      - WooCommerce Api
       - Foundation Api
       - Foundation Api Money
       - Events Api
@@ -800,6 +828,25 @@ deptrac:
     Ranking Api:
       - WordPress
       - Ranking
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    WooCommerce Api:
+      - WordPress
+      - WooCommerce
       - Foundation Api
       - Foundation Api Money
       - Events Api

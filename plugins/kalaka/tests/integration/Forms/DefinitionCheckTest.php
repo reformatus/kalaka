@@ -11,10 +11,13 @@ use Kalaka\Forms\DefinitionCheck;
 use Kalaka\Forms\Module;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Tests\Integration\LogCapture;
 
 /** A published form never goes from working to broken through an edit; one that is broken stays closed. */
 final class DefinitionCheckTest extends FormsTestCase
 {
+    use LogCapture;
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case names this hook in snake case
     public function set_up(): void
     {
@@ -235,6 +238,74 @@ final class DefinitionCheckTest extends FormsTestCase
         $this->insertChecked($this->slotFields());
 
         self::assertNull((new BrokenFormsWarning())->check());
+    }
+
+    public function testACodeSaveWithNoUserWritesALogLineAndAWarning(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        $user = get_current_user_id();
+        wp_set_current_user(0);
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => wp_slash($this->slotFields() . $this->unknownBlock()),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+            wp_set_current_user($user);
+        }
+
+        self::assertSame('publish', get_post_status($id));
+        self::assertStringNotContainsString('nope-field', (string) get_post_field('post_content', $id));
+        self::assertStringContainsString('saving form ' . $id, $log);
+        self::assertStringContainsString('unknown_field_block kalaka/nope-field', $log);
+        self::assertCount(1, $warnings);
+        self::assertSame(E_USER_WARNING, $warnings[0][2]);
+        self::assertStringContainsString('unknown_field_block kalaka/nope-field', $warnings[0][1]);
+    }
+
+    public function testALoggedInAdminsVetoedSaveIsANoticeAndALogLineButNoPhpWarning(): void
+    {
+        $id = $this->insertChecked($this->slotFields());
+        $warnings = [];
+        $listener = static function (string $function, string $message, int $level) use (&$warnings): void {
+            $warnings[] = [$function, $message, $level];
+        };
+        add_action('wp_trigger_error_always_run', $listener, 10, 3);
+        try {
+            [$log] = $this->captureLog(fn (): int => (int) wp_update_post([
+                'ID' => $id,
+                'post_content' => wp_slash($this->slotFields() . $this->unknownBlock()),
+            ]));
+        } finally {
+            remove_action('wp_trigger_error_always_run', $listener, 10);
+        }
+
+        self::assertSame('publish', get_post_status($id));
+        self::assertSame(
+            'Az űrlapot így nem lehet menteni: unknown_field_block („kalaka/nope-field”).',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
+        self::assertStringContainsString('saving form ' . $id, $log);
+        self::assertSame([], $warnings);
+    }
+
+    public function testARestRefusalWritesNoLogLine(): void
+    {
+        [$log, $response] = $this->captureLog(fn (): \WP_REST_Response => $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $this->unknownBlock(),
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]));
+
+        self::assertSame(400, $response->get_status());
+        self::assertStringNotContainsString('saving form', $log);
     }
 
     /**
