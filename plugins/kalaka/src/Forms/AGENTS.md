@@ -360,3 +360,10 @@ values and conditions, prefill and form links
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.
+- `Forms::withoutAccountBlock()` lists the published registration forms of an event
+  that lack the account block a given account mode wants (the one rule is
+  `AccountBlock::missing()`, which the save check asks for the event's mode), and
+  `Forms::refreshBrokenList()` recomputes `BrokenForms` after a mode change: the
+  two halves of the refusal in
+  [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
+  which `Events\Api\Events::update()` runs around `kalaka/update-event`.
