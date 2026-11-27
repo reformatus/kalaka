@@ -17,8 +17,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 /**
  * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one order (a guest order, or the
  * owner account's when it is the one paying; see `OrderOwner`) with one item of the hidden product per line, paid
- * on WooCommerce's own order-pay page with whatever gateway the shop has. A new request makes one new order, then
- * cancels the registration's never-paid orders (pending, failed); a paid order is never touched,
+ * on WooCommerce's own order-pay page with whatever gateway the shop has. [UNAPPROVED N325] A new request makes one
+ * new order, then cancels the registration's never-paid orders (pending, failed); a paid order is never touched,
  * and an order in any other open state refuses the start (see `latestOf()`).
  */
 final class WooProvider extends AbstractPaymentProvider
@@ -180,7 +180,7 @@ final class WooProvider extends AbstractPaymentProvider
     }
 
     /**
-     * [UNAPPROVED N818] The billing details of the request's first registration, when the source has any: the whole
+     * The billing details of the request's first registration, when the source has any: the whole
      * name in the first-name field (the last name stays empty; WooCommerce needs neither for an order made here),
      * and only the non-empty values.
      */
@@ -262,7 +262,6 @@ final class WooProvider extends AbstractPaymentProvider
         if ($fee !== null) {
             // The card surcharge: one fee line, no tax, never ledger money (payments record only the items above).
             $line = new \WC_Order_Item_Fee();
-            // [UNAPPROVED T84]
             $line->set_name('Kártyás fizetés díja');
             $line->set_tax_status('none');
             $line->set_tax_class('');

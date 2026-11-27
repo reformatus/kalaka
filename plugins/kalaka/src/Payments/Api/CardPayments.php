@@ -21,21 +21,16 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * outside the transaction, never inside the use case (modules-and-extensions.md, "The extension surface").
  *
  * One start per registration at a time: a named lock per registration is held from the provider's read of the
- * latest request until the pay URL is made, so two clicks at once make one request after the other (the second
- * replaces the first, which the provider cancels) instead of two open ones. A start that cannot get the lock
- * within the wait is refused as in flight.
+ * latest request until the pay URL is made. [UNAPPROVED N339] It is taken without waiting: two clicks at once
+ * cannot make two orders, because the second start cannot get the lock and is refused as in flight at once; a
+ * later click that gets the lock replaces the never-paid request, which the provider cancels.
  */
 final class CardPayments
 {
-    /** How often a start asks for a lock held by another start, in microseconds. */
-    private const RETRY = 100000;
-
-    /** @param int $waitMs how long a start waits for another start of the same registration */
     public function __construct(
         private readonly PaymentProviders $providers = new PaymentProviders(),
         private readonly MailRecipients $recipients = new MailRecipients(),
         private readonly PaymentsInFlight $inFlight = new PaymentsInFlight(),
-        private readonly int $waitMs = 3000,
         private readonly Events $events = new Events(),
     ) {
     }
@@ -55,13 +50,8 @@ final class CardPayments
     public function start(RegistrationKey $key, ?string $returnUrl = null, ?string $amount = null): string
     {
         $lock = new NamedLock('card_' . $key->eventId . '_' . strtolower($key->code));
-        $waited = 0;
-        while (!$lock->acquire()) {
-            if ($waited >= $this->waitMs * 1000) {
-                throw new CardPaymentInFlight();
-            }
-            usleep(self::RETRY);
-            $waited += self::RETRY;
+        if (!$lock->acquire()) {
+            throw new CardPaymentInFlight();
         }
         try {
             return $this->startLocked($key, $returnUrl, $amount);
