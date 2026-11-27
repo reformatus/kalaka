@@ -16,7 +16,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use PHPUnit\Framework\TestCase;
 
 /**
- * [UNAPPROVED N694] `time.now` as the left key of a comparison: "show this until 2026-12-01 18:00".
+ * `time.now` as the left key of a comparison: "show this until 2026-12-01 18:00".
  */
 final class ConditionLeftNowTest extends TestCase
 {
