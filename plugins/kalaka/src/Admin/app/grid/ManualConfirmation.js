@@ -1,10 +1,11 @@
 /**
- * The manual confirmation block of the detail panel (S20), between the header and the tabs, so it is reached
- * without the „Pénzügyek” tab: who set the flag, when and why, the button that sets it (with
- * `can.confirm_manually`, while it is not set) and the one „Visszaigazolás visszavonása” (with `can.unconfirm`, on
- * any confirmed registration). The flag itself is read under the money gate, so a user who may confirm but not
- * see money gets the block without the line: setting is idempotent (the unconfirm is not, see `api.js`). [UNAPPROVED N32]
- * [UNAPPROVED N34]
+ * The confirmation row of the detail panel (S20), in the header under the status row and above the tabs, so it is
+ * reached without the „Pénzügyek” tab: the confirmation state, and as its children who set the flag, when and
+ * why, the button that sets it (with `can.confirm_manually`, while it is not set) and the one „Visszaigazolás
+ * visszavonása” (with `can.unconfirm`, on any confirmed registration). The flag itself is read under the money
+ * gate, so a user who may confirm but not see money gets the row without the line: setting is idempotent (the
+ * unconfirm is not, see `api.js`). [UNAPPROVED N1220] [UNAPPROVED N32 reboxed: the buttons are the confirmation
+ * row's children, under the state, not a block of their own] [UNAPPROVED N34]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
@@ -12,7 +13,8 @@ import ConfirmDialog from './ConfirmDialog';
 import { manualActions, snackbarAfter } from './confirmation';
 import { fmt } from './format';
 import { formatMoment } from './money';
-import { CONFIRM } from './texts';
+import { ConfirmationRow } from './PanelRows';
+import { CONFIRM, PANEL } from './texts';
 
 /** How long the success snackbar stays, as the „Pénzügyek” tab's. */
 const SNACKBAR_MS = 5000;
@@ -30,7 +32,8 @@ const moment = ( instant, zone ) =>
  *                                 when it is not set, undefined when the read does not carry it
  * @param {?string}  props.warning the read's `registration.unconfirm_warning` (the server's text, only with
  *                                 `can.unconfirm`), null when the unconfirm would not confirm again at once
- * @param {boolean}  props.stale   the last read failed: the block is left out, the snackbar stays
+ * @param {?boolean} props.confirmed the read's `registration.confirmed`; the row is left out when it is not a boolean
+ * @param {boolean}  props.stale   the last read failed: the row is left out, the snackbar stays
  * @param {Function} props.reload  re-reads the panel's detail; resolves with it once it is on screen, null if
  *                                 both reads failed
  * @param {Function} props.onSaved tells the grid the flag changed
@@ -41,6 +44,7 @@ export default function ManualConfirmation( {
 	can,
 	manual,
 	warning,
+	confirmed,
 	stale,
 	reload,
 	onSaved,
@@ -113,7 +117,12 @@ export default function ManualConfirmation( {
 	const shown = !! manual || actions.length > 0;
 	return (
 		<Fragment>
-			{ shown && ! stale && (
+			{ typeof confirmed === 'boolean' && ! stale && (
+				<ConfirmationRow
+					confirmed={ confirmed }
+					text={ confirmed ? PANEL.confirmed : PANEL.unconfirmed }
+				>
+					{ shown && (
 				<div className="kg-manual" tabIndex={ -1 } ref={ block }>
 					{ manual && (
 						<Fragment>
@@ -154,6 +163,8 @@ export default function ManualConfirmation( {
 						</div>
 					) }
 				</div>
+					) }
+				</ConfirmationRow>
 			) }
 			{ dialog && (
 				<ConfirmDialog

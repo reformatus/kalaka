@@ -1,29 +1,8 @@
 /**
- * The manual confirmation's pure logic (S20): the confirmation decision of a read, the icon of its state, and
- * the dialog's one check. No WordPress imports, so Jest runs it as it is. [UNAPPROVED N30]
+ * The manual confirmation's pure logic (S20): the buttons of the confirmation row, the warning before the unconfirm,
+ * the snackbar after a save, and the dialog's one check. No WordPress imports, so Jest runs it as it is.
  */
 import { CONFIRM } from './texts';
-
-/** The kind of the confirmation decision, as the read declares it. */
-export const CONFIRMATION_KIND = 'confirmation';
-
-/** The icon and tone of each state, like the grid's decision mark; an unknown state gets the grid's marker. [UNAPPROVED N30] */
-const MARK = {
-	confirmed: [ 'dashicons-yes-alt', 'kg-ok' ],
-	unconfirmed: [ 'dashicons-marker', '' ],
-};
-
-/**
- * The confirmation decision of the read's `registration`: `{ kind, label, state, state_label, effective_at }`,
- * or null when the read has none (the view lists no such column, or nothing is decided yet).
- */
-export function confirmationOf( registration ) {
-	const found = ( ( registration && registration.decisions ) || [] ).find( ( d ) => d.kind === CONFIRMATION_KIND );
-	return found || null;
-}
-
-/** The icon class and tone class of a state. */
-export const markOf = ( state ) => MARK[ state ] || [ 'dashicons-marker', '' ];
 
 /** The longest reason the server takes (`kalaka/set-manual-confirmation` and `kalaka/unconfirm`), in characters. */
 export const REASON_MAX = 500;

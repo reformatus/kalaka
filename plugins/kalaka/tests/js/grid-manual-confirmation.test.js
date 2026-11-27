@@ -6,7 +6,7 @@
 import { act, createElement as h } from 'react';
 import { createRoot } from 'react-dom/client';
 import ManualConfirmation from '../../src/Admin/app/grid/ManualConfirmation';
-import { CONFIRM } from '../../src/Admin/app/grid/texts';
+import { CONFIRM, PANEL } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement } = require( 'react' );
@@ -38,6 +38,7 @@ const props = ( over ) => ( {
 	can: { confirm_manually: true, unconfirm: true },
 	manual,
 	warning: null,
+	confirmed: true,
 	stale: false,
 	reload: async () => ( { registration: {}, can: {} } ),
 	onSaved: () => {},
@@ -95,5 +96,34 @@ describe( 'focus after the act', () => {
 		await settle();
 		expect( button( CONFIRM.set ) ).toBeUndefined();
 		expect( document.activeElement ).toBe( host.querySelector( '.kg-manual' ) );
+	} );
+} );
+
+describe( 'the confirmation row', () => {
+	test( 'holds the state and, under it, the flag lines and the buttons', async () => {
+		await mount( props() );
+		const row = host.querySelector( '.kg-panel-confirmation' );
+		expect( row.textContent ).toContain( PANEL.confirmed );
+		expect( row.querySelector( '.kg-panel-slot' ).contains( button( CONFIRM.unconfirm ) ) ).toBe( true );
+	} );
+
+	test( 'an unconfirmed registration reads „Nincs visszaigazolva” and has the set button', async () => {
+		await mount( props( { confirmed: false, manual: null, can: { confirm_manually: true, unconfirm: false } } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ).textContent ).toContain( PANEL.unconfirmed );
+		expect( button( CONFIRM.set ) ).toBeDefined();
+		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
+	} );
+
+	test( 'is left out while the last read failed, or when the read has no confirmed field', async () => {
+		await mount( props( { stale: true } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		await mount( props( { confirmed: undefined } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+	} );
+
+	test( 'a row with no buttons and no flag has no slot', async () => {
+		await mount( props( { manual: null, can: {} } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
+		expect( host.querySelector( '.kg-panel-slot' ) ).toBeNull();
 	} );
 } );

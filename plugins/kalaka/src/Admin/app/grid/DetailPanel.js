@@ -7,10 +7,11 @@
  * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
  * (N1201). T3 struck: the disabled „Hamarosan…” tab is gone.
  *
- * S20: the confirmation state is the confirmation row's, under the status acts, and under it the manual
- * confirmation's button(s); the block's own lines (who set the flag, when and why) stay between the header and
- * the tabs. When the re-read after a save fails twice, the state and the block are not shown (the old ones
- * would look current); the load-error message says so. [UNAPPROVED N30] [UNAPPROVED N37]
+ * S20: the confirmation state is its own line, the confirmation row, under the status row, and under it the
+ * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
+ * N30 reboxed: the state is no longer shown next to the status. When the re-read after a save fails twice, the
+ * state and what hangs under it are not shown (the old ones would look current); the load-error message says so.
+ * [UNAPPROVED N30] [UNAPPROVED N37]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
@@ -18,7 +19,7 @@ import * as api from './api';
 import { warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import { ConfirmationRow, StatusRow } from './PanelRows';
+import { StatusRow } from './PanelRows';
 import { rememberedTab, rememberTab } from './panel';
 import { PANEL } from './texts';
 
@@ -124,14 +125,21 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
 						) }
-						{ /* The two state rows; their slots stay empty here, a branch above adds children. [UNAPPROVED N1200] */ }
+						{ /* The two state rows: the confirmation row's slot holds the manual confirmation's buttons; the status row's stays empty here. [UNAPPROVED N1200] */ }
 						{ registration.status_label && (
 							<StatusRow status={ registration.status } text={ registration.status_label } />
 						) }
-						{ typeof registration.confirmed === 'boolean' && (
-							<ConfirmationRow
+						{ detail && (
+							<ManualConfirmation
+								stale={ !! problem }
+								config={ config }
+								code={ code }
+								can={ detail.can || {} }
+								manual={ registration.manual_confirmation }
+								warning={ warningOf( registration, detail.can ) }
 								confirmed={ registration.confirmed }
-								text={ registration.confirmed ? PANEL.confirmed : PANEL.unconfirmed }
+								reload={ reload }
+								onSaved={ onSaved }
 							/>
 						) }
 					</div>
@@ -153,18 +161,6 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				<p className="kg-none" role="status">
 					{ PANEL.loading }
 				</p>
-			) }
-			{ detail && (
-				<ManualConfirmation
-					stale={ !! problem }
-					config={ config }
-					code={ code }
-					can={ detail.can || {} }
-					manual={ registration.manual_confirmation }
-					warning={ warningOf( registration, detail.can ) }
-					reload={ reload }
-					onSaved={ onSaved }
-				/>
 			) }
 			{ showsTabs && (
 				<TabPanel
