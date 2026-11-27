@@ -22,7 +22,7 @@ use Kalaka\Registrations\Api\Registrations;
  * every time. Carried by
  * `kalaka_confirm_manually` inside its grant's view, or full access. Setting the flag is for a `registered`
  * registration only (the owner's topic 1 ruling, H3: confirmation applies only to registered); the unconfirm
- * is not bound to a status here.
+ * is not bound to a status here. [UNAPPROVED N6, N12]
  */
 abstract class ManualConfirmationChange implements AdminUseCase
 {

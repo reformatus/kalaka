@@ -6,7 +6,7 @@
  * typed positive and the type gives the direction. A Díj or Kedvezmény has a participant-visible title instead
  * of the method and date, and may be saved „completed immediately”. The amount is never prefilled, the payer is
  * asked only with several payers, and „Tartozás” before and after follows the amount as it is typed. A failed
- * save keeps the dialog and its values. [UNAPPROVED N39] [UNAPPROVED N40] [UNAPPROVED N41]
+ * save keeps the dialog and its values. [UNAPPROVED N39] [UNAPPROVED N40] [UNAPPROVED N41] [UNAPPROVED N16]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, RadioControl, TextControl } from '@wordpress/components';

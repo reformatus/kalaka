@@ -100,7 +100,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 				// The region's screen-reader name, from the column names.
 				aria-label={ `${ MONEY.owed } / ${ MONEY.paid } / ${ MONEY.balance }` }
 			>
-				{ /* „Befizetett” and the total row are net: a refund lowers „Befizetett”. */ }
+				{ /* „Befizetett” and the total row are net: a refund lowers „Befizetett”. [UNAPPROVED N7] */ }
 				<table className="kg-money">
 					<thead>
 						<tr>
@@ -129,7 +129,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 					</tbody>
 				</table>
 			</div>
-			{ /* Two buttons, „Tétel rögzítése” and the correction's own, for the owner's G12. [UNAPPROVED T17] */ }
+			{ /* Two buttons, „Tétel rögzítése” and the correction's own, for the owner's G12. [UNAPPROVED N14] [UNAPPROVED T17] */ }
 			{ ( allowedTypes( can ).length > 0 || canCorrect( can ) ) && (
 				<div className="kg-actions">
 					{ allowedTypes( can ).length > 0 && (
@@ -168,7 +168,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 						</thead>
 						<tbody>
 							{ money.lines.map( ( line ) => {
-								// Each line has its amount in exactly one of the two side columns.
+								// Each line has its amount in exactly one of the two side columns. [UNAPPROVED N5]
 								const side = entryColumns( line, money.currency );
 								return (
 								<tr key={ line.id }>

@@ -20,7 +20,7 @@ final class Translations
 
     /**
      * Kaláka's own Hungarian text for DataViews' msgids, in the `default` domain; a list is a plural's forms,
-     * and a context is the part before the `\u{0004}`. Only strings the grid can show.
+     * and a context is the part before the `\u{0004}`. Only strings the grid can show. [UNAPPROVED N6]
      *
      * @var array<string, string|list<string>>
      */

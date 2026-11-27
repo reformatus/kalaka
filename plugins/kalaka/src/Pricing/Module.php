@@ -29,7 +29,7 @@ SQL;
     /**
      * money.md, "Confirmation": the manual confirmation flag, a fact, one row per registration that ever had
      * one. `set_at` and `revoked_at` are UTC; an unconfirm revokes the flag and keeps its row with its revoke
-     * time, and a new set replaces it. The reason is free text, here where an erase can reach it.
+     * time, and a new set replaces it. The reason is free text, here where an erase can reach it. [UNAPPROVED N6]
      */
     private const MANUAL_CONFIRMATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_manual_confirmations (
@@ -47,7 +47,7 @@ SQL;
     /**
      * The owner's ruling 2026-11-19: staff's latest unconfirm of a registration, a fact, one row per
      * registration ever unconfirmed (an earlier one is in the audit log). `unconfirmed_at` is UTC; the reason
-     * is free text, here where an erase can reach it.
+     * is free text, here where an erase can reach it. [UNAPPROVED N12]
      */
     private const UNCONFIRMATIONS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_unconfirmations (
@@ -76,7 +76,7 @@ SQL;
         return new Schema(3, [self::FIXED_PRICES, self::MANUAL_CONFIRMATIONS, self::UNCONFIRMATIONS]);
     }
 
-    /** The per-event actions grants may carry (foundation.md, "Views and grants"). */
+    /** The per-event actions grants may carry (foundation.md, "Views and grants"). [UNAPPROVED N6] */
     public function capabilities(): array
     {
         return [ManualConfirmations::CONFIRM_MANUALLY];
@@ -84,7 +84,7 @@ SQL;
 
     public function boot(): void
     {
-        // The labels and descriptions of the abilities.
+        // The labels and descriptions of the abilities. [UNAPPROVED T4]
         Abilities::register(
             new SetManualConfirmation(),
             'Visszaigazolás befizetés nélkül',
