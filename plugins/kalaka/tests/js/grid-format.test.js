@@ -67,6 +67,16 @@ describe( 'cellText', () => {
 		] );
 	} );
 
+	it( 'keeps yes, no and no answer apart: no answer is never „Nem”', () => {
+		const photo = columns[ 4 ];
+		const of = ( value ) => cellText( photo, { values: { 'field:photo': value } } );
+		expect( of( '1' ) ).toBe( 'Igen' );
+		expect( of( '0' ) ).toBe( 'Nem' );
+		expect( of( null ) ).toBe( '' );
+		expect( of( undefined ) ).toBe( '' );
+		expect( of( '' ) ).toBe( '' );
+	} );
+
 	it( 'shows an empty value as nothing and an unknown option as stored', () => {
 		const lunch = columns[ 3 ];
 		expect( cellText( lunch, { values: { 'field:lunch': null } } ) ).toBe( '' );

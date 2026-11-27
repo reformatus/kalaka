@@ -1,19 +1,30 @@
 /**
- * The „Jelentkezők” page (S37): the view tabs, the „Műveletek” toolbar with „Táblázat másolása”, and
- * DataViews (compact) with the sum row in its header. Kód carries the default order (the order of the
- * applications) and is sortable both ways; the default view state is Kód ascending, so DataViews' own header
- * shows it. The title and the controls stay at the top and the table fills the window (owner's walk, topic 6a
- * G9). A countable sum cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's
- * own for the session, full access included, and is never saved (B1, round 3).
+ * The „Jelentkezők” page (S37): the view tabs, one toolbar row with DataViews' own search and filter button, the
+ * filters (the view's own condition as DataViews' locked chip, then the viewer's chips with DataViews' own
+ * add-filter), our one „Visszaállítás” (search, filters, sort and counting) and „Táblázat másolása"; then DataViews
+ * (compact) with the sum row in its header. Every column has a filter in its header menu; the sums and the
+ * copy follow the filters and the search. Kód carries the default order and the reset returns to it. The title
+ * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). A countable sum
+ * cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's own for the session,
+ * full access included, and is never saved (B1, round 3).
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
-import { Button, SelectControl, SnackbarList } from '@wordpress/components';
+import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
 import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
 import Cell from './Cell';
+import {
+	conditionField,
+	filteredIds,
+	filterSpec,
+	isNarrowed,
+	lockedFilters,
+	narrowOf,
+} from './narrow';
+import { editFor } from './NumberFilter';
 import { writeClipboard } from './clipboard';
 import * as api from './api';
-import { countsToSend, createPicks } from './counting';
+import { countsDiffer, countsToSend, createPicks } from './counting';
 import Tabs, { tabUrl } from './Tabs';
 import SumRow from './SumRow';
 import ColumnMenu from './ColumnMenu';
@@ -27,12 +38,13 @@ import { GRID, SUM } from './texts';
 const defaultSort = ( tab ) =>
 	tab.columns.some( ( c ) => c.column === 'code' ) ? { field: 'code', direction: 'asc' } : undefined;
 
+/** A view as a tab opens: Kód ascending, and the view's own condition as the one locked filter. */
 const freshView = ( tab, perPage ) => ( {
 	type: 'table',
 	page: 1,
 	perPage,
 	search: '',
-	filters: [],
+	filters: lockedFilters( tab.condition ),
 	sort: defaultSort( tab ),
 	fields: tab.columns.map( ( c ) => c.column ),
 	layout: {
@@ -77,36 +89,84 @@ export default function Page( { config } ) {
 		: null;
 	const countsKey = JSON.stringify( counts || {} );
 
+	// The filters that narrow and the search, as the server takes them. A filter with no value yet, just added
+	// from a header menu, narrows nothing and is not sent; the locked condition is the view's own, not sent.
+	const narrow = narrowOf( v, tab.columns );
+	const narrowKey = JSON.stringify( narrow );
+	const narrowed = isNarrowed( narrow );
+	const [ said, setSaid ] = useState( '' );
+	const [ loadError, setLoadError ] = useState( false );
+	const loadedKey = useRef( null );
+
 	const select = ( id ) => {
+		if ( id === tab.key ) {
+			return; // the tab on screen: nothing to switch, keep its filters and rows
+		}
+		const next = tabs.find( ( t ) => t.key === id ) || tabs[ 0 ];
 		setCurrent( id );
+		// A tab switch starts the new tab clean: no filters, search or sort carried over or brought back later.
+		setView( freshView( next, v.perPage ) );
 		setNotices( [] );
-		setData( { rows: [], total: 0 } ); // no old rows under the new columns
-		setSums( null );
+		setLoadError( false );
 		setSumsFail( false );
 		picks.current.reset();
+		loadedKey.current = null;
+		setData( { rows: [], total: 0 } ); // no old rows under the new columns
+		setSums( null );
 		window.history.replaceState( null, '', tabUrl( id ) );
+	};
+
+	// The one reset: the search, the added filters (the locked condition stays), the sort (back to the default
+	// order) and the viewer's own counting, and back to page 1. DataViews' own „Visszaállítás” clears only the
+	// search and the filters, so it is hidden (grid.css) and this button, labelled the same, takes its place.
+	// [UNAPPROVED N7]
+	const resetAll = () => {
+		setView( {
+			...v,
+			search: '',
+			filters: lockedFilters( tab.condition ),
+			sort: defaultSort( tab ),
+			page: 1,
+		} );
+		picks.current.reset();
+		setPickTick( ( n ) => n + 1 );
 	};
 
 	useEffect( () => {
 		let live = true;
 		setLoading( true );
-		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page } ).then(
+		api.fetchPage( config, tab, { sort, desc, perPage: v.perPage, page: v.page, narrow } ).then(
 			( result ) => {
+				if ( ! live ) {
+					return;
+				}
+				setData( result );
+				setLoadError( false );
+				setLoading( false );
+				// Say the new count when the filters or the search changed (not on paging or the first load).
+				if ( loadedKey.current !== null && loadedKey.current !== narrowKey ) {
+					const text = result.total ? fmt( GRID.found, result.total ) : GRID.none;
+					setSaid( ( old ) => ( old === text ? text + '\u00a0' : text ) );
+				}
+				loadedKey.current = narrowKey;
+			},
+			() => {
+				// A failed load (a 500, or a 400 for a refused filter) shows no old rows as if they matched.
 				if ( live ) {
-					setData( result );
+					setData( { rows: [], total: 0 } );
+					setLoadError( true );
 					setLoading( false );
 				}
-			},
-			() => live && setLoading( false )
+			}
 		);
 		return () => {
 			live = false;
 		};
-	}, [ tab.key, sort, desc, v.page, v.perPage ] );
+	}, [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 
 	useEffect( () => {
 		let live = true;
-		api.fetchSums( config, tab, counts ).then(
+		api.fetchSums( config, tab, narrow, counts ).then(
 			( result ) => {
 				if ( live ) {
 					setSums( result );
@@ -124,7 +184,7 @@ export default function Page( { config } ) {
 		return () => {
 			live = false;
 		};
-	}, [ tab.key, countsKey ] );
+	}, [ tab.key, narrowKey, countsKey ] );
 
 	// The table fills the window (G9): the title and the controls stay put, the rows scroll inside, and the
 	// header row, the horizontal scrollbar and the paging stay in view. The footer keeps its place.
@@ -161,20 +221,25 @@ export default function Page( { config } ) {
 		};
 	}, [] );
 
-	const fields = useMemo(
-		() =>
-			tab.columns.map( ( column ) => ( {
-				id: column.column,
-				label: column.label,
-				type: column.numeric ? 'number' : 'text',
-				getValue: ( { item } ) => cellText( column, item ),
-				render: ( { item } ) => <Cell column={ column } item={ item } />,
-				enableSorting: column.sortable,
-				enableHiding: false,
-				filterBy: false,
-			} ) ),
-		[ tab ]
-	);
+	// A filtered column's header is lightly shaded (CSS, `:has()` on this marker).
+	const filtered = filteredIds( narrow );
+	const fields = useMemo( () => {
+		const own = tab.columns.map( ( column ) => ( {
+			id: column.column,
+			label: column.label,
+			header: (
+				<span className={ filtered.has( column.column ) ? 'kg-hd is-filtered' : 'kg-hd' }>{ column.label }</span>
+			),
+			getValue: ( { item } ) => cellText( column, item ),
+			render: ( { item } ) => <Cell column={ column } item={ item } />,
+			enableSorting: column.sortable,
+			enableHiding: false,
+			...filterSpec( column ),
+			...editFor( column ),
+		} ) );
+		const condition = conditionField( tab.condition );
+		return condition ? [ ...own, condition ] : own;
+	}, [ tab, narrowKey ] );
 
 	// The copy result is a snackbar, not text beside the button: a success goes away by itself, an error stays
 	// until it is dismissed. [UNAPPROVED N62]
@@ -200,7 +265,7 @@ export default function Page( { config } ) {
 		}
 		setBusy( true );
 		try {
-			const rows = await api.fetchAll( config, tab, sort, desc );
+			const rows = await api.fetchAll( config, tab, sort, desc, narrow );
 			await writeClipboard( plainText( tab.columns, rows ), tableHtml( tab.columns, rows ) );
 			say( fmt( GRID.copied, rows.length ), 'success' );
 		} catch {
@@ -243,39 +308,79 @@ export default function Page( { config } ) {
 		/>
 	);
 
+	// A grant holder's counting is theirs too, and so is a full-access user's: the reset is shown while any of the
+	// search, the added filters (the locked condition is the view's own), the sort or the counting differs from a
+	// freshly opened view, and not shown otherwise.
+	const defaultView = defaultSort( tab );
+	const sortDiffers = JSON.stringify( v.sort || null ) !== JSON.stringify( defaultView || null );
+	const canReset =
+		!! v.search ||
+		( v.filters || [] ).some( ( f ) => ! f.isLocked ) ||
+		sortDiffers ||
+		countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
+	let empty;
+	if ( loadError ) {
+		empty = (
+			<p className="kg-load-fail" role="alert">
+				{ GRID.loadFail }
+			</p>
+		);
+	} else if ( narrowed ) {
+		// Filters or a search that match nothing say so.
+		empty = <p className="kg-no-match">{ GRID.noMatch }</p>;
+	} else {
+		// A view with no registrations at all. [UNAPPROVED N10]
+		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
+	}
+	const copyButton = (
+		<Button
+			variant="secondary"
+			size="compact"
+			onClick={ copy }
+			isBusy={ busy }
+			disabled={ ! loading && ! data.total }
+			accessibleWhenDisabled
+		>
+			{ GRID.copy }
+		</Button>
+	);
+
 	return (
 		<Fragment>
 			<div className="kg-above">
 				<div className="kg-tabrow">
 					<Tabs tabs={ tabs } current={ tab.key } onSelect={ select } />
 				</div>
-				<div className="kg-bulkbar">
-					<div className="kg-bulkbar-actions" role="toolbar" aria-label={ GRID.toolbar }>
-						<Button
-							variant="secondary"
-							size="compact"
-							onClick={ copy }
-							isBusy={ busy }
-							disabled={ ! loading && ! data.total }
-							accessibleWhenDisabled
-						>
-							{ GRID.copy }
-						</Button>
-					</div>
-				</div>
 			</div>
+			<span className="screen-reader-text" role="status" aria-live="polite">
+				{ said }
+			</span>
 			{ sumsFail && (
 				<p className="kg-load-fail" role="alert">
 					{ SUM.loadFail }
 				</p>
 			) }
-			<SumRow root={ host } columns={ tab.columns } order={ v.fields } sums={ sums } menuFor={ menuFor } />
+			<SumRow
+				root={ host }
+				columns={ tab.columns }
+				order={ v.fields }
+				sums={ sums }
+				menuFor={ menuFor }
+				narrowed={ narrowed }
+			/>
 			<div ref={ setHost } className="kg-dv">
 				<DataViews
+					key={ tab.key }
 					data={ data.rows }
 					fields={ fields }
 					view={ v }
-					onChangeView={ ( next ) => setView( { ...next, _tab: tab.key } ) }
+					onChangeView={ ( next ) => {
+						// A late call from the previous tab's DataViews (a pending search) is dropped.
+						if ( next._tab !== undefined && next._tab !== tab.key ) {
+							return;
+						}
+						setView( { ...next, _tab: tab.key } );
+					} }
 					isLoading={ loading }
 					paginationInfo={ {
 						totalItems: data.total,
@@ -286,7 +391,23 @@ export default function Page( { config } ) {
 					actions={ [] }
 					search={ false }
 					config={ { perPageSizes: config.perPages } }
+					empty={ empty }
 				>
+					<div className="kg-bulkbar" role="toolbar" aria-label={ GRID.toolbar }>
+						<DataViews.Search />
+						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N63] */ }
+						<DataViews.FiltersToggle />
+						<DataViews.FiltersToggled className="kg-filters" />
+						{ canReset && (
+							<Button variant="tertiary" size="compact" onClick={ resetAll }>
+								{ GRID.reset }
+							</Button>
+						) }
+						<span className="kg-spacer" />
+						<div className="kg-bulkbar-actions">
+							{ narrowed ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
+						</div>
+					</div>
 					<DataViews.Layout />
 					<div className="kg-dv-foot">
 						{ perPage }

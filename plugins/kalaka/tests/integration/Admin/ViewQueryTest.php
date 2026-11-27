@@ -366,6 +366,24 @@ final class ViewQueryTest extends AdminTestCase
         self::assertSame(array_reverse($default), $codes('code', true));
     }
 
+    /** Topic 6a: Szám is a number sort; no number sorts first ascending, ties fall back to the default order. */
+    public function testTheSerialSortsByTheNumberAndInterleavesTheStatuses(): void
+    {
+        $this->seedStatuses();
+        $view = $this->held($this->shape([], [
+            ['column' => 'code', 'write' => false],
+            ['column' => 'serial', 'write' => false],
+        ]));
+        $codes = fn (bool $descending): array => $this->codes(array_map(
+            static fn (ViewRow $row): array => ['key' => $row->key, 'values' => $row->values],
+            $this->query->page($view, 'serial', $descending, ViewQuery::MAX_LIMIT)->rows
+        ));
+
+        // 00A0 is registered no. 1, 00A2 waitlisted no. 1, 00A5 registered no. 2; 00A8 and 00B0 have none.
+        self::assertSame(['00A8', '00B0', '00A0', '00A2', '00A5'], $codes(false));
+        self::assertSame(['00A5', '00A0', '00A2', '00A8', '00B0'], $codes(true));
+    }
+
     public function testNoStatementSelectsTheSecretOrLeavesTheEvent(): void
     {
         $this->seedStatuses();
