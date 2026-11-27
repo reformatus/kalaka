@@ -8,6 +8,7 @@ use Kalaka\Admin\Api\AdminAccess;
 use Kalaka\Admin\Grid\GridPage;
 use Kalaka\Events\Api\Event;
 use Kalaka\Events\Api\Events;
+use Kalaka\Events\Api\EventTimes;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\NotFound;
 use Kalaka\Foundation\Api\Error\PermissionDenied;
@@ -142,40 +143,15 @@ final class TimesPage
     /**
      * The current record with the two points replaced, through `UpdateEvent`: the one place the event's rules
      * stay. The other values are read back from the record, so the form never posts them.
+     * It saves through `Events\Api\EventTimes`, which runs `UpdateEvent` as the current user (Admin may not
+     * reach the Events use case itself), so the use case's own permission check applies too.
      *
      * @internal used by `save()` and the integration test
-     * It runs the registered ability `kalaka/update-event` as the current user (Admin may not reach the Events
-     * use case itself), so the ability's own permission check applies too.
-     *
-     * @throws \RuntimeException carrying the ability's error code when it refuses
+     * @throws \Throwable what `EventTimes::save()` throws
      */
     public static function apply(Event $event, ?string $starts, ?string $ends, int $version): void
     {
-        $ability = wp_get_ability('kalaka/update-event');
-        if ($ability === null) {
-            throw new \RuntimeException('kalaka/update-event is not registered');
-        }
-        $result = $ability->execute([
-            'id' => $event->id,
-            'version' => $version,
-            'name' => $event->name,
-            'capacity' => $event->capacity,
-            'registration_opens_at' => self::local($event->registrationOpens),
-            'registration_closes_at' => self::local($event->registrationCloses),
-            'starts_at' => $starts,
-            'ends_at' => $ends,
-            'points' => array_map(
-                static fn ($point): array => [
-                    'id' => $point->id,
-                    'name' => $point->name,
-                    'at' => self::local($point->at),
-                ],
-                $event->customPoints
-            ),
-        ]);
-        if (is_wp_error($result)) {
-            throw new \RuntimeException(esc_html($result->get_error_code() . ': ' . $result->get_error_message()));
-        }
+        (new EventTimes())->save($event, $starts, $ends, $version);
     }
 
     /** The posted `datetime-local`, `YYYY-MM-DD HH:MM`, null when empty, false when malformed. */
@@ -197,12 +173,6 @@ final class TimesPage
     private static function inputValue(?\DateTimeImmutable $at): string
     {
         return $at === null ? '' : $at->setTimezone(wp_timezone())->format('Y-m-d\TH:i');
-    }
-
-    /** A stored instant as the use case's local `YYYY-MM-DD HH:MM`; null when null. */
-    private static function local(?\DateTimeImmutable $at): ?string
-    {
-        return $at?->setTimezone(wp_timezone())->format('Y-m-d H:i');
     }
 
     /** An instant as the page's Hungarian text, date and hours. */
