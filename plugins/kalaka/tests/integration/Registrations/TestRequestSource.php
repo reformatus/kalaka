@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kalaka\Tests\Integration\Registrations;
 
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\Api\UseCase\LockLevel;
 use Kalaka\Registrations\Api\Answer;
@@ -15,6 +17,7 @@ use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\RequestTerms;
 use Kalaka\Registrations\Api\SeatPool;
 
 /**
@@ -34,8 +37,14 @@ final class TestRequestSource implements RequestSource
     /** The module slug the test source writes under (`Registrations::writeValue()`'s declarer). */
     public const DECLARER = 'kalaka-test';
 
-    public function __construct(private readonly Registrations $registrations = new Registrations())
-    {
+    /**
+     * @param ?int $fullPrice the aid request's full price in forints, a stand-in for the aid extension's composed
+     *                        price; null gives no terms
+     */
+    public function __construct(
+        private readonly Registrations $registrations = new Registrations(),
+        private readonly ?int $fullPrice = null,
+    ) {
     }
 
     public function requestsOf(RegistrationKey $registration, array $values): array
@@ -123,6 +132,20 @@ final class TestRequestSource implements RequestSource
                 return null;
             }
         };
+    }
+
+    public function terms(
+        RegistrationKey $registration,
+        Request $request,
+        array $values,
+        \DateTimeImmutable $now,
+    ): ?RequestTerms {
+        if ($request->kind !== RequestKind::Aid || $this->fullPrice === null) {
+            return null;
+        }
+        $canPay = ($values['aid_can_pay'] ?? '') === '' ? null : Money::of($values['aid_can_pay'], Currency::HUF);
+
+        return new RequestTerms(Money::of($this->fullPrice, Currency::HUF), $canPay);
     }
 
     public function writeAnswer(

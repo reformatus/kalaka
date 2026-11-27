@@ -53,9 +53,24 @@ interface RequestSource
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool;
 
     /**
+     * What an aid request is measured against, now: the full price the participant has to pay before the aid and
+     * what they stated they can pay, so the answer act can refuse an award above the price and the admin read can
+     * show both. Null for a request that has no price to compare (an offer) or when none can be read. Reads only the
+     * registration's facts and the event's settings. [UNAPPROVED N1133]
+     *
+     * @param array<string, string> $values the registration's current field values, key → stored value
+     */
+    public function terms(
+        RegistrationKey $registration,
+        Request $request,
+        array $values,
+        \DateTimeImmutable $now,
+    ): ?RequestTerms;
+
+    /**
      * Writes the answer to the source's own participant field, inside the answer act's transaction, with
-     * `Registrations::writeValue()`. It may refuse an answer it cannot take (an award above what the
-     * registration owes) with `InvalidInput`.
+     * `Registrations::writeValue()`. It may refuse an answer it cannot take (an award the field cannot hold)
+     * with `InvalidInput`; the answer act itself refuses an award above `terms()`' full price.
      */
     public function writeAnswer(
         RegistrationKey $registration,
