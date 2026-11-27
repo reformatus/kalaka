@@ -59,8 +59,7 @@ final class Translations
         'Conditions' => 'Szűrés módja',
         "verb\u{0004}Filter" => 'Szűrés',
         'Select all' => 'Összes kijelölése',
-        // The bulk footer's cancel: core's „Mégsem” beside the app's own „Mégse”. [UNAPPROVED T292]
-        'Cancel' => 'Mégse',
+        // No override of core's Cancel: the owner's ruling (2026-11-27) keeps core's own „Mégsem”, as 8.10 asked.
         // The ranges of Sorszám and of the number columns (`between`).
         'Between (inc)' => 'Között',
         '<Name>%1$s between (inc): </Name><Value>%2$s and %3$s</Value>'

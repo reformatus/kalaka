@@ -1,6 +1,7 @@
 /**
- * The confirmation before a clear: a short text, the act's button and Mégse. While the act runs the dialog does not
- * close and a second press is ignored; a refusal shows the server's text and keeps the dialog. Focus opens on Mégse, as
+ * The confirmation before a clear: a short text, the act's button and „Mégsem”. While the act runs the dialog does
+ * not close and a second press is ignored; a refusal shows the server's text and keeps the dialog. Focus opens on
+ * „Mégsem”, as
  * the approved republish dialog does, so Enter never confirms a deletion by itself. [UNAPPROVED N282]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';

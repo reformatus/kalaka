@@ -24,7 +24,7 @@ export const COMMON = {
 	loadFail: 'Az oldal betöltése nem sikerült.',
 	actFail: 'A művelet nem sikerült. Próbáld újra.',
 	save: 'Mentés', // approved
-	cancel: 'Mégse', // approved
+	cancel: 'Mégsem', // the owner's terminology ruling 2026-11-27: core's own word
 	close: 'Bezárás', // approved
 	saved: 'Mentve.',
 	yes: 'Igen', // approved
@@ -69,13 +69,13 @@ export const BODIES = {
 	status_future: 'Időzítve', // reworded per the lektor (core's word)
 	hint: 'A levélsablon szövegét a szerkesztőben lehet megírni.',
 	// Two bodies with one subject are told apart by their number. [UNAPPROVED T289]
-	numbered: '%1$s (%2$d. számú levélsablon)',
-	numberedStatus: '%1$s (%3$s, %2$d. számú levélsablon)',
+	numbered: '%1$s (%2$d. levélsablon)',
+	numberedStatus: '%1$s (%3$s, %2$d. levélsablon)',
 };
 
 /** The failed deliveries tab. [UNAPPROVED T277] */
 export const TROUBLED = {
-	code: 'Kód', // approved
+	code: 'Jelentkezési kód', // the owner's ruling 2026-11-27: only the grid's own column keeps „Kód”
 	mail: 'Levél',
 	manual: '%d. csoportos levél', // reworded per the lektor
 	status: 'Állapot', // approved
@@ -103,14 +103,14 @@ export const SENDER = {
 	by: 'Szüneteltette',
 	system: 'Kaláka',
 	delivery: 'A hibát jelző levél',
-	deliveryOf: '%2$s, %1$d. számú levél', // reworded per the lektor
+	deliveryOf: '%2$s, %1$d. levél', // reworded per the lektor
 	error: 'Hibaüzenet', // reworded per the lektor
 	errorsInRow: 'Egymást követő hibák száma', // reworded per the lektor
 	budget: 'Óránként legfeljebb küldhető levél', // reworded per the lektor: no „keret” for the limit
 	budgetDefault: 'Alapértelmezés: %d', // under the budget field, a line of its own [UNAPPROVED T901]
 	budgetDefaultInline: 'alapértelmezés: %d', // inside the parentheses of the read-only value [UNAPPROVED T905]
 	queued: 'Küldésre váró levelek',
-	unknownEvent: '%d. számú esemény', // reworded per the lektor
+	unknownEvent: '%d. esemény', // reworded per the lektor
 };
 
 /** The sender's controls and their confirmations. [UNAPPROVED T279] */
@@ -143,7 +143,7 @@ export const COUNTS = {
 	sent: 'Elküldve',
 	failed: 'Sikertelen',
 	// The mails that wait after an error are among the ones counted as waiting, not a separate count. [UNAPPROVED T280]
-	withError: 'A küldésre várók közül hiba után vár', // reworded per the lektor (pass 2): names its base, as the column is no longer next to „Küldésre vár”
+	withError: 'Újrapróbálásra vár', // the owner's word (2026-11-27): no base to name, the column stands alone
 	stuck: 'Küldés közben elakadt', // reworded per the lektor
 	none: 'Még egy esemény levele sem került a küldési sorba.', // reworded per the lektor
 	open: 'Levelek',

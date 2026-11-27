@@ -76,7 +76,7 @@ test( 'the clear button\'s accessible name uses the event\'s name although the r
 	} );
 	const label = host.querySelector( '[data-event="4"] button' ).getAttribute( 'aria-label' );
 	expect( label ).toContain( 'Tavaszi találkozó' );
-	expect( label ).not.toContain( '4. számú esemény' );
+	expect( label ).not.toContain( '4. esemény' );
 } );
 
 const budgetRead = ( over ) => ( {
