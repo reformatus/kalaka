@@ -153,7 +153,7 @@ export const recordEntry = ( config, entry, can ) => {
  * nothing was written (the registration was not confirmed, or the flag was already set). Only the set is
  * idempotent. A retry of the unconfirm is a new act: on a registration the rules confirmed again at once it
  * unconfirms and re-confirms a second time, with its own records and audit entry, and there is no idempotency
- * key. So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
+ * key yet (the server is to add one, N74 reboxed). So the dialog sends it once and never retries it by itself. The unconfirm has no refusal.
  *
  * @param {Object}  config    window.kalakaGrid
  * @param {string}  code      the registration's code

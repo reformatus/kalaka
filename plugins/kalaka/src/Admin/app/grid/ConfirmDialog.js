@@ -3,7 +3,8 @@
  * (`kalaka/set-manual-confirmation`, `kalaka/unconfirm`). The reason field has no length limit of its own (the check
  * on submit counts characters, as the server does). [UNAPPROVED N73] A failed save keeps the dialog and the reason, and
  * while it runs the dialog does not close (Esc, ×, Mégse) and a second submit is ignored: an unconfirm is a new
- * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74]
+ * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74 reboxed: the unconfirm gets a retry key on the server
+ * (Backend's work); #213's unconfirm input takes none yet, so this guard stays and nothing is sent from here]
  * The unconfirm has no refusal. The dialog has no warning notice: when the rules would
  * confirm the registration again at once the unconfirm button is disabled instead, with the server's text as its
  * tooltip ([UNAPPROVED N71 reboxed] [UNAPPROVED N78 reboxed: moot] [UNAPPROVED N82 reboxed: moot]). It says nothing
