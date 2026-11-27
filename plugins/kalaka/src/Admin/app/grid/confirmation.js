@@ -44,6 +44,18 @@ export function manualActions( manual, can, confirmed ) {
 }
 
 /**
+ * Whether the registration is withdrawn or removed: the confirmation row is not shown on one, since neither can
+ * be confirmed or revoked any more (owner 2026-11-27). [UNAPPROVED N30 reboxed: the row is left out on
+ * „Lemondott” and „Törölt” (the panel's own status key), as before while the read is stale or has no
+ * `registration.confirmed`]
+ *
+ * @param {?string} status the read's `registration.status`
+ */
+export function cancelled( status ) {
+	return status === 'withdrawn' || status === 'removed';
+}
+
+/**
  * Whether the unconfirm is disabled: the rules would confirm the registration again at once, which the read says
  * in `registration.unconfirm_reconfirms` (`payments`, `nothing_due`, or `yes` for a viewer without the money
  * view); null when it would really take effect. [UNAPPROVED N33 reboxed] [UNAPPROVED N71 reboxed]
@@ -53,8 +65,10 @@ export function unconfirmBlocked( registration ) {
 }
 
 /**
- * The reason the unconfirm is disabled: the server's own text from `registration.unconfirm_warning` (#213's T5a,
- * T5b, T5c, with T6 appended when that mail is on), only while `can.unconfirm` is true and the text is not null.
+ * The reason the unconfirm is disabled: the server's own text from `registration.unconfirm_warning` (#213's T5a or
+ * T5b for a viewer with the money view, T5c without it), only while `can.unconfirm` is true and the text is not
+ * null. [UNAPPROVED N71 reboxed: no mail sentence (T6) in it — the owner dropped it on 2026-11-27; the client shows
+ * the read's text as it comes and cuts nothing, so Backend must stop appending that sentence]
  * It is the visible help text under the disabled button, tied to it by `aria-describedby`, and it wraps as a
  * paragraph, so it reaches a touch screen too ([UNAPPROVED N1263]). The panel adds no wording and no rule of its
  * own. [UNAPPROVED N76 reboxed] The text is as old as the panel's last read ([UNAPPROVED N79 reboxed]), and a

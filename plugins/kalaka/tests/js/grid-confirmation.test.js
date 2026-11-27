@@ -50,6 +50,20 @@ describe( 'the moment of the flag', () => {
 	} );
 } );
 
+describe( 'the status the confirmation row is shown on', () => {
+	test( 'a withdrawn or removed registration hides the row', () => {
+		expect( confirmation.cancelled( 'withdrawn' ) ).toBe( true );
+		expect( confirmation.cancelled( 'removed' ) ).toBe( true );
+	} );
+
+	test( 'every other status, and no status, keeps it', () => {
+		expect( confirmation.cancelled( 'registered' ) ).toBe( false );
+		expect( confirmation.cancelled( 'waitlisted' ) ).toBe( false );
+		expect( confirmation.cancelled( undefined ) ).toBe( false );
+		expect( confirmation.cancelled( null ) ).toBe( false );
+	} );
+} );
+
 describe( 'the buttons of the manual confirmation block', () => {
 	const flag = { set_at: '2026-11-19T10:00:00Z', reason: 'Telefonon', set_by: 'Teszt' };
 

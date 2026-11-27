@@ -12,7 +12,7 @@
  * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
  * N30 reboxed: the state is no longer shown next to the status. When the re-read after a save fails twice, the
  * state and what hangs under it are not shown (the old ones would look current); the load-error message says so.
- * [UNAPPROVED N30]
+ * On a „Lemondott” or „Törölt” registration it is not shown either (owner 2026-11-27). [UNAPPROVED N30]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
@@ -141,6 +141,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								code={ code }
 								can={ detail.can || {} }
 								manual={ registration.manual_confirmation }
+								status={ registration.status }
 								warning={ warningOf( registration, detail.can ) }
 								blocked={ unconfirmBlocked( registration ) }
 								confirmed={ registration.confirmed }

@@ -9,12 +9,13 @@
  * row's children, under the state, not a block of their own] [UNAPPROVED N34]
  * The disabled unconfirm's reason is visible text under the button, tied to it by `aria-describedby`, not a
  * tooltip: a touch screen cannot open a tooltip on a disabled button ([UNAPPROVED N1263], [UNAPPROVED N71
- * reboxed: the reason is help text, not a notice in the dialog and not a tooltip]).
+ * reboxed: the reason is help text, not a notice in the dialog and not a tooltip; and no mail sentence (T6) in it,
+ * the owner dropped it on 2026-11-27 — Backend must stop appending it, the client cuts nothing]).
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import ConfirmDialog from './ConfirmDialog';
-import { manualActions, snackbarAfter } from './confirmation';
+import { cancelled, manualActions, snackbarAfter } from './confirmation';
 import { fmt } from './format';
 import { formatMoment } from './money';
 import { returnFocus } from './panel';
@@ -46,6 +47,7 @@ const moment = ( instant, zone ) =>
  *                                 visible help text under the disabled unconfirm button and its description
  *                                 ([UNAPPROVED N1263])
  * @param {boolean}  props.blocked the unconfirm is disabled: the rules would confirm again at once
+ * @param {?string}  props.status  the read's `registration.status`; the row is left out on „Lemondott” and „Törölt”
  * @param {?boolean} props.confirmed the read's `registration.confirmed`; the row is left out when it is not a boolean
  * @param {boolean}  props.stale   the last read failed: the row is left out, the snackbar stays
  * @param {Function} props.reload  re-reads the panel's detail; resolves with it once it is on screen, null if
@@ -60,6 +62,7 @@ export default function ManualConfirmation( {
 	manual,
 	warning,
 	blocked,
+	status,
 	confirmed,
 	stale,
 	reload,
@@ -143,7 +146,7 @@ export default function ManualConfirmation( {
 	const shown = !! manual || actions.length > 0;
 	return (
 		<Fragment>
-			{ typeof confirmed === 'boolean' && ! stale && (
+			{ typeof confirmed === 'boolean' && ! stale && ! cancelled( status ) && (
 				<ConfirmationRow
 					confirmed={ confirmed }
 					text={ confirmed ? PANEL.confirmed : PANEL.unconfirmed }

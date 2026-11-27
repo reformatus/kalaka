@@ -47,6 +47,7 @@ const props = ( over ) => ( {
 	code: '92F7',
 	can: { confirm_manually: true, unconfirm: true },
 	manual,
+	status: 'registered',
 	warning: null,
 	confirmed: true,
 	stale: false,
@@ -151,6 +152,17 @@ describe( 'the confirmation row', () => {
 		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
 		await mount( props( { confirmed: undefined } ) );
 		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+	} );
+
+	test( 'is left out on a „Lemondott” or „Törölt” registration, and shown on the others', async () => {
+		await mount( props( { status: 'withdrawn' } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		await mount( props( { status: 'removed' } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		for ( const status of [ 'registered', 'waitlisted', undefined ] ) {
+			await mount( props( { status } ) );
+			expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
+		}
 	} );
 
 	test( 'a row with no buttons and no flag has no slot', async () => {
