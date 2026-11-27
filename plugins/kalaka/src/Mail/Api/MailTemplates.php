@@ -9,6 +9,7 @@ use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Error\PermissionDenied;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
@@ -21,6 +22,10 @@ use Kalaka\Mail\Catalogue\UpdateActionMail;
  * through `UpdateActionMail`, which switches the point off as any change of its template does; if that is
  * refused the post is removed again. Nothing is made for a point that already holds a template the use case
  * would not let go (the "registered" mail of an event with accounts stays on, and a draft cannot be its template).
+ *
+ * `createDraft()` makes the same draft without a point (the screen's unassigned templates): no point changes and
+ * nothing switches off.
+ * [UNAPPROVED N1184]
  */
 final class MailTemplates
 {
@@ -44,6 +49,48 @@ final class MailTemplates
         $input = ['event_id' => $eventId, 'mail' => $action->value, 'body_id' => null];
         AdminAccess::check(new UpdateActionMail(), $input, $actor);
 
+        $made = $this->draft($eventId);
+        try {
+            $this->settings->update(
+                ['event_id' => $eventId, 'mail' => $action->value, 'body_id' => $made['id']],
+                $actor
+            );
+        } catch (\Throwable $e) {
+            wp_delete_post($made['id'], true);
+            throw $e;
+        }
+
+        return $made;
+    }
+
+    /**
+     * An empty draft template of the event, assigned to no point: no point's template changes and no point
+     * switches off. Full access only, like the mail screens' other writes and reads; a point's own template is
+     * `createFor()`. [UNAPPROVED N1184]
+     *
+     * @return array{id: int, edit_url: string} the new post and its edit URL
+     * @throws NotFound when there is no such event
+     * @throws PermissionDenied without full access
+     * @throws SystemFailure when WordPress does not make the post
+     */
+    public function createDraft(int $eventId, Actor $actor): array
+    {
+        $this->events->find($eventId) ?? throw new NotFound();
+        if (!AdminAccess::isFull($actor)) {
+            throw new PermissionDenied();
+        }
+
+        return $this->draft($eventId);
+    }
+
+    /**
+     * The post itself: an empty draft `kalaka_mail` post of the event, its event in the meta.
+     *
+     * @return array{id: int, edit_url: string}
+     * @throws SystemFailure when WordPress does not make the post
+     */
+    private function draft(int $eventId): array
+    {
         $id = wp_insert_post([
             'post_type' => MailPosts::POST_TYPE,
             'post_status' => 'draft',
@@ -53,12 +100,6 @@ final class MailTemplates
         if (!is_int($id)) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a log message, never output
             throw new SystemFailure(null, new \RuntimeException('The template post was not made.'));
-        }
-        try {
-            $this->settings->update(['event_id' => $eventId, 'mail' => $action->value, 'body_id' => $id], $actor);
-        } catch (\Throwable $e) {
-            wp_delete_post($id, true);
-            throw $e;
         }
 
         return ['id' => $id, 'edit_url' => (string) get_edit_post_link($id, 'raw')];
