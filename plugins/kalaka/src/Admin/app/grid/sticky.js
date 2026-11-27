@@ -98,7 +98,7 @@ export default function useStickyColumns( host, candidates, hasActions = false )
 				return; // not laid out (hidden): keep what it was
 			}
 			const heads = Array.from( host.querySelectorAll( 'table thead tr:first-child > th' ) );
-			const widths = heads.slice( 0, candidates ).map( ( th ) => th.getBoundingClientRect().width );
+			const widths = heads.slice( 0, Math.min( candidates, heads.length ) ).map( ( th ) => th.getBoundingClientRect().width );
 			const actionsHead = hasActions ? host.querySelector( 'table thead tr:first-child > th.dataviews-view-table__actions-column' ) : null;
 			const fit = fitSticky( widths, actionsHead ? actionsHead.getBoundingClientRect().width : null, available );
 			lefts( widths.slice( 0, fit.count ) ).forEach( ( left, index ) => {
@@ -119,11 +119,24 @@ export default function useStickyColumns( host, candidates, hasActions = false )
 				host.removeAttribute( 'data-kg-actions-loose' );
 			}
 		};
-		const sizes = new window.ResizeObserver( measure );
-		const mutations = new window.MutationObserver( measure );
+		// DataViews re-renders a lot; measure once per frame rather than on every child change.
+		let frame = 0;
+		const schedule = () => {
+			if ( ! frame ) {
+				frame = window.requestAnimationFrame( () => {
+					frame = 0;
+					measure();
+				} );
+			}
+		};
+		const sizes = new window.ResizeObserver( schedule );
+		const mutations = new window.MutationObserver( schedule );
 		measure();
 		mutations.observe( host, { childList: true, subtree: true } );
 		return () => {
+			if ( frame ) {
+				window.cancelAnimationFrame( frame );
+			}
 			mutations.disconnect();
 			sizes.disconnect();
 			host.removeAttribute( 'data-kg-sticky' );

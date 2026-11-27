@@ -23,23 +23,26 @@ export default function ColumnMenu( { column, shown, chosen, onToggle } ) {
 	return (
 		<DropdownMenu
 			className="kg-sumcount"
+			icon={ null }
 			label={ label }
+			text={ shown || '–' }
+			toggleProps={ {
+				className: 'kg-sumcount-btn' + ( shown ? '' : ' is-empty' ),
+				size: 'small',
+				variant: 'tertiary',
+			} }
 			popoverProps={ { placement: 'bottom-end', shift: true } }
-			renderToggle={ ( { isOpen, onToggle: toggle } ) => (
-				<button
-					type="button"
-					className={ 'kg-sumcount-btn' + ( shown ? '' : ' is-empty' ) }
-					aria-haspopup="menu"
-					aria-expanded={ isOpen }
-					aria-label={ label }
-					onClick={ toggle }
-				>
-					<span aria-hidden="true">{ shown || '–' }</span>
-				</button>
-			) }
 		>
 			{ ( { onClose } ) => (
-				<div className="kg-sumcount-menu" onMouseLeave={ onClose }>
+				<div
+					className="kg-sumcount-menu"
+					onMouseLeave={ ( event ) => {
+						// A keyboard user inside the menu must not lose focus to a stray pointer.
+						if ( ! event.currentTarget.contains( document.activeElement ) ) {
+							onClose();
+						}
+					} }
+				>
 					<MenuGroup label={ SUM.counting }>
 						{ column.members.map( ( member ) => {
 							const on = chosen.includes( member.value );

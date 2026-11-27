@@ -19,6 +19,8 @@ import { BATCHES, COMMON, WHO } from './texts';
  */
 export function Members( { config, id, onClose } ) {
 	const [ shown, setShown ] = useState( true );
+	// A per-instance id: two cards open at once must not share an aria-controls target.
+	const listId = useMemo( () => 'km-batch-members-' + Math.random().toString( 36 ).slice( 2 ), [] );
 	const read = useRead( config.rest, `/events/${ config.event }/mail/batches/${ id }` );
 	return (
 		<Modal title={ fmt( BATCHES.open, id ) } onRequestClose={ onClose } size="medium">
@@ -30,11 +32,11 @@ export function Members( { config, id, onClose } ) {
 						<strong>{ batchSubject( read.data ) }</strong>
 					</p>
 					<h2 className="km-h2">
-						<Button variant="link" type="button" aria-expanded={ shown } aria-controls="km-batch-members" onClick={ () => setShown( ! shown ) }>
+						<Button variant="link" type="button" aria-expanded={ shown } aria-controls={ listId } onClick={ () => setShown( ! shown ) }>
 							{ BATCHES.members }
 						</Button>
 					</h2>
-					<ul className="km-members" id="km-batch-members" hidden={ ! shown }>
+					<ul className="km-members" id={ listId } hidden={ ! shown }>
 						{ ( read.data.members || [] ).map( ( member ) => (
 							<li key={ member.code }>
 								<CodeName code={ member.code } name={ member.name } />{ ' – ' }

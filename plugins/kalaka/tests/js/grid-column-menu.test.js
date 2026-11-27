@@ -10,11 +10,11 @@ jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( '@wordpress/element' );
 	const RealMenuItem = require( '../../../../node_modules/@wordpress/components/build/menu-item/index.cjs' ).default;
 	return {
-		DropdownMenu: ( { popoverProps, renderToggle, children } ) =>
+		DropdownMenu: ( { label, text, toggleProps, popoverProps, children } ) =>
 			h(
 				'div',
 				{ 'data-shift': String( !! popoverProps.shift ) },
-				renderToggle( { isOpen: false, onToggle: () => {} } ),
+				h( 'button', { 'aria-label': label, className: toggleProps?.className }, text ),
 				children( { onClose: () => mockClose() } )
 			),
 		MenuGroup: ( { label, children } ) => h( 'section', { 'data-group': label || '' }, children ),
@@ -44,7 +44,6 @@ describe( 'a column’s counting menu', () => {
 	test( 'the number is the trigger, named after its column as a column menu', () => {
 		const out = html( STATUS, { shown: '40' } );
 		expect( out ).toContain( 'aria-label="Oszlopmenü: Állapot"' );
-		expect( out ).toContain( 'aria-haspopup="menu"' );
 		expect( out ).toContain( '>40<' );
 	} );
 
@@ -93,6 +92,8 @@ describe( 'a column’s counting menu', () => {
 		act( () => waitlisted.click() );
 		expect( onToggle ).toHaveBeenCalledWith( STATUS, 'waitlisted', true );
 		expect( mockClose ).not.toHaveBeenCalled();
+		// Focus outside the menu (the toggle), so a pointer leaving it closes it.
+		act( () => host.querySelector( '.kg-sumcount-btn' ).focus() );
 		const menu = host.querySelector( '.kg-sumcount-menu' );
 		act( () =>
 			menu.dispatchEvent(

@@ -91,8 +91,6 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
-	// The one column menu: which column's is open, and the header button it was opened from (null: from the arrow).
-	// [UNAPPROVED N943]
 	// The ticked rows' keys (the codes), for the bulk action „Levél küldése”: of this page only (DataViews drops
 	// the ones not on the page), and cleared with the tab, the page, the order and the filters. [UNAPPROVED N288]
 	const [ selection, setSelection ] = useState( [] );

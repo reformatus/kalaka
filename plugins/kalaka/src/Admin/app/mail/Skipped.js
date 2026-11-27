@@ -21,12 +21,14 @@ export default function Skipped( { skipped, nameOf } ) {
 		return null;
 	}
 	return (
-		<p className="km-skipped">
-			{ fmt( MANUAL.skippedTotals, skippedTotals( skipped ) ) }{ ' ' }
-			{ /* `type="button"`: inside the dialog's form, a bare button would send it. */ }
-			<Button variant="link" type="button" onClick={ () => setOpen( true ) }>
-				{ MANUAL.skippedOpen }
-			</Button>
+		<>
+			<p className="km-skipped">
+				{ fmt( MANUAL.skippedTotals, skippedTotals( skipped ) ) }{ ' ' }
+				{ /* `type="button"`: inside the dialog's form, a bare button would send it. */ }
+				<Button variant="link" type="button" onClick={ () => setOpen( true ) }>
+					{ MANUAL.skippedOpen }
+				</Button>
+			</p>
 			{ open && (
 				<Modal title={ MANUAL.skippedTitle } onRequestClose={ () => setOpen( false ) } size="medium">
 					<ul className="km-members">
@@ -43,6 +45,6 @@ export default function Skipped( { skipped, nameOf } ) {
 					</div>
 				</Modal>
 			) }
-		</p>
+		</>
 	);
 }
