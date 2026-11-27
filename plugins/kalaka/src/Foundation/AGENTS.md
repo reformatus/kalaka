@@ -150,7 +150,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   and nobody sets a decision directly. The current state of a kind is its
   latest record.
 - A decision kind is declared with a Hungarian label and its states, each
-  with a Hungarian label; the grid shows those labels for every kind. A kind
+  with a Hungarian label, and an icon and tone for each state (`marks()`);
+  the grid and the registration's detail show those for every kind. A kind
   may declare a base state (`DecisionDefault`) for the statuses it is defined
   for: no record reads as it there, and any other status reads no state. It
   is never written; `Decisions` applies it in PHP and

@@ -55,6 +55,15 @@ final class DecisionRules
             }
         }
 
+        foreach ($rule->marks() as $state => $mark) {
+            if (!isset($states[$state])) {
+                throw new \InvalidArgumentException('A mark belongs to a declared state.');
+            }
+            if (trim($mark['icon']) === '') {
+                throw new \InvalidArgumentException('A mark has an icon.');
+            }
+        }
+
         $default = $rule->defaultState();
         if ($default !== null && !isset($states[$default->state])) {
             throw new \InvalidArgumentException('A base state is a declared state.');
