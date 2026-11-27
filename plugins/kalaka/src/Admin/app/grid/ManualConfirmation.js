@@ -86,15 +86,22 @@ export default function ManualConfirmation( {
 		window.requestAnimationFrame( () =>
 			returnFocus( opener.current, closeRef && closeRef.current )
 		);
-	// The opener is replaced by the act itself (the set gives way to the unconfirm, and back), so after one focus
-	// goes to the row's new button, if the row has one, else to the close button ([UNAPPROVED N1265] [UNAPPROVED
-	// N77 reboxed: the opener, else the close button, holds for a cancelled dialog and the money tab's dialogs]).
-	const focusRow = () =>
-		window.requestAnimationFrame( () => {
-			const row = actionsRef.current;
-			const next = row ? row.querySelector( 'button' ) : null;
-			returnFocus( next, closeRef && closeRef.current );
-		} );
+	// The act itself replaces the opener (the set gives way to the unconfirm, and back), so after one focus goes
+	// to the row's new button, else to the close button ([UNAPPROVED N1265] [UNAPPROVED N77 reboxed: the opener,
+	// else the close button, holds for a cancelled dialog and the money tab's dialogs]). It is done in an effect,
+	// not in a frame: React must have drawn the new row first, or focus would sit on the button it replaced.
+	const wantRowFocus = useRef( false );
+	useEffect( () => {
+		if ( ! wantRowFocus.current ) {
+			return;
+		}
+		wantRowFocus.current = false;
+		const row = actionsRef.current;
+		returnFocus(
+			row ? row.querySelector( 'button' ) : null,
+			closeRef && closeRef.current
+		);
+	} );
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;
 		setDialog( kind );
@@ -108,9 +115,9 @@ export default function ManualConfirmation( {
 		const detail = await reload();
 		const text = snackbarAfter( unconfirm, result, detail );
 		onSaved();
+		wantRowFocus.current = true;
 		setDialog( null );
 		if ( ! text ) {
-			focusRow();
 			return;
 		}
 		const id = String( Date.now() );
@@ -131,7 +138,6 @@ export default function ManualConfirmation( {
 				SNACKBAR_MS
 			)
 		);
-		focusRow();
 	};
 
 	const shown = !! manual || actions.length > 0;
