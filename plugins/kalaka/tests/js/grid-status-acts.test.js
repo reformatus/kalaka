@@ -176,16 +176,51 @@ describe( 'each dialog', () => {
 		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	test( 'the dialog is described by its text and capacity and by the money section; the warning is in neither', async () => {
+	test( 'the dialog is described by its body sentence first, then the block under it; the warning is in neither', async () => {
 		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ], retention: 'everything_paid' } );
 		const ids = host.querySelector( '[role="dialog"]' ).getAttribute( 'aria-describedby' ).split( ' ' );
 		expect( ids ).toHaveLength( 2 );
-		const [ text, money ] = ids.map( ( id ) => host.querySelector( `#${ id }` ) );
-		expect( text.textContent ).toContain( STATUS_ACTS.withdrawBody );
-		expect( text.querySelector( '.kg-act-capacity' ) ).not.toBeNull();
-		expect( money.querySelector( '.kg-act-money' ) ).not.toBeNull();
-		expect( text.textContent + money.textContent ).not.toContain( FULL_TEXT );
+		const [ text, rest ] = ids.map( ( id ) => host.querySelector( `#${ id }` ) );
+		expect( text.querySelector( 'p' ).textContent ).toBe( STATUS_ACTS.withdrawBody );
+		expect( text.querySelector( '.kg-act-capacity' ) ).toBeNull();
+		expect( rest.querySelector( '.kg-act-money' ) ).not.toBeNull();
+		expect( rest.querySelector( '.kg-act-capacity' ) ).not.toBeNull();
+		expect( text.textContent + rest.textContent ).not.toContain( FULL_TEXT );
 		expect( host.querySelector( 'textarea' ).closest( '#kg-act-description, #kg-act-money' ) ).toBeNull();
+	} );
+
+	test( 'the content follows the owner\'s order: body, warnings, money table, capacity list, sentences, reason, buttons', async () => {
+		await render( 'withdraw', { ...MONEY_LEFT, seats: OVER.seats, warnings: [ FULL_TEXT ], retention: 'everything_paid' } );
+		const body = host.querySelector( '#kg-act-description p' );
+		const warning = host.querySelector( '[data-notice="warning"]' );
+		const heading = host.querySelector( '.kg-act-money h3' );
+		const table = host.querySelector( '.kg-act-money table' );
+		const capacity = host.querySelector( '.kg-act-capacity' );
+		const retention = Array.from( host.querySelectorAll( '.kg-act-sentence' ) ).find( ( p ) => p.textContent === STATUS_ACTS.retentionAll );
+		const refund = Array.from( host.querySelectorAll( '.kg-act-sentence' ) ).find( ( p ) => p.textContent === STATUS_ACTS.noAutomaticRefund );
+		const reason = host.querySelector( 'textarea' );
+		const actions = host.querySelector( '.kg-dialog-actions' );
+		const before = ( first, then ) => expect( first.compareDocumentPosition( then ) & window.Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
+		before( body, warning );
+		before( warning, heading );
+		before( heading, table );
+		before( table, capacity );
+		before( capacity, retention );
+		before( retention, refund );
+		before( refund, reason );
+		before( reason, actions );
+		expect( body.textContent ).toBe( STATUS_ACTS.withdrawBody );
+	} );
+
+	test( 'admit says its serial line under the warning, before the capacity list', async () => {
+		await render( 'admit', OVER );
+		const warning = host.querySelector( '[data-notice="warning"]' );
+		const [ serial, ...others ] = Array.from( host.querySelectorAll( '#kg-act-money p' ) );
+		expect( serial.textContent ).toBe( STATUS_ACTS.serialEnd );
+		expect( others ).toHaveLength( 0 );
+		expect( warning.compareDocumentPosition( serial ) & window.Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
+		expect( serial.compareDocumentPosition( host.querySelector( '.kg-act-capacity' ) ) & window.Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
+		expect( host.querySelector( '.kg-act-money h3' ) ).toBeNull();
 	} );
 
 	test( 'once the preview has answered, a polite live region says the capacity, each payer\'s figures and the sentences, not the warning', async () => {
@@ -228,8 +263,8 @@ describe( 'each dialog', () => {
 
 	test( 'the money section lists each payer from the preview; the retention sentence follows only the preview\'s `retention`', async () => {
 		await render( 'withdraw', { ...MONEY_LEFT, retention: 'everything_paid' } );
-		const section = host.querySelector( '.kg-act-money' );
-		expect( section.querySelector( 'h3' ).textContent ).toBe( STATUS_ACTS.moneyHeading );
+		const section = host.querySelector( '.kg-act-block' );
+		expect( section.querySelector( '.kg-act-money h3' ).textContent ).toBe( STATUS_ACTS.moneyHeading );
 		expect( Array.from( section.querySelectorAll( 'thead th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
 		// The payer is the row's header, as in the panel's money tab; the figures carry `is-num`.
 		expect( section.querySelector( 'tbody th' ).getAttribute( 'scope' ) ).toBe( 'row' );
@@ -251,8 +286,8 @@ describe( 'each dialog', () => {
 	test( 'the no-refund line shows for withdraw and remove only, not for restore', async () => {
 		expect( [ 'admit', 'withdraw', 'remove', 'restore' ].map( showsRefundLine ) ).toEqual( [ false, true, true, false ] );
 		await render( 'restore', MONEY_LEFT );
-		expect( host.querySelector( '.kg-act-money' ).textContent ).not.toContain( STATUS_ACTS.noAutomaticRefund );
-		expect( host.querySelector( '.kg-act-money' ).textContent ).not.toContain( STATUS_ACTS.retentionAll );
+		expect( host.querySelector( '.kg-act-block' ).textContent ).not.toContain( STATUS_ACTS.noAutomaticRefund );
+		expect( host.querySelector( '.kg-act-block' ).textContent ).not.toContain( STATUS_ACTS.retentionAll );
 	} );
 
 	test( 'no money section for admit, without money in the preview, or without a payer', async () => {

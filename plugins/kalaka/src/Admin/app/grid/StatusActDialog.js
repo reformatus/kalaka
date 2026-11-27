@@ -1,12 +1,15 @@
 /**
- * One status act's dialog (S39 on #247): the title, what will happen, what the act's preview says (the
- * capacity lines of the seats with a limit, the server's warnings, the money effect per payer when the user may
- * see money) and the reason field. A failed act keeps the dialog and the reason and shows the server's text;
- * while it runs the dialog does not close and a second submit is ignored. Everything the preview shows is the
- * server's, chosen by its own values; no warning text is written here. The text with the capacity lines and the money
- * section are the dialog's description (`aria-describedby`); the warnings are outside it, each notice speaks its own
- * (N719), and a polite live region says the capacity and money once the preview answers (N722). [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
- * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719] [UNAPPROVED N721] [UNAPPROVED N722]
+ * One status act's dialog (S39 on #247): the title, then the owner's plain order (4.2 a: "clean that dialog up as
+ * well - info not structured well"): the act's one body sentence; the server's warnings, one core `Notice` each;
+ * the money effect as one table under a heading (with the capacity lines under it and the retention and refund
+ * sentences after them); the optional reason field; the buttons. Nothing but that order is laid out. A failed act
+ * keeps the dialog and the reason and shows the server's text; while it runs the dialog does not close and a second
+ * submit is ignored. Everything the preview shows is the server's, chosen by its own values; no warning text is
+ * written here. The body sentence and the block under it (the money table, the capacity lines and the sentences)
+ * are the dialog's description (`aria-describedby`), in that order; the warnings are outside it, each notice speaks
+ * its own (N719), and a polite live region says the capacity and money once the preview answers (N722).
+ * [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
+ * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719] [UNAPPROVED N721] [UNAPPROVED N722] [UNAPPROVED N1310]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
@@ -26,8 +29,9 @@ import {
 } from './statusActs';
 import { CONFIRM, MONEY, STATUS_ACTS } from './texts';
 
-// The description is the text and capacity (first id) and the money section (second id); the warnings are not in it,
-// each warning notice speaks itself once, through WordPress's own `speak` region (not N722's region). [UNAPPROVED N719] [UNAPPROVED N722]
+// The description is the body sentence (first id) and the block under it, the money table with the capacity lines
+// and the sentences (second id); the warnings are not in it, each warning notice speaks itself once, through
+// WordPress's own `speak` region (not N722's region). [UNAPPROVED N719] [UNAPPROVED N722] [UNAPPROVED N1310]
 // The line's „x / y” figure, kept on one line at 320 px (N716): [ text, figure ] or [ the line ].
 const capacityParts = ( line ) => {
 	const found = /^(.*: )(\d+ \/ \d+)$/.exec( line );
@@ -128,32 +132,19 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 				<div className="screen-reader-text" role="status" aria-live="polite" aria-atomic="true">
 					{ spoken }
 				</div>
+				{ /* The owner's order (4.2 a): the one body sentence; the warnings; the money table under its heading,
+				     the capacity list and the sentences; the reason; the buttons. [UNAPPROVED N1310] */ }
 				<div id="kg-act-description">
 					<p>{ bodyOf( act ) }</p>
-					{ seats.length > 0 && (
-						<ul className="kg-act-capacity">
-							{ seats.map( ( seat ) => (
-								<li key={ seat.key }>
-									{ capacityParts( seat.line ).map( ( part, index ) =>
-										index === 1 ? (
-											<span key="figure" className="kg-act-figure">
-												{ part }
-											</span>
-										) : (
-											part
-										)
-									) }
-								</li>
-							) ) }
-						</ul>
-					) }
 				</div>
 				{ warnings.map( ( text ) => (
 					<Notice key={ text } status="warning" isDismissible={ false }>
 						{ text }
 					</Notice>
 				) ) }
-				<div id="kg-act-money">
+				<div id="kg-act-money" className="kg-act-block">
+					{ /* Admit's serial line keeps its place under the warning. [UNAPPROVED T713] */ }
+					{ act === 'admit' && <p className="kg-act-serial">{ STATUS_ACTS.serialEnd }</p> }
 					{ rows && (
 						<div className="kg-act-money">
 							<h3>{ STATUS_ACTS.moneyHeading }</h3>
@@ -183,11 +174,27 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 									) ) }
 								</tbody>
 							</table>
-							{ retention && <p>{ retention }</p> }
-							{ showsRefundLine( act ) && <p>{ STATUS_ACTS.noAutomaticRefund }</p> }
 						</div>
 					) }
-					{ act === 'admit' && <p>{ STATUS_ACTS.serialEnd }</p> }
+					{ seats.length > 0 && (
+						<ul className="kg-act-capacity">
+							{ seats.map( ( seat ) => (
+								<li key={ seat.key }>
+									{ capacityParts( seat.line ).map( ( part, index ) =>
+										index === 1 ? (
+											<span key="figure" className="kg-act-figure">
+												{ part }
+											</span>
+										) : (
+											part
+										)
+									) }
+								</li>
+							) ) }
+						</ul>
+					) }
+					{ rows && retention && <p className="kg-act-sentence">{ retention }</p> }
+					{ rows && showsRefundLine( act ) && <p className="kg-act-sentence">{ STATUS_ACTS.noAutomaticRefund }</p> }
 				</div>
 				{ /* No act requires the reason, and no „Nem kötelező.” hint is shown (T712 stays out). [UNAPPROVED N1042] */ }
 				<TextareaControl
