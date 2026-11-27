@@ -15,7 +15,6 @@ use Kalaka\Registrations\Status\WithdrawRegistration;
 /**
  * Runs a status act (`StatusAct`) for a caller outside Registrations (the command line): the use case through the
  * runner, as the actor, so the grant, the audit and the evaluation are the use case's. It holds no rule.
- * [UNAPPROVED N510]
  */
 final class StatusActions
 {

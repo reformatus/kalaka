@@ -14,7 +14,7 @@ use Kalaka\Foundation\Api\Money\Money;
  * is held to the payer's own payments, and nothing is ever refunded. Core offers
  * `everything_paid` and `nothing`; the deposit extension adds "keep up to the deposit" later, which needs the
  * payers together. The stored value of an event's rule is the ID. It reads its own current settings and writes
- * nothing. [UNAPPROVED N671]
+ * nothing.
  */
 interface RetentionRule
 {
