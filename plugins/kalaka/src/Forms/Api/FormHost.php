@@ -23,11 +23,11 @@ interface FormHost
 {
     /**
      * The keys besides its answers that a form's conditions may read, and their types: the parse checks
-     * every condition against them.
+     * every condition against them. Asked for the form, so a host may declare keys that only some forms have.
      *
      * @return array<string, ValueType>
      */
-    public function factTypes(): array;
+    public function factTypes(Form $form): array;
 
     /**
      * The values of `factTypes()` for the form, as of `$now` (the request's moment, the one the page's refusals
