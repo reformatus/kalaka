@@ -1032,6 +1032,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'amount' => null,
                     'answered_at' => null,
                     'seat_full' => false,
+                    'aid' => null,
                 ],
             ],
         ];
@@ -1068,5 +1069,54 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         self::assertSame(['2026-12-04T09:00:00Z', '2026-12-04T09:00:00Z'], array_column($items, 'answered_at'));
         self::assertSame([true, false], array_column($items, 'seat_full'));
         self::assertSame([false, false], array_column($read($partner)['requests']['items'], 'seat_full'));
+    }
+
+    public function testTheAidItemCarriesTheFullPriceWhatTheyCanPayAndTheAidAskedNothingOnAnOffer(): void
+    {
+        $this->addRegistration('00A0');
+        $this->addValue('00A0', 'support', 'church');
+        $this->addValue('00A0', 'aid_asked', '12000');
+        $read = static fn (int $price): RegistrationDetail => new RegistrationDetail(
+            requests: new Requests([new TestRequestSource(fullPrice: $price)]),
+            seats: new RecordingSeats(),
+        );
+
+        $items = fn (int $price): array => $read($price)
+            ->of(new UserActor($this->admin->userId), $this->event, '00A0')['requests']['items'];
+
+        // Nothing stated: the full price and no amount they can pay, so nothing asked is known.
+        $aid = $items(30000)[1]['aid'];
+        self::assertSame(
+            ['full_price' => '30000.00000000', 'can_pay' => null, 'asked' => null, 'max_award' => '30000.00000000'],
+            $aid
+        );
+        self::assertArrayNotHasKey('aid', $items(30000)[0], 'an offer carries no aid context');
+
+        $this->addValue('00A0', 'aid_can_pay', '18000');
+        self::assertSame(
+            [
+                'full_price' => '30000.00000000',
+                'can_pay' => '18000.00000000',
+                'asked' => '12000.00000000',
+                'max_award' => '30000.00000000',
+            ],
+            $items(30000)[1]['aid']
+        );
+        // A holder of the answer action without money view reads the same amounts (as the item's `amount`).
+        $partner = $this->plainUser();
+        $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
+        $asPartner = $read(30000)->of(new UserActor($partner), $this->event, '00A0');
+        self::assertFalse($asPartner['can']['view_money']);
+        self::assertSame('12000.00000000', $asPartner['requests']['items'][1]['aid']['asked']);
+        // They can pay more than the price: nothing asked, never below zero.
+        self::assertSame(
+            [
+                'full_price' => '10000.00000000',
+                'can_pay' => '18000.00000000',
+                'asked' => '0.00000000',
+                'max_award' => '10000.00000000',
+            ],
+            $items(10000)[1]['aid']
+        );
     }
 }
