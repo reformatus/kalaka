@@ -45,7 +45,7 @@ final class Access
     /**
      * The one money-view read: whether the actor may see the money of the registration. Full access, or a held view
      * that contains it and whose grant carries money-view or money-write (the owner's ruling 2026-11-18: money-write
-     * includes money-view). The detail read and the status-act preview both ask it. [UNAPPROVED N670]
+     * includes money-view). The detail read and the status-act preview both ask it.
      */
     public function mayViewMoney(Actor $actor, RegistrationKey $key): bool
     {

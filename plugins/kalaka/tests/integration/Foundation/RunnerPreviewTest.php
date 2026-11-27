@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
- * The one rule for every preview (foundation.md, "Audit"; [UNAPPROVED N534]): a top-level run that is a preview
+ * The one rule for every preview (foundation.md, "Audit"): a top-level run that is a preview
  * writes nothing, so the runner writes no audit entry for it when it succeeds; a real run, even an unchanged
  * one, is audited; a refused preview is audited like any refusal; a preview that writes fails.
  */

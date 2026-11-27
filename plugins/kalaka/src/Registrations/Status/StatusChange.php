@@ -50,7 +50,7 @@ use Kalaka\Registrations\RegistrationRepository;
  * - Input: the registration and a reason (at most 500 characters, never required, kept in the audit entry's
  *   reason). With `preview` the act answers what it
  *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview ignores a
- *   reason, and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
+ *   reason, and the runner writes no audit entry for it.
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
  *   status the act does not allow is `StatusActRefused`.
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
@@ -67,10 +67,9 @@ use Kalaka\Registrations\RegistrationRepository;
  * - Lock order: the event row, the claimed quota pools in `Seats::inLockOrder()`, then the registration. The claims
  *   are read from the stored values before the locks and again under the registration's lock; a claim of a quota
  *   pool that was not locked (the values changed in between) refuses the act as an edit conflict, nothing written.
- *   [UNAPPROVED N515]
  * - Admission queues the "registered" mail (caused by the registration, as the submit's mail was); a restore queues
  *   the mail of the status it returns to ("registered" or "waitlisted"), caused by the registration at the version
- *   the restore wrote, so every restore mails; a withdrawal and a removal queue none. [UNAPPROVED N970]
+ *   the restore wrote, so every restore mails; a withdrawal and a removal queue none.
  *
  * Returns `{changed, status, over_capacity, seats, warnings}`: `seats` lists each pool the act took again (a claimed
  * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
@@ -81,7 +80,6 @@ use Kalaka\Registrations\RegistrationRepository;
  * `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the actor has no money-view, `money` is
  * null; false with a null `money`: the fee cannot be priced). Withdraw and remove add `retention`, the event's rule
  * (its ID, null for a holder without money-view).
- * [UNAPPROVED N530-N532, N535, N537, N538]
  */
 abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
@@ -183,7 +181,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
     /**
      * What the act would do, from plain reads: nothing is locked or written, and the same refusals apply. The seats
      * are the pools the act would take again, each `over` when the pool is full now (`Seats::wouldOverfill()`, the one
-     * "would go over" read), so a dialog warns before the act. [UNAPPROVED N513]
+     * "would go over" read), so a dialog warns before the act.
      *
      * @return array<string, mixed>
      */
@@ -450,7 +448,7 @@ abstract class StatusChange implements AdminUseCase, PreviewableUseCase
     /**
      * The cause of a restore's mail: the registration at the version the restore wrote, so each restore mails once
      * and a second restore after another leave mails again (the registration itself, the cause of the submit's and the
-     * admission's mail, would be queued already). [UNAPPROVED N970]
+     * admission's mail, would be queued already).
      */
     private static function restoreCause(RegistrationKey $key, Registration $stored): Subject
     {
