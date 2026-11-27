@@ -21,8 +21,8 @@ use Kalaka\Tests\Integration\Foundation\AdminProbe;
 
 /**
  * Owner topic 15, Q7: "payment recorded" is queued by the recording act for money in and money out (manual and
- * online, a payment or a refund), keyed by the line; never for a correction or a „Díj” or „Kedvezmény” itself (its ticked paid entry is a payment like any other, N11); per event on
- * or off.
+ * online, a payment or a refund), keyed by the line; never for a correction or a „Díj” or „Kedvezmény” itself (its
+ * ticked paid entry is a payment like any other, N11); per event on or off.
  */
 final class PaymentRecordedMailTest extends ManualEntryTestCase
 {
