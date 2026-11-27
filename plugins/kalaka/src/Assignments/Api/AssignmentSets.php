@@ -6,6 +6,7 @@ namespace Kalaka\Assignments\Api;
 
 use Kalaka\Assignments\AssignmentRepository;
 use Kalaka\Assignments\OptionRecord;
+use Kalaka\Assignments\OptionSeatPool;
 use Kalaka\Assignments\OptionRepository;
 use Kalaka\Assignments\PlacementWarnings;
 use Kalaka\Assignments\SaveAssignmentOption;
@@ -16,6 +17,7 @@ use Kalaka\Assignments\TieRequestField;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\SeatPool;
 
 /**
  * What other modules and extensions may do with assignment sets (modules-and-extensions.md, "Assignment
@@ -59,6 +61,20 @@ final class AssignmentSets
     public function assignment(RegistrationKey $registration, int $setId): ?Assignment
     {
         return $this->assignments->find(['registration' => $registration, 'setId' => $setId])?->toAssignment();
+    }
+
+    /**
+     * The seat pool of an option (`option.<set ID>.<option key>`), for `Registrations\Api\Seats::left()`, such as
+     * the form-condition variable `seats_left.<field key>.<option value>` (the set's request field key). A plain
+     * read; null when the set or its option is not there.
+     */
+    public function seatPool(int $setId, string $optionKey): ?SeatPool
+    {
+        $set = $this->sets->find($setId);
+
+        return $set === null || $this->options->find(['setId' => $setId, 'key' => $optionKey]) === null
+            ? null
+            : new OptionSeatPool($set->eventId, $setId, $optionKey);
     }
 
     /**

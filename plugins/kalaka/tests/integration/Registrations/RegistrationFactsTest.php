@@ -11,6 +11,7 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\ValueType;
+use Kalaka\Registrations\Api\ItemChosen;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
@@ -81,6 +82,38 @@ final class RegistrationFactsTest extends RegistrationsTestCase
         );
 
         self::assertSame(['00A0', '00A2'], $codes);
+    }
+
+    public function testAnOpenRegistrationHoldingAValueIsFoundAndAWithdrawnOneIsNot(): void
+    {
+        $event = $this->event();
+        $this->insertRegistration($this->newRegistration($event->id, '00A0', RegistrationStatus::Withdrawn));
+        $this->insertRegistration($this->newRegistration($event->id, '00A2', RegistrationStatus::Registered));
+        global $wpdb;
+        foreach (['00A0' => 'a', '00A2' => 'b'] as $code => $value) {
+            $wpdb->insert($wpdb->prefix . 'kalaka_field_values', [
+                'event_id' => $event->id,
+                'code' => $code,
+                'field_key' => 'tier',
+                'version' => 1,
+                'value' => $value,
+            ]);
+        }
+        $registrations = new Registrations();
+
+        self::assertFalse($registrations->openHolds($event->id, 'tier', 'a'));
+        self::assertTrue($registrations->openHolds($event->id, 'tier', 'b'));
+        self::assertFalse($registrations->openHolds($event->id, 'tier', 'c'));
+        self::assertFalse($registrations->openHolds($event->id, 'other', 'b'));
+
+        $registrations->refuseRemovingChosen($event->id, 'tier', 'a');
+        try {
+            $registrations->refuseRemovingChosen($event->id, 'tier', 'b');
+            self::fail('A value an open registration holds cannot be removed.');
+        } catch (ItemChosen $error) {
+            self::assertSame('kalaka_item_chosen', $error->errorCode());
+            self::assertSame('A művelet nem hajtható végre.', $error->getMessage());
+        }
     }
 
     private function event(): \Kalaka\Events\Api\Event
