@@ -17,6 +17,7 @@ namespace {
             public static function reset(): void
             {
                 self::$calls = [];
+                self::$decline = false;
             }
 
             /** @param array<string, mixed> $args */
@@ -29,6 +30,18 @@ namespace {
             public static function line(string $message = ''): void
             {
                 self::$calls[] = ['line', $message];
+            }
+
+            /** @var bool whether confirm() answers no, as an operator declining does */
+            public static bool $decline = false;
+
+            /** @param array<string, mixed> $assoc */
+            public static function confirm(string $question, array $assoc = []): void
+            {
+                self::$calls[] = ['confirm', $question];
+                if (!isset($assoc['yes']) && self::$decline) {
+                    throw new \RuntimeException('WP_CLI::confirm declined');
+                }
             }
 
             public static function success(string $message): void
