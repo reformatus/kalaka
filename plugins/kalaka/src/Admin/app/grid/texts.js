@@ -22,6 +22,11 @@ export const GRID = {
 	unanswered: 'Nincs válasz',
 	// A failed table load, in the table's place.
 	loadFail: 'A táblázat betöltése nem sikerült.',
+	// The action bar's prefix before the buttons: what they act on. It never changes the buttons' own labels.
+	// [UNAPPROVED N915] [UNAPPROVED T963] [UNAPPROVED T964] [UNAPPROVED T965] Lektor next.
+	prefixTotal: '%d összesen:',
+	prefixFiltered: '%d szűrt:',
+	prefixSelected: '%d kiválasztva:',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
 	// Under the Sorszám range, approved by the owner 2026-11-18. [UNAPPROVED N11]

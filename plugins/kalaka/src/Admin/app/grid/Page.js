@@ -723,6 +723,20 @@ export default function Page( { config } ) {
 						/>
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
+							{ /* The right-aligned bar: a separator, one prefix by state, then the buttons, which say what they act on: the
+							   ticked rows („X kiválasztva:”), else every row of the tab („X összesen:”), or of the filter and search („X szűrt:”).
+							   Hidden while the first read of a tab is on its way (the count would read 0). Replaces the manual mail dialog's
+							   old scope line. [UNAPPROVED N915] [UNAPPROVED T963] [UNAPPROVED T964] [UNAPPROVED T965] */ }
+							{ ( ! loading || data.total > 0 ) && (
+								<>
+									<span className="kg-bulkbar-sep" role="separator" aria-orientation="vertical" />
+									<span className="kg-bulkbar-prefix">
+										{ selectedRows.length > 0
+											? fmt( GRID.prefixSelected, selectedRows.length )
+											: fmt( narrowed ? GRID.prefixFiltered : GRID.prefixTotal, data.total ) }
+									</span>
+								</>
+							) }
 							<BulkSlot
 								actions={ actions }
 								rows={ selectedRows }
