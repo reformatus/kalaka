@@ -570,6 +570,9 @@ sort on the first two ([Views and grants](#views-and-grants)).
   - **A participant field of source "system" is not a fact.** It only
     declares a decision under a key, read-only; the decision record stays
     the source of truth, and no field value is ever written for it.
+  - **A setting that money or a rule needs from a field** (a number field's
+    decimals) is stored on the event's participant field, never
+    read from the form post.
   - **Seats follow one rule:** the event's places, a set option's places, and
     a limited tier's or offer's places. A seat is a fact. The form only
     controls visibility; the backend takes the seat under a lock, inside the
