@@ -52,8 +52,8 @@ final class EventValues
      * zone (a datetime), of the moment `$at` the caller holds (the act's, never a clock read here: one read, one
      * clock). A fact
      * source whose conditions may use the reference adds it to the event's keys. The value side of a comparison
-     * may only use the reference (a `key` naming it there is refused); the left side may name it, as a datetime
-     * [UNAPPROVED N694]. It is in no `TYPES`.
+     * may only use the reference (a `key` naming it there is refused); the left side may name it, as a datetime.
+     * It is in no `TYPES`.
      *
      * @return array<string, Value>
      */
