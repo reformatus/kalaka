@@ -129,6 +129,7 @@ final class EventPage
             return '';
         }
         $html = '<h3>' . esc_html(Texts::TROUBLED_TITLE) . '</h3>';
+        $html .= self::tableOpen();
         $html .= '<table class="widefat striped"><thead><tr>';
         foreach ([Texts::TROUBLED_CODE, Texts::TROUBLED_MAIL, Texts::TROUBLED_STATUS, Texts::TROUBLED_ERROR] as $word) {
             $html .= '<th scope="col">' . esc_html($word) . '</th>';
@@ -149,6 +150,7 @@ final class EventPage
             $html .= '</tr>';
         }
         $html .= '</tbody></table>';
+        $html .= self::tableClose();
 
         // The full list, with the follow-up on each failed row, is the site page's. [UNAPPROVED N1283]
         $html .= '<p><a href="' . esc_url(admin_url('admin.php?page=' . MailPages::siteSlug())) . '">'
@@ -168,6 +170,7 @@ final class EventPage
             return '';
         }
         $html = '<h3>' . esc_html(Texts::BATCHES_TITLE) . '</h3>';
+        $html .= self::tableOpen();
         $html .= '<table class="widefat striped"><thead><tr>';
         foreach ([Texts::BATCH_NUMBER, Texts::BATCH_SUBJECT, Texts::BATCH_QUEUED, Texts::BATCH_SKIPPED] as $word) {
             $html .= '<th scope="col">' . esc_html($word) . '</th>';
@@ -187,7 +190,7 @@ final class EventPage
             $html .= '</tr>';
         }
 
-        return $html . '</tbody></table>';
+        return $html . '</tbody></table>' . self::tableClose();
     }
 
     /**
@@ -198,6 +201,7 @@ final class EventPage
     private static function points(Event $event, array $data): string
     {
         $html = '<h2>' . esc_html(Texts::SECTION_POINTS) . '</h2>';
+        $html .= self::tableOpen();
         $html .= '<table class="widefat striped kalaka-points"><thead><tr>';
         $html .= '<th scope="col">' . esc_html(Texts::POINT_COLUMN) . '</th>';
         $html .= '<th scope="col">' . esc_html(Texts::TEMPLATE_COLUMN) . '</th>';
@@ -214,26 +218,24 @@ final class EventPage
                 'can' => ['enable' => false, 'switch_off' => false],
                 'refusals' => ['switch_on' => null, 'switch_off' => null],
             ];
-            $refused = $mail->enabled ? $switch['refusals']['switch_off'] : $switch['refusals']['switch_on'];
             $allowed = $mail->enabled ? $switch['can']['switch_off'] : $switch['can']['enable'];
 
             $html .= '<tr>';
             $html .= '<th scope="row">' . esc_html($mail->action->label()) . '</th>';
             $html .= '<td>' . self::templateCell($mail, $point['template'], $data) . '</td>';
+            // The switch is simply disabled while it cannot be used, with no standing help text (owner 8.2); a server
+            // text shows only after an act was refused (the client's line under it). [UNAPPROVED N1292]
             $html .= '<td>';
             $html .= '<input type="checkbox" data-kalaka-switch="' . esc_attr($mail->action->value) . '"'
                 . ' data-kalaka-on="' . ($mail->enabled ? '1' : '0') . '"'
                 . ($mail->enabled ? ' checked' : '')
                 . ($allowed ? '' : ' disabled')
                 . '>';
-            if ($refused !== null) {
-                $html .= '<p class="description">' . esc_html((string) $refused['message']) . '</p>';
-            }
             $html .= '</td>';
             $html .= '</tr>';
         }
 
-        return $html . '</tbody></table>';
+        return $html . '</tbody></table>' . self::tableClose();
     }
 
     /**
@@ -291,6 +293,7 @@ final class EventPage
     private static function unassigned(array $data): string
     {
         $html = '<h2>' . esc_html(Texts::SECTION_UNASSIGNED) . '</h2>';
+        $html .= self::tableOpen();
         $html .= '<table class="widefat striped"><thead><tr>';
         foreach ([Texts::TEMPLATE_COLUMN, Texts::TEMPLATE_STATUS, Texts::USES_FRAME, Texts::MODIFIED] as $word) {
             $html .= '<th scope="col">' . esc_html($word) . '</th>';
@@ -316,7 +319,21 @@ final class EventPage
             $html .= '<tr><td colspan="5">' . esc_html(Texts::NONE_UNASSIGNED) . '</td></tr>';
         }
 
-        return $html . '</tbody></table>';
+        return $html . '</tbody></table>' . self::tableClose();
+    }
+
+    /**
+     * A wide table scrolls inside its own box, so the page itself never scrolls sideways on a phone (measured at
+     * 375 px). A wrapper, not a new table style: the core `widefat` table keeps its look. [UNAPPROVED N1291]
+     */
+    private static function tableOpen(): string
+    {
+        return '<div style="overflow-x: auto; max-width: 100%;">';
+    }
+
+    private static function tableClose(): string
+    {
+        return '</div>';
     }
 
     /** „Levélkeret”: a plain code editor on half the screen; the other half is the roadmap's preview. */

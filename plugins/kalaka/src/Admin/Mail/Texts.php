@@ -57,7 +57,7 @@ final class Texts
      * The event's „Levelek” page, rebuilt in PHP without tabs (owner 2026-11-27, walkthrough 8; section 8 of the build
      * list). The words it keeps are approved and reused as they are: „Tárgy”, „Állapot”, „Módosítva”, „Szerkesztés”,
      * „Elérhető”, „Vázlat”, „Levélkeret”, „A levélkeret HTML-je”, „Mentés”, „Mégse”, „Bezárás”, „Csoportos levelek”,
-     * „Küldésre vár”, „Elküldve”, „Sikertelen”, „Jelentkező”, „Levél”, „Kimaradt”, „Sorszám”, „Sorba állítva”,
+     * „Küldésre vár”, „Elküldve”, „Sikertelen”, „Jelentkező”, „Levél”, „Kihagyva”, „Sorszám”, „Sorba állítva”,
      * „%d. csoportos levél részletei” and the held sentence (the site page's and the old tabs'). Every new word is
      * boxed below.
      */
@@ -69,28 +69,28 @@ final class Texts
 
     public const POINT_COLUMN = 'Küldési pont'; // [UNAPPROVED T1263]
 
-    public const SWITCH_COLUMN = 'Levélküldés'; // [UNAPPROVED T1264]
+    public const SWITCH_COLUMN = 'Bekapcsolva'; // [UNAPPROVED T1264]
 
     /** The template cell of a point without a template. [UNAPPROVED T1265] */
     public const NO_TEMPLATE = 'Nincs levélsablon.';
 
     /** The choose button and its dialog's title. [UNAPPROVED T1266] */
-    public const CHOOSE_TEMPLATE = 'Sablon választása';
+    public const CHOOSE_TEMPLATE = 'Sablon kiválasztása';
 
     /** The new-template button. [UNAPPROVED T1267] */
     public const NEW_TEMPLATE = 'Új sablon';
 
     /** The X's accessible name. [UNAPPROVED T1268] */
-    public const REMOVE_TEMPLATE = 'A sablon eltávolítása';
+    public const REMOVE_TEMPLATE = 'Sablon eltávolítása';
 
     /** The clear-queued act's confirm, on the overview card. [UNAPPROVED T1269] */
-    public const CLEAR_CONFIRM = 'Az esemény küldésre váró levelei törlődnek. Biztosan törlöd őket?';
+    public const CLEAR_CONFIRM = 'Az esemény minden küldésre váró levele törlődik a küldési sorból.';
 
     /** The way back from the levélkeret screen. [UNAPPROVED T1270] */
-    public const BACK_TO_PAGE = 'Vissza a levelekhez';
+    public const BACK_TO_PAGE = 'Vissza az esemény leveleihez';
 
     /** The unassigned section with nothing in it. [UNAPPROVED T1271] */
-    public const NONE_UNASSIGNED = 'Minden sablon egy küldési ponthoz tartozik.';
+    public const NONE_UNASSIGNED = 'Nincs hozzá nem rendelt sablon.';
 
     /** The overview's link to the full failure list. [UNAPPROVED T1272] */
     public const SENDER_LINK = 'A hibák teljes listája a Levelezés oldalon.';
@@ -130,7 +130,7 @@ final class Texts
     public const BATCH_NUMBER = 'Sorszám';
     public const BATCH_SUBJECT = 'Tárgy';
     public const BATCH_QUEUED = 'Sorba került';
-    public const BATCH_SKIPPED = 'Kimaradt';
+    public const BATCH_SKIPPED = 'Kihagyva';
     public const BATCH_OPEN = '%d. csoportos levél részletei';
     public const BATCH_MANUAL = '%d. csoportos levél';
     public const BATCH_DETAILS_LABEL = 'Részletek';

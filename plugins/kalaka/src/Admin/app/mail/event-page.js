@@ -57,7 +57,7 @@ function bindSwitch( input ) {
 	} );
 }
 
-/** „Sablon választása”: a WordPress Modal with the event's published templates. */
+/** „Sablon kiválasztása”: a WordPress Modal with the event's published templates. */
 function bindChoose( button ) {
 	button.addEventListener( 'click', () => {
 		let chosen = config.bodies.length ? String( config.bodies[ 0 ].id ) : '';
