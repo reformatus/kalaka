@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Pricing\Api;
 
 use Kalaka\Foundation\Api\Decision\Decisions;
+use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Pricing\ManualConfirmationRepository;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -14,8 +15,8 @@ use Kalaka\Registrations\Api\Registrations;
  * The manual confirmation flag and staff's unconfirm (money.md, "Confirmation"): the per-event action that
  * sets the flag and unconfirms, the plain read of a registration's flag for display, and the dry run that
  * warns whether it would confirm again at once.
- * The flag is set only through `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm`.
- * [UNAPPROVED N6, N12]
+ * The flag is set only through `kalaka/set-manual-confirmation` and revoked only by `kalaka/unconfirm` or by
+ * the leaving of its registration (`revokeOnLeaving()`). [UNAPPROVED N6, N12, N1145]
  */
 final class ManualConfirmations
 {
@@ -40,6 +41,26 @@ final class ManualConfirmations
         }
 
         return new ManualConfirmation($flag->setAt, $flag->setBy, $flag->reason);
+    }
+
+    /**
+     * Revokes the registration's flag when it is set: a withdrawal or a removal clears it (money.md, "Withdrawal,
+     * removal and substitution"; owner 2026-11-27). Called by Registrations' leaving act inside its transaction,
+     * with the registration's row locked, so the revoke is part of the act's audit entry; the row is kept with its
+     * revoke time, as staff's unconfirm keeps it, and a restore does not bring the flag back. [UNAPPROVED N1145]
+     *
+     * @return bool whether a set flag was revoked (false: nothing written)
+     */
+    public function revokeOnLeaving(RegistrationKey $registration, Context $context): bool
+    {
+        $flag = $this->flags->findForUpdate($registration, $context);
+        if ($flag === null || !$flag->isSet()) {
+            return false;
+        }
+        $flag->revokedAt = $context->now();
+        $this->flags->upsert($flag, $context);
+
+        return true;
     }
 
     /**
