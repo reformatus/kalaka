@@ -167,7 +167,8 @@ export const MONEY = {
  * its dialog title (T3 of #213), [UNAPPROVED T21 reboxed: the field „Indoklás” only, its message „Add meg az indoklást.” is gone], the line under the tab,
  * [UNAPPROVED T23] the snackbars, the message for a reason over the limit. T46 (the snackbar after
  * an unconfirm the rules re-confirmed at once) is struck: that unconfirm is disabled now. The help text of the
- * disabled unconfirm is the server's text (#213's T5a, T5b, T5c, and T6 when that mail is on), not set here.
+ * disabled unconfirm is the server's text (#213's T5a or T5b with the money view, T5c without it; the owner dropped
+ * the mail sentence, T6, on 2026-11-27), not set here.
  */
 export const CONFIRM = {
 	set: 'Visszaigazolás befizetés nélkül',
