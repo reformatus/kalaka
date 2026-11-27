@@ -3,7 +3,7 @@
  * DataViews' own column header menu stays exactly as it is (owner, 2026-11-27); this menu holds only the
  * counting, no DataViews control. The number is the trigger, the whole cell is a generous click target, and
  * there is no down arrow. A tick keeps the menu open, so several members can be ticked in a row; a click
- * anywhere else or the pointer leaving the menu closes it. [UNAPPROVED N943, N944 replaced]
+ * anywhere else or the pointer leaving the menu closes it.
  */
 import { DropdownMenu, MenuGroup, MenuItem } from '@wordpress/components';
 import { check } from '@wordpress/icons';
