@@ -12,6 +12,7 @@ use Kalaka\Foundation\Api\Evaluation\Evaluations;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Runner;
+use Kalaka\Forms\Api\Forms;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\FeeComposer;
 use Kalaka\Pricing\FixedPrice;
@@ -108,6 +109,13 @@ final class MoneySettings
             $save = $settings->save();
             $this->runner()->run($save->useCase, $save->input, $actor);
         }
+
+        // A component's save can close published forms: declaring the ladder's `price_tier` a required field
+        // leaves every form of the event without it closed on serve (`required_field_missing`). The list the
+        // broken-form warning shows is stored, so it is recomputed here, after the saves committed (Events,
+        // "update": the same refresh after a mode change). A fixed price closes nothing, so there is no read
+        // to pass in front of the save: the ladder never refuses, it closes and names the forms.
+        (new Forms())->refreshBrokenList();
 
         $items = [];
         foreach ($this->registrations->openOf($eventId) as $key) {
