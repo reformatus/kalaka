@@ -85,7 +85,7 @@ export function form(inner, extra = {}, token = TOKEN) {
 
 	return `<noscript><p>noscript</p></noscript><form novalidate data-wp-interactive="kalaka/form" data-wp-context='${attribute(
 		context
-	)}' data-wp-init="callbacks.start" data-wp-on--change="actions.update" data-wp-on--submit="actions.submit"><input type="hidden" data-kalaka-token value="${token}">${inner}<div role="alert" data-kalaka-alert></div>${navigation}<button type="submit" data-kalaka-send disabled>Küldés</button><div data-kalaka-spinner hidden></div><div role="status" class="kalaka-visually-hidden" data-kalaka-status data-kalaka-loading="Betöltés…"></div></form>`;
+	)}' data-wp-init="callbacks.start" data-wp-on--change="actions.update" data-wp-on--input="actions.edited" data-wp-on--submit="actions.submit"><input type="hidden" data-kalaka-token value="${token}">${inner}<div role="alert" data-kalaka-alert></div>${navigation}<button type="submit" data-kalaka-send disabled>Küldés</button><div data-kalaka-spinner hidden></div><div role="status" class="kalaka-visually-hidden" data-kalaka-status data-kalaka-loading="Betöltés…"></div></form>`;
 }
 
 /** A page of a multi-page form as the server renders it (`PageMarkup`): hidden, with its number. */

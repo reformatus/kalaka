@@ -124,10 +124,11 @@ SQL;
             'Egy jelentkezőnek visszafizetett összeg kézi rögzítése.'
         );
         // [UNAPPROVED T16, T17] drafts for the lektor.
+        // the correction's description without the reason, replacing ticked T17.
         Abilities::register(
             new RecordCorrection(),
             'Korrekció rögzítése',
-            'Egy jelentkező befizetett összegének kézi növelése vagy csökkentése, indoklással.'
+            'Egy jelentkező befizetett összegének kézi növelése vagy csökkentése.'
         );
         // [UNAPPROVED T20, T21] the lektor's wording of 2026-11-21.
         Abilities::register(

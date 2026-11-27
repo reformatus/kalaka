@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\AccountBlock;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
-use Kalaka\Forms\RequestScopeHost;
 use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -60,46 +62,6 @@ final class Forms
     public function definition(Form $form, ?int $version = null, bool $serving = false): FormDefinition
     {
         return $this->engine->definition($form, $version, $serving);
-    }
-
-    /**
-     * Where each published form of the event holds a request field naming the set, what a condition of the
-     * set's options may read there (`RequestScope`): the fields before it and the host's keys. Each form is
-     * parsed with the set's options stripped of their conditions, so the read does not depend on them; a
-     * form broken for another reason is already closed and is left out. Reads WordPress posts: before a use
-     * case's transaction (S44).
-     *
-     * @return list<RequestScope>
-     */
-    public function requestScopes(int $eventId, int $setId): array
-    {
-        $engine = new FormEngine(new RequestScopeHost(new EventFormHost(), $setId));
-        $types = Contributions::current()->fieldTypes();
-        $scopes = [];
-        foreach ($this->posts->ofEvent($eventId) as $post) {
-            if ($post->post_status !== 'publish') {
-                continue;
-            }
-            try {
-                $form = $engine->form($post->ID);
-                if ($form === null) {
-                    continue;
-                }
-                $definition = $engine->definition($form);
-            } catch (SystemFailure) {
-                continue;
-            }
-            $earlier = [];
-            foreach ($definition->fields as $field) {
-                $type = $types[$field->blockName] ?? null;
-                if ($type instanceof RequestFieldType && $type->requestSet($field->attributes) === $setId) {
-                    $scopes[] = new RequestScope($post->ID, $setId, $earlier, (new EventFormHost())->factTypes());
-                }
-                $earlier[] = $field;
-            }
-        }
-
-        return $scopes;
     }
 
     /**
@@ -196,6 +158,48 @@ final class Forms
         bool $loggedIn
     ): array {
         return EventFormHost::refusalsOf($form, $event, $now, $roles, $passwordGiven, $loggedIn);
+    }
+
+    /**
+     * The published registration forms of the event that hold no account block, though the given account mode
+     * wants one (`EventFormHost::stepFor()`): what a change of the event's account mode to that mode is
+     * refused for (events-and-forms.md, "Forms implementation"). A form that does not parse or has no
+     * revision is left out, as it is closed and named in the broken-form warning already. Reads WordPress posts,
+     * so it runs before a use case's transaction.
+     *
+     * @return list<int> the forms' IDs, ascending
+     */
+    public function withoutAccountBlock(int $eventId, AccountMode $mode): array
+    {
+        $lacking = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            if ($post->post_status !== 'publish') {
+                continue;
+            }
+            try {
+                $form = $this->form($post->ID);
+                if ($form === null) {
+                    continue;
+                }
+                $missing = AccountBlock::missing($this->definition($form), $form->placement, $mode);
+            } catch (SystemFailure) {
+                continue;
+            }
+            if ($missing) {
+                $lacking[] = $post->ID;
+            }
+        }
+
+        return $lacking;
+    }
+
+    /**
+     * Recomputes the broken-form list, which reads each event's account mode: after a mode changed. A plain
+     * option write, so it runs after the use case has committed.
+     */
+    public function refreshBrokenList(): void
+    {
+        BrokenForms::refresh();
     }
 
     /**

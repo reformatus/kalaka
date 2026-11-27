@@ -65,8 +65,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   facts); the three are never conflated. Each one replaces the account's last link.
 - While an event's account mode is not `off`, its "registered" mail must
   read `account.password_link` and cannot be switched off
-  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in
-  `UpdateActionMail`.
+  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`), in
+  `UpdateActionMail`, and, for a change of the event's account mode to one with
+  accounts, in `AccountLinkRule::modeProblem()` (read through `Api\AccountMail`).
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
@@ -83,8 +84,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   count toward pausing. Any other throw is an error, recorded after the claim.
 - A body saved as published or scheduled is checked first (`Body\BodyCheck`):
   REST refuses it with 400 `kalaka_mail_body`; any other path vetoes it
-  gracefully (a published body keeps its content, another stays unpublished)
-  and tells the saving user in an admin notice.
+  gracefully (a published body keeps its content, another stays unpublished),
+  tells the saving user in an admin notice, writes a log line and, on
+  WP-CLI, warns and fails the command.
 - The catalogue has five action mails; admission from the waitlist sends
   "registered", and a body tells it apart with `registration.from_waitlist`.
   A stored row whose key is no longer an action (the former `admitted`) is
@@ -116,6 +118,16 @@ bodies, the renderer and the per-event action-mail catalogue.
   warnings read it, never the deliveries table.
 - Every Mail use case is site-level: only the system, WP-CLI and full access
   run it.
+- `wp kalaka action-mail list|show|on|off|body|layout <event_id> …` (`Cli/`) is a
+  thin entry point: it changes only through `UpdateActionMail` and
+  `SetEventMailLayout`, as the command line or as WP-CLI's `--user`, and prints
+  the use case's own refusal; `list` and `show` read for full access only. `body`
+  is the one write outside a use case: the `kalaka_mail` post, saved published
+  under the editor's check (`BodyCheck::refusal()`, the one function the editor's
+  filters call too, checked ahead so its text is printed) and only after the
+  actor passed the use case's access check; it assigns a first body through
+  `UpdateActionMail` and never switches a mail on. `list`, `show`, `body` and `layout` share
+  `Cli\CliInput` (event ID, format, the read guard) and `CliActor::current()`.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.

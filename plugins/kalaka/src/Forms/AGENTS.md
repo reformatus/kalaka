@@ -68,7 +68,8 @@ values and conditions, prefill and form links
   the rest, logs the clashing keys, and a published form whose key clashes
   with the event's field is unusable and named in the broken-form warning.
 - A post save never writes Kaláka's tables: the save checks only read and
-  refuse (REST 400, else a graceful veto with an admin notice), and
+  refuse (REST 400, else a graceful veto with an admin notice, a log line
+  and, on WP-CLI, a warning and a failing exit), and
   `ParticipantFieldSync`, after the post and its settings are stored, writes
   the participant fields through `ParticipantFields::declare()`; besides it
   only the rename route (an explicit request) does, through
@@ -153,16 +154,17 @@ values and conditions, prefill and form links
   type writes to a table. Core ships no money-relevant field type.
 - A field type whose value is a path (`Api\PathFieldType`) is never compared
   with `equals`: the parser refuses it where the scope knows the key's field
-  type (`FormScope`, a mail body's check and `Availability::check()` through
-  `DeclaredScope`'s path keys), and the editor mirrors it (`pathFieldTypes`). A fact source
+  type (`FormScope` and a mail body's check through `DeclaredScope`'s path
+  keys), and the editor mirrors it (`pathFieldTypes`). A fact source
   (`ContextScope`) knows no field types and does not refuse it.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
-  branches, pages, choice options, set options, tiers, offers, aid) is
-  decided by one condition through `Engine\Condition\ConditionEvaluator`, reached
-  through `FormWalk` (a form, a request field's set options included) or
-  `Api\Availability` (anything another module owns). No second evaluator anywhere, and JavaScript never evaluates a
+  branches, pages, choice options, the options a request field takes from a
+  set, tiers, offers, aid) is decided by one condition through
+  `Engine\Condition\ConditionEvaluator`, reached for a form's elements through
+  `FormWalk`. Set options carry no condition of their own: the ranking block
+  that names the set holds one per option. No second evaluator anywhere, and JavaScript never evaluates a
   condition (the editor only checks one against the server's rules to show
   problems).
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
@@ -271,9 +273,12 @@ values and conditions, prefill and form links
 - A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
   that names an assignment set holds no options of its own: the definition
   parse fills its `options` from the host (`FormHost::requestOptions()`),
-  each with its eligibility condition, which is read like a choice option's
-  condition (fields before it and the event's keys); a stored earlier version
-  of the form takes them without their conditions. `FormEngine::blocks()`
+  each with the condition its block's `optionConditions` holds for its key,
+  read like a choice option's condition (fields before it and the host's
+  keys); every version reads its own block's conditions. A key of
+  `optionConditions` that is no option of the set is refused when the form is
+  saved (`unknown_option`) and ignored when the definition is read, so a
+  removed option never closes the form. `FormEngine::blocks()`
   renders it with those attributes. Outside the set's choice window, decided
   when the definition is built from the runner's clock, it is closed: it does
   not show, renders nothing and whatever is sent for it is dropped; the walk
@@ -289,10 +294,6 @@ values and conditions, prefill and form links
   `ParticipantFieldSync` ties each set to its field after the fields are
   declared (`Assignments\Api\AssignmentSets::tieRequestField()`); a tie is
   never released.
-- `Forms::requestScopes()` reads, before a use case, where each published
-  form of an event holds a set's request field (`Api\RequestScope`: the
-  fields before it and the host's keys); `Availability::checkInForm()` judges
-  a set option's condition against it, purely, inside the use case.
 - A re-rendered choice or request field's new wrapper gets the event
   `kalaka:field-swapped` (`SWAPPED` in `Blocks/form/view.js`) with the
   values it was ticked with, for a field type's own script.
@@ -309,7 +310,10 @@ values and conditions, prefill and form links
   accounts, and anywhere else it renders nothing. Its button opens
   WordPress's login page in a window of its own (`SignUp::url()`); a login
   there lands on the return page (`SignUp::returnUrl()`), which tells the
-  form's page by `postMessage` to its own origin only and closes. The page
+  form's page by `postMessage` to its own origin only and closes. The
+  script adds `popup=1` to the address it opens with `window.open` only
+  (the plain link stays the same-tab fallback), so the return page of the
+  window never redirects to a second form. The page
   then reads its REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`)
   and re-fetches with the block re-rendered, never reloading and never
   overwriting a typed answer; without a message it checks on focus or
@@ -331,3 +335,10 @@ values and conditions, prefill and form links
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.
+- `Forms::withoutAccountBlock()` lists the published registration forms of an event
+  that lack the account block a given account mode wants (the one rule is
+  `AccountBlock::missing()`, which the save check asks for the event's mode), and
+  `Forms::refreshBrokenList()` recomputes `BrokenForms` after a mode change: the
+  two halves of the refusal in
+  [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
+  which `Events\Api\Events::update()` runs around `kalaka/update-event`.

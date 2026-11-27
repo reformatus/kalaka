@@ -18,6 +18,9 @@
 .kg-filters { flex: 0 1 auto; min-width: 0; }
 /* The view's own condition is DataViews' locked chip; the padlock is the one addition. */
 .kg-bulkbar .dataviews-filters__summary-chip.is-not-clickable::before { font-family: dashicons; content: "\f160"; font-size: 14px; width: 14px; height: 14px; margin-right: 4px; line-height: 1; }
+/* DataViews' own „Visszaállítás” clears only the search and the filters; our one button resets all four and takes
+   its place (N7), so DataViews' is hidden by its own class. */
+#kalaka-grid .dataviews-filters__reset-button { display: none; }
 @media (max-width: 600px) { .kg-bulkbar .dataviews-search { width: 100%; flex: 1 1 100%; } }
 .kg-dv-foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; }
 .kg-dv-foot .kg-perpage { margin-right: auto; }
@@ -76,7 +79,14 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
-.kg-sumtd .kg-sumopen { vertical-align: middle; }
+
+/* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
+   but has nothing counted yet shows a grey placeholder with a dotted underline. [UNAPPROVED N1046, N1047] */
+.kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
+.kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }
+.kg-sumcount-btn.is-empty { color: var(--wpds-color-foreground-content-neutral-weak, #707070); text-decoration: underline dotted; text-underline-offset: 2px; }
+.kg-sumcount-menu { min-width: 180px; }
 
 /* The snackbar of the copy result, at the bottom of the window. */
 .kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
