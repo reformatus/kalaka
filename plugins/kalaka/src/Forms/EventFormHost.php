@@ -36,6 +36,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 
@@ -62,6 +63,7 @@ final class EventFormHost implements FormHost
         private readonly Events $events = new Events(),
         private readonly ?RegistrationSubmit $registrationSubmit = null,
         private readonly AssignmentSets $sets = new AssignmentSets(),
+        private readonly Seats $seats = new Seats(),
         private ?Registrations $registrations = null,
         private readonly ?\Closure $active = null,
     ) {
@@ -100,7 +102,7 @@ final class EventFormHost implements FormHost
         foreach ($keys as $key) {
             if (
                 $event !== null
-                && preg_match('/\Aevent\.points\.[0-9]+\z/', $key) === 1
+                && EventValues::isPointKey($key)
                 && !isset(EventValues::volatileTypes($event)[$key])
             ) {
                 $gone[$key] = ValueType::Date;
@@ -190,7 +192,7 @@ final class EventFormHost implements FormHost
         ?string $status
     ): ValueContext {
         $values = $this->goneKeys($form) + EventValues::form($event, $loggedIn, $now)
-            + EventValues::volatile($event, $this->registrations()->registeredCount($event->id));
+            + EventValues::volatile($event, $this->seats->left($this->seats->eventPool($event->id)));
         if ($form->placement === FormPlacement::Additional) {
             $values[RegistrationFacts::STATUS] = $status === null
                 ? Value::none(ValueType::Choice)

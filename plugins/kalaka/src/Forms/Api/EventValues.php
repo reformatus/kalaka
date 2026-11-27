@@ -79,6 +79,12 @@ final class EventValues
     /** Before a custom point's ID: the point's date (`event.points.<id>`), for a form's conditions only. */
     public const POINT_PREFIX = 'event.points.';
 
+    /** Whether the key is a custom point's (`POINT_PREFIX` and its numeric ID), the one shape of a point key. */
+    public static function isPointKey(string $key): bool
+    {
+        return preg_match('/\A' . preg_quote(self::POINT_PREFIX, '/') . '[0-9]+\z/', $key) === 1;
+    }
+
     /** Every event key and its type. Decision N649 (#222): the event's start and end stay dates. */
     public const TYPES = [
         self::NAME => ValueType::Text,
@@ -123,19 +129,18 @@ final class EventValues
     }
 
     /**
-     * The values of `volatileTypes()`. `event.seats_left` is `max(0, capacity - registered)` and 0 while the
-     * event's "full" latch is set; none while the event is a draft without a capacity. A custom point is a day
-     * in the site's time zone, like the event's other points.
+     * The values of `volatileTypes()`. `event.seats_left` is the one seat rule's read of the event's pool
+     * (`Seats::left()`: `max(0, limit - held)`, 0 while the event's "full" latch is set); none when the pool
+     * has no limit (`$left` null). A custom point is a day in the site's time zone, like the event's other
+     * points.
      *
-     * @param int $registered the event's `registered` registrations
+     * @param int|null $left the event's seats left, null when it has no limit
      * @return array<string, Value>
      */
-    public static function volatile(Event $event, int $registered): array
+    public static function volatile(Event $event, ?int $left): array
     {
-        $left = $event->capacity === null
-            ? Value::none(ValueType::Number)
-            : self::count($event->isFull ? 0 : max(0, $event->capacity - $registered));
-        $values = [self::SEATS_LEFT => $left];
+        $seats = $left === null ? Value::none(ValueType::Number) : self::count($left);
+        $values = [self::SEATS_LEFT => $seats];
         foreach ($event->customPoints as $point) {
             /** @var EventPoint $point */
             $values[self::POINT_PREFIX . $point->id] = self::day($point->at);

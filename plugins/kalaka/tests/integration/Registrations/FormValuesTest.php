@@ -24,6 +24,7 @@ use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationSubmit;
+use Kalaka\Registrations\Api\Seats;
 use Kalaka\Registrations\Api\SubmitRequest;
 use Kalaka\Registrations\Api\SubmitToken;
 use Kalaka\Tests\Integration\Foundation\TestClock;
@@ -199,6 +200,37 @@ final class FormValuesTest extends FormsTestCase
         self::assertSame('1', $this->facts($form)->get('event.seats_left')->data);
         $this->markFull($this->event);
         self::assertSame('0', $this->facts($form)->get('event.seats_left')->data);
+    }
+
+    public function testSeatsLeftIsTheOneSeatRule(): void
+    {
+        $form = $this->additional($this->field('text', 'note'));
+        $seats = new Seats();
+        $pool = $seats->eventPool($this->event);
+
+        self::assertSame(1, $seats->left($pool));
+        self::assertSame((string) $seats->left($pool), $this->facts($form)->get('event.seats_left')->data);
+
+        // The latch, not the count, reads 0 while the event is full.
+        $this->markFull($this->event);
+        self::assertSame(0, $seats->left($pool));
+        self::assertSame('0', $this->facts($form)->get('event.seats_left')->data);
+
+        // No limit: the seat rule reads null, and the form has no value.
+        $unlimited = $this->create('Korlátlan');
+        $event = $this->events->find($unlimited);
+        self::assertNotNull($event);
+        self::assertNull($seats->left($seats->eventPool($unlimited)));
+        $facts = $this->host()->factsFor(
+            new Form(1, $unlimited, FormPlacement::Registration, null, false, 1),
+            $event,
+            null,
+            $this->clock->now(),
+            null,
+            null
+        );
+        self::assertTrue($facts->get('event.seats_left')->isEmpty());
+        self::assertSame(ValueType::Number, $facts->get('event.seats_left')->type);
     }
 
     public function testAnEventWithoutACapacityReadsAsEmptyAndAnyPoolDoesNotShowUp(): void
