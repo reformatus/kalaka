@@ -75,12 +75,15 @@ final class DepositSettings
     private static function assertAmount(string $amount): void
     {
         if (preg_match('/\A\d+(\.\d+)?\z/', $amount) !== 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a CLI message, never output
             throw new \InvalidArgumentException('The amount must be a positive number: ' . $amount);
         }
         if (preg_match('/\A0+(\.0+)?\z/', $amount) === 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a CLI message, never output
             throw new \InvalidArgumentException('The amount must be greater than zero: ' . $amount);
         }
         if (preg_match('/\.\d{3,}\z/', $amount) === 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a CLI message, never output
             throw new \InvalidArgumentException('The amount has at most two decimals: ' . $amount);
         }
     }
