@@ -174,7 +174,7 @@ final class TimesPage
             ),
         ]);
         if (is_wp_error($result)) {
-            throw new \RuntimeException($result->get_error_code() . ': ' . $result->get_error_message());
+            throw new \RuntimeException(esc_html($result->get_error_code() . ': ' . $result->get_error_message()));
         }
     }
 
