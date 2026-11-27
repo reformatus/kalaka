@@ -16,10 +16,10 @@ export const GRID = {
 	// The reset of the sort and the counting only; the search, the filters and DataViews' own Reset are theirs.
 	// [UNAPPROVED T38]
 	reload: 'Rendezés és számolás visszaállítása',
-	// Filters and search.
+	// Filters and search. [UNAPPROVED N10]
 	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',
 	noMatch: 'Nincs megfelelő jelentkező.',
-	// A view or a filter set with no registrations at all.
+	// A view or a filter set with no registrations at all. [UNAPPROVED N10]
 	emptyView: 'Nincs jelentkező.',
 	// One more value in a list column's own filter; the owner's own word (2026-11-21).
 	unanswered: 'Nincs válasz',
@@ -27,7 +27,7 @@ export const GRID = {
 	loadFail: 'A táblázat betöltése nem sikerült.',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
-	// Under the Sorszám range, approved by the owner 2026-11-18.
+	// Under the Sorszám range, approved by the owner 2026-11-18. [UNAPPROVED N11]
 	serialHint: 'Például 1–50: az első 50 jelentkező',
 };
 
@@ -38,10 +38,10 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
-	// The arrow of a sum cell opens the column's menu; its counting group.
+	// The arrow of a sum cell opens the column's menu; its counting group. [UNAPPROVED T3, T4]
 	counting: 'Számolás',
 	open: '%s oszlopmenüje',
-	// The sum row's own load failure, above a table whose rows are on screen.
+	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
@@ -56,14 +56,14 @@ export const SUM_AVERAGE = 'Átlag: %s';
 
 /**
  * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
- * owner ticks its box: the panel, the disabled tab.
+ * owner ticks its box: [UNAPPROVED T6] the panel, [UNAPPROVED T3] the disabled tab.
  */
 export const PANEL = {
 	panel: 'Jelentkező részletei',
 	close: 'Bezárás',
 	tabsLabel: 'Részletek',
 	tabMoney: 'Pénzügyek',
-	//: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
+	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
 	tabSoon: 'Hamarosan…',
 	loading: 'Betöltés…',
 	loadFail: 'A részletek betöltése nem sikerült.',
@@ -76,12 +76,12 @@ export const PANEL = {
 
 /**
  * The „Pénzügyek” tab and its two dialogs. Most words are the owner's (topic 10, 2026-11-21) and are built
- * verbatim, approved by the owner: the payer table, the entries and the dialog fields; the
+ * verbatim, approved by the owner: the payer table, the entries and the dialog fields; [UNAPPROVED T9] the
  * actions. The title field's label and hint and the „completed immediately” checkboxes with their help are #209's
  * lektor-approved texts, built verbatim by #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Approved by the
  * owner: the title's empty-field message, the snackbars of a saved pair, the pair's save button, the empty list,
  * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages, [UNAPPROVED T13] the
- * screen-reader text; „0 Ft” is.
+ * screen-reader text; „0 Ft” is [UNAPPROVED T5].
  */
 export const MONEY = {
 	payer: 'Fizető',
