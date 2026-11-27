@@ -4,9 +4,9 @@
  * add-filter and reset), one reset of the sort and the counting, and „Táblázat másolása"; then DataViews
  * (compact) with the sum row in its header. Every column has a filter in its column menu; the sums and the
  * copy follow the filters and the search. Kód carries the default order and the reset returns to it. The title
- * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). The number in a
- * countable sum cell opens our own counting menu (2026-11-27: DataViews' own header menu stays as it is and there
- * is no down arrow); the counting is the viewer's own for the session, full access included, and is never saved.
+ * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). A
+ * countable sum cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's own for
+ * the session, full access included, and is never saved (B1, round 3).
  *
  * S38: a row opens the detail panel (`DetailPanel`) over the grid, from the button in its first identifying cell
  * or a click on the row. The panel is not modal: another row switches it, and the grid's filters, search, sort,

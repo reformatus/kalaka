@@ -3,8 +3,9 @@
  * summary row and no hook into its header, so the row is appended to the table's head and put back by a
  * MutationObserver when DataViews re-renders it. One cell per shown field, in DataViews' order.
  *
- * Every cell carries one down arrow, which opens that column's menu (`ColumnMenu`: the sort commands and, for
- * a column that can count members, the counting choices; owner's walk, topic 6a G10 and round 3).
+ * A column that can count offers its counting menu from the number itself (owner, 2026-11-27): the number is
+ * the trigger, there is no down arrow, and a column that can count but has nothing counted yet shows a grey
+ * placeholder with a dotted underline. Columns that cannot count keep a plain value. [UNAPPROVED N1046]
  *
  * When the table carries row actions, DataViews puts a selection column before the fields and an actions column
  * after them; `framed` adds an empty cell at each end so every sum stays under its own column. The cell under the
