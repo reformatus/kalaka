@@ -58,7 +58,9 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka_views` (`master` 1): at most one per event (the unique key on
   `master_event`), written only through `ViewRepository`, by `CopyViews`
   (nothing in the grid writes it). Its name, filter and columns are stored
-  empty and never read. It is never listed, edited or deleted as a view. A
+  empty and never read. Its columns are composed by rule (owner 2026-11-27): every core column
+  (`ViewShape::CORE_COLUMNS`), every field key, every decision kind and every computed column
+  (`ViewShape::COMPUTED_COLUMNS`, today `awaits_answer`); a new column joins one of those lists, never a hand list. It is never listed, edited or deleted as a view. A
   grant on the master view keeps `view_id` null and never points at the master
   row.
 - The grid's ad hoc filters and search (`Narrowing`, S37) only narrow: the view query appends them to the held
@@ -87,7 +89,10 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
 - "Awaits an answer" is a core-derived grid column, `awaits_answer`, like `status` and `serial`: a view lists it or
   not, any view may (it tells that something awaits, not what), and it filters (yes or no, no „Nincs válasz”),
   sorts (yes first descending) and counts (`yes`) like the other yes/no columns, all over the one SQL expression
-  `ViewQuery::awaiting()`. That is `Requests::awaitingCondition()`: the registration is `registered` and some
-  request source's `awaitingRule()` (declarative; core compiles it) holds; every other status is false, never null. It is never a filter term
-  or a counted-members column. A grid row carries `awaits_answer` as a bool from the same expression in the page's
-  one statement, whether or not the view lists the column.
+  `ViewQuery::awaiting()`. That is `Requests::awaitingCondition()`, three-valued (owner 2026-11-27, N/A is different
+  from „Nem”): for a `registered` registration it is yes when some request source's `awaitingRule()` (declarative;
+  core compiles it) holds and no otherwise; for every other status it is N/A, NULL in SQL, never false. A filter on
+  yes or no never matches N/A (`NOT` of NULL is NULL); N/A sorts with no value (last descending, first ascending);
+  the grid shows it as „–”. It is never a filter term or a counted-members column. A grid row carries
+  `awaits_answer` as true, false or null (N/A) from the same expression in the page's one statement, whether or not
+  the view lists the column.

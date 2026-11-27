@@ -54,14 +54,17 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
         };
     }
 
-    public function testWithNoSourceTheConditionIsFalse(): void
+    /** Registered with nothing waiting is 0; any other status is NULL (N/A), as the CASE has no ELSE. */
+    private const NO = "CASE WHEN r.status = 'registered' THEN 0 END";
+
+    public function testWithNoSourceTheConditionIsNoForRegisteredAndNotApplicableForTheRest(): void
     {
-        self::assertSame(['0 = 1', []], (new Requests([]))->awaitingCondition(7, 'wp_kalaka_field_values'));
+        self::assertSame([self::NO, []], (new Requests([]))->awaitingCondition(7, 'wp_kalaka_field_values'));
     }
 
     public function testASourceThatNeverAwaitsAddsNothing(): void
     {
-        self::assertSame(['0 = 1', []], (new Requests([$this->source(null)]))->awaitingCondition(7, 't'));
+        self::assertSame([self::NO, []], (new Requests([$this->source(null)]))->awaitingCondition(7, 't'));
     }
 
     public function testEachTestIsAnExistsOverTheFieldValuesWithPlaceholdersOnly(): void
@@ -78,11 +81,11 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
         $exists = 'EXISTS (SELECT 1 FROM %i f WHERE f.event_id = r.event_id AND f.code = r.code'
             . ' AND f.field_key = %s AND ';
         self::assertSame(
-            "r.status = 'registered' AND (("
+            "CASE WHEN r.status = 'registered' THEN (("
             . '(' . $exists . 'LENGTH(f.value) > 0)'
             . ' AND NOT ' . $exists . 'LENGTH(f.value) > 0)'
             . ' AND ' . $exists . 'BINARY f.value IN (%s, %s))'
-            . ' AND NOT ' . $exists . 'BINARY f.value IN (%s)))))',
+            . ' AND NOT ' . $exists . 'BINARY f.value IN (%s))))) END',
             $sql
         );
         self::assertSame(['t', 'a', 't', 'b', 't', 'c', 'x', 'y', 't', 'd', 'z'], $args);
@@ -102,6 +105,7 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
 
         self::assertSame(2, substr_count($sql, ' OR '));
         self::assertSame(1, substr_count($sql, "r.status = 'registered'"));
-        self::assertStringStartsWith("r.status = 'registered' AND (", $sql);
+        self::assertStringStartsWith("CASE WHEN r.status = 'registered' THEN (", $sql);
+        self::assertStringEndsWith(') END', $sql);
     }
 }

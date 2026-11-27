@@ -145,12 +145,13 @@ the waitlist and reference codes
     `AwaitingRule`: any-of groups of all-of `FieldTest`s: filled, empty, one of, none of, over the registration's
     field values); core alone compiles it to SQL (no source writes SQL or gets database access) and `awaits()`
     evaluates the same rule in PHP with `matches()`, and it must mean exactly what the source's `requestsOf()` and
-    `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). Every status but
-    `registered` is false there, so a waitlisted registration shows none; `awaits()` (the rule in PHP) is false for
-    every status but `registered` too, one meaning for the fact, the column and the panel.
+    `isAnswered()` mean (the participant field is the truth: an empty answer field awaits). It has three values
+    (owner 2026-11-27: N/A is different from „Nem”): yes or no for a `registered` registration, and N/A for every
+    other status, NULL in SQL, so a waitlisted registration is neither; `awaits()` (the rule in PHP) returns null
+    for every status but `registered` too, one meaning for the fact, the column and the panel.
   - Only a `registered` registration is answered: a waitlisted registration is inactive, so its request waits until
     admission (the answer act refuses a waitlisted, withdrawn or removed one with `RuleViolation`); `awaits_answer`
-    is false for it and true again by itself at admission. A refusing offer answer frees the offer's seat and a "yes"
+    is N/A for it (neither yes nor no) and yes again by itself at admission. A refusing offer answer frees the offer's seat and a "yes"
     after a refusal takes one. Both go through the `OfferSeats` seam (slice A's seat rule; `NoOfferSeats` until it
     lands) with the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat
     call). The pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
