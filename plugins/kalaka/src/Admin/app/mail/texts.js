@@ -75,7 +75,7 @@ export const BODIES = {
 
 /** The failed deliveries tab. [UNAPPROVED T277] */
 export const TROUBLED = {
-	code: 'Jelentkező', // the column holds the code and the name beside it [UNAPPROVED T930]
+	code: 'Jelentkező', // the column holds the code and the name beside it
 	mail: 'Levél',
 	manual: '%d. csoportos levél', // reworded per the lektor
 	status: 'Állapot', // approved
@@ -161,14 +161,14 @@ export const MANUAL = {
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
 	// The ones who get no mail are told as per-status totals; their list is in a popup of its own, opened by a text button
-	// whose label never changes. [UNAPPROVED N1033] The totals read „Kihagyva: 1 törölt, 1 lemondott” (a count and the
-	// lowercase status word below), the popup lists „00A1 · Kiss Anna – lemondott”. [UNAPPROVED T970] [UNAPPROVED T971]
-	// [UNAPPROVED T972] Lektor next.
+	// whose label never changes. The totals read „Kihagyva: 1 törölt, 1 lemondott” (a count and the
+	// lowercase status word below), the popup lists „00A1 · Kiss Anna – lemondott”.
+	// Lektor next.
 	skippedTotals: 'Kihagyva: %s',
 	skippedOpen: 'Kihagyottak listája',
 	skippedTitle: 'Kihagyott jelentkezők',
 	unknown: 'Ismeretlen kód:',
-	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9) [UNAPPROVED T931]
+	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9)
 	reason_removed: 'törölt',
 	tooMany: 'Egyszerre legfeljebb 1000 jelentkezőnek küldhető levél.',
 	send: 'Küldés',
@@ -193,17 +193,16 @@ export const BATCHES = {
 	created: 'Sorba állítva', // reworded per the lektor: the batch's creation time, not a delivery
 	by: 'Küldte',
 	queued: 'Sorba került',
-	skipped: 'Kimaradt',
+	skipped: 'Kihagyva',
 	layout: 'Levélkerettel',
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
-	// The member list's disclosure button on a batch's card; the label never changes. [UNAPPROVED N1049] [UNAPPROVED T973]
-	// The lektor: „Tagok” would read as people belonging to a group; the list is who received the mail.
-	members: 'Címzettek',
+	// The member list's disclosure button on a batch's card; the label never changes.
+	members: 'Jelentkezők',
 	open: '%d. csoportos levél részletei',
 	// After a code, lowercase, as the manual mail dialog writes it („16F5 – lemondott”); reworded per the lektor (pass 2).
 	outcome_queued: 'sorba került',
-	outcome_skipped_withdrawn: 'kimaradt: lemondott', // the owner's rename (lektor 1, J11) [UNAPPROVED T932]
-	outcome_skipped_removed: 'kimaradt: törölt',
+	outcome_skipped_withdrawn: 'kihagyva: lemondott', // the owner's rename (lektor 1, J11)
+	outcome_skipped_removed: 'kihagyva: törölt',
 	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing [UNAPPROVED T294]
 };
 

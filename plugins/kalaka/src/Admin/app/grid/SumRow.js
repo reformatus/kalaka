@@ -13,7 +13,7 @@
  * through below the sticky „Műveletek”. [UNAPPROVED N295]
  *
  * The cell under the select-all checkbox holds the count of the ticked rows (the number alone; screen readers get
- * „N kiválasztva”) and is empty while nothing is ticked. [UNAPPROVED N1034] [UNAPPROVED T969]
+ * „N kiválasztva”) and is empty while nothing is ticked.
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { fmt, sumParts } from './format';

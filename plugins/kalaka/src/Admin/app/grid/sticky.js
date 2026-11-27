@@ -7,14 +7,14 @@
  *
  * The sticky columns together take at most a quarter of the room the table shows (the scroll container's visible
  * width), in the order checkbox, Kód, name, actions: a column that does not fit stays loose, and so does every
- * column after it. [UNAPPROVED N942] [UNAPPROVED N1035]
+ * column after it.
  */
 import { useLayoutEffect } from '@wordpress/element';
 
 /** The most start columns there are: the checkbox, Kód and the name. */
 export const MAX_STICKY = 3;
 
-/** The share of the visible table width the sticky columns may take together. [UNAPPROVED N1035] */
+/** The share of the visible table width the sticky columns may take together. */
 export const STICKY_SHARE = 0.25;
 
 /**
@@ -41,7 +41,7 @@ export function stickyCount( columns, order, hasCheckbox ) {
 /**
  * How many of the start columns, and whether the actions column, may stay within the share of the visible width, by the
  * priority checkbox, Kód, name, actions: the first column that does not fit stops the run, so a later one never sticks
- * alone. The actions column sticks only when every start column does and it fits too. Pure. [UNAPPROVED N1035]
+ * alone. The actions column sticks only when every start column does and it fits too. Pure.
  *
  * @param {number[]}    widths        the widths of the candidate start columns, in priority order
  * @param {number|null} actionsWidth  the actions column's width, null when the table has none

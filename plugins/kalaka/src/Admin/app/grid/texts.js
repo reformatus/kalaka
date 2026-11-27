@@ -23,9 +23,10 @@ export const GRID = {
 	// A failed table load, in the table's place.
 	loadFail: 'A táblázat betöltése nem sikerült.',
 	// The action bar's prefix before the buttons: what they act on. It never changes the buttons' own labels.
-	// [UNAPPROVED N915] [UNAPPROVED T963] [UNAPPROVED T964] [UNAPPROVED T965] Lektor next.
+	// The two narrowed states: a filter alone, and a search (with or without a filter).
 	prefixTotal: '%d összesen:',
 	prefixFiltered: '%d szűrt:',
+	prefixFound: '%d találat:',
 	prefixSelected: '%d kiválasztva:',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
@@ -41,7 +42,6 @@ export const SUM = {
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
 	// The ticked count under the select-all checkbox, for screen readers (the cell shows the number only).
-	// [UNAPPROVED N1034] [UNAPPROVED T969] Lektor next.
 	selected: '%d kiválasztva',
 	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
 	// [UNAPPROVED T3, T4 (reboxed: the trigger name was „Oszlopmenü: %s”, now „Összesítés: %s”, as #204)]

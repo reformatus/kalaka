@@ -8,8 +8,7 @@ namespace Kalaka\Admin\Mail;
  * The mail templates (`kalaka_mail` posts) in WordPress's own screens: they leave the native post list, and the
  * editor (`post.php`) is kept, with core's „Közzététel” wording overridden and its back link on the event's „Levelek”
  * page. The post type has no menu item (`show_in_menu` is false). The type and the event meta are named here as
- * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N923, N924, N925, N928,
- * N929, N930]
+ * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N928, N929, N930]
  */
 final class TemplateEditor
 {
@@ -19,9 +18,6 @@ final class TemplateEditor
     /**
      * `load-edit.php` and `load-post-new.php`: the native list and the native „new” screen go to the event's „Levelek”
      * page: the event the visitor came from (the referring page), else the site's „Levelezés” page.
-     * [UNAPPROVED N923 reboxed: the redirect rule and its fallbacks stand as built (8.9 is n/a: the event's page has
-     * no „Levélsablonok” tab after section 8's restructure, and the redirect still lands on that page, so its own
-     * target needs no change)]
      */
     public static function redirectNativeScreens(): void
     {
@@ -60,9 +56,7 @@ final class TemplateEditor
 
     /**
      * `enqueue_block_editor_assets`: on the template's editor only. The back button goes through core's experimental
-     * slot to the event's „Levelek” page, with the label T913 now gives it (the event's mails). [UNAPPROVED N925
-     * reboxed: 8.9 is n/a, so the link keeps its target and only its label follows the restructured page; the hole is
-     * the same: with fullscreen mode off there is no back button]
+     * slot to the event's „Levelek” page, with the label T913 now gives it (the event's mails).
      */
     public static function editorAssets(): void
     {
@@ -108,7 +102,7 @@ final class TemplateEditor
 JS;
         // The sidebar's Állapot row takes its status words from a table the editor builds when its script loads
         // (`postStatusesInfo`, `__( 'Published' )` evaluated once at load), so the words must be in place before
-        // `wp-editor` runs: core prints that script's translations, then this, then the script. [UNAPPROVED N1032]
+        // `wp-editor` runs: core prints that script's translations, then this, then the script.
         $published = ['Published' => [Texts::EDITOR_WORDS['Published']]];
         wp_add_inline_script(
             'wp-editor',

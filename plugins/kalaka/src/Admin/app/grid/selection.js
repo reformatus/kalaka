@@ -2,7 +2,7 @@
  * What a bulk action acts on, as the server takes it: one `selection` field. The ticked rows are
  * `{ codes }`; with nothing ticked it is every row the tab's view holds that matches the current filters and search,
  * across all pages, as `{ view, grant, filters?, search? }` (the same `filters` and `search` the grid's own read
- * sends). Pure: no WordPress imports, so Jest runs it as it is. [UNAPPROVED N937]
+ * sends). Pure: no WordPress imports, so Jest runs it as it is.
  *
  * @param {Object[]} rows   the ticked rows (`{ key }`)
  * @param {Object}   tab    the tab: { view, grant }

@@ -1,7 +1,7 @@
 /**
  * The view tabs, in core's TabPanel like the mail page's. A tab switch goes through `onSelect` (no page load); the
  * table stays below, so the panel itself has no content. There is no „Több ▾”: many tabs scroll sideways in one row
- * (grid.css, owner ruling 9.2). [UNAPPROVED N918] [UNAPPROVED N919 reboxed: the tab row is one sideways-scrolling row]
+ * (grid.css, owner ruling 9.2).
  */
 import { TabPanel } from '@wordpress/components';
 

@@ -28,12 +28,7 @@ final class Texts
      * `Publishing`, which is no longer overridden. The `Publish` override also renames the sidebar's date row and its
      * date popover title, which share the msgid and cannot be excluded per use: boxed, not excluded. `Published` is
      * also set before `wp-editor` loads (`TemplateEditor::editorAssets()`), because the sidebar's Állapot row reads
-     * it once at load. [UNAPPROVED T910, T911, T912, T914, T915, T916, T917, N929, N1032]
-     * [UNAPPROVED N924 reboxed: the words overridden are these seven — `Publish`, `Are you ready to publish?`,
-     * `Publishing…`, `Publish:`, `Double-check your settings before publishing.`, `Published`, `is now live.` — as
-     * the accepted option covers the same family of words (8.8); the rest keeps core's wording (`Átállítás vázlatra`,
-     * `Megtekintés`, `Láthatóság: Nyilvános`, the saved-state texts), and so does core's „Mégsem”, since ruling 8.10
-     * removed the Cancel override]
+     * it once at load. [UNAPPROVED T914, T915, T916, T917, N929]
      *
      * @var array<string, string>
      */
@@ -48,9 +43,7 @@ final class Texts
     ];
 
     /**
-     * The editor's back button's label, tooltip and name, when the template has an event. [UNAPPROVED T913 reboxed:
-     * the label names the event's mail screen, „Vissza az esemény leveleihez”, since 8.9 made the „Levélsablonok” tab
-     * n/a — the event's „Levelek” page has no tabs any more; the link's target is unchanged]
+     * The editor's back button's label, tooltip and name, when the template has an event.
      */
     public const EDITOR_BACK = 'Vissza az esemény leveleihez';
 

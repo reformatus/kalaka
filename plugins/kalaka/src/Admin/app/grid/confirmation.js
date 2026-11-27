@@ -19,7 +19,7 @@ export function confirmationOf( registration ) {
 /**
  * The icon class and tone class of a state, from the kind's `marks` map as the server declares it (owner Q51 (b),
  * 2026-11-26; N1107). A state with no entry has no mark: the grid and the panel draw exactly what the server
- * declares. [UNAPPROVED N912, replaced]
+ * declares.
  */
 export const markOf = ( marks, state ) => {
 	const mark = marks && marks[ state ];
