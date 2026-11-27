@@ -6,7 +6,7 @@ namespace Kalaka\WooCommerce;
 
 use Kalaka\Registrations\Api\RegistrationKey;
 
-/** The default billing source: none, so an order carries the billing e-mail only. [UNAPPROVED N818] */
+/** The default billing source: none, so an order carries the billing e-mail only. */
 final class NoBilling implements BillingSource
 {
     public function of(RegistrationKey $registration): ?BillingDetails
