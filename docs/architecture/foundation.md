@@ -640,4 +640,4 @@ registration through a preview and an apply, one transaction each
 | **Secret links** | Treated as secrets: our own code never writes one into a log line or an exception message, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns ([Engineering](engineering.md#database)) |
-| **Language** | Hungarian UI strings directly in code; English identifiers and comments |
+| **Language** | Hungarian UI strings directly in code; English identifiers and comments. The one exception: a plugin declares the names of its own fields and labels with their defaults (`DeclaredName`, read through `PluginNames`) and its settings screen may override them. One option per plugin, `kalaka_<module id>_names`, holds all of its names; an empty value is the default, and the text is read where it is shown. There is no table of overrides for other strings |
