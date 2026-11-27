@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Registrations\Api\SeatClaimSource;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
 final class Contributions
@@ -33,6 +34,9 @@ final class Contributions
 
     /** @var list<PeriodicStep> */
     private array $periodicSteps = [];
+
+    /** @var list<SeatClaimSource> */
+    private array $seatClaimSources = [];
 
     /** The contributions of this request's boot; empty before the boot has finished. */
     public static function current(): self
@@ -159,5 +163,24 @@ final class Contributions
     public function periodicSteps(): array
     {
         return $this->periodicSteps;
+    }
+
+    /**
+     * Where a registration submit's seat claims come from, by the answers (`Registrations\Api\SeatClaimSource`). Data
+     * only: the source locks and writes nothing, the submit's use case takes the seats.
+     */
+    public function seatClaimSource(SeatClaimSource $source): void
+    {
+        $this->seatClaimSources[] = $source;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<SeatClaimSource>
+     */
+    public function seatClaimSources(): array
+    {
+        return $this->seatClaimSources;
     }
 }
