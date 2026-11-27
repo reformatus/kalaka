@@ -36,7 +36,7 @@ export const warnsFull = ( item, answer ) => !! item.seat_full && answer === 'ye
 
 /**
  * The aid figures the dialog shows (owner 2026-11-27, walkthrough 6.8): the read's own amounts, labelled; empty
- * when the read carries none (a holder whose view/grant gives no money fields). [UNAPPROVED T1134]
+ * when the read carries none (a holder whose view/grant gives no money fields). [UNAPPROVED T8]
  */
 export function aidFigures( item ) {
 	const aid = item && item.kind === 'aid' ? item.aid : null;
@@ -57,7 +57,7 @@ export function hintedAmount( item ) {
 /**
  * The dialog's check: an aid "yes" needs an amount above zero and no more than the read's `max_award`, the full
  * price the act refuses above (`AidAbovePrice`, the same sentence); a message, or an empty string when it may be
- * sent. A holder without the aid figures gets the amount checks only, and the act still refuses. [UNAPPROVED T1134]
+ * sent. A holder without the aid figures gets the amount checks only, and the act still refuses. [UNAPPROVED T8]
  */
 export function validateAnswer( item, answer, amount ) {
 	if ( ! asksAmount( item, answer ) ) {
@@ -73,13 +73,6 @@ export function validateAnswer( item, answer, amount ) {
 	const max = item.aid && item.aid.max_award ? toMinor( item.aid.max_award ) : null;
 	return max !== null && minor > max ? REQUESTS.aidAbovePrice : '';
 }
-
-/**
- * A "yes" to an offer is a partner's approval, so the dialog labels its note „Indoklás” (release-plan.md, "Support
- * and decisions"); the label only names it, a reason is never required (owner 2026-11-26: N985, R230).
- * [UNAPPROVED T8] (the label)
- */
-export const asksReason = ( item, answer ) => item.kind === 'offer' && answer === 'yes';
 
 /**
  * The note's check, on the text that is sent (trimmed): at most 500 characters, counted by character, not by UTF-16 unit, so the field has no

@@ -77,7 +77,7 @@ SQL;
      * money.md, "Sponsor and church support" and foundation.md, "Facts": the answers to requests, a fact, one
      * row per answering act (never an upsert: each act has its own id, the key the "answered" mail takes, and its
      * own time). `request` is the request's id (`aid`, `offer:<key>`); the latest row per request is the current
-     * answer. `amount` and `currency` are set for aid, `note` is free text. [UNAPPROVED N1]
+     * answer. `amount` and `currency` are set for aid, `note` is free text.
      */
     private const ANSWERS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_answers (

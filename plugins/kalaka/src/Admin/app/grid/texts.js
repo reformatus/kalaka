@@ -218,16 +218,16 @@ export const REQUESTS = {
 	// names them. [UNAPPROVED T8]
 	figures: {
 		full_price: 'Fizetendő összeg',
-		can_pay: 'Amit be tud fizetni',
+		can_pay: 'Vállalt befizetés',
 		asked: 'Kért támogatás',
-		max_award: 'Legfeljebb megítélhető',
+		max_award: 'Legfeljebb megítélhető támogatás',
 	},
 	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
 	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.', // [UNAPPROVED T1131]
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
-	// [UNAPPROVED T10]
-	full: 'Ennek a lehetőségnek már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
+	// [UNAPPROVED T8] the full offer's warning, in the lektor's words.
+	full: 'Ennek a lehetőségnek már minden helye betelt. Ha igennel válaszolsz, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
 	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
 };

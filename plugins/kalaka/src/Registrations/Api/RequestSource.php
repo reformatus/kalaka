@@ -11,7 +11,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
  * point. A module that has requests (the support offers, the aid extension) says which a registration has now,
  * from its field values, and writes the answer to its own participant field, being its only writer (B3). Core
  * keeps the answer record of the act and the "awaits an answer" read, which asks the source whether its field
- * holds an answer; the source writes no record of its own and fires no hooks. [UNAPPROVED N1] [UNAPPROVED N2]
+ * holds an answer; the source writes no record of its own and fires no hooks.
  */
 interface RequestSource
 {
@@ -28,7 +28,7 @@ interface RequestSource
      * Whether the request is answered, read from the source's own answer field in the values it is given (an
      * offer's `<key>_answer`, the aid award: empty is awaiting, a zero is a refusal). The field is the truth;
      * core's answer record decides nothing here. A request re-stated after an answer reads as answered until
-     * staff answer again. [UNAPPROVED N136]
+     * staff answer again.
      *
      * @param array<string, string> $values the registration's current field values, key → stored value
      */

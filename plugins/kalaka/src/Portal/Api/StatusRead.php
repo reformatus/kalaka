@@ -30,7 +30,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * `money` is read for every status, the registration's own money table beside the totals of `payment`.
  *
  * Whether the registration is confirmed comes from Pricing's `Confirmations`. Whether a request awaits an answer
- * is computed (`Requests::awaits()`), never read from a stored hold: it replaces the old payment hold. [UNAPPROVED N12]
+ * is computed (`Requests::awaits()`), never read from a stored hold: it replaces the old payment hold.
  */
 final class StatusRead
 {
