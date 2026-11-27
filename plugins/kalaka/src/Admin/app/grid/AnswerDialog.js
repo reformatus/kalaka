@@ -10,7 +10,6 @@ import * as api from './api';
 import {
 	aidFigures,
 	asksAmount,
-	asksReason,
 	buildAnswer,
 	hintedAmount,
 	savedText,
@@ -146,7 +145,9 @@ export default function AnswerDialog( { config, code, currency, item, onClose, o
 					/>
 				) }
 				<TextareaControl
-					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
+					// The note is always „Megjegyzés”, never a reason, for every request kind (owner 2026-11-27,
+					// walkthrough 6.8). [UNAPPROVED N1183]
+					label={ REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }
 					rows={ 3 }
