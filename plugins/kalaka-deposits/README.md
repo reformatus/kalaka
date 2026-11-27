@@ -1,4 +1,4 @@
-# Kaláka – Befizetési foglalók
+# Kaláka – Foglalók
 
 The deposits extension plugin (`kalaka-deposits`, module `deposits`): it stores the deposit amount of
 each event and shows it on the command line. It uses only core's public API
@@ -9,7 +9,7 @@ currency. An event without an entry has no deposit. `DepositSettings` reads and 
 
 ```
 wp kalaka deposit <event>            shows the deposit, or says there is none
-wp kalaka deposit <event> <amount>   sets it (non-negative, at most two decimals)
+wp kalaka deposit <event> <amount>   sets it (greater than zero, at most two decimals)
 wp kalaka deposit <event> --off      removes it
 ```
 

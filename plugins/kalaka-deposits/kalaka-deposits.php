@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Plugin Name: Kaláka – Befizetési foglalók
+ * Plugin Name: Kaláka – Foglalók
  * Plugin URI: https://kalaka.dev
  * Version: 0.1.0
  * Requires at least: 7.0
@@ -9,6 +9,7 @@
  * Author: Benedek Fodor
  * Update URI: https://kalaka.dev
  * Requires Plugins: kalaka
+ * [UNAPPROVED T-dep1] The plugin name, seen in the plugins list; the lektor has not passed it yet.
  */
 
 declare(strict_types=1);
