@@ -169,3 +169,12 @@ describe( 'the unconfirm the rules would undo at once', () => {
 		expect( host.querySelector( '#send' ) ).not.toBeNull();
 	} );
 } );
+
+describe( 'the flag lines', () => {
+	test( 'the reason line is left out when the reason is empty', async () => {
+		await mount( props( { manual: { ...manual, reason: '' } } ) );
+		expect( host.querySelector( '.kg-manual' ).textContent ).not.toContain( 'Indoklás' );
+		await mount( props( { manual } ) );
+		expect( host.querySelector( '.kg-manual' ).textContent ).toContain( 'Indoklás: Telefonon' );
+	} );
+} );

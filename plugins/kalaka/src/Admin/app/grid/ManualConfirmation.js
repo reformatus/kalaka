@@ -4,7 +4,8 @@
  * why, the button that sets it (with `can.confirm_manually`, while it is not set) and the one „Visszaigazolás
  * visszavonása” (with `can.unconfirm`, on any confirmed registration). The flag itself is read under the money
  * gate, so a user who may confirm but not see money gets the row without the line: setting is idempotent (the
- * unconfirm is not, see `api.js`). [UNAPPROVED N1220] [UNAPPROVED N32 reboxed: the buttons are the confirmation
+ * unconfirm is not, see `api.js`). The line „Indoklás: …” is left out when the reason is empty ([UNAPPROVED N1223]).
+ * [UNAPPROVED N1220] [UNAPPROVED N32 reboxed: the buttons are the confirmation
  * row's children, under the state, not a block of their own] [UNAPPROVED N34]
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
@@ -146,7 +147,7 @@ export default function ManualConfirmation( {
 											)
 										) }
 							</p>
-							<p>{ fmt( CONFIRM.reasonLine, manual.reason ) }</p>
+							{ manual.reason && <p>{ fmt( CONFIRM.reasonLine, manual.reason ) }</p> }
 						</Fragment>
 					) }
 					{ actions.length > 0 && (

@@ -116,13 +116,19 @@ describe( 'the dialogs', () => {
 } );
 
 describe( 'the reason', () => {
-	test( 'is required: nothing is sent', async () => {
+	test( 'is never required: an empty reason is sent, for the unconfirm and for the set', async () => {
 		await render();
 		await write( '   ' );
 		await submit();
-		expect( apiFetch ).not.toHaveBeenCalled();
-		expect( host.textContent ).toContain( CONFIRM.reasonEmpty );
-		expect( done ).not.toHaveBeenCalled();
+		expect( apiFetch ).toHaveBeenCalledTimes( 1 );
+		expect( JSON.stringify( apiFetch.mock.calls[ 0 ][ 0 ] ) ).toContain( '"reason":""' );
+		expect( done ).toHaveBeenCalledWith( true, { changed: true } );
+		await act( async () => root.unmount() );
+		host.remove();
+		await render( { unconfirm: false } );
+		await submit();
+		expect( apiFetch ).toHaveBeenCalledTimes( 2 );
+		expect( done ).toHaveBeenCalledWith( false, { changed: true } );
 	} );
 
 	test( 'is at most 500 characters: nothing is sent, the message says so', async () => {

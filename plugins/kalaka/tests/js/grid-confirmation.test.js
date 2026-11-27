@@ -11,9 +11,10 @@ import { formatMoment } from '../../src/Admin/app/grid/money';
 import { CONFIRM } from '../../src/Admin/app/grid/texts';
 
 describe( 'the reason', () => {
-	test( 'is required: empty and blank are refused with the message', () => {
-		expect( validateReason( '' ) ).toBe( CONFIRM.reasonEmpty );
-		expect( validateReason( '   \n ' ) ).toBe( CONFIRM.reasonEmpty );
+	test( 'is never required: empty and blank may be sent, and the old message is gone', () => {
+		expect( validateReason( '' ) ).toBe( '' );
+		expect( validateReason( '   \n ' ) ).toBe( '' );
+		expect( CONFIRM.reasonEmpty ).toBeUndefined();
 	} );
 
 	test( 'any text is accepted', () => {
