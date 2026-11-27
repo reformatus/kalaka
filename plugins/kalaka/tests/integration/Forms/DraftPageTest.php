@@ -834,12 +834,12 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayHasKey('draftClaimUrl', $context);
         self::assertSame(1, $context['draftClaimChanges'], 'only polo changes; szallas is the same');
         self::assertArrayNotHasKey('draftClaimNotice', $context);
-        // The popup's texts, word for word (title and intro: stand-ins T1100, T1101), the count in merge's line.
+        // The popup's texts, word for word (title and intro: lektored T1100, T1101), the count in merge's line.
         self::assertSame([
             'title' => 'Bejelentkezés előtti válaszok',
             'intro' => 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. Ezen az eszközön '
-                . 'bejelentkezés előtt is érkeztek válaszok: amit beírtál, vagy egy előre kitöltött linkből jött. '
-                . 'Hogyan folytassuk?',
+                . 'bejelentkezés előtt is érkeztek válaszok: amelyeket beírtál, vagy amelyek egy előre kitöltött '
+                . 'linkből vagy a kvízből jöttek. Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el vagy '
                 . 'jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, így az '
                 . 'egyesítés a későbbi válaszaidat is megváltoztathatja. Beküldés előtt nézd át az egész űrlapot.',
@@ -1038,8 +1038,8 @@ final class DraftPageTest extends FormsTestCase
         self::assertArrayNotHasKey('draftClaimNotice', $context);
         // The guest's own draft opens, not the link's.
         self::assertStringContainsString('gépelt', $this->render());
-        // A guest's popup says nothing of a login (T1102, T1103: stand-ins); the other texts are the popup's.
-        self::assertSame('Mentett és bejövő válaszok', $context['draftClaimTexts']['title']);
+        // A guest's popup says nothing of a login (T1102, T1103: lektored); the other texts are the popup's.
+        self::assertSame('Mentett és előre kitöltött válaszok', $context['draftClaimTexts']['title']);
         self::assertStringNotContainsString('bejelentkezés', $context['draftClaimTexts']['intro']);
         self::assertSame('Egyesítés', $context['draftClaimTexts']['merge']);
         self::assertSame(DraftClaimTexts::popup(2, true), $context['draftClaimTexts']);

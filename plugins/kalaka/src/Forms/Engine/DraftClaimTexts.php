@@ -8,10 +8,11 @@ use Kalaka\Forms\Api\DraftClaimChoice;
 
 /**
  * The texts of the claim popup (S74), approved by the owner on 2026-11-17 word for word, except the title and
- * the intro (T1100, T1101: stand-ins, since the guest draft may hold the guest's own typing, N965): the popup
- * that asks the person's choice when a guest draft's answers meet their draft, its second confirmation before
- * keep_link, the button that reloads the page after a refused claim, and the one-line notice on the load
- * after the choice. The refused claim's own text is `Registrations\Api\DraftClaimRefused`'s message.
+ * the intro (T1100-T1103: lektored on Opus 2026-11-27, since the guest draft may hold the guest's own typing,
+ * N965): the popup that asks the person's choice when a guest draft's answers meet their draft, its second
+ * confirmation before keep_link, the button that reloads the page after a refused claim, and the one-line
+ * notice on the load after the choice. The refused claim's own text is `Registrations\Api\DraftClaimRefused`'s
+ * message.
  */
 final class DraftClaimTexts
 {
@@ -26,18 +27,18 @@ final class DraftClaimTexts
     {
         return [
             'title' => $guest
-                // [UNAPPROVED T1102] stand-in: a guest's choice, no login involved.
-                ? 'Mentett és bejövő válaszok'
-                // [UNAPPROVED T1100] stand-in: the draft may be the guest's own typing, not only a link's.
+                // [UNAPPROVED T1102] lektored on Opus 2026-11-27; the owner ticks it.
+                ? 'Mentett és előre kitöltött válaszok'
+                // [UNAPPROVED T1100] lektored and approved on Opus 2026-11-27; the owner ticks it.
                 : 'Bejelentkezés előtti válaszok',
             'intro' => $guest
-                // [UNAPPROVED T1103] stand-in, as T1102.
+                // [UNAPPROVED T1103] lektored and approved on Opus 2026-11-27; the owner ticks it.
                 ? 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
                     . 'Most előre kitöltött válaszok is érkeztek: egy linkből vagy a kvízből. Hogyan folytassuk?'
-                // [UNAPPROVED T1101] stand-in, as T1100.
+                // [UNAPPROVED T1101] lektored on Opus 2026-11-27; the owner ticks it.
                 : 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
-                    . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amit beírtál, '
-                    . 'vagy egy előre kitöltött linkből jött. Hogyan folytassuk?',
+                    . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amelyeket beírtál, '
+                    . 'vagy amelyek egy előre kitöltött linkből vagy a kvízből jöttek. Hogyan folytassuk?',
             'warning' => 'Egyesítéskor a bejövő válaszok miatt az űrlap későbbi részén kérdések tűnhetnek el '
                 . 'vagy jelenhetnek meg. Egy eltűnt kérdésre adott válaszod nem kerül be a jelentkezésedbe, '
                 . 'így az egyesítés a későbbi válaszaidat is megváltoztathatja. '
