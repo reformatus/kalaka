@@ -7,6 +7,7 @@ namespace Kalaka\Admin\Grid;
 use Kalaka\Admin\Api\AggregateKind;
 use Kalaka\Admin\Api\AggregateSpec;
 use Kalaka\Admin\Api\HeldView;
+use Kalaka\Admin\Api\Narrowing;
 use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -47,7 +48,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>
+     *     states?: array<string, string>, empty?: true
      * }>
      */
     public function columns(HeldView $view, array $fields): array
@@ -166,7 +167,7 @@ final class GridModel
      * @return list<array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>
+     *     states?: array<string, string>, empty?: true
      * }>
      */
     public function describe(array $columns, array $fields, int $eventId): array
@@ -239,6 +240,8 @@ final class GridModel
 
     /**
      * The sum row over the whole view, by column; a column without a sum is left out. One aggregate statement.
+     * With a narrowing (the grid's filters and search) it covers the narrowed set; the counted members are the
+     * view's own, or a grant holder's ad hoc override.
      *
      * `$override` is an ad hoc choice of counted members on top of the stored ones (the grant holder's own
      * counting, which is never saved to the shared view; topic 6a G1). A column missing from it keeps the
@@ -251,7 +254,7 @@ final class GridModel
      *     kind: string, n: int|string|null, members?: list<string>, labels?: list<string>, member?: string
      * }>
      */
-    public function sums(HeldView $view, array $fields, ?array $override = null): array
+    public function sums(HeldView $view, array $fields, ?Narrowing $narrowing = null, ?array $override = null): array
     {
         $listed = array_column($this->query->columns($view), 'column');
         $counts = $this->counts($view, $fields);
@@ -276,13 +279,49 @@ final class GridModel
             return [];
         }
 
-        $values = $this->query->aggregates($view, array_values($specs));
+        $values = $this->query->aggregates($view, array_values($specs), $narrowing);
         $sums = [];
         foreach (array_keys($specs) as $index => $column) {
             $sums[$column] = ['n' => $values[$index]] + $extra[$column];
         }
 
         return $sums;
+    }
+
+    /**
+     * The view's own condition in words, as the dialog words it (S37): each term as „{oszlop}: {értékek}”,
+     * joined with „; ”; a term whose value is given at each grant names that. Null for a view without one.
+     *
+     * @param list<array{column: string, values: ?list<string>}> $terms
+     * @param array<string, FieldDefinition> $fields
+     */
+    public function conditionText(array $terms, array $fields, int $eventId): ?string
+    {
+        $parts = [];
+        foreach ($terms as $term) {
+            $meta = $this->describe([$term['column']], $fields, $eventId)[0];
+            $parts[] = $meta['label'] . ': ' . ($term['values'] === null ? Texts::PER_GRANT : implode(', ', array_map(
+                static fn (string $value): string => $meta['options'][$value] ?? $meta['states'][$value] ?? $value,
+                $term['values']
+            )));
+        }
+
+        return $parts === [] ? null : implode('; ', $parts);
+    }
+
+    /**
+     * What the grid shows above the table (hole 4): the view's condition for its holder, a grant holder with
+     * their bound value.
+     *
+     * @param array<string, FieldDefinition> $fields
+     * @return array{text: string, terms: int}|null
+     */
+    public function condition(HeldView $view, array $fields): ?array
+    {
+        $terms = $this->query->terms($view);
+        $text = $this->conditionText($terms, $fields, $view->eventId);
+
+        return $text === null ? null : ['text' => $text, 'terms' => count($terms)];
     }
 
     /**
@@ -413,13 +452,13 @@ final class GridModel
      * @return array{
      *     column: string, label: string, type: string, sortable: bool, numeric: bool,
      *     options?: array<array-key, string>, members?: list<array{value: string, label: string}>,
-     *     states?: array<string, string>
+     *     states?: array<string, string>, empty?: true
      * }
      */
     private function meta(string $column, array $fields, int $eventId): array
     {
-        // Kód carries the default order and sorts both ways; Szám is computed and not sortable yet.
-        $meta = ['column' => $column, 'sortable' => $column !== 'serial', 'numeric' => false];
+        // Kód carries the default order and sorts both ways; Szám is a plain number sort.
+        $meta = ['column' => $column, 'sortable' => true, 'numeric' => false];
         if ($column === 'code') {
             return $meta + ['label' => Texts::CODE, 'type' => 'code'];
         }
@@ -439,12 +478,13 @@ final class GridModel
         if (str_starts_with($column, 'decision:')) {
             $kind = $this->decision($eventId, substr($column, 9));
 
+            // A decision can always have no record, so a list of states offers „Nincs válasz”.
             return $meta + [
                 'label' => $kind['label'],
                 'type' => 'decision',
                 'states' => $kind['states'],
                 'members' => $this->members($column, $fields, $eventId) ?? [],
-            ];
+            ] + ($kind['states'] === [] ? [] : ['empty' => true]);
         }
 
         $field = $fields[substr($column, 6)] ?? null;
@@ -465,6 +505,12 @@ final class GridModel
         }
         if ($type === 'consent') {
             $meta['options'] = ['1' => Texts::YES, '0' => Texts::NO];
+        }
+        // „Nincs válasz” in the filter of every list-type field column, required or not: a required field can still
+        // be empty (behind a condition, in an additional form not yet sent, on a registration made before the field
+        // existed).
+        if ($type === 'choice' || $type === 'consent') {
+            $meta['empty'] = true;
         }
 
         return $meta;

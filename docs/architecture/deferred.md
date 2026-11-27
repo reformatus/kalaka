@@ -42,6 +42,7 @@ removed here.
 | Which key a form field copied from a field definition takes | building field definitions |
 | Copying answers to another event's registration (e.g. "register for the other camp too") by matching keys | building that link |
 | View columns taken from the participant-field list rather than from forms | building views |
+| „Nincs válasz” in the grid's filters of text, number and date columns (only list-type columns that can be empty have it, as one more value of their own filter) | when DataViews supports an empty filter, or in a redesign of filtering |
 
 ## UI text approved when built
 

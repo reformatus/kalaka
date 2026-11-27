@@ -13,10 +13,20 @@ export const GRID = {
 	moreLabel: 'További nézetek',
 	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
-	resetSort: 'Alapértelmezett sorrend visszaállítása (sorszám, majd kód szerint)',
-	resetSortShort: 'Alapértelmezett sorrend visszaállítása',
-	// A failed table load, in the table's place. (Shared with #210's N10.)
+	// The one reset (search, filters, sort and counting): DataViews' own, already approved „Visszaállítás”
+	// (`Translations::OVERRIDES`), so no new string.
+	reset: 'Visszaállítás',
+	// Filters and search.
+	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',
+	noMatch: 'Nincs megfelelő jelentkező.',
+	// A view or a filter set with no registrations at all.
+	emptyView: 'Nincs jelentkező.',
+	// One more value in a list column's own filter; the owner's own word (2026-11-21).
+	unanswered: 'Nincs válasz',
+	// A failed table load, in the table's place.
 	loadFail: 'A táblázat betöltése nem sikerült.',
+	found: '%d jelentkező',
+	none: 'Nincs jelentkező',
 };
 
 /** The sum row. */
