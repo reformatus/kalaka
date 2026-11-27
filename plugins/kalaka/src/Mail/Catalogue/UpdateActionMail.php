@@ -40,7 +40,7 @@ final class UpdateActionMail implements AdminUseCase
     public const BODY_UNPUBLISHED = 'Előbb tedd közzé a levélsablont.';
 
     /** A point is switched on only with a published template. [UNAPPROVED T1173] */
-    public const POINT_TEMPLATE_UNPUBLISHED = 'A küldési pont csak közzétett sablonnal kapcsolható be.';
+    public const POINT_TEMPLATE_UNPUBLISHED = 'A küldési pont csak akkor kapcsolható be, ha a sablonja elérhető.';
 
     public function __construct(
         private readonly ?MailBody $body = null,
