@@ -161,8 +161,8 @@ describe( 'a mail card', () => {
 		await mount( createElement( Harness, { data: DATA( [ mail( {} ) ] ) } ) );
 		expect( Array.from( host.querySelectorAll( 'option' ) ).map( ( o ) => o.textContent ) ).toEqual( [
 			'– nincs –',
-			'Közlemény (20. számú levélsablon)',
-			'Közlemény (vázlat, 22. számú levélsablon)',
+			'Közlemény (20. levélsablon)',
+			'Közlemény (vázlat, 22. levélsablon)',
 		] );
 	} );
 
