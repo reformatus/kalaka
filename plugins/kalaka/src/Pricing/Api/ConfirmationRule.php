@@ -79,7 +79,7 @@ final class ConfirmationRule implements DecisionRule
         return [self::CONFIRMED => 'Visszaigazolva', self::UNCONFIRMED => 'Nincs visszaigazolva'];
     }
 
-    /** The marks of the grid and the detail (UX's table, the owner's Q51 (b)). [UNAPPROVED N1107] */
+    /** The marks of the grid and the detail (UX's table, the owner's Q51 (b)). */
     public function marks(): array
     {
         return [
