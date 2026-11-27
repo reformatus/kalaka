@@ -23,14 +23,14 @@ use Kalaka\Registrations\RegistrationRepository;
  * (`StatusAct::Withdraw`, `Leaving`): the status, the version and every seat freed, written once; the runner's
  * evaluation follows in the same run (money with the event's retention, then confirmation). The audit actor is the
  * secret-link actor; no reason; no mail is queued (no withdrawal mail kind exists). Nobody on the waitlist moves up.
- * Undo is only staff's restore. [UNAPPROVED N660, N661, N663, N666]
+ * Undo is only staff's restore. [UNAPPROVED N660, N666]
  *
  * - Input: `event_id` and `code` of the registration, and `preview`. The portal's own check (`Portal\Api\Withdrawal`)
  *   has already held the actor to the active registration and refused a status that cannot withdraw
  *   (`WithdrawUnavailable`); a status that changed under the lock is `StatusActRefused`, and a registration
  *   already withdrawn when this runs is `{changed: false}`. From the event's registration close
  *   (`Event::registrationHasClosed()`) only staff can withdraw: the run is refused as `WithdrawClosed`
- *   (`kalaka_withdraw_closed`) and the preview answers `allowed: false`. [UNAPPROVED N661]
+ *   (`kalaka_withdraw_closed`) and the preview answers `allowed: false`.
  * - Returns `{changed, status}`.
  * - Preview: `{allowed, paid, owed_after}` and nothing written (no audit entry): `allowed` is whether the
  *   registration may withdraw now; `paid` and `owed_after` are the registrant's OWN payer's (`participant`) amount

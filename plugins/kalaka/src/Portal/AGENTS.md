@@ -60,4 +60,4 @@ page, and the account area
   (`Api\RegistrationCan`) is decided in `StatusRead` from `StatusAct::Withdraw`'s allowed statuses, `LoadState` and
   the event's registration close (the participant may withdraw only until it closes; after that the use case refuses
   as `Registrations\Api\WithdrawClosed`, `kalaka_withdraw_closed`, also known to the flash cookie), never in the page;
-  `can.withdrawUnavailable` is `registration_closed` when only the close makes `withdraw` false, else null. [UNAPPROVED N660-N666]
+  `can.withdrawUnavailable` is `registration_closed` when only the close makes `withdraw` false, else null. [UNAPPROVED N660, N662, N664-N666]

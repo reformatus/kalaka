@@ -15,10 +15,10 @@ use Kalaka\Registrations\Api\StatusActs;
  * and the `code` sent must be that registration's own. It reads and decides nothing else: whether the status
  * allows the act is `StatusAct::Withdraw`'s table (through `StatusActs`), the act itself Registrations'. A refusal
  * here is `WithdrawStale` (no active registration, another code) or `WithdrawUnavailable` (status).
- * [UNAPPROVED N660, N661, N664]
+ * [UNAPPROVED N660, N664]
  *
  * Allowed from `registered` (confirmed or not) and `waitlisted`, until the event's registration closes (the use case
- * refuses it after as `WithdrawClosed`); undo is only staff's restore. [UNAPPROVED N661]
+ * refuses it after as `WithdrawClosed`); undo is only staff's restore.
  */
 final class Withdrawal
 {

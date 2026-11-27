@@ -68,7 +68,7 @@ the waitlist and reference codes
   withdraw), no reason, no mail, nobody on the waitlist moves up.
   Its preview (`preview: true`) is `{allowed, paid, owed_after}` for the registrant's own payer only (the
   `participant` payer of the same composition the staff preview uses), writes nothing and leaves no audit entry; a
-  status that changed under the lock is `StatusActRefused`. [UNAPPROVED N660-N663, N666]
+  status that changed under the lock is `StatusActRefused`. [UNAPPROVED N660, N662, N666]
 - Submissions are append-only: never updated or deleted. Field values hold the
   current state, one row per field, and are what edits change.
 - A submit writes field values only through the event's participant-field list

@@ -62,7 +62,7 @@ final readonly class Event
 
     /**
      * Whether registration has closed: `$now` is at or after the closing instant. False for an event with no closing
-     * instant. The participant's own withdrawal ends here (N661). [UNAPPROVED N661]
+     * instant. The participant's own withdrawal ends here (N661).
      */
     public function registrationHasClosed(\DateTimeImmutable $now): bool
     {

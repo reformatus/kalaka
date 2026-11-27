@@ -18,7 +18,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * status (a withdrawn or removed registration keeps its rows and movements); it is read beside `payment`,
  * whose `lines` go when the blocks switch to it. `can` is what the registrant may do now (`withdraw`), and
  * `withdrawRefusal` the code a refused no-script withdrawal post came back with, read once by the active
- * registration's page (null otherwise). [UNAPPROVED N660, N661]
+ * registration's page (null otherwise). [UNAPPROVED N660]
  */
 final readonly class RegistrationStatusView
 {

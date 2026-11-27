@@ -9,7 +9,6 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 /**
  * The participant's own withdrawal after the event's registration has closed: from then on only staff can withdraw
  * a registration. Its own code, so the page can tell it from `kalaka_withdraw_unavailable`; the text is T992.
- * [UNAPPROVED N661]
  */
 final class WithdrawClosed extends RuleViolation
 {
