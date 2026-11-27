@@ -17,8 +17,8 @@ use Kalaka\Foundation\Api\UseCase\Runner;
 /**
  * Core's payments port on WooCommerce orders (money.md, "Payments"): a request is one order (a guest order, or the
  * owner account's when it is the one paying; see `OrderOwner`) with one item of the hidden product per line, paid
- * on WooCommerce's own order-pay page with whatever gateway the shop has. A new request makes one new order, then
- * cancels the registration's never-paid orders (pending, failed); a paid order is never touched,
+ * on WooCommerce's own order-pay page with whatever gateway the shop has. [UNAPPROVED N325] A new request makes one
+ * new order, then cancels the registration's never-paid orders (pending, failed); a paid order is never touched,
  * and an order in any other open state refuses the start (see `latestOf()`).
  */
 final class WooProvider extends AbstractPaymentProvider
