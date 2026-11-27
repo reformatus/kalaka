@@ -51,6 +51,7 @@ final class MailTemplates
             'meta_input' => [MailPosts::META_EVENT_ID => $eventId],
         ], true);
         if (!is_int($id)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a log message, never output
             throw new SystemFailure(null, new \RuntimeException('The template post was not made.'));
         }
         try {
