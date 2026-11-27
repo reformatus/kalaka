@@ -1,6 +1,6 @@
 /**
  * The requests block's pure logic (slice B): the state lines, when the dialog asks for an amount, the one check
- * and the ability's input. Every string is unapproved until the owner ticks its box: [UNAPPROVED T3] to
+ * and the ability's input. Every string is unapproved until the owner ticks its box: to
  * [UNAPPROVED T11], see `REQUESTS`.
  */
 import {

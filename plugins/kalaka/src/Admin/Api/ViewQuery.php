@@ -1045,7 +1045,7 @@ final class ViewQuery extends Query
 
     /**
      * The current state of a decision kind for the row `r`, as a column of the grid reads it: the one SQL read
-     * (`DecisionTables::stateOf()`), with the kind's declared base state. [UNAPPROVED N7]
+     * (`DecisionTables::stateOf()`), with the kind's declared base state.
      *
      * @param literal-string $outer
      * @param literal-string $inner

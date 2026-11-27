@@ -6,7 +6,7 @@ namespace Kalaka\Foundation\Api\Decision;
 
 /**
  * A transition rule of one decision kind: it returns its transitions, none, one or more in order, and never
- * writes. Core writes each one that changes the kind's running state. [UNAPPROVED N16]
+ * writes. Core writes each one that changes the kind's running state.
  */
 interface DecisionRule
 {
@@ -20,7 +20,7 @@ interface DecisionRule
 
     /**
      * The kind's base state, derived where it has no record, and the statuses it is defined for; null: no
-     * base state, so no record reads as no state in every status. [UNAPPROVED N7]
+     * base state, so no record reads as no state in every status.
      */
     public function defaultState(): ?DecisionDefault;
 

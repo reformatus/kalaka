@@ -3,8 +3,8 @@
  * „−5 000 Ft”, the site time zone's day, and the recording dialogs' checks. Every line is on one of two sides
  * (topic 10): owed-side lines show in „Fizetendő”, paid-side lines in „Befizetett”, and in each column a
  * positive amount means what the column's name says and a real minus the opposite; no „+” is ever shown.
- * „Tartozás” is Fizetendő − Befizetett. No WordPress imports, so Jest runs it as it is. [UNAPPROVED N5]
- * [UNAPPROVED N42] [UNAPPROVED N8]
+ * „Tartozás” is Fizetendő − Befizetett. No WordPress imports, so Jest runs it as it is.
+ * [UNAPPROVED N42]
  */
 import { MONEY } from './texts';
 
@@ -47,7 +47,7 @@ export const formatMoney = ( value, currency ) => formatMinor( toMinor( value ) 
 /**
  * „Tartozás” in minor units as the panel shows it: positive is still owed, zero is settled, and a negative value
  * is „−5 000 Ft (túlfizetés)”, the word lowercase in brackets (owner, topic 10). Only the „Tartozás” cells and
- * the dialogs' preview use it, never „Fizetendő” or „Befizetett”. [UNAPPROVED N6]
+ * the dialogs' preview use it, never „Fizetendő” or „Befizetett”.
  */
 export const formatBalanceMinor = ( minor, currency ) =>
 	formatMinor( minor, currency ) + ( minor < 0 ? ` (${ MONEY.overpaid })` : '' );
@@ -70,7 +70,7 @@ export const lineSide = ( line ) => line.side;
  * A stored amount as the panel shows it, in minor units: an owed-side line as stored (a charge positive, a
  * discount negative), a paid-side line flipped from the ledger's stored sign (payments are stored negative, refunds
  * positive) so that money in is positive and money paid back negative. A correction is a payment fact too: it is
- * positive when it raises „Befizetett” and negative when it lowers it. [UNAPPROVED N5] [UNAPPROVED N42]
+ * positive when it raises „Befizetett” and negative when it lowers it. [UNAPPROVED N42]
  */
 const shownMinor = ( value, side ) => ( side === 'paid' ? -( toMinor( value ) ?? 0 ) : toMinor( value ) ?? 0 );
 

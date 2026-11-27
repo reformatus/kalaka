@@ -41,7 +41,7 @@ use Kalaka\Registrations\Api\Requests;
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
  * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
  * answered) show only to a holder of the answer action of a grant whose view holds the registration.
- * [UNAPPROVED Access] [UNAPPROVED N11] [UNAPPROVED N6]
+ * [UNAPPROVED Access]
  */
 final class RegistrationDetail
 {
@@ -242,7 +242,6 @@ final class RegistrationDetail
      * The money figures — the item's `amount` and an aid item's `aid` — follow the read's money gate (owner
      * 2026-11-27, the access sweep): a holder of the answer action whose view and grant give no money fields reads
      * the requests without them, so no figure reaches a holder the view/grant does not give the money fields.
-     * [UNAPPROVED N1134]
      *
      * @return array{currency: string, items: list<array<string, mixed>>}
      */
@@ -328,7 +327,7 @@ final class RegistrationDetail
      * without it gets one text that names neither a reason nor money, so the read never tells them what the
      * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
      * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
-     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
+     * [UNAPPROVED Q4, T5a, T5b, T5c]
      */
     private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
     {
@@ -347,7 +346,7 @@ final class RegistrationDetail
         }
 
         return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
-            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
+            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.'
             : $text;
     }
 

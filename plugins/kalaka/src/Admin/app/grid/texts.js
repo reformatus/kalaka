@@ -16,10 +16,10 @@ export const GRID = {
 	// The reset of the sort and the counting only; the search, the filters and DataViews' own Reset are theirs.
 	// [UNAPPROVED T38]
 	reload: 'Rendezés és számolás visszaállítása',
-	// Filters and search. [UNAPPROVED N10]
+	// Filters and search.
 	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',
 	noMatch: 'Nincs megfelelő jelentkező.',
-	// A view or a filter set with no registrations at all. [UNAPPROVED N10]
+	// A view or a filter set with no registrations at all.
 	emptyView: 'Nincs jelentkező.',
 	// One more value in a list column's own filter; the owner's own word (2026-11-21).
 	unanswered: 'Nincs válasz',
@@ -27,7 +27,7 @@ export const GRID = {
 	loadFail: 'A táblázat betöltése nem sikerült.',
 	found: '%d jelentkező',
 	none: 'Nincs jelentkező',
-	// Under the Sorszám range, approved by the owner 2026-11-18. [UNAPPROVED N11]
+	// Under the Sorszám range, approved by the owner 2026-11-18.
 	serialHint: 'Például 1–50: az első 50 jelentkező',
 };
 
@@ -38,10 +38,10 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
-	// The arrow of a sum cell opens the column's menu; its counting group. [UNAPPROVED T3, T4]
+	// The arrow of a sum cell opens the column's menu; its counting group.
 	counting: 'Számolás',
 	open: '%s oszlopmenüje',
-	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
+	// The sum row's own load failure, above a table whose rows are on screen.
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
@@ -56,14 +56,14 @@ export const SUM_AVERAGE = 'Átlag: %s';
 
 /**
  * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
- * owner ticks its box: [UNAPPROVED T6] the panel, [UNAPPROVED T3] the disabled tab.
+ * owner ticks its box: the panel, the disabled tab.
  */
 export const PANEL = {
 	panel: 'Jelentkező részletei',
 	close: 'Bezárás',
 	tabsLabel: 'Részletek',
 	tabMoney: 'Pénzügyek',
-	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
+	//: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
 	tabSoon: 'Hamarosan…',
 	loading: 'Betöltés…',
 	loadFail: 'A részletek betöltése nem sikerült.',
@@ -76,12 +76,12 @@ export const PANEL = {
 
 /**
  * The „Pénzügyek” tab and its two dialogs. Most words are the owner's (topic 10, 2026-11-21) and are built
- * verbatim, approved by the owner: the payer table, the entries and the dialog fields; [UNAPPROVED T9] the
+ * verbatim, approved by the owner: the payer table, the entries and the dialog fields; the
  * actions. The title field's label and hint and the „completed immediately” checkboxes with their help are #209's
  * lektor-approved texts, built verbatim by #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Approved by the
  * owner: the title's empty-field message, the snackbars of a saved pair, the pair's save button, the empty list,
  * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages, [UNAPPROVED T13] the
- * screen-reader text; „0 Ft” is [UNAPPROVED T5].
+ * screen-reader text; „0 Ft” is.
  */
 export const MONEY = {
 	payer: 'Fizető',
@@ -193,11 +193,9 @@ export const CONFIRM = {
 
 /**
  * The block of requests (slice B, "answer a request"): the heading, the state of each request, the buttons and the
- * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). Every string here is
- * unapproved until the owner ticks its box: [UNAPPROVED T3] the heading, [UNAPPROVED T4] „Válaszra vár”,
- * [UNAPPROVED T5] the states „Jóváhagyva” and „Elutasítva”, [UNAPPROVED T6] the award line, [UNAPPROVED T7] the
- * buttons, [UNAPPROVED T8] the dialog's title, fields, the aid figures and the cap's line, [UNAPPROVED T9] the
- * snackbar, [UNAPPROVED T10] the full-offer warning, [UNAPPROVED T11] the missing award. The amount field says Ft
+ * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). What is still open:
+ * [UNAPPROVED T7] the buttons, [UNAPPROVED T8] the dialog's title, fields, the aid figures and the cap's line,
+ * [UNAPPROVED T10] the full-offer warning and [UNAPPROVED T11] the missing award. The amount field says Ft
  * whatever the currency (T8).
  */
 export const REQUESTS = {
@@ -205,7 +203,7 @@ export const REQUESTS = {
 	awaiting: 'Válaszra vár',
 	approved: 'Jóváhagyva',
 	refused: 'Elutasítva',
-	award: 'Jóváhagyva (%s)', // [UNAPPROVED T6]
+	award: 'Jóváhagyva (%s)',
 	answer: 'Válasz',
 	change: 'Válasz módosítása',
 	dialogTitle: 'Kérelem megválaszolása',
@@ -218,16 +216,16 @@ export const REQUESTS = {
 	// names them. [UNAPPROVED T8]
 	figures: {
 		full_price: 'Fizetendő összeg',
-		can_pay: 'Vállalt befizetés',
+		can_pay: 'Befizetni vállalt összeg',
 		asked: 'Kért támogatás',
 		max_award: 'Legfeljebb megítélhető támogatás',
 	},
 	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
-	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.', // [UNAPPROVED T1131]
+	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.',
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
 	// [UNAPPROVED T8] the full offer's warning, in the lektor's words.
 	full: 'Ennek az ajánlatnak már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
-	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
+	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
 };
