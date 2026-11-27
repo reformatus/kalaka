@@ -36,7 +36,9 @@ final class NamingTest extends TestCase
     public function testStoredValuesOfTheWrongShapeOrTooLongFallBackWithoutThrowing(): void
     {
         $tooLong = str_repeat('a', PluginNames::MAX_LENGTH + 1);
-        foreach ([[], 'text', 7, ['kind' => 5], ['kind' => ['x']], ['kind' => $tooLong]] as $stored) {
+        $values = [[], 'text', 7, ['kind' => 5], ['kind' => ['x']], ['kind' => $tooLong]];
+        $values[] = ['kind' => "Alap\xFF"];
+        foreach ($values as $stored) {
             $this->assertSame('Alap', $this->names($stored)->get('kind'));
         }
     }
@@ -67,6 +69,13 @@ final class NamingTest extends TestCase
                 $this->addToAssertionCount(1);
             }
         }
+    }
+
+    public function testAnInvalidUtf8ValueIsRefusedRatherThanDropped(): void
+    {
+        $this->expectException(InvalidInput::class);
+
+        $this->names(null)->checked(['kind' => "Alap\xFF"]);
     }
 
     public function testAnUndeclaredNameCannotBeRead(): void

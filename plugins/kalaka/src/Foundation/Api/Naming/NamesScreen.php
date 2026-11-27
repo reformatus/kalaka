@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Foundation\Api\Naming;
 
 use Kalaka\Admin\Api\AdminAccess;
-use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Entry\Boundary;
 
 /**
  * The plugin's names screen: a WordPress settings page, rendered in PHP, with one text field per declared name,
@@ -49,6 +49,8 @@ final class NamesScreen
 
     /**
      * The setting's sanitize callback: a refusal keeps the stored names and shows the failure's own text.
+     * Runs through the error boundary like every other entry point (foundation.md, "Errors"): a
+     * `KalakaException` is shown as it is, anything else is logged and shown as a `SystemFailure`.
      *
      * @return array<string, string>
      */
@@ -56,35 +58,47 @@ final class NamesScreen
     {
         try {
             return $this->names->checked($input);
-        } catch (InvalidInput $refusal) {
-            add_settings_error($this->store->option, $refusal->errorCode(), $refusal->getMessage());
+        } catch (\Throwable $error) {
+            $refusal = Boundary::shown('saving the names', $error);
+            add_settings_error($this->store->option, $refusal->errorCode(), $refusal->displayMessage());
 
             return $this->names->overrides();
         }
     }
 
-    /** The page. */
+    /** The page, inside the error boundary every rendered page runs through (foundation.md, "Errors"). */
     public function render(): void
     {
-        $option = $this->store->option;
-        $overrides = $this->names->overrides();
-        $max = PluginNames::MAX_LENGTH;
-        echo '<div class="wrap"><h1>' . esc_html($this->title) . '</h1>';
-        settings_errors($option);
-        echo '<form method="post" action="options.php">';
-        settings_fields($option);
-        echo '<table class="form-table" role="presentation"><tbody>';
-        foreach ($this->names->declared() as $name) {
-            $id = $option . '_' . $name->key;
-            $field = $option . '[' . $name->key . ']';
-            $value = $overrides[$name->key] ?? '';
-            echo '<tr><th scope="row"><label for="' . esc_attr($id) . '">' . esc_html($name->default)
-                . '</label></th><td><input type="text" class="regular-text" id="' . esc_attr($id)
-                . '" name="' . esc_attr($field) . '" value="' . esc_attr($value)
-                . '" placeholder="' . esc_attr($name->default) . '" maxlength="' . absint($max) . '"></td></tr>';
-        }
-        echo '</tbody></table>';
-        submit_button();
-        echo '</form></div>';
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- built with esc_html and esc_attr below.
+        echo Boundary::render('the names settings page', function (): string {
+            $option = $this->store->option;
+            $overrides = $this->names->overrides();
+            $max = PluginNames::MAX_LENGTH;
+            ob_start();
+            try {
+                echo '<div class="wrap"><h1>' . esc_html($this->title) . '</h1>';
+                settings_errors($option);
+                echo '<form method="post" action="options.php">';
+                settings_fields($option);
+                echo '<table class="form-table" role="presentation"><tbody>';
+                foreach ($this->names->declared() as $name) {
+                    $id = $option . '_' . $name->key;
+                    $field = $option . '[' . $name->key . ']';
+                    $value = $overrides[$name->key] ?? '';
+                    echo '<tr><th scope="row"><label for="' . esc_attr($id) . '">' . esc_html($name->default)
+                        . '</label></th><td><input type="text" class="regular-text" id="' . esc_attr($id)
+                        . '" name="' . esc_attr($field) . '" value="' . esc_attr($value)
+                        . '" placeholder="' . esc_attr($name->default) . '" maxlength="' . absint($max)
+                        . '"></td></tr>';
+                }
+                echo '</tbody></table>';
+                submit_button();
+                echo '</form></div>';
+            } finally {
+                $html = (string) ob_get_clean();
+            }
+
+            return $html;
+        });
     }
 }

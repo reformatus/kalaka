@@ -16,7 +16,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   [Deferred work](../../../../docs/architecture/foundation.md#deferred-work),
   [Evaluation](../../../../docs/architecture/foundation.md#evaluation),
   [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values),
-  the Time and Money rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
+  the Time, Money and Language rows of [Cross-cutting rules](../../../../docs/architecture/foundation.md#cross-cutting-rules).
 - mail.md: the periodic run's part of [Sending](../../../../docs/architecture/mail.md#sending) (no sender run in an interactive request).
 - engineering.md: [Static checks](../../../../docs/architecture/engineering.md#static-checks), [Fixtures](../../../../docs/architecture/engineering.md#fixtures).
 - money.md: [Amounts](../../../../docs/architecture/money.md#amounts).

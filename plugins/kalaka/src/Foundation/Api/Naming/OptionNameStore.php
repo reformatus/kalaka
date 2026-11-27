@@ -6,8 +6,8 @@ namespace Kalaka\Foundation\Api\Naming;
 
 /**
  * The plugin's names in one WordPress option, `kalaka_<module id>_names`, an array by declared key. The settings
- * screen writes it (WordPress-owned data, outside the runner: foundation.md, "Errors"), and the plugin's
- * `uninstall.php` deletes it.
+ * screen writes it (WordPress-owned data, outside the runner: foundation.md, "Errors"); what uninstall removes is
+ * decided later.
  */
 final class OptionNameStore implements NameStore
 {

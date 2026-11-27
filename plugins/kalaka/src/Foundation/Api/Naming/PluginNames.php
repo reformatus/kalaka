@@ -76,7 +76,8 @@ final class PluginNames
      * it falls back to the default.
      *
      * @return array<string, string>
-     * @throws InvalidInput an undeclared key, a value that is not text, or one longer than `MAX_LENGTH`
+     * @throws InvalidInput an undeclared key, a value that is not text (invalid UTF-8 included), or one longer than
+     *                      `MAX_LENGTH`
      */
     public function checked(mixed $input): array
     {
@@ -86,6 +87,9 @@ final class PluginNames
         $kept = [];
         foreach ($input as $key => $value) {
             if (!is_string($key) || !isset($this->declared[$key]) || !is_string($value)) {
+                throw new InvalidInput();
+            }
+            if (!mb_check_encoding($value, 'UTF-8')) {
                 throw new InvalidInput();
             }
             $value = self::trimmed($value);
