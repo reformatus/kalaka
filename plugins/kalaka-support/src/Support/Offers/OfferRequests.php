@@ -14,6 +14,7 @@ use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\RequestTerms;
 use Kalaka\Registrations\Api\SeatPool;
 use Kalaka\Registrations\Api\Seats;
 
@@ -59,7 +60,13 @@ final class OfferRequests implements RequestSource
                     continue;
                 }
             }
-            $requests[] = new Request(self::PREFIX . $offer->key, RequestKind::Offer, $offer->label);
+            $requests[] = new Request(
+                self::PREFIX . $offer->key,
+                RequestKind::Offer,
+                $offer->label,
+                [$offer->key],
+                $offer->key . SetSupportOffers::ANSWER_SUFFIX,
+            );
         }
 
         return $requests;
@@ -87,6 +94,16 @@ final class OfferRequests implements RequestSource
         }
 
         return $groups === [] ? null : new AwaitingRule($groups);
+    }
+
+    /** An offer has no price to compare an answer with. */
+    public function terms(
+        RegistrationKey $registration,
+        Request $request,
+        array $values,
+        \DateTimeImmutable $now,
+    ): ?RequestTerms {
+        return null;
     }
 
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool

@@ -12,7 +12,7 @@ final class Module extends AbstractModule
 {
     /**
      * money.md, "Core money scope": an event's adjudicated aid is on when it has a row here, keyed by the event.
-     * `label` is the organizers' own name for the aid, shown to staff on the request. [UNAPPROVED N114]
+     * `label` is the organizers' own name for the aid, shown to staff on the request.
      */
     private const SETTINGS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_aid_settings (
