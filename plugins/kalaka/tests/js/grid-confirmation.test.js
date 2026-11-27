@@ -62,6 +62,11 @@ describe( 'the buttons of the manual confirmation block', () => {
 		expect( manualActions( flag, { confirm_manually: true } ) ).toEqual( [] );
 	} );
 
+	test( 'the unconfirm is never offered on an unconfirmed registration (the server\'s can.unconfirm is false there)', () => {
+		expect( manualActions( null, { confirm_manually: true, unconfirm: false }, false ) ).toEqual( [ 'confirm' ] );
+		expect( manualActions( flag, { confirm_manually: true, unconfirm: false }, false ) ).toEqual( [] );
+	} );
+
 	test( 'a read without the flag (no money view) still offers setting, which is idempotent', () => {
 		expect( manualActions( undefined, { confirm_manually: true } ) ).toEqual( [ 'confirm' ] );
 	} );

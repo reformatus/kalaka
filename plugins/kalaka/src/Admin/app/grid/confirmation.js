@@ -24,10 +24,11 @@ export function validateReason( reason ) {
 /**
  * The buttons of the manual confirmation block: `confirm` (the manual flag) with `can.confirm_manually` while the
  * flag is not set (also when the read does not carry it, which is only under the money gate: the set is
- * idempotent); `unconfirm` only with `can.unconfirm`, whatever the flag says. No status logic here: the server's
- * `can` decides alone. So a registration already confirmed by payments shows both buttons ([UNAPPROVED N75]), and a
- * flag on a registration that is not confirmed has no button that revokes it ([UNAPPROVED N70]). [UNAPPROVED N33]
- * [UNAPPROVED N34]
+ * idempotent); `unconfirm` only with `can.unconfirm`, which the server makes true only on a confirmed registration,
+ * whatever the flag says ([UNAPPROVED N33 reboxed: confirmed only, with no required reason]). No status logic here:
+ * the server's `can` decides alone. A flag on a registration that is not confirmed has no button that revokes it
+ * ([UNAPPROVED N70 reboxed: the server clears the manual flag when the registration is withdrawn or removed, which
+ * is Backend's work, not built here]). [UNAPPROVED N75] [UNAPPROVED N34]
  */
 export function manualActions( manual, can ) {
 	const actions = [];
