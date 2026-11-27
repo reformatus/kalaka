@@ -106,7 +106,8 @@ flowchart TB
     set's choice window instead
     ([Modules](modules-and-extensions.md#assignment-sets)).
 - **The slot adds one more rule:** every form in it must contain the
-  required fields and functionality (e.g. exactly one contact email).
+  required fields and functionality (e.g. exactly one contact email, or the
+  field an extension requires, such as the price ladder's `price_tier`).
   Otherwise all forms share the same primitives.
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
@@ -299,7 +300,9 @@ flowchart TB
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
     then may a form hold its key, and only then may staff correct it
-    through views;
+    through views. A form that joins an extension's choice
+    field offers only options the extension declared, any subset of them,
+    and never adds one;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -356,7 +359,8 @@ flowchart TB
   when the type is the same; with another type the save is refused.
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
-  keeping its label, so stored values still read.
+  keeping its label, so stored values still read. An extension field's
+  options are its declarer's, not the forms' union.
 - **Every form-to-backend link is by key.** An admin adds a backend thing
   (a charge, the donation), authors a form, adds a field, and sets the
   field's key to the backend thing's key; the backend names no field. The
@@ -367,8 +371,9 @@ flowchart TB
   form's blocks and do not move to the participant-field list.
 - **An additional form holds neither explicit marking;** the save refuses it,
   as the slot's rule does. A "change my e-mail" form waits for its own design.
-- **Money-relevance is a type capability** supplied by plugins; core ships no
-  money field types. Values are stored like any other, **locked after their
+- **Money-relevance is a type capability** supplied by plugins, or declared
+  by an extension for a field it declares; core ships no money field types.
+  Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
   only through use cases that re-materialize the money; a staff correction
   through views is one and needs no unlock.
@@ -449,7 +454,7 @@ is no other participant-side edit.
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
   field's options (the options a ranking takes from an assignment set
-  included), price-ladder tiers, offers and the adjudicated aid. An
+  included), offers and the adjudicated aid. An
   assignment-set option carries no condition of its own: the form's ranking
   field decides who may pick it. In a form it reads the draft answers and
   the event's values, on every render and again at submit; in the fee components and the materializer it reads the

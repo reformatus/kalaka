@@ -16,6 +16,9 @@ parameters:
         - plugins/kalaka-woocommerce/src
         - plugins/kalaka-woocommerce/kalaka-woocommerce.php
         - plugins/kalaka-woocommerce/uninstall.php
+        - plugins/kalaka-price-ladder/src
+        - plugins/kalaka-price-ladder/kalaka-price-ladder.php
+        - plugins/kalaka-price-ladder/uninstall.php
     scanFiles:
         - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     bootstrapFiles:
@@ -24,4 +27,5 @@ parameters:
         - plugins/kalaka-divi4/vendor/autoload.php
         - plugins/kalaka-ranking/vendor/autoload.php
         - plugins/kalaka-woocommerce/vendor/autoload.php
+        - plugins/kalaka-price-ladder/vendor/autoload.php
         - phpstan-bootstrap.php

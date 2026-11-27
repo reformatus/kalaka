@@ -80,4 +80,9 @@ final class PrefillingHost implements FormHost
     {
         return $this->inner->accountStep($form);
     }
+
+    public function slotRequiredKeys(Form $form): array
+    {
+        return $this->inner->slotRequiredKeys($form);
+    }
 }
