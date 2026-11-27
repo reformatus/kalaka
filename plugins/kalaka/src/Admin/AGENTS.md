@@ -111,5 +111,5 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   allowing it now; `can.restore` is full access and the status allowing it (a restore carries no grant action) (`Registrations\Api\StatusActs`); the status acts are Registrations' use cases, and the
   command line runs them through `Registrations\Api\StatusActions` without a rule of its own: it previews first, prints
   the warnings and money rows, asks (`--yes` skips), then runs for real, as `set-field` does; `--reason` is optional (the preview's `requires_reason` is always false). Whether an actor may see
-  money is one read, `Access::mayViewMoney()`, used by the detail read and the status-act preview. [UNAPPROVED N670]
+  money is one read, `Access::mayViewMoney()`, used by the detail read and the status-act preview.
 - Staff placing into a set option is not an edit: it stays `kalaka/place-registration`.
