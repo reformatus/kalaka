@@ -161,7 +161,7 @@ final class ParticipantFields
     public function lockedAfterFirstWrite(ParticipantField $field): bool
     {
         return $field->moneyRelevant
-            || Contributions::current()->fieldTypes()[$field->type] instanceof MoneyRelevantFieldType;
+            || (Contributions::current()->fieldTypes()[$field->type] ?? null) instanceof MoneyRelevantFieldType;
     }
 
     /**
