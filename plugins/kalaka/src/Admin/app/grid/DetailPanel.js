@@ -2,7 +2,7 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N1200]
+ * tab shows only with `can.view_money`.
  * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
  * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
  * (N1201; written on a click only, see `tabClicks` and [UNAPPROVED N1264]). T3 struck: the disabled „Hamarosan…”
@@ -76,7 +76,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 
 	// Every tab is always shown, an empty one with its own empty text, and the last-clicked tab is kept for the
 	// browser session, so it stays open when another registration is selected; a tab the branch lacks falls
-	// back to the first. A tab the viewer has no right to is left out, as the code already did. [UNAPPROVED N1201]
+	// back to the first. A tab the viewer has no right to is left out, as the code already did.
 	const tabs = [ { name: 'money', title: PANEL.tabMoney } ];
 	const tabMemory = useRef();
 	if ( ! tabMemory.current ) {
@@ -115,7 +115,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
 						) }
-						{ /* The two state rows; their slots stay empty here, a branch above adds children. [UNAPPROVED N1200] */ }
+						{ /* The two state rows; their slots stay empty here, a branch above adds children. */ }
 						{ registration.status_label && (
 							<StatusRow status={ registration.status } text={ registration.status_label } />
 						) }

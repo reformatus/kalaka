@@ -1,7 +1,7 @@
 /**
  * The detail panel's two state rows, each a state with its mark and, under it, a slot for that state's buttons:
  * the status row and the confirmation row. A branch above fills a slot by passing children; with none the slot
- * is not rendered. [UNAPPROVED N1200]
+ * is not rendered.
  */
 import StatusMark from './StatusMark';
 
