@@ -55,7 +55,8 @@ final class MailPages
         // mock), drawn as a CSS mask (`menuStyle()`). Its place is the mock's: right after core's separator and
         // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271, T270]
         // [UNAPPROVED N926 reboxed: the hole (what the top-level item shows until a dashboard exists) is answered by
-        // 8.14: the item lands on „Levelezés”, and „Kaláka” shows that one entry]
+        // 8.14: the item lands on „Levelezés”; its submenu holds that one entry, which WordPress hides while it is
+        // alone, so „Kaláka” is one item and there is no „Irányítópult”]
         add_menu_page(
             Texts::SITE_PAGE,
             Texts::SITE_MENU,
