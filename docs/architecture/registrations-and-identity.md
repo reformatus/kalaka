@@ -202,6 +202,11 @@ erDiagram
   removed) through the phase tracker.
 - **Withdrawal and removal have the same effect on money:** the event's
   retention rule ([Money](money.md#withdrawal-removal-and-substitution)).
+- **The event's seats are its counted `registered` registrations:** the
+  status is the one stored fact, so no seat row is written for the event's
+  places.
+  Whether a submit is waitlisted stays the capacity check and the latch
+  below.
 - **One capacity per event.** Every form in the registration slot counts
   toward it, except **"not counted"** registrations (e.g. children under 13
   at the event's own start, who come with a parent).

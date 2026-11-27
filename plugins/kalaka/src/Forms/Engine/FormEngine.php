@@ -206,7 +206,7 @@ final class FormEngine
      * @throws FormTerminal a terminal page shows for the answers
      * @throws SystemFailure a key the facts do not declare
      */
-    public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
+    public function validate(FormDefinition $definition, array $answers, Facts $facts): ValidatedAnswers
     {
         return $this->validator->validate($definition, $answers, Contributions::current(), $facts);
     }

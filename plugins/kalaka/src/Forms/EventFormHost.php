@@ -64,7 +64,7 @@ final class EventFormHost implements FormHost
     }
 
     /** The event's keys and `account.logged_in`: yes or no on a form with an account step, none on one without. */
-    public function facts(Form $form): ?ValueContext
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         $event = $this->event($form);
         if ($event === null) {
@@ -72,7 +72,7 @@ final class EventFormHost implements FormHost
         }
         $loggedIn = self::accountStepOf($form, $event) === null ? null : is_user_logged_in();
 
-        return new ValueContext(EventValues::form($event, $loggedIn));
+        return new ValueContext(EventValues::form($event, $loggedIn, $now));
     }
 
     public function refusals(Form $form, \DateTimeImmutable $now, array $roles, bool $passwordGiven): array

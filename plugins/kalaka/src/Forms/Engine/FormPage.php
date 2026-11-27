@@ -94,13 +94,13 @@ final class FormPage
         }
 
         $form = $formId > 0 ? $this->forms->form($formId) : null;
-        $facts = $form === null ? null : $this->host->facts($form);
+        $now = Runner::current()->clock()->now();
+        $facts = $form === null ? null : $this->host->facts($form, $now);
         $post = $form === null ? null : get_post($form->id);
         if ($form === null || $facts === null || !$post instanceof \WP_Post) {
             return FormPageView::refused(FormPageView::UNAVAILABLE);
         }
 
-        $now = Runner::current()->clock()->now();
         $refusals = $this->refusals($form, $post, $now);
         if ($refusals !== []) {
             return $this->refusal($refusals[0], $form, $now, $post);

@@ -29,6 +29,7 @@ $kalakaBoot = static function (): void {
         new \Kalaka\Assignments\Module(),
         new \Kalaka\Registrations\Module(),
         new \Kalaka\Pricing\Module(),
+        new \Kalaka\Extras\Module(),
         new \Kalaka\Ledger\Module(),
         new \Kalaka\Payments\Module(),
         new \Kalaka\Mail\Module(),

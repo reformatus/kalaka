@@ -390,14 +390,15 @@ final class FormRoutes
     private function lookup(\WP_REST_Request $request): array
     {
         $form = $this->forms->form($this->formId($request)) ?? throw new NotFound();
-        $values = $this->host->facts($form) ?? throw new NotFound();
+        $now = Runner::current()->clock()->now();
+        $values = $this->host->facts($form, $now) ?? throw new NotFound();
         $post = get_post($form->id);
         if (!$post instanceof \WP_Post) {
             $error = new NotFound();
             throw $error;
         }
 
-        return [$form, $values, FormsPage::refusalsOf($this->host, $form, $post, Runner::current()->clock()->now())];
+        return [$form, $values, FormsPage::refusalsOf($this->host, $form, $post, $now)];
     }
 
     /**
