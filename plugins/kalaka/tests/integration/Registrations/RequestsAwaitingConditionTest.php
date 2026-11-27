@@ -13,6 +13,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\Requests;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\RequestTerms;
 
 /** The grid's "awaits an answer" condition is compiled by core from the sources' rules alone. */
 final class RequestsAwaitingConditionTest extends RegistrationsTestCase
@@ -41,6 +42,15 @@ final class RequestsAwaitingConditionTest extends RegistrationsTestCase
 
             public function seatPool(Request $request): ?string
             {
+                return null;
+            }
+
+            public function terms(
+                RegistrationKey $registration,
+                Request $request,
+                array $values,
+                \DateTimeImmutable $now,
+            ): ?RequestTerms {
                 return null;
             }
 
