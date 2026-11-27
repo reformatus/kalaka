@@ -15,10 +15,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  * Saves an event's adjudicated aid, the label the organizers give it, or turns it off with no label: a step of a
  * money settings apply (`Pricing\Api\MoneySettings::apply()` with `Api\Aid::propose()`), which then re-evaluates
  * every open registration. Saving alone touches no registration. Site-level, like core's fixed price: full access
- * only. Turning aid off deletes the setting only: the stored requests and awards stay, and the apply takes the aid
- * lines away (the component writes none for an event without aid). An unanswered request stops awaiting at once
- * (the request source gives none without settings), so the full price and the due date apply; turning aid on
- * again revives the stored awards and the unanswered requests. [UNAPPROVED N120]
+ * only. Turning aid off is refused (`AidInUse`) while an open registration has a request awaiting an answer or holds an
+ * award above zero; with none it deletes the setting only: the stored requests and awards (refusals, 0) stay, and
+ * the apply takes the aid lines away. Turning aid on again revives them. [UNAPPROVED N120]
  *
  * With a label it declares the aid's two participant fields in the same transaction (the owner's rulings
  * 2026-11-23, topic 14: the code defines the field, the form's field links to it by key): `aid_can_pay`, a number
@@ -47,6 +46,7 @@ final class SetAid implements AdminUseCase
         private readonly Events $events = new Events(),
         private readonly AidInput $input = new AidInput(),
         private readonly ParticipantFields $fields = new ParticipantFields(),
+        private readonly AidUse $use = new AidUse(),
     ) {
     }
 
@@ -92,6 +92,7 @@ final class SetAid implements AdminUseCase
         $stored = $this->settings->findForUpdate($eventId, $context);
         if ($label === null) {
             if ($stored !== null) {
+                $this->use->assertNotInUse($eventId); // [UNAPPROVED N120]
                 $this->settings->delete($stored, $context);
             }
 

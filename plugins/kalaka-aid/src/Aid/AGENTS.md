@@ -34,12 +34,11 @@ is asked until decided. Sponsor and church support is the other extension
   organizers give it); only this module writes the table, `AidSettingsRepository`
   being its only writer. Aid changes only through `kalaka/set-aid`, the save
   step of a money settings apply (`Api\Aid::propose()` with
-  `Pricing\Api\MoneySettings`): preview, then apply. Turning aid off deletes
-  the row only; the stored requests and awards stay, and the component
-  writes no line for an event without aid. An unanswered request stops
-  awaiting at once (full price, transfer block, due date from the
-  registration); turning aid on again revives stored awards and unanswered
-  requests.
+  `Pricing\Api\MoneySettings`): preview, then apply. Turning aid off is
+  refused (`Api\AidInUse`, code `kalaka_aid_in_use`, by `propose()` and `SetAid`, through `AidUse`) while an open
+  registration has a request awaiting an answer or holds an award above zero; otherwise it deletes the row only:
+  the stored refusals (award 0) stay and the component writes no line for an event without aid. Turning aid on
+  again revives the stored answers.
 - The save declares two participant fields of source `extension` (number
   fields) as declarer `aid` (the module's ID, `SetAid::DECLARER`), money relevant: `aid_can_pay`, form-writable, where the participant states what they can pay, and
   `aid_award`, never form-writable. A form links to `aid_can_pay` by key; who
@@ -54,7 +53,10 @@ is asked until decided. Sponsor and church support is the other extension
   compiles it to SQL; the source writes none): `aid_can_pay` holds a value and `aid_award` none (any award, `0` included, is an answer); null while the event has no aid.
 - The award is written only by `AidRequests::writeAnswer()`, called by the
   answer act: the amount for a yes (above zero, and no more than the number
-  field holds), 0 for a no, under the declarer `aid`. The award field
+  field holds), 0 for a no, under the declarer `aid`. The answer act refuses a yes above the full price, the part
+  the component caps at, from this source's `terms()` (`AidRequests::terms()`: `RequestTerms` of the part after
+  the tier, support and share stages, from `ComposedFee::totalBefore()`, and `aid_can_pay`; null without aid or
+  when the registration is not `registered`). The award field
   is the truth of the answer (`isAnswered()`): empty is awaiting, `0` is
   refused, an amount is granted. An emptied `aid_can_pay` leaves the request
   and the award's line, so staff can still change the award. Nothing else
@@ -62,7 +64,7 @@ is asked until decided. Sponsor and church support is the other extension
 - The fee component `aid` composes at the aid stage, returns a value and
   writes nothing. The award is one participant-side item line `aid:award`,
   capped at what the participant owes after the tier, support and share
-  stages and before the extras; the cap never refuses an answer. No award, or
+  stages and before the extras; the component's cap stays for a part that falls after the answer. No award, or
   an award of 0, writes no line; an unanswered request has no award, so it
   reduces nothing. It never reads a charge line.
 - Aid reduces only the participant's part, never the congregation's share.

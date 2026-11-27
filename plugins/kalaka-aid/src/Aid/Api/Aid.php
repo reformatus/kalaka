@@ -6,6 +6,7 @@ namespace Kalaka\Aid\Api;
 
 use Kalaka\Aid\AidInput;
 use Kalaka\Aid\AidSettingsRepository;
+use Kalaka\Aid\AidUse;
 use Kalaka\Events\Api\Events;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
@@ -22,6 +23,7 @@ final class Aid
         private readonly AidSettingsRepository $settings = new AidSettingsRepository(),
         private readonly Events $events = new Events(),
         private readonly AidInput $input = new AidInput(),
+        private readonly AidUse $use = new AidUse(),
     ) {
     }
 
@@ -37,6 +39,7 @@ final class Aid
      *
      * @throws NotFound when there is no such event
      * @throws InvalidInput when the label is not valid or is „Kedvezmény”; `kalaka/set-aid` checks its schema again
+     * @throws AidInUse when turning aid off while a request awaits or holds an award [UNAPPROVED N120]
      * @throws RuleViolation when a field key aid needs is held by a field it may not declare [UNAPPROVED N361]
      *     (`ParticipantFields::checkDeclarable()`: a staff or system field, another type, another declarer)
      */
@@ -45,7 +48,11 @@ final class Aid
         if ($this->events->find($eventId) === null) {
             throw new NotFound();
         }
-        if ($label !== null) {
+        if ($label === null) {
+            if ($this->settings->find($eventId) !== null) {
+                $this->use->assertNotInUse($eventId);
+            }
+        } else {
             $trimmed = trim($label);
             if ($trimmed === '' || mb_strlen($trimmed, 'UTF-8') > AidInput::MAX_LABEL) {
                 throw new InvalidInput();

@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace Kalaka\Aid;
 
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Ledger\Api\Payer;
+use Kalaka\Pricing\Api\FeeComposition;
+use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\PlainAmount;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AwaitingRule;
@@ -15,7 +19,9 @@ use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\Request;
 use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RequestSource;
+use Kalaka\Registrations\Api\RequestTerms;
 use Kalaka\Registrations\Api\SeatPool;
 
 /**
@@ -46,6 +52,7 @@ final class AidRequests implements RequestSource
     public function __construct(
         private readonly AidSettingsRepository $settings = new AidSettingsRepository(),
         private readonly Registrations $registrations = new Registrations(),
+        private readonly FeeComposition $composition = new FeeComposition(),
     ) {
     }
 
@@ -81,6 +88,38 @@ final class AidRequests implements RequestSource
             new FieldTest(self::CAN_PAY_FIELD, FieldTestKind::Filled),
             new FieldTest(AidComponent::AWARD_FIELD, FieldTestKind::Empty),
         ]]);
+    }
+
+    /**
+     * The aid request's full price and what the participant can pay: the price is what the participant owes after
+     * the tier, support and share stages and before the aid and the extras, the same part the component caps the
+     * line at (`ComposedFee::totalBefore()`), never below zero. It is null while the event has no aid or the
+     * registration is not `registered` (nothing is composed for it). The answer act refuses an award above it
+     * (N1132); the detail read shows it (N1131). [UNAPPROVED N1131, N1133]
+     */
+    public function terms(
+        RegistrationKey $registration,
+        Request $request,
+        array $values,
+        \DateTimeImmutable $now,
+    ): ?RequestTerms {
+        if ($this->settings->find($registration->eventId) === null) {
+            return null;
+        }
+        $fee = $this->composition->of($registration, $now);
+        if ($fee === null || $fee->facts->status !== RegistrationStatus::Registered) {
+            return null;
+        }
+        $price = $fee->totalBefore(FeeStage::Aid, Payer::PARTICIPANT);
+        if (!$price->isPositive()) {
+            $price = Money::zero($fee->currency);
+        }
+        $stated = $values[self::CAN_PAY_FIELD] ?? '';
+        $canPay = preg_match('/^[0-9]{1,18}(\.[0-9]{1,8})?$/', $stated) === 1
+            ? Money::of($stated, $fee->currency)
+            : null;
+
+        return new RequestTerms($price, $canPay);
     }
 
     public function seatPool(RegistrationKey $registration, Request $request): ?SeatPool

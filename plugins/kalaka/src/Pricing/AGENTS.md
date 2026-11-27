@@ -90,6 +90,8 @@ retention and the materializer
   effective no earlier than the unconfirm.
   `Api\ManualConfirmations::reconfirmsOnUnconfirm()` is the one dry run of
   that decision, for the warning.
+- `ComposedFee::totalBefore(stage, payer)` is a payer's total over the components of the stages before one (the
+  part a later stage's component sees), a read of the composition for an extension such as the aid's price cap.
 - There is one fee composition, `Api\FeeComposition`: the materializer records
   its difference, and confirmation reads each payer's target from it
   read-only; it reads no ledger line and writes nothing.
