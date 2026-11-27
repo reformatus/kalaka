@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\ParticipantField;
 
+use Kalaka\Forms\Api\FieldType;
 use Kalaka\Forms\Engine\FieldMarkup;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
 use Kalaka\Forms\Api\KeyDerivation;
@@ -19,8 +20,12 @@ use Kalaka\Foundation\Api\Module\Contributions;
 final class FieldBlocks
 {
     /**
-     * @return array<string, array{type: string, title: string, options: ?list<array{value: string, label: string}>}>
-     *     by field key
+     * @return array<string, array{
+     *     type: string,
+     *     title: string,
+     *     options: ?list<array{value: string, label: string}>,
+     *     settings: array<string, mixed>,
+     * }> by field key
      */
     public static function of(string $content, Contributions $contributions): array
     {
@@ -135,11 +140,12 @@ final class FieldBlocks
 
     /**
      * @param array<array<string, mixed>> $blocks
-     * @param array<string, mixed> $fieldTypes
+     * @param array<string, FieldType> $fieldTypes
      * @param array<string, array{
      *     type: string,
      *     title: string,
      *     options: ?list<array{value: string, label: string}>,
+     *     settings: array<string, mixed>,
      * }> $fields
      */
     private static function collect(array $blocks, array $fieldTypes, array &$fields): void
@@ -155,6 +161,7 @@ final class FieldBlocks
                         'type' => $name,
                         'title' => FieldMarkup::text($attributes, 'label'),
                         'options' => $name === ChoiceFieldType::BLOCK_NAME ? self::options($attributes) : null,
+                        'settings' => $fieldTypes[$name]->settings($attributes),
                     ];
                 }
             }

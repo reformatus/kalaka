@@ -163,10 +163,19 @@ values and conditions, prefill and form links
   the logged-in user to the host: `EventFormHost::refusals()` passes
   `is_user_logged_in()`, and a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
-  transaction, never inside it. The one exception is `Forms::refusals()`,
-  which reads nothing: a submit checks it under the event's lock.
+  transaction, never inside it. The exceptions are `Forms::refusals()`,
+  which reads nothing: a submit checks it under the event's lock; and
+  `Forms::participantValues()`, which reads no post, only
+  `ParticipantFields::of()` (its table and the block registry): the
+  evaluation types a registration's field values with it (S25), and a money
+  setting's save checks its conditions against them (S26).
 - Field types contribute through the typed point and return values; no field
-  type writes to a table. Core ships no money-relevant field type.
+  type writes to a table. Core ships no money-relevant field type. A field
+  type's `valueType()` and `value()` fire no hook and write nothing (they may
+  read), so the evaluation may call them inside the transaction; the rest of
+  the point runs outside it. A type's `settings()` names the block settings
+  the event's participant field keeps (the number field's bounds, decimals and
+  affixes); `Forms::participantValues()` passes them to `value()`.
 - A field type whose value is a path (`Api\PathFieldType`) is never compared
   with `equals`: the parser refuses it where the scope knows the key's field
   type (`FormScope` and a mail body's check through `DeclaredScope`'s path
@@ -325,7 +334,10 @@ values and conditions, prefill and form links
   accounts, and anywhere else it renders nothing. Its button opens
   WordPress's login page in a window of its own (`SignUp::url()`); a login
   there lands on the return page (`SignUp::returnUrl()`), which tells the
-  form's page by `postMessage` to its own origin only and closes. The page
+  form's page by `postMessage` to its own origin only and closes. The
+  script adds `popup=1` to the address it opens with `window.open` only
+  (the plain link stays the same-tab fallback), so the return page of the
+  window never redirects to a second form. The page
   then reads its REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`)
   and re-fetches with the block re-rendered, never reloading and never
   overwriting a typed answer; without a message it checks on focus or
@@ -347,3 +359,10 @@ values and conditions, prefill and form links
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.
+- `Forms::withoutAccountBlock()` lists the published registration forms of an event
+  that lack the account block a given account mode wants (the one rule is
+  `AccountBlock::missing()`, which the save check asks for the event's mode), and
+  `Forms::refreshBrokenList()` recomputes `BrokenForms` after a mode change: the
+  two halves of the refusal in
+  [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
+  which `Events\Api\Events::update()` runs around `kalaka/update-event`.

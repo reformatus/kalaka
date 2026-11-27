@@ -7,6 +7,7 @@ namespace Kalaka\Portal;
 use Kalaka\Forms\Api\DateText;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Portal\Api\ActiveRegistration;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use Kalaka\Portal\Api\Availability;
 use Kalaka\Portal\Api\PaymentView;
 use Kalaka\Portal\Api\RegistrationStatusView;

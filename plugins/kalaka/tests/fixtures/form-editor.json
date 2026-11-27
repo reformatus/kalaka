@@ -7,7 +7,8 @@
     "kalaka/text-field": "text",
     "kalaka/choice-field": "choice",
     "kalaka/consent-field": "text",
-    "kalaka/scale-field": "number"
+    "kalaka/scale-field": "number",
+    "kalaka/number-field": "number"
   },
   "pathFieldTypes": [],
   "eventTypes": {
