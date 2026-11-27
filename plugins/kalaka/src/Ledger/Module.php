@@ -124,7 +124,7 @@ SQL;
             'Egy jelentkezőnek visszafizetett összeg kézi rögzítése.'
         );
         // [UNAPPROVED T16, T17] drafts for the lektor.
-        // [UNAPPROVED T984] the correction's description without the reason, replacing ticked T17.
+        // the correction's description without the reason, replacing ticked T17.
         Abilities::register(
             new RecordCorrection(),
             'Korrekció rögzítése',
