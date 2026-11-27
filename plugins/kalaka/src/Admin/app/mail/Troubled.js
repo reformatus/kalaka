@@ -27,7 +27,7 @@ export default function Troubled( { config, version } ) {
 				id: 'code',
 				label: TROUBLED.code,
 				getValue: ( { item } ) => codeName( item.code, item.name ),
-				// The code in its mark, as the batch members and the dialog's lists show it. [UNAPPROVED N949]
+				// The troubled list's code column shows the code in its code mark (name beside it, when the row has one), as the batch members and the dialog's lists do. [UNAPPROVED N949]
 				render: ( { item } ) => <CodeName code={ item.code } name={ item.name } />,
 				enableHiding: false,
 			},

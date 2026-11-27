@@ -44,9 +44,9 @@ export const SUM = {
 	// [UNAPPROVED N1034] [UNAPPROVED T969] Lektor next.
 	selected: '%d kiválasztva',
 	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
-	// [UNAPPROVED T3, T4]
+	// [UNAPPROVED T3, T4 (reboxed: the trigger name was „Oszlopmenü: %s”, now „Összesítés: %s”, as #204)]
 	counting: 'Számolás',
-	open: 'Oszlopmenü: %s',
+	open: 'Összesítés: %s',
 	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };

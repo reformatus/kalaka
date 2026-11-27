@@ -127,7 +127,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 	);
 
 	// The preview gives the names as one map by code (`names`); the send's answer lists only codes, so both lists
-	// take the name from that map. [UNAPPROVED N945]
+	// take the name from that map; a code without an entry shows no name. [UNAPPROVED N945]
 	const nameOf = ( code ) => ( plan && plan.names && plan.names[ code ] ) || null;
 
 	if ( result ) {
@@ -170,7 +170,8 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 				<Fragment>
 					{ /* A view selection that matches nothing gives no recipient (the server refuses a send to it): the line says so and the
 					   send is disabled, as for an empty queue. The scope („all matching” or „the filter's”) is no line of the dialog: the
-					   action bar's count prefix says it. [UNAPPROVED N947] [UNAPPROVED N915] */ }
+					   action bar's count prefix says it. [UNAPPROVED N947: when the plan's queue is empty the dialog's line says nobody gets
+					   the mail and the send button is disabled] [UNAPPROVED N915] */ }
 					<p role="status">
 						<strong>
 							{ plan.queue.length ? fmt( MANUAL.toQueue, plan.queue.length ) : MANUAL.toQueueNone }
