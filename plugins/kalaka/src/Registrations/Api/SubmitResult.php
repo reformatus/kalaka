@@ -22,7 +22,20 @@ final readonly class SubmitResult
         public RegistrationStatus $status,
         public bool $repeated,
         public string $afterSubmit = '',
+        public bool $supplementary = false,
     ) {
+    }
+
+    /**
+     * An additional form's submission to an existing registration (S60), or a repeat of one: the page
+     * gets the same answer as for a new registration, with the registration's status as it is now.
+     */
+    public static function supplemented(
+        RegistrationKey $registration,
+        RegistrationStatus $status,
+        bool $repeated = false
+    ): self {
+        return new self($registration, $status, $repeated, '', true);
     }
 
     public static function created(RegistrationKey $registration, RegistrationStatus $status): self
@@ -39,7 +52,7 @@ final readonly class SubmitResult
     /** The same result with the after-submit content. */
     public function withAfterSubmit(string $html): self
     {
-        return new self($this->registration, $this->status, $this->repeated, $html);
+        return new self($this->registration, $this->status, $this->repeated, $html, $this->supplementary);
     }
 
     /**

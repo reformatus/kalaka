@@ -13,4 +13,10 @@ enum AccessRefusal: string
     case RoleRequired = 'role_required';
     /** S15: someone not logged in submits a form whose event's account mode is mandatory. */
     case AccountRequired = 'account_required';
+    /** An additional form outside its open period. */
+    case OutsideOpenPeriod = 'outside_open_period';
+    /** An additional form with no active registration of its event to write to. */
+    case NoActiveRegistration = 'no_active_registration';
+    /** An additional form whose registration is neither `registered` nor `waitlisted`. */
+    case RegistrationMayNotSubmit = 'registration_may_not_submit';
 }

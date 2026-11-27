@@ -16,7 +16,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
 /**
  * Copies every view of one event to another, optionally with their grants (foundation.md, "Views and
  * grants": "copied to the next event, optionally with their grants"). Grants on the master view are
- * copied with the grants too. Meant to run nested, from the use case that duplicates an event; a
+ * copied with the grants too. The event's master row (its sum row's counted members, S37) is copied like
+ * any view, onto the target's master row. Meant to run nested, from the use case that duplicates an event; a
  * site-level use case: only full access. Returns the new view ids by the old ones.
  */
 final class CopyViews implements AdminUseCase
@@ -78,8 +79,20 @@ final class CopyViews implements AdminUseCase
 
         $copied = [];
         foreach ($this->list->ofEvent($from) as $view) {
-            $shape = ViewShape::fromStored($view['filter'], $view['columns']);
+            $shape = ViewShape::fromStored($view['filter'], $view['columns'], $view['counts']);
             $copied[$view['id']] = $this->views->upsert(new View($to, $view['name'], $shape), $context)->id;
+        }
+        $master = $this->list->master($from);
+        if ($master !== null) {
+            $counts = ViewShape::fromStoredMaster($master['counts'])->counts;
+            $target = $this->list->master($to);
+            $stored = $target === null ? null : $this->views->findForUpdate($target['id'], $context);
+            if ($stored === null) {
+                $this->views->upsert(View::newMaster($to, $counts), $context);
+            } else {
+                $stored->shape = ViewShape::forMaster($counts);
+                $this->views->upsert($stored, $context);
+            }
         }
 
         if (!empty($input['with_grants'])) {
