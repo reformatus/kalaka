@@ -42,10 +42,10 @@ final class SenderManualTest extends MailBodyTestCase
      * @param list<string> $codes
      * @return int the batch ID
      */
-    private function batch(int $event, int $body, array $codes, bool $layout = true): int
+    private function batch(int $event, int $body, array $codes): int
     {
         $result = (new ManualMails())->send(
-            ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => $codes], 'layout' => $layout],
+            ['event_id' => $event, 'body_id' => $body, 'selection' => ['codes' => $codes]],
             new CliActor(null),
             $this->runner
         );
@@ -73,14 +73,16 @@ final class SenderManualTest extends MailBodyTestCase
         self::assertSame('b' . $revision['latest_id'], $row['mail_version']);
     }
 
-    public function testTheBatchsLayoutFlagDecidesWhetherTheEventLayoutWrapsIt(): void
+    public function testTheTemplatesFrameFlagDecidesWhetherTheEventLayoutWrapsAManualMail(): void
     {
         $event = $this->published();
         $this->registration($event);
         $this->setLayout($event, '<div class="keret">{{content}}</div>');
-        $body = $this->document($event, $this->paragraph('Szia!'));
-        $this->batch($event, $body, ['12A3'], true);
-        $this->batch($event, $body, ['12A3'], false);
+        $framed = $this->document($event, $this->paragraph('Szia!'));
+        $bare = $this->document($event, $this->paragraph('Szia!'));
+        $this->usesFrame($bare, false);
+        $this->batch($event, $framed, ['12A3']);
+        $this->batch($event, $bare, ['12A3']);
 
         $this->realSender()->send();
 

@@ -27,7 +27,7 @@ use Kalaka\Mail\Catalogue\UpdateActionMail;
  */
 final class ActionMailCommand
 {
-    private const FIELDS = ['mail', 'label', 'enabled', 'body_id', 'layout'];
+    private const FIELDS = ['mail', 'label', 'enabled', 'body_id'];
 
     /** @param ?\Closure(string, list<array<string, string>>, list<string>): void $print prints rows in a format */
     public function __construct(
@@ -45,7 +45,7 @@ final class ActionMailCommand
     }
 
     /**
-     * Lists the action mails of an event: whether each is on, its body and whether the event layout wraps it.
+     * Lists the action mails of an event: whether each is on, its body.
      *
      * ## OPTIONS
      *
@@ -389,7 +389,6 @@ final class ActionMailCommand
             'label' => $mail->action->label(),
             'enabled' => $mail->enabled ? 'yes' : 'no',
             'body_id' => $mail->bodyId === null ? '' : (string) $mail->bodyId,
-            'layout' => $mail->layout ? 'yes' : 'no',
         ];
     }
 }

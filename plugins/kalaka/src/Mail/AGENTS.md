@@ -45,7 +45,11 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   until set; any other save is refused), stored verbatim (full access is trusted
   like `unfiltered_html`) and never escaped. The per-event settings and the
   layout live in Mail's tables (`kalaka_action_mails`, `kalaka_mail_layouts`),
-  never in post meta. A body serves one action mail only (mail.md, "Words":
+  never in post meta, with one exception: whether the layout (the levélkeret)
+  wraps a mail is a property of its template, the post meta `kalaka_uses_frame`
+  (`MailPosts::usesFrame()`, true until set, full access writes it), read by
+  `MailRenderer::renderBody()` for an action mail and a manual mail alike; no
+  action mail setting and no manual send carries it. A body serves one action mail only (mail.md, "Words":
   `UpdateActionMail` refuses another mail's body, and `body_id` is unique),
   and only a published body is assigned or switched on. A body a switched-on
   action mail uses is neither trashed nor deleted, never leaves `publish` and
@@ -145,7 +149,7 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   filters and search leave.
 - A manual mail is one send batch (`Manual\MailBatch`, `kalaka_mail_batches`)
   and its members (`kalaka_mail_batch_members`: a code and an outcome, queued
-  or skipped because withdrawn or removed; never an address, a name or rendered
+  or skipped because it is not registered (withdrawn, removed or waitlisted); never an address, a name or rendered
   content). The batch is the cause of each of its deliveries (`mail` =
   `manual`, kind `manual`, cause `mail_batch` and the batch ID), so a
   registration gets a batch's mail once. `SendManualMail` only inserts the
