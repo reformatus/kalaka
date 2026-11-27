@@ -6,6 +6,7 @@ namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\AccountBlock;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FormEngine;
@@ -26,6 +27,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  */
 final class Forms
 {
+    /** The field type key (block name) of a consent, whose answer is stored as `1` when given. */
+    public const CONSENT_FIELD = ConsentFieldType::BLOCK_NAME;
+
     public function __construct(
         private readonly FormEngine $engine = new FormEngine(new EventFormHost()),
         private readonly FormPosts $posts = new FormPosts(),
