@@ -9,6 +9,7 @@ import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
 import MoneyTab from './MoneyTab';
 import { ConfirmationRow, StatusRow } from './PanelRows';
+import { rememberedTab, rememberTab } from './panel';
 import { PANEL } from './texts';
 
 /**
@@ -68,6 +69,10 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 		// Only a new activation of the row tries again.
 	}, [ again ] );
 
+	// Every tab is always shown, an empty one with its own empty text, and the last-clicked tab is kept for the
+	// browser session, so it stays open when another registration is selected; a tab the branch lacks falls
+	// back to the first. A tab the viewer has no right to is left out, as the code already did. [UNAPPROVED N1201]
+	const tabs = [ { name: 'money', title: PANEL.tabMoney } ];
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
 	// its snackbar, so only the load-failure message remains. [UNAPPROVED N24]
@@ -128,10 +133,9 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 			{ showsTabs && (
 				<TabPanel
 					className="kg-tabs-money"
-					tabs={ [
-						{ name: 'money', title: PANEL.tabMoney },
-					] }
-					initialTabName="money"
+					tabs={ tabs }
+					initialTabName={ rememberedTab( tabs.map( ( t ) => t.name ) ) }
+					onSelect={ rememberTab }
 					orientation="horizontal"
 				>
 					{ () => (
