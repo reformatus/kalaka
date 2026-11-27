@@ -55,9 +55,11 @@ export function unconfirmBlocked( registration ) {
 /**
  * The reason the unconfirm is disabled: the server's own text from `registration.unconfirm_warning` (#213's T5a,
  * T5b, T5c, with T6 appended when that mail is on), only while `can.unconfirm` is true and the text is not null.
- * It is the disabled button's tooltip. The panel adds no wording and no rule of its own. [UNAPPROVED N76 reboxed]
- * The text is as old as the panel's last read ([UNAPPROVED N79 reboxed]), and a holder without the money view gets
- * the server's text for that case, which was not seen in a browser ([UNAPPROVED N81 reboxed]).
+ * It is the visible help text under the disabled button, tied to it by `aria-describedby`, and it wraps as a
+ * paragraph, so it reaches a touch screen too ([UNAPPROVED N1263]). The panel adds no wording and no rule of its
+ * own. [UNAPPROVED N76 reboxed] The text is as old as the panel's last read ([UNAPPROVED N79 reboxed]), and a
+ * holder without the money view gets the server's text for that case ([UNAPPROVED N81 reboxed: help text, not a
+ * tooltip]).
  */
 export function warningOf( registration, can ) {
 	const text = registration && registration.unconfirm_warning;

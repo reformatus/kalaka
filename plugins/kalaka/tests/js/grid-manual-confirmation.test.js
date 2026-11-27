@@ -10,16 +10,14 @@ import { CONFIRM, PANEL } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement } = require( 'react' );
-	const Button = ( { children, onClick, disabled, accessibleWhenDisabled, label, showTooltip, description } ) =>
+	const Button = ( { children, onClick, disabled, accessibleWhenDisabled, 'aria-describedby': describedBy } ) =>
 		createElement(
 			'button',
 			{
 				onClick: disabled ? undefined : onClick,
 				disabled: disabled && ! accessibleWhenDisabled,
 				'aria-disabled': disabled && accessibleWhenDisabled ? 'true' : undefined,
-				'aria-label': label,
-				'data-tooltip': showTooltip && description ? description : undefined,
-				'aria-description': description,
+				'aria-describedby': describedBy,
 			},
 			children
 		);
@@ -152,13 +150,16 @@ describe( 'the confirmation row', () => {
 describe( 'the unconfirm the rules would undo at once', () => {
 	const reason = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
 
-	test( 'is disabled but still focusable, with the server\'s text as tooltip and description', async () => {
+	test( 'is disabled but still focusable, with the server\'s text as visible help text and as its description', async () => {
 		await mount( props( { blocked: true, warning: reason } ) );
 		const unconfirm = button( CONFIRM.unconfirm );
 		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBe( 'true' );
 		expect( unconfirm.disabled ).toBe( false );
-		expect( unconfirm.getAttribute( 'data-tooltip' ) ).toBe( reason );
-		expect( unconfirm.getAttribute( 'aria-description' ) ).toBe( reason );
+		expect( unconfirm.getAttribute( 'aria-describedby' ) ).toBe( 'kalaka-unconfirm-help' );
+		const hint = host.querySelector( '#kalaka-unconfirm-help' );
+		expect( hint.textContent ).toBe( reason );
+		// Under the button, not over anything: the text is a paragraph in the row.
+		expect( unconfirm.compareDocumentPosition( hint ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
 		unconfirm.focus();
 		expect( document.activeElement ).toBe( unconfirm );
 	} );
@@ -169,11 +170,12 @@ describe( 'the unconfirm the rules would undo at once', () => {
 		expect( host.querySelector( '#send' ) ).toBeNull();
 	} );
 
-	test( 'a live unconfirm has no tooltip and is not disabled', async () => {
+	test( 'a live unconfirm has no help text and is not disabled', async () => {
 		await mount( props( { blocked: false, warning: null } ) );
 		const unconfirm = button( CONFIRM.unconfirm );
 		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBeNull();
-		expect( unconfirm.getAttribute( 'data-tooltip' ) ).toBeNull();
+		expect( unconfirm.getAttribute( 'aria-describedby' ) ).toBeNull();
+		expect( host.querySelector( '#kalaka-unconfirm-help' ) ).toBeNull();
 		await act( async () => unconfirm.click() );
 		expect( host.querySelector( '#send' ) ).not.toBeNull();
 	} );
