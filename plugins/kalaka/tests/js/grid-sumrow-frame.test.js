@@ -46,7 +46,7 @@ function table( withActions ) {
 	return host;
 }
 
-async function mount( framed ) {
+async function mount( framed, selected = 0 ) {
 	const container = table( framed );
 	root = createRoot( document.createElement( 'div' ) );
 	await act( async () => {
@@ -59,6 +59,7 @@ async function mount( framed ) {
 				menuFor: ( column ) => createElement( 'button', { 'data-menu': column.column }, '▾' ),
 				narrowed: false,
 				framed,
+				selected,
 			} )
 		);
 	} );
@@ -115,6 +116,21 @@ test( 'the cell under the actions column carries the divider class while DataVie
 		container.querySelector( 'thead th.dataviews-view-table__actions-column' ).classList.remove( 'dataviews-view-table__actions-column--stuck' );
 	} );
 	expect( last.classList.contains( 'dataviews-view-table__actions-column--stuck' ) ).toBe( false );
+} );
+
+test( 'the cell under the select-all checkbox holds the ticked count, and is empty while nothing is ticked', async () => {
+	const none = await mount( true );
+	expect( none.querySelector( 'tr.kg-sumtr' ).children[ 0 ].textContent ).toBe( '' );
+	await act( async () => root.unmount() );
+	root = null;
+	none.remove();
+	const container = await mount( true, 3 );
+	const sums = container.querySelector( 'tr.kg-sumtr' ).children;
+	expect( sums[ 0 ].querySelector( '[aria-hidden]' ).textContent ).toBe( '3' );
+	expect( sums[ 0 ].querySelector( '.screen-reader-text' ).textContent ).toBe( '3 kiválasztva' );
+	// Still one cell per header cell: the count does not move the sums.
+	expect( sums ).toHaveLength( container.querySelector( 'thead tr:first-child' ).children.length );
+	expect( sums[ 0 ].classList.contains( 'dataviews-view-table__checkbox-column' ) ).toBe( true );
 } );
 
 test( 'without row actions there is one cell per field and nothing else', async () => {

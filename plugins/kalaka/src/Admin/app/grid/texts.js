@@ -40,6 +40,9 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
+	// The ticked count under the select-all checkbox, for screen readers (the cell shows the number only).
+	// [UNAPPROVED N1034] [UNAPPROVED T969] Lektor next.
+	selected: '%d kiválasztva',
 	// The arrow of a sum cell opens the column's menu; its counting group. [UNAPPROVED T3, T4]
 	counting: 'Számolás',
 	open: '%s oszlopmenüje',

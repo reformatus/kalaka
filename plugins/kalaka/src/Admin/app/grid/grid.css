@@ -79,6 +79,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
 /* The frame cell under the sticky actions column is sticky too, so no sum shows through below the header. */
 #kalaka-grid thead tr.kg-sumtr td.kg-sumtd-actions { position: sticky; right: 0; }
+.kg-sumtd .kg-sumsel { font-weight: 600; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
 .kg-sumtd .kg-sumopen { vertical-align: middle; }
 

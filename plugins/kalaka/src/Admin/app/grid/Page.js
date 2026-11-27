@@ -671,6 +671,7 @@ export default function Page( { config } ) {
 				menuFor={ menuFor }
 				narrowed={ narrowed }
 				framed={ actions.length > 0 }
+				selected={ selectedRows.length }
 			/>
 			<div
 				ref={ setHost }
