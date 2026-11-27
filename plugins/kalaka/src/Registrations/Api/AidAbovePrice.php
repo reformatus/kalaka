@@ -15,7 +15,7 @@ final class AidAbovePrice extends RuleViolation
 {
     protected function defaultMessage(): string
     {
-        return 'A támogatás nem lehet több a fizetendő összegnél.'; //
+        return 'A támogatás nem lehet több a fizetendő összegnél.';
     }
 
     public function errorCode(): string
