@@ -19,6 +19,14 @@ interface DecisionRule
     public function states(): array;
 
     /**
+     * The icon (a Dashicons name) and the tone ('' for none) each state is shown with, so no client holds a table of
+     * its own: a state with no entry has no mark. [UNAPPROVED N1107]
+     *
+     * @return array<string, array{icon: string, tone: string}> state => mark
+     */
+    public function marks(): array;
+
+    /**
      * The kind's base state, derived where it has no record, and the statuses it is defined for; null: no
      * base state, so no record reads as no state in every status. [UNAPPROVED N7]
      */
