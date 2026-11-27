@@ -11,6 +11,7 @@ import { Button, SnackbarList } from '@wordpress/components';
 import RecordDialog from './RecordDialog';
 import { allowedTypes, canCorrect, entryColumns, formatBalance, formatDay, formatMoney, lineNote, typeWord } from './money';
 import { SNACKBAR_MS, withNotice, withoutNotice } from './snack';
+import { returnFocus } from './panel';
 import { MONEY } from './texts';
 
 /**
@@ -22,8 +23,9 @@ import { MONEY } from './texts';
  * @param {Function} props.reload  re-reads the panel's detail; resolves when it is on screen
  * @param {boolean}  props.stale   the last re-read failed: the figures are hidden, the snackbar stays
  * @param {Function} props.onSaved tells the grid an entry was saved
+ * @param {Object}   props.closeRef ref to the panel's close button, where focus goes when the opener is gone
  */
-export default function MoneyTab( { config, code, money, can, reload, stale, onSaved } ) {
+export default function MoneyTab( { config, code, money, can, reload, stale, onSaved, closeRef } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
@@ -42,12 +44,10 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 		const found = money.payers.find( ( p ) => p.payer === key );
 		return found && found.label ? found.label : key;
 	};
+	// After a save, or a cancel, focus returns to the control that opened the dialog; when that is gone, to the
+	// panel's close button. [UNAPPROVED N1202]
 	const focusOpener = () =>
-		window.requestAnimationFrame( () => {
-			if ( opener.current && opener.current.isConnected ) {
-				opener.current.focus();
-			}
-		} );
+		window.requestAnimationFrame( () => returnFocus( opener.current, closeRef && closeRef.current ) );
 	// G12: the „Tétel rögzítése” dialog (a payment or a refund) and the correction's own. [UNAPPROVED N39]
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;

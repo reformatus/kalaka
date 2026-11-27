@@ -24,6 +24,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	const [ detail, setDetail ] = useState( null );
 	const [ problem, setProblem ] = useState( null ); // 'missing' (404) or 'failed'
 	const root = useRef();
+	const closeRef = useRef();
 	const shown = useRef( code );
 	shown.current = code;
 
@@ -118,7 +119,13 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 						) }
 					</div>
 				) }
-				<Button icon="no-alt" label={ PANEL.close } onClick={ onClose } className="kg-panel-close" />
+				<Button
+					icon="no-alt"
+					label={ PANEL.close }
+					onClick={ onClose }
+					className="kg-panel-close"
+					ref={ closeRef }
+				/>
 			</div>
 			{ problem && (
 				<p className="kg-load-fail" role="alert">
@@ -147,6 +154,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 							can={ detail.can }
 							reload={ reload }
 							onSaved={ onSaved }
+							closeRef={ closeRef }
 						/>
 					) }
 				</TabPanel>

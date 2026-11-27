@@ -1,6 +1,6 @@
 /**
  * The detail panel's small rules, apart from the components so Jest runs them as they are: the tab the viewer
- * last clicked (kept for the browser session). No WordPress imports.
+ * last clicked (kept for the browser session) and where focus goes after a save. No WordPress imports.
  */
 
 /** The `sessionStorage` key of the last-clicked tab. */
@@ -40,4 +40,20 @@ export function rememberTab( name, store = session() ) {
 	} catch {
 		// Nothing to keep it in: the tab simply is not remembered.
 	}
+}
+
+/**
+ * After a save, focus returns to the control that opened the dialog; when that control is gone, to the panel's
+ * close button. Returns the element focused, or null when neither can take it.
+ *
+ * @param {?Element} opener   the control that opened the dialog
+ * @param {?Element} fallback the panel's close button
+ */
+export function returnFocus( opener, fallback ) {
+	const target = opener && opener.isConnected ? opener : fallback;
+	if ( target && target.isConnected ) {
+		target.focus();
+		return target;
+	}
+	return null;
 }

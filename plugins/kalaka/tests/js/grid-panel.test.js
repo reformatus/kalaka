@@ -1,7 +1,7 @@
 /**
- * The detail panel's small rules: the remembered tab.
+ * The detail panel's small rules: the remembered tab, and where focus goes after a save.
  */
-import { TAB_KEY, rememberedTab, rememberTab } from '../../src/Admin/app/grid/panel';
+import { TAB_KEY, rememberedTab, rememberTab, returnFocus } from '../../src/Admin/app/grid/panel';
 
 const memory = () => {
 	const data = {};
@@ -42,5 +42,40 @@ describe( 'the remembered tab', () => {
 		};
 		expect( () => rememberTab( 'money', broken ) ).not.toThrow();
 		expect( rememberedTab( [ 'money', 'data' ], broken ) ).toBe( 'money' );
+	} );
+} );
+
+describe( 'focus after a save', () => {
+	const button = ( label ) => {
+		const el = document.createElement( 'button' );
+		el.textContent = label;
+		document.body.appendChild( el );
+		return el;
+	};
+
+	afterEach( () => {
+		document.body.innerHTML = '';
+	} );
+
+	test( 'returns to the control that opened the dialog', () => {
+		const opener = button( 'open' );
+		const close = button( 'close' );
+		expect( returnFocus( opener, close ) ).toBe( opener );
+		expect( document.activeElement ).toBe( opener );
+	} );
+
+	test( 'goes to the close button when the opener is gone', () => {
+		const opener = button( 'open' );
+		const close = button( 'close' );
+		opener.remove();
+		expect( returnFocus( opener, close ) ).toBe( close );
+		expect( document.activeElement ).toBe( close );
+	} );
+
+	test( 'does nothing when neither is on the page', () => {
+		const opener = button( 'open' );
+		opener.remove();
+		expect( returnFocus( opener, null ) ).toBeNull();
+		expect( returnFocus( null, null ) ).toBeNull();
 	} );
 } );
