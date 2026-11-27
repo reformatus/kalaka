@@ -92,7 +92,7 @@ final class SetAid implements AdminUseCase
         $stored = $this->settings->findForUpdate($eventId, $context);
         if ($label === null) {
             if ($stored !== null) {
-                $this->use->assertNotInUse($eventId); //
+                $this->use->assertNotInUse($eventId);
                 $this->settings->delete($stored, $context);
             }
 

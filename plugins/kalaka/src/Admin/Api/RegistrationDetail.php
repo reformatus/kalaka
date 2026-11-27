@@ -286,7 +286,6 @@ final class RegistrationDetail
      * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
      * fails.
      *
-     *
      * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
      */
     private function aidTerms(RegistrationKey $key, RequestState $state): ?array
