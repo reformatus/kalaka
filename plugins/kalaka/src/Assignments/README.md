@@ -4,7 +4,7 @@ Assignment sets, options, assignment facts, tallies, roster views and the propos
 
 Tables (`Module.php`, schema 2): `kalaka_assignment_sets` (a set of an event: name, time slot, required, mode,
 published, `request_field_key`), `kalaka_assignment_options` (keyed by set and option key: position, label,
-capacity, leaders, place) and `kalaka_assignments` (the facts, keyed
+limit (the column is still `capacity`), leaders, place) and `kalaka_assignments` (the facts, keyed
 by event, code and set: option, source, state). `SetRepository`, `OptionRepository` and `AssignmentRepository` are their
 only writers.
 
@@ -16,7 +16,14 @@ derives a new option's key), `TieRequestField`
 `Api\AssignmentSets` reads a set with its options (`find()`, `ofEvent()`) and a registration's assignment
 (`assignment()`), and runs the save and tie use cases. `Api\AssignmentSets::placementWarnings()` is a plain read of
 what staff are told before placing by hand (`PlacementWarnings`): the option is full; it gives no warning for a placement the placing would refuse (`PlacementLookup` runs the same
-checks).
+checks). `Api\AssignmentOption`'s `limit` is the same name on input (`SaveAssignmentOption`)
+and on read. The warning "full" is given only to a registration that would take a seat (`registered`).
+
+Seats: `OptionSeatPool` is an option's `Registrations\Api\SeatPool` (key `option.<set ID>.<option key>`, lock row the
+option's, limit the option's `limit`), and `AssignmentSets::seatPool()` hands it out. The module contributes a
+`Registrations\Api\SeatClaimSource` with `Contributions::seatClaimSource()` (`SetOptionClaimSource`): `pools()` names every option
+of a set with a request field, by that field, and `claims()` gives none (a request takes no seat). `PlaceRegistration` takes
+the seat through `Seats::retake()` for a `registered` registration only, and releases the one it held.
 
 Entry points: `wp kalaka assignment place <event> <code> <set> <option>` (`Cli\AssignmentCommand`); the
 `GET kalaka-admin/v1/events/{id}/assignment-sets` route (`Rest\AssignmentSetsRoute`, full access), the form

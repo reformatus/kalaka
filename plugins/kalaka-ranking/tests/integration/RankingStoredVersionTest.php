@@ -86,7 +86,7 @@ final class RankingStoredVersionTest extends MailBodyTestCase
             'set_id' => $this->set,
             'key' => $key,
             'label' => $label,
-            'capacity' => null,
+            'limit' => null,
             'leaders' => '',
             'place' => '',
             'position' => $position,

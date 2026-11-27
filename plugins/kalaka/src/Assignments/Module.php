@@ -8,6 +8,7 @@ use Kalaka\Assignments\Cli\AssignmentCommand;
 use Kalaka\Assignments\Rest\AssignmentSetsRoute;
 use Kalaka\Foundation\Api\Database\SchemaStep;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -96,6 +97,11 @@ SQL;
     {
         SchemaStep::dropColumnIfExists('kalaka_assignment_sets', 'window_opens_at');
         SchemaStep::dropColumnIfExists('kalaka_assignment_sets', 'window_closes_at');
+    }
+
+    public function contribute(Contributions $to): void
+    {
+        $to->seatClaimSource(new SetOptionClaimSource());
     }
 
     public function boot(): void

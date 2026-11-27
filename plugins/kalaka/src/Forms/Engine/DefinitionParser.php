@@ -26,6 +26,7 @@ use Kalaka\Forms\Engine\Condition\ConditionParser;
 use Kalaka\Forms\Engine\Condition\DeclaredScope;
 use Kalaka\Forms\Engine\Condition\FormScope;
 use Kalaka\Forms\Engine\FieldType\ChoiceFieldType;
+use Kalaka\Forms\Engine\FieldType\NumberFieldType;
 use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\Value\DocumentCheck;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -418,6 +419,10 @@ final class DefinitionParser
         if ($name === ScaleFieldType::BLOCK_NAME && ScaleFieldType::range($attributes) === null) {
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a code and a key, never output
             throw new SystemFailure('invalid_scale ' . $key);
+        }
+        if ($name === NumberFieldType::BLOCK_NAME && NumberFieldType::readSettings($attributes) === null) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a code and a key, never output
+            throw new SystemFailure('invalid_number ' . $key);
         }
 
         if ($type instanceof RequestFieldType) {

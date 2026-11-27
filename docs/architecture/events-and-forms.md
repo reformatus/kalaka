@@ -201,8 +201,10 @@ flowchart TB
   and on additional forms, the block is not offered and renders nothing
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
   **Changing an event's account mode** is refused while a published
-  registration form of the event lacks the block, and the broken-forms list
-  is refreshed after a mode change (S72).
+  registration form of the event lacks the block, or while the event's
+  "registered" mail is off or its template lacks the set-password link
+  ([Mail](mail.md#content)), and the broken-forms list is refreshed after a
+  mode change (S72).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
   (UI text approved when built). A multi-page form shows none of its pages
@@ -221,8 +223,9 @@ flowchart TB
   coalesce into one follow-up with the latest answers. A click on Next or
   Send during a request is queued, not lost; Back is ignored while the form
   is busy.
-- **The server validates against the same form definition:** only declared,
-  visible fields are accepted.
+- **The server validates against the same form definition:** only declared
+  fields that show are accepted, and a hidden field only with a value from a
+  link or a prefill.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
 - **Stable field keys**; pickers for conditions come later
@@ -274,8 +277,8 @@ flowchart TB
 
 | Concept | What it is |
 |---|---|
-| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
-| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, choice, scale, …) |
+| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, its type's settings, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
+| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, number, choice, scale, …) |
 | **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Created by a single switch on a form field |
 | **Form field** | A block in a form that asks for one participant field, standalone or copied from a definition (keeping the definition's ID and version) |
 
@@ -292,7 +295,8 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key;
+    then may a form hold its key, and only then may staff correct it
+    through views;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -327,8 +331,10 @@ flowchart TB
   separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
 - **Hidden fields** hold values the registrant does not see, such as an
-  attribution key. They get their values only from the form link record;
-  values the browser sends for them are rejected.
+  attribution key. They get their values from the form link record or from a
+  public prefill ([Prefill from a link](#prefill-from-a-link)), never from the
+  registrant's typing; a prefilled one can be forged, so it is attribution
+  only.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Keys and option values come from the visible text.** A field's key is
@@ -348,6 +354,11 @@ flowchart TB
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
   keeping its label, so stored values still read.
+- **Every form-to-backend link is by key.** An admin adds a backend thing
+  (a charge, the donation), authors a form, adds a field, and sets the
+  field's key to the backend thing's key; the backend names no field. The
+  field with that key is what the thing reads. A backend key no field uses
+  does nothing.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name. They stay on the registration
   form's blocks and do not move to the participant-field list.
@@ -356,7 +367,8 @@ flowchart TB
 - **Money-relevance is a type capability** supplied by plugins; core ships no
   money field types. Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money.
+  only through use cases that re-materialize the money; a staff correction
+  through views is one and needs no unlock.
 
 ### Changing participant fields after submit
 
@@ -367,8 +379,8 @@ is no other participant-side edit.
 - **Every submit appends a submission;** earlier submissions stay as they
   are. The latest write wins in the field values, and each change is
   audited.
-- **Only fields the form shows are written,** plus hidden fields its form
-  link sets. Fields the form does not hold,
+- **Only fields the form shows are written,** plus hidden fields that get a
+  value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
   form showed the current value, so blank is the answer. A shown consent left
@@ -383,9 +395,11 @@ is no other participant-side edit.
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
   allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field.
+  refused unless an organizer unlocked the field; a staff correction through
+  views needs no unlock.
 - **Staff fields may appear in an additional form.**
-- **Admins can correct any field at any time,** through views. An admin
+- **Admins can correct a form or staff field at any time, and an extension
+  field only when it is form-writable,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
   period and revokes the form's links that bypass it.

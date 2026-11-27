@@ -6,8 +6,9 @@ title: Money
 
 ## Core money scope
 
-- **Core:** a fixed price per registration and full payment, with its
-  **payment due** date type. Core ships no money field types.
+- **Core:** a fixed price per registration, full payment, an event's extra
+  charges and its donation, with its **payment due** date type. Core ships no
+  money field types.
 - **Payment due** is N days after the registration last became `registered`
   (at submit, admission or restore); N is configured per event (IVK: 7
   days). A registration admitted from the waitlist counts from its
@@ -31,6 +32,18 @@ title: Money
      ([Fields](events-and-forms.md#fields));
   2. sponsor or church support: offers on an organization directory
      ([Sponsor and church support](#sponsor-and-church-support)).
+- **Extra charges and the donation are core,** two fee components at the
+  extras stage that the participant pays. An event's extra charges are a
+  key, a label and an amount each, set through the money settings apply; the
+  participant field with the same key calls one, and the amount is
+  multiplied by the answer's whole value, by the field's type: a consent
+  once, a whole-number field `n` times (a charge key no field uses charges
+  nobody, nor does any other field type). Each extra charge a registration
+  owes is its own line, `extras:<key>`, with no condition of its own. The donation is the value of
+  the event's number field with the fixed key `adomany`, which Kaláka sets,
+  as one `donation` line, charged exactly as stored; empty, 0 or a negative
+  value writes none, and it has no setting. Support and the congregation
+  share never cover either.
 - Price-ladder tier quotas are separate from the event's waitlist. Each
   tier's quota is configured once, and texts render from it. Places in
   tier and support quotas follow [Quota places](#quota-places).
@@ -165,17 +178,20 @@ only at the participant's side.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are extension
-decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+Tier places of the price ladder and support-offer places are seats, under the
+one seat rule
+([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Held** when the registration becomes `registered` (at submit, admission or
-  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
-  Waitlisted registrations hold no place.
-- **Released** on withdrawal or removal.
-- **Reassigned only by a staff act:** staff give a freed place to a requester
-  from a list in registration order, so nobody's money changes
-  automatically.
-- **A restored registration** gets a place only if one is free.
+- **Taken** at submit, admission or restore, under a `FOR UPDATE` lock on the
+  tier or offer row. Waitlisted registrations hold no place.
+- **A full one cannot be chosen:** the submit is refused, as for a full set
+  option. Staff can still place a registration by hand, warned that the pool
+  is full.
+- **Released** on withdrawal or removal, and when an answer refuses the
+  offer (a partner approves or refuses through the same act as staff).
+- **A restored or admitted registration** keeps what it chose and takes its
+  places, over the limit where a pool is full, with the "full" warning to
+  staff, as the one seat rule says for every staff act.
 
 ## Withdrawal, removal and substitution
 
@@ -240,15 +256,15 @@ such as lunch or a donation.
   owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
   over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
   `EXPLAIN` test.
-- **Support offers per event on any node,** the root included, apply to the
-  node and everything below it: amount, quota (people and/or budget),
-  conditions on facts, "must be requested", and "must be confirmed by the
-  body" (in its view or through a form link).
-- **Stacking:** one flag per offer, "withdrawn if a lower-level support
-  applies", on by default (the most specific wins); off, it adds to the lower
-  one. Offers are evaluated from the congregation upwards, and a higher offer
-  takes a quota place ([Quota places](#quota-places)) only if it ends up
-  applying.
+- **Support offers per event on any node,** the root included, several per
+  node, are offered to the node and everything below it, and the registrant
+  selects them: amount, whether it needs a request (answered by staff or by
+  the body, where a partner approves, through the one "answer a request" act;
+  while the selection awaits an answer, no payment is asked and no due date is
+  shown), and an optional limit of places (people only). Who sees an offer is
+  set up on the form, as for price tiers and extra charges: an offer carries
+  no condition of its own. A selected offer with a limit takes a place
+  ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.
@@ -299,7 +315,7 @@ flowchart LR
   F["Registration facts<br/>status, field values from every form"] --> R
   X["Extension-written field values<br/>aid award, …"] --> R
   PF["Payment facts<br/>read from payment lines only"] --> R
-  R["Fee components<br/>target amount per component and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
+  R["Fee components<br/>target amount per component, item and payer"] --> MZ["Materializer<br/>target − recorded ≠ 0<br/>→ one new line"]
   MZ --> L[("Ledger<br/>append-only lines")]
   PM["Payment-method plugin<br/>e.g. WooCommerce"] -->|"paid / refunded"| L
   ST["Organizers<br/>cash, bank transfer"] --> L
@@ -312,7 +328,7 @@ flowchart LR
   numbers. Aid comes out of the participant's part only and never reduces
   the congregation's share.
 - **It converges:** it writes only the difference between target and
-  recorded, per component and payer, so it can run any number of times, with
+  recorded, per component, item and payer, so it can run any number of times, with
   line idempotency keys.
 - **Changes caused by an action** are materialized by the evaluation inside
   that action ([Foundation](foundation.md#evaluation)). **Changes caused by

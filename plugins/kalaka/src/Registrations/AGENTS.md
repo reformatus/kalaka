@@ -11,6 +11,8 @@ the waitlist and reference codes
   [Submissions and values](../../../../docs/architecture/registrations-and-identity.md#submissions-and-values),
   the status, sorszám and submit-time capacity decision of [Status, capacity and waitlist](../../../../docs/architecture/registrations-and-identity.md#status-capacity-and-waitlist),
   [Reference codes](../../../../docs/architecture/registrations-and-identity.md#reference-codes),
+  the seat rule of [Facts, decisions and computed values](../../../../docs/architecture/foundation.md#facts-decisions-and-computed-values)
+  and [Quota places](../../../../docs/architecture/money.md#quota-places) (`Api\Seats`),
   the secret links of [Access](../../../../docs/architecture/registrations-and-identity.md#access),
   the owner account of [Accounts on the registration form](../../../../docs/architecture/registrations-and-identity.md#accounts-on-the-registration-form).
 - foundation.md: the registration rows of [Lock order](../../../../docs/architecture/foundation.md#lock-order).
@@ -126,9 +128,13 @@ the waitlist and reference codes
   registration links, `registration_redirect` and `login_redirect`, each
   through the return page (`Account\SignUpPage::returnPage()`, on
   `login_form_kalaka_account`) to the form's page found on the server
-  (`Forms\Api\SignUp::page()`), never an address from the request. The
-  return page prints no text; it tells only a window opener of its own
-  origin, and otherwise goes to the form's page. The registration mail's
+  (`Forms\Api\SignUp::page()`), never an address from the request. Without
+  the popup marker the return page prints no text; it tells only a window opener of its own
+  origin, and otherwise goes to the form's page. With the marker
+  `popup=1` (`SignUp::POPUP`, exactly `1`; carried through every path
+  above, the password-reset login link included) it never goes anywhere:
+  it is drawn in WordPress's login frame, tries to close the window, and
+  after 300 ms shows a line and a close button if the window is still open. The registration mail's
   set-password link carries the marker, so logging in after the password is
   set returns to the form's page directly.
 - `kalaka_unverified` is cleared only on `password_reset` and
@@ -137,4 +143,57 @@ the waitlist and reference codes
 - Site-wide, the author archive of any user with no published posts is a
   404 (`SignUpPage`, `pre_handle_404`), so `?author=N` never lists
   participant accounts' names (N21). Authors with posts keep theirs.
+- A seat is a fact (`kalaka_seats`, one row per registration and pool), written only through `Api\Seats`,
+  and only inside an act that holds the registration's row: the registrant's submit, an admission, a restore or
+  staff placing. It is taken under a `FOR UPDATE` lock on the pool's own row (`Api\SeatPool::lock()`), taken
+  before the seats are counted, so two acts for the last seat serialise and the second counts the first. A pool
+  at a lock level before the registration row (a quota row) is locked before the registration row is:
+  a submit locks and checks its quota pools before the registration is written, in `Seats::inLockOrder()` (by
+  level, then table and key as the runner's guard compares them, never by pool-key string); an act on an
+  existing registration (admission, restore, staff placing) calls `Seats::lock()` for such a pool first, then
+  locks the registration, then takes the seat. A `take*()` that finds the registration held and a quota row not
+  fails the run with the guard's `SystemFailure`: the pool's lock cannot be taken after the registration's. Any
+  other pool is locked inside `take*()`, once the registration row is in.
+- A full pool refuses `take()` and `kalaka-portal/submit-registration` (the form comes back with the refusal on
+  the choice's field, nothing saved). Admission, restore and staff placing take the seat with `retake()`
+  (`takeOver()` is private to `Seats`): over the limit when the pool is full, with the "full" warning; only a
+  submit is refused by a full pool. `retake()` is the one entry for admission, restore and staff placing: per
+  pool it reports `held`, `over` or `none` and never refuses, and never touches the event's "full" latch. A staff
+  act reads the "full" warning from that outcome; the preview before the act reads `wouldOverfill()`. Only a
+  `registered` submit takes its claims' seats: a waitlisted one holds none, and is refused when any claim is a
+  pool with a limit (see below).
+- A seat is freed only by leaving (`release()`, `releaseAll()` on withdrawal and removal, and later an answer that
+  refuses an offer). A freed seat stays free until some registration's own act takes it: nothing here moves a seat
+  from one registration to another, and a count never hands a place on.
+- A submit's seat claims come from contributed `Api\SeatClaimSource`s
+  (`Contributions::seatClaimSource()`): answers in, `SeatClaim`s out; a source locks, counts and writes nothing.
+  `RegistrationSubmit` asks each on every attempt and hands the claims to the use case. `pools()` names every pool
+  a source can claim (field key, option value, pool), for the form host's `seats_left.<field key>.<option value>`.
+  `Seats::wouldOverfill()` is the one "would go over" read; `Seats::left()` of the event's pool is 0 while its
+  latch is set.
+  A source claims only the registration's current entitlement: a choice that gives it no place now (an offer
+  whose request was refused) makes no claim, for a submit's answers and for stored values alike.
+- A submit that lands on the waitlist may choose nothing limited (owner ruling 2026-11-25, O4/A3): any claim
+  on a pool with a limit is refused on that choice with the same refusal and text as a full pool
+  (`SeatsFull::TEXT`; the field's own error, as a pool that filled up) and nothing is written; unlimited pools
+  are not refused. "Goes to the waitlist" is the one read `Seats::left(eventPool) === 0`, under the event lock,
+  the same read the form side uses. Admitted registrations' additional forms are unchanged.
+- The event's pool has no rows: its seats are the counted `registered` statuses, and the latch decides the
+  waitlist as it always did. `Seats::left()` and `over()` are computed on read, never stored.
+- Removing a chosen item (a tier, an option, an offer) is refused through one call,
+  `Registrations::refuseRemovingChosen()`, which throws `Api\ItemChosen` (`kalaka_item_chosen`); a module's own
+  removal guard calls it and does not throw its own refusal.
+- `RegistrationStatus::showsDetails()` (true unless waitlisted) is the one read of what a waitlisted registrant
+  sees (the registrant's page shows only that they are waitlisted: owner ruling 2026-11-25). It is not an action
+  gate: additional forms and payments stay on `=== Registered`.
+- A staff correction of a field value (`Api\FieldCorrections`, used by Admin's `EditFieldValue`) writes the value
+  only through `FieldValueRepository` and moves seats only through the claim sources: the seats the old value
+  claimed and the new one does not are freed, the others taken, never through per-field code. The pools to take are
+  planned from a plain read and locked (`lockPools()`) before the registration row is, and the plan is checked
+  against the values re-read under the lock (else `VersionConflict`). Seats move only for a `registered`
+  registration, and the take is `Seats::retake()` (over the limit when the pool is full, reported as `over`; the
+  preview reads `wouldOverfill()`). The class returns no stored value (it answers booleans, option keys and field
+  keys, and compares the registration's state against a fingerprint inside, and only in `check()`, which takes
+  the run's `Context` and refuses a run that does not hold the registration), so Admin, which may not use the
+  "Registration data" layer, reaches registration data only through the view query still.
 - Only Registrations writes its tables.

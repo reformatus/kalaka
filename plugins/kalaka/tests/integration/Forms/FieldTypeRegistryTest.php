@@ -92,6 +92,7 @@ final class FieldTypeRegistryTest extends FormsTestCase
                 'kalaka/choice-field',
                 'kalaka/consent-field',
                 'kalaka/scale-field',
+                'kalaka/number-field',
             ],
             array_keys($types)
         );
