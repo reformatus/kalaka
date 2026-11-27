@@ -58,9 +58,9 @@ final class MailPagesTest extends GrantTestCase
 
         MailPages::menu();
 
-        self::assertSame(['kalaka', 'kalaka-mail'], $this->submenu('kalaka'));
+        self::assertSame(['kalaka-mail'], $this->submenu('kalaka-mail'));
         // After core's separator (4) and before the events (4.01 and up), drawn by the CSS mask, not by an icon URL.
-        self::assertSame('kalaka', $GLOBALS['menu']['4.001'][2]);
+        self::assertSame('kalaka-mail', $GLOBALS['menu']['4.001'][2]);
         self::assertSame('none', $GLOBALS['menu']['4.001'][6]);
         self::assertContains(sprintf('kalaka-event-%d-mail', $event), $this->submenu(GridPage::slug($event)));
     }

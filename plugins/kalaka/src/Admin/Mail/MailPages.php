@@ -24,8 +24,6 @@ final class MailPages
 {
     private const EVENT_SLUG = 'kalaka-event-%d-mail';
     private const SITE_SLUG = 'kalaka-mail';
-    /** The top-level „Kaláka” item; the dashboard is deferred, so it lands on the same page as „Levelezés”. */
-    private const TOP_SLUG = 'kalaka';
     private const HANDLE = 'kalaka-admin-mail';
     private const NAMESPACE = 'kalaka-admin/v1';
     /** After core's separator (4), before the events (4.01 and up). */
@@ -51,32 +49,22 @@ final class MailPages
         if (!Access::mayReachAdmin($userId) || !(new Access())->isFull(new UserActor($userId))) {
             return;
         }
-        // A new top-level item with its own submenu: WordPress lists the item itself first and „Levelezés” under it,
-        // so „Levelezés” has its own entry. The item lands on the same page until the dashboard exists. Its icon is
-        // the Kaláka logo, as the owner's menu ruling has it (a plain „K” until the logo exists, as in the menu
+        // A new top-level item with its own submenu: the item lands on the „Levelezés” page and its submenu holds
+        // just „Levelezés”, because there is no dashboard yet (owner ruling 8.14; no „Irányítópult” entry). Its icon
+        // is the Kaláka logo, as the owner's menu ruling has it (a plain „K” until the logo exists, as in the menu
         // mock), drawn as a CSS mask (`menuStyle()`). Its place is the mock's: right after core's separator and
-        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271, N926, T270]
+        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271, N926, T270, N1250]
         add_menu_page(
             Texts::SITE_PAGE,
             Texts::SITE_MENU,
             'read',
-            self::TOP_SLUG,
+            self::SITE_SLUG,
             [self::class, 'render'],
             'none',
             self::KALAKA_POSITION
         );
-        // The first entry WordPress makes from the item's own title is overridden with the ruling's „Irányítópult”
-        // (the 2026-11-07 menu ruling names it so; the dashboard is deferred, so it lands on the „Levelezés” page).
         add_submenu_page(
-            self::TOP_SLUG,
-            Texts::SITE_PAGE,
-            Texts::DASHBOARD,
-            'read',
-            self::TOP_SLUG,
-            [self::class, 'render']
-        );
-        add_submenu_page(
-            self::TOP_SLUG,
+            self::SITE_SLUG,
             Texts::SITE_PAGE,
             Texts::SITE_PAGE,
             'read',
@@ -109,7 +97,7 @@ final class MailPages
     {
         $present = false;
         foreach ((array) ($GLOBALS['menu'] ?? []) as $item) {
-            if (is_array($item) && ($item[2] ?? '') === self::TOP_SLUG) {
+            if (is_array($item) && ($item[2] ?? '') === self::SITE_SLUG) {
                 $present = true;
             }
         }
@@ -117,7 +105,7 @@ final class MailPages
             return;
         }
         $icon = esc_attr(self::LOGO);
-        $css = '#toplevel_page_' . self::TOP_SLUG . ' div.wp-menu-image::before { content: ""; display: block; '
+        $css = '#toplevel_page_' . self::SITE_SLUG . ' div.wp-menu-image::before { content: ""; display: block; '
             . 'width: 20px; height: 20px; margin: 7px auto 0; padding: 0; background-color: currentColor; '
             . '-webkit-mask: url("' . $icon . '") center / 20px 20px no-repeat; '
             . 'mask: url("' . $icon . '") center / 20px 20px no-repeat; }';
@@ -217,7 +205,7 @@ final class MailPages
     {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read
         $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
-        if ($page === self::SITE_SLUG || $page === self::TOP_SLUG) {
+        if ($page === self::SITE_SLUG) {
             return 0;
         }
 

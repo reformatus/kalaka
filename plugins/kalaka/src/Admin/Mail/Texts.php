@@ -19,12 +19,6 @@ final class Texts
     /** The site page and its submenu item: the page the approved paused banner names („Kaláka › Levelezés”). */
     public const SITE_PAGE = 'Levelezés';
 
-    /**
-     * The first submenu entry under „Kaláka”. The owner's menu ruling of 2026-11-07 (`admin-ux-decisions.md`) names it
-     * „Irányítópult”; the dashboard itself is deferred, so the entry still lands on the „Levelezés” page.
-     */
-    public const DASHBOARD = 'Irányítópult';
-
     /** The event's submenu item and its mail page. [UNAPPROVED T271] */
     public const EVENT_PAGE = 'Levelek';
 
