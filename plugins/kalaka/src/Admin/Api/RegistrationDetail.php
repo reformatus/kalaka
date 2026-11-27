@@ -31,6 +31,7 @@ use Kalaka\Registrations\Api\OfferSeats;
 use Kalaka\Registrations\Api\SeatOfferSeats;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RequestKind;
+use Kalaka\Registrations\Api\RequestState;
 use Kalaka\Registrations\Api\Requests;
 
 /**
@@ -234,7 +235,9 @@ final class RegistrationDetail
      * removed: the grid column's meaning, N655), else the act's record says
      * `approved` or `refused`; `amount` is the aid award as text (0 for a refused aid request), null for an offer
      * and before an answer; `seat_full` is true for a refused offer whose pool is full now, the warning before a
-     * "yes" that would go over the limit (B1). No hold is read: awaiting is computed.
+     * "yes" that would go over the limit (B1). An aid item also carries `aid`, the money context (`aidTerms()`).
+     * No hold is read: awaiting is
+     * computed.
      *
      * @return array{currency: string, items: list<array<string, mixed>>}
      */
@@ -246,7 +249,7 @@ final class RegistrationDetail
             $pool = $state->request->kind === RequestKind::Offer
                 ? $state->source->seatPool($key, $state->request)
                 : null;
-            $items[] = [
+            $item = [
                 'id' => $state->request->id,
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
@@ -258,9 +261,46 @@ final class RegistrationDetail
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
                     && $pool !== null && $this->seats->isFull($key, $pool),
             ];
+            if ($state->request->kind === RequestKind::Aid) {
+                $item['aid'] = $this->aidTerms($key, $state);
+            }
+            $items[] = $item;
         }
 
         return ['currency' => $currency, 'items' => $items];
+    }
+
+    /**
+     * The aid request's money context, from the source's `terms()`: `full_price` (what the participant has to pay
+     * before the aid), `can_pay` (what they stated, null when none) and `asked` (the difference, never below
+     * zero) and `max_award` (the most an award can be: the full price today, named apart so the rule can change),
+     * money amounts as text in the read's currency, formatted as the item's `amount`; the dialog computes nothing:
+     * it hints `asked` and warns above `max_award`, which the act refuses. The part is shown to every holder of
+     * the answer action, as the item's `amount` is: answering sets a money amount. Null when the source gives no
+     * terms or a fee component fails.
+     * [UNAPPROVED N1131]
+     *
+     * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
+     */
+    private function aidTerms(RegistrationKey $key, RequestState $state): ?array
+    {
+        try {
+            $terms = $state->source->terms(
+                $key,
+                $state->request,
+                $state->values,
+                Runner::current()->clock()->now()
+            );
+        } catch (FeeComponentFailed) {
+            return null;
+        }
+
+        return $terms === null ? null : [
+            'full_price' => $terms->fullPrice->amount(),
+            'can_pay' => $terms->canPay?->amount(),
+            'asked' => $terms->asked()?->amount(),
+            'max_award' => $terms->maxAmount()->amount(),
+        ];
     }
 
     /**

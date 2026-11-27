@@ -27,6 +27,7 @@ use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\SetFixedPrice;
 use Kalaka\Registrations\Answer\AnswerRequest;
+use Kalaka\Registrations\Api\AidAbovePrice;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\Registrations;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -83,7 +84,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
 
     protected function runnerAt(string $local): Runner
     {
-        $this->source ??= new TestRequestSource();
+        $this->source ??= new TestRequestSource(fullPrice: 30000);
         $this->requests ??= new Requests([$this->source]);
         $this->seats ??= new RecordingSeats();
         $money = new Materializer(new CoreFeeComponents([
@@ -419,6 +420,31 @@ final class AnswerRequestTest extends ManualEntryTestCase
         }
         $this->expectException(InvalidInput::class);
         $this->answer(TestRequestSource::OFFER, 'yes', ['amount' => '5000']);
+    }
+
+    public function testAnAidYesAboveTheFullPriceIsRefusedWithItsOwnCodeAndAtThePriceItStands(): void
+    {
+        $this->addValue($this->event, self::KEY, 'aid_asked', '12000');
+
+        try {
+            $this->answer(TestRequestSource::AID, 'yes', ['amount' => '30001']);
+            self::fail('An award above the full price is refused.');
+        } catch (AidAbovePrice $e) {
+            self::assertSame('kalaka_aid_over_price', $e->errorCode());
+            self::assertInstanceOf(RuleViolation::class, $e);
+            self::assertSame('A megadott támogatás több, mint a fizetendő összeg.', $e->publicMessage());
+        }
+        self::assertSame([], $this->answerRows(), 'nothing is written');
+        self::assertNull($this->value('aid_award'));
+        self::assertTrue($this->awaits());
+
+        $this->answer(TestRequestSource::AID, 'yes', ['amount' => '30000']);
+        self::assertSame(self::huf('30000'), $this->value('aid_award'));
+        // The cap is on the yes only: a no is an award of 0, and an offer is unaffected.
+        $this->addValue($this->event, self::KEY, 'support', 'church');
+        $this->answer(TestRequestSource::AID, 'no');
+        $this->answer(TestRequestSource::OFFER, 'yes');
+        self::assertSame(self::huf('0'), $this->value('aid_award'));
     }
 
     public function testAnUnknownRequestIsNotFoundAndAWithdrawnRegistrationIsRefused(): void
