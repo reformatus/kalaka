@@ -584,6 +584,9 @@ deptrac:
       - Foundation Api
       - Foundation Api Money
       - Events Api
+      - Pricing Api
+      - Ledger Api
+      - Registrations Api
     Foundation Api:
       - WordPress
       - Foundation

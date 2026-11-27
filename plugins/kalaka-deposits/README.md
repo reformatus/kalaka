@@ -13,5 +13,9 @@ wp kalaka deposit <event> <amount>   sets it (greater than zero, at most two dec
 wp kalaka deposit <event> --off      removes it
 ```
 
+The plugin also contributes the retention rule `deposit` (`src/Deposits/Retention/`): an event that has it
+keeps, of a leaving registration's payments, up to its deposit (the participant payer counted first, then the
+other payers in order), and keeps nothing when it has no deposit amount.
+
 There is no screen, route or table. The code is in `src/Deposits/` (see its `AGENTS.md`); tests are in
 `tests/integration/`.

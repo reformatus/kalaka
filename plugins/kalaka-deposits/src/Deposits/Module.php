@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Deposits;
 
 use Kalaka\Deposits\Cli\DepositCommand;
+use Kalaka\Deposits\Retention\DepositRetention;
 use Kalaka\Foundation\Api\Module\AbstractModule;
+use Kalaka\Foundation\Api\Module\Contributions;
 
 final class Module extends AbstractModule
 {
@@ -18,6 +20,11 @@ final class Module extends AbstractModule
     public function requiresApi(): string
     {
         return '>=0.1 <0.2';
+    }
+
+    public function contribute(Contributions $to): void
+    {
+        $to->retentionRule(new DepositRetention());
     }
 
     public function boot(): void

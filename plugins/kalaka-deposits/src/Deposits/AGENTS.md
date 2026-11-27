@@ -16,9 +16,11 @@ public API ([Packaging](../../../../docs/architecture/modules-and-extensions.md#
 
 - This plugin stores only the per-event deposit amount, in the option `kalaka_deposits` (event ID to
   decimal text in the event's currency; no entry means no deposit). It owns no table.
-- The confirmation-threshold implementation and the retention rule (`id 'deposit'`) arrive with the
-  money side's wiring, as later slices of this plugin. The advance (the deposit payment request) and
-  the card read are the money side's. This slice contributes to neither.
+- The plugin contributes one retention rule, `deposit` (`Retention/DepositRetention`): of a leaving
+  registration's payments the event keeps up to its deposit, shared by the payers with the participant
+  payer counted first, and an event with the rule but no deposit amount keeps nothing. It reads the
+  option and writes nothing. The confirmation-threshold implementation and the advance (the deposit
+  payment request) are the money side's and come later; the card read is the money side's too.
 - The command line is the only way in: `wp kalaka deposit`. No screen, no route, no participant text.
 - The amount is a positive decimal text with at most two decimals. It is not turned into money
   here; the money side converts it with the event's currency.
