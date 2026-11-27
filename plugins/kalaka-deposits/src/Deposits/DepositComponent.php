@@ -23,10 +23,8 @@ final class DepositComponent implements ConfigurableFeeComponent
 {
     public const ID = 'deposit';
 
-    /** @param ?array{amount: ?string} $proposed the settings to compose with instead of the stored ones (a preview) */
     public function __construct(
         private readonly DepositSettingsRepository $settings = new DepositSettingsRepository(),
-        private readonly ?array $proposed = null,
     ) {
     }
 

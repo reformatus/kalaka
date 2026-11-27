@@ -25,7 +25,7 @@ final readonly class ProposedDeposit implements ProposedComponentSettings
 
     public function component(): FeeComponent
     {
-        return new DepositComponent(proposed: ['amount' => $this->amount]);
+        return new DepositComponent();
     }
 
     public function save(): SettingsSave

@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Deposits;
 
 use Kalaka\Deposits\Api\Deposits;
+use Kalaka\Events\EventRecord;
+use Kalaka\Events\EventRepository;
 use Kalaka\Foundation\Api\Actor\CliActor;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\NotFound;
+use Kalaka\Foundation\Api\Money\Currency;
+use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Pricing\Api\ProposedMoneySettings;
 use Kalaka\Pricing\Cli\MoneySettingsCommand;
 use Kalaka\Pricing\Cli\SettingsDocument;
@@ -25,7 +29,7 @@ final class DepositSettingsTest extends PricingTestCase
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {
-        require_once dirname(__DIR__, 3) . '/kalaka/tests/integration/Foundation/Seed/WpCliDouble.php';
+        require_once dirname(__DIR__, 4) . '/kalaka/tests/integration/Foundation/Seed/WpCliDouble.php';
         parent::set_up();
         if (!defined('WP_CLI::IS_TEST_DOUBLE')) {
             self::markTestSkipped('The real WP-CLI is loaded; the recording double is not in use.');
@@ -56,6 +60,19 @@ final class DepositSettingsTest extends PricingTestCase
         $proposed = new ProposedMoneySettings(components: [(new Deposits())->propose($eventId, $amount)]);
         $report = $this->settings->apply($eventId, $proposed, new CliActor(null));
         self::assertSame([], $report->failed());
+    }
+
+    private function anotherEvent(): int
+    {
+        $stored = $this->inRun(
+            fn (array $input, Context $context): EventRecord => (new EventRepository())->upsert(
+                new EventRecord('Másik tábor', currency: Currency::HUF),
+                $context
+            )
+        );
+        self::assertInstanceOf(EventRecord::class, $stored);
+
+        return $stored->id;
     }
 
     /** @param array<string, mixed> $content */
@@ -142,7 +159,7 @@ final class DepositSettingsTest extends PricingTestCase
 
     public function testAnotherEventKeepsItsOwnDeposit(): void
     {
-        $other = $this->create('Másik tábor');
+        $other = $this->anotherEvent();
 
         $this->applyDeposit($this->event, '10000');
 
