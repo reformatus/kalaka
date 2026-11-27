@@ -156,7 +156,7 @@ final class GridPage
         $fields = (new FieldDefinitions())->of($eventId);
         $model = new GridModel();
         // Whether a tab's grant carries the manual mail (full access: always); the grid offers the bulk action by
-        // this, and the ability and the preview decide again on every call. [UNAPPROVED N289]
+        // this, and the ability and the preview decide again on every call.
         $mailGrants = [];
         if (!$full) {
             foreach ((new GrantQuery())->forUser($eventId, $actor->userId) as $grant) {

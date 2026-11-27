@@ -25,7 +25,7 @@ export default function useDrafts() {
 
 /**
  * Whether the page holds an entry that differs from what the event's mail read shows: a body chosen but not saved, or
- * a layout typed and not saved. An entry equal to the saved state is not unsaved. [UNAPPROVED N299]
+ * a layout typed and not saved. An entry equal to the saved state is not unsaved.
  */
 export function hasUnsaved( values, data ) {
 	if ( ! data ) {

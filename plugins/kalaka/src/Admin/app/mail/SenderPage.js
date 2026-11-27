@@ -3,11 +3,11 @@
  * cause, since when, by whom, the stored error and the delivery that caused it), the errors in a row, the hourly
  * budget, the pending count, the buttons the read's `can` allows (pause, resume, clear the queue, with a confirm for
  * the clear) and each event's counts with a clear of its held mail. The banner itself is the site warning, which
- * shows on this page like on every admin page. [UNAPPROVED N281] [UNAPPROVED N282] [UNAPPROVED N283] [UNAPPROVED N284]
+ * shows on this page like on every admin page.
  *
  * Fix pass 1: the queue lists are here and nowhere else (the owner's ruling of 2026-11-07: „Levelezés … holds mail
  * settings, controls and the queue; the queue lives only there”): below the counts each event with failed, waiting-
- * after-an-error or stuck deliveries has its list, with the manual mail follow-up on the failed rows. [UNAPPROVED N285]
+ * after-an-error or stuck deliveries has its list, with the manual mail follow-up on the failed rows.
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, Notice, SnackbarList, TextControl } from '@wordpress/components';
@@ -64,8 +64,8 @@ export default function SenderPage( { config } ) {
 			setDraft( String( stored ) );
 		}
 	}, [ stored ] );
-	// The page checks nothing: the server's refusal (`kalaka_mail_budget_invalid`) is the one text for a bad value. [UNAPPROVED N904]
-	// After a refusal the field goes back to the stored value, so the page always shows the budget in force. [UNAPPROVED N907]
+	// The page checks nothing: the server's refusal (`kalaka_mail_budget_invalid`) is the one text for a bad value.
+	// After a refusal the field goes back to the stored value, so the page always shows the budget in force.
 	const saveBudget = ( event ) => {
 		event.preventDefault();
 		const text = draft.trim();
@@ -74,7 +74,7 @@ export default function SenderPage( { config } ) {
 		return run( () => api.setBudget( value ), fmt( CONTROLS.budgetSaved, value ), ( error ) => {
 			setBudgetRefused( true );
 			setDraft( String( stored ) );
-			// The refusal is mapped by its code, not by the server's message (which starts with the generic sentence). [UNAPPROVED T902]
+			// The refusal is mapped by its code, not by the server's message (which starts with the generic sentence).
 			return error && error.code === 'kalaka_mail_budget_invalid' ? CONTROLS.budgetInvalid : null;
 		} );
 	};
@@ -188,14 +188,14 @@ export default function SenderPage( { config } ) {
 						</Fragment>
 					) ) }
 					{ /* The budget keeps its row in the state list (no section of its own) and is shown on this site page only; nothing
-					here says when a change takes effect or names the ceiling. [UNAPPROVED N900] [UNAPPROVED N906] */ }
+					here says when a change takes effect or names the ceiling. [UNAPPROVED N900] */ }
 					<dt>{ data.can.set_budget ? <label htmlFor="km-budget">{ SENDER.budget }</label> : SENDER.budget }</dt>
 					<dd>
 						{ /* A field only when the read allows the budget to be set; otherwise the stored value as text. [UNAPPROVED N902] */ }
 						{ data.can.set_budget ? (
 							<form className="km-budget" onSubmit={ saveBudget }>
 								{ /* A number field with „Mentés” beside it, as pause and resume; nothing is saved on a change. [UNAPPROVED N901]
-								The field and the button are one form, so Enter in the field saves. [UNAPPROVED N908] */ }
+								The field and the button are one form, so Enter in the field saves. */ }
 								<TextControl
 									id="km-budget"
 									type="number"
@@ -211,7 +211,7 @@ export default function SenderPage( { config } ) {
 									__next40pxDefaultSize
 									__nextHasNoMarginBottom
 								/>
-								{ /* The default is a text under the field, never a reset button (none is built). [UNAPPROVED N903] */ }
+								{ /* The default is a text under the field, never a reset button (none is built). */ }
 								<Button type="submit" variant="secondary" disabled={ busy }>
 									{ COMMON.save }
 								</Button>

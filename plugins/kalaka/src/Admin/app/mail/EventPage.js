@@ -1,7 +1,7 @@
 /**
  * The event's „Levelek” page: three tabs in core's TabPanel, the action mails with the layout, the bodies and the past
  * manual batches (the failed deliveries are on „Levelezés”: the owner's ruling puts the queue lists there). One read (`GET /events/{id}/mail`) serves the first two. A saved change is a
- * snackbar. [UNAPPROVED N297] The tab is kept in the address (`&tab=`). [UNAPPROVED N272]
+ * snackbar. The tab is kept in the address (`&tab=`). [UNAPPROVED N272]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { SnackbarList, TabPanel } from '@wordpress/components';
@@ -29,7 +29,7 @@ export default function EventPage( { config } ) {
 	const initial = KEYS.includes( asked ) ? asked : 'mails';
 
 	// Leaving the page (a reload, another admin page, closing the tab) with a choice or a layout not saved: the browser
-	// asks, in its own words. A change of tab inside the page keeps the entries and asks nothing. [UNAPPROVED N299]
+	// asks, in its own words. A change of tab inside the page keeps the entries and asks nothing.
 	const unsaved = hasUnsaved( drafts.values, read.data );
 	useEffect( () => {
 		if ( ! unsaved ) {

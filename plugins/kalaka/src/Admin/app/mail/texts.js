@@ -3,7 +3,7 @@
  * none has been through the Hungarian lektor. Approved strings are reused where they fit and are named in their
  * comment: the mail labels, the refusal texts and the pause banner texts come from the server as they are, and the
  * words below that are marked "approved" are the ones the code already ships. `%d`, `%s` and `%1$s` are filled by
- * `fmt()` (grid/format.js). PHP's own text is in `Admin/Mail/Texts.php` ([UNAPPROVED T270, T271]).
+ * `fmt` (grid/format.js). PHP's own text is in `Admin/Mail/Texts.php` .
  */
 
 /**
@@ -18,7 +18,7 @@ export const TABS = {
 	batches: 'Csoportos levelek',
 };
 
-/** Reads that fail, and the generic fallback of an act with no server text. [UNAPPROVED T273] */
+/** Reads that fail, and the generic fallback of an act with no server text. */
 export const COMMON = {
 	loading: 'Betöltés…', // approved: the grid's
 	loadFail: 'Az oldal betöltése nem sikerült.',
@@ -43,11 +43,11 @@ export const MAILS = {
 	saveBody: 'Mentés', // approved; the body choice is saved by this button, not on every change [UNAPPROVED T287]
 };
 
-/** The event's layout (the raw HTML wrapper). [UNAPPROVED T275] */
+/** The event's layout (the raw HTML wrapper). */
 export const LAYOUT = {
 	title: 'Levélkeret', // approved word
 	field: 'A levélkeret HTML-je',
-	help: 'A {{content}} jelölő helyére kerül a levélsablon szövege.', // reworded per the lektor [UNAPPROVED T275]
+	help: 'A {{content}} jelölő helyére kerül a levélsablon szövege.', // reworded per the lektor
 };
 
 /** The bodies tab. Status words of a post. [UNAPPROVED T276] */
@@ -68,12 +68,12 @@ export const BODIES = {
 	status_private: 'Privát',
 	status_future: 'Időzítve', // reworded per the lektor (core's word)
 	hint: 'A levélsablon szövegét a szerkesztőben lehet megírni.',
-	// Two bodies with one subject are told apart by their number. [UNAPPROVED T289]
+	// Two bodies with one subject are told apart by their number.
 	numbered: '%1$s (%2$d. levélsablon)',
 	numberedStatus: '%1$s (%3$s, %2$d. levélsablon)',
 };
 
-/** The failed deliveries tab. [UNAPPROVED T277] */
+/** The failed deliveries tab. */
 export const TROUBLED = {
 	code: 'Jelentkezési kód', // the owner's ruling 2026-11-27: only the grid's own column keeps „Kód”
 	mail: 'Levél',
@@ -91,11 +91,11 @@ export const TROUBLED = {
 	sendFor: 'Levél küldése: %s',
 };
 
-/** The sender page. [UNAPPROVED T278] */
+/** The sender page. */
 export const SENDER = {
-	state: 'Levélküldés', // the state's heading; the banner's title is not repeated as a heading [UNAPPROVED T291]
+	state: 'Levélküldés', // the state's heading; the banner's title is not repeated as a heading
 	stateLabel: 'Állapot', // approved: the grid's
-	troubled: 'Küldési hibák', // reworded per the lektor; the failed list now sits here [UNAPPROVED T272, T290]
+	troubled: 'Küldési hibák', // reworded per the lektor; the failed list now sits here [UNAPPROVED T272]
 	running: 'A levélküldés fut', // reworded per the lektor: no period, like the banner titles
 	pausedManual: 'A levélküldés szünetel', // approved: the banner's title
 	pausedErrors: 'A levélküldés hiba miatt szünetel', // approved: the banner's title
@@ -107,32 +107,32 @@ export const SENDER = {
 	error: 'Hibaüzenet', // reworded per the lektor
 	errorsInRow: 'Egymást követő hibák száma', // reworded per the lektor
 	budget: 'Óránként legfeljebb küldhető levél', // reworded per the lektor: no „keret” for the limit
-	budgetDefault: 'Alapértelmezés: %d', // under the budget field, a line of its own [UNAPPROVED T901]
-	budgetDefaultInline: 'alapértelmezés: %d', // inside the parentheses of the read-only value [UNAPPROVED T905]
+	budgetDefault: 'Alapértelmezés: %d', // under the budget field, a line of its own
+	budgetDefaultInline: 'alapértelmezés: %d', // inside the parentheses of the read-only value
 	queued: 'Küldésre váró levelek',
 	unknownEvent: '%d. esemény', // reworded per the lektor
 };
 
-/** The sender's controls and their confirmations. [UNAPPROVED T279] */
+/** The sender's controls and their confirmations. */
 export const CONTROLS = {
 	pause: 'Levélküldés szüneteltetése', // reworded per the lektor (pass 2), as the ability's label
 	resume: 'Levélküldés folytatása',
 	clearQueue: 'Küldési sor ürítése',
 	clearEvent: 'Az esemény küldésre váró leveleinek törlése', // reworded per the lektor
-	clearEventFor: '%1$s: az esemény küldésre váró leveleinek törlése', // the button's accessible name [UNAPPROVED T288]
+	clearEventFor: '%1$s: az esemény küldésre váró leveleinek törlése', // the button's accessible name
 	clearQueueConfirm: 'Minden küldésre váró levél törlődik a küldési sorból (%d levél). A már elküldött és a sikertelen levelek megmaradnak.',
-	clearEventConfirm: '%2$s: az esemény minden küldésre váró levele törlődik a küldési sorból (%1$d levél).', // names the event; reworded per the lektor (pass 2): no „X eseményének” [UNAPPROVED T288]
+	clearEventConfirm: '%2$s: az esemény minden küldésre váró levele törlődik a küldési sorból (%1$d levél).', // names the event; reworded per the lektor (pass 2): no „X eseményének”
 	confirm: 'Törlés',
 	paused: 'A levélküldés szünetel.', // reworded per the lektor (the four sentences)
 	resumed: 'A levélküldés folytatódik.',
 	alreadyPaused: 'A levélküldés már szünetel.',
 	notPaused: 'A levélküldés nem szünetel.',
 	cleared: '%d levél törölve.',
-	budgetInvalid: 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.', // the refusal `kalaka_mail_budget_invalid`, shown by its code [UNAPPROVED T902]
+	budgetInvalid: 'Az óránként legfeljebb küldhető levelek száma csak 1 és 2000 közötti egész szám lehet.', // the refusal `kalaka_mail_budget_invalid`, shown by its code
 	budgetSaved: 'Mentve: óránként legfeljebb %d levél küldhető.', // the snackbar after the budget is saved [UNAPPROVED T900]
 };
 
-/** The per-event counts on the sender page. [UNAPPROVED T280] */
+/** The per-event counts on the sender page. */
 export const COUNTS = {
 	section: 'Események', // reworded per the lektor: the plural over the table
 	event: 'Esemény',
@@ -142,14 +142,14 @@ export const COUNTS = {
 	queued: 'Küldésre vár', // reworded per the lektor: one word for a queued mail
 	sent: 'Elküldve',
 	failed: 'Sikertelen',
-	// The mails that wait after an error are among the ones counted as waiting, not a separate count. [UNAPPROVED T280]
+	// The mails that wait after an error are among the ones counted as waiting, not a separate count.
 	withError: 'Újrapróbálásra vár', // the owner's word (2026-11-27): no base to name, the column stands alone
 	stuck: 'Küldés közben elakadt', // reworded per the lektor
 	none: 'Még egy esemény levele sem került a küldési sorba.', // reworded per the lektor
 	open: 'Levelek',
 };
 
-/** The manual mail dialog. [UNAPPROVED T281] */
+/** The manual mail dialog. */
 export const MANUAL = {
 	title: 'Levél küldése',
 	loading: 'A címzettek ellenőrzése…',
@@ -181,7 +181,7 @@ export const RESULT = {
 	batch: '%d. csoportos levél',
 };
 
-/** The batches tab. [UNAPPROVED T283] */
+/** The batches tab. */
 export const BATCHES = {
 	id: 'Sorszám', // reworded per the lektor
 	subject: 'Tárgy',
@@ -197,16 +197,16 @@ export const BATCHES = {
 	outcome_queued: 'sorba került',
 	outcome_skipped_withdrawn: 'kimaradt: visszavont',
 	outcome_skipped_removed: 'kimaradt: törölt',
-	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing [UNAPPROVED T294]
+	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing
 };
 
-/** The grid's bulk action. [UNAPPROVED T284] */
+/** The grid's bulk action. */
 export const GRIDACTION = {
 	label: 'Levél küldése',
-	selectRow: 'Jelentkezés kijelölése: %s', // the row checkbox's accessible name [UNAPPROVED T286]
+	selectRow: 'Jelentkezés kijelölése: %s', // the row checkbox's accessible name
 };
 
-/** Words for a delivery or a batch's user that the server leaves null. [UNAPPROVED T285] */
+/** Words for a delivery or a batch's user that the server leaves null. */
 export const WHO = {
 	nobody: 'Kaláka',
 };

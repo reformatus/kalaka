@@ -4,7 +4,7 @@
  * read has no code-list narrowing, so no name is shown (Backend's N549; ViewQuery has no code-list filter). The error
  * is shown as the server stored it. The one follow-up is a manual mail to that code, the same dialog as the grid's.
  * Only a failed delivery offers the follow-up: a mail that still waits (with the error of an earlier attempt) or is
- * stuck in „sending” may yet go out, so a second copy would be a duplicate. [UNAPPROVED N285] [UNAPPROVED N286]
+ * stuck in „sending” may yet go out, so a second copy would be a duplicate.
  */
 import { Fragment, useMemo, useRef, useState } from '@wordpress/element';
 import { Button } from '@wordpress/components';
