@@ -46,7 +46,7 @@ final class StatusMarkup
             return $html . '<p>' . esc_html(self::EVENT_CLOSED) . '</p></section>';
         }
 
-        $html .= '<p>Azonosító: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
+        $html .= '<p>Jelentkezési kód: <span class="kalaka-code has-medium-font-size">' . esc_html($view->key->code)
             . '</span></p>';
 
         switch ($view->status) {
