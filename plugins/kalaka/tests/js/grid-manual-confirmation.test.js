@@ -83,7 +83,7 @@ describe( 'focus after the act', () => {
 
 	afterEach( () => close.remove() );
 
-	test( 'goes back to the button that opened the dialog while it is still there', async () => {
+	test( 'goes to the row\'s button, which is the one that opened the dialog while it stays', async () => {
 		await mount( props( { closeRef: { current: close } } ) );
 		await act( async () => button( CONFIRM.unconfirm ).click() );
 		await act( async () => host.querySelector( '#send' ).click() );
@@ -91,7 +91,7 @@ describe( 'focus after the act', () => {
 		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
 	} );
 
-	test( 'goes to the close button when the act removed the opener (an unconfirm: can.unconfirm turns false)', async () => {
+	test( 'goes to the new button of the row after an unconfirm replaces it with the set', async () => {
 		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null, confirmed: false, closeRef: { current: close } } );
 		await mount( props( { closeRef: { current: close }, reload: async () => {
 			await mount( after );
@@ -101,10 +101,10 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
-		expect( document.activeElement ).toBe( close );
+		expect( document.activeElement ).toBe( button( CONFIRM.set ) );
 	} );
 
-	test( 'goes to the close button after a set, which hides the set button', async () => {
+	test( 'goes to the new button of the row after a set replaces it with the unconfirm', async () => {
 		const after = props( { can: { confirm_manually: true, unconfirm: true }, closeRef: { current: close } } );
 		await mount( props( { manual: null, confirmed: false, can: { confirm_manually: true, unconfirm: false }, closeRef: { current: close }, reload: async () => {
 			await mount( after );
@@ -114,6 +114,19 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.set ) ).toBeUndefined();
+		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
+	} );
+
+	test( 'goes to the close button when the row has no button left', async () => {
+		const after = props( { can: {}, manual: null, confirmed: false, closeRef: { current: close } } );
+		await mount( props( { closeRef: { current: close }, reload: async () => {
+			await mount( after );
+			return { registration: {}, can: after.can };
+		} } ) );
+		await act( async () => button( CONFIRM.unconfirm ).click() );
+		await act( async () => host.querySelector( '#send' ).click() );
+		await settle();
+		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
 		expect( document.activeElement ).toBe( close );
 	} );
 } );

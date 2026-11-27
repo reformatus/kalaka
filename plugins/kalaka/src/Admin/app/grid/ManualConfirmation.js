@@ -69,6 +69,7 @@ export default function ManualConfirmation( {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
+	const actionsRef = useRef();
 	const timers = useRef( [] );
 	const actions = manualActions( manual, can, confirmed );
 
@@ -85,6 +86,15 @@ export default function ManualConfirmation( {
 		window.requestAnimationFrame( () =>
 			returnFocus( opener.current, closeRef && closeRef.current )
 		);
+	// The opener is replaced by the act itself (the set gives way to the unconfirm, and back), so after one focus
+	// goes to the row's new button, if the row has one, else to the close button ([UNAPPROVED N1265] [UNAPPROVED
+	// N77 reboxed: the opener, else the close button, holds for a cancelled dialog and the money tab's dialogs]).
+	const focusRow = () =>
+		window.requestAnimationFrame( () => {
+			const row = actionsRef.current;
+			const next = row ? row.querySelector( 'button' ) : null;
+			returnFocus( next, closeRef && closeRef.current );
+		} );
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;
 		setDialog( kind );
@@ -100,7 +110,7 @@ export default function ManualConfirmation( {
 		onSaved();
 		setDialog( null );
 		if ( ! text ) {
-			focusOpener();
+			focusRow();
 			return;
 		}
 		const id = String( Date.now() );
@@ -121,7 +131,7 @@ export default function ManualConfirmation( {
 				SNACKBAR_MS
 			)
 		);
-		focusOpener();
+		focusRow();
 	};
 
 	const shown = !! manual || actions.length > 0;
@@ -158,7 +168,7 @@ export default function ManualConfirmation( {
 						</Fragment>
 					) }
 					{ actions.length > 0 && (
-						<div className="kg-actions">
+						<div className="kg-actions" ref={ actionsRef }>
 							{ actions.map( ( kind ) => (
 								<Button
 									key={ kind }
