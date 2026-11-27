@@ -315,7 +315,7 @@ final class StatusBlockTest extends PortalTestCase
         );
         self::assertStringNotContainsString('Még fizetendő', $html);
         self::assertStringNotContainsString("\u{2212}", $html);
-        // The amount text only: a bare '-2' also matches element ids such as kalaka-info-20 in a full run.
+        // The amount text only: a bare '-2' also matches element ids in a full run.
         self::assertStringNotContainsString("-2\u{00A0}000", $html);
         self::assertStringNotContainsString('-2 000', $html);
         self::assertStringNotContainsString('SQ-8', $html);

@@ -29,8 +29,6 @@ final class StatusMarkup
 
     public const BAD_LINK = 'Ez a link nem érvényes. Nyisd meg a legutóbb kapott e-mailben lévő linket.';
 
-    /** Counts the popovers of the request, so two money tables on one page never share an ID. */
-    private static int $popovers = 0;
 
     /** The status block "Jelentkezésem állapota". */
     public static function status(?RegistrationStatusView $view, bool $badLink): string
@@ -202,19 +200,20 @@ final class StatusMarkup
 
     /**
      * One money movement: the type word (row header), the method cell (italic; the method, then its note after
-     * ` · `; a correction's text alone), the sign, the amount, the day (always italic) and the info button with its
-     * native popover. A shortened note is itself a button that opens the same popover. The info button shows on
-     * every row up to 1160 px, and above that only on a row with a shortened note (`kalaka-more`).
+     * ` · `; a correction's text alone), the sign, the amount, the day (always italic) and the info mark. The
+     * details (`Type · Method · day` and the whole note) are the browser's own tooltip, the `title` of the info mark
+     * and of a shortened note, and the info mark's accessible name. The info mark shows on every row up to 1160 px,
+     * and above that only on a row with a shortened note (`kalaka-more`). [UNAPPROVED N1262]
      */
     private static function movementRow(MovementRow $movement, bool $first): string
     {
         $note = $movement->note;
         $short = $note === null ? null : MoneyWords::shortened($note);
         $cut = $note !== null && $short !== $note;
-        $id = 'kalaka-info-' . ++self::$popovers;
+        $details = MoneyWords::headline($movement) . ($note === null ? '' : "\n" . MoneyWords::quoted($note));
         $noteCell = $short === null ? '' : ($cut
-            ? '<button type="button" class="kalaka-note" popovertarget="' . $id . '">'
-                . esc_html(MoneyWords::quoted($short)) . '</button>'
+            ? '<span class="kalaka-note" title="' . esc_attr($details) . '">'
+                . esc_html(MoneyWords::quoted($short)) . '</span>'
             : esc_html(MoneyWords::quoted($short)));
         $method = $movement->methodLabel;
         $cell = $method === null
@@ -222,17 +221,14 @@ final class StatusMarkup
             : esc_html($method) . ($noteCell === '' ? '' : ' · ' . $noteCell);
         $day = MoneyWords::day($movement->valueDay);
         $classes = 'kalaka-move' . ($first ? ' kalaka-rule' : '') . ($cut ? ' kalaka-more' : '');
-        $popover = '<p>' . esc_html(MoneyWords::headline($movement)) . '</p>'
-            . ($note === null ? '' : '<p>' . esc_html(MoneyWords::quoted($note)) . '</p>');
 
         return '<tr class="' . $classes . '"><th scope="row">' . esc_html(MoneyWords::typeOf($movement->type))
             . '</th><td class="kalaka-method">' . self::emphasised('em', $cell) . '</td><td class="kalaka-sign">'
             . esc_html(MoneyWords::sign($movement->amount)) . '</td><td class="kalaka-amount">'
             . esc_html(MoneyText::of(MoneyWords::absolute($movement->amount))) . '</td><td class="kalaka-date">'
             . self::emphasised('em', esc_html($day)) . '</td><td class="kalaka-info">'
-            . '<button type="button" class="kalaka-info-button" popovertarget="' . $id . '" aria-label="Részletek">'
-            . '<span aria-hidden="true">ⓘ</span></button>'
-            . '<div id="' . $id . '" class="kalaka-info-pop" popover>' . $popover . '</div></td></tr>';
+            . '<span class="kalaka-info-button" role="img" title="' . esc_attr($details) . '" aria-label="'
+            . esc_attr($details) . '">ⓘ</span></td></tr>';
     }
 
     private static function transferRow(string $label, string $value): string

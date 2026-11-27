@@ -545,8 +545,8 @@ final class ParticipantMoneyTest extends PortalTestCase
     // ----- The table's markup (owner topics 10 and 11, rounds 2 and 3) -----
 
     /**
-     * The table's rows as the status block renders them: each `classes: cell | cell | …`, the popover text left
-     * out, no-break spaces as spaces.
+     * The table's rows as the status block renders them: each `classes: cell | cell | …`, no-break spaces as
+     * spaces.
      *
      * @return list<string>
      */
@@ -558,7 +558,6 @@ final class ParticipantMoneyTest extends PortalTestCase
         preg_match_all('/<tr(?: class="([^"]*)")?>(.*?)<\/tr>/s', $html, $rows, PREG_SET_ORDER);
         $out = [];
         foreach ($rows as [, $classes, $inner]) {
-            $inner = (string) preg_replace('/<div[^>]*popover>.*?<\/div>/s', '', $inner);
             preg_match_all('/<t[hd][^>]*>(.*?)<\/t[hd]>/s', $inner, $cells);
             $cells = array_map(
                 static fn (string $cell): string => trim(str_replace("\u{00A0}", ' ', wp_strip_all_tags($cell))),
@@ -657,7 +656,7 @@ final class ParticipantMoneyTest extends PortalTestCase
         self::assertSame('kalaka-total: Befizetve összesen |  | −500 Ft |  | ', $rows[4]);
     }
 
-    public function testALongNoteIsCutAtThirtySixCharactersIntoAButtonThatOpensThePopoverWithTheWholeNote(): void
+    public function testALongNoteIsCutAtThirtySixCharactersAndItsTitleHoldsTheWholeNote(): void
     {
         $key = $this->stored('12A3');
         $this->source($key, '10000', 'fixed_price');
@@ -670,39 +669,26 @@ final class ParticipantMoneyTest extends PortalTestCase
         $html = StatusMarkup::status($view, false);
 
         self::assertSame(36, mb_strlen(mb_substr($long, 0, 36)));
-        self::assertMatchesRegularExpression(
-            '/<td class="kalaka-method"><em>Átutalás · <button type="button" class="kalaka-note"'
-            . ' popovertarget="(kalaka-info-\d+)">'
-            . '„közlemény helytelen volt: nem volt b…”<\/button><\/em><\/td>/u',
-            $html
-        );
-        preg_match('/popovertarget="(kalaka-info-\d+)">„közlemény/u', $html, $id);
+        $details = "Befizetés · Átutalás · 2026. 12. 02.\n„" . $long . '”';
         self::assertStringContainsString(
-            '<div id="' . $id[1] . '" class="kalaka-info-pop" popover><p>Befizetés · Átutalás · 2026. 12. 02.</p>'
-            . '<p>„' . $long . '”</p></div>',
+            '<td class="kalaka-method"><em>Átutalás · <span class="kalaka-note" title="' . $details . '">'
+            . '„közlemény helytelen volt: nem volt b…”</span></em></td>',
             $html
         );
+        // The info mark carries the same text as its title and its accessible name; no popover, no button.
+        self::assertStringContainsString(
+            '<span class="kalaka-info-button" role="img" title="' . $details . '"'
+            . ' aria-label="' . $details . '">ⓘ</span>',
+            $html
+        );
+        self::assertStringNotContainsString('popover', $html);
+        self::assertStringNotContainsString('<button', $html);
         // The row with the cut note shows ⓘ on a wide screen; the row with a whole note does not.
         self::assertStringContainsString('class="kalaka-move kalaka-rule kalaka-more"', $html);
         self::assertStringContainsString('<tr class="kalaka-move">', $html);
-        self::assertSame(1, substr_count($html, '<button type="button" class="kalaka-note"'));
-        self::assertSame(2, substr_count($html, 'aria-label="Részletek"'));
+        self::assertSame(1, substr_count($html, 'class="kalaka-note"'));
+        self::assertSame(2, substr_count($html, 'class="kalaka-info-button"'));
         self::assertStringContainsString('<td class="kalaka-method"><em>Készpénz · „rövid”</em></td>', $html);
-    }
-
-    public function testEveryPopoverHasItsOwnIdAcrossTwoTablesOnOnePage(): void
-    {
-        $key = $this->stored('12A3');
-        $this->source($key, '10000', 'fixed_price');
-        $this->manual($key, LineKind::ManualPayment, '-1000', '2026-12-02', PaymentMethod::Cash);
-        $view = $this->read()->of($key);
-        self::assertNotNull($view);
-
-        $html = StatusMarkup::status($view, false) . StatusMarkup::status($view, false);
-        preg_match_all('/<div id="(kalaka-info-\d+)"/', $html, $ids);
-
-        self::assertCount(2, $ids[1]);
-        self::assertCount(2, array_unique($ids[1]));
     }
 
     public function testManualTitlesAndAnErasedTitleReadByTheirTypeInTheMarkup(): void
