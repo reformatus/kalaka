@@ -6,8 +6,11 @@ namespace Kalaka\Forms;
 
 use Kalaka\Forms\Engine\DefinitionParser;
 use Kalaka\Forms\Engine\FormPosts;
+use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\UnknownPlaceholder;
+use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\SaveVeto;
@@ -23,7 +26,9 @@ use Kalaka\Foundation\Api\Module\Contributions;
  *   the event's participant fields a shared key has the same type (`type_clash`) and no form holds a
  *   `system` field's key (`system_field`). This runs on every save but an autosave, drafts included,
  *   because every form of the event declares its fields;
- * - when the form is saved as published or scheduled, the definition check `DefinitionParser` runs on the
+ * - when the form is saved as published or scheduled, a typed placeholder the form's page cannot fill is
+ *   refused first (`unknown()`, `kalaka_unknown_placeholder`, T990's text, the keys as typed), as a mail
+ *   body's save does, then the definition check `DefinitionParser` runs on the
  *   live form (keys, options, unknown blocks, the slot's markings, and whatever the parser checks later
  *   on), and the account block of a registration form whose event has accounts (`AccountBlock`). A draft
  *   is not parsed: it can be half built. A form whose placement is not set yet is not parsed
@@ -32,7 +37,8 @@ use Kalaka\Foundation\Api\Module\Contributions;
  *
  * Each runs over the content as it will be stored (keys and option values derived first, across the event).
  *
- * The REST save (the block editor) is refused with a 400 before anything is written, checked with the
+ * The REST save (the block editor) is refused with a 400 before anything is written, or with a 422 for a
+ * typed placeholder the form's page cannot fill (`kalaka_unknown_placeholder`), checked with the
  * placement and the event the request sets, if any; any other save path (code, WP-CLI, a revision restore)
  * is vetoed gracefully in `wp_insert_post_data`, checked with what it sets in `meta_input`, else the stored
  * settings: nothing ever throws out of a core filter. A veto writes a log line, and on WP-CLI a warning
@@ -67,6 +73,23 @@ final class DefinitionCheck
     public static function problem(string $content, int $formId, FormPlacement $placement, ?int $eventId = null): ?array
     {
         return self::problemOf($content, $formId, $placement, $eventId, true);
+    }
+
+    /**
+     * The placeholders typed as `{{key}}` in a form's content whose key the form page's own context does not
+     * declare, as the refusal of its save: every one of them, as typed, each once; null when there is none. The
+     * form page fills every block of the form, not only Kaláka blocks (`Engine\FormPage`), so the whole content
+     * is read, and its keys are the host's facts (`EventValues::FORM_TYPES`: the event's keys and
+     * `account.logged_in`). [UNAPPROVED N1182]
+     */
+    public static function unknown(string $content): ?UnknownPlaceholder
+    {
+        if (!str_contains($content, '{{')) {
+            return null;
+        }
+        $keys = (new Values())->unknownPlaceholders($content, EventValues::FORM_TYPES);
+
+        return $keys === [] ? null : new UnknownPlaceholder($keys);
     }
 
     /**
@@ -144,6 +167,12 @@ final class DefinitionCheck
             ? [FormEvent::PROBLEM, FormPosts::META_EVENT_ID]
             : self::problemOf($content, $id, $placement, $eventId, in_array($status, self::LIVE, true));
         if ($problem === null) {
+            if (in_array($status, self::LIVE, true) && $placement !== null) {
+                $unknown = self::unknown($content);
+                if ($unknown !== null) {
+                    return $unknown->toWpError();
+                }
+            }
             if ($placement !== null) {
                 self::$restPlacements[$id] = $placement;
             }
@@ -164,8 +193,9 @@ final class DefinitionCheck
      *   new content's keys were derived for the stored event).
      * - Content whose keys break the event's participant fields is not stored: a stored form keeps its
      *   stored content, a new one is saved empty as a draft.
-     * - Content that would publish a broken definition: a published form keeps its stored content; any
-     *   other form keeps the new content but not the published status.
+     * - Content that would publish a broken definition, or hold a typed placeholder the form page cannot
+     *   fill: a published form keeps its stored content; any other form keeps the new content but not the
+     *   published status.
      *
      * Why is kept for the saving user and shown as an admin notice on their next admin page (`notice()`);
      * the veto is loud too (`SaveVeto`).
@@ -190,6 +220,7 @@ final class DefinitionCheck
         }
 
         $problem = null;
+        $unknown = null;
         $stored = $id > 0 ? get_post($id) : null;
         [$eventId, $fixed] = FormEvent::resolve($id, $requested, wp_unslash($data['post_content']));
         if ($fixed) {
@@ -215,10 +246,12 @@ final class DefinitionCheck
         if (in_array($data['post_status'] ?? null, self::LIVE, true)) {
             $meta = is_array($postarr['meta_input'] ?? null) ? $postarr['meta_input'] : [];
             $placement = $fromRest ?? self::placement($meta[FormPosts::META_PLACEMENT] ?? null, $id);
-            $broken = $placement !== null
-                ? self::problemOf(wp_unslash((string) $data['post_content']), $id, $placement, $eventId, true)
+            $content = wp_unslash((string) $data['post_content']);
+            $unknown = $placement !== null ? self::unknown($content) : null;
+            $broken = $placement !== null && $unknown === null
+                ? self::problemOf($content, $id, $placement, $eventId, true)
                 : null;
-            if ($broken !== null) {
+            if ($unknown !== null || $broken !== null) {
                 $problem ??= $broken;
                 if ($stored instanceof \WP_Post && in_array($stored->post_status, self::LIVE, true)) {
                     $data['post_content'] = wp_slash($stored->post_content);
@@ -235,6 +268,17 @@ final class DefinitionCheck
                 self::message(...$problem),
                 $problem[0] . ' ' . $problem[1],
             );
+        } elseif ($unknown !== null) {
+            $message = $unknown->publicMessage();
+            $user = get_current_user_id();
+            if ($user > 0) {
+                set_transient(self::NOTICE . $user, $message, HOUR_IN_SECONDS);
+            }
+            SaveVeto::report(
+                'saving form ' . $id,
+                $message,
+                'unknown_placeholder ' . implode(', ', $unknown->keys),
+            );
         }
 
         return $data;
@@ -243,7 +287,8 @@ final class DefinitionCheck
     /**
      * `publish_future_post`, before WordPress publishes a scheduled form (priority 5; core's
      * `check_and_publish_future_post()` runs at 10): a scheduled form whose definition is broken now
-     * (e.g. a field type that is gone) goes back to draft instead of live, and its author gets the notice.
+     * (e.g. a field type that is gone), or which holds a typed placeholder its page cannot fill, goes back
+     * to draft instead of live, and its author gets the notice.
      * Core then finds it no longer scheduled and publishes nothing. Nothing throws out of the hook: what
      * escapes is logged (`Boundary::background`).
      */
@@ -259,16 +304,23 @@ final class DefinitionCheck
                 return;
             }
             $placement = self::placement(null, $postId);
-            $problem = $placement !== null
+            $unknown = $placement !== null ? self::unknown($post->post_content) : null;
+            $problem = $placement !== null && $unknown === null
                 ? self::problem($post->post_content, $postId, $placement, FormEvent::stored($postId))
                 : null;
-            if ($problem === null) {
+            if ($unknown === null && $problem === null) {
                 return;
             }
             wp_update_post(['ID' => $postId, 'post_status' => 'draft']);
             $author = (int) $post->post_author;
+            $message = '';
+            if ($unknown !== null) {
+                $message = $unknown->publicMessage();
+            } elseif ($problem !== null) {
+                $message = self::message(...$problem);
+            }
             if ($author > 0) {
-                set_transient(self::NOTICE . $author, self::message(...$problem), DAY_IN_SECONDS);
+                set_transient(self::NOTICE . $author, $message, DAY_IN_SECONDS);
             }
         });
     }

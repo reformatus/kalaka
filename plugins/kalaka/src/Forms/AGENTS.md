@@ -125,7 +125,9 @@ values and conditions, prefill and form links
 - A published form never goes from working to broken through an edit: saving a
   form as published or scheduled runs the live form's definition check
   (`DefinitionCheck`, through `DefinitionParser` and `SharedKeyCheck`) and
-  refuses a broken one on every save path. The definition check has two homes, and both the save check
+  refuses a broken one on every save path, a typed placeholder its page could
+  not fill included (`DefinitionCheck::unknown()`, `kalaka_unknown_placeholder`,
+  N1182). The definition check has two homes, and both the save check
   and `Forms::definition()` run both (`Forms::definition()` runs the event
   check on the current version only; an earlier version is read as it was): a check of the form alone goes into
   `DefinitionParser`, a check against the event's participant fields into
@@ -229,9 +231,10 @@ values and conditions, prefill and form links
   a stale `wp_rest` nonce on them becomes `kalaka_session_ended`, which the
   page shows with its link to log in again, never as the system failure.
 - Reading a key that a value context does not declare is a failure, never an
-  empty value. A document (a mail body) stops at it; on an ordinary page the
-  failing chain or value renders nothing and the failure is logged, never a
-  fatal.
+  empty value. A document (a mail body) stops at it; on an ordinary page a
+  failing chain, binding or inline value renders nothing and the failure is
+  logged, never a fatal, and a typed `{{key}}` the context does not declare
+  fails the page (N1150).
 - A condition reads: in a form, its answers; in a mail, the
   recipient's registration; elsewhere, the visitor's active registration and
   its event. With no active registration, no branch of a chain renders.
@@ -240,7 +243,11 @@ values and conditions, prefill and form links
   API. A placeholder is filled in the blocks' own HTML before anything
   renders, so a value's text is never read for one; a save refuses an unknown
   key (`UnknownPlaceholder`, `kalaka_unknown_placeholder`), `{{content}}`
-  included. The inline-value span keeps rendering; no editor inserts it.
+  included, a page's save checks the placeholders inside its Kaláka blocks only
+  (`PageCheck`, N1180) and a form's save the whole of its content against the
+  form page's own keys (`DefinitionCheck`, N1182); the form page fills them on
+  load (`FormPage`, N1181); the inline-value span keeps rendering as the basis
+  of a future editor, no editor inserts it.
 - Number comparison in a condition uses the bundled `Kalaka\Vendor\Brick\Math`
   in the evaluator (deptrac: the `Forms Engine` layer); no `Forms\Api` signature takes
   or returns a brick/math type.

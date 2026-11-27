@@ -13,7 +13,6 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
  */
 final class UnknownPlaceholder extends RuleViolation
 {
-    /** [UNAPPROVED T990] */
     public const MESSAGE = 'Ismeretlen jelölő: %s. A mentéshez javítani vagy törölni kell.';
 
     /** @param non-empty-list<string> $keys the unknown placeholders exactly as typed, e.g. `{{foo}}` */

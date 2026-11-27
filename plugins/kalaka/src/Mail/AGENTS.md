@@ -50,8 +50,16 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   (`MailPosts::usesFrame()`, true until set, full access writes it), read by
   `MailRenderer::renderBody()` for an action mail and a manual mail alike; no
   action mail setting and no manual send carries it. A body serves one action mail only (mail.md, "Words":
-  `UpdateActionMail` refuses another mail's body, and `body_id` is unique),
-  and only a published body is assigned or switched on. A body a switched-on
+  `UpdateActionMail` refuses another mail's body, and `body_id` is unique).
+  Any body of the event may be assigned, a draft included, and a point
+  switched off may keep one that is no longer published; only a published body
+  lets the point send, and switching a point on with a draft is refused
+  (`PointTemplateUnpublished`, `kalaka_point_template_unpublished`). Assigning
+  or swapping a point's template switches the point off; saving the template
+  itself changes no point. A point's "new template" (`Api\MailTemplates`,
+  `POST …/events/{id}/mail/points/{mail}/template`) makes an empty draft of the
+  event, assigns it to the point and so switches the point off; an assignment
+  the use case refuses removes the post again. A body a switched-on
   action mail uses is neither trashed nor deleted, never leaves `publish` and
   never changes its event (`Body\BodyInUse`, on every path; REST refuses with
   `kalaka_mail_in_use`).
@@ -115,10 +123,12 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   later fails per delivery without pausing. What a change leaves an action
   mail as is judged by one check, `UpdateActionMail::refuse()`, which `execute()`
   runs and the event's mail read runs on a copy of the entry switched on and
-  off (`can` and `refusals`), so no copy of the rule exists. The refusals with a
+  off (`can`, `refusals`, and `enable_unavailable`, the read's word for
+  `switch_on`'s refusal), so no copy of the rule exists. The refusals with a
   meaning of their own are typed (`MailNeedsBody`, `BodyTaken`,
-  `PasswordLinkRequired`, `RegisteredMailStaysOn`, `LayoutPlaceholderCount`,
-  `LayoutOtherPlaceholder`, each with its own code and the approved text).
+  `PasswordLinkRequired`, `RegisteredMailStaysOn`, `PointTemplateUnpublished`,
+  `LayoutPlaceholderCount`, `LayoutOtherPlaceholder`, each with its own code and
+  the approved text).
 - The secret link reaches a mail only as the value `registration.link` or a
   page-link value `page_<ID>.link`, both from `Registrations\Api\SecretLinks::url()`
   (the second on the published page with that ID: following it makes the

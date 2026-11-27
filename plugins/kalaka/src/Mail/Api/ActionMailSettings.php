@@ -12,6 +12,8 @@ use Kalaka\Mail\Catalogue\ActionMailEntry;
 use Kalaka\Mail\Catalogue\ActionMailRepository;
 use Kalaka\Mail\Catalogue\MailBody;
 use Kalaka\Mail\Catalogue\MailLayoutRepository;
+use Kalaka\Mail\Catalogue\MailNeedsBody;
+use Kalaka\Mail\Catalogue\PointTemplateUnpublished;
 use Kalaka\Mail\Catalogue\UpdateActionMail;
 
 /** Reads an event's mail settings; `kalaka/update-action-mail` and `kalaka/set-event-mail-layout` change them. */
@@ -45,13 +47,16 @@ final class ActionMailSettings
      * Why each mail can or cannot be switched on or off now, for the event's mail page:
      * `UpdateActionMail::refuse()` run on a copy of the entry switched on and switched off, the one check the use
      * case itself runs, so no copy of the rule exists. A refusal is `{code, message}` as the use case would give
-     * it; `can` is true for a switch that makes a change and is not refused.
+     * it; `can` is true for a switch that makes a change and is not refused. `enable_unavailable` is the
+     * screen's word for the same check's refusal of switching a point on: `no_template` (no body),
+     * `template_draft` (a body that is not published), or null.
      *
      * @param array<int, MailBody> $facts the facts of the bodies already read, by post ID; any other is read here
      * @return array<string, array{
      *     can: array{enable: bool, switch_off: bool},
      *     refusals: array{switch_on: ?array{code: string, message: string},
      *         switch_off: ?array{code: string, message: string}},
+     *     enable_unavailable: ?string,
      * }> by the mail's key
      */
     public function switchesOf(EventMailSettings $settings, Event $event, array $facts): array
@@ -69,6 +74,7 @@ final class ActionMailSettings
         foreach ($settings->mails as $mail) {
             $body = $mail->bodyId === null ? null : ($facts[$mail->bodyId] ?? MailBody::read($mail->bodyId));
             $refusals = [];
+            $unavailable = null;
             foreach (['switch_on' => true, 'switch_off' => false] as $key => $enabled) {
                 $after = new ActionMailEntry($settings->eventId, $mail->action, $enabled, $mail->bodyId);
                 try {
@@ -77,6 +83,9 @@ final class ActionMailSettings
                     $refusals[$key] = null;
                 } catch (RuleViolation $refused) {
                     $refusals[$key] = ['code' => $refused->errorCode(), 'message' => $refused->publicMessage()];
+                    if ($key === 'switch_on' && !$mail->enabled) {
+                        $unavailable = self::unavailable($refused);
+                    }
                 }
             }
             $switches[$mail->action->value] = [
@@ -85,10 +94,25 @@ final class ActionMailSettings
                     'switch_off' => $mail->enabled && $refusals['switch_off'] === null,
                 ],
                 'refusals' => ['switch_on' => $refusals['switch_on'], 'switch_off' => $refusals['switch_off']],
+                'enable_unavailable' => $mail->enabled ? null : $unavailable,
             ];
         }
 
         return $switches;
+    }
+
+    /**
+     * The screen's word for the check's refusal of switching a point on: a point without a body has
+     * `no_template`, one whose body is not published `template_draft`; another refusal (the account rule's,
+     * a body another mail holds) has none, the refusal itself says it.
+     */
+    private static function unavailable(RuleViolation $refused): ?string
+    {
+        return match (true) {
+            $refused instanceof MailNeedsBody => 'no_template',
+            $refused instanceof PointTemplateUnpublished => 'template_draft',
+            default => null,
+        };
     }
 
     /**
