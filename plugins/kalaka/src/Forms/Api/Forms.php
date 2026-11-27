@@ -326,7 +326,7 @@ final class Forms
      * form the registration's field values and status (one read, so the use case can check the same read under
      * its lock). Reads the database, so it runs before a use case's transaction.
      *
-     * [UNAPPROVED N1155] The moment is the caller's, the same one the page's and re-fetch's facts read at.
+     * The moment is the caller's, the same one the page's and re-fetch's facts read at.
      *
      * @param array<string, string>|null $stored the registration's field values by key; null for none
      * @param string|null $status the registration's status value

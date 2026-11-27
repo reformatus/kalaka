@@ -175,7 +175,7 @@ final class EventFormHost implements FormHost
      * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued; an additional
      * form with no registration (`$stored` null) reads its registration keys as none, never fails.
      *
-     * [UNAPPROVED N1155] The caller gives the moment the facts are read at (the page and re-fetch the act's
+     * The caller gives the moment the facts are read at (the page and re-fetch the act's
      * moment, a submit's walk the same one before its transaction), so one moment is used for all the facts of a
      * read, and the page, the re-fetch and the submit's walk keep it alike: `time.now` and the event's dates read
      * it.
