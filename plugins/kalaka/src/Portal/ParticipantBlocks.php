@@ -30,7 +30,7 @@ final class ParticipantBlocks
 
     public const LEAVE_SHORTCODE = 'kalaka_leave';
 
-    /** The button's label. [UNAPPROVED T1110] a stand-in; UX replaces it. */
+    /** The button's label. a stand-in; UX replaces it. */
     public const LEAVE_LABEL = 'Kilépés';
 
     /** The handle of `portal.css`, named by both blocks' `style`. */

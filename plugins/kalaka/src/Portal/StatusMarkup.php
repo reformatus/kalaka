@@ -109,7 +109,7 @@ final class StatusMarkup
 
     /**
      * The leave block: one bare form with one button, no look of its own beyond core's button class. The
-     * label is a stand-in. [UNAPPROVED T1110]
+     * label is a stand-in.
      */
     public static function leave(string $action, string $returnUrl): string
     {
