@@ -457,7 +457,7 @@ final class GridModel
      */
     private function meta(string $column, array $fields, int $eventId): array
     {
-        // Kód carries the default order and sorts both ways; Szám is a plain number sort. [UNAPPROVED N60]
+        // Kód carries the default order and sorts both ways; Szám is a plain number sort.
         $meta = ['column' => $column, 'sortable' => true, 'numeric' => false];
         if ($column === 'code') {
             return $meta + ['label' => Texts::CODE, 'type' => 'code'];

@@ -37,10 +37,9 @@ export const SUM = {
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
 	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
-	// [UNAPPROVED T3, T4]
 	counting: 'Számolás',
 	open: 'Összesítés: %s',
-	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
+	// The sum row's own load failure, above a table whose rows are on screen.
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
 };
 
