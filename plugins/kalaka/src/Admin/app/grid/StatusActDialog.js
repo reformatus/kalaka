@@ -3,12 +3,12 @@
  * well - info not structured well"): the act's one body sentence; the server's warnings, one core `Notice` each;
  * the money effect as one table under a heading (the payer column only with several payer rows), with the capacity
  * lines under it and the retention and refund sentences after them; the optional reason field; the buttons. Nothing
- * but that order is laid out. A failed act
- * keeps the dialog and the reason and shows the server's text; while it runs the dialog does not close and a second
- * submit is ignored. Everything the preview shows is the server's, chosen by its own values; no warning text is
- * written here. The body sentence and the block under it (the money table, the capacity lines and the sentences)
- * are the dialog's description (`aria-describedby`), in that order; the warnings are outside it, each notice speaks
- * its own (N719), and a polite live region says the capacity and money once the preview answers (N722).
+ * but that order is laid out. A failed act keeps the dialog and the reason and shows the server's text; while it
+ * runs the dialog does not close and a second submit is ignored. Everything the preview shows is the server's,
+ * chosen by its own values; no warning text is written here. The body sentence and the block under it (the money
+ * table, the capacity lines and the sentences) are the dialog's description (`aria-describedby`), in that order;
+ * the warnings are outside it, each notice speaks its own (N719), and a polite live region says the capacity and
+ * money once the preview answers (N722).
  * [UNAPPROVED N702] [UNAPPROVED N706] [UNAPPROVED N707] [UNAPPROVED N708] [UNAPPROVED N709]
  * [UNAPPROVED N714] [UNAPPROVED N715] [UNAPPROVED N716] [UNAPPROVED N717] [UNAPPROVED N718] [UNAPPROVED N719] [UNAPPROVED N721] [UNAPPROVED N722] [UNAPPROVED N1310]
  */
