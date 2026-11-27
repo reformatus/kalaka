@@ -225,7 +225,7 @@ export const REQUESTS = {
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
 	// [UNAPPROVED T8] the full offer's warning, in the lektor's words.
-	full: 'Ennek az ajánlatnak már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
+	full: 'Ennek az ajánlatnak már minden helye betelt. Ha igennel válaszolsz, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
 	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
 };
