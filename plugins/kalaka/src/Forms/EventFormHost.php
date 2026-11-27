@@ -21,6 +21,7 @@ use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Module\Contributions;
 use Kalaka\Registrations\Api\RegistrationSubmit;
 use Kalaka\Registrations\Api\SubmitRequest;
@@ -230,7 +231,16 @@ final class EventFormHost implements FormHost
         }
         $keys = [];
         foreach (Contributions::current()->slotRequirements() as $requirement) {
-            array_push($keys, ...$requirement->requiredKeys($form->eventId));
+            // An outside contribution point: a throwing requirement is logged and skipped, never the page
+            // (modules-and-extensions.md, "Failure isolation"), as `ThemeAdapters::pick()` treats an adapter.
+            $required = [];
+            Boundary::background(
+                'slot requirement ' . $requirement::class,
+                static function () use ($requirement, $form, &$required): void {
+                    $required = $requirement->requiredKeys($form->eventId);
+                }
+            );
+            array_push($keys, ...$required);
         }
 
         return array_values(array_unique($keys));
