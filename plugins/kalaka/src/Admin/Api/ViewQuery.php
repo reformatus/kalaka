@@ -45,9 +45,9 @@ final class ViewQuery extends Query
     }
 
     /**
-     * The view's columns: the stored ones, or for the master view `code`, `status`, `serial`, every field
-     * key stored in the event (read-write) and every decision kind recorded in it or with a base state, in byte
-     * order.
+     * The view's columns: the stored ones, or for the master view every core column (`ViewShape::CORE_COLUMNS`),
+     * every field key stored in the event (read-write) and every decision kind recorded in it or with a base
+     * state, in byte order.
      *
      * @return list<array{column: string, write: bool}>
      */
@@ -149,7 +149,8 @@ final class ViewQuery extends Query
             $join = ' LEFT JOIN (' . $ranked . ') n ON n.code = r.code';
             $order = 'n.serial_no' . $direction . ', ' . $serialOrder;
         } elseif ($sort === 'awaits_answer') {
-            // Yes first descending; a row that does not await (any other status included) is no. [UNAPPROVED N669]
+            // Yes first descending: yes, then no, then N/A (NULL, a registration that is not `registered`);
+            // ascending is the reverse. [UNAPPROVED N669] [UNAPPROVED N690]
             [$awaiting, $sortArgs] = $this->awaiting($eventId);
             $order = $awaiting . $direction . ', ' . $serialOrder;
         } elseif ($sort !== null && str_starts_with($sort, 'field:')) {
@@ -210,7 +211,10 @@ final class ViewQuery extends Query
 
             $awaitsByCode = [];
             foreach ($registrations as $registration) {
-                $awaitsByCode[(string) $registration['code']] = (int) $registration['awaits_answer'] === 1;
+                // NULL is N/A (the registration is not `registered`), never false.
+                $awaitsByCode[(string) $registration['code']] = $registration['awaits_answer'] === null
+                    ? null
+                    : (int) $registration['awaits_answer'] === 1;
             }
 
             $rows = [];
@@ -223,7 +227,11 @@ final class ViewQuery extends Query
                         $column === 'code' => $code,
                         $column === 'status' => (string) $registration['status'],
                         $column === 'serial' => $serials[$code] ?? null,
-                        $column === 'awaits_answer' => $awaitsByCode[$code] ? '1' : '0',
+                        $column === 'awaits_answer' => match ($awaitsByCode[$code]) {
+                            null => null,
+                            true => '1',
+                            false => '0',
+                        },
                         $column === 'registered_at' => $registration['registered_at'] === null
                             ? null
                             : Instant::fromStorage((string) $registration['registered_at'])
@@ -332,7 +340,7 @@ final class ViewQuery extends Query
      * One registration as the views that hold it show it, the union of their columns. The views must be the
      * ones `Access::holding()` found to hold it (or the master view of full access): this read does not
      * check the filter again. Null when the event has no such registration. The times of `registered_at` and
-     * the first submission are shown to the master view only, as no column lists them.
+     * the first submission are shown when a view lists them (the master view lists every column).
      *
      * @param non-empty-list<HeldView> $views
      */
@@ -587,7 +595,8 @@ final class ViewQuery extends Query
             ];
         }
         if ($column === 'awaits_answer') {
-            // Igen / Nem over the one SQL of the column; it always has a value, so there is no „Nincs válasz”.
+            // Igen / Nem over the one SQL of the column. N/A (NULL) is neither: `NOT NULL` is NULL, so „Nem” never
+            // matches it. No „Nincs válasz” and no N/A option. [UNAPPROVED N690]
             [$awaiting, $awaitingArgs] = $this->awaiting($eventId);
             $holds = ($filter->operator === 'is') === ($value === true);
 
@@ -830,9 +839,10 @@ final class ViewQuery extends Query
     }
 
     /**
-     * "Awaits an answer" as one boolean expression over `r`: the registration is `registered` and a request source
-     * has a request waiting (`Requests::awaitingCondition()`); false for every other registration. The column's
-     * filter, sort and count and the row's mark all use this one expression. [UNAPPROVED N669]
+     * "Awaits an answer" as one three-valued expression over `r`: 1 for a `registered` registration with a request
+     * waiting, 0 for a `registered` one with none, NULL (N/A) for every other status (`Requests::awaitingCondition()`).
+     * The column's filter, sort and count and the row's mark all use this one expression. [UNAPPROVED N669]
+     * [UNAPPROVED N690]
      *
      * @return array{0: literal-string, 1: list<string|int>}
      */

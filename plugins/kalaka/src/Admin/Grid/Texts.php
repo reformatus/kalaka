@@ -30,6 +30,8 @@ final class Texts
     public const YES = 'Igen';
     /** A shown but unticked consent (a stored "0") in a cell. */
     public const NO = 'Nem';
+    /** A cell that does not apply (N/A), different from „Nem”: the awaits-an-answer column of a registration that is not registered. [UNAPPROVED T1120] */
+    public const NOT_APPLICABLE = '–';
 
     /** A parameter term in a view's condition: the value is given at each grant. */
     public const PER_GRANT = 'a hozzáférésnél megadott érték';

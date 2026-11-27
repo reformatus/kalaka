@@ -442,8 +442,8 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addRegistration($this->event, '00B0', 'withdrawn');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
-        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertNull($this->requests->awaits($this->key('00B0'), RegistrationStatus::Withdrawn));
+        self::assertNull($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
     }
 
     public function testAPartnerAnswersOnlyInsideTheirViewAndOnlyWithTheAction(): void
@@ -504,7 +504,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         $this->addRegistration($this->event, '00B0', 'waitlisted');
         $this->addValue($this->event, '00B0', 'support', 'church');
 
-        self::assertFalse($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
+        self::assertNull($this->requests->awaits($this->key('00B0'), RegistrationStatus::Waitlisted));
 
         $this->admit('00B0');
 

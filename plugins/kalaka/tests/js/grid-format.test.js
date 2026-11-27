@@ -52,6 +52,18 @@ describe( 'a consent cell', () => {
 	} );
 } );
 
+describe( 'a column with an N/A text', () => {
+	// The awaits column (N690, T1120): no value is N/A, shown „–”, never „Nem”.
+	const awaits = { column: 'awaits_answer', label: 'x', type: 'consent', options: { 1: 'Igen', 0: 'Nem' }, na: '–' };
+	it( 'shows – for no value and keeps Igen and Nem apart from it', () => {
+		const cell = ( value ) => cellText( awaits, { values: { awaits_answer: value } } );
+		expect( cell( '1' ) ).toBe( 'Igen' );
+		expect( cell( '0' ) ).toBe( 'Nem' );
+		expect( cell( null ) ).toBe( '–' );
+		expect( cell( undefined ) ).toBe( '–' );
+	} );
+} );
+
 describe( 'cellText', () => {
 	it( 'shows each type as the grid shows it', () => {
 		expect( columns.map( ( c ) => cellText( c, row ) ) ).toEqual( [

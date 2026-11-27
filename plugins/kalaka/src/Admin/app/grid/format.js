@@ -48,7 +48,8 @@ function choice( column, value ) {
 export function cellText( column, row ) {
 	const value = row.values[ column.column ];
 	if ( value === null || value === undefined || value === '' ) {
-		return '';
+		// A column with an N/A text (the awaits column) shows it for no value: N/A is not „Nem”.
+		return column.na ?? '';
 	}
 	switch ( column.type ) {
 		case 'status':

@@ -78,21 +78,23 @@ final class Requests
     }
 
     /**
-     * Whether the registration awaits an answer: it is `registered` and some source's `AwaitingRule` holds over its
-     * field values, evaluated in PHP with `AwaitingRule::matches()`. The rule is the one definition
+     * Whether the registration awaits an answer, in three values: null (N/A) unless it is `registered`; otherwise
+     * true when some source's `AwaitingRule` holds over its field values, evaluated in PHP with
+     * `AwaitingRule::matches()`, else false. N/A is not "no": a waitlisted, withdrawn or removed registration has
+     * no request state at all (owner 2026-11-27, walkthrough 6.2 b, 6.3, 6.6). The rule is the one definition
      * `awaitingCondition()` compiles to SQL, with the same `registered` gate, so the fact, the grid column and the
      * detail panel mean one thing; the panel's `states()` read the sources' `requestsOf()` and `isAnswered()`,
      * which the rule must mean exactly. A waitlisted registration awaits nothing and awaits again by itself at
      * admission. One statement (the field values, which hold every answer); none with no source or for a
      * registration that is not registered. [UNAPPROVED N690]
      */
-    public function awaits(RegistrationKey $registration, RegistrationStatus $status): bool
+    public function awaits(RegistrationKey $registration, RegistrationStatus $status): ?bool
     {
+        if ($status !== RegistrationStatus::Registered) {
+            return null;
+        }
         $sources = $this->sources ?? Contributions::current()->requestSources();
-        if (
-            $sources === []
-            || $status !== RegistrationStatus::Registered
-        ) {
+        if ($sources === []) {
             return false;
         }
 
@@ -110,10 +112,12 @@ final class Requests
     }
 
     /**
-     * "Awaits an answer" as a condition on the registration row `r`, for the admin grid's column (filter, sort and
-     * count in SQL, over the whole view, never one page): the registration is `registered` and some source's
-     * `AwaitingRule` holds (`RequestSource::awaitingRule()`); false for every other status, so a waitlisted
-     * registration shows no awaiting (it waits until admission), and false with no rule. Core alone writes the SQL:
+     * "Awaits an answer" as an expression on the registration row `r`, for the admin grid's column (filter, sort and
+     * count in SQL, over the whole view, never one page), in three values: for a `registered` registration 1 when
+     * some source's `AwaitingRule` holds (`RequestSource::awaitingRule()`) and 0 otherwise (0 with no rule); NULL
+     * (N/A) for every other status, so a waitlisted registration is neither yes nor no (it waits until admission).
+     * SQL's NULL does the rest: `NOT` of it is NULL, so a filter on "no" never matches it, and a sum skips it.
+     * Core alone writes the SQL:
      * each test is an `EXISTS` or `NOT EXISTS` over the field values table, every value a placeholder argument.
      * The rule is the one `awaits()` evaluates in PHP, for a `registered` registration. No statement is run.
      * (Access) any view may list the column; it tells that something awaits, not what. [UNAPPROVED N668]
@@ -146,10 +150,10 @@ final class Requests
             $parts[] = '(' . implode(' OR ', $groups) . ')';
         }
         if ($parts === []) {
-            return ['0 = 1', []];
+            return ["CASE WHEN r.status = 'registered' THEN 0 END", []];
         }
 
-        return ["r.status = 'registered' AND (" . implode(' OR ', $parts) . ')', $args];
+        return ["CASE WHEN r.status = 'registered' THEN (" . implode(' OR ', $parts) . ') END', $args];
     }
 
     /**
