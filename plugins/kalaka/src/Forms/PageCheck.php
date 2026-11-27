@@ -24,7 +24,7 @@ use Kalaka\Foundation\Api\Entry\SaveVeto;
  *   stays unpublished, and the saving user gets the refusal as an admin notice.
  *
  * Only `post` and `page` are checked: a form and a mail body have their own save checks.
- * [UNAPPROVED N1176]
+ * [UNAPPROVED N1180]
  */
 final class PageCheck
 {

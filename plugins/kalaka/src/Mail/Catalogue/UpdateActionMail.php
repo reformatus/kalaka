@@ -26,7 +26,7 @@ use Kalaka\Mail\Body\RegisteredMailStaysOn;
  * body of a mail that is on switches it off, unless the call says `enabled` itself; the "registered" mail of an
  * event with accounts cannot go off, so a swap there leaves it on and the new body must be published and read the
  * link. Site-level, like every Mail use case: only full access, WP-CLI and the system run it.
- * [UNAPPROVED N1174]
+ * [UNAPPROVED N1178]
  *
  * It reads no WordPress data in its transaction: the body's facts (`MailBody`) are read before the run and
  * passed in, by `prepared()`, which the ability's `$prepare` and `Api\ActionMailSettings::update()` both call.
