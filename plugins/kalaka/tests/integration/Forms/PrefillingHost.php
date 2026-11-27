@@ -22,9 +22,9 @@ final class PrefillingHost implements FormHost
     {
     }
 
-    public function factTypes(): array
+    public function factTypes(Form $form): array
     {
-        return $this->inner->factTypes();
+        return $this->inner->factTypes($form);
     }
 
     public function facts(Form $form): ?ValueContext

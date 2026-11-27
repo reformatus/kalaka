@@ -7,6 +7,7 @@ import { field, form, load, page, settle, submit, text, type } from './helpers';
 
 const NONCE_URL = 'http://example.test/wp-admin/admin-ajax.php?action=rest-nonce';
 const LOGIN_URL = 'http://example.test/wp-login.php?kalaka_form=12';
+const POPUP_URL = LOGIN_URL + '&popup=1';
 const PAGE_URL = 'http://example.test/jelentkezes/';
 const ERROR = 'Előbb készíts fiókot, vagy jelentkezz be.';
 const NONCE = 'abcdef0123';
@@ -69,7 +70,7 @@ describe('the login window', () => {
 
 		expect(window.open).toHaveBeenCalledTimes(1);
 		const [url, name, features] = window.open.mock.calls[0];
-		expect(url).toBe(LOGIN_URL);
+		expect(url).toBe(POPUP_URL);
 		expect(name).toBe('kalaka-account');
 		expect(features).not.toContain('noopener');
 	});
@@ -319,7 +320,7 @@ describe('an ended session', () => {
 
 		submit(root());
 		await settle();
-		expect(window.open).toHaveBeenCalledWith(LOGIN_URL, 'kalaka-account', expect.any(String));
+		expect(window.open).toHaveBeenCalledWith(POPUP_URL, 'kalaka-account', expect.any(String));
 		expect(alert().querySelector('a').getAttribute('href')).toBe(LOGIN_URL);
 
 		message();

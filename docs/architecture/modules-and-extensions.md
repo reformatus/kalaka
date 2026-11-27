@@ -87,14 +87,15 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
   switch** (for a direct set, unpublished, it is hidden from participants
   and publishing opens the choice; a request set's field follows its choice
   window only).
-- **An option** has a capacity, leaders (display text), a place and
-  eligibility conditions on field values (e.g. age, gender).
+- **An option** has a capacity, leaders (display text) and a place. Who may
+  pick it is decided in the form: the form field that names the set may hold a
+  condition per option ([Conditions](events-and-forms.md#conditions)).
 - **A registration holds at most one option per set,** stored as an
   assignment fact with its source and state (proposed or confirmed),
   audited (computed meal turns excepted, below).
 - **Access modes:**
   - **direct** (e.g. REFISZ's morning and afternoon programs): the choice
-    field writes a confirmed assignment; capacity and eligibility are checked
+    field writes a confirmed assignment; capacity is checked
     in the transaction under a lock on the option row; a full option cannot be
     chosen; the choice can be changed through an additional form holding it
     while the window is open, then only by staff;
@@ -110,13 +111,12 @@ Modules, workshops, talk groups, rooms and meal turns share one core concept.
     staff run the proposer with a preview, then confirm in bulk; the
     participant sees the result once confirmed and the set is published.
     **Bulk confirmation** runs one transaction per item: it locks the option
-    row and re-checks capacity and eligibility; items that no longer fit go
+    row and re-checks capacity; items that no longer fit go
     into the report;
   - **none** (talk groups, rooms, meal turns): staff place people, or a
     proposer proposes and staff confirm; shown once published.
   - Staff can place or override in every mode. Staff are warned first when
-    the option is full or the registration does not meet its conditions; the
-    warning never stops the placing.
+    the option is full; the warning never stops the placing.
 - **Meal turns** (IVK's lunch turn, REFISZ's dining shift) are an access-none
   set **computed from another set through an option map**, never stored,
   unless staff placed someone by hand, which is stored as a fact;
@@ -320,8 +320,8 @@ flowchart LR
   database access, no hooks ([Events](events-and-forms.md#date-references)).
 - **A decision** is an inside point: a transition rule in, a transition
   record or nothing out; core writes the record. It reads facts and core
-  decisions only, never another extension's decision. Late fee, price-tier
-  place and support place are decisions
+  decisions only, never another extension's decision. The late fee is a
+  decision; seats are facts, not decisions
   ([Foundation](foundation.md#facts-decisions-and-computed-values)).
 - **An action-mail act** is an inside point: an extension's act (e.g. a
   check-in) that can cause an action mail, keyed by the act's record

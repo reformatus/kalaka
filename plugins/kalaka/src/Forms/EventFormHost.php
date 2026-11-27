@@ -58,7 +58,7 @@ final class EventFormHost implements FormHost
     ) {
     }
 
-    public function factTypes(): array
+    public function factTypes(Form $form): array
     {
         return EventValues::FORM_TYPES;
     }
@@ -332,8 +332,7 @@ final class EventFormHost implements FormHost
         }
         $options = [];
         foreach ($set->options as $option) {
-            $options[] = ['value' => $option->key, 'label' => $option->label]
-                + ($option->condition === null ? [] : ['condition' => $option->condition]);
+            $options[] = ['value' => $option->key, 'label' => $option->label];
         }
 
         return new RequestOptions($options, $set->windowOpens, $set->windowCloses);

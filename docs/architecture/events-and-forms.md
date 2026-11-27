@@ -248,8 +248,9 @@ flowchart TB
   is busy. The autosave of a person's or a guest's draft is apart: it runs
   beside these requests, never dims the form, and sends nothing once a send
   has started.
-- **The server validates against the same form definition:** only declared,
-  visible fields are accepted.
+- **The server validates against the same form definition:** only declared
+  fields that show are accepted, and a hidden field only with a value from a
+  link or a prefill.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
 - **Stable field keys**; pickers for conditions come later
@@ -356,8 +357,10 @@ flowchart TB
   separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
 - **Hidden fields** hold values the registrant does not see, such as an
-  attribution key. They get their values only from the form link record;
-  values the browser sends for them are rejected.
+  attribution key. They get their values from the form link record or from a
+  public prefill ([Prefill from a link](#prefill-from-a-link)), never from the
+  registrant's typing; a prefilled one can be forged, so it is attribution
+  only.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Keys and option values come from the visible text.** A field's key is
@@ -393,8 +396,8 @@ is no other participant-side edit.
 - **Every submit appends a submission;** earlier submissions stay as they
   are. The latest write wins in the field values, and each change is
   audited.
-- **Only fields the form shows are written,** plus hidden fields its form
-  link sets. Fields the form does not hold,
+- **Only fields the form shows are written,** plus hidden fields that get a
+  value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
   form showed the current value, so blank is the answer. A field whose type
@@ -452,11 +455,12 @@ is no other participant-side edit.
 - **One availability base.** Whatever is shown or selectable is decided by
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
-  field's options, the options of an assignment set, price-ladder tiers,
-  offers and the adjudicated aid. In a form it reads the draft answers and
-  the event's values, on every render and again at submit; in the fee
-  components and the materializer it reads the registration's facts. It
-  never runs the materializer on a draft. Computed facts such as free seats
+  field's options (the options a ranking takes from an assignment set
+  included), price-ladder tiers, offers and the adjudicated aid. An
+  assignment-set option carries no condition of its own: the form's ranking
+  field decides who may pick it. In a form it reads the draft answers and
+  the event's values, on every render and again at submit; in the fee components and the materializer it reads the
+  registration's facts. It never runs the materializer on a draft. Computed facts such as free seats
   are put into the fact source by the caller; a congregation answer carries
   its ancestors in its own value, a snapshot of its path.
 - **Forms are rendered by the server; the page's script holds no
