@@ -12,7 +12,13 @@ import { fmt } from '../grid/format';
 import CodeName from './CodeName';
 import { BATCHES, COMMON, WHO } from './texts';
 
-function Members( { config, id, onClose } ) {
+/**
+ * A batch's card: its subject and its members. The member list can be hidden: the heading is a disclosure button with
+ * one label, „Tagok”, that never changes with the state (it says which by `aria-expanded`); the list starts shown.
+ * [UNAPPROVED N1045] [UNAPPROVED T973]
+ */
+export function Members( { config, id, onClose } ) {
+	const [ shown, setShown ] = useState( true );
 	const read = useRead( config.rest, `/events/${ config.event }/mail/batches/${ id }` );
 	return (
 		<Modal title={ fmt( BATCHES.open, id ) } onRequestClose={ onClose } size="medium">
@@ -23,8 +29,12 @@ function Members( { config, id, onClose } ) {
 					<p>
 						<strong>{ batchSubject( read.data ) }</strong>
 					</p>
-					<h2 className="km-h2">{ BATCHES.members }</h2>
-					<ul className="km-members">
+					<h2 className="km-h2">
+						<Button variant="link" type="button" aria-expanded={ shown } aria-controls="km-batch-members" onClick={ () => setShown( ! shown ) }>
+							{ BATCHES.members }
+						</Button>
+					</h2>
+					<ul className="km-members" id="km-batch-members" hidden={ ! shown }>
 						{ ( read.data.members || [] ).map( ( member ) => (
 							<li key={ member.code }>
 								<CodeName code={ member.code } name={ member.name } />{ ' – ' }

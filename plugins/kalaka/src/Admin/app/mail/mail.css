@@ -157,3 +157,9 @@
 	max-height: 20em;
 	overflow: auto;
 }
+
+/* The disclosure button in a heading keeps the heading's size. [UNAPPROVED N1045] */
+.km-h2 .components-button.is-link {
+	font-size: inherit;
+	font-weight: inherit;
+}
