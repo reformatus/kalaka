@@ -111,7 +111,7 @@ SQL;
 
     /**
      * foundation.md, "An act's retry key": one row per used key of a staff act; the unique key makes the
-     * key one registration's. [UNAPPROVED N1140]
+     * key one registration's.
      */
     private const ACT_KEYS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_act_keys (

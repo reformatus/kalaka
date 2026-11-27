@@ -16,7 +16,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
  * lock, calls `recall()` before it changes anything and, when it returns null, `remember()` with its
  * result before it returns: a repeat with the same key and input returns the stored result and changes
  * nothing; the same key with other input is an `IdempotencyConflict`. A preview never stores and never
- * recalls. [UNAPPROVED N1141]
+ * recalls.
  */
 final class ActKeys
 {

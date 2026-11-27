@@ -6,7 +6,7 @@ namespace Kalaka\Foundation\ActKeys;
 
 use Kalaka\Registrations\Api\RegistrationKey;
 
-/** A retry key a staff act has used on a registration, with the act's input hash and its result. [UNAPPROVED N1140] */
+/** A retry key a staff act has used on a registration, with the act's input hash and its result. */
 final class ActKey
 {
     public function __construct(

@@ -11,7 +11,7 @@ use Kalaka\Registrations\Api\RegistrationKey;
 
 /**
  * The only writer of `kalaka_act_keys`: append-only, one row per used retry key. It never names the
- * registration as touched: remembering a key changes no registration fact. [UNAPPROVED N1140]
+ * registration as touched: remembering a key changes no registration fact.
  *
  * @extends AppendOnlyRepository<int, ActKey>
  */
