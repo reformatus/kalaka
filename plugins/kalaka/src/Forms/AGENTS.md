@@ -148,10 +148,19 @@ values and conditions, prefill and form links
   to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
   a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
-  transaction, never inside it. The one exception is `Forms::refusals()`,
-  which reads nothing: a submit checks it under the event's lock.
+  transaction, never inside it. The exceptions are `Forms::refusals()`,
+  which reads nothing: a submit checks it under the event's lock; and
+  `Forms::participantValues()`, which reads no post, only
+  `ParticipantFields::of()` (its table and the block registry): the
+  evaluation types a registration's field values with it (S25), and a money
+  setting's save checks its conditions against them (S26).
 - Field types contribute through the typed point and return values; no field
-  type writes to a table. Core ships no money-relevant field type.
+  type writes to a table. Core ships no money-relevant field type. A field
+  type's `valueType()` and `value()` fire no hook and write nothing (they may
+  read), so the evaluation may call them inside the transaction; the rest of
+  the point runs outside it. A type's `settings()` names the block settings
+  the event's participant field keeps (the number field's bounds, decimals and
+  affixes); `Forms::participantValues()` passes them to `value()`.
 - A field type whose value is a path (`Api\PathFieldType`) is never compared
   with `equals`: the parser refuses it where the scope knows the key's field
   type (`FormScope` and a mail body's check through `DeclaredScope`'s path

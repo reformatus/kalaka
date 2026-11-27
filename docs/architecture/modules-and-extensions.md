@@ -10,10 +10,11 @@ title: Modules and extensions
   with one version number and one CI pipeline that builds a zip per plugin.
   Extensions use only core's public API.
 - **Core itself is internally modular** with strict boundaries.
-- **Core money is minimal:** a fixed price per registration and full payment.
-  Deposits, the price ladder, financial aid, sponsor and church support, the
-  congregation share, late fees and the wallet are plugins; core keeps full
-  support for extending it in these ways ([Money](money.md#core-money-scope)).
+- **Core money is minimal:** a fixed price per registration, full payment,
+  an event's extra charges and its donation. Deposits, the price ladder,
+  financial aid, sponsor and church support, the congregation share, late
+  fees and the wallet are plugins; core keeps full support for extending it
+  in these ways ([Money](money.md#core-money-scope)).
 - **Core keeps the base concepts that organizations extend,** such as
   assignment sets ([Assignment sets](#assignment-sets)), not a general system
   that could build either organization's logic.
@@ -38,7 +39,7 @@ flowchart LR
     SP["Sponsor / church support"]
     CS["Congregation share"]
     REC["Module ranking"]
-    MORE["Wallet · attendance sheets · check-in ·<br/>donations · settlement"]
+    MORE["Wallet · attendance sheets · check-in · settlement"]
   end
   subgraph CORE["Core plugin"]
     direction TB
@@ -49,6 +50,7 @@ flowchart LR
     AS["Assignments"]
     RE["Registrations"]
     RU["Pricing"]
+    EX["Extras"]
     LE["Ledger"]
     PA["Payments"]
     MA["Mail"]
@@ -72,6 +74,7 @@ flowchart LR
 | Assignments | assignment sets, options, assignment facts, tallies, roster views, the proposer point |
 | Registrations | registrations, field values, submissions, presets, statuses, waitlist, seats, reference codes |
 | Pricing | fixed price, fee-component framework, confirmation, retention, materializer |
+| Extras | extra charges and the donation: generic per-event charges linked by key to the participant field with the same key, and the donation, the number field with the key `adomany` |
 | Ledger | lines, payers, balances, organizer-recorded payments and refunds, moving payments |
 | Payments | the payments port, payment-method registry |
 | Mail | mails, deliveries, the sender |
@@ -319,7 +322,11 @@ flowchart LR
     decision, action-mail act, assignment proposer): fires no WordPress
     hooks.
   - **Outside** (field type, payment method, portal or admin section, view,
-    view column, filterable fact, theme adapter, seat claim source).
+    view column, filterable fact, theme adapter, seat claim source). A field type's value type
+    and its reading of a stored answer as a value fire no WordPress hooks
+    and write nothing (they may read, e.g. a congregation's name), so the
+    evaluation reads a registration's field values with them inside the
+    transaction.
   - A **payer kind** is only declared (e.g. "congregation"); it runs no code.
   - A **block host** is only declared: the Kaláka blocks (e.g. the condition
     blocks) that an editor other than a form's may insert, for a post type or a

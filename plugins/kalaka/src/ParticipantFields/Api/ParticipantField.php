@@ -25,6 +25,8 @@ final readonly class ParticipantField
     /**
      * @param list<array{value: string, label: string, retired: bool}> $options empty for a field without options
      * @param list<array{form_id: int, title: string}> $forms
+     * @param array<string, mixed> $settings the type's settings that outlive the form (the number field's bounds,
+     *     decimals and affixes)
      */
     public function __construct(
         public string $key,
@@ -36,6 +38,7 @@ final readonly class ParticipantField
         public string $typeLabel = '',
         public bool $formWritable = true,
         public array $forms = [],
+        public array $settings = [],
     ) {
     }
 
@@ -56,6 +59,7 @@ final readonly class ParticipantField
             $this->typeLabel,
             $this->formWritable,
             $forms,
+            $this->settings,
         );
     }
 
@@ -70,6 +74,7 @@ final readonly class ParticipantField
      *     form_writable: bool,
      *     retired: bool,
      *     forms: list<array{form_id: int, title: string}>,
+     *     settings: array<string, mixed>,
      * }
      */
     public function toArray(): array
@@ -84,6 +89,7 @@ final readonly class ParticipantField
             'form_writable' => $this->formWritable,
             'retired' => $this->retired,
             'forms' => $this->forms,
+            'settings' => $this->settings,
         ];
     }
 }

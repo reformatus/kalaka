@@ -10,6 +10,7 @@ use Kalaka\Forms\Api\ThemeAdapter;
 use Kalaka\Foundation\Api\Periodic\PeriodicStep;
 use Kalaka\Foundation\Api\Seed\Seeder;
 use Kalaka\Foundation\Api\SiteWarning\SiteWarning;
+use Kalaka\Pricing\Api\FeeComponent;
 use Kalaka\Registrations\Api\SeatClaimSource;
 
 /** Typed extension-point methods are added together with the first module that needs each. */
@@ -34,6 +35,9 @@ final class Contributions
 
     /** @var list<PeriodicStep> */
     private array $periodicSteps = [];
+
+    /** @var array<string, FeeComponent> */
+    private array $feeComponents = [];
 
     /** @var list<SeatClaimSource> */
     private array $seatClaimSources = [];
@@ -163,6 +167,35 @@ final class Contributions
     public function periodicSteps(): array
     {
         return $this->periodicSteps;
+    }
+
+    /**
+     * A fee component is an inside point (modules-and-extensions.md, "The extension surface"; money.md,
+     * "Materializer"). Its ID is `[a-z][a-z0-9_]*`, at most 50 characters, and unique: a malformed or repeated
+     * ID fails the contributing module (Pricing refuses one that is core's own).
+     */
+    public function feeComponent(FeeComponent $component): void
+    {
+        $id = $component->id();
+        if (preg_match('/\A[a-z][a-z0-9_]{0,49}\z/', $id) !== 1) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
+            throw new \InvalidArgumentException('Invalid fee component ID ' . $id . '.');
+        }
+        if (isset($this->feeComponents[$id])) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a component ID, never output
+            throw new \InvalidArgumentException('Fee component already contributed: ' . $id . '.');
+        }
+        $this->feeComponents[$id] = $component;
+    }
+
+    /**
+     * In contribution order.
+     *
+     * @return list<FeeComponent>
+     */
+    public function feeComponents(): array
+    {
+        return array_values($this->feeComponents);
     }
 
     /**

@@ -21,7 +21,7 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
  * after a use case's transaction, never inside it: a submit reads the form and its definition
- * first and passes them in.
+ * first and passes them in. `participantValues()` is the one exception: it reads no post.
  */
 final class Forms
 {
@@ -197,13 +197,31 @@ final class Forms
      * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
      * none too. A stored answer of a key the event does not have is left out.
      *
+     * Unlike the rest of this class it reads no post, only `ParticipantFields::of()` (its table and the block
+     * registry), and each stored answer is typed by its field type's `value()`, which fires no hook and writes
+     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`).
+     *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value
      */
     public function participantValues(int $eventId, array $stored): array
     {
+        return $this->participantFacts($eventId, $stored)->values;
+    }
+
+    /**
+     * `participantValues()` with each field's kind beside its value (N19): the block type and the number
+     * field's decimals a money rule needs to tell a consent from a quantity. One walk, one read of
+     * `ParticipantFields::of()`, the same exception as `participantValues()`.
+     *
+     * @param array<string, string> $stored field key → the stored value
+     */
+    public function participantFacts(int $eventId, array $stored): ParticipantFacts
+    {
         $values = [];
+        $kinds = [];
         foreach ($this->typedFields($eventId) as [$field, $type]) {
+            $kinds[$field->key] = new FieldKind($field->type, (int) ($field->settings['decimals'] ?? 0));
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -214,7 +232,7 @@ final class Forms
                 : $type->value(new FieldTypeInput($answer, self::attributesOf($field, $answer)));
         }
 
-        return $values;
+        return new ParticipantFacts($values, $kinds);
     }
 
     /**
@@ -253,14 +271,16 @@ final class Forms
     }
 
     /**
-     * The block attributes a field type reads a stored answer with, from the participant field: the label,
-     * the options, and for a choice whether it is multiple, which its stored form shows (a JSON list).
+     * The block attributes a field type reads a stored answer with, from the participant field: its own
+     * settings (the number field's bounds, decimals and affixes), the label, the options, and for a choice
+     * whether it is multiple, which its stored form shows (a JSON list).
      *
      * @return array<string, mixed>
      */
     private static function attributesOf(ParticipantField $field, string $answer): array
     {
-        $attributes = ['label' => $field->title];
+        $attributes = $field->settings;
+        $attributes['label'] = $field->title;
         if ($field->options !== []) {
             $attributes['options'] = array_map(
                 static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
