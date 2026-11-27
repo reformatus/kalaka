@@ -39,15 +39,23 @@ final class AccountLinkRule
 
     /**
      * The refusal of a template's save, or null: the template is the event's "Jelentkezés rögzítve" mail's,
-     * the event has accounts, and the content does not read `account.password_link`.
+     * the event has accounts, and the content does not read `account.password_link`. `$assignedTo` is the mail
+     * the template is about to be assigned to (the command line saves a body ahead of its assignment): the
+     * "registered" mail counts as the template's even before it is stored as such.
      */
-    public function problem(int $bodyId, string $content, ?int $eventId): ?string
+    public function problem(int $bodyId, string $content, ?int $eventId, ?ActionMail $assignedTo = null): ?string
     {
-        if ($bodyId < 1 || $eventId === null || MailValues::readsPasswordLink($content) || !$this->applies($eventId)) {
+        $assigned = $assignedTo === ActionMail::Registered;
+        if (
+            ($bodyId < 1 && !$assigned)
+            || $eventId === null
+            || MailValues::readsPasswordLink($content)
+            || !$this->applies($eventId)
+        ) {
             return null;
         }
         $registered = $this->settings->ofEvent($eventId)->mail(ActionMail::Registered);
 
-        return $registered->bodyId === $bodyId ? self::NEEDS_LINK : null;
+        return $assigned || $registered->bodyId === $bodyId ? self::NEEDS_LINK : null;
     }
 }

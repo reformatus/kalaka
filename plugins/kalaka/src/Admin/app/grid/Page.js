@@ -1,16 +1,15 @@
 /**
  * The „Jelentkezők” page (S37): the view tabs, one toolbar row with DataViews' own search and filter button, the
  * filters (the view's own condition as DataViews' locked chip, then the viewer's chips with DataViews' own
- * add-filter and reset), one reset of the sort and the counting, and „Táblázat másolása"; then DataViews
+ * add-filter), our one „Visszaállítás” (search, filters, sort and counting) and „Táblázat másolása"; then DataViews
  * (compact) with the sum row in its header. Every column has a filter in its header menu; the sums and the
  * copy follow the filters and the search. Kód carries the default order and the reset returns to it. The title
- * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). Every sum cell's
- * arrow opens its column's menu, with the counting choices where the column counts (G10); the counting is the
- * viewer's own for the session, full access included, and is never saved (B1, round 3).
+ * and the controls stay at the top and the table fills the window (owner's walk, topic 6a G9). A countable sum
+ * cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's own for the session,
+ * full access included, and is never saved (B1, round 3).
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
-import { update } from '@wordpress/icons';
 import { DataViews } from '@wordpress/dataviews/wp';
 import { cellText, fmt, plainText, tableHtml } from './format';
 import Cell from './Cell';
@@ -117,10 +116,18 @@ export default function Page( { config } ) {
 		window.history.replaceState( null, '', tabUrl( id ) );
 	};
 
-	// The reset of the sort and the counting: Kód ascending again, the stored counting again. It leaves the
-	// search and the filters alone; DataViews' own search clear, filter chips and Reset are theirs. [UNAPPROVED N7]
-	const resetOrder = () => {
-		setView( { ...v, sort: defaultSort( tab ), page: 1 } );
+	// The one reset: the search, the added filters (the locked condition stays), the sort (back to the default
+	// order) and the viewer's own counting, and back to page 1. DataViews' own „Visszaállítás” clears only the
+	// search and the filters, so it is hidden (grid.css) and this button, labelled the same, takes its place.
+	// [UNAPPROVED N7]
+	const resetAll = () => {
+		setView( {
+			...v,
+			search: '',
+			filters: lockedFilters( tab.condition ),
+			sort: defaultSort( tab ),
+			page: 1,
+		} );
 		picks.current.reset();
 		setPickTick( ( n ) => n + 1 );
 	};
@@ -292,21 +299,25 @@ export default function Page( { config } ) {
 		/>
 	);
 
-	const menuFor = ( column ) => (
+	const menuFor = ( column, shown ) => (
 		<ColumnMenu
 			column={ column }
-			view={ v }
-			onSort={ ( sorted ) => setView( { ...v, sort: sorted, page: 1 } ) }
+			shown={ shown }
 			chosen={ picks.current.chosen( column.column, chosenFor( column ) ) }
 			onToggle={ pick }
 		/>
 	);
 
-	// A grant holder's counting is theirs too, and so is a full-access user's: the reset is enabled while only
-	// the sort or the counting differs from the view's default.
+	// A grant holder's counting is theirs too, and so is a full-access user's: the reset is shown while any of the
+	// search, the added filters (the locked condition is the view's own), the sort or the counting differs from a
+	// freshly opened view, and not shown otherwise.
 	const defaultView = defaultSort( tab );
 	const sortDiffers = JSON.stringify( v.sort || null ) !== JSON.stringify( defaultView || null );
-	const orderDiffers = sortDiffers || countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
+	const canReset =
+		!! v.search ||
+		( v.filters || [] ).some( ( f ) => ! f.isLocked ) ||
+		sortDiffers ||
+		countsDiffer( tab.columns, tab.counts || {}, picks.current.all() );
 	let empty;
 	if ( loadError ) {
 		empty = (
@@ -387,15 +398,11 @@ export default function Page( { config } ) {
 						{ /* DataViews' own add-filter: the funnel opens its menu while no filter is shown. [UNAPPROVED N63] */ }
 						<DataViews.FiltersToggle />
 						<DataViews.FiltersToggled className="kg-filters" />
-						<Button
-							variant="secondary"
-							size="compact"
-							icon={ update }
-							label={ GRID.reload }
-							onClick={ resetOrder }
-							disabled={ ! orderDiffers }
-							accessibleWhenDisabled
-						/>
+						{ canReset && (
+							<Button variant="tertiary" size="compact" onClick={ resetAll }>
+								{ GRID.reset }
+							</Button>
+						) }
 						<span className="kg-spacer" />
 						<div className="kg-bulkbar-actions">
 							{ narrowed ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }

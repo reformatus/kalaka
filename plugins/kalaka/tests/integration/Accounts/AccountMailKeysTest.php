@@ -19,7 +19,9 @@ use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\MailRenderer;
 use Kalaka\Mail\Body\MailValues;
 use Kalaka\Registrations\Account\SignUpPage;
+use Kalaka\Registrations\Api\Accounts;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Tests\Integration\LogCapture;
 use Kalaka\Tests\Integration\Mail\MailBodyTestCase;
 
 /**
@@ -29,6 +31,8 @@ use Kalaka\Tests\Integration\Mail\MailBodyTestCase;
  */
 final class AccountMailKeysTest extends MailBodyTestCase
 {
+    use LogCapture;
+
     private const OWNER_EMAIL = 'teszt@example.test';
 
     private function event(string $mode): int
@@ -258,6 +262,54 @@ final class AccountMailKeysTest extends MailBodyTestCase
         self::assertInstanceOf(\WP_Error::class, check_password_reset_key((string) $query['key'], $user->user_login));
     }
 
+    public function testTheLinkIsBuiltOnWordPressLostPasswordAddress(): void
+    {
+        $event = $this->event('mandatory');
+        $this->switchOn($event, 'registered', $this->document($event, $this->withLink()));
+        $key = $this->registration($event);
+        $user = get_userdata($this->user(true));
+        $this->own($key, $user->ID);
+        $filter = static fn (): string => 'https://login.example.test/elfelejtett/';
+        add_filter('lostpassword_url', $filter);
+
+        try {
+            $html = $this->render($event, $key);
+        } finally {
+            remove_filter('lostpassword_url', $filter);
+        }
+
+        $pattern = '/Jelszó: <span[^>]*>([^<]+action=rp[^<]+)</';
+        self::assertSame(1, preg_match($pattern, html_entity_decode($html), $match));
+        self::assertStringStartsWith('https://login.example.test/elfelejtett/?', $match[1]);
+        self::assertStringNotContainsString('wp-login.php', $match[1]);
+        parse_str((string) wp_parse_url($match[1], PHP_URL_QUERY), $query);
+        self::assertSame('rp', $query['action']);
+        self::assertInstanceOf(\WP_User::class, check_password_reset_key((string) $query['key'], $user->user_login));
+    }
+
+    public function testTheLinkEncodesALoginWithAPlusASpaceOrAnAt(): void
+    {
+        $accounts = new Accounts();
+        foreach (['a+b', 'a b', 'a@b+c.example'] as $login) {
+            // wp_insert_user() sanitizes the login, so an older account's login is set straight in the row.
+            $id = self::factory()->user->create(['user_email' => wp_rand() . '@example.test']);
+            global $wpdb;
+            $wpdb->update($wpdb->users, ['user_login' => $login], ['ID' => $id]);
+            clean_user_cache($id);
+            $link = $accounts->passwordLink($id);
+
+            self::assertNotNull($link);
+            $raw = (string) wp_parse_url($link, PHP_URL_QUERY);
+            self::assertStringNotContainsString('login=' . $login . '&', $raw . '&');
+            parse_str($raw, $query);
+            self::assertSame($login, $query['login']);
+            self::assertInstanceOf(
+                \WP_User::class,
+                check_password_reset_key((string) $query['key'], (string) $query['login'])
+            );
+        }
+    }
+
     public function testAGuestAVerifiedOwnerOrAnotherAddressReadsNone(): void
     {
         $event = $this->event('optional');
@@ -353,8 +405,12 @@ final class AccountMailKeysTest extends MailBodyTestCase
 
         // Any other save path: the graceful veto keeps the published content.
         wp_set_current_user(self::factory()->user->create(['role' => 'administrator']));
-        wp_update_post(['ID' => $body, 'post_content' => $this->paragraph('Köszönjük!')]);
+        $refused = $this->paragraph('Köszönjük!');
+        [$log] = $this->captureLog(static function () use ($body, $refused): void {
+            wp_update_post(['ID' => $body, 'post_content' => $refused]);
+        });
         self::assertTrue(MailValues::readsPasswordLink((string) get_post($body)?->post_content));
         self::assertSame(AccountLinkRule::NEEDS_LINK, get_transient(BodyCheck::NOTICE . get_current_user_id()));
+        self::assertStringContainsString('account_link ' . $body, $log);
     }
 }
