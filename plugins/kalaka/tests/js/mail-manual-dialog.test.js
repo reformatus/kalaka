@@ -1,6 +1,6 @@
 /**
  * The manual mail form (piece 4): what the preview shows, that nothing is chosen for the user, that a double click and
- * a retry are the same request (one request key), that a changed body or layout is another, what each answer
+ * a retry are the same request (one request key), that a changed body is another, what each answer
  * says (queued, skipped, repeat, paused, held), and that a refusal keeps the dialog with the server's own text.
  *
  * The real form, with small stand-ins for wp-components; `api.js` stays real, so what is asserted is the REST call.
@@ -129,11 +129,6 @@ async function submit() {
 	} );
 }
 
-async function toggleLayout() {
-	await act( async () => {
-		host.querySelector( 'input[type=checkbox]' ).click();
-	} );
-}
 
 beforeEach( () => {
 	apiFetch.mockReset();
@@ -227,13 +222,15 @@ describe( 'the preview', () => {
 } );
 
 describe( 'the send', () => {
-	test( 'is the ability with the body, the layout, the codes and a request key', async () => {
+	test( 'is the ability with the body, the codes and a request key', async () => {
 		await render();
 		await choose( '20' );
 		await submit();
 		const [ call ] = calls( 'send-manual-mail' );
 		expect( call.path ).toBe( '/wp-abilities/v1/abilities/kalaka/send-manual-mail/run' );
-		expect( call.data.input ).toMatchObject( { event_id: 1, body_id: 20, selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] }, layout: true } );
+		expect( call.data.input ).toMatchObject( { event_id: 1, body_id: 20, selection: { codes: [ 'A1', 'A2', 'A3', 'A4' ] } } );
+		// The levélkeret is the template's property: the send carries no layout.
+		expect( call.data.input ).not.toHaveProperty( 'layout' );
 		expect( call.data.input.request_key ).toMatch( /^[A-Za-z0-9_-]{8,64}$/ );
 		expect( sent ).toHaveBeenCalledWith( SENT );
 	} );
@@ -263,17 +260,15 @@ describe( 'the send', () => {
 		expect( keys[ 1 ] ).toBe( keys[ 0 ] );
 	} );
 
-	test( 'a changed layout or body is another request: another key', async () => {
+	test( 'a changed body is another request: another key', async () => {
 		route( { send: () => Promise.reject( new TypeError( 'Failed to fetch' ) ) } );
 		await render();
 		await choose( '20' );
 		await submit();
-		await toggleLayout();
-		await submit();
 		await choose( '22' );
 		await submit();
 		const keys = calls( 'send-manual-mail' ).map( ( c ) => c.data.input.request_key );
-		expect( new Set( keys ).size ).toBe( 3 );
+		expect( new Set( keys ).size ).toBe( 2 );
 	} );
 
 	test( 'a refusal keeps the dialog and shows the server\'s text as it is', async () => {
