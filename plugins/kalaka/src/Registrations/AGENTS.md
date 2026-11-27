@@ -120,7 +120,7 @@ the waitlist and reference codes
   - The one act that answers a request is `AnswerRequest` (`kalaka/answer-request`, action
     `kalaka_answer_request`), for offers and aid alike, used by staff and by a partner (a grant holder whose view
     holds only their registrations); the runner checks the target against the view. The one action gates every
-    request kind: a holder may answer any offer and award aid of any amount on the registrations in the view.
+    request kind: a holder may answer any offer and award aid, up to the full price, on the registrations in the view.
   - An answer is a fact with two writes in one act: one `kalaka_answers` row per answering act (append-only,
     never an upsert: its id is the key the "answered" mail takes, `AnswerRead::subject()`; it records who, when,
     the note), and the answer as the source's own participant field value, written by the source
@@ -131,8 +131,8 @@ the waitlist and reference codes
     the registration, a key the event does not declare and a "system" field.
   - The latest row per request is the act's record, not the answer. An identical repeat (same yes or no, same
     amount, no new note) writes nothing; an answer whose only change is a new note is a new act. Aid "no" is an
-    award of 0 Ft: an absent answer awaits, a zero is an answer. A "yes" to an offer (a partner's approval) needs a
-    non-empty note, its reason; a refusal and aid take a note optionally.
+    award of 0 Ft: an absent answer awaits, a zero is an answer. The note, a "yes" to an offer's
+    reason included, is always optional.
   - "Awaits an answer" is computed, never stored (`Requests::awaits()`): a request whose source says it is not
     answered (`RequestSource::isAnswered()`, read from the source's own answer field: an offer's `<key>_answer`, the
     aid award, empty = awaiting, "0" = refused), for a registration that is `registered`. The field is the truth: the
@@ -156,6 +156,10 @@ the waitlist and reference codes
     lands) with the pool key the request source names (`seatPool()`; null, as for aid, means no limit and no seat
     call). The pool lock is taken before the registration lock. A full pool never refuses the "yes": the result says
     `over_limit`.
+  - An aid "yes" above the full price the participant has to pay is refused with `AidAbovePrice` (a
+    `RuleViolation`, code `kalaka_aid_over_price`) and nothing is written. The price comes from the request source's
+    `RequestSource::terms()` (`RequestTerms`: `fullPrice`, `canPay`; the most an award can be is `maxAmount()`, the
+    full price today); a source with no terms (an offer) sets no cap. The detail read shows the same terms.
   - The act writes no ledger line, decision or mail: the registration is touched, so the evaluation (money, then
     confirmation, then mail) follows in the same run.
 - Only Registrations writes its tables.

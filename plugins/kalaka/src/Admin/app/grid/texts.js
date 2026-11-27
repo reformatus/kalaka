@@ -193,11 +193,10 @@ export const CONFIRM = {
 
 /**
  * The block of requests (slice B, "answer a request"): the heading, the state of each request, the buttons and the
- * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). Every string here is
- * unapproved until the owner ticks its box: [UNAPPROVED T3] the heading, [UNAPPROVED T4] „Válaszra vár”,
- * [UNAPPROVED T5] the states „Jóváhagyva” and „Elutasítva”, [UNAPPROVED T6] the award line, [UNAPPROVED T7] the
- * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar, [UNAPPROVED T10] the full-offer
- * warning, [UNAPPROVED T11] the missing award. The amount field says Ft whatever the currency (T8).
+ * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). What is still open:
+ * [UNAPPROVED T7] the buttons, [UNAPPROVED T8] the dialog's title, fields, the aid figures and the cap's line,
+ * [UNAPPROVED T10] the full-offer warning and [UNAPPROVED T11] the missing award. The amount field says Ft
+ * whatever the currency (T8).
  */
 /** The spoken text next to a „–” (not applicable), so a screen reader tells it from „Nem”. [UNAPPROVED T1225] */
 export const NOT_APPLICABLE_SPOKEN = 'Nem értelmezhető';
@@ -207,8 +206,8 @@ export const REQUESTS = {
 	awaiting: 'Válaszra vár',
 	approved: 'Jóváhagyva',
 	refused: 'Elutasítva',
-	award: 'Jóváhagyva (%s)', // [UNAPPROVED T6]
-	answer: 'Megválaszolás',
+	award: 'Jóváhagyva (%s)',
+	answer: 'Válasz',
 	change: 'Válasz módosítása',
 	dialogTitle: 'Kérelem megválaszolása',
 	answerField: 'Válasz',
@@ -216,12 +215,22 @@ export const REQUESTS = {
 	yes: 'Igen',
 	no: 'Nem',
 	amountField: 'Megítélt összeg (Ft)',
+	// The aid figures the answer dialog shows (owner 2026-11-27, walkthrough 6.8); the dialog's text box, T8,
+	// names them. [UNAPPROVED T8]
+	figures: {
+		full_price: 'Fizetendő összeg',
+		can_pay: 'Befizetni vállalt összeg',
+		asked: 'Kért támogatás',
+		max_award: 'Legfeljebb megítélhető támogatás',
+	},
+	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
+	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.',
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
-	// [UNAPPROVED T10]
-	full: 'Ennek a lehetőségnek már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
+	// [UNAPPROVED T8] the full offer's warning, in the lektor's words.
+	full: 'Ennek az ajánlatnak már minden helye betelt. Ha jóváhagyod a kérelmet, a létszám túllépi a keretet.',
 	awardEmpty: 'Add meg a megítélt összeget.',
-	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.', // [UNAPPROVED T257], as the confirmation's T45
+	noteTooLong: 'A megjegyzés legfeljebb 500 karakter lehet.',
 	// An inactive request's state: the same „–” as the grid's awaits column (Texts::NOT_APPLICABLE, T1120), which the
 	// read does not carry to the panel. [UNAPPROVED T1224]
 	notApplicable: '–',
