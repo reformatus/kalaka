@@ -84,7 +84,6 @@ final class SubmitSeatsTest extends FormsTestCase
             'limit' => $places,
             'leaders' => '',
             'place' => '',
-            'condition' => null,
             'position' => 0,
         ], new CliActor(null));
     }

@@ -11,8 +11,10 @@ values and conditions, prefill and form links
   [Fields](../../../../docs/architecture/events-and-forms.md#fields),
   [Values and conditions](../../../../docs/architecture/events-and-forms.md#values-and-conditions)
   with [Conditions](../../../../docs/architecture/events-and-forms.md#conditions);
-  later [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit),
-  [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link) and
+  the additional forms and the prefill from the active registration of
+  [Changing participant fields after submit](../../../../docs/architecture/events-and-forms.md#changing-participant-fields-after-submit)
+  and [Prefill from a link](../../../../docs/architecture/events-and-forms.md#prefill-from-a-link);
+  later the link prefill and
   [Form links and admin submissions](../../../../docs/architecture/events-and-forms.md#form-links-and-admin-submissions).
 - modules-and-extensions.md: the field-type and theme-adapter points of
   [The extension surface](../../../../docs/architecture/modules-and-extensions.md#the-extension-surface).
@@ -154,11 +156,24 @@ values and conditions, prefill and form links
   (`SlotRules::requiredFieldProblem()`, `required_field_missing`). Like the account block it is event-dependent, so
   it is checked when a form is served (`FormEngine::definition()` with `$serving`) and when it is saved live
   (`DefinitionCheck`), never on an earlier version.
-- Access checks are pure: they read no current user, cookie or request; the
-  caller passes the roles, whether the password was given and whether someone
-  is logged in. The engine's `FormHost::refusals()` contract leaves the last
-  to the host: `EventFormHost::refusals()` passes `is_user_logged_in()`, and
-  a submit passes whether its actor is an account.
+- An additional form writes only to the active registration
+  (`Portal\Api\ActiveRegistration`) of its own event, while that registration
+  is `registered` or `waitlisted` and the form is within its open period
+  (`OpenPeriod`: each end a date reference in `kalaka_opens` / `kalaka_closes`,
+  a fixed UTC instant or an event point; an end not set does not limit it,
+  one that does not resolve closes the form). Its submit runs as that
+  registration's `SecretLinkActor`; it never creates a registration.
+- A form opens with its host's stored values (`FormHost::prefill()`; for an
+  additional form the registration's current field values), each turned into
+  its field's answer by `FieldType::prefill()` (null opens it empty: a type
+  that refuses prefill). The page is walked and rendered for those answers;
+  each field block renders its own (`FieldMarkup::prefilled()`).
+- Access checks read the request's active registration (an additional form
+  acts on it) and nothing else from the request besides the logged-in user:
+  no other cookie or request state. The caller passes the roles and whether
+  the password was given; the engine's `FormHost::refusals()` contract leaves
+  the logged-in user to the host: `EventFormHost::refusals()` passes
+  `is_user_logged_in()`, and a submit passes whether its actor is an account.
 - `Forms\Api` reads WordPress posts, so it runs before or after a use case's
   transaction, never inside it. The exceptions are `Forms::refusals()`,
   which reads nothing: a submit checks it under the event's lock; and
@@ -175,16 +190,17 @@ values and conditions, prefill and form links
   affixes); `Forms::participantValues()` passes them to `value()`.
 - A field type whose value is a path (`Api\PathFieldType`) is never compared
   with `equals`: the parser refuses it where the scope knows the key's field
-  type (`FormScope`, a mail body's check and `Availability::check()` through
-  `DeclaredScope`'s path keys), and the editor mirrors it (`pathFieldTypes`). A fact source
+  type (`FormScope` and a mail body's check through `DeclaredScope`'s path
+  keys), and the editor mirrors it (`pathFieldTypes`). A fact source
   (`ContextScope`) knows no field types and does not refuse it.
 - Forms checks answers and hands them over; only Registrations writes
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
-  branches, pages, choice options, set options, offers, aid) is
-  decided by one condition through `Engine\Condition\ConditionEvaluator`, reached
-  through `FormWalk` (a form, a request field's set options included) or
-  `Api\Availability` (anything another module owns). No second evaluator anywhere, and JavaScript never evaluates a
+  branches, pages, choice options, the options a request field takes from a
+  set, offers, aid) is decided by one condition through
+  `Engine\Condition\ConditionEvaluator`, reached for a form's elements through
+  `FormWalk`. Set options carry no condition of their own: the ranking block
+  that names the set holds one per option. No second evaluator anywhere, and JavaScript never evaluates a
   condition (the editor only checks one against the server's rules to show
   problems).
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
@@ -304,9 +320,12 @@ values and conditions, prefill and form links
 - A request field (`Api\RequestFieldType`, e.g. the module ranking; S44)
   that names an assignment set holds no options of its own: the definition
   parse fills its `options` from the host (`FormHost::requestOptions()`),
-  each with its eligibility condition, which is read like a choice option's
-  condition (fields before it and the event's keys); a stored earlier version
-  of the form takes them without their conditions. `FormEngine::blocks()`
+  each with the condition its block's `optionConditions` holds for its key,
+  read like a choice option's condition (fields before it and the host's
+  keys); every version reads its own block's conditions. A key of
+  `optionConditions` that is no option of the set is refused when the form is
+  saved (`unknown_option`) and ignored when the definition is read, so a
+  removed option never closes the form. `FormEngine::blocks()`
   renders it with those attributes. Outside the set's choice window, decided
   when the definition is built from the runner's clock, it is closed: it does
   not show, renders nothing and whatever is sent for it is dropped; the walk
@@ -322,10 +341,6 @@ values and conditions, prefill and form links
   `ParticipantFieldSync` ties each set to its field after the fields are
   declared (`Assignments\Api\AssignmentSets::tieRequestField()`); a tie is
   never released.
-- `Forms::requestScopes()` reads, before a use case, where each published
-  form of an event holds a set's request field (`Api\RequestScope`: the
-  fields before it and the host's keys); `Availability::checkInForm()` judges
-  a set option's condition against it, purely, inside the use case.
 - A re-rendered choice or request field's new wrapper gets the event
   `kalaka:field-swapped` (`SWAPPED` in `Blocks/form/view.js`) with the
   values it was ticked with, for a field type's own script.
@@ -342,7 +357,10 @@ values and conditions, prefill and form links
   accounts, and anywhere else it renders nothing. Its button opens
   WordPress's login page in a window of its own (`SignUp::url()`); a login
   there lands on the return page (`SignUp::returnUrl()`), which tells the
-  form's page by `postMessage` to its own origin only and closes. The page
+  form's page by `postMessage` to its own origin only and closes. The
+  script adds `popup=1` to the address it opens with `window.open` only
+  (the plain link stays the same-tab fallback), so the return page of the
+  window never redirects to a second form. The page
   then reads its REST nonce from WordPress (`admin-ajax.php?action=rest-nonce`)
   and re-fetches with the block re-rendered, never reloading and never
   overwriting a typed answer; without a message it checks on focus or
@@ -364,3 +382,10 @@ values and conditions, prefill and form links
 - A `kalaka/` block in a published form that is not a registered block type
   closes the site.
 - One field type per block name; a second one is a load failure.
+- `Forms::withoutAccountBlock()` lists the published registration forms of an event
+  that lack the account block a given account mode wants (the one rule is
+  `AccountBlock::missing()`, which the save check asks for the event's mode), and
+  `Forms::refreshBrokenList()` recomputes `BrokenForms` after a mode change: the
+  two halves of the refusal in
+  [Forms implementation](../../../../docs/architecture/events-and-forms.md#forms-implementation),
+  which `Events\Api\Events::update()` runs around `kalaka/update-event`.

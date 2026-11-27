@@ -406,5 +406,15 @@ final class Module extends AbstractModule
             'show_in_rest' => true,
             'auth_callback' => $fullAccess,
         ]);
+        // An additional form's open period (S60): each end a date reference in JSON (`OpenPeriod`), kept as
+        // written; one that does not resolve closes the form.
+        foreach ([FormPosts::META_OPENS, FormPosts::META_CLOSES] as $end) {
+            register_post_meta(FormPosts::POST_TYPE, $end, [
+                'type' => 'string',
+                'single' => true,
+                'show_in_rest' => true,
+                'auth_callback' => $fullAccess,
+            ]);
+        }
     }
 }

@@ -11,7 +11,8 @@ use Kalaka\Foundation\Api\Seed\Seeding;
 
 /**
  * One registration-slot form for the first sample event (the Events seeder's open one; seeders run in
- * contribution order) and a page that embeds it, so the seeded site shows a form. There is no form use
+ * contribution order), with a field of each kind the admin grid sums (a choice, a multiple choice, a
+ * consent, an optional long text), and a page that embeds it, so the seeded site shows a form. There is no form use
  * case yet, so the posts are written with WordPress functions, as the seed writes WordPress data. The
  * texts are seed data (events-and-forms.md, "Forms implementation"). Both carry the marker meta
  * `MARKER`; after `wp kalaka seed --drop` the earlier sample form and page are deleted first (dev only).
@@ -79,7 +80,12 @@ final class FormSeeder implements Seeder
 
     private function definition(): string
     {
-        $nights = $this->block('kalaka/text-field', ['key' => 'ejszakak', 'label' => 'Hány éjszakára?']);
+        $nights = $this->block('kalaka/scale-field', [
+            'key' => 'ejszakak',
+            'label' => 'Éjszakák',
+            'min' => 1,
+            'max' => 8,
+        ]);
 
         return $this->block('kalaka/name-field', ['key' => 'nev', 'label' => 'Név', 'displayName' => true])
             . $this->block('kalaka/email-field', ['key' => 'email', 'label' => 'E-mail-cím', 'contactEmail' => true])
@@ -96,7 +102,30 @@ final class FormSeeder implements Seeder
                     'match' => 'all',
                     'items' => [['key' => 'szallas', 'operator' => 'equals', 'value' => 'igen']],
                 ],
-            ], $nights);
+            ], $nights)
+            . $this->block('kalaka/choice-field', [
+                'key' => 'ebed',
+                'label' => 'Ebéd',
+                'required' => true,
+                'options' => [
+                    ['value' => 'normal', 'label' => 'Normál'],
+                    ['value' => 'vegetarianus', 'label' => 'Vegetáriánus'],
+                    ['value' => 'glutenmentes', 'label' => 'Gluténmentes'],
+                ],
+            ])
+            . $this->block('kalaka/choice-field', [
+                'key' => 'programok',
+                'label' => 'Délutáni programok',
+                'multiple' => true,
+                'options' => [
+                    ['value' => 'kirandulas', 'label' => 'Kirándulás'],
+                    ['value' => 'kezmuves', 'label' => 'Kézműves'],
+                    ['value' => 'sport', 'label' => 'Sport'],
+                ],
+            ])
+            . $this->block('kalaka/consent-field', ['key' => 'fenykep', 'label' => 'Készülhet rólam fénykép.'])
+            . $this->block('kalaka/text-field', ['key' => 'megjegyzes', 'label' => 'Megjegyzés', 'multiline' => true])
+            . $this->block('kalaka/date-field', ['key' => 'erkezes', 'label' => 'Érkezés napja']);
     }
 
     /** @param array<string, mixed> $attributes */

@@ -6,6 +6,7 @@ namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Module\AbstractModule;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Registrations\Cli\RegistrationSeeder;
 use Kalaka\Foundation\Api\Module\Schema;
 
 final class Module extends AbstractModule
@@ -74,7 +75,7 @@ SQL;
      * foundation.md, "Facts, decisions and computed values", the seat rule: one row per seat held, by event,
      * registration and pool (`event` is never a pool here: the event's seats are its `registered` statuses).
      * `pool` is `utf8mb4_nopad_bin`, compared exactly; `act` is the registration's own act that took the seat.
-     * `KEY pool` serves the count of a pool. A freed seat has no row. [UNAPPROVED N1]
+     * `KEY pool` serves the count of a pool. A freed seat has no row.
      */
     private const SEATS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_seats (
@@ -121,6 +122,7 @@ SQL;
     public function contribute(Contributions $to): void
     {
         $to->siteWarning(new Account\SettingsWarning());
+        $to->seeder(new RegistrationSeeder());
     }
 
     public function boot(): void

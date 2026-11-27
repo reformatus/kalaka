@@ -7,8 +7,8 @@ namespace Kalaka\Forms\Api;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 
 /**
- * A fact source: the typed values a condition may read, by key. The one availability evaluator
- * (`Availability`) reads every condition from a fact source and nothing else: a form's draft
+ * A fact source: the typed values a condition may read, by key. The one condition evaluator
+ * (`ConditionEvaluator`) reads every condition from a fact source and nothing else: a form's draft
  * answers and the event's values while the form is filled in and at submit, a registration's facts
  * after submit. Whoever evaluates builds the source; the evaluator never runs the materializer or
  * reads the database to fill one.
@@ -23,7 +23,7 @@ interface Facts
      * The key a date reference to "now" reads (`{"ref": "now"}`): the evaluation's clock time, to the second, in
      * the site's time zone (a datetime), put into the fact source by whoever builds it (`EventValues::now()`). The
      * value side of a comparison may only use the reference: a `key` naming it there is refused. The left side may
-     * name it, as a datetime. [UNAPPROVED N694]
+     * name it, as a datetime.
      */
     public const NOW = 'time.now';
 

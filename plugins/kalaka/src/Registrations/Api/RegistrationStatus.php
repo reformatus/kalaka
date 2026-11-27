@@ -30,7 +30,7 @@ enum RegistrationStatus: string
      * Whether the registrant's page shows their details (the money table and the rest): true unless the
      * registration is waitlisted, who see only that they are waitlisted (owner ruling 2026-11-25). The one read of
      * what a waitlisted registrant sees; not an action gate: additional forms and payments stay on
-     * `=== Registered`. [UNAPPROVED N653]
+     * `=== Registered`.
      */
     public function showsDetails(): bool
     {

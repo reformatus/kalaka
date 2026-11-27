@@ -71,10 +71,11 @@ final class ConditionParser
             self::fail();
         }
 
-        // [UNAPPROVED N694] `time.now` as the left key: the moment itself, a datetime in every scope (a dotted fact
+        // `time.now` as the left key: the moment itself, a datetime in every scope (a dotted fact
         // key, so no field can be named like it); a value-side reference to it stays `{"ref": "now"}`.
-        $type = $key === Facts::NOW ? ValueType::Datetime : $scope->typeOf($key);
-        if (!$operator->isAllowedFor($type) || ($operator === Operator::Equals && $scope->isPath($key))) {
+        $moment = $key === Facts::NOW;
+        $type = $moment ? ValueType::Datetime : $scope->typeOf($key);
+        if (!$operator->isAllowedFor($type) || ($operator === Operator::Equals && !$moment && $scope->isPath($key))) {
             self::fail($key);
         }
         if ($operator === Operator::Empty) {

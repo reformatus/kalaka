@@ -15,10 +15,11 @@ use Kalaka\Ranking\RankingFieldType;
  * IVK's three tracks and its module set, on the first published sample event (core's seeders run first): a
  * request-mode set "Modulok" whose window is open on the seed day, a registration form holding the track
  * question (`szolgalati_terulet`: ifivezető, iskolamisszió, PRO) and the ranking naming the set, and a page
- * that embeds it. The ifivezető modules A–F are for everybody; "Iskolamisszió" and "PRO" carry an eligibility
- * condition on the track (S44). Configuration is S48's; these are seed data, not UI strings.
+ * that embeds it. The ifivezető modules A–F are for everybody; "Iskolamisszió" and "PRO" carry a condition
+ * on the track, in the ranking block's `optionConditions` (S44). Configuration is S48's; these are seed data,
+ * not UI strings.
  *
- * The form is saved before the options, so the track is a participant field when the conditions are checked;
+ * The options are written before the form, so the form's save finds every key its `optionConditions` names;
  * the save ties the set to the ranking's field. The set is written through `Assignments\Api` (the
  * extension's way to core's use cases); the posts with WordPress functions, as the seed writes WordPress
  * data, marked like core's sample form so `wp kalaka seed --drop` deletes them first.
@@ -54,18 +55,18 @@ final class RankingSeeder implements Seeder
             'published' => false,
         ], $actor);
 
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $position => $letter) {
+            $this->option($setId, 'Modul ' . $letter, 30, $position);
+        }
+        $this->option($setId, 'Iskolamisszió', 99, 6);
+        $this->option($setId, 'PRO', 99, 7);
+
         $formId = $this->insert([
             'post_type' => 'kalaka_form',
             'post_title' => 'Jelentkezés modulokkal',
             'post_content' => $this->definition($setId),
             'meta_input' => ['kalaka_event_id' => $eventId, 'kalaka_placement' => 'registration'],
         ]);
-
-        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $position => $letter) {
-            $this->option($setId, 'Modul ' . $letter, 30, null, $position);
-        }
-        $this->option($setId, 'Iskolamisszió', 99, 'iskolamisszio', 6);
-        $this->option($setId, 'PRO', 99, 'pro', 7);
 
         $this->insert([
             'post_type' => 'page',
@@ -74,7 +75,7 @@ final class RankingSeeder implements Seeder
         ]);
     }
 
-    private function option(int $setId, string $label, int $capacity, ?string $track, int $position): void
+    private function option(int $setId, string $label, int $capacity, int $position): void
     {
         $this->sets->saveOption([
             'set_id' => $setId,
@@ -82,10 +83,6 @@ final class RankingSeeder implements Seeder
             'limit' => $capacity,
             'leaders' => '',
             'place' => '',
-            'condition' => $track === null ? null : [
-                'match' => 'all',
-                'items' => [['key' => 'szolgalati_terulet', 'operator' => 'equals', 'value' => $track]],
-            ],
             'position' => $position,
         ], new CliActor(null));
     }
@@ -111,7 +108,20 @@ final class RankingSeeder implements Seeder
                 'set' => $setId,
                 'min' => 1,
                 'max' => 3,
+                'optionConditions' => [
+                    'iskolamisszio' => $this->track('iskolamisszio'),
+                    'pro' => $this->track('pro'),
+                ],
             ]);
+    }
+
+    /** @return array<string, mixed> the condition: the track answer is this one */
+    private function track(string $value): array
+    {
+        return [
+            'match' => 'all',
+            'items' => [['key' => 'szolgalati_terulet', 'operator' => 'equals', 'value' => $value]],
+        ];
     }
 
     /** @param array<string, mixed> $post */

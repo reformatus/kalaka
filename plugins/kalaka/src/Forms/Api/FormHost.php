@@ -23,11 +23,11 @@ interface FormHost
 {
     /**
      * The keys besides its answers that a form's conditions may read, and their types: the parse checks
-     * every condition against them.
+     * every condition against them. Asked for the form, so a host may declare keys that only some forms have.
      *
      * @return array<string, ValueType>
      */
-    public function factTypes(): array;
+    public function factTypes(Form $form): array;
 
     /**
      * The values of `factTypes()` for the form, as of `$now` (the request's moment, the one the page's refusals
@@ -37,8 +37,10 @@ interface FormHost
     public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext;
 
     /**
-     * What keeps the form from being used now, in the order the page shows them (the first one). Pure:
-     * the caller passes the moment, the person's roles and whether the form's password was given.
+     * What keeps the form from being used now, in the order the page shows them (the first one). It reads the
+     * request's active registration (an additional form acts on it) and the logged-in user, and nothing else
+     * from the request: no other cookie or request state; the caller passes the moment, the person's roles and
+     * whether the form's password was given.
      *
      * @param list<string> $roles
      * @return list<AccessRefusal>
@@ -116,7 +118,7 @@ interface FormHost
     /**
      * The participant field keys the host's current state requires a registration form to hold, required and
      * outside any condition (`Engine\SlotRules::requiredFieldProblem()`); none for another placement. A form
-     * being served that lacks one is closed, like one without the account block. [UNAPPROVED, #200 N16]
+     * being served that lacks one is closed, like one without the account block.
      *
      * @return list<string>
      */

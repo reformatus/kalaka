@@ -17,6 +17,8 @@ use Kalaka\Mail\Body\BodyCheck;
 use Kalaka\Mail\Body\BodyInUse;
 use Kalaka\Mail\Body\MailPosts;
 use Kalaka\Mail\Body\MailRestController;
+use Kalaka\Mail\Cli\ActionMailCommand;
+use Kalaka\Mail\Cli\MailCommand;
 use Kalaka\Mail\Pause\PauseCause;
 use Kalaka\Mail\Pause\PauseWarning;
 use Kalaka\Mail\Pause\RequestState;
@@ -141,6 +143,10 @@ SQL;
             Boundary::background('mail sender', static fn (): mixed => $sender->send());
         });
         add_action('init', [$this, 'register']);
+        if (defined('WP_CLI') && WP_CLI) {
+            ActionMailCommand::register();
+            MailCommand::register();
+        }
     }
 
     /** @internal the `init` callback */

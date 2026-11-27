@@ -146,7 +146,7 @@ final class Registrations
      * field. Staff and settings saves that remove a tier, an option or an offer call it, so one refusal and one
      * code reach every surface. A null value means "any value held": CF4 (#245) answers it with `openChose()`;
      * until then no caller passes null, and on this branch a null matches nothing (it is read as value ''). A
-     * plain read. [UNAPPROVED N695]
+     * plain read.
      */
     public function refuseRemovingChosen(int $eventId, string $fieldKey, ?string $value): void
     {

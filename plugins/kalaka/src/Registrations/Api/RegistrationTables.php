@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kalaka\Registrations\Api;
 
 /**
- * Registrations' tables as another module may read them by name, and the sorszám order over them, owned
- * here so a reader cannot drift from `RegistrationList`. Only the admin view query may use this class
- * (deptrac's "Registration tables" layer; engineering.md, "Static checks").
+ * Registrations' tables as another module may read them by name, and the sorszám order and numbering over
+ * them, owned here so a reader cannot drift from `RegistrationList`. Only the admin view query may use this
+ * class (deptrac's "Registration tables" layer; engineering.md, "Static checks").
  */
 final class RegistrationTables
 {
@@ -42,5 +42,23 @@ final class RegistrationTables
         $column = $alias === '' ? '' : $alias . '.';
 
         return self::orderingTime($alias) . $direction . ', ' . $column . 'code' . $direction;
+    }
+
+    /**
+     * The event's numbered registrations as a derived table (`code`, `serial_no`): counted separately
+     * within `registered` and `waitlisted`, in the sorszám order (a window function; MariaDB 10.2). Its
+     * arguments, in placeholder order: the registrations table (`%i`), then the event id (`%d`).
+     *
+     * @param string $table the registrations table
+     * @return array{0: literal-string, 1: list<string|int>}
+     */
+    public static function serialNumbers(string $table, int $eventId): array
+    {
+        return [
+            'SELECT q.code, ROW_NUMBER() OVER (PARTITION BY q.status ORDER BY ' . self::serialOrder('q')
+            . ') AS serial_no FROM %i q WHERE q.event_id = %d'
+            . " AND q.status IN ('registered', 'waitlisted')",
+            [$table, $eventId],
+        ];
     }
 }

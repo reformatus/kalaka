@@ -205,8 +205,10 @@ flowchart TB
   and on additional forms, the block is not offered and renders nothing
   ([Registrations](registrations-and-identity.md#accounts-on-the-registration-form)).
   **Changing an event's account mode** is refused while a published
-  registration form of the event lacks the block, and the broken-forms list
-  is refreshed after a mode change (S72).
+  registration form of the event lacks the block, or while the event's
+  "registered" mail is off or its template lacks the set-password link
+  ([Mail](mail.md#content)), and the broken-forms list is refreshed after a
+  mode change (S72).
 - **Forms need JavaScript.** Without it the form stays as the server
   rendered it for no answers and cannot be sent, and it shows a warning
   (UI text approved when built). A multi-page form shows none of its pages
@@ -225,8 +227,9 @@ flowchart TB
   coalesce into one follow-up with the latest answers. A click on Next or
   Send during a request is queued, not lost; Back is ignored while the form
   is busy.
-- **The server validates against the same form definition:** only declared,
-  visible fields are accepted.
+- **The server validates against the same form definition:** only declared
+  fields that show are accepted, and a hidden field only with a value from a
+  link or a prefill.
 - **Each submission stores the form and its version**
   ([Registrations](registrations-and-identity.md#submissions-and-values)).
 - **Stable field keys**; pickers for conditions come later
@@ -296,7 +299,8 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key. A form that joins an extension's choice
+    then may a form hold its key, and only then may staff correct it
+    through views. A form that joins an extension's choice
     field offers only options the extension declared, any subset of them,
     and never adds one;
   - **system:** a read-only field that only **declares** a system decision
@@ -335,8 +339,10 @@ flowchart TB
   separate ([Prefill from a link](#prefill-from-a-link)).
 - **Types may refuse** to be definitions and may refuse prefill.
 - **Hidden fields** hold values the registrant does not see, such as an
-  attribution key. They get their values only from the form link record;
-  values the browser sends for them are rejected.
+  attribution key. They get their values from the form link record or from a
+  public prefill ([Prefill from a link](#prefill-from-a-link)), never from the
+  registrant's typing; a prefilled one can be forged, so it is attribution
+  only.
 - Extensions add field types, e.g. the congregation picker
   ([Money](money.md#sponsor-and-church-support)) and the module ranking.
 - **Keys and option values come from the visible text.** A field's key is
@@ -371,12 +377,16 @@ flowchart TB
   another type, refuses the declaration. A key another code declarer holds
   is refused.
 - **Explicit markings:** the contact email (exactly one per form in the
-  registration slot) and the display name.
+  registration slot) and the display name. They stay on the registration
+  form's blocks and do not move to the participant-field list.
+- **An additional form holds neither explicit marking;** the save refuses it,
+  as the slot's rule does. A "change my e-mail" form waits for its own design.
 - **Money-relevance is a type capability** supplied by plugins, or declared
   by an extension for a field it declares; core ships no money field types.
   Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money.
+  only through use cases that re-materialize the money; a staff correction
+  through views is one and needs no unlock.
 
 ### Changing participant fields after submit
 
@@ -387,20 +397,27 @@ is no other participant-side edit.
 - **Every submit appends a submission;** earlier submissions stay as they
   are. The latest write wins in the field values, and each change is
   audited.
-- **Only fields the form shows are written,** plus hidden fields its form
-  link sets. Fields the form does not hold,
+- **Only fields the form shows are written,** plus hidden fields that get a
+  value from its form link or a public prefill. Fields the form does not hold,
   and fields in branches or pages that do not show, keep their values. A
   shown field that was prefilled and is left blank clears its value: the
-  form showed the current value, so blank is the answer. A field whose type
+  form showed the current value, so blank is the answer. A shown consent left
+  unticked is not blank but the answer no, stored as `0`: withdrawing a consent
+  given earlier overwrites it and never clears it. A field whose type
   refuses prefill opens empty, so left blank it keeps the current value:
   the form never showed it.
+- **An additional form's submit sends no action mail;** the page shows the
+  form's after-submit text, or the supplement's default when it has none
+  ([Forms implementation](#forms-implementation)).
 - **The form opens with the current values** of the registration, as
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
   allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field.
+  refused unless an organizer unlocked the field; a staff correction through
+  views needs no unlock.
 - **Staff fields may appear in an additional form.**
-- **Admins can correct any field at any time,** through views. An admin
+- **Admins can correct a form or staff field at any time, and an extension
+  field only when it is form-writable,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
   period and revokes the form's links that bypass it.
@@ -446,10 +463,12 @@ is no other participant-side edit.
 - **One availability base.** Whatever is shown or selectable is decided by
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
-  field's options, the options of an assignment set, offers and the adjudicated aid. In a form it reads the draft answers and
-  the event's values, on every render and again at submit; in the fee
-  components and the materializer it reads the registration's facts. It
-  never runs the materializer on a draft. Computed facts such as free seats
+  field's options (the options a ranking takes from an assignment set
+  included), offers and the adjudicated aid. An
+  assignment-set option carries no condition of its own: the form's ranking
+  field decides who may pick it. In a form it reads the draft answers and
+  the event's values, on every render and again at submit; in the fee components and the materializer it reads the
+  registration's facts. It never runs the materializer on a draft. Computed facts such as free seats
   are put into the fact source by the caller; a congregation answer carries
   its ancestors in its own value, a snapshot of its path.
 - **Forms are rendered by the server; the page's script holds no

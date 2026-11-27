@@ -47,7 +47,7 @@ export const AFTER_SUBMIT = "kalaka/after-submit";
 /** A key whose type the editor cannot know (a condition outside a form): any operator and value pass. */
 const ANY = "any";
 
-/** [UNAPPROVED N694] The fact key of the moment itself (`Facts::NOW`): a left key, always a datetime. */
+/** The fact key of the moment itself (`Facts::NOW`): a left key, always a datetime. */
 const NOW_KEY = "time.now";
 
 const MATCH = ["all", "any"];

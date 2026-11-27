@@ -2,8 +2,8 @@
 export const BAD_NUMBER = 'Csak számot írhatsz ide.';
 
 /**
- * The first shown number field whose native control holds invalid text (`validity.badInput`: the browser
- * reports an empty value) or that the number guard refused (`validity.customError`: the field was emptied):
+ * The first shown number field whose native number control holds invalid text (`validity.badInput`: the
+ * browser reports an empty value; another control type's bad input, a half-typed date, does not count) or that the number guard refused (`validity.customError`: the field was emptied):
  * the send is stopped and the field says why.
  *
  * @param {HTMLFormElement} form
@@ -15,7 +15,8 @@ export function firstBadNumber(form) {
 			(candidate) =>
 				candidate.name !== '' &&
 				!candidate.disabled &&
-				(candidate.validity?.badInput === true || candidate.validity?.customError === true)
+				((candidate.type === 'number' && candidate.validity?.badInput === true) ||
+					candidate.validity?.customError === true)
 		);
 		if (control !== undefined) {
 			return { wrapper, control };

@@ -245,9 +245,11 @@ reference and check-in barcode.
     token does not stay in the address bar or the history.
   - **An account** picks the active registration among the registrations it
     owns. When the account owns the registration a cookie names, the account
-    wins: access follows the account.
+    wins: access follows the account. Until the account picker is built, being
+    logged in sets nothing: only a secret link makes a registration active.
   - The active registration **expires** 24 hours after its link was
-    followed (following it again starts anew), and **"kilépés"** clears it.
+    followed (following it again starts anew), and **"kilépés"** clears it and
+    logs a logged-in account out.
 - **The participant side is built from blocks** that admins place on any
   page, not from a fixed portal page: e.g. the registration's status, its
   bank-transfer details, a picker among an account's registrations,
@@ -274,8 +276,8 @@ reference and check-in barcode.
 - **The form link a registration came through is stored as a fact**
   ([Forms](events-and-forms.md#form-links-and-admin-submissions)), filterable
   in views.
-- **A hidden attribution field** can carry a key from another page, e.g. the
-  module recommender's answers. Erasing the registration deletes the field
+- **A hidden attribution field** can carry a key from another site, e.g. the
+  submission ID of IVK's quiz, which keeps the quiz's answers there. Erasing the registration deletes the field
   value, so those answers stay, unlinked and anonymous, for statistics.
 - **An erasure anonymises** the registration's personal field values and
   submissions.
