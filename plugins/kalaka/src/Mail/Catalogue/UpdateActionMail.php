@@ -21,9 +21,12 @@ use Kalaka\Mail\Body\RegisteredMailStaysOn;
 /**
  * Changes one action mail of an event (mail.md, "Configuration"): switches it on or off, assigns its body
  * (a `kalaka_mail` post of the event). A mail is on only with a body, a body serves one mail only (mail.md,
- * "Words": one to one), and only a published body is assigned or switched on (a mail switched off may keep a body
- * that is no longer published). Site-level, like every Mail
- * use case: only full access, WP-CLI and the system run it.
+ * "Words": one to one), and only a published body switches a mail on: any body of the event may be assigned, a
+ * draft included, and a mail switched off may keep one that is no longer published. Unassigning or swapping the
+ * body of a mail that is on switches it off, unless the call says `enabled` itself; the "registered" mail of an
+ * event with accounts cannot go off, so a swap there leaves it on and the new body must be published and read the
+ * link. Site-level, like every Mail use case: only full access, WP-CLI and the system run it.
+ * [UNAPPROVED N1174]
  *
  * It reads no WordPress data in its transaction: the body's facts (`MailBody`) are read before the run and
  * passed in, by `prepared()`, which the ability's `$prepare` and `Api\ActionMailSettings::update()` both call.
@@ -35,6 +38,9 @@ final class UpdateActionMail implements AdminUseCase
     public const NO_BODY = 'Előbb add meg a sablon szövegét.';
     public const BODY_TAKEN = 'Ezt a levélsablont már egy másik levél használja.';
     public const BODY_UNPUBLISHED = 'Előbb tedd közzé a levélsablont.';
+
+    /** A point is switched on only with a published template. [UNAPPROVED T1173] */
+    public const POINT_TEMPLATE_UNPUBLISHED = 'A küldési pont csak közzétett sablonnal kapcsolható be.';
 
     public function __construct(
         private readonly ?MailBody $body = null,
@@ -129,8 +135,8 @@ final class UpdateActionMail implements AdminUseCase
      * @param list<ActionMailEntry> $others
      * @throws MailNeedsBody when the mail would be on without a body
      * @throws BodyTaken when another action mail of the event uses the body
-     * @throws BodyUnpublished when the body newly assigned, or the one a mail is newly switched on with, is
-     *         not published
+     * @throws PointTemplateUnpublished when the mail would be on with a body that is newly assigned or newly
+     *         switched on and is not published
      * @throws PasswordLinkRequired when the "registered" mail of an event with accounts gets a body without the link
      * @throws RegisteredMailStaysOn when it is switched off in such an event
      * @throws SystemFailure when the body's facts were not read for this body: the caller's programming error
@@ -156,7 +162,9 @@ final class UpdateActionMail implements AdminUseCase
             throw new MailNeedsBody();
         }
         // Judged only for what the change alters: a body newly assigned, or the mail switched on. Another edit
-        // (the layout switch) of a mail that is on passes.
+        // (the layout switch) of a mail that is on passes. Any body of the event may be assigned, a draft
+        // included (owner 2026-11-27, walkthrough 8: a point may hold a draft template); only a mail that is on
+        // needs it published.
         $changed = $after->bodyId !== $storedBody || ($after->enabled && !$wasEnabled);
         $facts = null;
         if ($changed && $after->bodyId !== null) {
@@ -165,8 +173,8 @@ final class UpdateActionMail implements AdminUseCase
                 throw $error;
             }
             $facts = $body;
-            if (!$facts->published) {
-                throw new BodyUnpublished();
+            if ($after->enabled && !$facts->published) {
+                throw new PointTemplateUnpublished();
             }
         }
         // S15: while the event has accounts, "Jelentkezés rögzítve" carries the set-password link (`AccountLinkRule`).
@@ -178,6 +186,15 @@ final class UpdateActionMail implements AdminUseCase
                 throw new PasswordLinkRequired();
             }
         }
+    }
+
+    /**
+     * Whether the mail is one that cannot be switched off: the "registered" mail of an event with accounts
+     * (`AccountLinkRule`). Swapping its template then does not switch it off; `refuse()` judges the new one.
+     */
+    private static function staysOn(Event $event, ActionMail $action): bool
+    {
+        return $action === ActionMail::Registered && $event->accountMode !== AccountMode::Off;
     }
 
     /**
@@ -209,6 +226,11 @@ final class UpdateActionMail implements AdminUseCase
         }
         if (array_key_exists('enabled', $input)) {
             $entry->enabled = (bool) $input['enabled'];
+        } elseif ($entry->bodyId !== $storedBody && $entry->enabled && !self::staysOn($event, $action)) {
+            // Unassigning or swapping a point's template switches the point off; a save of the template itself is
+            // no change of the point (owner 2026-11-27, walkthrough 8). An explicit `enabled` in the same call
+            // is the caller's word and is judged by `refuse()`.
+            $entry->enabled = false;
         }
         $others = array_values($this->mails->ofEvent($eventId));
         self::refuse($event, $action, $entry, $storedBody, $wasEnabled, $this->body, $others);

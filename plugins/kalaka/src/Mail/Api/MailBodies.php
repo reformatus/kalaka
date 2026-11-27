@@ -22,6 +22,7 @@ final class MailBodies
 
     public function __construct(
         private readonly ActionMailRepository $mails = new ActionMailRepository(),
+        private readonly MailPosts $posts = new MailPosts(),
     ) {
     }
 
@@ -123,6 +124,7 @@ final class MailBodies
             $post->post_status,
             $usedBy,
             Instant::fromStoredOrNull($post->post_modified_gmt),
+            $this->posts->usesFrame($post->ID),
             admin_url('post.php?post=' . $post->ID . '&action=edit'),
             new MailBody(
                 $post->ID,
