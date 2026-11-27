@@ -16,13 +16,11 @@ import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/eleme
 import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
 import * as api from './api';
 import { isTooMany, pageKeys, stateReads } from './manual';
-import { isAllMatching, isNarrowedSelection, selectionSignature } from '../grid/selection';
+import { selectionSignature } from '../grid/selection';
 import { bodyLabel, problemText } from './format';
 import { fmt } from '../grid/format';
-import CodeName from './CodeName';
+import Skipped from './Skipped';
 import { COMMON, MANUAL, RESULT } from './texts';
-
-const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
 
 /**
  * @param {Object}   props
@@ -144,18 +142,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 						<strong>{ fmt( RESULT.queued, result.queued ) }</strong>
 					</p>
 				) }
-				{ result.skipped.length > 0 && (
-					<Fragment>
-						<p>{ fmt( RESULT.skipped, result.skipped.length ) }</p>
-						<ul className="km-members">
-							{ result.skipped.map( ( s ) => (
-								<li key={ s.code }>
-									<CodeName code={ s.code } name={ nameOf( s.code ) } /> – { reasonWord( s.reason ) }
-								</li>
-							) ) }
-						</ul>
-					</Fragment>
-				) }
+				<Skipped skipped={ result.skipped } nameOf={ nameOf } />
 				{ result.paused && <Notice status="warning" isDismissible={ false }>{ RESULT.paused }</Notice> }
 				{ result.held && <Notice status="warning" isDismissible={ false }>{ RESULT.held }</Notice> }
 				<div className="km-actions">
@@ -181,28 +168,15 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 			) }
 			{ plan && (
 				<Fragment>
-					{ /* A view selection that matches nothing gives count 0 (the server refuses a send to it): the line says 0 and the
-					   send is disabled, as for an empty queue. [UNAPPROVED N947] */ }
-					{ isAllMatching( selection ) && (
-						<p>{ fmt( isNarrowedSelection( selection ) ? MANUAL.scopeNarrowed : MANUAL.scopeAll, plan.count ) }</p>
-					) }
+					{ /* A view selection that matches nothing gives no recipient (the server refuses a send to it): the line says so and the
+					   send is disabled, as for an empty queue. The scope („all matching” or „the filter's”) is no line of the dialog: the
+					   action bar's count prefix says it. [UNAPPROVED N947] [UNAPPROVED N915] */ }
 					<p role="status">
 						<strong>
 							{ plan.queue.length ? fmt( MANUAL.toQueue, plan.queue.length ) : MANUAL.toQueueNone }
 						</strong>
 					</p>
-					{ plan.skipped.length > 0 && (
-						<Fragment>
-							<p>{ MANUAL.skipped }</p>
-							<ul className="km-members">
-								{ plan.skipped.map( ( s ) => (
-									<li key={ s.code }>
-										<CodeName code={ s.code } name={ nameOf( s.code ) } /> – { reasonWord( s.reason ) }
-									</li>
-								) ) }
-							</ul>
-						</Fragment>
-					) }
+					<Skipped skipped={ plan.skipped } nameOf={ nameOf } />
 					{ plan.unknown.length > 0 && (
 						<p>
 							{ MANUAL.unknown } <span className="km-code-text">{ plan.unknown.join( ', ' ) }</span>

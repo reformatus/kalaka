@@ -39,13 +39,13 @@ test( 'with nothing selected the button acts on all matching rows, and is disabl
 	expect( host.querySelector( 'button' ).disabled ).toBe( false );
 } );
 
-test( 'the words say „all matching” with nothing ticked, and „narrowed” while a filter or search is on', async () => {
+test( 'the label never changes with the state: nothing ticked, narrowed, or rows ticked', async () => {
 	const action = { id: 'a', label: 'Küldés', labelAll: 'Mindenkinek', labelNarrowed: 'A találatoknak', supportsBulk: true, callback: jest.fn() };
 	const render2 = ( rows, props ) => act( async () => root.render( createElement( BulkSlot, { actions: [ action ], rows, total: 9, ...props } ) ) );
 	await render2( [] );
-	expect( host.querySelector( 'button' ).textContent ).toBe( 'Mindenkinek' );
+	expect( host.querySelector( 'button' ).textContent ).toBe( 'Küldés' );
 	await render2( [], { narrowed: true } );
-	expect( host.querySelector( 'button' ).textContent ).toBe( 'A találatoknak' );
+	expect( host.querySelector( 'button' ).textContent ).toBe( 'Küldés' );
 	await render2( [ { key: 'K1' } ], { narrowed: true } );
 	expect( host.querySelector( 'button' ).textContent ).toBe( 'Küldés' );
 } );

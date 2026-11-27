@@ -158,14 +158,15 @@ export const MANUAL = {
 	pick: '– válassz –',
 	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording [UNAPPROVED T920]
 	layout: 'Levélkeret használata', // „levélkeret” is approved
-	// With nothing ticked the send is to every row the filters and search leave; the dialog says so and how many.
-	// [UNAPPROVED T926] [UNAPPROVED T927] Worded by the lektor (pass 2). T927 says „a szűrés és a keresés” also when only
-	// one of the two is on: a hole for the lektor's next pass (filter only, search only, both). [UNAPPROVED N946]
-	scopeAll: 'Nincs kijelölt jelentkező, ezért a küldés mindenkire vonatkozik (%d jelentkező).',
-	scopeNarrowed: 'Nincs kijelölt jelentkező, ezért a küldés a szűrés és a keresés összes találatára vonatkozik (%d jelentkező).',
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor
-	skipped: 'Nem kap levelet:',
+	// The ones who get no mail are told as per-status totals; their list is in a popup of its own, opened by a text button
+	// whose label never changes. [UNAPPROVED N1033] The totals read „Kihagyva: 1 törölt, 1 lemondott” (a count and the
+	// lowercase status word below), the popup lists „00A1 · Kiss Anna – lemondott”. [UNAPPROVED T970] [UNAPPROVED T971]
+	// [UNAPPROVED T972] Lektor next.
+	skippedTotals: 'Kihagyva: %s',
+	skippedOpen: 'Kihagyottak listája',
+	skippedTitle: 'Kihagyott jelentkezők',
 	unknown: 'Ismeretlen kód:',
 	reason_withdrawn: 'lemondott', // status words, lowercase after a code; „lemondott” per the owner's rename (lektor 1, J9) [UNAPPROVED T931]
 	reason_removed: 'törölt',
@@ -178,7 +179,6 @@ export const MANUAL = {
 /** What a send answers. [UNAPPROVED T282] */
 export const RESULT = {
 	queued: '%d levél a küldési sorba került.',
-	skipped: '%d jelentkező kimaradt:',
 	// Reworded per the lektor. On a repeat this replaces the „%d levél a küldési sorba került.” line too.
 	repeat: 'Ez a levél korábban már a küldési sorba került (%d levél), ezért újabb levél nem került a sorba.',
 	paused: 'A levélküldés szünetel, ezért a levelek a küldési sorban várnak.',
@@ -208,10 +208,6 @@ export const BATCHES = {
 /** The grid's bulk action. [UNAPPROVED T284] */
 export const GRIDACTION = {
 	label: 'Levél küldése',
-	// The button's words with nothing ticked: the action then acts on every row the filters and search leave.
-	// [UNAPPROVED T928] [UNAPPROVED T929]
-	labelAll: 'Levél küldése mindenkinek',
-	labelNarrowed: 'Levél küldése a találatoknak',
 	selectRow: 'Jelentkezés kijelölése: %s', // the row checkbox's accessible name [UNAPPROVED T286]
 };
 

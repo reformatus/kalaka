@@ -59,10 +59,6 @@ export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 	return {
 		id: 'kalaka-manual-mail',
 		label: GRIDACTION.label,
-		// The slot's words with nothing ticked (it then acts on every row the filters and search leave).
-		// [UNAPPROVED T928] [UNAPPROVED T929]
-		labelAll: GRIDACTION.labelAll,
-		labelNarrowed: GRIDACTION.labelNarrowed,
 		modalHeader: MANUAL.title,
 		// DataViews shows an action on a narrow screen only when it has an icon (then as the icon alone). [UNAPPROVED N287]
 		icon: envelope,

@@ -728,7 +728,6 @@ export default function Page( { config } ) {
 								rows={ selectedRows }
 								selectionOf={ ( items ) => selectionBody( items, tab, narrow ) }
 								total={ data.total }
-								narrowed={ narrowed }
 							/>
 							{ narrowed && selectedRows.length === 0 ? <Tooltip text={ GRID.followsFilter }>{ copyButton }</Tooltip> : copyButton }
 						</div>

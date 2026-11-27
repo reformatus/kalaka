@@ -3,7 +3,7 @@
  */
 import { formatMoment } from '../grid/money';
 import { fmt } from '../grid/format';
-import { BODIES, BATCHES, TROUBLED } from './texts';
+import { BODIES, BATCHES, MANUAL, TROUBLED } from './texts';
 
 /**
  * A batch's subject; a trashed or missing body reads as a null subject with `body_gone`, and the server sends no text of
@@ -60,4 +60,23 @@ export function problemText( error, fallback ) {
  */
 export function moment( instant, zone ) {
 	return instant ? formatMoment( instant, zone ) : '–';
+}
+
+/** The status word of a skipped registration, in the lowercase the manual mail writes it; an unknown reason as it is. */
+export const reasonWord = ( reason ) => MANUAL[ 'reason_' + reason ] || reason;
+
+const REASON_ORDER = [ 'removed', 'withdrawn' ];
+
+/**
+ * The skipped registrations as per-status totals: „1 törölt, 1 lemondott”. A known status comes in a fixed order, any
+ * other reason after them in the order it first appears. Empty for none. [UNAPPROVED N1033] [UNAPPROVED T970]
+ */
+export function skippedTotals( skipped ) {
+	const counts = new Map();
+	for ( const { reason } of skipped ) {
+		counts.set( reason, ( counts.get( reason ) || 0 ) + 1 );
+	}
+	const known = REASON_ORDER.filter( ( reason ) => counts.has( reason ) );
+	const others = [ ...counts.keys() ].filter( ( reason ) => ! REASON_ORDER.includes( reason ) );
+	return [ ...known, ...others ].map( ( reason ) => `${ counts.get( reason ) } ${ reasonWord( reason ) }` ).join( ', ' );
 }

@@ -10,7 +10,7 @@
 import { useState } from '@wordpress/element';
 import { Button, Modal } from '@wordpress/components';
 
-export default function BulkSlot( { actions, rows, selectionOf, total = 0, narrowed = false } ) {
+export default function BulkSlot( { actions, rows, selectionOf, total = 0 } ) {
 	const [ opened, setOpened ] = useState( null );
 	const bulk = actions.filter( ( action ) => action.supportsBulk );
 	if ( bulk.length === 0 ) {
@@ -28,15 +28,9 @@ export default function BulkSlot( { actions, rows, selectionOf, total = 0, narro
 		}
 	};
 	const close = () => setOpened( null );
-	const labelOf = ( action ) => {
-		if ( rows.length === 0 ) {
-			const all = narrowed ? action.labelNarrowed : action.labelAll;
-			if ( all ) {
-				return all;
-			}
-		}
-		return typeof action.label === 'function' ? action.label( rows ) : action.label;
-	};
+	// The label never changes with the state (nothing ticked, filtered, ticked): the action bar's count prefix says
+	// what the button acts on. [UNAPPROVED N915]
+	const labelOf = ( action ) => ( typeof action.label === 'function' ? action.label( rows ) : action.label );
 	return (
 		<>
 			{ bulk.map( ( action ) => (
