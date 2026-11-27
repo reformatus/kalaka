@@ -19,6 +19,19 @@ enum ActionMail: string
     case Confirmed = 'confirmed';
     case LinkRegenerated = 'link_regenerated';
 
+    /**
+     * Whether an act on this line queues the mail: the one declared list of the points that work (owner
+     * 2026-11-27, walkthrough 8.5). A point that is not wired can be set up and switched on but nothing sends it
+     * yet; the list grows with the use case that calls `ActionMails::due()` for it.
+     */
+    public function isWired(): bool
+    {
+        return match ($this) {
+            self::Registered, self::Waitlisted, self::Confirmed => true,
+            self::PaymentRecorded, self::LinkRegenerated => false,
+        };
+    }
+
     /** The catalogue's name of the mail: what causes it. */
     public function label(): string
     {

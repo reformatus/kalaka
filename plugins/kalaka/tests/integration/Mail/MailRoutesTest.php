@@ -96,7 +96,7 @@ final class MailRoutesTest extends MailAdminTestCase
         );
         $registered = $data['mails'][0];
         self::assertSame(
-            ['mail', 'label', 'enabled', 'body_id', 'can', 'refusals'],
+            ['mail', 'label', 'enabled', 'body_id', 'can', 'refusals', 'template', 'enable_unavailable', 'wired'],
             array_keys($registered)
         );
         self::assertSame('Jelentkezés rögzítve', $registered['label']);

@@ -7,7 +7,7 @@ namespace Kalaka\Mail\Catalogue;
 use Kalaka\Foundation\Api\Error\RuleViolation;
 
 /**
- * A body that is not published is assigned, switched on or sent (mail.md, "Words"): the refusal of
+ * A body that is not published is switched on or sent (mail.md, "Words"): the refusal of
  * `UpdateActionMail` and of the manual send, with its own code and the text they both had.
  */
 final class BodyUnpublished extends RuleViolation

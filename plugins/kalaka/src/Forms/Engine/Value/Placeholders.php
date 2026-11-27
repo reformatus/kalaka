@@ -56,12 +56,13 @@ final class Placeholders
     }
 
     /**
-     * The HTML with every placeholder replaced by its value in the context. On a page, a key the context does not
-     * declare is replaced with nothing and logged; otherwise it is a failure.
+     * The HTML with every placeholder replaced by its value in the context. A key the context does not declare is
+     * a failure of the act that renders: a mail is failed, a page or a form fails to render (owner 2026-11-27,
+     * walkthrough 8.11 a), never empty and never raw.
      *
-     * @throws SystemFailure a key the context does not declare, outside a page
+     * @throws SystemFailure a key the context does not declare
      */
-    public function fill(string $html, ValueContext $context, bool $page = false): string
+    public function fill(string $html, ValueContext $context): string
     {
         if (!str_contains($html, '{{')) {
             return $html;
@@ -70,34 +71,78 @@ final class Placeholders
         return $this->walk($html, fn (string $value, ?string $attribute): string => $this->replaced(
             $value,
             $attribute,
-            $context,
-            $page
+            $context
         ));
     }
 
     /**
-     * The same for the blocks of a render: the HTML pieces of every block, and of its inner blocks, filled.
+     * The same for the blocks of a render: the HTML pieces of every block, and of its inner blocks, filled. With
+     * `$kalakaOnly` (an ordinary page) only the blocks inside a Kaláka block are filled and plain text outside them
+     * is left alone, as the save check (`kalakaHtml()`) reads only those.
      *
      * @param list<array<string, mixed>> $blocks parsed blocks
      * @return list<array<string, mixed>>
      * @throws SystemFailure as `fill()`
      */
-    public function fillBlocks(array $blocks, ValueContext $context, bool $page = false): array
-    {
+    public function fillBlocks(
+        array $blocks,
+        ValueContext $context,
+        bool $kalakaOnly = false,
+        bool $inside = false
+    ): array {
         foreach ($blocks as $index => $block) {
-            if (is_array($block['innerContent'] ?? null)) {
+            $within = !$kalakaOnly || $inside || self::isKalaka($block);
+            if ($within && is_array($block['innerContent'] ?? null)) {
                 $block['innerContent'] = array_map(
-                    fn ($piece) => is_string($piece) ? $this->fill($piece, $context, $page) : $piece,
+                    fn ($piece) => is_string($piece) ? $this->fill($piece, $context) : $piece,
                     $block['innerContent']
                 );
             }
             if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {
-                $block['innerBlocks'] = $this->fillBlocks(array_values($block['innerBlocks']), $context, $page);
+                $block['innerBlocks'] = $this->fillBlocks(
+                    array_values($block['innerBlocks']),
+                    $context,
+                    $kalakaOnly,
+                    $within
+                );
             }
             $blocks[$index] = $block;
         }
 
         return $blocks;
+    }
+
+    /**
+     * The HTML of a page that a Kaláka block holds, itself and everything inside it, in document order: the part
+     * of an ordinary page whose placeholders are Kaláka's (checked at save, filled at render); plain text outside a
+     * Kaláka block is not Kaláka's and is left alone.
+     */
+    public function kalakaHtml(string $content): string
+    {
+        $html = '';
+        $collect = function (array $blocks, bool $inside) use (&$collect, &$html): void {
+            foreach ($blocks as $block) {
+                if (!is_array($block)) {
+                    continue;
+                }
+                $within = $inside || self::isKalaka($block);
+                if ($within) {
+                    $html .= implode('', array_filter($block['innerContent'] ?? [], 'is_string'));
+                }
+                $collect(array_values($block['innerBlocks'] ?? []), $within);
+            }
+        };
+        $collect(array_values(parse_blocks($content)), false);
+
+        return $html;
+    }
+
+    /** @param array<string, mixed> $block */
+    private static function isKalaka(array $block): bool
+    {
+        $name = $block['blockName'] ?? null;
+
+        return is_string($name) && str_starts_with($name, 'kalaka/');
     }
 
     /**
@@ -135,7 +180,7 @@ final class Placeholders
     }
 
     /** @throws SystemFailure */
-    private function replaced(string $value, ?string $attribute, ValueContext $context, bool $page): string
+    private function replaced(string $value, ?string $attribute, ValueContext $context): string
     {
         if ($attribute !== null && str_starts_with($attribute, 'on')) {
             return (string) preg_replace(self::PATTERN, '', $value);
@@ -144,8 +189,8 @@ final class Placeholders
         $whole = $url && preg_match('/\A\s*\{\{[^{}]*\}\}\s*\z/', $value) === 1;
         $out = (string) preg_replace_callback(
             self::PATTERN,
-            function (array $match) use ($context, $page, $url, $whole): string {
-                $text = $this->text($context, trim($match[1]), $page);
+            function (array $match) use ($context, $url, $whole): string {
+                $text = $context->get(trim($match[1]))->text;
 
                 return $url && !$whole ? rawurlencode($text) : $text;
             },
@@ -153,20 +198,5 @@ final class Placeholders
         );
 
         return $url ? esc_url_raw(trim($out)) : $out;
-    }
-
-    /** @throws SystemFailure */
-    private function text(ValueContext $context, string $key, bool $page): string
-    {
-        try {
-            return $context->get($key)->text;
-        } catch (SystemFailure $e) {
-            if (!$page) {
-                throw $e;
-            }
-            RenderStack::reportOnPage($e);
-
-            return '';
-        }
     }
 }
