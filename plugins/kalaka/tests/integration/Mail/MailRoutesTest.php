@@ -96,11 +96,11 @@ final class MailRoutesTest extends MailAdminTestCase
         );
         $registered = $data['mails'][0];
         self::assertSame(
-            ['mail', 'label', 'enabled', 'body_id', 'layout', 'can', 'refusals'],
+            ['mail', 'label', 'enabled', 'body_id', 'can', 'refusals'],
             array_keys($registered)
         );
         self::assertSame('Jelentkezés rögzítve', $registered['label']);
-        self::assertSame([true, $body, true], [$registered['enabled'], $registered['body_id'], $registered['layout']]);
+        self::assertSame([true, $body], [$registered['enabled'], $registered['body_id']]);
         self::assertSame(['switch_on' => false, 'switch_off' => true], $registered['can']);
         self::assertSame(['switch_on' => null, 'switch_off' => null], $registered['refusals']);
         // Without a body a mail cannot be switched on, and the use case's own code and text say why.
@@ -361,7 +361,6 @@ final class MailRoutesTest extends MailAdminTestCase
         self::assertCount(1, $list);
         self::assertSame([
             'id' => $sent['batch_id'], 'body_id' => $body, 'subject' => 'Sikeres jelentkezés', 'body_gone' => false,
-            'layout' => true,
             'created_at' => '2026-11-30T09:00:30Z',
             'created_by' => ['id' => $this->admin->userId, 'name' => get_userdata($this->admin->userId)->display_name],
             'queued' => 2, 'skipped' => 1,

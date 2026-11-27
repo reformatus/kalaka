@@ -20,15 +20,15 @@ use Kalaka\Mail\Body\RegisteredMailStaysOn;
 
 /**
  * Changes one action mail of an event (mail.md, "Configuration"): switches it on or off, assigns its body
- * (a `kalaka_mail` post of the event) and whether the event's layout wraps it. A mail is on only with a
- * body, a body serves one mail only (mail.md, "Words": one to one), and only a published body is assigned or
- * switched on (a mail switched off may keep a body that is no longer published). Site-level, like every Mail
+ * (a `kalaka_mail` post of the event). A mail is on only with a body, a body serves one mail only (mail.md,
+ * "Words": one to one), and only a published body is assigned or switched on (a mail switched off may keep a body
+ * that is no longer published). Site-level, like every Mail
  * use case: only full access, WP-CLI and the system run it.
  *
  * It reads no WordPress data in its transaction: the body's facts (`MailBody`) are read before the run and
  * passed in, by `prepared()`, which the ability's `$prepare` and `Api\ActionMailSettings::update()` both call.
  * Run without them, it refuses any change that needs them
- * (a body assigned, a mail switched on); a layout switch or a switch-off still passes.
+ * (a body assigned, a mail switched on); a switch-off still passes.
  */
 final class UpdateActionMail implements AdminUseCase
 {
@@ -72,7 +72,6 @@ final class UpdateActionMail implements AdminUseCase
                 'mail' => ['type' => 'string', 'enum' => array_column(ActionMail::cases(), 'value')],
                 'enabled' => ['type' => 'boolean'],
                 'body_id' => ['type' => ['integer', 'null'], 'minimum' => 1],
-                'layout' => ['type' => 'boolean'],
             ],
             'required' => ['event_id', 'mail'],
             'minProperties' => 3,
@@ -210,9 +209,6 @@ final class UpdateActionMail implements AdminUseCase
         }
         if (array_key_exists('enabled', $input)) {
             $entry->enabled = (bool) $input['enabled'];
-        }
-        if (array_key_exists('layout', $input)) {
-            $entry->layout = (bool) $input['layout'];
         }
         $others = array_values($this->mails->ofEvent($eventId));
         self::refuse($event, $action, $entry, $storedBody, $wasEnabled, $this->body, $others);

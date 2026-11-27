@@ -55,7 +55,7 @@ record, the check-in act, and so on.
 - **Reminders are defined in code** by their module or plugin (e.g. an
   upcoming late fee). Admins configure the time base and the repeat interval;
   repeating is supported from the start.
-- **An event-wide layout** wraps mails, optional per mail. There is no
+- **An event-wide layout** wraps mails, optional per mail template. There is no
   site-wide layout.
 
 ### Late registrants and activation

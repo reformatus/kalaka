@@ -441,7 +441,7 @@ final class MoneyMailTest extends MailBodyTestCase
             self::alone('{{money_table}}') . "\n" . self::alone('{{transfer_details}}')
         );
 
-        $html = (new MailRenderer())->renderBody($this->event, $body, false, $this->key())->html;
+        $html = (new MailRenderer())->renderBody($this->event, $body, $this->key())->html;
 
         self::assertSame(
             self::text($this->render('<!-- wp:kalaka/mail-money /--><!-- wp:kalaka/mail-transfer /-->', 'confirmed')),

@@ -12,7 +12,7 @@ use Kalaka\Mail\Manual\MailBatchQuery;
 
 /**
  * Composes a manual delivery (mail.md, "Five kinds of mail"): the cause of the delivery is its send batch, and
- * the batch names the body and whether the layout wraps it. The body is rendered at send time from current
+ * the batch names the body. The body is rendered at send time from current
  * data, by `MailRenderer::renderBody()`, as an action mail's is. A batch that is gone is the delivery's own
  * problem (`no_batch`), failed without an attempt and never counted toward pausing.
  */
@@ -36,7 +36,7 @@ final class ManualMailComposer
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and an ID, never output
             throw new BodyUnusable('no_batch ' . $delivery->causeKey);
         }
-        $mail = $this->renderer->renderBody($registration->eventId, $batch->bodyId, $batch->layout, $registration);
+        $mail = $this->renderer->renderBody($registration->eventId, $batch->bodyId, $registration);
 
         return new MailMessage($mail->subject, $mail->html, ['Content-Type: text/html; charset=UTF-8'], $mail->version);
     }

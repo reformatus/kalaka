@@ -16,7 +16,7 @@ use Kalaka\Mail\Api\ManualMails;
  */
 final class ManualMailBatchesCommand
 {
-    private const BATCH_FIELDS = ['batch', 'created_at_utc', 'by', 'body', 'layout', 'queued', 'skipped'];
+    private const BATCH_FIELDS = ['batch', 'created_at_utc', 'by', 'body', 'queued', 'skipped'];
 
     private const MEMBER_FIELDS = ['code', 'outcome'];
 
@@ -80,7 +80,6 @@ final class ManualMailBatchesCommand
                 'created_at_utc' => $batch->createdAt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
                 'by' => self::who($batch->createdBy),
                 'body' => $batch->bodyId . ' ' . ($batch->bodyGone ? '(gone)' : $batch->subject),
-                'layout' => $batch->layout ? 'yes' : 'no',
                 'queued' => $batch->queued,
                 'skipped' => $batch->skipped,
             ], $this->manualMails->batches($eventId));

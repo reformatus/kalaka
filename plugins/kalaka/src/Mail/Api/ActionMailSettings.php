@@ -24,7 +24,7 @@ final class ActionMailSettings
     }
 
     /**
-     * Every action of the catalogue, a missing row as its default (off, no body, wrapped by the layout), and
+     * Every action of the catalogue, a missing row as its default (off, no body), and
      * the layout, exactly `{{content}}` until one is set.
      */
     public function ofEvent(int $eventId): EventMailSettings
@@ -34,18 +34,18 @@ final class ActionMailSettings
         foreach (ActionMail::cases() as $action) {
             $entry = $stored[$action->value] ?? null;
             $mails[] = $entry === null
-                ? new ActionMailSetting($action, false, null, true)
-                : new ActionMailSetting($action, $entry->enabled, $entry->bodyId, $entry->layout);
+                ? new ActionMailSetting($action, false, null)
+                : new ActionMailSetting($action, $entry->enabled, $entry->bodyId);
         }
 
         return new EventMailSettings($eventId, $this->layouts->of($eventId)->html, $mails);
     }
 
     /**
-     * Why each mail can or cannot be switched on or off now, for the event's mail page: `UpdateActionMail::refuse()`
-     * run on a copy of the entry switched on and switched off, the one check the use case itself runs, so no copy
-     * of the rule exists. A refusal is `{code, message}` as the use case would give it; `can` is true for a switch
-     * that makes a change and is not refused.
+     * Why each mail can or cannot be switched on or off now, for the event's mail page:
+     * `UpdateActionMail::refuse()` run on a copy of the entry switched on and switched off, the one check the use
+     * case itself runs, so no copy of the rule exists. A refusal is `{code, message}` as the use case would give
+     * it; `can` is true for a switch that makes a change and is not refused.
      *
      * @param array<int, MailBody> $facts the facts of the bodies already read, by post ID; any other is read here
      * @return array<string, array{
@@ -61,8 +61,7 @@ final class ActionMailSettings
                 $settings->eventId,
                 $mail->action,
                 $mail->enabled,
-                $mail->bodyId,
-                $mail->layout
+                $mail->bodyId
             ),
             $settings->mails
         );
@@ -71,7 +70,7 @@ final class ActionMailSettings
             $body = $mail->bodyId === null ? null : ($facts[$mail->bodyId] ?? MailBody::read($mail->bodyId));
             $refusals = [];
             foreach (['switch_on' => true, 'switch_off' => false] as $key => $enabled) {
-                $after = new ActionMailEntry($settings->eventId, $mail->action, $enabled, $mail->bodyId, $mail->layout);
+                $after = new ActionMailEntry($settings->eventId, $mail->action, $enabled, $mail->bodyId);
                 try {
                     $stored = $mail->bodyId;
                     UpdateActionMail::refuse($event, $mail->action, $after, $stored, $mail->enabled, $body, $entries);

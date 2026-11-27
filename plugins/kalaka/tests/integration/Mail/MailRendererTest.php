@@ -225,12 +225,14 @@ final class MailRendererTest extends MailBodyTestCase
         self::assertSame('b' . $revision['latest_id'] . '-l1', $mail->version);
     }
 
-    public function testAMailThatDoesNotUseTheLayoutIsNotWrapped(): void
+    public function testATemplateThatDoesNotUseTheFrameIsNotWrapped(): void
     {
         $event = $this->create();
         $key = $this->registration($event);
         $this->setLayout($event, '<p>Fejléc</p>{{content}}');
-        $this->switchOn($event, 'registered', $this->document($event, $this->paragraph('Szia')), false);
+        $body = $this->document($event, $this->paragraph('Szia'));
+        $this->usesFrame($body, false);
+        $this->switchOn($event, 'registered', $body);
 
         $html = (new MailRenderer())->render($event, 'registered', $key)->html;
 
