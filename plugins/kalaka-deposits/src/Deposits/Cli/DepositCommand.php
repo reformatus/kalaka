@@ -31,7 +31,7 @@ final class DepositCommand
      * : The event ID.
      *
      * [<amount>]
-     * : The deposit in the event's currency, a non-negative number with at most two decimals (e.g.
+     * : The deposit in the event's currency, a number greater than zero with at most two decimals (e.g.
      * 10000). Without it and without --off the command shows the current deposit.
      *
      * [--off]

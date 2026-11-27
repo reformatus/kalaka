@@ -42,7 +42,7 @@ final class DepositSettings
     }
 
     /**
-     * @param string $amount a non-negative decimal text with at most two decimals, e.g. "10000" or "10000.50"
+     * @param string $amount a positive decimal text with at most two decimals, e.g. "10000" or "10000.50"
      * @throws \InvalidArgumentException when the amount is not that
      */
     public function set(int $eventId, string $amount): void
@@ -75,7 +75,10 @@ final class DepositSettings
     private static function assertAmount(string $amount): void
     {
         if (preg_match('/\A\d+(\.\d+)?\z/', $amount) !== 1) {
-            throw new \InvalidArgumentException('The amount must be a non-negative number: ' . $amount);
+            throw new \InvalidArgumentException('The amount must be a positive number: ' . $amount);
+        }
+        if (preg_match('/\A0+(\.0+)?\z/', $amount) === 1) {
+            throw new \InvalidArgumentException('The amount must be greater than zero: ' . $amount);
         }
         if (preg_match('/\.\d{3,}\z/', $amount) === 1) {
             throw new \InvalidArgumentException('The amount has at most two decimals: ' . $amount);

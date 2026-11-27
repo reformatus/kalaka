@@ -85,13 +85,15 @@ final class DepositCommandTest extends EventsTestCase
         self::assertSame('12500.50', (new DepositSettings())->of($event));
     }
 
-    public function testZeroIsAnAmount(): void
+    public function testZeroIsRefused(): void
     {
         $event = $this->create();
 
-        $this->command([(string) $event, '0']);
-
-        self::assertSame('0', (new DepositSettings())->of($event));
+        self::assertSame(
+            'The amount must be greater than zero: 0',
+            $this->refused([(string) $event, '0'])
+        );
+        self::assertNull((new DepositSettings())->of($event));
     }
 
     public function testShowPrintsTheDepositOrSaysThereIsNone(): void
@@ -183,11 +185,12 @@ final class DepositCommandTest extends EventsTestCase
     public static function badAmounts(): array
     {
         return [
-            'text' => ['ten', 'The amount must be a non-negative number: ten'],
-            'negative' => ['-100', 'The amount must be a non-negative number: -100'],
-            'comma' => ['1,5', 'The amount must be a non-negative number: 1,5'],
-            'exponent' => ['1e3', 'The amount must be a non-negative number: 1e3'],
-            'empty' => ['', 'The amount must be a non-negative number: '],
+            'text' => ['ten', 'The amount must be a positive number: ten'],
+            'negative' => ['-100', 'The amount must be a positive number: -100'],
+            'comma' => ['1,5', 'The amount must be a positive number: 1,5'],
+            'exponent' => ['1e3', 'The amount must be a positive number: 1e3'],
+            'empty' => ['', 'The amount must be a positive number: '],
+            'zero decimals' => ['0.00', 'The amount must be greater than zero: 0.00'],
             'three decimals' => ['10.001', 'The amount has at most two decimals: 10.001'],
             'trailing zeros' => ['10.500', 'The amount has at most two decimals: 10.500'],
         ];
