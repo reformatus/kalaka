@@ -41,7 +41,7 @@ export default function Cell( { column, item } ) {
 		const [ icon, color ] = markOf( column.marks, item.values[ column.column ] );
 		return (
 			<span className={ `kg-mark${ tone }` } title={ text }>
-				<span className={ `dashicons ${ icon } ${ color }`.trim() } aria-hidden="true" />
+				{ icon && <span className={ `dashicons ${ icon } ${ color }`.trim() } aria-hidden="true" /> }
 				<span className="screen-reader-text">{ text }</span>
 			</span>
 		);

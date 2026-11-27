@@ -119,7 +119,9 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								) }
 								{ confirmation && (
 									<span className="kg-mark">
-										<span className={ `dashicons ${ confirmIcon } ${ confirmTone }` } aria-hidden="true" />
+										{ confirmIcon && (
+											<span className={ `dashicons ${ confirmIcon } ${ confirmTone }` } aria-hidden="true" />
+										) }
 										<span className="screen-reader-text">{ confirmation.label }: </span>
 										{ confirmation.state_label }
 									</span>
