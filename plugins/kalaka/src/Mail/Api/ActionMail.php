@@ -17,7 +17,6 @@ enum ActionMail: string
     case Waitlisted = 'waitlisted';
     case PaymentRecorded = 'payment_recorded';
     case Confirmed = 'confirmed';
-    case LinkRegenerated = 'link_regenerated';
 
     /** The catalogue's name of the mail: what causes it. */
     public function label(): string
@@ -27,7 +26,6 @@ enum ActionMail: string
             self::Waitlisted => 'Jelentkezés várólistára helyezve',
             self::PaymentRecorded => 'Befizetés rögzítve',
             self::Confirmed => 'Jelentkezés véglegesítve',
-            self::LinkRegenerated => 'Személyes link lecserélve',
         };
     }
 }
