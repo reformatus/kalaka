@@ -43,6 +43,30 @@ export function rememberTab( name, store = session() ) {
 }
 
 /**
+ * The tab panel's memory, written only by the viewer's own choice ([UNAPPROVED N1264]): wp-components' `TabPanel`
+ * calls `onSelect` when it opens on its initial tab as well, so the opening call names the tab already shown and
+ * writes nothing. A remembered tab this branch lacks falls back to the first without overwriting the memory.
+ *
+ * @param {string[]} names the tabs on screen, in order
+ * @param {Object}   store the session storage (the browser's by default)
+ * @return {{initial: string, onSelect: Function}} the tab to open, and the handler for `TabPanel`'s `onSelect`
+ */
+export function tabClicks( names, store = session() ) {
+	const initial = rememberedTab( names, store );
+	let shown = initial;
+	return {
+		initial,
+		onSelect( name ) {
+			if ( name === shown ) {
+				return;
+			}
+			shown = name;
+			rememberTab( name, store );
+		},
+	};
+}
+
+/**
  * After a save, focus returns to the control that opened the dialog; when that control is gone, to the panel's
  * close button. Returns the element focused, or null when neither can take it.
  *

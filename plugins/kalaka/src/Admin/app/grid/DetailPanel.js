@@ -5,7 +5,8 @@
  * tab shows only with `can.view_money`. [UNAPPROVED N1200]
  * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
  * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
- * (N1201). T3 struck: the disabled „Hamarosan…” tab is gone.
+ * (N1201; written on a click only, see `tabClicks` and [UNAPPROVED N1264]). T3 struck: the disabled „Hamarosan…”
+ * tab is gone.
  *
  * S20: the confirmation state is its own line, the confirmation row, under the status row, and under it the
  * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
@@ -19,8 +20,8 @@ import * as api from './api';
 import { unconfirmBlocked, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
-import { StatusRow } from './PanelRows';
-import { rememberedTab, rememberTab } from './panel';
+import { ConfirmationRow, StatusRow } from './PanelRows';
+import { tabClicks } from './panel';
 import { PANEL } from './texts';
 
 /**
@@ -92,6 +93,10 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	// browser session, so it stays open when another registration is selected; a tab the branch lacks falls
 	// back to the first. A tab the viewer has no right to is left out, as the code already did. [UNAPPROVED N1201]
 	const tabs = [ { name: 'money', title: PANEL.tabMoney } ];
+	const tabMemory = useRef();
+	if ( ! tabMemory.current ) {
+		tabMemory.current = tabClicks( tabs.map( ( t ) => t.name ) );
+	}
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
 	// its snackbar, so only the load-failure message remains.
@@ -168,8 +173,8 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				<TabPanel
 					className="kg-tabs-money"
 					tabs={ tabs }
-					initialTabName={ rememberedTab( tabs.map( ( t ) => t.name ) ) }
-					onSelect={ rememberTab }
+					initialTabName={ tabMemory.current.initial }
+					onSelect={ tabMemory.current.onSelect }
 					orientation="horizontal"
 				>
 					{ () => (
