@@ -75,8 +75,9 @@ export function validateAnswer( item, answer, amount ) {
 }
 
 /**
- * A "yes" to an offer is a partner's approval: the dialog's note is then its reason, by name only (release-plan.md,
- * "Support and decisions"); a reason is never required (owner 2026-11-26). [UNAPPROVED N162]
+ * A "yes" to an offer is a partner's approval, so the dialog labels its note „Indoklás” (release-plan.md, "Support
+ * and decisions"); the label only names it, a reason is never required (owner 2026-11-26: N985, R230).
+ * [UNAPPROVED T8] (the label)
  */
 export const asksReason = ( item, answer ) => item.kind === 'offer' && answer === 'yes';
 
