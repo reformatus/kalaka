@@ -1,8 +1,9 @@
 /**
  * One status act's dialog (S39 on #247): the title, then the owner's plain order (4.2 a: "clean that dialog up as
  * well - info not structured well"): the act's one body sentence; the server's warnings, one core `Notice` each;
- * the money effect as one table under a heading (with the capacity lines under it and the retention and refund
- * sentences after them); the optional reason field; the buttons. Nothing but that order is laid out. A failed act
+ * the money effect as one table under a heading (the payer column only with several payer rows), with the capacity
+ * lines under it and the retention and refund sentences after them; the optional reason field; the buttons. Nothing
+ * but that order is laid out. A failed act
  * keeps the dialog and the reason and shows the server's text; while it runs the dialog does not close and a second
  * submit is ignored. Everything the preview shows is the server's, chosen by its own values; no warning text is
  * written here. The body sentence and the block under it (the money table, the capacity lines and the sentences)
@@ -86,6 +87,8 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 	}, [ config, act, code ] );
 	const warnings = warningsOf( preview );
 	const rows = moneyRowsOf( preview, money );
+	// With one payer row the table drops „Fizető”: the name says nothing then (owner 4.3, everywhere). [UNAPPROVED N714]
+	const onePayer = !! rows && rows.length === 1;
 	const seats = seatLinesOf( preview );
 	const retention = retentionLineOf( preview );
 	// What the preview says, for a screen reader, once it has answered: focus is in the dialog before that, so
@@ -151,7 +154,7 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 							<table className="kg-money">
 								<thead>
 									<tr>
-										<th scope="col">{ MONEY.payer }</th>
+										{ ! onePayer && <th scope="col">{ MONEY.payer }</th> }
 										<th scope="col" className="is-num">{ MONEY.paid }</th>
 										<th scope="col" className="is-num">{ MONEY.balanceNow }</th>
 										<th scope="col" className="is-num">{ MONEY.balanceAfter }</th>
@@ -160,7 +163,7 @@ export default function StatusActDialog( { config, code, act, money, onClose, on
 								<tbody>
 									{ rows.map( ( row ) => (
 										<tr key={ row.key }>
-											<th scope="row" data-label={ MONEY.payer }>{ row.payer }</th>
+											{ ! onePayer && <th scope="row" data-label={ MONEY.payer }>{ row.payer }</th> }
 											<td className="is-num" data-label={ MONEY.paid }>
 												{ row.paid }
 											</td>

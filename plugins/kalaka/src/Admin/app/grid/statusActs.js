@@ -46,7 +46,8 @@ export const warningsOf = ( preview ) =>
  * The money section's rows: the preview's `money` per payer, as the server gives it, shown as the panel's money
  * words show amounts. Null (no section) without `money` (admit; `money_hidden` true: no money view) or with no
  * payer; `money` null with `money_hidden` false (the fee cannot be priced) shows nothing new: a hole. The payer's
- * name is the read's label, else its key. [UNAPPROVED N714] [UNAPPROVED N715]
+ * name is the read's label, else its key; with one payer row the table and the live region drop it (owner 4.3).
+ * [UNAPPROVED N714] [UNAPPROVED N715]
  *
  * @param {?Object} preview the act's preview
  * @param {?Object} money   the detail read's `money` (`{ currency, payers }`), for the currency and the labels
@@ -107,18 +108,22 @@ export function retentionLineOf( preview ) {
  * payer's figures with their words, then the retention and refund sentences, as the dialog shows them, each ended
  * with a full stop when it has none. '' while there is nothing. The warnings are not here: the notice speaks its
  * own text (WordPress's `speak`), and the notices are outside the description, so they are heard once.
- * The payer's sentence „Fizető: <név>, Befizetett …, Jelenlegi tartozás …, Tartozás mentés után …” is a composed
- * pattern of its own. [UNAPPROVED N722] [UNAPPROVED T724]
+ * The payer's sentence is „Fizető: <név>, Befizetett …, Jelenlegi tartozás …, Tartozás mentés után …” when there
+ * are several payer rows, and „Befizetett …, Jelenlegi tartozás …, Tartozás mentés után …” with one, whose name
+ * says nothing (owner 4.3). [UNAPPROVED N722] [UNAPPROVED T724]
  */
 export function spokenOf( act, { seats, rows, retention } ) {
 	const end = ( text ) => ( /[.!?]$/.test( text ) ? text : `${ text }.` );
 	const parts = seats.map( ( seat ) => seat.line );
 	if ( rows ) {
+		const onePayer = rows.length === 1;
 		parts.push( STATUS_ACTS.moneyHeading );
 		rows.forEach( ( row ) =>
 			parts.push(
 				// [UNAPPROVED T724]
-				`${ MONEY.payer }: ${ row.payer }, ${ MONEY.paid } ${ row.paid }, ${ MONEY.balanceNow } ${ row.now }, ${ MONEY.balanceAfter } ${ row.after }`
+				onePayer
+					? `${ MONEY.paid } ${ row.paid }, ${ MONEY.balanceNow } ${ row.now }, ${ MONEY.balanceAfter } ${ row.after }`
+					: `${ MONEY.payer }: ${ row.payer }, ${ MONEY.paid } ${ row.paid }, ${ MONEY.balanceNow } ${ row.now }, ${ MONEY.balanceAfter } ${ row.after }`
 			)
 		);
 		if ( retention ) {

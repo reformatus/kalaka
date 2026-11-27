@@ -145,9 +145,9 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 /* S39 on #247: the status acts row. [UNAPPROVED N721] Unboxed look, kept for the owner's eye: the row's margin, the
    capacity list's spacing after the money table, the money section's 13px heading and, boxed in N721, its 16px
    bottom margin and the 6px top margin of its paragraphs. The money table is the panel's money tab's
-   (`table.kg-money`, a row header, `is-num` figures with tabular-nums, headers over their figures). At 600px and
-   narrower it stacks as a list (N714). The order the block is in is N1310's: the table, the capacity list, the
-   sentences. */
+   (`table.kg-money`, a row header when there are several payer rows and only `is-num` figures with tabular-nums
+   with one, headers over their figures). At 600px and narrower it stacks as a list (N714). The order the block is
+   in is N1310's: the table, the capacity list, the sentences. */
 .kg-status-acts { margin: 8px 0 4px; }
 .kg-act-block { margin: 0 0 16px; }
 .kg-act-capacity { margin: 4px 0 0; padding: 0; list-style: none; }

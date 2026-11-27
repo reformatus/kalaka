@@ -58,6 +58,20 @@ const MONEY_LEFT = {
 	money: [ { payer: 'participant', paid: '60000.00000000', balance_now: '10000.00000000', balance_after: '-5000.00000000' } ],
 };
 const DETAIL_MONEY = { currency: 'HUF', payers: [ { payer: 'participant', label: 'Résztvevő' } ] };
+const MONEY_TWO = {
+	...MONEY_LEFT,
+	money: [
+		...MONEY_LEFT.money,
+		{ payer: 'church', paid: '0.00000000', balance_now: '5000.00000000', balance_after: '5000.00000000' },
+	],
+};
+const DETAIL_TWO = {
+	currency: 'HUF',
+	payers: [
+		{ payer: 'participant', label: 'Résztvevő' },
+		{ payer: 'church', label: 'Egyház' },
+	],
+};
 
 async function render( act_, preview = HELD, money = DETAIL_MONEY ) {
 	apiFetch.mockImplementation( ( request ) => Promise.resolve( request.data.input.preview ? preview : HELD ) );
@@ -229,7 +243,7 @@ describe( 'each dialog', () => {
 		expect( region.getAttribute( 'aria-live' ) ).toBe( 'polite' );
 		expect( region.textContent ).toBe(
 			'Nyári tábor – foglalt helyek mentés után: 7 / 6. Pénzügyi hatás. ' +
-				'Fizető: Résztvevő, Befizetett 60\u00a0000\u00a0Ft, Jelenlegi tartozás 10\u00a0000\u00a0Ft, Tartozás mentés után −5\u00a0000\u00a0Ft (túlfizetés). ' +
+				'Befizetett 60\u00a0000\u00a0Ft, Jelenlegi tartozás 10\u00a0000\u00a0Ft, Tartozás mentés után −5\u00a0000\u00a0Ft (túlfizetés). ' +
 				'Az esemény a befizetett összeget teljes egészében megtartja. Nincs automatikus visszafizetés.'
 		);
 		expect( region.textContent ).not.toContain( FULL_TEXT );
@@ -265,10 +279,9 @@ describe( 'each dialog', () => {
 		await render( 'withdraw', { ...MONEY_LEFT, retention: 'everything_paid' } );
 		const section = host.querySelector( '.kg-act-block' );
 		expect( section.querySelector( '.kg-act-money h3' ).textContent ).toBe( STATUS_ACTS.moneyHeading );
-		expect( Array.from( section.querySelectorAll( 'thead th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
-		// The payer is the row's header, as in the panel's money tab; the figures carry `is-num`.
-		expect( section.querySelector( 'tbody th' ).getAttribute( 'scope' ) ).toBe( 'row' );
-		expect( section.querySelector( 'tbody th' ).textContent ).toBe( 'Résztvevő' );
+		// One payer row: no „Fizető” column, only the figures (owner 4.3).
+		expect( Array.from( section.querySelectorAll( 'thead th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
+		expect( section.querySelector( 'tbody th' ) ).toBeNull();
 		expect( section.querySelectorAll( 'tbody td.is-num' ) ).toHaveLength( 3 );
 		expect( Array.from( section.querySelectorAll( 'tbody td' ) ).map( ( td ) => td.textContent ) ).toEqual( [
 			'60\u00a0000\u00a0Ft',
@@ -310,6 +323,17 @@ describe( 'each dialog', () => {
 		expect( host.querySelector( '.kg-act-money' ) ).toBeNull();
 		expect( host.textContent ).not.toContain( STATUS_ACTS.retentionAll );
 		expect( moneyRowsOf( null, DETAIL_MONEY ) ).toBeNull();
+	} );
+
+	test( 'several payer rows keep the „Fizető” column and the live region names the payer; one row drops both', async () => {
+		await render( 'withdraw', MONEY_TWO, DETAIL_TWO );
+		const table = host.querySelector( '.kg-act-money' );
+		expect( Array.from( table.querySelectorAll( 'thead th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ MONEY.payer, MONEY.paid, MONEY.balanceNow, MONEY.balanceAfter ] );
+		expect( Array.from( table.querySelectorAll( 'tbody th' ) ).map( ( th ) => th.textContent ) ).toEqual( [ 'Résztvevő', 'Egyház' ] );
+		expect( table.querySelector( 'tbody th' ).getAttribute( 'scope' ) ).toBe( 'row' );
+		expect( host.querySelector( '[role="status"]' ).textContent ).toContain(
+			`${ MONEY.payer }: Résztvevő, ${ MONEY.paid } 60\u00a0000\u00a0Ft, ${ MONEY.balanceNow } 10\u00a0000\u00a0Ft`
+		);
 	} );
 
 	test( 'a payer the read does not name is shown by its key; the currency is the read\'s', () => {
