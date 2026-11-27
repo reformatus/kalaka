@@ -197,8 +197,8 @@ export const BATCHES = {
 	layout: 'Levélkerettel',
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
 	// The member list's disclosure button on a batch's card; the label never changes. [UNAPPROVED N1049] [UNAPPROVED T973]
-	// Lektor next: „Tagok” beside the registrations called „jelentkezők” everywhere else.
-	members: 'Tagok',
+	// The lektor: „Tagok” would read as people belonging to a group; the list is who received the mail.
+	members: 'Címzettek',
 	open: '%d. csoportos levél részletei',
 	// After a code, lowercase, as the manual mail dialog writes it („16F5 – lemondott”); reworded per the lektor (pass 2).
 	outcome_queued: 'sorba került',
