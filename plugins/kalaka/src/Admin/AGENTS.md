@@ -79,7 +79,8 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
 - The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
-  its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
+  its pool is full; for an aid request also `aid: {full_price, can_pay, asked, max_award}`, the money context from the
+  request source's `terms()`, shown to every holder of the answer action as the item's `amount` is) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
   access; `can.answer_request` says so. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
 - A grid row carries `awaits_answer`, a bool computed per page by Registrations' `Requests::awaitsOf()` (one

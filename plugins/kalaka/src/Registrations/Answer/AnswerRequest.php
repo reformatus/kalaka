@@ -13,6 +13,7 @@ use Kalaka\Foundation\Api\Error\RuleViolation;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Foundation\Api\UseCase\AdminUseCase;
 use Kalaka\Foundation\Api\UseCase\Context;
+use Kalaka\Registrations\Api\AidAbovePrice;
 use Kalaka\Registrations\Api\Answer;
 use Kalaka\Registrations\Api\AnswerRead;
 use Kalaka\Registrations\Api\NoOfferSeats;
@@ -34,8 +35,9 @@ use Kalaka\Registrations\Api\RequestState;
  * - Input: the registration, the request's id, `yes` or `no`, for aid the amount awarded, and a note: optional, a
  *   "yes" to an offer (a partner's approval) too, where it is the reason (owner 2026-11-26: a reason is never
  *   required).
- *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero; an offer takes no amount.
- *   [UNAPPROVED N5]
+ *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero and no more than the full
+ *   price the participant has to pay (`RequestSource::terms()`; a larger one is `AidAbovePrice`, nothing written);
+ *   an offer takes no amount. [UNAPPROVED N5] [UNAPPROVED N1132]
  * - Writes one answer record per act (its id is the key the "answered" mail will take) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
  *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
@@ -138,6 +140,15 @@ final class AnswerRequest implements AdminUseCase
             && self::sameAmount($previous->amount, $answer->amount) && !$newNote
         ) {
             return ['changed' => false, 'answer' => null, 'over_limit' => false];
+        }
+
+        // An aid award is no more than what the participant has to pay: refused, nothing written. The same
+        // `terms()` is on the detail read, so the dialog can warn before the send. [UNAPPROVED N1132]
+        if ($yes && $request->kind === RequestKind::Aid && $answer->amount !== null) {
+            $terms = $state->source->terms($key, $request, $state->values, $context->now());
+            if ($terms !== null && $answer->amount->isGreaterThan($terms->maxAmount())) {
+                throw new AidAbovePrice();
+            }
         }
 
         $record = $this->answers->insert(new AnswerRead(

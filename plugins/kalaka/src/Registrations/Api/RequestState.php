@@ -16,6 +16,8 @@ final readonly class RequestState
         public RequestSource $source,
         public bool $answered,
         public ?AnswerRead $answer,
+        /** @var array<string, string> the registration's field values the source read, key → stored value */
+        public array $values = [],
     ) {
     }
 
