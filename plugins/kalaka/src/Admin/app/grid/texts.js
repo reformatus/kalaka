@@ -104,7 +104,7 @@ export const MONEY = {
 	dateField: 'Dátum',
 	methodField: 'Fizetési mód',
 	noteField: 'Közlemény',
-	reasonField: 'Indoklás',
+	reasonField: 'Megjegyzés', // the owner's 6.8 ruling: always „Megjegyzés”
 	// The dialogs' preview (topic 10): „Tartozás” replaces „egyenleg”.
 	balanceNow: 'Jelenlegi tartozás',
 	balanceAfter: 'Tartozás mentés után',
