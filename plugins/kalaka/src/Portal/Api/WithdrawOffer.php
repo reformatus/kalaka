@@ -13,10 +13,11 @@ use Kalaka\Foundation\Api\Money\Money;
  * line from the preview's `paid` and `owedAfter` when `paid` is above zero. `refusal` is the code of a refused
  * post that came back, read once. [UNAPPROVED N765 to N779]
  *
- * Built by `ParticipantBlocks` for the block and its shortcode: `canWithdraw` and `refusal` are the status read's
- * `can.withdraw` and `withdrawRefusal`, the amounts the real preview's. `owedAfter` is the preview's signed value (below zero: a
- * surplus); `unavailable` is the status read's `can.withdrawUnavailable` (`registration_closed` shows the after-close
- * hint, T991); `previewFailed` is set when a registered one's preview gave nothing.
+ * Built by `ParticipantBlocks` for the block and its shortcode: `canWithdraw` and `refusal` are the status
+ * read's `can.withdraw` and `withdrawRefusal`, the amounts the real preview's. `owedAfter` is the preview's
+ * signed value (below zero: a surplus); `unavailable` is the status read's `can.withdrawUnavailable`
+ * (`registration_closed` shows the after-close hint, T991); `previewFailed` is set when a registered one's
+ * preview gave nothing.
  */
 final readonly class WithdrawOffer
 {
