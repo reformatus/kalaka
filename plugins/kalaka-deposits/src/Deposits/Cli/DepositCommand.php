@@ -86,7 +86,10 @@ final class DepositCommand
         }
         if ($amount === null) {
             $stored = $this->settings->of($eventId);
-            \WP_CLI::line($stored === null ? 'No deposit for event ' . $eventId . '.' : 'Deposit for event ' . $eventId . ': ' . $stored);
+            $line = $stored === null
+                ? 'No deposit for event ' . $eventId . '.'
+                : 'Deposit for event ' . $eventId . ': ' . $stored;
+            \WP_CLI::line($line);
 
             return;
         }
