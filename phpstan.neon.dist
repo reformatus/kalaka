@@ -19,6 +19,8 @@ parameters:
         - plugins/kalaka-price-ladder/src
         - plugins/kalaka-price-ladder/kalaka-price-ladder.php
         - plugins/kalaka-price-ladder/uninstall.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php
