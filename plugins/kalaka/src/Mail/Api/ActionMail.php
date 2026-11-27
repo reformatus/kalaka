@@ -22,14 +22,14 @@ enum ActionMail: string
 
     /**
      * The catalogue's name of the mail: what causes it. The label of `PaymentRecorded` changes the owner-approved
-     * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds. [UNAPPROVED T5]
+     * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds. [UNAPPROVED T1255]
      */
     public function label(): string
     {
         return match ($this) {
             self::Registered => 'Jelentkezés rögzítve',
             self::Waitlisted => 'Jelentkezés várólistára helyezve',
-            self::PaymentRecorded => 'Befizetés vagy visszafizetés rögzítve',
+            self::PaymentRecorded => 'Pénzmozgás rögzítve',
             self::Confirmed => 'Jelentkezés véglegesítve',
             // [UNAPPROVED T12] the lektor's wording
             self::Answered => 'Kérelem megválaszolva',
