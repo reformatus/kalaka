@@ -199,6 +199,14 @@ deptrac:
       collectors:
         - type: classLike
           value: '^Kalaka\\WooCommerce\\Api\\'
+    - name: Extras
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Extras\\(?!Api\\)'
+    - name: Extras Api
+      collectors:
+        - type: classLike
+          value: '^Kalaka\\Extras\\Api\\'
     - name: Bundled brick/math
       collectors:
         - type: classLike
@@ -207,6 +215,10 @@ deptrac:
       collectors:
         - type: classLike
           value: '^(WP_|wpdb$)'
+    - name: WooCommerce classes
+      collectors:
+        - type: classLike
+          value: '^(WC_|Automattic\\WooCommerce\\)'
   ruleset:
     Foundation:
       - WordPress
@@ -494,7 +506,27 @@ deptrac:
       - View query
     WooCommerce:
       - WordPress
+      - WooCommerce classes
       - WooCommerce Api
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    Extras:
+      - WordPress
+      - Extras Api
       - Foundation Api
       - Foundation Api Money
       - Events Api
@@ -847,6 +879,25 @@ deptrac:
     WooCommerce Api:
       - WordPress
       - WooCommerce
+      - Foundation Api
+      - Foundation Api Money
+      - Events Api
+      - Forms Api
+      - Forms Engine Api
+      - ParticipantFields Api
+      - Assignments Api
+      - Registrations Api
+      - Registration data
+      - Pricing Api
+      - Ledger Api
+      - Payments Api
+      - Mail Api
+      - Portal Api
+      - Admin Api
+      - View query
+    Extras Api:
+      - WordPress
+      - Extras
       - Foundation Api
       - Foundation Api Money
       - Events Api

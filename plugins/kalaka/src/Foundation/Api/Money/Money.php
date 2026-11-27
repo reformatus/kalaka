@@ -80,6 +80,12 @@ final readonly class Money
         return $this->result($this->value->negated());
     }
 
+    /** A whole multiple of this amount. @throws SystemFailure when the result leaves the DECIMAL(26,8) range. */
+    public function times(int $factor): self
+    {
+        return $this->result($this->value->multipliedBy($factor));
+    }
+
     /**
      * @return int -1, 0 or 1
      * @throws SystemFailure On another currency.

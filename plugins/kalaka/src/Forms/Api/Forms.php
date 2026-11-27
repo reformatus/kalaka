@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Api;
 
+use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
 use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
+use Kalaka\Forms\AccountBlock;
+use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
@@ -13,13 +16,14 @@ use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
  * after a use case's transaction, never inside it: a submit reads the form and its definition
- * first and passes them in.
+ * first and passes them in. `participantValues()` is the one exception: it reads no post.
  */
 final class Forms
 {
@@ -128,6 +132,48 @@ final class Forms
     }
 
     /**
+     * The published registration forms of the event that hold no account block, though the given account mode
+     * wants one (`EventFormHost::stepFor()`): what a change of the event's account mode to that mode is
+     * refused for (events-and-forms.md, "Forms implementation"). A form that does not parse or has no
+     * revision is left out, as it is closed and named in the broken-form warning already. Reads WordPress posts,
+     * so it runs before a use case's transaction.
+     *
+     * @return list<int> the forms' IDs, ascending
+     */
+    public function withoutAccountBlock(int $eventId, AccountMode $mode): array
+    {
+        $lacking = [];
+        foreach ($this->posts->ofEvent($eventId) as $post) {
+            if ($post->post_status !== 'publish') {
+                continue;
+            }
+            try {
+                $form = $this->form($post->ID);
+                if ($form === null) {
+                    continue;
+                }
+                $missing = AccountBlock::missing($this->definition($form), $form->placement, $mode);
+            } catch (SystemFailure) {
+                continue;
+            }
+            if ($missing) {
+                $lacking[] = $post->ID;
+            }
+        }
+
+        return $lacking;
+    }
+
+    /**
+     * Recomputes the broken-form list, which reads each event's account mode: after a mode changed. A plain
+     * option write, so it runs after the use case has committed.
+     */
+    public function refreshBrokenList(): void
+    {
+        BrokenForms::refresh();
+    }
+
+    /**
      * The event's participant fields (`ParticipantFields::of()`), each with the forms of the event that hold
      * it now (`ParticipantField::$forms`). It reads Kaláka's own table and the event's form posts, so it runs
      * outside a use case's transaction.
@@ -156,13 +202,31 @@ final class Forms
      * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
      * none too. A stored answer of a key the event does not have is left out.
      *
+     * Unlike the rest of this class it reads no post, only `ParticipantFields::of()` (its table and the block
+     * registry), and each stored answer is typed by its field type's `value()`, which fires no hook and writes
+     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`).
+     *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value
      */
     public function participantValues(int $eventId, array $stored): array
     {
+        return $this->participantFacts($eventId, $stored)->values;
+    }
+
+    /**
+     * `participantValues()` with each field's kind beside its value (N19): the block type and the number
+     * field's decimals a money rule needs to tell a consent from a quantity. One walk, one read of
+     * `ParticipantFields::of()`, the same exception as `participantValues()`.
+     *
+     * @param array<string, string> $stored field key → the stored value
+     */
+    public function participantFacts(int $eventId, array $stored): ParticipantFacts
+    {
         $values = [];
+        $kinds = [];
         foreach ($this->typedFields($eventId) as [$field, $type]) {
+            $kinds[$field->key] = new FieldKind($field->type, (int) ($field->settings['decimals'] ?? 0));
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -173,7 +237,7 @@ final class Forms
                 : $type->value(new FieldTypeInput($answer, self::attributesOf($field, $answer)));
         }
 
-        return $values;
+        return new ParticipantFacts($values, $kinds);
     }
 
     /**
@@ -212,14 +276,16 @@ final class Forms
     }
 
     /**
-     * The block attributes a field type reads a stored answer with, from the participant field: the label,
-     * the options, and for a choice whether it is multiple, which its stored form shows (a JSON list).
+     * The block attributes a field type reads a stored answer with, from the participant field: its own
+     * settings (the number field's bounds, decimals and affixes), the label, the options, and for a choice
+     * whether it is multiple, which its stored form shows (a JSON list).
      *
      * @return array<string, mixed>
      */
     private static function attributesOf(ParticipantField $field, string $answer): array
     {
-        $attributes = ['label' => $field->title];
+        $attributes = $field->settings;
+        $attributes['label'] = $field->title;
         if ($field->options !== []) {
             $attributes['options'] = array_map(
                 static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
@@ -237,7 +303,8 @@ final class Forms
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
-     *     form whose conditions read them; none when null
+     *     form whose conditions read them; when null, only the runner's moment (`EventValues::now()`), so
+     *     every condition scope carries `now`
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
      * @throws FormTerminal a terminal page shows for the answers
@@ -245,7 +312,11 @@ final class Forms
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->engine->validate($definition, $answers, $facts);
+        return $this->engine->validate(
+            $definition,
+            $answers,
+            $facts ?? new ValueContext(EventValues::now(Runner::current()->clock()->now()))
+        );
     }
 
     /**
