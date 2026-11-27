@@ -18,7 +18,7 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  * The mail screens (prototype, unapproved as a whole): the event's „Levelek” page, a submenu item of the event's
  * own menu item, and the site's „Kaláka › Levelezés” page the paused banner names. Both are empty containers plus
  * a configuration; every read and act goes through `kalaka-admin/v1` and the abilities, so the page decides no
- * access: the reads are full access's, and a visitor without it gets the refusal. [UNAPPROVED N270, N271]
+ * access: the reads are full access's, and a visitor without it gets the refusal. [UNAPPROVED N271]
  */
 final class MailPages
 {
@@ -53,7 +53,7 @@ final class MailPages
         // just „Levelezés”, because there is no dashboard yet (owner ruling 8.14; no „Irányítópult” entry). Its icon
         // is the Kaláka logo, as the owner's menu ruling has it (a plain „K” until the logo exists, as in the menu
         // mock), drawn as a CSS mask (`menuStyle()`). Its place is the mock's: right after core's separator and
-        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271, T270]
+        // right before the events, which the grid page puts at 4.01 and up. [UNAPPROVED N271]
         add_menu_page(
             Texts::SITE_PAGE,
             Texts::SITE_MENU,
@@ -77,7 +77,7 @@ final class MailPages
         $menu[self::SEPARATOR_POSITION] = ['', 'read', 'separator-kalaka', '', 'wp-menu-separator'];
         foreach ((new Events())->notArchived() as $event) {
             $parent = GridPage::slug($event);
-            // The event's mail page, next to „Jelentkezők”. [UNAPPROVED N270, T271]
+            // The event's mail page, next to „Jelentkezők”.
             add_submenu_page(
                 $parent,
                 Texts::EVENT_PAGE,
@@ -177,7 +177,7 @@ final class MailPages
         ];
         if ($page === 0) {
             // The names of the events the page can name; an event the sender read lists and this does not (an
-            // archived one) shows as its number. [UNAPPROVED N280]
+            // archived one) shows as its number.
             $config['kind'] = 'sender';
             $config['events'] = array_map(static fn (Event $event): array => [
                 'id' => $event->id,

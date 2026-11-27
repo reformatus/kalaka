@@ -1,6 +1,6 @@
 /**
  * The manual mail (piece 4): the content of the dialog that sends one published body of the event to chosen
- * registrations, and a modal that holds it for the places that have no modal of their own. [UNAPPROVED N290]
+ * registrations, and a modal that holds it for the places that have no modal of their own.
  *
  * On opening it asks the server who the send would reach (`POST …/mail/manual/preview`, checked against the user's
  * grant like the send): the codes that would get the mail, the ones that would be skipped with the reason, the codes
@@ -10,7 +10,7 @@
  * nothing twice (`createKeys`); while a send runs a second submit is ignored. The answer is shown in the dialog
  * (queued, skipped, a repeat, `paused`, `held`) and the dialog then only closes. A refusal shows the server's own
  * text and keeps the dialog. More codes than one send may hold come back as the server's 400, shown as its own
- * sentence. [UNAPPROVED N291] [UNAPPROVED N292] [UNAPPROVED N293]
+ * sentence. [UNAPPROVED N291]
  */
 import { Fragment, useEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, SelectControl, Spinner } from '@wordpress/components';
@@ -49,7 +49,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 		keyFor.current = keys || pageKeys( event );
 	}
 	// Whether sending is paused and whether the event is held, before anything is queued. Full access's reads: a
-	// refusal leaves the answer as the only place to learn it. [UNAPPROVED N293]
+	// refusal leaves the answer as the only place to learn it.
 	const [ standing, setStanding ] = useState( { paused: false, held: false } );
 	useEffect( () => {
 		let live = true;

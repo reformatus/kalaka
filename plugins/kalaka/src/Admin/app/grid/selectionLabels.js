@@ -1,7 +1,7 @@
 /**
  * Names the row checkboxes. DataViews labels each one with its title field and says „(no title)” when the view has
  * none; a title field would add a column of its own to the table, so the label is set here instead: the checkbox of
- * the n-th body row gets the n-th row's key (the registration's code). No WordPress imports. [UNAPPROVED T286]
+ * the n-th body row gets the n-th row's key (the registration's code). No WordPress imports.
  */
 
 /** The checkboxes of the table's body rows, one per row in order, `null` for a row that has none. */

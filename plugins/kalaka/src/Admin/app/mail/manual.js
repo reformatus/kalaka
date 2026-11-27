@@ -39,7 +39,7 @@ const pageStores = new Map();
  * The keys of one event for the life of the page load, shared by everything on the page that sends: the grid's action
  * is rebuilt when the tab changes (a grant holder's tabs differ in `kalaka_manual_mail`) and „Levelezés” has one
  * list per event, yet the same body and codes must stay one request. A reload makes new keys: that gap is the
- * server's (the key never expires), see the record's hole 25. [UNAPPROVED N292]
+ * server's (the key never expires), see the record's hole 25.
  */
 export function pageKeys( event ) {
 	if ( ! pageStores.has( event ) ) {
@@ -55,7 +55,7 @@ export const isTooMany = ( error ) =>
 /**
  * The two reads that say, before a send, whether sending is paused (the site's sender read) and whether the event is
  * held (the event's mail read), from the preview's own path. Both are full access's: a grant holder's read is refused
- * and the dialog then says nothing about either before the send (the answer still does). [UNAPPROVED N293]
+ * and the dialog then says nothing about either before the send (the answer still does).
  */
 export function stateReads( previewPath ) {
 	const event = previewPath.replace( /\/manual\/preview$/, '' );

@@ -4,7 +4,7 @@
  * `kalaka_manual_mail`; the ability and the preview decide again on every call). The selection is the ticked rows'
  * codes; the dialog is the manual mail form in DataViews' own action modal. DataViews adds a menu with this one
  * action to every row as well. With nothing ticked the grid's slot passes the view with its filters and search
- * instead of codes (`grid/selection.js`). [UNAPPROVED N287] [UNAPPROVED N289] [UNAPPROVED N295]
+ * instead of codes (`grid/selection.js`). [UNAPPROVED N295]
  *
  * @param {Object}   options
  * @param {boolean}  options.eligible    whether the tab carries the manual mail
@@ -22,7 +22,7 @@ import { GRIDACTION, MANUAL } from './texts';
 /**
  * DataViews closes its modal by itself on × and Esc, without asking the dialog, so the ticks are cleared when the
  * dialog goes away after a send, however it was closed: not at the send (that would unmount the answer) and not in
- * the Bezárás button only. [UNAPPROVED N288]
+ * the Bezárás button only.
  */
 function BulkDialog( { event, previewPath, items, selection, closeModal, onSent, keys } ) {
 	const sent = useRef( false );
@@ -54,13 +54,13 @@ function BulkDialog( { event, previewPath, items, selection, closeModal, onSent,
 export function manualMailAction( { eligible, event, previewPath, onSent } ) {
 	// The event's request keys for the page load (not for this action object, which the grid rebuilds when the tab
 	// changes): the dialog is opened and closed on the same rows and body as often as the admin likes and that stays
-	// one request. [UNAPPROVED N292]
+	// one request.
 	const keys = pageKeys( event );
 	return {
 		id: 'kalaka-manual-mail',
 		label: GRIDACTION.label,
 		modalHeader: MANUAL.title,
-		// DataViews shows an action on a narrow screen only when it has an icon (then as the icon alone). [UNAPPROVED N287]
+		// DataViews shows an action on a narrow screen only when it has an icon (then as the icon alone).
 		icon: envelope,
 		supportsBulk: true,
 		isEligible: () => eligible,

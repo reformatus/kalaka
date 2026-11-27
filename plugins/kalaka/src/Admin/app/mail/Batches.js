@@ -1,7 +1,7 @@
 /**
  * The „Csoportos levelek” tab: the event's past manual mail batches from the batch's own record (who sent which body
  * when, how many were queued and skipped, and per registration code the outcome). Whether the queued ones were then
- * sent or failed is not in the record (Backend's N550). [UNAPPROVED N294]
+ * sent or failed is not in the record (Backend's N550).
  */
 import { Fragment, useMemo, useState } from '@wordpress/element';
 import { Button, Modal } from '@wordpress/components';

@@ -92,7 +92,7 @@ export default function Page( { config } ) {
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
 	// The ticked rows' keys (the codes), for the bulk action „Levél küldése”: of this page only (DataViews drops
-	// the ones not on the page), and cleared with the tab, the page, the order and the filters. [UNAPPROVED N288]
+	// the ones not on the page), and cleared with the tab, the page, the order and the filters.
 	const [ selection, setSelection ] = useState( [] );
 	// The code of the registration in the panel, or null. [UNAPPROVED N3]
 	const [ open, setOpen ] = useState( null );
@@ -463,7 +463,7 @@ export default function Page( { config } ) {
 		// A view with no registrations at all. [UNAPPROVED N10]
 		empty = <p className="kg-no-match">{ GRID.emptyView }</p>;
 	}
-	// The bulk action „Levél küldése”, only on a tab that carries the manual mail. [UNAPPROVED N287, N289]
+	// The bulk action „Levél küldése”, only on a tab that carries the manual mail.
 	const actions = useMemo(
 		() =>
 			tab.manualMail
@@ -479,7 +479,6 @@ export default function Page( { config } ) {
 		[ tab.manualMail, config.event, config.rest ]
 	);
 	// Each row's selection checkbox is named with the registration's code and name (DataViews says „(no title)”).
-	// [UNAPPROVED T286]
 	const rowNames = data.rows.map( ( row ) => codeName( row.key, nameOf( row ) ) ).join( '\u0000' );
 	useLayoutEffect( () => {
 		if ( ! host || actions.length === 0 ) {

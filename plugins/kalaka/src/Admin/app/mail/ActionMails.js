@@ -46,7 +46,7 @@ function MailCard( { config, mail, bodies, onChanged, say, drafts } ) {
 	const allowed = mail.enabled ? mail.can.switch_off : mail.can.switch_on;
 	// A standing refusal is a state, not an error: the switch looks off-limits but can be reached, and the refusal's
 	// text is its description. [UNAPPROVED N273] A change of it sends no act, so the refusal the read already shows is
-	// not shown a second time as an error. [UNAPPROVED N298]
+	// not shown a second time as an error.
 	const standing = ! busy && ! allowed;
 	const titleId = useId();
 	const current = mail.body_id === null ? '' : String( mail.body_id );

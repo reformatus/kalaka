@@ -11,7 +11,7 @@ namespace Kalaka\Admin\Mail;
 final class Texts
 {
     /**
-     * The top-level item. [UNAPPROVED T270] „Kaláka” is the name the paused banner uses. Its page title, which is the
+     * The top-level item. „Kaláka” is the name the paused banner uses. Its page title, which is the
      * browser tab's, is `SITE_PAGE`, as the page's h1 is.
      */
     public const SITE_MENU = 'Kaláka';
@@ -19,7 +19,7 @@ final class Texts
     /** The site page and its submenu item: the page the approved paused banner names („Kaláka › Levelezés”). */
     public const SITE_PAGE = 'Levelezés';
 
-    /** The event's submenu item and its mail page. [UNAPPROVED T271] */
+    /** The event's submenu item and its mail page. */
     public const EVENT_PAGE = 'Levelek';
 
     /**

@@ -7,7 +7,7 @@ import { BODIES, BATCHES, MANUAL, TROUBLED } from './texts';
 
 /**
  * A batch's subject; a trashed or missing body reads as a null subject with `body_gone`, and the server sends no text of
- * its own (Backend N567), so the word is ours. [UNAPPROVED T294]
+ * its own (Backend N567), so the word is ours.
  */
 export const batchSubject = ( batch ) => ( batch.body_gone || batch.subject === null || batch.subject === undefined ? BATCHES.gone : batch.subject );
 
@@ -17,7 +17,7 @@ export const bodyStatus = ( status ) => BODIES[ 'status_' + status ] || status;
 /**
  * A body's text in a select: the subject, with its status in lowercase words when it is not published, and its number
  * when another body of the list has the same subject, so two of them are never the same option. Bodies without a
- * `status` (the manual mail's preview lists published ones only) carry no status word. [UNAPPROVED T289]
+ * `status` (the manual mail's preview lists published ones only) carry no status word.
  */
 export function bodyLabel( body, bodies ) {
 	const twin = bodies.some( ( other ) => other.id !== body.id && other.subject === body.subject );
@@ -31,10 +31,10 @@ export function bodyLabel( body, bodies ) {
 	return word ? `${ body.subject } (${ word })` : body.subject;
 }
 
-/** The word of a delivery's status. [UNAPPROVED T277] */
+/** The word of a delivery's status. */
 export const deliveryStatus = ( status ) => TROUBLED[ status ] || status;
 
-/** The word of a batch member's outcome. [UNAPPROVED T283] */
+/** The word of a batch member's outcome. */
 export const outcomeWord = ( outcome ) => BATCHES[ 'outcome_' + outcome ] || outcome;
 
 /**
@@ -42,7 +42,7 @@ export const outcomeWord = ( outcome ) => BATCHES[ 'outcome_' + outcome ] || out
  * Hungarian text), else the fallback. A failed network request has a message too, in the browser's language, so
  * only an error that has a `code` counts as the server's. Core's own codes (`rest_invalid_param` and the like) have
  * English texts, so the error's own `message` is shown only for a `kalaka_`-prefixed code; any other error shows the
- * text of its `data.kalaka_message` when it has one, else the fallback. [UNAPPROVED N298]
+ * text of its `data.kalaka_message` when it has one, else the fallback.
  */
 export function problemText( error, fallback ) {
 	if ( error && typeof error.code === 'string' && error.code.startsWith( 'kalaka_' ) && error.message ) {
