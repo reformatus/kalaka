@@ -280,8 +280,8 @@ flowchart TB
 
 | Concept | What it is |
 |---|---|
-| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
-| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, choice, scale, …) |
+| **Participant field** | One thing the event knows about each of its participants: a **key**, a field type, its type's settings, a title and, for a choice, its options. It belongs to the event, and every form, mail, view, condition and fee component of the event reads it by its key |
+| **Field type** | Code: a block type from core or an extension. It defines the data shape, validation, editor and front-end UI, admin display and filtering. Core ships the basic shapes (name, email, phone, date, text, number, choice, scale, …) |
 | **Field definition** | Optional organization configuration in its own post type (`kalaka_field`), edited in the block editor and limited to one field block. Holds the complete field including its settings, with no override layer. Created by a single switch on a form field |
 | **Form field** | A block in a form that asks for one participant field, standalone or copied from a definition (keeping the definition's ID and version) |
 
@@ -298,7 +298,8 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key;
+    then may a form hold its key, and only then may staff correct it
+    through views;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -356,12 +357,18 @@ flowchart TB
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
   keeping its label, so stored values still read.
+- **Every form-to-backend link is by key.** An admin adds a backend thing
+  (a charge, the donation), authors a form, adds a field, and sets the
+  field's key to the backend thing's key; the backend names no field. The
+  field with that key is what the thing reads. A backend key no field uses
+  does nothing.
 - **Explicit markings:** the contact email (exactly one per form in the
   registration slot) and the display name.
 - **Money-relevance is a type capability** supplied by plugins; core ships no
   money field types. Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money.
+  only through use cases that re-materialize the money; a staff correction
+  through views is one and needs no unlock.
 
 ### Changing participant fields after submit
 
@@ -383,9 +390,11 @@ is no other participant-side edit.
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
   allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field.
+  refused unless an organizer unlocked the field; a staff correction through
+  views needs no unlock.
 - **Staff fields may appear in an additional form.**
-- **Admins can correct any field at any time,** through views. An admin
+- **Admins can correct a form or staff field at any time, and an extension
+  field only when it is form-writable,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
   period and revokes the form's links that bypass it.
@@ -476,14 +485,40 @@ is no other participant-side edit.
   equals X". Groups follow the same three values: `all` with an unknown item
   and no false is unknown, `any` with a true is true, and `not` on a group
   leaves unknown unknown. A condition that is unknown counts as not matched.
-- **Typed comparison:** values compare as number, date, text or choice. A
-  choice that is a path (the congregation field) is only asked whether it
-  contains a node, never whether it equals one.
-- **A date can be compared with a date reference:** another date key of the
-  fact source moved by whole years and days, e.g. the event's start minus 16
-  years for "under 16 at the event's start". A day the moved month does not
-  have becomes its last day (29 February to 28 February), so the age rule
-  holds for an event starting on 29 February.
+- **Typed comparison:** values compare as number, date, datetime, text or
+  choice. A date is a calendar day; a datetime is an instant. Two datetimes
+  compare as instants; a date against a date or a datetime compares on the
+  day (a datetime gives the site-time-zone day it falls on, never midnight),
+  so a day-only value keeps its whole-day meaning against `now`. The
+  registration's opening and closing (`event.registration_opens`,
+  `event.registration_closes`) are datetimes, the event's start and end
+  (`event.start`, `event.end`) dates. A choice that is a path (the
+  congregation field) is only asked whether it contains a node, never
+  whether it equals one.
+- **A date or datetime can be compared with a date reference:** another date
+  or datetime key of the fact source moved by whole years and days, e.g. the
+  event's start minus 16 years for "under 16 at the event's start". A day
+  the moved month does not have becomes its last day (29 February to 28
+  February), so the age rule holds for an event starting on 29 February. A
+  datetime moves its wall time in the site's time zone.
+- **A datetime can be a literal:** `YYYY-MM-DDTHH:MM:SS` with the site's
+  offset in force on that day (`Z` or `+HH:MM`), e.g.
+  `2026-12-01T18:00:00+01:00`; a date key or a datetime key takes it or a
+  plain day. The instant is fixed when stored. Against a date, a literal's
+  day is its date part as written. The editor and the server check it by the
+  same rules.
+- **A date reference can be "now":** the clock's time, to the second, in the
+  site's time zone (a datetime), moved by whole years and days like any date
+  reference (e.g. "now + 0 days"); no hours or minutes. While a form is
+  filled in it is the render time (the page render and every re-fetch), at
+  submit the submit time, and after submit (mails, participant blocks,
+  views) the clock time of the read that renders them (the runner's
+  `Clock`); the evaluator reads it from the fact source like any value,
+  never from a clock of its own. As a date reference it is only
+  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
+  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
+  reads an event value, and the page re-fetches it with the form's other
+  re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice

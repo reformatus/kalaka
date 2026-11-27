@@ -9,7 +9,9 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
 /**
  * A kind of field, contributed through `Contributions::fieldType()`. An outside point: it runs
  * outside any transaction, returns a value and writes nothing. Core applies `required` and the
- * blank answers itself; a type is asked only about an answer that is not blank.
+ * blank answers itself; a type is asked only about an answer that is not blank. `valueType()` and
+ * `value()` fire no WordPress hook and write nothing (they may read), so the evaluation calls them
+ * inside the transaction to type a registration's field values (S25).
  */
 interface FieldType
 {
@@ -26,6 +28,15 @@ interface FieldType
 
     /** The value of a stored answer: `$input->value` is the stored string. */
     public function value(FieldTypeInput $input): Value;
+
+    /**
+     * The block's settings that outlive the form, kept on the event's participant field so the evaluation
+     * can render the value and check the field without reading a post. Empty unless the type has settings.
+     *
+     * @param array<string, mixed> $attributes
+     * @return array<string, mixed>
+     */
+    public function settings(array $attributes): array;
 
     /**
      * The answer a form opens with for a stored value (events-and-forms.md, "Prefill from a link"; an

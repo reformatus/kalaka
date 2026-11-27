@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kalaka\Tests\Unit\Portal;
+namespace Kalaka\Tests\Unit\Foundation\Money;
 
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
-use Kalaka\Portal\MoneyText;
+use Kalaka\Foundation\Api\Money\MoneyText;
 use PHPUnit\Framework\TestCase;
 
-/** The amounts of the participant blocks: "48 000 Ft", no-break spaces, fillérs only when there are any. */
+/** The one text of an amount: "48 000 Ft", no-break spaces, fillérs only when there are any. */
 final class MoneyTextTest extends TestCase
 {
     private static function text(string $amount): string

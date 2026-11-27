@@ -21,6 +21,12 @@ abstract class MailBodyTestCase extends MailTestCase
 
     private Runner $production;
 
+    /** The one moment the mail-body tests render at: `time.now` reads its day. */
+    protected static function now(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2026-11-30 08:00:00', new \DateTimeZone('UTC'));
+    }
+
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
     {

@@ -6,6 +6,10 @@ namespace Kalaka\Tests\Integration\Registrations;
 
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
+use Kalaka\Forms\Api\InvalidAnswers;
+use Kalaka\Assignments\OptionSeatPool;
+use Kalaka\Registrations\Api\SeatClaim;
+use Kalaka\Registrations\Api\SeatsFull;
 use Kalaka\Forms\Api\ValidatedAnswers;
 use Kalaka\Foundation\Api\Actor\GuestActor;
 use Kalaka\Foundation\Api\UseCase\Runner;
@@ -27,6 +31,8 @@ use Kalaka\Tests\Integration\Foundation\TestClock;
 final class SubmitRaceTest extends RealTableTestCase
 {
     private int $event = 0;
+
+    private int $set = 0;
 
     // phpcs:ignore PSR1.Methods.CamelCapsMethodName.NotCamelCaps -- the WordPress test case and WP-CLI name this hook in snake case
     public function set_up(): void
@@ -63,6 +69,25 @@ final class SubmitRaceTest extends RealTableTestCase
                 'updated_at' => '2026-11-30 07:00:00.000000',
             ]);
         }
+        $wpdb->insert($wpdb->prefix . 'kalaka_assignment_sets', [
+            'event_id' => $this->event,
+            'version' => 1,
+            'name' => 'Modulok',
+            'required' => 0,
+            'mode' => 'request',
+            'published' => 0,
+        ]);
+        $this->set = (int) $wpdb->insert_id;
+        $wpdb->insert($wpdb->prefix . 'kalaka_assignment_options', [
+            'set_id' => $this->set,
+            'option_key' => 'modul_a',
+            'event_id' => $this->event,
+            'version' => 1,
+            'label' => 'Modul A',
+            'capacity' => 5,
+            'leaders' => '',
+            'place' => '',
+        ]);
         $wpdb->query('COMMIT');
         ObjectCache::clear();
     }
@@ -71,10 +96,14 @@ final class SubmitRaceTest extends RealTableTestCase
     public function tear_down(): void
     {
         global $wpdb;
-        $tables = ['kalaka_field_values', 'kalaka_submissions', 'kalaka_registrations', 'kalaka_participant_fields'];
+        $tables = [
+            'kalaka_seats', 'kalaka_field_values', 'kalaka_submissions', 'kalaka_registrations',
+            'kalaka_participant_fields', 'kalaka_assignment_options',
+        ];
         foreach ($tables as $table) {
             $wpdb->delete($wpdb->prefix . $table, ['event_id' => $this->event]);
         }
+        $wpdb->delete($wpdb->prefix . 'kalaka_assignment_sets', ['id' => $this->set]);
         $wpdb->delete($wpdb->prefix . 'kalaka_events', ['id' => $this->event]);
         $wpdb->query('COMMIT');
         ObjectCache::clear();
@@ -122,6 +151,48 @@ final class SubmitRaceTest extends RealTableTestCase
                 $this->event
             )))
         );
+    }
+
+    public function testTheSubmitThatWaitedForTheLastPlaceIsRefusedWhenItChoosesALimitedOption(): void
+    {
+        global $wpdb;
+        $form = new Form(999999, $this->event, FormPlacement::Registration, null, false, 1);
+        $answers = ['name' => 'Teszt Elek', 'email' => 'teszt@example.org'];
+        $useCase = new SubmitRegistration(
+            $form,
+            1,
+            new ValidatedAnswers($answers, $answers),
+            1,
+            [],
+            false,
+            [],
+            (new ParticipantFields())->of($this->event),
+            seatClaims: [new SeatClaim('modul', new OptionSeatPool($this->event, $this->set, 'modul_a'))],
+        );
+        $wpdb->query('COMMIT');
+
+        $holder = $this->takeTheLastPlace('00A0');
+        try {
+            (new Runner(new TestClock()))->run(
+                $useCase,
+                ['form' => $form->id, 'token' => SubmitToken::generate()],
+                new GuestActor()
+            );
+            self::fail('The submit should have been refused.');
+        } catch (InvalidAnswers $invalid) {
+            self::assertSame(['modul' => SeatsFull::TEXT], $invalid->fields);
+        }
+
+        self::assertSame("waited\n", $this->finish($holder), 'The event lock was not waited for.');
+        ObjectCache::clear();
+        self::assertSame(['00A0'], array_map('strval', $wpdb->get_col($wpdb->prepare(
+            "SELECT code FROM {$wpdb->prefix}kalaka_registrations WHERE event_id = %d",
+            $this->event
+        ))));
+        self::assertSame('0', (string) $wpdb->get_var($wpdb->prepare(
+            "SELECT is_full FROM {$wpdb->prefix}kalaka_events WHERE id = %d",
+            $this->event
+        )));
     }
 
     /** @return array{resource, array<int, resource>} */
