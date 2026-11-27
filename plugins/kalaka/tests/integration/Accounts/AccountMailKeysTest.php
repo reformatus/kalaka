@@ -190,8 +190,9 @@ final class AccountMailKeysTest extends MailBodyTestCase
         // The registration on the current version keeps its recipient and context, and its mail renders.
         $values = new MailValues();
         self::assertSame('teszt@example.test', $values->recipient($key));
-        self::assertSame('teszt@example.test', $values->context($key)->get(MailValues::RECIPIENT_EMAIL)->text);
-        self::assertSame('Teszt Elek', $values->context($key)->get(MailValues::RECIPIENT_NAME)->text);
+        $context = $values->context($key, self::now());
+        self::assertSame('teszt@example.test', $context->get(MailValues::RECIPIENT_EMAIL)->text);
+        self::assertSame('Teszt Elek', $context->get(MailValues::RECIPIENT_NAME)->text);
         self::assertStringContainsString('Köszönjük!', $this->render($event, $key));
     }
 
@@ -228,13 +229,13 @@ final class AccountMailKeysTest extends MailBodyTestCase
         $loggedIn = $this->event('optional');
         $eventRecord = (new Events())->find($loggedIn);
         self::assertNotNull($eventRecord);
-        self::assertSame('Igen', EventValues::form($eventRecord, true)[SignUp::LOGGED_IN]->text);
-        self::assertSame('Nem', EventValues::form($eventRecord, false)[SignUp::LOGGED_IN]->text);
+        self::assertSame('Igen', EventValues::form($eventRecord, true, self::now())[SignUp::LOGGED_IN]->text);
+        self::assertSame('Nem', EventValues::form($eventRecord, false, self::now())[SignUp::LOGGED_IN]->text);
     }
 
     private function render(int $event, RegistrationKey $key): string
     {
-        return (new MailRenderer())->render($event, 'registered', $key)->html;
+        return (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
     }
 
     public function testAnUnverifiedOwnerGetsAFreshLinkWordPressAccepts(): void

@@ -9,6 +9,7 @@ use Kalaka\Foundation\Api\UseCase\Context;
 use Kalaka\Foundation\ObjectCache;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\FieldValue\FieldValue;
 use Kalaka\Registrations\FieldValue\FieldValueRepository;
 use Kalaka\Registrations\Registration;
 use Kalaka\Registrations\RegistrationRepository;
@@ -170,5 +171,53 @@ abstract class RegistrationsTestCase extends AuditTestCase
         }
 
         return $seen;
+    }
+
+    /**
+     * A participant field of the event, written as the form sync's use case would: a single choice when
+     * options are given, a text field otherwise.
+     *
+     * @param list<array{value: string, label: string}> $options
+     */
+    protected function declareParticipantField(int $event, string $key, array $options = [], int $position = 0): void
+    {
+        global $wpdb;
+        $wpdb->insert($wpdb->prefix . 'kalaka_participant_fields', [
+            'event_id' => $event,
+            'field_key' => $key,
+            'version' => 1,
+            'type' => $options === [] ? 'kalaka/text-field' : 'kalaka/choice-field',
+            'title' => $key,
+            'options' => $options === [] ? null : wp_json_encode(array_map(
+                static fn (array $option): array => $option + ['retired_at' => null],
+                $options
+            )),
+            'source' => 'form',
+            'created_at' => '2026-11-13 08:00:00.000000',
+            'updated_at' => '2026-11-13 08:00:00.000000',
+            'position' => $position,
+            'form_writable' => 0,
+        ]);
+    }
+
+    /** Writes a registration's field value as its stored string, in a run of its own that holds the registration. */
+    protected function writeValue(RegistrationKey $key, string $fieldKey, string $value): void
+    {
+        $this->inRun(function (array $input, Context $context) use ($key, $fieldKey, $value): void {
+            $this->lockRegistrations($context, $key);
+            $stored = $this->values->find(['eventId' => $key->eventId, 'code' => $key->code, 'fieldKey' => $fieldKey]);
+            if ($stored === null) {
+                $this->values->upsert(new FieldValue($key, $fieldKey, $value), $context);
+
+                return;
+            }
+            $locked = $this->values->findForUpdate(
+                ['eventId' => $key->eventId, 'code' => $key->code, 'fieldKey' => $fieldKey],
+                $context
+            );
+            self::assertNotNull($locked);
+            $locked->value = $value;
+            $this->values->upsert($locked, $context);
+        });
     }
 }
