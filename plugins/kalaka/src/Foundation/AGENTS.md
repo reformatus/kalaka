@@ -58,7 +58,7 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - A plugin's declared names (`Api\Naming`) live in that plugin's one option, `kalaka_<module id>_names`, written
   only by WordPress's Settings API through `NamesScreen`; an empty or whitespace-only value is the declared default,
   a refusal (an undeclared key, a non-text value, over `PluginNames::MAX_LENGTH`) is `InvalidInput`, and the read
-  never throws on what is stored. Names are read where they are shown, never copied into a table. [UNAPPROVED N1160, N1161; advisor, not owner]
+  never throws on what is stored. Names are read where they are shown, never copied into a table.
 - A query reads WordPress's users tables only through `usersTable()` and
   `capabilitiesMetaKey()`, with plain statements that fire no hook.
 - The admin-side coarse permission check is Admin's (`Admin\Api\AdminAccess`),
