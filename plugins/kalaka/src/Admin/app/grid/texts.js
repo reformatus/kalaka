@@ -14,12 +14,12 @@ export const GRID = {
 	tabsLabel: 'Nézetek',
 	toolbar: 'Műveletek',
 	// The one reset (search, filters, sort and counting): DataViews' own, already approved „Visszaállítás”
-	// (`Translations::OVERRIDES`), so no new string. [UNAPPROVED T38]
+	// (`Translations::OVERRIDES`), so no new string.
 	reset: 'Visszaállítás',
-	// Filters and search. [UNAPPROVED N10]
+	// Filters and search.
 	followsFilter: 'Az összesítő sor és a másolás a szűrt sorokra vonatkozik.',
 	noMatch: 'Nincs megfelelő jelentkező.',
-	// A view or a filter set with no registrations at all. [UNAPPROVED N10]
+	// A view or a filter set with no registrations at all.
 	emptyView: 'Nincs jelentkező.',
 	// One more value in a list column's own filter; the owner's own word (2026-11-21).
 	unanswered: 'Nincs válasz',

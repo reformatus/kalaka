@@ -5,7 +5,7 @@
  * `25`, silently), and which separator it takes depends on the browser's locale. This is a text input with
  * `inputmode="decimal"` that keeps what is typed and hands DataViews the number it reads (`decimal()` in
  * `narrow.js`: a comma or a dot is one decimal point), as a number, or `[ min, max ]` for the range, the shapes
- * DataViews' own control gives. The range keeps DataViews' own help line and no line of ours (N69). [UNAPPROVED N65, N67, N69]
+ * DataViews' own control gives. The range keeps DataViews' own help line and no line of ours (N69).
  */
 import { BaseControl, Flex, TextControl } from '@wordpress/components';
 import { useEffect, useState } from '@wordpress/element';

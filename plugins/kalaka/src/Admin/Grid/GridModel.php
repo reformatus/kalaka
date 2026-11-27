@@ -508,7 +508,7 @@ final class GridModel
         }
         // „Nincs válasz” in the filter of every list-type field column, required or not: a required field can still
         // be empty (behind a condition, in an additional form not yet sent, on a registration made before the field
-        // existed). [UNAPPROVED N66]
+        // existed).
         if ($type === 'choice' || $type === 'consent') {
             $meta['empty'] = true;
         }
