@@ -99,7 +99,7 @@ final class ActionMailCatalogueTest extends MailBodyTestCase
         } catch (RuleViolation $e) {
             self::assertSame('kalaka_point_template_unpublished', $e->errorCode());
             self::assertSame(
-                'A művelet nem hajtható végre. A küldési pont csak közzétett sablonnal kapcsolható be.',
+                'A művelet nem hajtható végre. A küldési pont csak akkor kapcsolható be, ha a sablonja elérhető.',
                 $e->getMessage()
             );
         }
