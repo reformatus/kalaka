@@ -202,10 +202,10 @@ final class ParticipantFieldSync
 
     private static function actor(): Actor
     {
-        $user = get_current_user_id();
         if (defined('WP_CLI') && WP_CLI) {
-            return new CliActor($user > 0 ? $user : null);
+            return CliActor::current();
         }
+        $user = get_current_user_id();
 
         return $user > 0 ? new UserActor($user) : new SystemActor();
     }

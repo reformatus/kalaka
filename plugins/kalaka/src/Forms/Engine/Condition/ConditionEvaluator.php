@@ -13,7 +13,7 @@ use Kalaka\Vendor\Brick\Math\BigDecimal;
 /**
  * Decides whether a parsed condition holds for a fact source. Pure: no database, hook, user,
  * request or clock, so a caller inside a transaction can use it. It is the one evaluator behind
- * every availability (S76), reached through `Api\Availability` and the form walk.
+ * every availability (S76), reached through the form walk.
  *
  * Dates and datetimes compare by what the two operands are: two datetimes as instants (offsets differ across a
  * daylight-saving change, so never as strings); a day against anything else on the day, a datetime
