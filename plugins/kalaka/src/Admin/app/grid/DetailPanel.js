@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
-import { warningOf } from './confirmation';
+import { unconfirmBlocked, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import { StatusRow } from './PanelRows';
@@ -137,6 +137,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								can={ detail.can || {} }
 								manual={ registration.manual_confirmation }
 								warning={ warningOf( registration, detail.can ) }
+								blocked={ unconfirmBlocked( registration ) }
 								confirmed={ registration.confirmed }
 								reload={ reload }
 								onSaved={ onSaved }

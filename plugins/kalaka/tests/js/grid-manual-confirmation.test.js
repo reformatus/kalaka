@@ -10,7 +10,19 @@ import { CONFIRM, PANEL } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement } = require( 'react' );
-	const Button = ( { children, onClick } ) => createElement( 'button', { onClick }, children );
+	const Button = ( { children, onClick, disabled, accessibleWhenDisabled, label, showTooltip, description } ) =>
+		createElement(
+			'button',
+			{
+				onClick: disabled ? undefined : onClick,
+				disabled: disabled && ! accessibleWhenDisabled,
+				'aria-disabled': disabled && accessibleWhenDisabled ? 'true' : undefined,
+				'aria-label': label,
+				'data-tooltip': showTooltip && description ? description : undefined,
+				'aria-description': description,
+			},
+			children
+		);
 	const SnackbarList = () => null;
 	return { Button, SnackbarList };
 } );
@@ -125,5 +137,35 @@ describe( 'the confirmation row', () => {
 		await mount( props( { manual: null, can: {} } ) );
 		expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
 		expect( host.querySelector( '.kg-panel-slot' ) ).toBeNull();
+	} );
+} );
+
+describe( 'the unconfirm the rules would undo at once', () => {
+	const reason = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
+
+	test( 'is disabled but still focusable, with the server\'s text as tooltip and description', async () => {
+		await mount( props( { blocked: true, warning: reason } ) );
+		const unconfirm = button( CONFIRM.unconfirm );
+		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBe( 'true' );
+		expect( unconfirm.disabled ).toBe( false );
+		expect( unconfirm.getAttribute( 'data-tooltip' ) ).toBe( reason );
+		expect( unconfirm.getAttribute( 'aria-description' ) ).toBe( reason );
+		unconfirm.focus();
+		expect( document.activeElement ).toBe( unconfirm );
+	} );
+
+	test( 'does not open the dialog', async () => {
+		await mount( props( { blocked: true, warning: reason } ) );
+		await act( async () => button( CONFIRM.unconfirm ).click() );
+		expect( host.querySelector( '#send' ) ).toBeNull();
+	} );
+
+	test( 'a live unconfirm has no tooltip and is not disabled', async () => {
+		await mount( props( { blocked: false, warning: null } ) );
+		const unconfirm = button( CONFIRM.unconfirm );
+		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBeNull();
+		expect( unconfirm.getAttribute( 'data-tooltip' ) ).toBeNull();
+		await act( async () => unconfirm.click() );
+		expect( host.querySelector( '#send' ) ).not.toBeNull();
 	} );
 } );

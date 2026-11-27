@@ -31,7 +31,9 @@ const moment = ( instant, zone ) =>
  * @param {?Object}  props.manual  the read's `registration.manual_confirmation`: { set_at, reason, set_by }, null
  *                                 when it is not set, undefined when the read does not carry it
  * @param {?string}  props.warning the read's `registration.unconfirm_warning` (the server's text, only with
- *                                 `can.unconfirm`), null when the unconfirm would not confirm again at once
+ *                                 `can.unconfirm`), null when the unconfirm would not confirm again at once; the
+ *                                 tooltip and the description of the disabled unconfirm button
+ * @param {boolean}  props.blocked the unconfirm is disabled: the rules would confirm again at once
  * @param {?boolean} props.confirmed the read's `registration.confirmed`; the row is left out when it is not a boolean
  * @param {boolean}  props.stale   the last read failed: the row is left out, the snackbar stays
  * @param {Function} props.reload  re-reads the panel's detail; resolves with it once it is on screen, null if
@@ -44,6 +46,7 @@ export default function ManualConfirmation( {
 	can,
 	manual,
 	warning,
+	blocked,
 	confirmed,
 	stale,
 	reload,
@@ -82,8 +85,7 @@ export default function ManualConfirmation( {
 		setDialog( null );
 		focusOpener();
 	};
-	// The snackbar follows the re-read, not the answer alone: an unconfirm the rules re-confirmed at once ends
-	// confirmed again.
+	// The snackbar follows the answer and the re-read: none when nothing changed or the re-read failed.
 	const done = async ( unconfirm, result ) => {
 		const detail = await reload();
 		const text = snackbarAfter( unconfirm, result, detail );
@@ -154,6 +156,15 @@ export default function ManualConfirmation( {
 									key={ kind }
 									variant="secondary"
 									onClick={ ( e ) => open( kind, e ) }
+									{ ...( kind === 'unconfirm' && blocked
+										? {
+												disabled: true,
+												accessibleWhenDisabled: true,
+												label: CONFIRM.unconfirm,
+												showTooltip: !! warning,
+												description: warning || undefined,
+											}
+										: {} ) }
 								>
 									{ kind === 'unconfirm'
 										? CONFIRM.unconfirm
@@ -170,7 +181,6 @@ export default function ManualConfirmation( {
 				<ConfirmDialog
 					config={ config }
 					unconfirm={ dialog === 'unconfirm' }
-					warning={ dialog === 'unconfirm' ? warning : null }
 					code={ code }
 					onClose={ close }
 					onDone={ done }

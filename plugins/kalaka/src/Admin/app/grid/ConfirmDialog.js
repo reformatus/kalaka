@@ -4,12 +4,10 @@
  * on submit counts characters, as the server does). [UNAPPROVED N73] A failed save keeps the dialog and the reason, and
  * while it runs the dialog does not close (Esc, ×, Mégse) and a second submit is ignored: an unconfirm is a new
  * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74]
- * The unconfirm has no refusal. When the rules would
- * confirm the registration again at once, the dialog shows the server's warning above the field, before the act
- * ([UNAPPROVED N71]). The warning is a notice announced once when the dialog opens; nothing ties it to the
- * dialog or to the field for a screen reader ([UNAPPROVED N78]), and a small gap separates it from the field's
- * label ([UNAPPROVED N82]). It says nothing else about what unconfirming does: that text needs a concept the owner has
- * not worded. [UNAPPROVED N33]
+ * The unconfirm has no refusal. The dialog has no warning notice: when the rules would
+ * confirm the registration again at once the unconfirm button is disabled instead, with the server's text as its
+ * tooltip ([UNAPPROVED N71 reboxed] [UNAPPROVED N78 reboxed: moot] [UNAPPROVED N82 reboxed: moot]). It says nothing
+ * about what unconfirming does: that text needs a concept the owner has not worded. [UNAPPROVED N33 reboxed]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, TextareaControl } from '@wordpress/components';
@@ -21,13 +19,12 @@ import { CONFIRM, MONEY } from './texts';
  * @param {Object}   props
  * @param {Object}   props.config  window.kalakaGrid
  * @param {boolean}  props.unconfirm the unconfirm dialog (else the set dialog)
- * @param {?string}  props.warning the server's warning for the unconfirm, null for none
  * @param {string}   props.code    the registration's code
  * @param {Function} props.onClose closes the dialog
  * @param {Function} props.onDone  called with (unconfirm, the ability's answer) once it is saved; it re-reads and
  *                                 decides the snackbar
  */
-export default function ConfirmDialog( { config, unconfirm, warning, code, onClose, onDone } ) {
+export default function ConfirmDialog( { config, unconfirm, code, onClose, onDone } ) {
 	const [ reason, setReason ] = useState( '' );
 	const [ error, setError ] = useState( '' );
 	const [ failed, setFailed ] = useState( null ); // the failure text, or null
@@ -85,11 +82,6 @@ export default function ConfirmDialog( { config, unconfirm, warning, code, onClo
 			shouldCloseOnClickOutside={ false }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
-				{ warning && (
-					<Notice status="warning" isDismissible={ false }>
-						{ warning }
-					</Notice>
-				) }
 				<TextareaControl
 					label={ CONFIRM.reasonField }
 					value={ reason }

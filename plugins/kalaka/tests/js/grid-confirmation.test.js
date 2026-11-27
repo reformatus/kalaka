@@ -3,6 +3,7 @@ import {
 	manualActions,
 	REASON_MAX,
 	snackbarAfter,
+	unconfirmBlocked,
 	validateReason,
 	warningOf,
 } from '../../src/Admin/app/grid/confirmation';
@@ -125,6 +126,20 @@ describe( 'the warning before the unconfirm', () => {
 	} );
 } );
 
+describe( 'the disabled unconfirm', () => {
+	test( 'is blocked when the read says the rules would confirm again at once, for each of the three answers', () => {
+		expect( unconfirmBlocked( { unconfirm_reconfirms: 'payments' } ) ).toBe( true );
+		expect( unconfirmBlocked( { unconfirm_reconfirms: 'nothing_due' } ) ).toBe( true );
+		expect( unconfirmBlocked( { unconfirm_reconfirms: 'yes' } ) ).toBe( true );
+	} );
+
+	test( 'is not blocked when the unconfirm would really take effect (null) or the read does not say', () => {
+		expect( unconfirmBlocked( { unconfirm_reconfirms: null } ) ).toBe( false );
+		expect( unconfirmBlocked( {} ) ).toBe( false );
+		expect( unconfirmBlocked( undefined ) ).toBe( false );
+	} );
+} );
+
 describe( 'the snackbar after a save', () => {
 	const detail = ( confirmedNow ) => ( { registration: { confirmed: confirmedNow } } );
 
@@ -133,29 +148,15 @@ describe( 'the snackbar after a save', () => {
 		expect( snackbarAfter( false, { changed: true }, { registration: {} } ) ).toBe( CONFIRM.saved );
 	} );
 
-	test( 'an unconfirm that ends not confirmed says it was revoked', () => {
+	test( 'an unconfirm always says it was revoked, whatever the re-read shows', () => {
 		expect( snackbarAfter( true, { changed: true }, detail( false ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( snackbarAfter( true, { changed: true }, detail( true ) ) ).toBe( CONFIRM.unconfirmed );
+		expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBe( CONFIRM.unconfirmed );
 		expect( CONFIRM.unconfirmed ).toBe( 'Visszaigazolás visszavonva.' );
 	} );
 
-	test( 'an unconfirm the rules re-confirmed at once says so: the re-read ends confirmed', () => {
-		expect( snackbarAfter( true, { changed: true }, detail( true ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
-		expect( CONFIRM.unconfirmedReconfirmed ).toBe( 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.' );
-	} );
-
-	test( 'registration.confirmed alone decides: not the decision list, not can.unconfirm', () => {
-		const read = ( confirmedNow, state, unconfirm ) => ( {
-			registration: { confirmed: confirmedNow, decisions: [ { kind: 'confirmation', state } ] },
-			can: { unconfirm },
-		} );
-		expect( snackbarAfter( true, { changed: true }, read( false, 'confirmed', true ) ) ).toBe( CONFIRM.unconfirmed );
-		expect( snackbarAfter( true, { changed: true }, read( true, 'unconfirmed', false ) ) ).toBe( CONFIRM.unconfirmedReconfirmed );
-	} );
-
-	test( 'a read without the field (an old server) cannot tell: no snackbar', () => {
-		expect( snackbarAfter( true, { changed: true }, { registration: {} } ) ).toBeNull();
-		expect( snackbarAfter( true, { changed: true }, { registration: { confirmed: null }, can: { unconfirm: true } } ) ).toBeNull();
-		expect( snackbarAfter( true, { changed: true }, {} ) ).toBeNull();
+	test( 'the re-confirm snackbar is gone', () => {
+		expect( CONFIRM.unconfirmedReconfirmed ).toBeUndefined();
 	} );
 
 	test( 'changed: false writes nothing: no snackbar, for either act', () => {

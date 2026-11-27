@@ -57,7 +57,6 @@ async function render( props = {} ) {
 			createElement( ConfirmDialog, {
 				config: { rest: '', event: 7 },
 				unconfirm: true,
-				warning: null,
 				code: '92F7',
 				onClose: () => {},
 				onDone: done,
@@ -102,21 +101,15 @@ afterEach( async () => {
 	}
 } );
 
-describe( 'the warning before the unconfirm', () => {
-	test( 'the server\'s text is shown above the field, as it is', async () => {
-		const text = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
-		await render( { warning: text } );
-		expect( notices( 'warning' ) ).toEqual( [ text ] );
+describe( 'the dialogs', () => {
+	test( 'the unconfirm dialog shows no warning notice: the button was disabled instead', async () => {
+		await render();
+		expect( notices( 'warning' ) ).toEqual( [] );
 		expect( host.querySelector( 'h1' ).textContent ).toBe( CONFIRM.unconfirm );
 	} );
 
-	test( 'no warning, no notice', async () => {
-		await render( { warning: null } );
-		expect( notices( 'warning' ) ).toEqual( [] );
-	} );
-
-	test( 'the set dialog has none', async () => {
-		await render( { unconfirm: false, warning: null } );
+	test( 'the set dialog has the set title', async () => {
+		await render( { unconfirm: false } );
 		expect( notices( 'warning' ) ).toEqual( [] );
 		expect( host.querySelector( 'h1' ).textContent ).toBe( CONFIRM.set );
 	} );

@@ -47,12 +47,20 @@ export function manualActions( manual, can, confirmed ) {
 }
 
 /**
- * The warning before the unconfirm: the server's own text from `registration.unconfirm_warning` (#213's T5a, T5b,
- * T5c), only while `can.unconfirm` is true and the text is not null. The panel adds no wording and no rule of its
- * own: whether the rules would confirm again at once is the server's call, so `registration.unconfirm_reconfirms`
- * is not read. [UNAPPROVED N71] [UNAPPROVED N76] The text is as old as the panel's last read, not as the moment the
- * dialog opens ([UNAPPROVED N79]), and a holder without the money view gets the server's text for that case, which
- * was not seen in a browser ([UNAPPROVED N81]).
+ * Whether the unconfirm is disabled: the rules would confirm the registration again at once, which the read says
+ * in `registration.unconfirm_reconfirms` (`payments`, `nothing_due`, or `yes` for a viewer without the money
+ * view); null when it would really take effect. [UNAPPROVED N33 reboxed] [UNAPPROVED N71 reboxed]
+ */
+export function unconfirmBlocked( registration ) {
+	return typeof ( registration && registration.unconfirm_reconfirms ) === 'string';
+}
+
+/**
+ * The reason the unconfirm is disabled: the server's own text from `registration.unconfirm_warning` (#213's T5a,
+ * T5b, T5c, with T6 appended when that mail is on), only while `can.unconfirm` is true and the text is not null.
+ * It is the disabled button's tooltip. The panel adds no wording and no rule of its own. [UNAPPROVED N76 reboxed]
+ * The text is as old as the panel's last read ([UNAPPROVED N79 reboxed]), and a holder without the money view gets
+ * the server's text for that case, which was not seen in a browser ([UNAPPROVED N81 reboxed]).
  */
 export function warningOf( registration, can ) {
 	const text = registration && registration.unconfirm_warning;
@@ -60,21 +68,11 @@ export function warningOf( registration, can ) {
 }
 
 /**
- * Whether the re-read shows the registration confirmed: `registration.confirmed`, which every detail read carries
- * (#213). Null only when the field is absent (an old server).
- */
-function confirmedIn( detail ) {
-	const confirmed = detail.registration && detail.registration.confirmed;
-	return typeof confirmed === 'boolean' ? confirmed : null;
-}
-
-/**
  * The snackbar after a save, from what the server answered and the re-read detail (null when the re-read failed:
  * the panel's load-error message shows, and no snackbar claims a state that was not read). `changed: false` wrote
- * nothing, so the panel only shows what is now. A set says it is saved. An unconfirm says it was revoked; if the
- * re-read shows the registration confirmed again (the rules re-confirmed at once), it says that instead; if the
- * re-read cannot tell, there is no snackbar. Nothing here says whether the server sent the confirmation mail
- * again ([UNAPPROVED N80]). [UNAPPROVED N72] [UNAPPROVED T46]
+ * nothing, so the panel only shows what is now. A set says it is saved; an unconfirm always says it was revoked,
+ * as it cannot be sent while the rules would confirm again at once. [UNAPPROVED N72 reboxed] The re-confirm
+ * snackbar is gone with its string ([UNAPPROVED N80 struck], T46 struck).
  *
  * @param {boolean}  unconfirm the act was the unconfirm (else the set)
  * @param {?Object}  result    the ability's answer: { changed }
@@ -85,12 +83,5 @@ export function snackbarAfter( unconfirm, result, detail ) {
 	if ( ! detail || ( result && result.changed === false ) ) {
 		return null;
 	}
-	if ( ! unconfirm ) {
-		return CONFIRM.saved;
-	}
-	const confirmed = confirmedIn( detail );
-	if ( confirmed === null ) {
-		return null;
-	}
-	return confirmed ? CONFIRM.unconfirmedReconfirmed : CONFIRM.unconfirmed;
+	return unconfirm ? CONFIRM.unconfirmed : CONFIRM.saved;
 }

@@ -131,7 +131,7 @@ table.kg-money tr.is-total th, table.kg-money tr.is-total td { font-weight: 600;
 .kg-sub { font-size: 14px; margin: 20px 0 6px; }
 .kg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 8px; }
 .kg-snacks { position: fixed; left: auto; right: 12px; bottom: 12px; z-index: 9996; }
-.kg-dialog .components-base-control, .kg-dialog .components-radio-control, .kg-dialog .components-notice.is-warning { margin-bottom: 16px; }
+.kg-dialog .components-base-control, .kg-dialog .components-radio-control { margin-bottom: 16px; }
 .kg-dialog .kg-err { color: #cc1818; display: block; margin-top: 4px; font-size: 12px; }
 .kg-dialog [aria-invalid="true"] { border-color: #cc1818; }
 .kg-bal { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin: 0 0 16px; padding: 8px 12px; background: #f6f7f7; }

@@ -165,9 +165,9 @@ export const MONEY = {
  * The decision's own labels („Visszaigazolás”, „Visszaigazolva”, „Nincs visszaigazolva”) come from the server and
  * are approved. Every string here is unapproved until the owner ticks its box: [UNAPPROVED T20] the set button and
  * its dialog title (T3 of #213), [UNAPPROVED T21] the field and its message, [UNAPPROVED T22] the line under the tab,
- * [UNAPPROVED T23] the snackbars, [UNAPPROVED T45] the message for a reason over the limit, [UNAPPROVED T46] the
- * snackbar after an unconfirm the rules re-confirmed at once. The unconfirm warning is the server's text (#213's
- * T5a, T5b, T5c, and T6 when that mail is on), not set here.
+ * [UNAPPROVED T23] the snackbars, [UNAPPROVED T45] the message for a reason over the limit. T46 (the snackbar after
+ * an unconfirm the rules re-confirmed at once) is struck: that unconfirm is disabled now. The tooltip of the
+ * disabled unconfirm is the server's text (#213's T5a, T5b, T5c, and T6 when that mail is on), not set here.
  */
 export const CONFIRM = {
 	set: 'Visszaigazolás befizetés nélkül',
@@ -181,6 +181,4 @@ export const CONFIRM = {
 	reasonLine: 'Indoklás: %s',
 	saved: 'Befizetés nélküli visszaigazolás rögzítve.',
 	unconfirmed: 'Visszaigazolás visszavonva.',
-	// [UNAPPROVED T46] after the unconfirm, when the rules confirmed the registration again at once (the re-read says so).
-	unconfirmedReconfirmed: 'Visszaigazolás visszavonva; a szabályok szerint újra visszaigazolva.',
 };
