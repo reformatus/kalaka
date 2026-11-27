@@ -8,7 +8,7 @@ namespace Kalaka\Foundation\Api\UseCase;
  * A use case that can run as a preview: the same checks and the same answer as the real run, from plain reads,
  * and nothing written. The runner then writes no audit entry for a preview that succeeded (foundation.md,
  * "Audit"): the one rule for every preview, so no use case decides it. A preview that refused is audited like
- * any refusal. A preview that touched a registration is a programming error and fails. [UNAPPROVED N534]
+ * any refusal. A preview that touched a registration is a programming error and fails.
  */
 interface PreviewableUseCase extends UseCase
 {

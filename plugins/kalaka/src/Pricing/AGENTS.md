@@ -90,7 +90,7 @@ retention and the materializer
   `Api\FeeComposition`, as one `retention` line per payer (label
   `Retention::LABEL`). The kept amount is held to the payer's own payments: it never owes more than was paid and
   refunds nothing. A restore makes the line read zero and the materializer reverses it; a
-  change of the rule re-evaluates the registrations that left too. [UNAPPROVED T505]
+  change of the rule re-evaluates the registrations that left too.
 - The money phase runs first in the evaluation, before the decision rules,
   with the registration's row lock held.
 - A money settings change goes preview → apply: the preview writes nothing;
