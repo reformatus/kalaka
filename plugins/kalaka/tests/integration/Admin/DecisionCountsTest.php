@@ -42,10 +42,9 @@ final class DecisionCountsTest extends GrantTestCase
     private function declared(): Decisions
     {
         $rules = new DecisionRules();
-        $rules->add(
-            new TestRule('approval', ['pending' => 'Függőben', 'granted' => 'Megadva'], label: 'Jóváhagyás'),
-            false
-        );
+        $approval = new TestRule('approval', ['pending' => 'Függőben', 'granted' => 'Megadva'], label: 'Jóváhagyás');
+        $approval->marks = ['granted' => ['icon' => 'yes-alt', 'tone' => 'ok']];
+        $rules->add($approval, false);
 
         return new Decisions(rules: $rules);
     }
@@ -65,6 +64,7 @@ final class DecisionCountsTest extends GrantTestCase
         self::assertSame('Jóváhagyás', $column['label']);
         self::assertSame('decision', $column['type']);
         self::assertSame(['pending' => 'Függőben', 'granted' => 'Megadva'], $column['states']);
+        self::assertSame(['granted' => ['icon' => 'yes-alt', 'tone' => 'ok']], $column['marks']);
         self::assertSame(
             [['value' => 'pending', 'label' => 'Függőben'], ['value' => 'granted', 'label' => 'Megadva']],
             $column['members']
@@ -79,6 +79,7 @@ final class DecisionCountsTest extends GrantTestCase
         $column = $columns['decision:hold'];
         self::assertSame('hold', $column['label']);
         self::assertSame(['open' => 'open'], $column['states']);
+        self::assertSame([], $column['marks']);
         self::assertSame([['value' => 'open', 'label' => 'open']], $column['members']);
 
         // Without any declaration the kind with several current states lists each, by key, in byte order.

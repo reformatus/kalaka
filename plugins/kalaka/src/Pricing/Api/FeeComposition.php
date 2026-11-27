@@ -122,7 +122,7 @@ final class FeeComposition
         try {
             $fee = $this->composer->compose($facts->asIfRegistered($now), $currency, $now, $components);
         } catch (FeeComponentFailed) {
-            // The leaving does not fail on a fee component: the rule is told it cannot be said. [UNAPPROVED N674]
+            // The leaving does not fail on a fee component: the rule is told it cannot be said.
             $fee = null;
         }
         $kept = [];

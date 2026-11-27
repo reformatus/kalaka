@@ -7,7 +7,7 @@ namespace Kalaka\Pricing\Api;
 /**
  * What an event keeps when a registration leaves (money.md, "Withdrawal, removal and substitution"): the retention
  * line's names. The rules themselves are `RetentionRule`s, chosen per event in its money settings; the default is
- * to keep everything paid. Nothing is refunded either way. [UNAPPROVED N526]
+ * to keep everything paid. Nothing is refunded either way.
  */
 final class Retention
 {

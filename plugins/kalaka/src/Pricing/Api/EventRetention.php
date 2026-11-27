@@ -9,7 +9,6 @@ use Kalaka\Pricing\RetentionRepository;
 /**
  * The one read of an event's retention rule: the stored ID, or the default when none is stored, and the rule
  * registered under it. The composition, the money settings and the status-act preview all read it here.
- * [UNAPPROVED N671]
  */
 final class EventRetention
 {

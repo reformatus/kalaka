@@ -42,30 +42,30 @@ use Kalaka\Registrations\RegistrationRepository;
  * The one shape of the four status acts (registrations-and-identity.md, "Status, capacity and waitlist"; money.md,
  * "Withdrawal, removal and substitution"): admit from the waitlist, withdraw, remove and restore, each a staff act on
  * one registration, carried by its grant action. The act writes only its facts; the runner's evaluation then follows
- * in the same run (money, then confirmation, then mail). [UNAPPROVED N510]
+ * in the same run (money, then confirmation, then mail).
  *
  * - Input: the registration and a reason (at most 500 characters, never required, kept in the audit entry's
- *   reason). [UNAPPROVED N514] With `preview` the act answers what it
+ *   reason). With `preview` the act answers what it
  *   would do and writes nothing (the same refusals, the same grant, plain reads only); a preview ignores a
  *   reason, and the runner writes no audit entry for it. [UNAPPROVED N513, N534, N536]
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
- *   status the act does not allow is `StatusActRefused`. [UNAPPROVED N512]
+ *   status the act does not allow is `StatusActRefused`.
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
  *   the waitlist moves up. `registered_at` and `registered_by` stay as they were.
  * - A restore is full access only and returns the registration to the status it left from: `registered` when it was
  *   ever registered (it has a `registered_at`), `waitlisted` (at its place by submit time, nothing else written, no
- *   seat) when it never was. [UNAPPROVED N510, N519]
+ *   seat) when it never was.
  * - Coming back to `registered` (admit, restore from registered): the status, `registered_at` (now) and
  *   `registered_by`, then every seat is taken again through `Seats::retake()`: the claims of the stored values, the
  *   event's own places and the confirmed assignments' options. A full pool never refuses a staff act: the seat goes
- *   over the limit and the result says so (`over`); the event's "full" latch is untouched. [UNAPPROVED N510, N511]
+ *   over the limit and the result says so (`over`); the event's "full" latch is untouched.
  * - Lock order: the event row, the claimed quota pools in `Seats::inLockOrder()`, then the registration. The claims
  *   are read from the stored values before the locks and again under the registration's lock; a claim of a quota
  *   pool that was not locked (the values changed in between) refuses the act as an edit conflict, nothing written.
  *   [UNAPPROVED N515]
  * - Admission queues the "registered" mail (caused by the registration, as the submit's mail was); a restore queues
  *   the mail of the status it returns to ("registered" or "waitlisted"), caused by the registration at the version
- *   the restore wrote, so every restore mails; a withdrawal and a removal queue none. [UNAPPROVED N517, N970]
+ *   the restore wrote, so every restore mails; a withdrawal and a removal queue none. [UNAPPROVED N970]
  *
  * Returns `{changed, status, over_capacity, seats, warnings}`: `seats` lists each pool the act took again (a claimed
  * pool, the event's places, an assignment's option) with its label and `held` or `over`; `warnings` holds the "full"
@@ -76,7 +76,7 @@ use Kalaka\Registrations\RegistrationRepository;
  * `paid`, `balance_now` and `balance_after`, with `money_hidden` (true: the actor has no money-view, `money` is
  * null; false with a null `money`: the fee cannot be priced). Withdraw and remove add `retention`, the event's rule
  * (its ID, null for a holder without money-view).
- * [UNAPPROVED N530-N533, N535, N537, N538]
+ * [UNAPPROVED N530-N532, N535, N537, N538]
  */
 abstract class StatusChange implements AdminUseCase, PreviewableUseCase
 {
