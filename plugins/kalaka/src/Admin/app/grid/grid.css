@@ -2,12 +2,14 @@
 .kalaka-grid-wrap { max-width: none; }
 .kg-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace; font-variant-ligatures: none; letter-spacing: 0.02em; text-decoration: none; border-bottom: 0; }
 
-/* Above the table: the tab row. */
 /* Above the table: the tab row. Its own bottom margin is gone: the toolbar's 16 px is the one space above its
    controls, as beside them (owner ruling 9.3). */
 .kg-above { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 0; }
 .kg-tabrow { min-width: 0; }
-.kg-tabrow .components-tab-panel__tabs { flex-wrap: wrap; }
+/* Many view tabs scroll sideways in one row instead of wrapping onto more rows, and „Több ▾” stays out (owner ruling
+   9.2). [UNAPPROVED N919 reboxed: the tabs are one sideways-scrolling row; no „Több ▾”; they are not links; the empty
+   tabpanel stays; arrow keys switch at once; the „Nézetek” landmark name is gone] */
+.kg-tabrow .components-tab-panel__tabs { flex-wrap: nowrap; overflow-x: auto; }
 /* The grid's TabPanel has no content of its own (the table stays below), so its empty tabpanel is hidden: it is not
    a keyboard stop, and the tabs' `aria-controls` points to nothing visible. [UNAPPROVED N934] */
 .kg-tabs .components-tab-panel__tab-content { display: none; }
