@@ -327,7 +327,7 @@ final class RegistrationDetail
      * without it gets one text that names neither a reason nor money, so the read never tells them what the
      * payments are. While the event's confirmed mail is on, one sentence is appended: the registrant gets that
      * mail again (the owner's ruling 2026-11-23, topic 15, Q4). It reads and writes nothing else.
-     * [UNAPPROVED Q4, T5a, T5b, T5c]
+     * [UNAPPROVED N11, Q4, T5a, T5b, T5c, T6]
      */
     private function unconfirmWarning(RegistrationKey $key, bool $viewMoney, ?string $reconfirms): ?string
     {
@@ -346,7 +346,7 @@ final class RegistrationDetail
         }
 
         return $this->actionMails->isOn($key->eventId, ActionMail::Confirmed)
-            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.'
+            ? $text . ' Ekkor a jelentkező megkapja a „Jelentkezés véglegesítve” levelet.' // [UNAPPROVED T6]
             : $text;
     }
 
