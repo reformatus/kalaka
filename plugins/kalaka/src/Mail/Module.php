@@ -259,7 +259,6 @@ SQL;
         );
         Abilities::register(
             new SetMailBudget(),
-            // [UNAPPROVED T903, T904]
             'Óránként küldhető levelek számának beállítása',
             'Annak beállítása, hogy óránként legfeljebb hány levelet küldhet a Kaláka.'
         );

@@ -68,6 +68,58 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertSame([], get_posts(['post_type' => 'kalaka_form', 'post_status' => 'any']));
     }
 
+    /**
+     * A typed placeholder the form page's own context does not declare is refused at the form's save (owner
+     * 2026-11-27, walkthrough 8.11 a and 8.13): the form page fills every block on load, so a form saved with
+     * one would show every participant the system failure.
+     */
+    public function testAPlaceholderTheFormPageCannotFillIsRefusedAndAKnownOnePasses(): void
+    {
+        $help = '<!-- wp:paragraph --><p>Írd be: {{nincs_ilyen}}</p><!-- /wp:paragraph -->';
+        $response = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $help,
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+
+        self::assertSame(422, $response->get_status());
+        $error = $response->as_error();
+        self::assertInstanceOf(\WP_Error::class, $error);
+        self::assertSame('kalaka_unknown_placeholder', $error->get_error_code());
+        $data = $error->get_error_data();
+        self::assertIsArray($data);
+        self::assertSame(['{{nincs_ilyen}}'], $data['keys']);
+        self::assertStringContainsString(
+            'Ismeretlen jelölő: {{nincs_ilyen}}. A mentéshez javítani vagy törölni kell.',
+            $error->get_error_message()
+        );
+        self::assertSame([], get_posts(['post_type' => 'kalaka_form', 'post_status' => 'any']));
+
+        // The keys a form page fills pass: the event's values and the account fact.
+        $known = '<!-- wp:paragraph --><p>{{event.name}} – {{account.logged_in}}</p><!-- /wp:paragraph -->';
+        $made = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $known,
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+        self::assertSame(201, $made->get_status());
+
+        // Any other save path keeps the published form working and tells its editor why.
+        $madeData = $made->get_data();
+        self::assertIsArray($madeData);
+        $id = (int) $madeData['id'];
+        $stored = (string) get_post_field('post_content', $id);
+        wp_update_post(['ID' => $id, 'post_content' => $this->slotFields() . $help]);
+        self::assertSame($stored, (string) get_post_field('post_content', $id));
+        self::assertSame(
+            'A művelet nem hajtható végre. Ismeretlen jelölő: {{nincs_ilyen}}.'
+            . ' A mentéshez javítani vagy törölni kell.',
+            get_transient(DefinitionCheck::NOTICE . get_current_user_id())
+        );
+    }
+
     public function testASlotFormWithoutItsContactEmailCannotBePublished(): void
     {
         $response = $this->rest('/wp/v2/kalaka_form', [

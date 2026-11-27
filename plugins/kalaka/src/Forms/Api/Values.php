@@ -73,9 +73,11 @@ final class Values
     /**
      * Renders an ordinary page's block markup (anything outside a form and a mail). Its context is the
      * visitor's active registration and its event; null when there is none, and then no chain renders a
-     * branch and bindings and inline values stay as authored, as when WordPress renders the page. A chain
-     * or value that fails (a key the context does not declare, an invalid condition, a misplaced branch)
-     * renders nothing and is logged, never a fatal (#53 N4, owner 2026-11-13).
+     * branch and bindings and inline values stay as authored, as when WordPress renders the page. A chain,
+     * binding or inline value that fails (an invalid condition, a misplaced branch) renders nothing and is
+     * logged, never a fatal (#53 N4, owner 2026-11-13); a typed `{{key}}` the context does not declare fails
+     * the page's render altogether (owner 2026-11-27, N1150). Only the placeholders inside Kaláka blocks are
+     * filled, which is what a page's save checks (`PageCheck`, N1180).
      *
      * The seam: nothing reads the active registration yet, so WordPress renders every page without a
      * context (no branch shows). The slice that adds `ActiveRegistration::current()` builds the context
