@@ -45,8 +45,8 @@ final class ManualMailCommand
      * mail of an unpublished event waits until it is published. A registration that is not registered
      * (withdrawn, removed or waitlisted) is skipped and listed; a code that is no registration of the event
      * refuses the whole send. Shows what it would do and asks first (`--yes` skips); `--dry-run` only shows. A
-     * rerun with the same `--key` queues nothing and names the first batch; without a key every run is a new batch, a second copy. With `--user`
-     * the user's grants must hold every code.
+     * rerun with the same `--key` queues nothing and names the first batch; without a key every run is a new
+     * batch, a second copy. With `--user` the user's grants must hold every code.
      *
      * ## OPTIONS
      *
