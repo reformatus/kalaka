@@ -101,10 +101,7 @@ flowchart TB
   - a registration form is open while the slot is: from "registration
     opens" up to "registration closes". It has no period of its own;
   - **each additional form has its own open period**, which a form link can
-    bypass ([below](#form-links-and-admin-submissions));
-  - an additional form that writes an assignment set's choice follows that
-    set's choice window instead
-    ([Modules](modules-and-extensions.md#assignment-sets)).
+    bypass ([below](#form-links-and-admin-submissions)).
 - **The slot adds one more rule:** every form in it must contain the
   required fields and functionality (e.g. exactly one contact email, or the
   field an extension requires, such as the price ladder's `price_tier`).
@@ -127,7 +124,7 @@ flowchart TB
   ([Modules](modules-and-extensions.md#assignment-sets)). A choice field in a
   form writes a set's direct choice or a request. **Re-choosing later is an
   additional form** holding that choice, in both access modes, open while
-  the set's choice window is; there is no separate portal edit.
+  that form is; there is no separate portal edit.
 - **Form texts read amounts, quotas and deadlines from the event's settings,**
   so they cannot drift from the rules
   ([Values and conditions](#values-and-conditions)).
@@ -443,6 +440,11 @@ is no other participant-side edit.
     logged in (`account.logged_in`, „Bejelentkezve”): yes or no where the
     form has an account step, and none where it has none (the event's off
     account mode, an additional form), never no there.
+    An additional form's conditions also read its registration's status
+    (`registration.status`). Every form's conditions read the places the
+    event has left (`event.seats_left`) and the event's own points
+    (`event.points.<id>`). Whatever decides what a form shows is such a
+    value; the backend keeps no rule of its own on who sees what.
 - **Whole attributes** use Block Bindings with one source, `kalaka/value`,
   with a `key` argument.
 - **Inline values** are a rich-text format stored as
@@ -490,9 +492,20 @@ is no other participant-side edit.
   stores nothing. Validation follows what shows: at submit a required
   choice left unanswered has its own required error, and the fields of the
   branch shown at that moment (an `else`, say) are checked like any shown
-  field.
+  field. A registration form's submit and an
+  additional form's submit both walk the form this way, so a required field
+  that shows and is left blank refuses the submit with the general answer
+  error.
 - **Mid-form availability is advisory.** Seats and capacity are decided only
   at submit, under the lock; the texts say so (approved when built).
+- **The submit judges values that change.** The time, the places left, a
+  registration's status can change between the page and
+  the submit. The submit's walk reads them as they are then: a field that now shows is checked
+  like any shown field, and an answer that no longer shows or is no longer
+  offered is dropped. An additional form's submit reads the registration's
+  stored values and status once for its walk and reads them again under the
+  registration lock; if they differ, the walk is run again. Places are still
+  taken only under the lock, by the rules that own them.
 
 **The condition format:**
 

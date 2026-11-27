@@ -42,7 +42,8 @@ use Kalaka\Registrations\Submission\SubmissionRepository;
  * transaction. Inside, in this order: the event row `FOR UPDATE` (the lock order's first level); a repeat
  * (the same token with the same answers, for the same registration) writes nothing; the event must still be
  * the version the answers were checked against; the form's requirements at this moment (its open period
- * among them); then the registration row `FOR UPDATE`, which must be `registered` or `waitlisted`.
+ * among them); then the registration row `FOR UPDATE`, which must be `registered` or `waitlisted`, and whose
+ * values and status must be what the walk read (else `VersionConflict`: the submit is run again).
  *
  * Every submit appends a submission (the next number), and the latest write wins (owner B9). Only the
  * fields that showed are written (B8): an answered one stores its answer, and one left blank clears its
@@ -62,6 +63,13 @@ final class SubmitAdditionalForm implements PortalUseCase
      * @param list<ParticipantField> $participantFields the event's participant fields, read before the transaction
      * @param array<string, array<string, bool>> $clearable field key → a value it held before the transaction →
      *     whether the field's type opens it with that value (`clearable()`), so no field type runs inside it
+     * @param array{values: array<string, string>, status: string|null}|null $read the registration's field
+     *     values and status the walk read (its conditions may read them): checked again under the registration
+     *     lock, and a difference runs the submit again (`VersionConflict`)
+     * @param string|null $fingerprint of the answers as sent (`SubmitRegistration::fingerprint()`); null (not
+     *     given) never matches an earlier submit's, so a repeat is refused
+     * @param \Throwable|null $walkFailure the failure of the answers' walk (`InvalidAnswers`, `FormTerminal`), kept
+     *     until the token's repeat rule has been applied under the lock, then thrown
      */
     public function __construct(
         private readonly Form $form,
@@ -73,11 +81,14 @@ final class SubmitAdditionalForm implements PortalUseCase
         private readonly array $fieldTypes = [],
         private readonly array $participantFields = [],
         private readonly array $clearable = [],
+        private readonly ?array $read = null,
+        private readonly ?\Throwable $walkFailure = null,
         private readonly EventCapacity $events = new EventCapacity(),
         private readonly Forms $forms = new Forms(),
         private readonly RegistrationRepository $registrations = new RegistrationRepository(),
         private readonly SubmissionRepository $submissions = new SubmissionRepository(),
         private readonly FieldValueRepository $values = new FieldValueRepository(),
+        private readonly ?string $fingerprint = null,
     ) {
     }
 
@@ -124,11 +135,12 @@ final class SubmitAdditionalForm implements PortalUseCase
 
         $event = $this->events->lockForRegistration($context, $key->eventId);
 
-        $fingerprint = SubmitRegistration::fingerprint($this->form->id, $this->answers->stored());
+        $fingerprint = $this->fingerprint;
         $earlier = $this->submissions->withToken($key->eventId, $token);
         if ($earlier !== null) {
             if (
-                $earlier->answersHash === null
+                $fingerprint === null
+                || $earlier->answersHash === null
                 || !hash_equals($earlier->answersHash, $fingerprint)
                 || $earlier->registration->code !== $key->code
             ) {
@@ -180,6 +192,12 @@ final class SubmitAdditionalForm implements PortalUseCase
         foreach ($this->values->forRegistration($key) as $value) {
             $current[$value->fieldKey] = $value;
         }
+        $this->refuseChangedRead($registration->status, $current);
+        // The answers' walk failed before the transaction: said now, after the repeat rule, the event version
+        // and the re-read of what the walk read (a failure on facts that moved is run again, not said).
+        if ($this->walkFailure !== null) {
+            throw $this->walkFailure;
+        }
         $cleared = $this->cleared($current);
         $this->refuseLockedOverwrites($stored, $current);
 
@@ -207,6 +225,32 @@ final class SubmitAdditionalForm implements PortalUseCase
         }
 
         return SubmitResult::supplemented($key, $registration->status);
+    }
+
+    /**
+     * The values and the status the walk read must still be what the locked registration holds (CF2): a staff
+     * write between the walk and the lock may change what the form's conditions showed, so the submit is run
+     * again and the walk reads them anew. The values are compared as they are, not by a version marker.
+     *
+     * @param array<string, FieldValue> $current the registration's values by field key, read under the lock
+     * @throws VersionConflict
+     */
+    private function refuseChangedRead(RegistrationStatus $status, array $current): void
+    {
+        if ($this->read === null) {
+            return;
+        }
+        $now = [];
+        foreach ($current as $fieldKey => $value) {
+            $now[$fieldKey] = $value->value;
+        }
+        $before = $this->read['values'];
+        ksort($now);
+        ksort($before);
+        if ($this->read['status'] !== $status->value || $before !== $now) {
+            $error = new VersionConflict();
+            throw $error;
+        }
     }
 
     /**

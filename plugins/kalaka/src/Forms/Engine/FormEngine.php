@@ -165,8 +165,7 @@ final class FormEngine
 
     /**
      * The blocks with each request field's attributes as its definition has them (its set's options in
-     * `options`, S44); a request field whose set's choice window is closed becomes an empty block (it does
-     * not show, and the inner content keeps its places).
+     * `options`, S44).
      *
      * @param list<array<string, mixed>> $blocks
      * @return list<array<string, mixed>>
@@ -179,9 +178,7 @@ final class FormEngine
             $key = $block['attrs']['key'] ?? null;
             $field = is_string($key) ? $definition->field($key) : null;
             if (is_string($name) && ($types[$name] ?? null) instanceof RequestFieldType && $field !== null) {
-                $blocks[$index] = $field->closed
-                    ? ['blockName' => null, 'attrs' => [], 'innerBlocks' => [], 'innerHTML' => '', 'innerContent' => []]
-                    : ['attrs' => $field->attributes] + $block;
+                $blocks[$index] = ['attrs' => $field->attributes] + $block;
                 continue;
             }
             if (is_array($block['innerBlocks'] ?? null) && $block['innerBlocks'] !== []) {
