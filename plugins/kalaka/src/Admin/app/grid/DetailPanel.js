@@ -130,7 +130,6 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 					className="kg-tabs-money"
 					tabs={ [
 						{ name: 'money', title: PANEL.tabMoney },
-						{ name: 'soon', title: PANEL.tabSoon, disabled: true },
 					] }
 					initialTabName="money"
 					orientation="horizontal"

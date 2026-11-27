@@ -49,15 +49,13 @@ export const SUM_AVERAGE = 'Átlag: %s';
 
 /**
  * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
- * owner ticks its box: [UNAPPROVED T6] the panel, [UNAPPROVED T3] the disabled tab.
+ * owner ticks its box: [UNAPPROVED T6] the panel.
  */
 export const PANEL = {
 	panel: 'Jelentkező részletei',
 	close: 'Bezárás',
 	tabsLabel: 'Részletek',
 	tabMoney: 'Pénzügyek',
-	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
-	tabSoon: 'Hamarosan…',
 	// The confirmation row's two words: the confirmation decision's own state labels, as `ConfirmationRule` declares
 	// them and the grid's cells already show. [UNAPPROVED T1200]
 	confirmed: 'Visszaigazolva',
