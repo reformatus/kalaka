@@ -8,6 +8,7 @@ use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Events;
 use Kalaka\Mail\Api\ActionMail;
 use Kalaka\Mail\Api\ActionMailSettings;
+use Kalaka\Mail\Catalogue\MailBody;
 
 /**
  * S15 (owner ruling 2026-11-16): in an event whose account mode is `mandatory` or `optional`, the set-password
@@ -57,5 +58,19 @@ final class AccountLinkRule
         $registered = $this->settings->ofEvent($eventId)->mail(ActionMail::Registered);
 
         return $assigned || $registered->bodyId === $bodyId ? self::NEEDS_LINK : null;
+    }
+
+    /**
+     * The refusal of a change of the event to a mode with accounts, or null: the "Jelentkezés rögzítve" mail must
+     * be on with a template that reads `account.password_link`, the state the rule above then keeps.
+     */
+    public function modeProblem(int $eventId): ?string
+    {
+        $registered = $this->settings->ofEvent($eventId)->mail(ActionMail::Registered);
+        if (!$registered->enabled || $registered->bodyId === null) {
+            return self::NEEDS_LINK;
+        }
+
+        return MailBody::read($registered->bodyId)->readsPasswordLink ? null : self::NEEDS_LINK;
     }
 }

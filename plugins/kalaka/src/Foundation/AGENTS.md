@@ -49,6 +49,8 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
 - Locks are taken in the lock order; the guard refuses a lower level after a
   higher one, and a lower key within the event, quota or registration level,
   for every repository read `FOR UPDATE` and write.
+  `Api\UseCase\LockOrder::compare()` is the guard's key order for a use case that locks several rows of one
+  level.
 - The boot records every booted module's per-event actions
   (`Module::capabilities()`) as the `ActionCatalogue`, in boot order; a
   malformed name (`kalaka_` and a lowercase identifier, at most 64
@@ -180,6 +182,11 @@ Foundation is the runner, audit, clock, Money, evaluation and module registry
   unless a run recorded it, and the next step and the last-run write go on.
   The steps run even when the sweep or the flag retries throw; that run then
   ends without its last-run time.
+- An act's retry key is `Api\ActKeys`: `recall()` inside the transaction with the
+  registration locked, then `remember()` with the result; a key held with other
+  input is an `IdempotencyConflict` (409), a preview and a null key neither
+  recall nor store. Only `ActKeyRepository` writes `kalaka_act_keys`, append-only,
+  one registration's key each. The ledger's manual entries keep their own key.
 - A once-only insert uses `insertUnlessDuplicate()` (`INSERT IGNORE`): a taken
   unique key writes nothing, audits nothing and is no error; it is never
   retried.

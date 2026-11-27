@@ -19,6 +19,7 @@ final class ParticipantFieldsSchemaTest extends PerEventCostTestCase
         'type' => 'varchar(191)',
         'title' => 'text',
         'options' => 'longtext null',
+        'settings' => 'longtext null',
         'source' => 'varchar(16)',
         'retired_at' => 'datetime(6) null',
         'created_at' => 'datetime(6)',
@@ -33,7 +34,7 @@ final class ParticipantFieldsSchemaTest extends PerEventCostTestCase
     {
         global $wpdb;
 
-        self::assertSame(1, (int) get_option('kalaka_schema_participant_fields'));
+        self::assertSame(2, (int) get_option('kalaka_schema_participant_fields'));
         $columns = $wpdb->get_results($wpdb->prepare(
             'SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, CHARACTER_SET_NAME, COLLATION_NAME'
             . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s'

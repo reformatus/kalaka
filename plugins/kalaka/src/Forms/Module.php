@@ -21,6 +21,7 @@ use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FieldType\DateFieldType;
 use Kalaka\Forms\Engine\FieldType\EmailFieldType;
 use Kalaka\Forms\Engine\FieldType\NameFieldType;
+use Kalaka\Forms\Engine\FieldType\NumberFieldType;
 use Kalaka\Forms\Engine\FieldType\PhoneFieldType;
 use Kalaka\Forms\Engine\FieldType\ScaleFieldType;
 use Kalaka\Forms\Engine\FieldType\TextFieldType;
@@ -36,7 +37,7 @@ final class Module extends AbstractModule
     private const EMBED_BLOCK = 'form';
 
     /** The core field blocks, in `Blocks/`, each with its title in its `block.json`. */
-    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale'];
+    private const BLOCKS = ['name', 'email', 'phone', 'date', 'text', 'choice', 'consent', 'scale', 'number'];
 
     /** The handle of the form's view stylesheet, named by the embed block's `viewStyle`. */
     public const VIEW_STYLE = 'kalaka-form-view';
@@ -71,6 +72,7 @@ final class Module extends AbstractModule
         $to->fieldType(new ChoiceFieldType());
         $to->fieldType(new ConsentFieldType());
         $to->fieldType(new ScaleFieldType());
+        $to->fieldType(new NumberFieldType());
         $to->siteWarning(new BrokenFormsWarning());
         $to->seeder(new FormSeeder());
     }
@@ -404,5 +406,15 @@ final class Module extends AbstractModule
             'show_in_rest' => true,
             'auth_callback' => $fullAccess,
         ]);
+        // An additional form's open period (S60): each end a date reference in JSON (`OpenPeriod`), kept as
+        // written; one that does not resolve closes the form.
+        foreach ([FormPosts::META_OPENS, FormPosts::META_CLOSES] as $end) {
+            register_post_meta(FormPosts::POST_TYPE, $end, [
+                'type' => 'string',
+                'single' => true,
+                'show_in_rest' => true,
+                'auth_callback' => $fullAccess,
+            ]);
+        }
     }
 }

@@ -24,8 +24,10 @@ bodies, the renderer and the per-event action-mail catalogue.
   `Api\MailQueue::add()` inside the deciding use case; the key (event, mail,
   registration, cause) makes it once-only, and a repeat inserts nothing and is
   no error (`INSERT IGNORE`).
-- Nothing reads `kalaka_deliveries` but the sender (`DeliveryQuery`) and the
-  counts of `Api\MailStats`; no decision, condition or view depends on it.
+- Nothing reads `kalaka_deliveries` but the sender (`DeliveryQuery`), the
+  counts of `Api\MailStats` and the staff listing of `wp kalaka mail failed`
+  (`DeliveryQuery::troubled()`, the registration code, never the address); no
+  decision, condition or view depends on it.
 - `wp_mail` is called only by `Sender`, which runs from the nudge hook
   `kalaka_send_mail`, from itself and as the periodic run's step, never in an
   interactive request, and only under the named lock `mail_sender`.
@@ -64,8 +66,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   facts); the three are never conflated. Each one replaces the account's last link.
 - While an event's account mode is not `off`, its "registered" mail must
   read `account.password_link` and cannot be switched off
-  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in
-  `UpdateActionMail`.
+  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`), in
+  `UpdateActionMail`, and, for a change of the event's account mode to one with
+  accounts, in `AccountLinkRule::modeProblem()` (read through `Api\AccountMail`).
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
@@ -125,7 +128,16 @@ bodies, the renderer and the per-event action-mail catalogue.
   filters call too, checked ahead so its text is printed) and only after the
   actor passed the use case's access check; it assigns a first body through
   `UpdateActionMail` and never switches a mail on. `list`, `show`, `body` and `layout` share
-  `Cli\CliInput` (event ID, format, the read guard) and `CliActor::current()`.
+  `Cli\CliInput` (event ID, format, the read guard, which runs before an event is looked up) and
+  `CliActor::current()`; so do `mail status` and `failed` below.
+- `wp kalaka mail status|pause|resume|clear-queue|clear-event|failed` (`Cli/MailCommand`) is a
+  thin entry point: it changes only through `PauseMail`, `ResumeMail`, `ClearMailQueue` and
+  `ClearEventMail`, as the command line or as WP-CLI's `--user`; `status` and `failed` read for
+  full access only. Only a person resumes: `ResumeMail` refuses any actor that is no person
+  (`ResumeNeedsPerson`), and `resume` adds the hint to give `--user`. The clears ask first
+  (`--yes` skips), after the access check; `clear-event` runs the use case's own `ClearEventMail::refuse()`
+  ahead of the question. Whether an event's mail is held is read once, in `Api\MailHold`, by the sender,
+  the clear and, from #244, the manual send's warning.
 - Every stored instant goes through `Instant`; the current time comes from the
   runner's `Clock`. The one other duration is `Stopwatch`'s wall time, which
   caps a run at 20 seconds.
