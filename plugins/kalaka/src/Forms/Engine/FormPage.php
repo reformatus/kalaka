@@ -15,6 +15,7 @@ use Kalaka\Forms\Api\SignUp;
 use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Forms\Engine\Condition\ChainMarks;
 use Kalaka\Forms\Engine\Value\InlineValues;
+use Kalaka\Forms\Engine\Value\Placeholders;
 use Kalaka\Forms\Engine\Value\RenderStack;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -47,6 +48,7 @@ final class FormPage
         private readonly FormHost $host,
         ?FormEngine $engine = null,
         private readonly InlineValues $inline = new InlineValues(),
+        private readonly Placeholders $placeholders = new Placeholders(),
     ) {
         $this->forms = $engine ?? new FormEngine($host);
     }
@@ -298,7 +300,8 @@ final class FormPage
 
     /**
      * The blocks rendered in form mode, each field with its error element and any value filled in, then the
-     * inline values.
+     * inline values. A typed `{{key}}` is filled in the blocks' own HTML before anything renders, on the form
+     * page's load too (owner 2026-11-27, walkthrough 8.13). [UNAPPROVED N1177]
      *
      * @param list<array<string, mixed>|string> $blocks
      * @param array{AccountStep, string}|null $account the account step and the form's page; null for none
@@ -315,10 +318,14 @@ final class FormPage
         add_filter('render_block', [$this, 'forFormPage'], 10, 2);
         try {
             $html = '';
+            $renderable = [];
             foreach ($blocks as $block) {
                 if (is_array($block)) {
-                    $html .= render_block($block);
+                    $renderable[] = $block;
                 }
+            }
+            foreach ($this->placeholders->fillBlocks($renderable, $context) as $block) {
+                $html .= render_block($block);
             }
 
             return $this->inline->fill($html, $context);
