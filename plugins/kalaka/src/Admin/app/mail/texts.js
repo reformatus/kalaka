@@ -152,8 +152,8 @@ export const COUNTS = {
 /** The manual mail dialog. [UNAPPROVED T281] */
 export const MANUAL = {
 	title: 'Levél küldése',
-	loading: 'A jelentkezők ellenőrzése…',
-	previewFail: 'A jelentkezők ellenőrzése nem sikerült.',
+	loading: 'A címzettek ellenőrzése…',
+	previewFail: 'A címzettek ellenőrzése nem sikerült.',
 	body: 'Levélsablon', // approved
 	pick: '– válassz –',
 	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording
