@@ -141,7 +141,7 @@ SQL;
         Abilities::register(
             new Answer\AnswerRequest(),
             'Kérelem megválaszolása',
-            'Egy jelentkező kérelmének megválaszolása: támogatási kérelem vagy jóváhagyásra váró támogatás.'
+            'Egy jelentkező támogatási kérelmének megválaszolása.'
         );
     }
 }
