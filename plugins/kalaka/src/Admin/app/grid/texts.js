@@ -58,6 +58,10 @@ export const PANEL = {
 	tabMoney: 'Pénzügyek',
 	// [UNAPPROVED T3]: the lektor suggested „Hamarosan” with the screen-reader text „További lapok hamarosan”.
 	tabSoon: 'Hamarosan…',
+	// The confirmation row's two words: the confirmation decision's own state labels, as `ConfirmationRule` declares
+	// them and the grid's cells already show. [UNAPPROVED T1200]
+	confirmed: 'Visszaigazolva',
+	unconfirmed: 'Nincs visszaigazolva',
 	loading: 'Betöltés…',
 	loadFail: 'A részletek betöltése nem sikerült.',
 	notFound: 'A jelentkező nem található.',

@@ -2,13 +2,13 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12]
+ * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12] [UNAPPROVED N1200]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
 import * as api from './api';
 import MoneyTab from './MoneyTab';
-import StatusMark from './StatusMark';
+import { ConfirmationRow, StatusRow } from './PanelRows';
 import { PANEL } from './texts';
 
 /**
@@ -95,14 +95,21 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				{ detail && (
 					<div className="kg-panel-id">
 						{ registration.name && <h2 className="kg-panel-name">{ registration.name }</h2> }
-						{ ( registration.code || registration.status_label || registration.email ) && (
+						{ ( registration.code || registration.email ) && (
 							<p className="kg-panel-meta">
 								{ registration.code && <span className="kg-code">{ registration.code }</span> }
-								{ registration.status_label && (
-									<StatusMark status={ registration.status } text={ registration.status_label } />
-								) }
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
+						) }
+						{ /* The two state rows; their slots stay empty here, a branch above adds children. [UNAPPROVED N1200] */ }
+						{ registration.status_label && (
+							<StatusRow status={ registration.status } text={ registration.status_label } />
+						) }
+						{ typeof registration.confirmed === 'boolean' && (
+							<ConfirmationRow
+								confirmed={ registration.confirmed }
+								text={ registration.confirmed ? PANEL.confirmed : PANEL.unconfirmed }
+							/>
 						) }
 					</div>
 				) }
