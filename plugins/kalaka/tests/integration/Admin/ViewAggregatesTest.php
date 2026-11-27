@@ -11,7 +11,11 @@ use Kalaka\Admin\Api\ViewQuery;
 use Kalaka\Admin\View\ViewShape;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 
-/** S37: the sum row's aggregates over the whole filtered view, every kind, and a grant holder's scope. */
+/**
+ * S37: the sum row's aggregates over the whole filtered view, every kind, and a grant holder's scope. Only a
+ * registered registration counts: waitlisted, withdrawn and removed rows are dimmed and never count (owner,
+ * 2026-11-27).
+ */
 final class ViewAggregatesTest extends AdminTestCase
 {
     private const EVENT = 7;
@@ -81,11 +85,12 @@ final class ViewAggregatesTest extends AdminTestCase
         ];
     }
 
-    public function testEveryKindCoversTheWholeView(): void
+    public function testEveryKindCoversTheWholeViewsActiveRows(): void
     {
         self::assertSame(
+            // Only the three registered rows: the waitlisted and the withdrawn one are dimmed and never count.
             // „VEG” matches „veg” by the column's collation; the multiple choice counts a list holding any member.
-            [5, 4, 3, 3, 3, 3, '19.5', 3, '3.25'],
+            [3, 3, 2, 2, 2, 2, '5.5', 1, '4'],
             (new ViewQuery())->aggregates($this->view(), self::specs())
         );
     }
@@ -95,8 +100,23 @@ final class ViewAggregatesTest extends AdminTestCase
     {
         $rows = (new ViewQuery())->aggregates($this->view(), [new AggregateSpec('field:photo', AggregateKind::Yes)]);
 
-        // '1' on three registrations, '0' on one, no row on another.
-        self::assertSame([3], $rows);
+        // '1' on two registered rows, '0' on a withdrawn one, no row on another; the waitlisted '1' never counts.
+        self::assertSame([2], $rows);
+    }
+
+    /** An inactive registration never counts, not even when the view's own filter picks it. */
+    public function testAnInactiveRegistrationNeverCounts(): void
+    {
+        $view = $this->view([['column' => 'status', 'in' => ['waitlisted']]]);
+
+        self::assertSame(
+            [0, null, null],
+            (new ViewQuery())->aggregates($view, [
+                new AggregateSpec('code', AggregateKind::Rows),
+                new AggregateSpec('field:nights', AggregateKind::Sum),
+                new AggregateSpec('field:rating', AggregateKind::Average),
+            ])
+        );
     }
 
     public function testTheFilterNarrowsEveryKind(): void
@@ -111,7 +131,8 @@ final class ViewAggregatesTest extends AdminTestCase
     {
         $view = $this->view([['column' => 'field:team', 'parameter' => true]], 'piros');
 
-        self::assertSame([2, 2, 0, 0, 1, 1, '4', 1, '3'], (new ViewQuery())->aggregates($view, self::specs()));
+        // Only the registered piros row counts; the waitlisted one is dimmed.
+        self::assertSame([1, 1, 0, 0, 1, 0, null, 0, '3'], (new ViewQuery())->aggregates($view, self::specs()));
     }
 
     public function testSumAndAverageAreNullOverNoValue(): void

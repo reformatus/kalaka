@@ -3,8 +3,9 @@
  * summary row and no hook into its header, so the row is appended to the table's head and put back by a
  * MutationObserver when DataViews re-renders it. One cell per shown field, in DataViews' order.
  *
- * Every cell carries one down arrow, which opens that column's menu (`ColumnMenu`: the sort commands and, for
- * a column that can count members, the counting choices; owner's walk, topic 6a G10 and round 3).
+ * A column that can count offers its counting menu from the number itself (owner, 2026-11-27): the number is
+ * the trigger, there is no down arrow, and a column that can count but has nothing counted yet shows a grey
+ * placeholder with a dotted underline. Columns that cannot count keep a plain value. [UNAPPROVED N1046]
  */
 import { createPortal, useLayoutEffect, useState } from '@wordpress/element';
 import { sumParts } from './format';
@@ -41,15 +42,17 @@ export default function SumRow( { root, columns, order, sums, menuFor } ) {
 		.map( ( column ) => {
 			const parts = sumParts( column, sums );
 			const full = parts ? ( parts.named ? parts.full : column.label + ': ' + parts.full ) : '';
+			const counts = !! ( column.members && column.members.length );
+			const menu = counts ? menuFor( column, parts ? parts.shown : null ) : null;
 			return (
 				<td key={ column.column } className={ 'kg-sumtd' + ( column.numeric ? ' is-num' : '' ) }>
-					{ parts && (
-						<span className="kg-sumval" title={ full }>
-							<span aria-hidden="true">{ parts.shown }</span>
-							<span className="screen-reader-text">{ full }</span>
-						</span>
-					) }
-					{ menuFor( column ) }
+					{ parts && <span className="screen-reader-text">{ full }</span> }
+					{ menu ||
+						( parts && (
+							<span className="kg-sumval" aria-hidden="true" title={ full }>
+								{ parts.shown }
+							</span>
+						) ) }
 				</td>
 			);
 		} );

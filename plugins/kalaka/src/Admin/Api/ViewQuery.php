@@ -10,6 +10,7 @@ use Kalaka\Foundation\Api\Decision\DecisionTables;
 use Kalaka\Foundation\Api\Decision\Decisions;
 use Kalaka\Foundation\Api\Query\Query;
 use Kalaka\Registrations\Api\RegistrationKey;
+use Kalaka\Registrations\Api\RegistrationStatus;
 use Kalaka\Registrations\Api\RegistrationTables;
 use Kalaka\Registrations\Api\Serials;
 
@@ -177,11 +178,13 @@ final class ViewQuery extends Query
     }
 
     /**
-     * Aggregates over every registration the view's filter matches now, never one page (S37, the grid's sum
-     * row): one statement for all the specs, on the event's rows. A grant holder's aggregates cover only
-     * their view (S36-9). By spec index: an integer for the counts, a decimal string (trailing zeros cut) or
-     * null for `sum` and `average`. Choice values compare with the column's collation, as the filter does;
-     * a multiple choice (a JSON list) counts when it holds one of the members.
+     * Aggregates over every active registration the view's filter matches now, never one page (S37, the
+     * grid's sum row): one statement for all the specs, on the event's rows. Only a registered
+     * registration counts: waitlisted, withdrawn and removed rows are dimmed and never count in the sum
+     * row (owner, 2026-11-27). A grant holder's aggregates cover only their view (S36-9). By spec index: an
+     * integer for the counts, a decimal string (trailing zeros cut) or null for `sum` and `average`. Choice
+     * values compare with the column's collation, as the filter does; a multiple choice (a JSON list)
+     * counts when it holds one of the members.
      *
      * @param list<AggregateSpec> $specs
      * @return list<int|string|null>
@@ -213,10 +216,18 @@ final class ViewQuery extends Query
         }
 
         $eventId = $view->eventId;
+        $active = RegistrationStatus::Registered->value;
         $rows = $this->scope(fn (): array => $this->select(
             'aggregate',
-            'SELECT ' . implode(', ', $selects) . ' FROM %i r WHERE r.event_id = %d' . $conditions,
-            [...$args, $this->table(RegistrationTables::REGISTRATIONS), $eventId, ...$conditionArgs]
+            'SELECT ' . implode(', ', $selects) . ' FROM %i r WHERE r.event_id = %d AND r.status = %s'
+                . $conditions,
+            [
+                ...$args,
+                $this->table(RegistrationTables::REGISTRATIONS),
+                $eventId,
+                $active,
+                ...$conditionArgs,
+            ]
         ));
         $row = $rows[0] ?? [];
 

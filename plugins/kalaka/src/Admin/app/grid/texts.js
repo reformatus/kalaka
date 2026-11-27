@@ -26,17 +26,12 @@ export const SUM = {
 	count: '%1$s: %2$d',
 	filled: 'Kitöltve: %d',
 	total: 'Összesen: %s',
-	// The arrow of a sum cell opens the column's menu; its counting group. [UNAPPROVED T3, T4]
+	// The number in a sum cell opens the counting menu; its counting group and its screen-reader name.
+	// [UNAPPROVED T3, T4]
 	counting: 'Számolás',
-	open: '%s oszlopmenüje',
+	open: 'Oszlopmenü: %s',
 	// The sum row's own load failure, above a table whose rows are on screen. [UNAPPROVED T6]
 	loadFail: 'Az összesítő sor betöltése nem sikerült.',
-};
-
-/** The hint under Kód's sort options in the column's menu. [UNAPPROVED T37] */
-export const COLUMN = {
-	codeAsc: 'Jelentkezés sorrendjében',
-	codeDesc: 'Jelentkezés fordított sorrendjében',
 };
 
 /** The average of a scale field: a new text. */

@@ -3,8 +3,8 @@
  * DataViews (compact) with the sum row in its header. Kód carries the default order (the order of the
  * applications) and is sortable both ways; the default view state is Kód ascending, so DataViews' own header
  * shows it. The title and the controls stay at the top and the table fills the window (owner's walk, topic 6a
- * G9). Every sum cell's arrow opens its column's menu, with the counting choices where the column counts (G10);
- * the counting is the viewer's own for the session, full access included, and is never saved (B1, round 3).
+ * G9). A countable sum cell's number opens its counting menu (owner, 2026-11-27); the counting is the viewer's
+ * own for the session, full access included, and is never saved (B1, round 3).
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList } from '@wordpress/components';
@@ -234,11 +234,10 @@ export default function Page( { config } ) {
 		/>
 	);
 
-	const menuFor = ( column ) => (
+	const menuFor = ( column, shown ) => (
 		<ColumnMenu
 			column={ column }
-			view={ v }
-			onSort={ ( sorted ) => setView( { ...v, sort: sorted, page: 1 } ) }
+			shown={ shown }
 			chosen={ picks.current.chosen( column.column, chosenFor( column ) ) }
 			onToggle={ pick }
 		/>

@@ -67,7 +67,14 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid thead tr.kg-sumtr td { background: #f6f7f7; border-top: 1px solid #dcdcde; border-bottom: 1px solid #dcdcde; padding-top: 2px; padding-bottom: 2px; font-size: 12px; font-variant-numeric: tabular-nums; text-transform: none; font-weight: 400; vertical-align: middle; white-space: nowrap; }
 #kalaka-grid thead tr.kg-sumtr td.is-num { text-align: right; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
-.kg-sumtd .kg-sumopen { vertical-align: middle; }
+
+/* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
+   but has nothing counted yet shows a grey placeholder with a dotted underline. [UNAPPROVED N1046, N1047] */
+.kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
+.kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }
+.kg-sumcount-btn.is-empty { color: var(--wpds-color-foreground-content-neutral-weak, #707070); text-decoration: underline dotted; text-underline-offset: 2px; }
+.kg-sumcount-menu { min-width: 180px; }
 
 /* The snackbar of the copy result, at the bottom of the window. */
 .kg-grid-snacks { position: fixed; left: 24px; bottom: 24px; z-index: 100001; width: min(400px, calc(100vw - 48px)); }
