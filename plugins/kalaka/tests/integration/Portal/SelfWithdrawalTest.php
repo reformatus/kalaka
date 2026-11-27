@@ -19,6 +19,7 @@ use Kalaka\Pricing\SetRetention;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Portal\ActiveRegistrationState;
 use Kalaka\Portal\Api\StatusRead;
+use Kalaka\Portal\Api\WithdrawBadNonce;
 use Kalaka\Portal\Api\WithdrawStale;
 use Kalaka\Portal\Api\WithdrawUnavailable;
 use Kalaka\Portal\Api\Withdrawal;
@@ -78,7 +79,21 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     /** @return array<string, mixed> */
     private function withdraw(string $code, ?string $as = null, bool $preview = false): array
     {
-        return $this->withdrawal()->run($this->key($as ?? $code), $code, $preview);
+        return $this->withdrawal()->run(
+            $this->key($as ?? $code),
+            $code,
+            $preview,
+            Withdrawal::nonceValue($code)
+        );
+    }
+
+    /** The form post's body with the page's nonce for that code: a real withdrawal always carries one. */
+    private function formBody(string $code, string $extra = ''): string
+    {
+        $body = 'code=' . rawurlencode($code) . '&' . Withdrawal::NONCE_FIELD . '='
+            . rawurlencode(Withdrawal::nonceValue($code));
+
+        return $extra === '' ? $body : $body . '&' . $extra;
     }
 
     private function status(string $code): string
@@ -265,7 +280,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     {
         $this->expectException(WithdrawStale::class);
         try {
-            $this->withdrawal()->run($this->key('00A0'), '00A2');
+            $this->withdrawal()->run($this->key('00A0'), '00A2', false, Withdrawal::nonceValue('00A2'));
         } finally {
             self::assertSame('registered', $this->status('00A2'));
             self::assertSame('registered', $this->status('00A0'));
@@ -275,7 +290,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     public function testWithoutAnActiveRegistrationItIsRefused(): void
     {
         $this->expectException(WithdrawStale::class);
-        $this->withdrawal()->run(null, '00A0');
+        $this->withdrawal()->run(null, '00A0', false, Withdrawal::nonceValue('00A0'));
     }
 
     public function testAStatusThatChangesUnderTheLockIsTheStaffActsRefusal(): void
@@ -455,7 +470,9 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     {
         ActiveRegistrationState::set($this->key('00A5'), false);
 
-        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A5']));
+        $response = $this->post('application/json', (string) wp_json_encode(
+            ['code' => '00A5', Withdrawal::NONCE_FIELD => Withdrawal::nonceValue('00A5')]
+        ));
 
         self::assertSame(200, $response->get_status());
         self::assertSame(['changed' => true, 'status' => 'withdrawn'], $response->get_data());
@@ -484,7 +501,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         $response = $this->post(
             'application/x-www-form-urlencoded',
-            'code=00A5&return_url=' . rawurlencode(home_url('/statusz/?x=1'))
+            $this->formBody('00A5', 'return_url=' . rawurlencode(home_url('/statusz/?x=1')))
         );
 
         self::assertSame(303, $response->get_status());
@@ -497,7 +514,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
     {
         ActiveRegistrationState::set($this->key('00A5'), false);
 
-        $this->post('application/x-www-form-urlencoded', 'code=00A5&preview=true');
+        $this->post('application/x-www-form-urlencoded', $this->formBody('00A5', 'preview=true'));
 
         self::assertSame('withdrawn', $this->status('00A5'));
     }
@@ -508,7 +525,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
         $response = $this->post(
             'application/x-www-form-urlencoded',
-            'code=00A2&return_url=' . rawurlencode('https://elsewhere.example.net/')
+            $this->formBody('00A2', 'return_url=' . rawurlencode('https://elsewhere.example.net/'))
         );
 
         self::assertSame(303, $response->get_status());
@@ -528,7 +545,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         $this->withdraw('00A0');
         ActiveRegistrationState::set($this->key('00A0'), false);
 
-        $response = $this->post('application/x-www-form-urlencoded', 'code=00A0');
+        $response = $this->post('application/x-www-form-urlencoded', $this->formBody('00A0'));
 
         self::assertSame(303, $response->get_status());
         self::assertStringStartsWith(
@@ -550,18 +567,24 @@ final class SelfWithdrawalTest extends StaffEditTestCase
 
     public function testAJsonRefusalCarriesTheErrorCodeAndNothingChanges(): void
     {
-        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A0']));
+        $response = $this->post('application/json', (string) wp_json_encode(
+            ['code' => '00A0', Withdrawal::NONCE_FIELD => Withdrawal::nonceValue('00A0')]
+        ));
 
         self::assertSame(422, $response->get_status());
         self::assertSame('kalaka_withdraw_stale', $response->get_data()['code'] ?? null);
         self::assertSame('registered', $this->status('00A0'));
 
         ActiveRegistrationState::set($this->key('00A0'), false);
-        $mismatch = $this->post('application/json', (string) wp_json_encode(['code' => '00A2']));
+        $mismatch = $this->post('application/json', (string) wp_json_encode(
+            ['code' => '00A2', Withdrawal::NONCE_FIELD => Withdrawal::nonceValue('00A2')]
+        ));
         self::assertSame('kalaka_withdraw_stale', $mismatch->get_data()['code'] ?? null);
 
         $this->withdraw('00A0');
-        $again = $this->post('application/json', (string) wp_json_encode(['code' => '00A0']));
+        $again = $this->post('application/json', (string) wp_json_encode(
+            ['code' => '00A0', Withdrawal::NONCE_FIELD => Withdrawal::nonceValue('00A0')]
+        ));
         self::assertSame('kalaka_withdraw_unavailable', $again->get_data()['code'] ?? null);
     }
 
@@ -570,7 +593,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         ActiveRegistrationState::set($this->key('00A5'), false);
         LoadState::record([new LoadFailure('x', 'y')]);
 
-        $response = $this->post('application/x-www-form-urlencoded', 'code=00A5');
+        $response = $this->post('application/x-www-form-urlencoded', $this->formBody('00A5'));
         LoadState::record([]);
 
         self::assertSame(303, $response->get_status());
@@ -587,7 +610,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         ActiveRegistrationState::set($this->key('00A5'), false);
         $_SERVER['HTTP_REFERER'] = home_url('/statusz/');
         try {
-            $response = $this->post('application/x-www-form-urlencoded', 'code=00A5');
+            $response = $this->post('application/x-www-form-urlencoded', $this->formBody('00A5'));
         } finally {
             unset($_SERVER['HTTP_REFERER']);
         }
@@ -602,12 +625,126 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         ActiveRegistrationState::set($this->key('00A5'), false);
         LoadState::record([new LoadFailure('x', 'y')]);
 
-        $response = $this->post('application/json', (string) wp_json_encode(['code' => '00A5']));
+        $response = $this->post('application/json', (string) wp_json_encode(
+            ['code' => '00A5', Withdrawal::NONCE_FIELD => Withdrawal::nonceValue('00A5')]
+        ));
 
         self::assertSame(503, $response->get_status());
         self::assertSame((new SiteClosed())->errorCode(), $response->get_data()['code'] ?? null);
         LoadState::record([]);
         self::assertSame('waitlisted', $this->status('00A5'));
+    }
+
+    // --- the nonce (N1166) ---
+
+    /** The field the page prints holds the nonce of that registration's code, and reading it back matches. */
+    public function testThePrintedFieldHoldsTheCodesNonce(): void
+    {
+        $field = Withdrawal::nonceField('00A0');
+
+        self::assertStringStartsWith('<input type="hidden" name="kalaka_withdraw_nonce" value="', $field);
+        self::assertStringEndsWith('">', $field);
+        preg_match('/value="([^"]+)"/', $field, $found);
+        $nonce = html_entity_decode($found[1]);
+        self::assertTrue(Withdrawal::nonceIsValid($nonce, '00A0'));
+        self::assertSame(10, strlen($nonce));
+        // The field is escaped, so nothing in it can leave the attribute.
+        self::assertSame($field, Withdrawal::nonceField('00A0'));
+    }
+
+    public function testAGuestsNonceWithdraws(): void
+    {
+        // The participant is a guest: no WordPress user, only the signed cookie. A logged-out WordPress nonce would
+        // be one value shared by every guest, so this one is bound to the code.
+        wp_set_current_user(0);
+        self::assertSame(0, get_current_user_id());
+        ActiveRegistrationState::set($this->key('00A0'), false);
+
+        $response = $this->post('application/x-www-form-urlencoded', $this->formBody('00A0'));
+
+        self::assertSame(303, $response->get_status());
+        self::assertArrayNotHasKey('Set-Cookie', $response->get_headers());
+        self::assertSame('withdrawn', $this->status('00A0'));
+    }
+
+    public function testAMissingNonceIsRefusedWithTheBadNonceCode(): void
+    {
+        ActiveRegistrationState::set($this->key('00A0'), false);
+
+        $response = $this->post('application/x-www-form-urlencoded', 'code=00A0');
+
+        self::assertSame(303, $response->get_status());
+        self::assertStringStartsWith(
+            'kalaka_withdraw_refusal=kalaka_withdraw_bad_nonce; Max-Age=120; Path=/',
+            (string) $response->get_headers()['Set-Cookie']
+        );
+        self::assertSame('registered', $this->status('00A0'));
+
+        try {
+            $this->withdrawal()->run($this->key('00A0'), '00A0');
+            self::fail('A real withdrawal without a nonce is refused.');
+        } catch (WithdrawBadNonce $e) {
+            self::assertSame('kalaka_withdraw_bad_nonce', $e->errorCode());
+        }
+        self::assertSame('registered', $this->status('00A0'));
+    }
+
+    public function testAWrongNonceIsRefusedWithTheBadNonceCode(): void
+    {
+        ActiveRegistrationState::set($this->key('00A0'), false);
+
+        $response = $this->post(
+            'application/x-www-form-urlencoded',
+            'code=00A0&' . Withdrawal::NONCE_FIELD . '=0000000000'
+        );
+
+        self::assertSame(303, $response->get_status());
+        self::assertStringStartsWith(
+            'kalaka_withdraw_refusal=kalaka_withdraw_bad_nonce;',
+            (string) $response->get_headers()['Set-Cookie']
+        );
+        $this->expectException(WithdrawBadNonce::class);
+        $this->withdrawal()->run($this->key('00A0'), '00A0', false, '0000000000');
+    }
+
+    public function testANonceOfAnotherRegistrationsCodeIsRefused(): void
+    {
+        // The page of 00A2's visitor: that nonce opens 00A2 and nothing else, even for someone holding 00A0.
+        $nonce = Withdrawal::nonceValue('00A2');
+        self::assertFalse(Withdrawal::nonceIsValid($nonce, '00A0'));
+
+        ActiveRegistrationState::set($this->key('00A0'), false);
+        $response = $this->post(
+            'application/x-www-form-urlencoded',
+            'code=00A0&' . Withdrawal::NONCE_FIELD . '=' . rawurlencode($nonce)
+        );
+
+        self::assertSame(303, $response->get_status());
+        self::assertStringStartsWith(
+            'kalaka_withdraw_refusal=kalaka_withdraw_bad_nonce;',
+            (string) $response->get_headers()['Set-Cookie']
+        );
+        self::assertSame('registered', $this->status('00A0'));
+
+        // And the reverse: 00A0's nonce does not withdraw 00A2, even with 00A2 active.
+        ActiveRegistrationState::set($this->key('00A2'), false);
+        $this->expectException(WithdrawBadNonce::class);
+        $this->withdrawal()->run($this->key('00A2'), '00A2', false, Withdrawal::nonceValue('00A0'));
+    }
+
+    public function testANonceFromTheTickBeforeStillWorksAndAnOlderOneDoesNot(): void
+    {
+        // A page older than the current tick is still fine, like a WordPress nonce's second half; two ticks back is
+        // outside the window. The tick is the site's clock's, so it is read here the same way.
+        $code = '00A0';
+        $tick = (int) wp_nonce_tick(Withdrawal::NONCE_ACTION);
+        $hash = static fn (int $at): string => substr(
+            wp_hash($at . '|' . Withdrawal::NONCE_ACTION . '|' . $code, 'nonce'),
+            -12,
+            10
+        );
+        self::assertTrue(Withdrawal::nonceIsValid($hash($tick - 1), $code));
+        self::assertFalse(Withdrawal::nonceIsValid($hash($tick - 2), $code));
     }
 
     // --- the flash cookie ---
@@ -617,6 +754,7 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         self::assertSame('kalaka_withdraw_unavailable', WithdrawRefusalCookie::codeFor('kalaka_withdraw_unavailable'));
         self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));
         self::assertSame('kalaka_withdraw_stale', WithdrawRefusalCookie::codeFor('kalaka_withdraw_stale'));
+        self::assertSame('kalaka_withdraw_bad_nonce', WithdrawRefusalCookie::codeFor('kalaka_withdraw_bad_nonce'));
         self::assertSame('kalaka_site_closed', WithdrawRefusalCookie::codeFor('kalaka_site_closed'));
         self::assertSame('kalaka_version_conflict', WithdrawRefusalCookie::codeFor('kalaka_version_conflict'));
         self::assertSame('kalaka_status_act_refused', WithdrawRefusalCookie::codeFor('kalaka_status_act_refused'));

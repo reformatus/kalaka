@@ -6,6 +6,7 @@ namespace Kalaka\Portal;
 
 use Kalaka\Foundation\Api\Error\SiteClosed;
 use Kalaka\Foundation\Api\Error\VersionConflict;
+use Kalaka\Portal\Api\WithdrawBadNonce;
 use Kalaka\Portal\Api\WithdrawStale;
 use Kalaka\Portal\Api\WithdrawUnavailable;
 
@@ -61,6 +62,7 @@ final class WithdrawRefusalCookie
     private static function isKnown(string $code): bool
     {
         return in_array($code, [
+            (new WithdrawBadNonce())->errorCode(),
             (new WithdrawUnavailable())->errorCode(),
             (new WithdrawStale())->errorCode(),
             (new SiteClosed())->errorCode(),
