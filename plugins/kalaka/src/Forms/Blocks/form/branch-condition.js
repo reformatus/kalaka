@@ -47,6 +47,9 @@ export const AFTER_SUBMIT = "kalaka/after-submit";
 /** A key whose type the editor cannot know (a condition outside a form): any operator and value pass. */
 const ANY = "any";
 
+/** The fact key of the moment itself (`Facts::NOW`): a left key, always a datetime. */
+const NOW_KEY = "time.now";
+
 const MATCH = ["all", "any"];
 const OPERATORS = [
   "equals",
@@ -64,9 +67,41 @@ const onlyKeys = (value, allowed) =>
   Object.keys(value).every((key) => allowed.includes(key));
 
 const allowedFor = (operator, type) =>
-  type === ANY || type === "number" || type === "date"
+  type === ANY || ["number", "date", "datetime"].includes(type)
     ? operator !== "contains"
     : ["equals", "contains", "empty"].includes(operator);
+
+/** A calendar day, as `checkdate()` reads it. */
+const isDay = (year, month, day) => {
+  const point = new Date(0);
+  point.setUTCFullYear(+year, +month - 1, +day);
+  return (
+    point.getUTCFullYear() === +year &&
+    point.getUTCMonth() === +month - 1 &&
+    point.getUTCDate() === +day
+  );
+};
+
+/**
+ * A datetime literal as the server reads it (`Value::instant()`): `YYYY-MM-DDTHH:MM:SS` and an offset, `Z` or
+ * `+HH:MM` / `-HH:MM` up to 14 hours. Checked by parts, never by `Date.parse`, which accepts `T24:00:00`.
+ */
+const isDatetime = (value) => {
+  const parts =
+    /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(Z|[+-]([0-9]{2}):([0-9]{2}))$/.exec(
+      value,
+    );
+  if (!parts) {
+    return false;
+  }
+  return (
+    isDay(parts[1], parts[2], parts[3]) &&
+    +parts[4] < 24 &&
+    +parts[5] < 60 &&
+    +parts[6] < 60 &&
+    (parts[7] === "Z" || (+parts[8] <= 14 && +parts[9] < 60))
+  );
+};
 
 const wellFormed = (type, value) => {
   if (type === ANY) {
@@ -75,18 +110,10 @@ const wellFormed = (type, value) => {
   if (type === "number") {
     return /^-?[0-9]+(\.[0-9]+)?$/.test(value);
   }
-  if (type === "date") {
+  if (type === "date" || type === "datetime") {
+    // A day or an instant, told apart by length as on the server: a date key or a datetime key takes both.
     const parts = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(value);
-    if (!parts) {
-      return false;
-    }
-    const day = new Date(0);
-    day.setUTCFullYear(+parts[1], +parts[2] - 1, +parts[3]);
-    return (
-      day.getUTCFullYear() === +parts[1] &&
-      day.getUTCMonth() === +parts[2] - 1 &&
-      day.getUTCDate() === +parts[3]
-    );
+    return parts ? isDay(parts[1], parts[2], parts[3]) : isDatetime(value);
   }
   return type === "choice" ? value !== "" : true;
 };
@@ -107,7 +134,7 @@ const fail = (problem, key) => {
 };
 
 /**
- * Checks a condition against a scope (`typeOf(key)` → 'text' | 'date' | 'choice' | 'number' | null for a
+ * Checks a condition against a scope (`typeOf(key)` → 'text' | 'date' | 'datetime' | 'choice' | 'number' | null for a
  * key it may not read; `choices(key)` → the option values of a choice field, or null; `isPath(key)`, when
  * the scope has it → whether the key's value is a path, never compared with `equals`). Returns null, or
  * `{ problem, key }` with the first problem.
@@ -121,13 +148,14 @@ export const checkCondition = (condition, scope) => {
     return type ?? fail("key", key);
   };
   const reference = (data, key) => {
-    if (!onlyKeys(data, ["key", "years", "days"])) {
+    const now = "ref" in data;
+    if (!onlyKeys(data, [now ? "ref" : "key", "years", "days"])) {
       fail("value", key);
     }
     const years = data.years ?? 0;
     const days = data.days ?? 0;
     if (
-      typeof data.key !== "string" ||
+      typeof (now ? data.ref : data.key) !== "string" ||
       !Number.isInteger(years) ||
       !Number.isInteger(days)
     ) {
@@ -137,7 +165,18 @@ export const checkCondition = (condition, scope) => {
     if (Math.abs(years) > maxYears || Math.abs(days) > maxDays) {
       fail("value", key);
     }
-    if (![ANY, "date"].includes(typeOf(data.key))) {
+    if (now) {
+      // "now" is no key: the evaluation's moment (`Facts::NOW`).
+      if (data.ref !== "now") {
+        fail("value", key);
+      }
+      return;
+    }
+    // The value side spells the moment `{ "ref": "now" }`, never the key (N694).
+    if (
+      data.key === NOW_KEY ||
+      ![ANY, "date", "datetime"].includes(typeOf(data.key))
+    ) {
       fail("value", key);
     }
   };
@@ -153,7 +192,7 @@ export const checkCondition = (condition, scope) => {
     ) {
       fail("shape");
     }
-    const type = typeOf(key);
+    const type = key === NOW_KEY ? "datetime" : typeOf(key);
     if (
       !allowedFor(operator, type) ||
       (operator === "equals" && scope.isPath?.(key) === true)
@@ -166,7 +205,10 @@ export const checkCondition = (condition, scope) => {
       }
       return;
     }
-    if ((type === "date" || type === ANY) && isObject(data.value)) {
+    if (
+      (type === "date" || type === "datetime" || type === ANY) &&
+      isObject(data.value)
+    ) {
       reference(data.value, key);
       return;
     }
@@ -336,7 +378,9 @@ export const summary = (condition) => {
     if (Array.isArray(item.items)) {
       return "(" + summary(item) + ")";
     }
-    const value = isObject(item.value) ? item.value.key : (item.value ?? "");
+    const value = isObject(item.value)
+      ? (item.value.key ?? item.value.ref)
+      : (item.value ?? "");
     return [
       item.not ? "¬" : "",
       item.key,

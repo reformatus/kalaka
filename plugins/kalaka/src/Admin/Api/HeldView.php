@@ -17,6 +17,7 @@ final readonly class HeldView
      * @internal Made by `Access` only.
      *
      * @param ?ViewShape $shape null: the master view, every column of the event and no filter
+     * @param array<string, list<string>> $masterCounts the master view's counted members (its stored row)
      */
     public function __construct(
         public int $eventId,
@@ -25,6 +26,7 @@ final readonly class HeldView
         public ?string $name,
         private ?ViewShape $shape,
         private ?string $bound,
+        private array $masterCounts = [],
     ) {
     }
 
@@ -32,6 +34,17 @@ final readonly class HeldView
     public function isMaster(): bool
     {
         return $this->shape === null;
+    }
+
+    /**
+     * The counted members of the view's sum row as stored with it, by column (S37); for the master view,
+     * those of the event's master row.
+     *
+     * @return array<string, list<string>>
+     */
+    public function counts(): array
+    {
+        return $this->shape === null ? $this->masterCounts : $this->shape->counts;
     }
 
     /** @internal For `ViewQuery`. */

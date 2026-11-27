@@ -87,9 +87,9 @@ final class Registrations
      * The registration's fact source, from plain reads without a lock (inside the evaluation the run already
      * holds the row): the row, its field values (`values()`, one statement) typed over the event's participant
      * fields (`Forms::participantFacts()`: one statement and the block registry, no post). Null when there is
-     * no such registration.
+     * no such registration. `$now` is the moment of the act that reads (`time.now`): the caller's one clock.
      */
-    public function factsOf(RegistrationKey $key, Event $event): ?RegistrationFacts
+    public function factsOf(RegistrationKey $key, Event $event, \DateTimeImmutable $now): ?RegistrationFacts
     {
         $registration = $this->repository->find($key);
         if ($registration === null) {
@@ -103,7 +103,9 @@ final class Registrations
             $registration->status,
             $registration->registeredAt,
             $event,
+            $now,
             $fields->values,
+            [],
             $fields->kinds,
         );
     }

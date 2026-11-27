@@ -40,10 +40,11 @@ interface FormHost
     public function goneTypes(Form $form, array $keys): array;
 
     /**
-     * The values of `factTypes()` for the form; null when what the form belongs to is gone (the form's
-     * page then shows it unavailable, and its routes answer `NotFound`).
+     * The values of `factTypes()` for the form, as of `$now` (the request's moment, the one the page's refusals
+     * read); null when what the form belongs to is gone (the form's page then shows it unavailable, and its
+     * routes answer `NotFound`).
      */
-    public function facts(Form $form): ?ValueContext;
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext;
 
     /**
      * What keeps the form from being used now, in the order the page shows them (the first one). It reads the
@@ -123,4 +124,13 @@ interface FormHost
      * Reads no current user: the form page, its re-fetch and the account block ask it for anyone.
      */
     public function accountStep(Form $form): ?AccountStep;
+
+    /**
+     * The participant field keys the host's current state requires a registration form to hold, required and
+     * outside any condition (`Engine\SlotRules::requiredFieldProblem()`); none for another placement. A form
+     * being served that lacks one is closed, like one without the account block.
+     *
+     * @return list<string>
+     */
+    public function slotRequiredKeys(Form $form): array;
 }

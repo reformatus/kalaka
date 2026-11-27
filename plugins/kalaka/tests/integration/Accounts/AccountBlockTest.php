@@ -383,9 +383,9 @@ final class AccountBlockTest extends AccountsTestCase
 
         $event = (new Events())->find((int) get_post_meta($optional, 'kalaka_event_id', true));
         self::assertNotNull($event);
-        self::assertSame(['yes'], EventValues::form($event, true)[SignUp::LOGGED_IN]->data);
-        self::assertSame(['no'], EventValues::form($event, false)[SignUp::LOGGED_IN]->data);
-        self::assertTrue(EventValues::form($event, null)[SignUp::LOGGED_IN]->isEmpty());
+        self::assertSame(['yes'], EventValues::form($event, true, new \DateTimeImmutable())[SignUp::LOGGED_IN]->data);
+        self::assertSame(['no'], EventValues::form($event, false, new \DateTimeImmutable())[SignUp::LOGGED_IN]->data);
+        self::assertTrue(EventValues::form($event, null, new \DateTimeImmutable())[SignUp::LOGGED_IN]->isEmpty());
     }
 
     /** The subject „Bejelentkezve”: a chain on it ships both branches and follows the login. */

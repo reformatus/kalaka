@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Pricing;
 
+use Kalaka\Forms\Api\Value;
 use Kalaka\Foundation\Api\Money\Currency;
 use Kalaka\Foundation\Api\Money\Money;
 use Kalaka\Ledger\Api\Payer;
@@ -12,6 +13,7 @@ use Kalaka\Pricing\Api\FeeComponentFailed;
 use Kalaka\Pricing\Api\FeeComponentInput;
 use Kalaka\Pricing\Api\FeeStage;
 use Kalaka\Pricing\Api\FeeTargets;
+use Kalaka\Pricing\Api\ProvidesBase;
 use Kalaka\Pricing\Api\StageTotals;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationStatus;
@@ -50,19 +52,25 @@ final class FeeComposer
         }
 
         // The fixed price is the base only without a ladder (money.md, "Congregation share": "the chosen tier,
-        // or the fixed price without a ladder"): it composes last in the tier stage, and owes nothing once
-        // another tier-stage component owes something.
-        $last = static fn (FeeComponent $component): int => $component instanceof FixedPrice ? 1 : 0;
-        usort($components, static fn (FeeComponent $a, FeeComponent $b): int => $last($a) <=> $last($b));
+        // or the fixed price without a ladder"): by structure, not by what a tier owes. It is charged only
+        // when no component provides the event's base.
+        $baseProvided = false;
+        foreach ($components as $component) {
+            if ($component instanceof ProvidesBase && $this->providesBase($component, $facts->registration->eventId)) {
+                $baseProvided = true;
+            }
+        }
 
         $before = new StageTotals($currency);
         foreach (FeeStage::cases() as $stage) {
             $stageOwed = [];
+            // A stage's computed values reach the later stages only, like its totals.
+            $stageComputed = [];
             foreach ($components as $component) {
                 if ($component->stage() !== $stage) {
                     continue;
                 }
-                if ($component instanceof FixedPrice && self::owesAny($stageOwed)) {
+                if ($component instanceof FixedPrice && $baseProvided) {
                     continue;
                 }
                 $owed = $this->owedBy(
@@ -81,16 +89,63 @@ final class FeeComposer
                 foreach ($owed['owed'] as $payer => $amount) {
                     $stageOwed[$payer] = isset($stageOwed[$payer]) ? $stageOwed[$payer]->plus($amount) : $amount;
                 }
+                $stageComputed = $this->withComputed($component, $stageComputed, $owed['computed'], $facts);
             }
             $before = $before->with($stage, $stageOwed);
+            if ($stageComputed !== []) {
+                $facts = $facts->withComputed($stageComputed);
+            }
         }
 
         return $composed;
     }
 
     /**
-     * @return array{owed: array<string, Money>, items: ?array<string, array<string, Money>>} what each payer
-     *     owes for the component in all, and per item when the component owes per item
+     * The stage's computed values with a component's added: each a dotted key no other value of the facts, nor
+     * of the stage, has yet.
+     *
+     * @param array<string, Value> $stage
+     * @param array<array-key, mixed> $computed
+     * @return array<string, Value>
+     * @throws FeeComponentFailed on a malformed value or a key that is taken
+     */
+    private function withComputed(
+        FeeComponent $component,
+        array $stage,
+        array $computed,
+        RegistrationFacts $facts,
+    ): array {
+        foreach ($computed as $key => $value) {
+            $key = (string) $key;
+            if (!$value instanceof Value || !str_contains($key, '.') || $facts->has($key) || isset($stage[$key])) {
+                $error = new FeeComponentFailed($component->id());
+                throw $error;
+            }
+            $stage[$key] = $value;
+        }
+
+        return $stage;
+    }
+
+    /**
+     * Whether the component provides the event's base; outside code, so a throw is the component's failure.
+     *
+     * @throws FeeComponentFailed when the component throws
+     */
+    private function providesBase(FeeComponent&ProvidesBase $component, int $eventId): bool
+    {
+        try {
+            return $component->providesBase($eventId);
+        } catch (\Throwable $thrown) {
+            $error = new FeeComponentFailed($component->id(), $thrown);
+            throw $error;
+        }
+    }
+
+    /**
+     * @return array{owed: array<string, Money>, items: ?array<string, array<string, Money>>,
+     *     computed: array<array-key, mixed>} what each payer owes for the component in all, and per item when
+     *     the component owes per item, and the computed values it returned
      */
     private function owedBy(FeeComponent $component, FeeComponentInput $input, Currency $currency): array
     {
@@ -108,7 +163,11 @@ final class FeeComposer
             throw $error;
         }
         if ($targets->items === []) {
-            return ['owed' => $this->checked($component, $targets->owed, $currency), 'items' => null];
+            return [
+                'owed' => $this->checked($component, $targets->owed, $currency),
+                'items' => null,
+                'computed' => $targets->computed,
+            ];
         }
         $items = [];
         $owed = [];
@@ -128,7 +187,7 @@ final class FeeComposer
             }
         }
 
-        return ['owed' => $owed, 'items' => $items];
+        return ['owed' => $owed, 'items' => $items, 'computed' => $targets->computed];
     }
 
     /**
@@ -150,17 +209,5 @@ final class FeeComposer
         }
 
         return $owed;
-    }
-
-    /** @param array<string, Money> $owed */
-    private static function owesAny(array $owed): bool
-    {
-        foreach ($owed as $amount) {
-            if ($amount->isPositive() || $amount->isNegative()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

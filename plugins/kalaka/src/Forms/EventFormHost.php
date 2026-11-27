@@ -27,9 +27,9 @@ use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Actor\Actor;
 use Kalaka\Foundation\Api\Actor\SecretLinkActor;
+use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
-use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\Portal\Api\ActiveRegistration;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
@@ -151,9 +151,10 @@ final class EventFormHost implements FormHost
 
     /**
      * The values of `factTypes()` on a form's page and re-fetch: the active registration's status and field
-     * values for an additional form, as they are now.
+     * values for an additional form, as they are now, and the event's keys read at the moment the caller gives
+     * (one clock per act: the page, the re-fetch and the submit's walk keep it alike).
      */
-    public function facts(Form $form): ?ValueContext
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext
     {
         $event = $this->event($form);
         if ($event === null) {
@@ -164,7 +165,7 @@ final class EventFormHost implements FormHost
         $stored = $target === null ? null : $this->registrations()->values($target);
         $status = $target === null ? null : $this->registrations()->find($target)?->status->value;
 
-        return $this->factsFor($form, $event, $loggedIn, Runner::current()->clock()->now(), $stored, $status);
+        return $this->factsFor($form, $event, $loggedIn, $now, $stored, $status);
     }
 
     /**
@@ -172,9 +173,10 @@ final class EventFormHost implements FormHost
      * re-fetch and the submit's walk (so a key declared is a key valued). Every key is valued; an additional
      * form with no registration (`$stored` null) reads its registration keys as none, never fails.
      *
-     * [UNAPPROVED N1155] The caller gives the moment the facts are read at (the page and re-fetch read the run's
-     * clock, a submit's walk the same clock before its transaction), so one moment is used for all the facts of a
-     * read, and the page, the re-fetch and the submit's walk keep it alike. No fact here reads it yet.
+     * [UNAPPROVED N1155] The caller gives the moment the facts are read at (the page and re-fetch the act's
+     * moment, a submit's walk the same one before its transaction), so one moment is used for all the facts of a
+     * read, and the page, the re-fetch and the submit's walk keep it alike: `time.now` and the event's dates read
+     * it.
      *
      * @param array<string, string>|null $stored the registration's field values by key (an additional form)
      * @param string|null $status the registration's status (an additional form)
@@ -187,7 +189,7 @@ final class EventFormHost implements FormHost
         ?array $stored,
         ?string $status
     ): ValueContext {
-        $values = $this->goneKeys($form) + EventValues::form($event, $loggedIn)
+        $values = $this->goneKeys($form) + EventValues::form($event, $loggedIn, $now)
             + EventValues::volatile($event, $this->registrations()->registeredCount($event->id));
         if ($form->placement === FormPlacement::Additional) {
             $values[RegistrationFacts::STATUS] = $status === null
@@ -412,6 +414,28 @@ final class EventFormHost implements FormHost
             AccountMode::Optional => AccountStep::Offered,
             AccountMode::Off => null,
         };
+    }
+
+    public function slotRequiredKeys(Form $form): array
+    {
+        if ($form->placement !== FormPlacement::Registration) {
+            return [];
+        }
+        $keys = [];
+        foreach (Contributions::current()->slotRequirements() as $requirement) {
+            // An outside contribution point: a throwing requirement is logged and skipped, never the page
+            // (modules-and-extensions.md, "Failure isolation"), as `ThemeAdapters::pick()` treats an adapter.
+            $required = [];
+            Boundary::background(
+                'slot requirement ' . $requirement::class,
+                static function () use ($requirement, $form, &$required): void {
+                    $required = $requirement->requiredKeys($form->eventId);
+                }
+            );
+            array_push($keys, ...$required);
+        }
+
+        return array_values(array_unique($keys));
     }
 
     private function event(Form $form): ?Event

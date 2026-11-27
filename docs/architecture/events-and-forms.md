@@ -103,7 +103,8 @@ flowchart TB
   - **each additional form has its own open period**, which a form link can
     bypass ([below](#form-links-and-admin-submissions)).
 - **The slot adds one more rule:** every form in it must contain the
-  required fields and functionality (e.g. exactly one contact email).
+  required fields and functionality (e.g. exactly one contact email, or the
+  field an extension requires, such as the price ladder's `price_tier`).
   Otherwise all forms share the same primitives.
 - **An additional form never creates a registration** and never counts
   toward capacity. It writes to the active registration
@@ -296,7 +297,9 @@ flowchart TB
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
     then may a form hold its key, and only then may staff correct it
-    through views;
+    through views. A form that joins an extension's choice
+    field offers only options the extension declared, any subset of them,
+    and never adds one;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -353,7 +356,8 @@ flowchart TB
   when the type is the same; with another type the save is refused.
   Derivation never picks a retired key. A choice field's options are the union over
   the forms that hold it; an option no form offers any more is retired,
-  keeping its label, so stored values still read.
+  keeping its label, so stored values still read. An extension field's
+  options are its declarer's, not the forms' union.
 - **Every form-to-backend link is by key.** An admin adds a backend thing
   (a charge, the donation), authors a form, adds a field, and sets the
   field's key to the backend thing's key; the backend names no field. The
@@ -364,8 +368,9 @@ flowchart TB
   form's blocks and do not move to the participant-field list.
 - **An additional form holds neither explicit marking;** the save refuses it,
   as the slot's rule does. A "change my e-mail" form waits for its own design.
-- **Money-relevance is a type capability** supplied by plugins; core ships no
-  money field types. Values are stored like any other, **locked after their
+- **Money-relevance is a type capability** supplied by plugins, or declared
+  by an extension for a field it declares; core ships no money field types.
+  Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
   only through use cases that re-materialize the money; a staff correction
   through views is one and needs no unlock.
@@ -451,7 +456,7 @@ is no other participant-side edit.
   one condition in this format, through one evaluator in PHP that reads a
   **fact source**: form fields and branches, pages and sections, a choice
   field's options (the options a ranking takes from an assignment set
-  included), price-ladder tiers, offers and the adjudicated aid. An
+  included), offers and the adjudicated aid. An
   assignment-set option carries no condition of its own: the form's ranking
   field decides who may pick it. In a form it reads the draft answers and
   the event's values, on every render and again at submit; in the fee components and the materializer it reads the
@@ -506,14 +511,40 @@ is no other participant-side edit.
   equals X". Groups follow the same three values: `all` with an unknown item
   and no false is unknown, `any` with a true is true, and `not` on a group
   leaves unknown unknown. A condition that is unknown counts as not matched.
-- **Typed comparison:** values compare as number, date, text or choice. A
-  choice that is a path (the congregation field) is only asked whether it
-  contains a node, never whether it equals one.
-- **A date can be compared with a date reference:** another date key of the
-  fact source moved by whole years and days, e.g. the event's start minus 16
-  years for "under 16 at the event's start". A day the moved month does not
-  have becomes its last day (29 February to 28 February), so the age rule
-  holds for an event starting on 29 February.
+- **Typed comparison:** values compare as number, date, datetime, text or
+  choice. A date is a calendar day; a datetime is an instant. Two datetimes
+  compare as instants; a date against a date or a datetime compares on the
+  day (a datetime gives the site-time-zone day it falls on, never midnight),
+  so a day-only value keeps its whole-day meaning against `now`. The
+  registration's opening and closing (`event.registration_opens`,
+  `event.registration_closes`) are datetimes, the event's start and end
+  (`event.start`, `event.end`) dates. A choice that is a path (the
+  congregation field) is only asked whether it contains a node, never
+  whether it equals one.
+- **A date or datetime can be compared with a date reference:** another date
+  or datetime key of the fact source moved by whole years and days, e.g. the
+  event's start minus 16 years for "under 16 at the event's start". A day
+  the moved month does not have becomes its last day (29 February to 28
+  February), so the age rule holds for an event starting on 29 February. A
+  datetime moves its wall time in the site's time zone.
+- **A datetime can be a literal:** `YYYY-MM-DDTHH:MM:SS` with the site's
+  offset in force on that day (`Z` or `+HH:MM`), e.g.
+  `2026-12-01T18:00:00+01:00`; a date key or a datetime key takes it or a
+  plain day. The instant is fixed when stored. Against a date, a literal's
+  day is its date part as written. The editor and the server check it by the
+  same rules.
+- **A date reference can be "now":** the clock's time, to the second, in the
+  site's time zone (a datetime), moved by whole years and days like any date
+  reference (e.g. "now + 0 days"); no hours or minutes. While a form is
+  filled in it is the render time (the page render and every re-fetch), at
+  submit the submit time, and after submit (mails, participant blocks,
+  views) the clock time of the read that renders them (the runner's
+  `Clock`); the evaluator reads it from the fact source like any value,
+  never from a clock of its own. As a date reference it is only
+  `{"ref": "now"}`, never the key `time.now`; that key is read only as the left side of a comparison, a datetime
+  (e.g. `time.now` before `2026-12-01T18:00:00+01:00`: "show this until then"). A branch that reads it is held server-side like one that
+  reads an event value, and the page re-fetches it with the form's other
+  re-fetches; the submit is the judge.
 - **Combining:** all / any; a condition can be a group, one level deep.
 - **Extension conditions** can be used alongside comparisons.
 - Examples: status equals waitlisted; balance greater than 0; a multi-choice

@@ -6,6 +6,7 @@ namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\AccountBlock;
 use Kalaka\Forms\BrokenForms;
 use Kalaka\Forms\Engine\FormEngine;
@@ -15,6 +16,7 @@ use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
@@ -25,6 +27,9 @@ use Kalaka\ParticipantFields\Api\ParticipantFields;
  */
 final class Forms
 {
+    /** The field type key (block name) of a consent, whose answer is stored as `1` when given. */
+    public const CONSENT_FIELD = ConsentFieldType::BLOCK_NAME;
+
     public function __construct(
         private readonly FormEngine $engine = new FormEngine(new EventFormHost()),
         private readonly FormPosts $posts = new FormPosts(),
@@ -50,8 +55,10 @@ final class Forms
      *
      * A form being served to a visitor (`$serving`: the page, the re-fetch, the submit and the broken-form
      * scan) with an account step (the event's current account mode) must also hold the account block
-     * (`account_block_missing`). A stored submission's definition (a mail's recipient and context) is read
-     * without that check, so a mode change never costs an existing registration its mail.
+     * (`account_block_missing`), and every field an extension requires of the event's registration form
+     * (`required_field_missing`: an event with a price ladder needs `price_tier`). A stored submission's
+     * definition (a mail's recipient and context) is read without those checks, so a mode or ladder change never
+     * costs an existing registration its mail.
      *
      * @throws SystemFailure when the version is not a revision of the form or the definition has a problem
      */
@@ -341,7 +348,8 @@ final class Forms
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
-     *     form whose conditions read them; none when null
+     *     form whose conditions read them; when null, only the runner's moment (`EventValues::now()`), so
+     *     every condition scope carries `now`
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
      * @throws FormTerminal a terminal page shows for the answers
@@ -349,7 +357,11 @@ final class Forms
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->engine->validate($definition, $answers, $facts);
+        return $this->engine->validate(
+            $definition,
+            $answers,
+            $facts ?? new ValueContext(EventValues::now(Runner::current()->clock()->now()))
+        );
     }
 
     /**

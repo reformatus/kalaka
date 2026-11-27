@@ -16,6 +16,8 @@ class RecordingResponse implements Response
 
     public ?string $redirect = null;
 
+    public int $redirectStatus = 0;
+
     public function setCookie(string $name, string $value, int $expires): void
     {
         $this->cookies[$name] = [$value, $expires];
@@ -26,8 +28,9 @@ class RecordingResponse implements Response
         $this->noCache++;
     }
 
-    public function redirect(string $url): void
+    public function redirect(string $url, int $status = 302): void
     {
         $this->redirect = $url;
+        $this->redirectStatus = $status;
     }
 }

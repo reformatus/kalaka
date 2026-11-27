@@ -50,7 +50,8 @@ values and conditions, prefill and form links
   forms. A block that arrives without its key takes back its stored key
   (same type and title) before anything is derived. A choice field's options are
   the union over the event's forms; one no form holds is retired, its label
-  kept.
+  kept. An `extension` field's options are its declarer's: a form joining it
+  offers any subset of them and never adds one (`extension_option`).
 - A participant field's title and its choice options' labels are its own,
   separate from the labels the forms show: each is set when it is first
   declared (an option is matched by value), never from a later form's label,
@@ -143,7 +144,12 @@ values and conditions, prefill and form links
   names another module's post type; that module contributes the host. The
   condition blocks are not gated: every block editor offers them.
 - Every form in the registration slot has exactly one contact email and one
-  display name; additional forms have neither.
+  display name; additional forms have neither. A registration form also holds every participant field an
+  extension requires of its event (`Api\SlotRequirement`, asked through `FormHost::slotRequiredKeys()`: the
+  price ladder's `price_tier`), required and outside any branch or conditional page
+  (`SlotRules::requiredFieldProblem()`, `required_field_missing`). Like the account block it is event-dependent, so
+  it is checked when a form is served (`FormEngine::definition()` with `$serving`) and when it is saved live
+  (`DefinitionCheck`), never on an earlier version.
 - An additional form writes only to the active registration
   (`Portal\Api\ActiveRegistration`) of its own event, while that registration
   is `registered` or `waitlisted` and the form is within its open period
@@ -185,7 +191,7 @@ values and conditions, prefill and form links
   submissions and field values.
 - One availability base (S76): everything shown or selectable (fields,
   branches, pages, choice options, the options a request field takes from a
-  set, tiers, offers, aid) is decided by one condition through
+  set, offers, aid) is decided by one condition through
   `Engine\Condition\ConditionEvaluator`, reached for a form's elements through
   `FormWalk`. Set options carry no condition of their own: the ranking block
   that names the set holds one per option. No second evaluator anywhere, and JavaScript never evaluates a
@@ -194,6 +200,16 @@ values and conditions, prefill and form links
 - A condition is evaluated purely, from a fact source (`Api\Facts`): no
   database, hook, current user, request or clock. Whoever evaluates fills the
   fact source; the evaluator never runs the materializer on a draft.
+- "Now" in a condition is the date reference `{"ref": "now"}`, read from the
+  fact source's `Facts::NOW` (`EventValues::now($at)`: the moment the caller
+  holds, one clock passed down, a datetime to the second in the site's time
+  zone): a value-side reference never names the key `time.now` (the left
+  side of a comparison may, as a datetime, N694), never read from a clock by the
+  evaluator. A chain that reads it is withheld.
+  One way: every fact source a condition is evaluated over carries it
+  (`EventValues::now($now)` in each `ValueContext` built for conditions, with
+  the act's own moment), so the parser makes no scope check for it and a
+  source without it fails loudly; nobody catches that failure into a pass.
 - A form is walked the same way for a draft's re-render and at submit
   (`FormWalk`). In a form, a condition reads only answers of fields before it
   and the host's keys (`FormHost::factTypes()`: the event's, `Api\EventValues`,
