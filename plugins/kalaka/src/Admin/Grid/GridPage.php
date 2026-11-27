@@ -30,7 +30,8 @@ use Kalaka\Foundation\Api\Error\PermissionDenied;
  */
 final class GridPage
 {
-    private const SLUG = 'kalaka-event-%d-registrations';
+    /** The page slug; the event's other screens hang under it as submenus. */
+    public const SLUG = 'kalaka-event-%d-registrations';
     private const HANDLE = 'kalaka-admin-grid';
     private const PER_PAGE = [25, 50, 100, 500];
 
