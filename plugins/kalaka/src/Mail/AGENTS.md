@@ -64,8 +64,9 @@ bodies, the renderer and the per-event action-mail catalogue.
   facts); the three are never conflated. Each one replaces the account's last link.
 - While an event's account mode is not `off`, its "registered" mail must
   read `account.password_link` and cannot be switched off
-  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`) and in
-  `UpdateActionMail`.
+  (`Body\AccountLinkRule`): at the body's save (`Body\BodyCheck`), in
+  `UpdateActionMail`, and, for a change of the event's account mode to one with
+  accounts, in `AccountLinkRule::modeProblem()` (read through `Api\AccountMail`).
 - `MailComposer::recipient()` returns `null` for a registration without a
   contact email (failed as `invalid_address`) and throws only
   `RecipientUnavailable` when the address cannot be determined (no
