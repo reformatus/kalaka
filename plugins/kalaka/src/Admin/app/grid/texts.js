@@ -49,7 +49,7 @@ export const SUM_AVERAGE = 'Átlag: %s';
 
 /**
  * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
- * owner ticks its box: [UNAPPROVED T6] the panel.
+ * owner ticks its box: [UNAPPROVED T6 reboxed: the tab names are Adatok, Kérelmek, Pénzügyek, of which this branch has Pénzügyek] the panel.
  */
 export const PANEL = {
 	panel: 'Jelentkező részletei',
@@ -75,7 +75,7 @@ export const PANEL = {
  * actions. The title field's label and hint and the „completed immediately” checkboxes with their help are #209's
  * lektor-approved texts, built verbatim by #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Approved by the
  * owner: the title's empty-field message, the snackbars of a saved pair, the pair's save button, the empty list,
- * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages, [UNAPPROVED T13] the
+ * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages (without the correction's reason message, which is gone), [UNAPPROVED T13] the
  * screen-reader text; „0 Ft” is [UNAPPROVED T5].
  */
 export const MONEY = {
@@ -157,6 +157,5 @@ export const MONEY = {
 	dateFuture: 'A dátum nem lehet jövőbeli.',
 	methodEmpty: 'Válassz fizetési módot.',
 	payerEmpty: 'Válassz fizetőt.',
-	noteRequired: 'Add meg az indoklást.',
 	saveFail: 'A mentés nem sikerült. Próbáld újra.',
 };

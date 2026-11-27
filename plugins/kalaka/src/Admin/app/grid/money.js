@@ -290,7 +290,7 @@ export function today( zone, now = new Date() ) {
  * The recording dialog's checks, the server's rules ahead of the request: an object of messages by field
  * (`payer`, `type`, `direction`, `amount`, `title`, `value_date`, `method`, `note`), empty when the entry may be
  * sent. The „Tétel rögzítése” dialog has a type (`kind`: `payment`, `refund`, `charge` or `discount`, empty until
- * picked); the correction a direction and a required reason, no method and no date. A payment and a refund
+ * picked); the correction a direction and an optional reason, no method and no date. A payment and a refund
  * have a method and a date and an optional note; a charge and a discount a required title (the participant sees
  * it) and no method or date, unless they are saved „completed immediately”, which adds the paid-side line's
  * method and date.
@@ -321,9 +321,7 @@ export function validateEntry( entry, day ) {
 		errors.amount = MONEY.amountBad;
 	}
 	if ( correction ) {
-		if ( String( entry.note ).trim() === '' ) {
-			errors.note = MONEY.noteRequired;
-		}
+		// The reason is never required (owner 2026-11-26); the server keeps its 500-character limit. [UNAPPROVED N1204]
 		return errors;
 	}
 	if ( owedSide ) {

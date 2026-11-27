@@ -2,7 +2,10 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N4] [UNAPPROVED N12] [UNAPPROVED N1200]
+ * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N1200]
+ * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
+ * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
+ * (N1201). T3 struck: the disabled „Hamarosan…” tab is gone.
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
