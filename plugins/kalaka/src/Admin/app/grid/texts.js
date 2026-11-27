@@ -196,8 +196,9 @@ export const CONFIRM = {
  * answer dialog. The words are the owner's topic-12 words (kérelem, válasz, megválaszol). Every string here is
  * unapproved until the owner ticks its box: [UNAPPROVED T3] the heading, [UNAPPROVED T4] „Válaszra vár”,
  * [UNAPPROVED T5] the states „Jóváhagyva” and „Elutasítva”, [UNAPPROVED T6] the award line, [UNAPPROVED T7] the
- * buttons, [UNAPPROVED T8] the dialog's title and fields, [UNAPPROVED T9] the snackbar, [UNAPPROVED T10] the full-offer
- * warning, [UNAPPROVED T11] the missing award. The amount field says Ft whatever the currency (T8).
+ * buttons, [UNAPPROVED T8] the dialog's title, fields, the aid figures and the cap's line, [UNAPPROVED T9] the
+ * snackbar, [UNAPPROVED T10] the full-offer warning, [UNAPPROVED T11] the missing award. The amount field says Ft
+ * whatever the currency (T8).
  */
 export const REQUESTS = {
 	heading: 'Kérelmek',
@@ -213,6 +214,16 @@ export const REQUESTS = {
 	yes: 'Igen',
 	no: 'Nem',
 	amountField: 'Megítélt összeg (Ft)',
+	// The aid figures the answer dialog shows (owner 2026-11-27, walkthrough 6.8); the dialog's text box, T8,
+	// names them. [UNAPPROVED T8]
+	figures: {
+		full_price: 'Fizetendő összeg',
+		can_pay: 'Amit be tud fizetni',
+		asked: 'Kért támogatás',
+		max_award: 'Legfeljebb megítélhető',
+	},
+	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
+	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.', // [UNAPPROVED T1131]
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
 	// [UNAPPROVED T10]

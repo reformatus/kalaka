@@ -1037,7 +1037,12 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ],
         ];
         self::assertSame($expected, $read($this->admin->userId)['requests']);
-        self::assertSame($expected, $read($partner)['requests']);
+        // The partner holds the answer action but no money view: the requests come without a figure — no
+        // `amount` on an item and no `aid` context on the aid one ([UNAPPROVED N1134]).
+        $blind = $expected;
+        $blind['items'][1]['amount'] = null;
+        unset($blind['items'][1]['aid']);
+        self::assertSame($blind, $read($partner)['requests']);
         self::assertTrue($read($partner)['can']['answer_request']);
         $without = $read($viewer);
         self::assertArrayNotHasKey('requests', $without);
@@ -1065,10 +1070,18 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
         $seats->full = true;
         $items = $read($partner, $seats)['requests']['items'];
         self::assertSame(['refused', 'approved'], array_column($items, 'state'));
-        self::assertSame([null, '9000.00000000'], array_column($items, 'amount'));
+        // The award is a money figure: the partner reads the states and the seat warning, never the amount.
+        self::assertSame([null, null], array_column($items, 'amount'));
         self::assertSame(['2026-12-04T09:00:00Z', '2026-12-04T09:00:00Z'], array_column($items, 'answered_at'));
         self::assertSame([true, false], array_column($items, 'seat_full'));
         self::assertSame([false, false], array_column($read($partner)['requests']['items'], 'seat_full'));
+        // A holder with the money view reads the award.
+        $money = $this->plainUser();
+        $this->grant($money, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
+        self::assertSame(
+            [null, '9000.00000000'],
+            array_column($read($money, $seats)['requests']['items'], 'amount')
+        );
     }
 
     public function testTheAidItemCarriesTheFullPriceWhatTheyCanPayAndTheAidAskedNothingOnAnOffer(): void
@@ -1102,12 +1115,18 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
             ],
             $items(30000)[1]['aid']
         );
-        // A holder of the answer action without money view reads the same amounts (as the item's `amount`).
+        // A holder of the answer action without the money fields reads the request with no aid context at all
+        // ([UNAPPROVED N1134]); with the money view they read the same figures as full access does.
         $partner = $this->plainUser();
         $this->grant($partner, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER]);
         $asPartner = $read(30000)->of(new UserActor($partner), $this->event, '00A0');
         self::assertFalse($asPartner['can']['view_money']);
-        self::assertSame('12000.00000000', $asPartner['requests']['items'][1]['aid']['asked']);
+        self::assertArrayNotHasKey('aid', $asPartner['requests']['items'][1]);
+        $seeing = $this->plainUser();
+        $this->grant($seeing, [], [['column' => 'code', 'write' => false]], [Requests::ANSWER, 'kalaka_view_money']);
+        $asSeeing = $read(30000)->of(new UserActor($seeing), $this->event, '00A0');
+        self::assertTrue($asSeeing['can']['view_money']);
+        self::assertSame('12000.00000000', $asSeeing['requests']['items'][1]['aid']['asked']);
         // They can pay more than the price: nothing asked, never below zero.
         self::assertSame(
             [

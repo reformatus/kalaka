@@ -41,7 +41,7 @@ use Kalaka\Registrations\Api\Requests;
  * list, and the money block only to a holder of a money action of a grant whose view holds the registration.
  * The manual confirmation flag shows behind the same gate as the money. The requests (and whether they are
  * answered) show only to a holder of the answer action of a grant whose view holds the registration.
- * [UNAPPROVED Access] [UNAPPROVED N11] [UNAPPROVED N6]
+ * [UNAPPROVED Access] [UNAPPROVED N11]
  */
 final class RegistrationDetail
 {
@@ -138,7 +138,7 @@ final class RegistrationDetail
         }
         $answer = $carried(Requests::ANSWER);
         if ($answer) {
-            $read['requests'] = $this->requestsPart($key, $event->currency->value);
+            $read['requests'] = $this->requestsPart($key, $event->currency->value, $viewMoney);
         }
         $read['can'] = [
             'answer_request' => $answer,
@@ -236,9 +236,14 @@ final class RegistrationDetail
      * No hold is read: awaiting is
      * computed.
      *
+     * The money figures — the item's `amount` and an aid item's `aid` — follow the read's money gate (owner
+     * 2026-11-27, the access sweep): a holder of the answer action whose view and grant give no money fields reads
+     * the requests without them, so no figure reaches a holder the view/grant does not give the money fields.
+     * [UNAPPROVED N1134]
+     *
      * @return array{currency: string, items: list<array<string, mixed>>}
      */
-    private function requestsPart(RegistrationKey $key, string $currency): array
+    private function requestsPart(RegistrationKey $key, string $currency, bool $viewMoney): array
     {
         $items = [];
         foreach ($this->requests->states($key) as $state) {
@@ -249,12 +254,12 @@ final class RegistrationDetail
                 'kind' => $state->request->kind->value,
                 'label' => $state->request->label,
                 'state' => $state->awaits() ? 'awaiting' : ($answer?->approved === true ? 'approved' : 'refused'),
-                'amount' => $answer?->amount?->amount(),
+                'amount' => $viewMoney ? $answer?->amount?->amount() : null,
                 'answered_at' => $answer === null ? null : self::instant($answer->answeredAt),
                 'seat_full' => $state->request->kind === RequestKind::Offer && $answer !== null && !$answer->approved
                     && $pool !== null && $this->seats->isFull($key, $pool),
             ];
-            if ($state->request->kind === RequestKind::Aid) {
+            if ($state->request->kind === RequestKind::Aid && $viewMoney) {
                 $item['aid'] = $this->aidTerms($key, $state);
             }
             $items[] = $item;
@@ -268,10 +273,11 @@ final class RegistrationDetail
      * before the aid), `can_pay` (what they stated, null when none) and `asked` (the difference, never below
      * zero) and `max_award` (the most an award can be: the full price today, named apart so the rule can change),
      * money amounts as text in the read's currency, formatted as the item's `amount`; the dialog computes nothing:
-     * it hints `asked` and warns above `max_award`, which the act refuses. The part is shown to every holder of
-     * the answer action, as the item's `amount` is: answering sets a money amount. Null when the source gives no
-     * terms or a fee component fails.
-     * [UNAPPROVED N1131]
+     * it hints `asked` and warns above `max_award`, which the act refuses. The part follows the read's money gate,
+     * as the item's `amount` does (`requestsPart()`): answering sets a money amount, but the figures are only for a
+     * holder whose view/grant gives the money fields. Null when the source gives no terms or a fee component
+     * fails.
+     *
      *
      * @return ?array{full_price: string, can_pay: ?string, asked: ?string, max_award: string}
      */
