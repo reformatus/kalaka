@@ -213,6 +213,15 @@ export const REQUESTS = {
 	yes: 'Igen',
 	no: 'Nem',
 	amountField: 'Megítélt összeg (Ft)',
+	// [UNAPPROVED T1134] the aid figures the answer dialog shows (owner 2026-11-27, walkthrough 6.8).
+	figures: {
+		full_price: 'Fizetendő összeg',
+		can_pay: 'Amit be tud fizetni',
+		asked: 'Kért támogatás',
+		max_award: 'Legfeljebb megítélhető',
+	},
+	// The cap's line, the act's own approved sentence (T1131).
+	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.', // [UNAPPROVED T1131]
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
 	// [UNAPPROVED T10]
