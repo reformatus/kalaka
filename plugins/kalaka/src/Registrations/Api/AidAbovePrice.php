@@ -15,7 +15,7 @@ final class AidAbovePrice extends RuleViolation
 {
     protected function defaultMessage(): string
     {
-        return 'A megadott támogatás több, mint a fizetendő összeg.'; // [UNAPPROVED T1131]
+        return 'A támogatás nem lehet több a fizetendő összegnél.'; // [UNAPPROVED T1131]
     }
 
     public function errorCode(): string

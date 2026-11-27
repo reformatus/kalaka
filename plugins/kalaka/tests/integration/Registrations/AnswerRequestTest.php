@@ -432,7 +432,7 @@ final class AnswerRequestTest extends ManualEntryTestCase
         } catch (AidAbovePrice $e) {
             self::assertSame('kalaka_aid_over_price', $e->errorCode());
             self::assertInstanceOf(RuleViolation::class, $e);
-            self::assertSame('A megadott támogatás több, mint a fizetendő összeg.', $e->publicMessage());
+            self::assertSame('A támogatás nem lehet több a fizetendő összegnél.', $e->publicMessage());
         }
         self::assertSame([], $this->answerRows(), 'nothing is written');
         self::assertNull($this->value('aid_award'));

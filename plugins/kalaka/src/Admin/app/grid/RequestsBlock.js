@@ -91,6 +91,7 @@ export default function RequestsBlock( { config, code, detail, stale, reload, on
 				<AnswerDialog
 					config={ config }
 					code={ code }
+					currency={ detail.requests.currency }
 					item={ open }
 					onClose={ () => {
 						setOpen( null );

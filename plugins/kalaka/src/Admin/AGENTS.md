@@ -81,11 +81,13 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   never decides access: what it shows and which actions it offers come from
   the read (its `can` included), and the server decides every call.
 - The detail read carries the registration's `requests` (with their latest answers and, for a refused offer, whether
-  its pool is full; for an aid request also `aid: {full_price, can_pay, asked, max_award}`, the money context from the
-  request source's `terms()`, shown to every holder of the answer action as the item's `amount` is) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
+  its pool is full) only to a holder of `kalaka_answer_request` on a view that holds the registration, or full
   access; `can.answer_request` says so, and is true only while the registration is `registered` (the grid
   column's meaning: nothing awaits on a waitlisted, withdrawn or removed one). An unanswered request on such a
-  registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The answer act is `kalaka/answer-request` (Registrations); the panel's
+  registration reads `inactive`, not `awaiting`; its answered ones keep their answers. The requests' money figures —
+  an item's `amount` and, for an aid request, `aid: {full_price, can_pay, asked, max_award}` from the request
+  source's `terms()` — follow the read's money gate (`can.view_money`), so a holder whose view/grant gives no money
+  fields reads the requests without them. The answer act is `kalaka/answer-request` (Registrations); the panel's
   block of requests only calls it.
 - "Awaits an answer" is a core-derived grid column, `awaits_answer`, like `status` and `serial`: a view lists it or
   not, any view may (it tells that something awaits, not what), and it filters (yes or no, no „Nincs válasz”),
