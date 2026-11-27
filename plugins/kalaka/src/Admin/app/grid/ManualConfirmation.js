@@ -21,7 +21,7 @@ import { CONFIRM, PANEL } from './texts';
 /** How long the success snackbar stays, as the „Pénzügyek” tab's. */
 const SNACKBAR_MS = 5000;
 
-/** The moment on one line: its spaces do not break. [UNAPPROVED N36] */
+/** The moment on one line: its spaces do not break. */
 const moment = ( instant, zone ) =>
 	formatMoment( instant, zone ).replace( / /g, ' ' );
 

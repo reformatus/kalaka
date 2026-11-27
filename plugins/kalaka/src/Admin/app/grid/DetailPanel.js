@@ -11,7 +11,7 @@
  * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
  * N30 reboxed: the state is no longer shown next to the status. When the re-read after a save fails twice, the
  * state and what hangs under it are not shown (the old ones would look current); the load-error message says so.
- * [UNAPPROVED N30] [UNAPPROVED N37]
+ * [UNAPPROVED N30]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';

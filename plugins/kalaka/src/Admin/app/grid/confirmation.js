@@ -11,7 +11,7 @@ export const REASON_MAX = 500;
  * The dialog's one check, on the text that is sent (trimmed): at most 500 characters (counted as the server counts
  * them, by character, not by UTF-16 unit); a message, or an empty string when it may be sent. The reason is never
  * required ([UNAPPROVED N1222], owner 2026-11-26). The field itself has no length limit: its own `maxLength` would
- * count UTF-16 units, not characters. [UNAPPROVED N73] [UNAPPROVED T45]
+ * count UTF-16 units, not characters.
  */
 export function validateReason( reason ) {
 	const text = String( reason ).trim();

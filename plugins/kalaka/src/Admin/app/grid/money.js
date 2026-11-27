@@ -281,7 +281,7 @@ export function formatDay( instant, zone ) {
 
 /**
  * An instant's day and time in the site time zone as `2026. 12. 05. 14:30` (the time of the manual
- * confirmation, S20); empty for no instant. [UNAPPROVED N31]
+ * confirmation, S20); empty for no instant.
  */
 export function formatMoment( instant, zone ) {
 	if ( ! instant ) {

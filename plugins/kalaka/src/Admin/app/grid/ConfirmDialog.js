@@ -1,7 +1,7 @@
 /**
  * The manual confirmation dialog (S20): the optional reason, for setting the flag or revoking it
  * (`kalaka/set-manual-confirmation`, `kalaka/unconfirm`). The reason field has no length limit of its own (the check
- * on submit counts characters, as the server does). [UNAPPROVED N73] A failed save keeps the dialog and the reason, and
+ * on submit counts characters, as the server does). A failed save keeps the dialog and the reason, and
  * while it runs the dialog does not close (Esc, ×, Mégse) and a second submit is ignored: an unconfirm is a new
  * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74 reboxed: the unconfirm gets a retry key on the server
  * (Backend's work); #213's unconfirm input takes none yet, so this guard stays and nothing is sent from here]
