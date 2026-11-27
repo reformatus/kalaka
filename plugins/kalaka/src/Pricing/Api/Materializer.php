@@ -20,7 +20,8 @@ use Kalaka\Registrations\Api\Registrations;
 /**
  * The money phase of the evaluation (money.md, "Materializer"; foundation.md, "Evaluation"): composes the
  * fee from the current settings and the registration's facts, and writes, per component and payer, what it
- * owes minus what is recorded as one `charge` line. It converges: a second run writes nothing. Lines of
+ * owes minus what is recorded as one `charge` line (per item too, for a component that owes per item: each
+ * manual charge or discount is its own line). It converges: a second run writes nothing. Lines of
  * components not registered now are left alone. The run holds the registration's row lock.
  */
 final class Materializer
@@ -46,18 +47,29 @@ final class Materializer
         if ($event === null) {
             return;
         }
-        $facts = $this->registrations->factsOf($key, $event);
+        $facts = $this->registrations->factsOf($key, $event, $context->now());
         if ($facts === null) {
             return;
         }
 
-        $owed = $this->composer->compose($facts, $event->currency, $context->now(), $this->components->list());
+        $components = $this->components->list();
+        $owed = $this->composer->compose($facts, $event->currency, $context->now(), $components);
 
         /** @var array<string, array<string, ChargeTotal>> $recorded */
         $recorded = [];
         foreach ($this->ledger->chargeTotalsOf($key) as $total) {
             if ($total->source->type === self::SOURCE && $total->source->eventId === null) {
                 $recorded[$total->source->key][$total->payer] = $total;
+            }
+        }
+
+        // A line of a registered component that the composition no longer names (a withdrawal, a removed item)
+        // owes zero now, so it is reversed. A source key is `<component>` or `<component>:<item>`; lines of a
+        // component not registered now are left alone.
+        $ids = array_map(static fn (FeeComponent $component): string => $component->id(), $components);
+        foreach (array_keys($recorded) as $sourceKey) {
+            if (!isset($owed[$sourceKey]) && in_array(explode(':', (string) $sourceKey, 2)[0], $ids, true)) {
+                $owed[$sourceKey] = [];
             }
         }
 

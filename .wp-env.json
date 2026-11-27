@@ -8,6 +8,7 @@
 		"./plugins/kalaka-divi4",
 		"./plugins/kalaka-ranking",
 		"./plugins/kalaka-woocommerce",
+		"./plugins/kalaka-price-ladder",
 		"./plugins/kalaka-deposits"
 	],
 	"mappings": {

@@ -23,7 +23,8 @@ use Kalaka\Foundation\Api\UseCase\Context;
  *   kept (owner ruling 2026-11-13, B3(a)), and one held again is active again;
  * - a `form` field no form holds any more is retired. Its key is never derived again (`FieldKeys`).
  *
- * `staff`, `extension` and `system` fields are not retired here, and neither are their options.
+ * `staff`, `extension` and `system` fields are not retired here, and neither are their options; an
+ * `extension` field's options are not in the union either, since they are its declarer's.
  * Site-level: forms are edited by full access only.
  */
 final class DeclareParticipantFields implements AdminUseCase
@@ -65,6 +66,9 @@ final class DeclareParticipantFields implements AdminUseCase
                                 ],
                             ],
                             'latest' => ['type' => 'boolean'],
+                            // A type's own settings: open, because each type validates them at the form
+                            // definition; ParticipantFields only keeps them.
+                            'settings' => ['type' => ['object', 'null']],
                         ],
                         'required' => ['key', 'type', 'title', 'options', 'latest'],
                         'additionalProperties' => false,
@@ -108,7 +112,7 @@ final class DeclareParticipantFields implements AdminUseCase
 
         $held = [];
         $skipped = [];
-        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool}> $fields */
+        /** @var list<array{key: string, type: string, title: string, options: ?list<array{value: string, label: string}>, latest: bool, settings?: ?array<string, mixed>}> $fields */
         $fields = $input['fields'];
         foreach ($fields as $field) {
             $key = $field['key'];
@@ -126,6 +130,9 @@ final class DeclareParticipantFields implements AdminUseCase
                     $now,
                     $now,
                     ++$position,
+                    false,
+                    0,
+                    self::settings($field['settings'] ?? null),
                 ), $context);
                 continue;
             }
@@ -139,12 +146,17 @@ final class DeclareParticipantFields implements AdminUseCase
             $record->retiredAt = null;
             // The title is the participant field's own: set when it is declared, changed only by
             // `RenameParticipantField` (owner ruling 2026-11-13).
-            $record->options = self::merged(
-                $record->options,
-                $field['options'],
-                $record->source === ParticipantFieldRecord::SOURCE_FORM,
-                $now,
-            );
+            $record->settings = self::settings($field['settings'] ?? null);
+            // An extension field's options are its declarer's: a form offers a subset of them, never adds one
+            // (`SharedKeyCheck`'s `extension_option`).
+            if ($record->source !== ParticipantFieldRecord::SOURCE_EXTENSION) {
+                $record->options = self::merged(
+                    $record->options,
+                    $field['options'],
+                    $record->source === ParticipantFieldRecord::SOURCE_FORM,
+                    $now,
+                );
+            }
             $this->save($record, $before, $now, $context);
         }
 
@@ -177,6 +189,17 @@ final class DeclareParticipantFields implements AdminUseCase
         }
         $record->updatedAt = $now;
         $this->repository->upsert($record, $context);
+    }
+
+    /**
+     * The type's settings as stored: an empty or null object is none.
+     *
+     * @param mixed $settings
+     * @return ?array<string, mixed>
+     */
+    private static function settings(mixed $settings): ?array
+    {
+        return is_array($settings) && $settings !== [] ? $settings : null;
     }
 
     /**

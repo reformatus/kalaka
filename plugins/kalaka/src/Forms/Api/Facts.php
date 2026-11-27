@@ -19,6 +19,14 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
  */
 interface Facts
 {
+    /**
+     * The key a date reference to "now" reads (`{"ref": "now"}`): the evaluation's clock time, to the second, in
+     * the site's time zone (a datetime), put into the fact source by whoever builds it (`EventValues::now()`). The
+     * value side of a comparison may only use the reference: a `key` naming it there is refused. The left side may
+     * name it, as a datetime.
+     */
+    public const NOW = 'time.now';
+
     /** @throws SystemFailure when the key is not declared (problem `unknown_value_key`) */
     public function get(string $key): Value;
 }
