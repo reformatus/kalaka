@@ -42,10 +42,10 @@ final class ManualMailCommand
      *
      * Queues the body (a published `kalaka_mail` post of the event, an action mail's included) for each
      * registration code, as one send batch. The sender sends it later, under the pause and the throttle, and a
-     * mail of an unpublished event waits until it is published. A withdrawn or removed registration is
-     * skipped and listed; a code that is no registration of the event refuses the whole send. Shows what it
-     * would do and asks first (`--yes` skips); `--dry-run` only shows. A rerun with the same `--key` queues
-     * nothing and names the first batch; without a key every run is a new batch, a second copy. With `--user`
+     * mail of an unpublished event waits until it is published. A registration that is not registered
+     * (withdrawn, removed or waitlisted) is skipped and listed; a code that is no registration of the event
+     * refuses the whole send. Shows what it would do and asks first (`--yes` skips); `--dry-run` only shows. A
+     * rerun with the same `--key` queues nothing and names the first batch; without a key every run is a new batch, a second copy. With `--user`
      * the user's grants must hold every code.
      *
      * ## OPTIONS
@@ -61,9 +61,6 @@ final class ManualMailCommand
      *
      * [--codes-file=<path>]
      * : A file of codes, one per line or comma-separated (the code column of the grid's copy).
-     *
-     * [--no-layout]
-     * : Send without the event's layout.
      *
      * [--key=<token>]
      * : The repeat guard: 8 to 64 letters, digits, dashes and underscores.
@@ -86,9 +83,6 @@ final class ManualMailCommand
                 'body_id' => self::body($assocArgs),
                 'codes' => self::codes($assocArgs, $eventId),
             ];
-            if (($assocArgs['layout'] ?? true) === false) {
-                $input['layout'] = false;
-            }
             if (isset($assocArgs['key'])) {
                 $input['request_key'] = (string) $assocArgs['key'];
             }
@@ -102,7 +96,8 @@ final class ManualMailCommand
                 $preview['skipped']
             );
             \WP_CLI::line(
-                count($preview['queue']) . ' to queue, ' . count($preview['skipped']) . ' skipped (withdrawn/removed)'
+                count($preview['queue']) . ' to queue, ' . count($preview['skipped'])
+                . ' skipped (withdrawn/removed/waitlisted)'
                 . ($skipped === [] ? '' : ': ' . implode(', ', $skipped))
                 . ', unknown: ' . ($preview['unknown'] === [] ? 'none' : implode(', ', $preview['unknown']))
             );
