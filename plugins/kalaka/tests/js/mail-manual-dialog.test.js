@@ -347,8 +347,8 @@ describe( 'bodies with one subject', () => {
 		await render();
 		expect( Array.from( select().options ).map( ( o ) => o.textContent ) ).toEqual( [
 			MANUAL.pick,
-			'Közlemény (20. számú levélsablon)',
-			'Közlemény (22. számú levélsablon)',
+			'Közlemény (20. levélsablon)',
+			'Közlemény (22. levélsablon)',
 			'Más',
 		] );
 	} );
