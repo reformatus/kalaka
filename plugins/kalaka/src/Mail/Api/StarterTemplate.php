@@ -30,8 +30,8 @@ final class StarterTemplate
 
 <!-- wp:paragraph -->
 <p>Megkaptuk a jelentkezésedet erre az eseményre:
-<span data-kalaka-value="event.name">esemény</span>. A jelentkezésed azonosítója:
-<strong><span data-kalaka-value="registration.code">azonosító</span></strong>.</p>
+<span data-kalaka-value="event.name">esemény</span>. A jelentkezési kódod:
+<strong><span data-kalaka-value="registration.code">kód</span></strong>.</p>
 <!-- /wp:paragraph -->
 
 <!-- wp:paragraph -->
