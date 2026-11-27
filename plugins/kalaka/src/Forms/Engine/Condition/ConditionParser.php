@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kalaka\Forms\Engine\Condition;
 
+use Kalaka\Forms\Api\Facts;
 use Kalaka\Forms\Api\Value;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Foundation\Api\Error\SystemFailure;
@@ -70,8 +71,11 @@ final class ConditionParser
             self::fail();
         }
 
-        $type = $scope->typeOf($key);
-        if (!$operator->isAllowedFor($type) || ($operator === Operator::Equals && $scope->isPath($key))) {
+        // `time.now` as the left key: the moment itself, a datetime in every scope (a dotted fact
+        // key, so no field can be named like it); a value-side reference to it stays `{"ref": "now"}`.
+        $moment = $key === Facts::NOW;
+        $type = $moment ? ValueType::Datetime : $scope->typeOf($key);
+        if (!$operator->isAllowedFor($type) || ($operator === Operator::Equals && !$moment && $scope->isPath($key))) {
             self::fail($key);
         }
         if ($operator === Operator::Empty) {
@@ -83,7 +87,7 @@ final class ConditionParser
         }
 
         $value = $data['value'] ?? null;
-        if ($type === ValueType::Date && $this->isObject($value)) {
+        if (($type === ValueType::Date || $type === ValueType::Datetime) && $this->isObject($value)) {
             return new Comparison($key, $operator, null, $not, $this->reference($value, $scope, $key));
         }
         if (!is_string($value) || !$this->isWellFormed($type, $value)) {
@@ -98,7 +102,10 @@ final class ConditionParser
     }
 
     /**
-     * A date reference: `{"key", "years", "days"}`, the key a date the scope allows, the moves whole
+     * A date reference: `{"key", "years", "days"}`, the key a date or datetime the scope allows, or
+     * `{"ref": "now", "years",
+     * "days"}` (no key: the evaluation's moment, `Facts::NOW`; a `key` naming `Facts::NOW` itself is refused), the
+     * moves whole
      * numbers (both optional) of at most `DateReference::MAX_YEARS` years and `MAX_DAYS` days either way.
      * Decision N3 (#156): the stored shape of a date reference in a comparison.
      *
@@ -107,19 +114,24 @@ final class ConditionParser
      */
     private function reference(array $data, ConditionScope $scope, string $key): DateReference
     {
-        if (array_diff(array_keys($data), ['key', 'years', 'days']) !== []) {
+        $now = array_key_exists('ref', $data);
+        if (array_diff(array_keys($data), [$now ? 'ref' : 'key', 'years', 'days']) !== []) {
             self::fail($key);
         }
-        $reference = $data['key'] ?? null;
+        $reference = $now ? $data['ref'] : ($data['key'] ?? null);
         $years = $data['years'] ?? 0;
         $days = $data['days'] ?? 0;
-        if (!is_string($reference) || !is_int($years) || !is_int($days)) {
+        if (!is_string($reference) || !is_int($years) || !is_int($days) || ($now && $reference !== 'now')) {
             self::fail($key);
         }
         if (abs($years) > DateReference::MAX_YEARS || abs($days) > DateReference::MAX_DAYS) {
             self::fail($key);
         }
-        if ($scope->typeOf($reference) !== ValueType::Date) {
+        if ($now) {
+            return DateReference::now($years, $days);
+        }
+        $referenced = $reference === Facts::NOW ? null : $scope->typeOf($reference);
+        if ($referenced !== ValueType::Date && $referenced !== ValueType::Datetime) {
             self::fail($key);
         }
 
@@ -137,7 +149,9 @@ final class ConditionParser
         try {
             match ($type) {
                 ValueType::Number => Value::number($value, ''),
-                ValueType::Date => Value::date($value, ''),
+                ValueType::Date, ValueType::Datetime => strlen($value) === 10
+                    ? Value::date($value, '')
+                    : Value::datetime($value, ''),
                 ValueType::Text => null,
                 ValueType::Choice => $value !== '' ? null : throw new \InvalidArgumentException(),
             };

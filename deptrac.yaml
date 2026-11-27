@@ -215,6 +215,10 @@ deptrac:
       collectors:
         - type: classLike
           value: '^(WP_|wpdb$)'
+    - name: WooCommerce classes
+      collectors:
+        - type: classLike
+          value: '^(WC_|Automattic\\WooCommerce\\)'
   ruleset:
     Foundation:
       - WordPress
@@ -502,6 +506,7 @@ deptrac:
       - View query
     WooCommerce:
       - WordPress
+      - WooCommerce classes
       - WooCommerce Api
       - Foundation Api
       - Foundation Api Money

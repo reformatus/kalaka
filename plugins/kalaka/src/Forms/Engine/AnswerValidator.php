@@ -9,7 +9,6 @@ use Kalaka\Forms\Api\FormDefinition;
 use Kalaka\Forms\Api\FormTerminal;
 use Kalaka\Forms\Api\InvalidAnswers;
 use Kalaka\Forms\Api\ValidatedAnswers;
-use Kalaka\Forms\Api\ValueContext;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
@@ -28,7 +27,7 @@ final class AnswerValidator
 
     /**
      * @param array<array-key, mixed> $answers field key → the answer as sent
-     * @param Facts|null $facts the facts besides the answers (the event's keys); none when null
+     * @param Facts $facts the facts besides the answers (the event's keys and `now`)
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws FormTerminal a terminal page shows for the answers (MP-6)
      * @throws InvalidAnswers missing or wrong answers, all fields at once
@@ -38,9 +37,9 @@ final class AnswerValidator
         FormDefinition $definition,
         array $answers,
         Contributions $contributions,
-        ?Facts $facts = null
+        Facts $facts
     ): ValidatedAnswers {
-        $result = $this->walk->run($definition, $answers, $facts ?? new ValueContext(), $contributions);
+        $result = $this->walk->run($definition, $answers, $facts, $contributions);
         foreach ($definition->pages as $page) {
             // MP-6: a shown terminal page: the person could not have reached Küldés.
             if ($page->terminal && ($result->pages[$page->index] ?? false)) {

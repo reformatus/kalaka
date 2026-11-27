@@ -118,10 +118,12 @@ final class RegistrationSubmit
             $loggedIn = $form->placement === FormPlacement::Additional || $event->accountMode === AccountMode::Off
                 ? null
                 : $actor instanceof AccountActor;
+            // One moment for the attempt's form facts and its after-submit section (`time.now`).
+            $now = $runner->clock()->now();
             $answers = $this->forms->validate(
                 $definition,
                 $request->answers,
-                new ValueContext(EventValues::form($event, $loggedIn))
+                new ValueContext(EventValues::form($event, $loggedIn, $now))
             );
             $target = $request->target;
             $fieldTypes = self::fieldTypes($definition);
@@ -178,7 +180,7 @@ final class RegistrationSubmit
             }
 
             // After the transaction: the after-submit content reads the form's post.
-            return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result));
+            return $result->withAfterSubmit($this->afterSubmit($form, $definition->version, $event, $result, $now));
         }
     }
 
@@ -236,17 +238,23 @@ final class RegistrationSubmit
      * one, N13), or the status's default text when there is none. The registration is committed by now,
      * so a section that fails to render is logged and the default shows instead of an error.
      */
-    private function afterSubmit(Form $form, int $version, Event $event, SubmitResult $result): string
-    {
+    private function afterSubmit(
+        Form $form,
+        int $version,
+        Event $event,
+        SubmitResult $result,
+        \DateTimeImmutable $now
+    ): string {
         $html = null;
         Boundary::background('after-submit section of form ' . $form->id, function () use (
             &$html,
             $form,
             $version,
             $event,
-            $result
+            $result,
+            $now
         ): void {
-            $context = AfterSubmit::context($event, $result->registration->code, $result->status->value);
+            $context = AfterSubmit::context($event, $result->registration->code, $result->status->value, $now);
             $html = $this->forms->afterSubmit($form, $version, $context);
         });
         if (is_string($html)) {

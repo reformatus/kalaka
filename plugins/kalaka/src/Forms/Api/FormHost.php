@@ -29,10 +29,11 @@ interface FormHost
     public function factTypes(Form $form): array;
 
     /**
-     * The values of `factTypes()` for the form; null when what the form belongs to is gone (the form's
-     * page then shows it unavailable, and its routes answer `NotFound`).
+     * The values of `factTypes()` for the form, as of `$now` (the request's moment, the one the page's refusals
+     * read); null when what the form belongs to is gone (the form's page then shows it unavailable, and its
+     * routes answer `NotFound`).
      */
-    public function facts(Form $form): ?ValueContext;
+    public function facts(Form $form, \DateTimeImmutable $now): ?ValueContext;
 
     /**
      * What keeps the form from being used now, in the order the page shows them (the first one). It reads the

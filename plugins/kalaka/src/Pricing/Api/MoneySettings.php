@@ -61,7 +61,7 @@ final class MoneySettings
 
         $rows = [];
         foreach ($this->registrations->openOf($eventId) as $key) {
-            $facts = $this->registrations->factsOf($key, $event);
+            $facts = $this->registrations->factsOf($key, $event, $now);
             if ($facts === null) {
                 continue;
             }

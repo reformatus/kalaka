@@ -47,7 +47,7 @@ final class Materializer
         if ($event === null) {
             return;
         }
-        $facts = $this->registrations->factsOf($key, $event);
+        $facts = $this->registrations->factsOf($key, $event, $context->now());
         if ($facts === null) {
             return;
         }
