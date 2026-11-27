@@ -52,8 +52,8 @@ final class Module extends AbstractModule
         . 'pointer-events:none;user-select:none}'
         . '.et_pb_contact_form .kalaka-number__prefix{left:.75rem}'
         . '.et_pb_contact_form .kalaka-number__suffix{right:2rem}'
-        . '.et_pb_contact_form .kalaka-number input{padding-left:var(--kalaka-number-prefix-room,0);'
-        . 'padding-right:var(--kalaka-number-suffix-room,0)}';
+        . '.et_pb_contact_form .kalaka-number--prefix input{padding-left:var(--kalaka-number-prefix-room,0)}'
+        . '.et_pb_contact_form .kalaka-number--suffix input{padding-right:var(--kalaka-number-suffix-room,0)}';
 
     /**
      * What the variables cannot reach in Divi:
