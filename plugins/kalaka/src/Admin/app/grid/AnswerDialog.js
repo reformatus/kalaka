@@ -1,13 +1,14 @@
 /**
- * The answer dialog (slice B): yes or no for a request, for an aid "yes" the amount awarded, and a note, optional
- * except for a "yes" to an offer (`kalaka/answer-request`). A failed save keeps the dialog and what was typed, and
+ * The answer dialog (slice B): yes or no for a request, for an aid "yes" the amount awarded, and a note, always
+ * labelled „Megjegyzés” (owner 2026-11-27, 6.8: the lektor text accepted, so the „Indoklás” swap for a "yes" to an
+ * offer is gone), never required (`kalaka/answer-request`). A failed save keeps the dialog and what was typed, and
  * while it runs the dialog does not close. A refused "yes" over the limit is not refused: the warning stands above the buttons and
- * the answer may be given. [UNAPPROVED N7]
+ * the answer may be given. [UNAPPROVED N7] [UNAPPROVED N1043]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, Modal, Notice, RadioControl, TextControl, TextareaControl } from '@wordpress/components';
 import * as api from './api';
-import { asksAmount, asksReason, buildAnswer, savedText, validateAnswer, validateNote, warnsFull } from './requests';
+import { asksAmount, buildAnswer, savedText, validateAnswer, validateNote, warnsFull } from './requests';
 import { MONEY, REQUESTS } from './texts';
 
 /**
@@ -121,10 +122,10 @@ export default function AnswerDialog( { config, code, item, onClose, onDone } ) 
 						__nextHasNoMarginBottom
 					/>
 				) }
-				{ /* The label swap („Indoklás” for a yes to an offer, else „Megjegyzés”) is kept as built, though no reason is
-				     required now: an owner hole. [UNAPPROVED N1043] */ }
+				{ /* Always „Megjegyzés”, for every request and every answer: 6.8 accepted the lektor text, so the
+				     „Indoklás” swap goes. [UNAPPROVED N1043] */ }
 				<TextareaControl
-					label={ asksReason( item, answer ) ? MONEY.reasonField : REQUESTS.noteField }
+					label={ REQUESTS.noteField }
 					value={ note }
 					onChange={ setNote }
 					rows={ 3 }

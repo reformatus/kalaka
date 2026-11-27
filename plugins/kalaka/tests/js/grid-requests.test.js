@@ -5,7 +5,6 @@
  */
 import {
 	asksAmount,
-	asksReason,
 	buildAnswer,
 	itemsOf,
 	savedText,
@@ -64,10 +63,7 @@ describe( 'the dialog', () => {
 		expect( validateAnswer( offer, 'yes', '' ) ).toBe( '' );
 	} );
 
-	test( 'names the note a reason for a yes to an offer only, and never requires it', () => {
-		expect( asksReason( offer, 'yes' ) ).toBe( true );
-		expect( asksReason( offer, 'no' ) ).toBe( false );
-		expect( asksReason( aid, 'yes' ) ).toBe( false );
+	test( 'never requires the note, for any answer', () => {
 		expect( validateNote( offer, 'yes', '' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', '   ' ) ).toBe( '' );
 		expect( validateNote( offer, 'yes', 'Telefonon megerősítve' ) ).toBe( '' );

@@ -54,14 +54,9 @@ export function validateAnswer( item, answer, amount ) {
 }
 
 /**
- * A "yes" to an offer is a partner's approval: the dialog's note is then its reason, by name only (release-plan.md,
- * "Support and decisions"); a reason is never required (owner 2026-11-26). [UNAPPROVED N162]
- */
-export const asksReason = ( item, answer ) => item.kind === 'offer' && answer === 'yes';
-
-/**
  * The note's check, on the text that is sent (trimmed): at most 500 characters, counted by character, not by UTF-16 unit, so the field has no
- * `maxLength` of its own (as the confirmation dialog's reason). A message, or an empty string. [UNAPPROVED T257]
+ * `maxLength` of its own (as the confirmation dialog's reason). A message, or an empty string. The note is always
+ * „Megjegyzés” (owner 2026-11-27, 6.8) and is never required. [UNAPPROVED T257]
  */
 export function validateNote( item, answer, note ) {
 	const text = String( note ).trim();
