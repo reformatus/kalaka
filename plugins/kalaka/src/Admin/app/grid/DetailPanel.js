@@ -2,7 +2,7 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N2] [UNAPPROVED N1200]
+ * tab shows only with `can.view_money`. [UNAPPROVED N1200]
  * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
  * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
  * (N1201). T3 struck: the disabled „Hamarosan…” tab is gone.
@@ -79,7 +79,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 	const tabs = [ { name: 'money', title: PANEL.tabMoney } ];
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
-	// its snackbar, so only the load-failure message remains. [UNAPPROVED N24]
+	// its snackbar, so only the load-failure message remains.
 	const showsTabs = !! ( detail && detail.can && detail.can.view_money && detail.money );
 	const stale = !! problem;
 	useEffect( () => {

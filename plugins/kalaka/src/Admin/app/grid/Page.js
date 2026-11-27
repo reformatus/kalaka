@@ -10,7 +10,7 @@
  *
  * S38: a row opens the detail panel (`DetailPanel`) over the grid, from the button in its first identifying cell
  * or a click on the row. The panel is not modal: another row switches it, and the grid's filters, search, sort,
- * page and scroll stay. × or Esc closes it and focus returns to the row. [UNAPPROVED N1] [UNAPPROVED N3]
+ * page and scroll stay. × or Esc closes it and focus returns to the row.
  */
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from '@wordpress/element';
 import { Button, SelectControl, SnackbarList, Tooltip } from '@wordpress/components';
@@ -84,7 +84,7 @@ export default function Page( { config } ) {
 	}
 	const [ , setPickTick ] = useState( 0 );
 	const [ sumsFail, setSumsFail ] = useState( false );
-	// The code of the registration in the panel, or null. [UNAPPROVED N3]
+	// The code of the registration in the panel, or null.
 	const [ open, setOpen ] = useState( null );
 	const openRef = useRef( null );
 	openRef.current = open;
@@ -143,7 +143,7 @@ export default function Page( { config } ) {
 	};
 
 	// S38: the rows open the detail panel. The button sits in the first identifying cell: Kód, else the first
-	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód). [UNAPPROVED N3]
+	// column that is not the Sorszám (the name, when the view lists it, comes right after Kód).
 	const opener = (
 		tab.columns.find( ( c ) => c.type === 'code' ) ||
 		tab.columns.find( ( c ) => c.type !== 'serial' ) ||
@@ -174,7 +174,7 @@ export default function Page( { config } ) {
 				return;
 			}
 			// Esc belongs to the control that has focus (a column menu, the search box); the panel takes it only
-			// from inside itself, from a row button, or when nothing has focus. [UNAPPROVED N3]
+			// from inside itself, from a row button, or when nothing has focus.
 			const active = document.activeElement;
 			if ( active && active !== document.body && ! active.closest( '.kg-panel' ) && ! active.classList.contains( 'kg-open' ) ) {
 				return;
@@ -186,7 +186,7 @@ export default function Page( { config } ) {
 		document.addEventListener( 'keydown', onKey, true );
 		return () => document.removeEventListener( 'keydown', onKey, true );
 	}, [] );
-	// The open row is marked, and every row with a button is clickable. The look is mine. [UNAPPROVED N2]
+	// The open row is marked, and every row with a button is clickable. The look is mine.
 	useLayoutEffect( () => {
 		if ( ! host ) {
 			return;
@@ -209,7 +209,7 @@ export default function Page( { config } ) {
 		}
 	};
 	// After an entry is saved the grid quietly re-reads its page and sums (no loading state, scroll kept); an
-	// answer for a query that is no longer the one on screen is dropped. [UNAPPROVED N21]
+	// answer for a query that is no longer the one on screen is dropped.
 	const queryKey = JSON.stringify( [ tab.key, sort, desc, v.page, v.perPage, narrowKey ] );
 	const queryRef = useRef( queryKey );
 	queryRef.current = queryKey;

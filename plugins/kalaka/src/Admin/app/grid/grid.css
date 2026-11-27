@@ -52,7 +52,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 /* Rows look clickable (owner's walk, topic 6a G2): the hover highlight, and the open row's own colour that the
    hover does not paint over; the repeated class keeps the open colour above the hover by specificity, not by
-   source order. The cell's button keeps its keyboard focus ring and nothing else. [UNAPPROVED N43] */
+   source order. The cell's button keeps its keyboard focus ring and nothing else. */
 #kalaka-grid tbody tr.dataviews-view-table__row:hover > td { background-color: #f6f7f7; }
 #kalaka-grid tbody tr.dataviews-view-table__row.kg-row-open.kg-row-open > td { background-color: #f0f6fc; }
 

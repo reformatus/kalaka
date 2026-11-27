@@ -63,20 +63,20 @@ export const PANEL = {
 	loading: 'Betöltés…',
 	loadFail: 'A részletek betöltése nem sikerült.',
 	notFound: 'A jelentkező nem található.',
-	// A known code outside the holder's views (403). [UNAPPROVED T16]
+	// A known code outside the holder's views (403).
 	noAccess: 'Ehhez a jelentkezőhöz nincs hozzáférésed.',
-	// For screen readers [UNAPPROVED T13]: the row button's name, „<kód> – részletek”.
+	// For screen readers: the row button's name, „<kód> – részletek”.
 	openRow: '%s – részletek',
 };
 
 /**
  * The „Pénzügyek” tab and its two dialogs. Most words are the owner's (topic 10, 2026-11-21) and are built
- * verbatim, approved by the owner: the payer table, the entries and the dialog fields; [UNAPPROVED T9] the
+ * verbatim, approved by the owner: the payer table, the entries and the dialog fields; the
  * actions. The title field's label and hint and the „completed immediately” checkboxes with their help are #209's
  * lektor-approved texts, built verbatim by #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Approved by the
  * owner: the title's empty-field message, the snackbars of a saved pair, the pair's save button, the empty list,
- * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages (without the correction's reason message, which is gone), [UNAPPROVED T13] the
- * screen-reader text; „0 Ft” is [UNAPPROVED T5].
+ * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages (without the correction's reason message, which is gone), the
+ * screen-reader text; „0 Ft”.
  */
 export const MONEY = {
 	payer: 'Fizető',
@@ -96,7 +96,7 @@ export const MONEY = {
 	none: 'Még nincs tétel.',
 	correction: 'korrekció',
 	// The owner's G12 words (topic 6a): one „Tétel rögzítése” dialog (topic 10: a payment, a refund, a charge or a
-	// discount), and the correction on its own. [UNAPPROVED T17] the two buttons, [UNAPPROVED T26] the
+	// discount), and the correction on its own: the two buttons and the
 	// correction's button.
 	recordEntry: 'Tétel rögzítése',
 	recordCorrect: 'Korrekció rögzítése',
@@ -108,12 +108,12 @@ export const MONEY = {
 	// The dialogs' preview (topic 10): „Tartozás” replaces „egyenleg”.
 	balanceNow: 'Jelenlegi tartozás',
 	balanceAfter: 'Tartozás mentés után',
-	// The screen-reader text of the preview's empty „–”. [UNAPPROVED T13]
+	// The screen-reader text of the preview's empty „–”.
 	noAmount: 'még nincs összeg',
 	// The dialogs' buttons.
 	save: 'Mentés',
 	cancel: 'Mégse',
-	// [UNAPPROVED T18]: the payment snackbar's text.
+	// The payment snackbar's text.
 	saved: 'Befizetés rögzítve.',
 	// The refund and correction words and snackbars, approved by the owner 2026-11-20 (T1, T2, T4, T12, T15).
 	savedRefund: 'Visszafizetés rögzítve.',
