@@ -46,3 +46,10 @@ page, and the account area
   text is the frozen spec's or approved.
 - A block and its shortcode render the same markup (`ParticipantBlocks`),
   each inside its own error boundary.
+- `kalaka_push_subscriptions` (the parked PWA scope) is the module's only
+  table: one row per registration and device, keyed by (event, code,
+  endpoint hash); `key_p256dh` and `key_auth` are secret columns. Nothing
+  writes it yet. A row is deleted on unsubscribe, on the registration's
+  withdrawal, when the event ends and when the push service rejects its
+  endpoint; there is no last-seen column. Portal's "never stores a secret"
+  above is about a registration's secret, not these keys.

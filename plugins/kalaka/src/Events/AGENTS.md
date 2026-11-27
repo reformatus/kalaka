@@ -38,3 +38,6 @@ Events is events, their states, timeline points, date types, capacity and the
   `kalaka/reopen-event` write the latch.
 - Only a published event takes the full latch.
 - `currency` is `utf8mb4_nopad_bin`: compared exactly.
+- `status_page_post_id` is the event's one status-page slot: a plain
+  WordPress post ID, null for none. Nothing reads, writes or validates it
+  yet (the PWA scope is parked).

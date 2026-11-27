@@ -17,7 +17,9 @@ final class Module extends AbstractModule
      * event's `Currency` code. The payment settings (S16/S24, SB-1, SB-2; S21's N): the bank-transfer
      * beneficiary and account number as entered, the transfer-reference prefix put before the reference
      * code, and the payment-due N in days; each null until set. The account mode (S15, `Api\AccountMode`):
-     * `mandatory`, `optional` or `off`, `off` until set.
+     * `mandatory`, `optional` or `off`, `off` until set. The status page (the parked PWA scope): one WordPress
+     * post ID, null while the event has none; a plain ID, so nothing here checks that the post exists, and
+     * nothing reads or writes it yet.
      */
     private const EVENTS = <<<'SQL'
 CREATE TABLE {prefix}kalaka_events (
@@ -40,6 +42,7 @@ CREATE TABLE {prefix}kalaka_events (
   transfer_reference_prefix varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci DEFAULT NULL,
   payment_due_days smallint(5) unsigned DEFAULT NULL,
   account_mode varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL DEFAULT 'off',
+  status_page_post_id bigint(20) unsigned DEFAULT NULL,
   PRIMARY KEY  (id),
   KEY state (state)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
@@ -57,7 +60,7 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(4, [self::EVENTS]);
+        return new Schema(5, [self::EVENTS]);
     }
 
     public function contribute(Contributions $to): void
