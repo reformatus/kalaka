@@ -16,7 +16,7 @@ final readonly class ViewRow
      * @param ?bool $awaitsAnswer true: the registration is `registered` and has a request nobody has answered; false:
      *     it is `registered` and has none; null: N/A, it is not `registered`. From the same SQL as the
      *     `awaits_answer` column's filter, sort and count (`Requests::awaitingCondition()`); carried on every row,
-     *     whether or not the view lists the column. [UNAPPROVED N669] [UNAPPROVED N690]
+     *     whether or not the view lists the column. [UNAPPROVED N690]
      */
     public function __construct(public RegistrationKey $key, public array $values, public ?bool $awaitsAnswer = false)
     {

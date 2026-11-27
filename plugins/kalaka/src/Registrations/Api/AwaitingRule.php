@@ -10,7 +10,7 @@ namespace Kalaka\Registrations\Api;
  * admin grid's "awaits an answer" column (`Requests::awaitingCondition()`) and `Requests::awaits()` evaluates it in
  * PHP with `matches()`, so both mean the same; a source writes no SQL and gets no database access. A source has no
  * rule when its event can have no request from it (`awaitingRule()` returns null); a rule has at least one group and
- * every group at least one test. [UNAPPROVED N669]
+ * every group at least one test.
  */
 final readonly class AwaitingRule
 {
