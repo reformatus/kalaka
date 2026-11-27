@@ -39,8 +39,8 @@ final class StatusMarkup
     /** [UNAPPROVED T767] The confirming button. */
     public const WITHDRAW_CONFIRM = 'Lemondom a jelentkezést';
 
-    /** [UNAPPROVED T768] Leaves the confirmation step without acting ("Mégse", the app's own cancel word). */
-    public const WITHDRAW_CANCEL = 'Mégse';
+    /** [UNAPPROVED T768] Leaves the confirmation step without acting (core's own „Mégsem”, the owner's wording). */
+    public const WITHDRAW_CANCEL = 'Mégsem';
 
     /** [UNAPPROVED T769] The money line, first part: the preview's `paid`. */
     public const WITHDRAW_PAID = 'Befizetve:';
@@ -63,11 +63,15 @@ final class StatusMarkup
      */
     public const WITHDRAW_UNAVAILABLE = 'Ezt a jelentkezést már nem tudod lemondani.';
 
-    /** [UNAPPROVED T771] `kalaka_withdraw_stale`: the page the form came from is out of date. */
-    public const WITHDRAW_STALE = 'Az oldal időközben megváltozott. Nézd meg a jelentkezés mostani állapotát.';
+    /**
+     * [UNAPPROVED T771] `kalaka_withdraw_stale`: the page the form came from is out of date. It reads the same as
+     * `kalaka_version_conflict` below: the owner made the two one text (2026-11-27), so the registrant sees one
+     * sentence whichever of the two the server answers.
+     */
+    public const WITHDRAW_STALE = 'A jelentkezésed időközben megváltozott. Nézd meg a mostani állapotát.';
 
-    /** [UNAPPROVED T773] `kalaka_version_conflict`, in the registrant's wording (the lektor's alternative). */
-    public const WITHDRAW_VERSION_CONFLICT = 'A jelentkezésed időközben megváltozott. Nézd meg a mostani állapotát.';
+    /** `kalaka_version_conflict`: the same text as T771 (merged into it by the owner's ruling, 2026-11-27). */
+    public const WITHDRAW_VERSION_CONFLICT = self::WITHDRAW_STALE;
 
     /**
      * [UNAPPROVED T992] `kalaka_withdraw_closed`: the registration closed between the confirmation page and the press.
@@ -203,7 +207,7 @@ final class StatusMarkup
     /**
      * The registrant's own withdrawal [UNAPPROVED N765 to N779]: the button while `can.withdraw`;
      * on the page's own confirm request (`?kalaka_withdraw=confirm`) the confirmation step in its place, a plain form
-     * that works without script (the post is the confirmed act). Mégse is a button of an empty GET form back to the
+     * that works without script (the post is the confirmed act). „Mégsem” is a button of an empty GET form back to the
      * page: a link to an in-page fragment is taken over by Divi's smooth-scroll script. A refused post's text, by code.
      * With nothing to show it renders nothing. The money line comes from the preview's values only, never from the
      * page's own rules (N773).
