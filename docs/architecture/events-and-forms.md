@@ -421,9 +421,11 @@ is no other participant-side edit.
   never sent with the raw placeholder; a page fails to render altogether,
   N1150). A page fills only the placeholders inside Kaláka blocks; a `{{` in
   ordinary text is left alone (N1180). A form page fills every block of its
-  content, so a form's save refuses a key its own context does not declare
-  anywhere in it (`DefinitionCheck`, N1182). A value's text is never read for
-  placeholders. The older `<span data-kalaka-value="key">Label</span>` keeps
+  content but the after-submit section, which fills with its own keys
+  (`registration.code`, `registration.status`); the definition check refuses a
+  key the part it sits in cannot fill, at the save and in every other read of
+  the current version (`DefinitionParser`, N1182). A value's text is never read
+  for placeholders. The older `<span data-kalaka-value="key">Label</span>` keeps
   rendering as the basis of a future editor, but no editor inserts it.
 - **Storage** is plain block markup in `post_content`. A friendlier editor
   later changes only the UI.

@@ -59,7 +59,10 @@ bodies, the renderer, the per-event action-mail catalogue and the manual mail.
   itself changes no point. A point's "new template" (`Api\MailTemplates`,
   `POST …/events/{id}/mail/points/{mail}/template`) makes an empty draft of the
   event, assigns it to the point and so switches the point off; an assignment
-  the use case refuses removes the post again. A body a switched-on
+  the use case refuses removes the post again.
+  `POST …/events/{id}/mail/templates` makes one with no point
+  (`MailTemplates::createDraft()`): the screen's unassigned templates, no point
+  changed and nothing switched off. A body a switched-on
   action mail uses is neither trashed nor deleted, never leaves `publish` and
   never changes its event (`Body\BodyInUse`, on every path; REST refuses with
   `kalaka_mail_in_use`).

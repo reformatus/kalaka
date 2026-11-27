@@ -47,8 +47,11 @@ use Kalaka\Mail\Pause\MailState;
  *   answer: `no_template`, `template_draft` or null) and whether an act queues it on this line (`wired`),
  *   the bodies, the counts and `can.clear_event`.
  *   `can.enable` is the point's own switch-on capability (the same check the use case runs). [UNAPPROVED N1176]
+ * - `POST /events/{id}/mail/templates`: a new draft template of the event with no point (the screen's
+ *   unassigned templates); no point changes and nothing switches off; `{id, edit_url}` (through
+ *   `Api\MailTemplates::createDraft()`). [UNAPPROVED N1184]
  * - `POST /events/{id}/mail/points/{mail}/template`: a new draft template for the point, assigned to it, the point
- *   switched off; `{id, edit_url}` (the one write here, through `Api\MailTemplates`).
+ *   switched off; `{id, edit_url}` (the other write here, through `Api\MailTemplates`).
  * - `GET /mail`: the sender: the pause, the errors in a row, the budget and its default, the pending count and
  *   each event's name, counts and `can.clear_event` (an archived event is listed only while something of it is
  *   queued or failed).
@@ -104,6 +107,12 @@ final class MailRoutes
             'callback' => [self::class, 'batch'],
             'permission_callback' => $full,
             'args' => ['id' => $id, 'batch' => ['type' => 'integer', 'minimum' => 1, 'required' => true]],
+        ]);
+        Boundary::route(self::NAMESPACE, self::EVENT . '/mail/templates', [
+            'methods' => 'POST',
+            'callback' => [self::class, 'newUnassignedTemplate'],
+            'permission_callback' => $full,
+            'args' => ['id' => $id],
         ]);
         Boundary::route(self::NAMESPACE, self::EVENT . '/mail/points/(?P<mail>[a-z_]+)/template', [
             'methods' => 'POST',
@@ -361,6 +370,23 @@ final class MailRoutes
             ],
             'wired' => ActionMail::from((string) $mail['mail'])->isWired(),
         ];
+    }
+
+    /**
+     * `POST /events/{id}/mail/templates`: a new, empty draft template of the event, assigned to no point (the
+     * screen's unassigned templates); no point's template changes and no point switches off
+     * (`Api\MailTemplates::createDraft()`). Full access, like the other mail routes. [UNAPPROVED N1184]
+     *
+     * @param \WP_REST_Request<array<string, mixed>> $request
+     */
+    public static function newUnassignedTemplate(\WP_REST_Request $request): \WP_REST_Response
+    {
+        $made = (new MailTemplates())->createDraft(
+            (int) $request->get_param('id'),
+            new UserActor(get_current_user_id())
+        );
+
+        return new \WP_REST_Response($made, 201);
     }
 
     /**
