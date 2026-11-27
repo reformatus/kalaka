@@ -14,6 +14,7 @@ use Kalaka\Pricing\Api\ConfirmationRule;
 use Kalaka\Pricing\Api\Materializer;
 use Kalaka\Pricing\CoreFeeComponents;
 use Kalaka\Pricing\SetFixedPrice;
+use Kalaka\Pricing\SetManualConfirmation;
 use Kalaka\Pricing\SetRetention;
 use Kalaka\Ledger\RecordPayment;
 use Kalaka\Portal\ActiveRegistrationState;
@@ -212,6 +213,24 @@ final class SelfWithdrawalTest extends StaffEditTestCase
         // The staff withdrawal's own result: nothing retained, so what was paid shows as an overpayment.
         self::assertSame('3000.00000000', $summary->paid->amount());
         self::assertSame('-3000.00000000', $summary->balance->amount());
+    }
+
+    public function testTheOwnWithdrawalClearsTheManualConfirmationLikeAStaffLeaving(): void
+    {
+        $this->exec(new SetManualConfirmation(), ['event_id' => $this->event, 'code' => '00A0', 'reason' => 'Teszt']);
+        global $wpdb;
+        $revoked = fn (): ?string => $wpdb->get_var($wpdb->prepare(
+            'SELECT revoked_at FROM %i WHERE event_id = %d AND code = %s',
+            $wpdb->prefix . 'kalaka_manual_confirmations',
+            $this->event,
+            '00A0'
+        ));
+        self::assertNull($revoked());
+
+        $this->withdraw('00A0');
+
+        self::assertNotNull($revoked());
+        self::assertStringContainsString('revoked_at', (string) $this->lastEntry()['changes']);
     }
 
     public function testAWaitlistedWithdrawalHoldsAndFreesNoSeat(): void

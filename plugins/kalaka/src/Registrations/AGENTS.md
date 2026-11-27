@@ -53,8 +53,9 @@ the waitlist and reference codes
   `Seats::retake()` (claims, the event's places, `AssignmentSeats::retake()`),
   and queue the "registered" mail (admission, caused by the registration; a restore, caused by the registration at
   the version it wrote, so every restore mails). A restore to the waitlist queues the "waitlisted" mail the same way.
-  Withdraw and remove queue no mail and free seats only through `Seats::releaseAll()`. The preview (`preview: true`)
-  reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
+  Withdraw and remove queue no mail, free seats only through `Seats::releaseAll()` and revoke the registration's
+  manual confirmation flag through `Pricing\Api\ManualConfirmations::revokeOnLeaving()` in the same transaction.
+  The preview (`preview: true`) reads with `Seats::wouldOverfill()`, locks and writes nothing and is not audited when it succeeds; it ignores a
   `reason`, and says `requires_reason` (kept in the shape, always false: no act needs a reason). It gives each seat its pool's own `label()`, `taken` (held by others), `taken_after` (the
   count once the act is done: `taken + 1` when it takes the seat, `taken` when it frees it; a leaving act lists the
   pools the registration holds, outcome `released`) and `limit`, the "full" warning, and for withdraw, remove and restore the per-payer money

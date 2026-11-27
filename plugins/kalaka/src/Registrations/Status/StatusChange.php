@@ -51,7 +51,9 @@ use Kalaka\Registrations\RegistrationRepository;
  * - The same act on a registration already in its target state is `{changed: false}` and writes nothing; any other
  *   status the act does not allow is `StatusActRefused`.
  * - Leaving (withdraw, remove): the status and the version; every seat is freed (`Seats::releaseAll()`). Nobody on
- *   the waitlist moves up. `registered_at` and `registered_by` stay as they were.
+ *   the waitlist moves up. `registered_at` and `registered_by` stay as they were. The registration's manual
+ *   confirmation flag is revoked in the same transaction (`ManualConfirmations::revokeOnLeaving()`), so the
+ *   change is in the act's audit entry; a restore does not bring it back. [UNAPPROVED N1145]
  * - A restore is full access only and returns the registration to the status it left from: `registered` when it was
  *   ever registered (it has a `registered_at`), `waitlisted` (at its place by submit time, nothing else written, no
  *   seat) when it never was.
