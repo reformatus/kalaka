@@ -81,7 +81,15 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 #kalaka-grid thead tr.kg-sumtr td.kg-sumtd-actions { position: sticky; right: 0; }
 .kg-sumtd .kg-sumsel { font-weight: 600; }
 .kg-sumtd .kg-sumval { margin-right: 4px; vertical-align: middle; }
-.kg-sumtd .kg-sumopen { vertical-align: middle; }
+
+
+/* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
+   but has nothing counted yet shows a grey placeholder with a dotted underline. [UNAPPROVED N1046, N1047] */
+.kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
+.kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
+.kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }
+.kg-sumcount-btn.is-empty { color: var(--wpds-color-foreground-content-neutral-weak, #707070); text-decoration: underline dotted; text-underline-offset: 2px; }
+.kg-sumcount-menu { min-width: 180px; }
 
 /* The start columns stay while the table scrolls sideways: the selection checkbox, Kód and the name (the host's
    `data-kg-sticky` says how many; `sticky.js` measures where each starts). The cells are opaque in the row's own colour

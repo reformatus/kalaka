@@ -196,7 +196,7 @@ export const BATCHES = {
 	skipped: 'Kimaradt',
 	layout: 'Levélkerettel',
 	none: 'Még nincs csoportos levél.', // reworded per the lektor
-	// The member list's disclosure button on a batch's card; the label never changes. [UNAPPROVED N1045] [UNAPPROVED T973]
+	// The member list's disclosure button on a batch's card; the label never changes. [UNAPPROVED N1049] [UNAPPROVED T973]
 	// Lektor next: „Tagok” beside the registrations called „jelentkezők” everywhere else.
 	members: 'Tagok',
 	open: '%d. csoportos levél részletei',

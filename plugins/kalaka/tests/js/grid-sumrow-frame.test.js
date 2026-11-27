@@ -14,10 +14,14 @@ window.IS_REACT_ACT_ENVIRONMENT = true;
 
 const columns = [
 	{ column: 'code', label: 'Kód', numeric: false },
-	{ column: 'name', label: 'Név', numeric: false },
+	{ column: 'name', label: 'Név', numeric: false, members: [ { value: 'x', label: 'X' } ] },
 	{ column: 'nights', label: 'Éjszakák', numeric: true },
 ];
-const SUMS = { code: { members: [], count: 3 }, name: { members: [] }, nights: { members: [] } };
+const SUMS = {
+	code: { kind: 'rows', n: 3 },
+	name: { kind: 'members', n: 2, members: [ 'x' ], labels: [ 'X' ] },
+	nights: { kind: 'sum', n: '3' },
+};
 
 let host;
 let root;
@@ -56,7 +60,8 @@ async function mount( framed, selected = 0 ) {
 				columns,
 				order: [ 'code', 'name', 'nights' ],
 				sums: SUMS,
-				menuFor: ( column ) => createElement( 'button', { 'data-menu': column.column }, '▾' ),
+				menuFor: ( column, shown ) =>
+					createElement( 'button', { 'data-menu': column.column, 'data-shown': shown }, '▾' ),
 				narrowed: false,
 				framed,
 				selected,
@@ -82,9 +87,16 @@ test( 'with row actions every sum cell sits at the index of its own header cell'
 	const head = container.querySelector( 'thead tr:first-child' ).children;
 	const sums = container.querySelector( 'tr.kg-sumtr' ).children;
 	expect( sums ).toHaveLength( head.length );
+	// Only a column that can count has the counting menu (the owner's 2026-11-27 rule); the others keep a value.
 	columns.forEach( ( column ) => {
 		const header = Array.from( head ).findIndex( ( cell ) => cell.dataset.field === column.column );
-		expect( sums[ header ].querySelector( `[data-menu="${ column.column }"]` ) ).not.toBeNull();
+		const menu = sums[ header ].querySelector( `[data-menu="${ column.column }"]` );
+		if ( column.members ) {
+			expect( menu ).not.toBeNull();
+			expect( menu.dataset.shown ).toBe( '2' );
+		} else {
+			expect( menu ).toBeNull();
+		}
 	} );
 	// The selection and the actions columns have no sum and no menu.
 	expect( sums[ 0 ].textContent ).toBe( '' );
@@ -137,7 +149,8 @@ test( 'without row actions there is one cell per field and nothing else', async 
 	const container = await mount( false );
 	const head = container.querySelector( 'thead tr:first-child' ).children;
 	expect( container.querySelector( 'tr.kg-sumtr' ).children ).toHaveLength( head.length );
-	expect( container.querySelector( 'tr.kg-sumtr' ).children[ 0 ].querySelector( '[data-menu="code"]' ) ).not.toBeNull();
+	expect( container.querySelector( 'tr.kg-sumtr' ).children[ 0 ].querySelector( '[data-menu="code"]' ) ).toBeNull();
+	expect( container.querySelector( 'tr.kg-sumtr' ).children[ 1 ].querySelector( '[data-menu="name"]' ) ).not.toBeNull();
 } );
 
 test( 'each row checkbox is named with the registration\'s code, in the rows\' order', async () => {
