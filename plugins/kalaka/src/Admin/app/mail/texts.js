@@ -62,7 +62,7 @@ export const BODIES = {
 	create: 'Létrehozás',
 	titleField: 'Tárgy',
 	titleEmpty: 'Add meg a tárgyat.',
-	status_publish: 'Elérhető', // the lektor's wording, matching the editor's status [UNAPPROVED T919]
+	status_publish: 'Elérhető', // the lektor's wording, matching the editor's status
 	status_draft: 'Vázlat', // reworded per the lektor (core's word)
 	status_pending: 'Függőben',
 	status_private: 'Privát',
@@ -156,7 +156,7 @@ export const MANUAL = {
 	previewFail: 'A címzettek ellenőrzése nem sikerült.',
 	body: 'Levélsablon', // approved
 	pick: '– válassz –',
-	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording [UNAPPROVED T920]
+	noBodies: 'Az eseménynek nincs elérhető levélsablonja.', // the lektor's wording
 	layout: 'Levélkeret használata', // „levélkeret” is approved
 	toQueue: 'A levelet %d jelentkező kapja meg.', // reworded per the lektor
 	toQueueNone: 'A levelet egy jelentkező sem kapja meg.', // reworded per the lektor

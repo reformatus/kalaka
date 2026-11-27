@@ -8,7 +8,7 @@ namespace Kalaka\Admin\Mail;
  * The mail templates (`kalaka_mail` posts) in WordPress's own screens: they leave the native post list, and the
  * editor (`post.php`) is kept, with core's „Közzététel” wording overridden and its back link on the event's „Levelek”
  * page. The post type has no menu item (`show_in_menu` is false). The type and the event meta are named here as
- * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N928, N929, N930]
+ * strings: they belong to the Mail module, whose internals Admin does not reach. [UNAPPROVED N928, N930]
  */
 final class TemplateEditor
 {

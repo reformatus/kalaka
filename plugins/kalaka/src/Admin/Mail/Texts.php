@@ -28,7 +28,7 @@ final class Texts
      * `Publishing`, which is no longer overridden. The `Publish` override also renames the sidebar's date row and its
      * date popover title, which share the msgid and cannot be excluded per use: boxed, not excluded. `Published` is
      * also set before `wp-editor` loads (`TemplateEditor::editorAssets()`), because the sidebar's Állapot row reads
-     * it once at load. [UNAPPROVED T914, T915, T916, T917, N929]
+     * it once at load.
      *
      * @var array<string, string>
      */

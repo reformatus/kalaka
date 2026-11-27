@@ -5,7 +5,7 @@
  *
  * A column that can count offers its counting menu from the number itself (owner, 2026-11-27): the number is
  * the trigger, there is no down arrow, and a column that can count but has nothing counted yet shows a grey
- * placeholder with a dotted underline. Columns that cannot count keep a plain value. [UNAPPROVED N1046]
+ * placeholder with a dotted underline. Columns that cannot count keep a plain value.
  *
  * When the table carries row actions, DataViews puts a selection column before the fields and an actions column
  * after them; `framed` adds an empty cell at each end so every sum stays under its own column. The cell under the

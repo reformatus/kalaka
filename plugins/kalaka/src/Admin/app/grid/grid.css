@@ -10,7 +10,7 @@
    9.2). */
 .kg-tabrow .components-tab-panel__tabs { flex-wrap: nowrap; overflow-x: auto; }
 /* The grid's TabPanel has no content of its own (the table stays below), so its empty tabpanel is hidden: it is not
-   a keyboard stop, and the tabs' `aria-controls` points to nothing visible. [UNAPPROVED N934] */
+   a keyboard stop, and the tabs' `aria-controls` points to nothing visible. */
 .kg-tabs .components-tab-panel__tab-content { display: none; }
 .kg-bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; padding: 16px; min-height: 32px; }
 .kg-bulkbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -92,7 +92,7 @@ body.kalaka-grid-page #wpbody-content { padding-bottom: 0; }
 
 
 /* The number is the counting menu's trigger: a generous target with no down arrow. A column that can count
-   but has nothing counted yet shows a grey placeholder with a dotted underline. [UNAPPROVED N1046, N1047] */
+   but has nothing counted yet shows a grey placeholder with a dotted underline. */
 .kg-sumtd .kg-sumcount { display: inline-flex; max-width: 100%; }
 .kg-sumcount-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 28px; margin: -2px 0; padding: 2px 8px; border: 0; border-radius: 2px; background: transparent; color: inherit; font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 .kg-sumcount-btn:hover, .kg-sumcount-btn:focus-visible { background: rgba(0, 0, 0, 0.05); }

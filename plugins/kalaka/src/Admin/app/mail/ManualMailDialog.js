@@ -81,7 +81,7 @@ export function ManualMailForm( { event, previewPath, selection, onClose, onSent
 	}, [ previewPath, selectionSignature( selection ) ] );
 
 	// The dialog's first focus is the template field once the read answers, not the primary „Küldés” button, which is
-	// the only focusable element while the preview is still loading. [UNAPPROVED N933]
+	// the only focusable element while the preview is still loading.
 	const focusedBody = useRef( false );
 	useEffect( () => {
 		if ( plan && plan.bodies.length > 0 && ! focusedBody.current ) {
