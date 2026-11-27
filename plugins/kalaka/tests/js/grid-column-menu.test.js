@@ -10,29 +10,23 @@ jest.mock( '@wordpress/components', () => {
 	const { createElement: h } = require( '@wordpress/element' );
 	const RealMenuItem = require( '../../../../node_modules/@wordpress/components/build/menu-item/index.cjs' ).default;
 	return {
-		DropdownMenu: ( { label, toggleProps, children } ) =>
-			h( 'div', null, h( 'button', { 'aria-label': label, disabled: toggleProps.disabled } ), children( { onClose: () => mockClose() } ) ),
+		DropdownMenu: ( { label, text, toggleProps, popoverProps, children } ) =>
+			h(
+				'div',
+				{ 'data-shift': String( !! popoverProps.shift ) },
+				h( 'button', { 'aria-label': label, className: toggleProps?.className }, text ),
+				children( { onClose: () => mockClose() } )
+			),
 		MenuGroup: ( { label, children } ) => h( 'section', { 'data-group': label || '' }, children ),
 		MenuItem: RealMenuItem,
-		MenuItemsChoice: ( { choices, value, onSelect } ) =>
-			choices.map( ( c ) =>
-				h(
-					'div',
-					{ key: c.value, role: 'menuitemradio', 'aria-checked': String( value === c.value ), onClick: () => onSelect( c.value ) },
-					c.label,
-					' ',
-					c.info || ''
-				)
-			),
 	};
 } );
 
-const props = ( column, extra = {} ) => ( { column, view: {}, onSort: () => {}, chosen: [], onToggle: () => {}, ...extra } );
+const props = ( column, extra = {} ) => ( { column, chosen: [], onToggle: () => {}, ...extra } );
 const html = ( column, extra = {} ) => renderToStaticMarkup( createElement( ColumnMenu, props( column, extra ) ) );
 const STATUS = {
 	column: 'status',
 	label: 'Állapot',
-	sortable: true,
 	members: [ { value: 'registered', label: 'Rögzített' }, { value: 'waitlisted', label: 'Várólistás' } ],
 };
 
@@ -42,20 +36,28 @@ const item = ( markup, label ) => {
 	return buttons.find( ( b ) => b.includes( `>${ label }<` ) ) || '';
 };
 
-describe( 'a column’s menu', () => {
-	test( 'every column has its arrow, named after the column', () => {
-		for ( const column of [
-			{ column: 'status', label: 'Állapot', sortable: true, members: [ { value: 'registered', label: 'Rögzített' } ] },
-			{ column: 'field:note', label: 'Megjegyzés', sortable: true },
-			{ column: 'code', label: 'Kód', sortable: true },
-		] ) {
-			expect( html( column ) ).toContain( `aria-label="${ column.label } oszlopmenüje"` );
-		}
+describe( 'a column’s counting menu', () => {
+	test( 'its popover is shifted into the screen, so it is not cut off at the edge of a narrow window', () => {
+		expect( html( STATUS ) ).toContain( 'data-shift="true"' );
 	} );
 
-	test( 'a column with nothing to offer shows a disabled arrow', () => {
-		expect( html( { column: 'field:time', label: 'Érkezés', sortable: false } ) ).toMatch( /<button[^>]*disabled/ );
-		expect( html( { column: 'field:note', label: 'Megjegyzés', sortable: true } ) ).not.toMatch( /<button[^>]*disabled/ );
+	test( 'the number is the trigger, named after its column as a column menu', () => {
+		const out = html( STATUS, { shown: '40' } );
+		expect( out ).toContain( 'aria-label="Oszlopmenü: Állapot"' );
+		expect( out ).toContain( '>40<' );
+	} );
+
+	test( 'there is no down arrow and no sort command: the owner kept DataViews’ own header menu', () => {
+		const out = html( STATUS, { shown: '40' } );
+		expect( out ).not.toContain( 'chevronDown' );
+		expect( out ).not.toContain( 'Sort ascending' );
+		expect( out ).not.toContain( 'Jelentkezés' );
+	} );
+
+	test( 'a countable column with nothing counted yet shows a grey placeholder', () => {
+		const out = html( STATUS );
+		expect( out ).toContain( 'is-empty' );
+		expect( out ).toContain( '–' );
 	} );
 
 	test( 'a column that counts lists its members as checkbox items, ticked as chosen', () => {
@@ -63,15 +65,6 @@ describe( 'a column’s menu', () => {
 		expect( out ).toContain( 'data-group="Számolás"' );
 		expect( item( out, 'Rögzített' ) ).toContain( 'aria-checked="true"' );
 		expect( item( out, 'Várólistás' ) ).toContain( 'aria-checked="false"' );
-		expect( html( { column: 'field:note', label: 'Megjegyzés', sortable: true } ) ).not.toContain( 'Számolás' );
-	} );
-
-	test( 'the active sort direction is checked, and only Kód carries the hint on its sort options', () => {
-		const code = html( { column: 'code', label: 'Kód', sortable: true }, { view: { sort: { field: 'code', direction: 'asc' } } } );
-		expect( code ).toMatch( /aria-checked="true">[^<]*Jelentkezés sorrendjében/ );
-		expect( code ).toContain( 'Jelentkezés fordított sorrendjében' );
-		const other = html( { column: 'field:note', label: 'Megjegyzés', sortable: true } );
-		expect( other ).not.toContain( 'Jelentkezés' );
 	} );
 
 	test( 'the counted members show a check mark, as WordPress’s own checkable menu items do', () => {
@@ -79,33 +72,34 @@ describe( 'a column’s menu', () => {
 		expect( item( out, 'Rögzített' ) ).toContain( '<svg' );
 		expect( item( out, 'Rögzített' ) ).toContain( 'M7 12L10 15L17 8' );
 		expect( item( out, 'Várólistás' ) ).not.toContain( '<svg' );
-		const both = html( STATUS, { chosen: [ 'registered', 'waitlisted' ] } );
-		expect( item( both, 'Várólistás' ) ).toContain( '<svg' );
 	} );
 
-	test( 'the arrow is a small button with an icon from the icon package, not a dashicon', () => {
-		expect( html( STATUS ) ).toContain( 'aria-label="Állapot oszlopmenüje"' );
-		expect( ColumnMenu.toString() ).not.toContain( 'arrow-down-alt2' );
-	} );
-
-	test( 'a sort click closes the menu, a counting toggle keeps it open', () => {
+	test( 'a tick keeps the menu open, and the pointer leaving it closes it', () => {
 		const { createRoot } = require( 'react-dom/client' );
 		const { act } = require( 'react' );
 		mockClose = jest.fn();
-		const onSort = jest.fn();
 		const onToggle = jest.fn();
 		const host = document.createElement( 'div' );
 		document.body.appendChild( host );
 		const root = createRoot( host );
 		globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-		act( () => root.render( createElement( ColumnMenu, props( STATUS, { onSort, onToggle, chosen: [ 'registered' ] } ) ) ) );
-		const asc = [ ...host.querySelectorAll( '[role="menuitemradio"]' ) ].find( ( n ) => n.textContent.includes( 'Sort ascending' ) );
-		act( () => asc.click() );
-		expect( onSort ).toHaveBeenCalledWith( { field: 'status', direction: 'asc' } );
-		expect( mockClose ).toHaveBeenCalledTimes( 1 );
-		const waitlisted = [ ...host.querySelectorAll( 'button[role="menuitemcheckbox"]' ) ].find( ( n ) => n.textContent === 'Várólistás' );
+		act( () =>
+			root.render( createElement( ColumnMenu, props( STATUS, { onToggle, chosen: [ 'registered' ] } ) ) )
+		);
+		const waitlisted = [ ...host.querySelectorAll( 'button[role="menuitemcheckbox"]' ) ].find(
+			( n ) => n.textContent === 'Várólistás'
+		);
 		act( () => waitlisted.click() );
 		expect( onToggle ).toHaveBeenCalledWith( STATUS, 'waitlisted', true );
+		expect( mockClose ).not.toHaveBeenCalled();
+		// Focus outside the menu (the toggle), so a pointer leaving it closes it.
+		act( () => host.querySelector( '.kg-sumcount-btn' ).focus() );
+		const menu = host.querySelector( '.kg-sumcount-menu' );
+		act( () =>
+			menu.dispatchEvent(
+				new window.MouseEvent( 'mouseout', { bubbles: true, relatedTarget: document.body } )
+			)
+		);
 		expect( mockClose ).toHaveBeenCalledTimes( 1 );
 		act( () => root.unmount() );
 		host.remove();

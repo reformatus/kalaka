@@ -207,17 +207,20 @@ only at the participant's side.
 
 ## Quota places
 
-Tier places of the price ladder and support-offer places are extension
-decisions ([Foundation](foundation.md#facts-decisions-and-computed-values)).
+Tier places of the price ladder and support-offer places are seats, under the
+one seat rule
+([Foundation](foundation.md#facts-decisions-and-computed-values)).
 
-- **Held** when the registration becomes `registered` (at submit, admission or
-  restore), decided under a `FOR UPDATE` lock on the tier or offer row.
-  Waitlisted registrations hold no place.
-- **Released** on withdrawal or removal.
-- **Reassigned only by a staff act:** staff give a freed place to a requester
-  from a list in registration order, so nobody's money changes
-  automatically.
-- **A restored registration** gets a place only if one is free.
+- **Taken** at submit, admission or restore, under a `FOR UPDATE` lock on the
+  tier or offer row. Waitlisted registrations hold no place.
+- **A full one cannot be chosen:** the submit is refused, as for a full set
+  option. Staff can still place a registration by hand, warned that the pool
+  is full.
+- **Released** on withdrawal or removal, and when an answer refuses the
+  offer (a partner approves or refuses through the same act as staff).
+- **A restored or admitted registration** keeps what it chose and takes its
+  places, over the limit where a pool is full, with the "full" warning to
+  staff, as the one seat rule says for every staff act.
 
 ## Withdrawal, removal and substitution
 
@@ -279,15 +282,15 @@ such as lunch or a donation.
   owner's ruling 2026-11-18), in SQL over the stored answer (`JSON_CONTAINS`
   over `JSON_EXTRACT(value, '$.path[*].ext')`), under the same per-event
   `EXPLAIN` test.
-- **Support offers per event on any node,** the root included, apply to the
-  node and everything below it: amount, quota (people and/or budget),
-  conditions on facts, "must be requested", and "must be confirmed by the
-  body" (in its view or through a form link).
-- **Stacking:** one flag per offer, "withdrawn if a lower-level support
-  applies", on by default (the most specific wins); off, it adds to the lower
-  one. Offers are evaluated from the congregation upwards, and a higher offer
-  takes a quota place ([Quota places](#quota-places)) only if it ends up
-  applying.
+- **Support offers per event on any node,** the root included, several per
+  node, are offered to the node and everything below it, and the registrant
+  selects them: amount, whether it needs a request (answered by staff or by
+  the body, where a partner approves, through the one "answer a request" act;
+  while the selection awaits an answer, no payment is asked and no due date is
+  shown), and an optional limit of places (people only). Who sees an offer is
+  set up on the form, as for price tiers and extra charges: an offer carries
+  no condition of its own. A selected offer with a limit takes a place
+  ([Quota places](#quota-places)).
 - **Each applying offer is one participant-side `charge` line** of the
   support stage, written by the materializer and labelled with its granting
   node.
