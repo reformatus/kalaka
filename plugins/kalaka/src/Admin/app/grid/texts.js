@@ -222,7 +222,7 @@ export const REQUESTS = {
 		asked: 'Kért támogatás',
 		max_award: 'Legfeljebb megítélhető',
 	},
-	// The cap's line, the act's own approved sentence (T1131).
+	// The cap's line, the same sentence the act refuses with (T1131), shown under the amount.
 	aidAbovePrice: 'A támogatás nem lehet több a fizetendő összegnél.', // [UNAPPROVED T1131]
 	noteField: 'Megjegyzés',
 	saved: 'Válasz rögzítve.',
