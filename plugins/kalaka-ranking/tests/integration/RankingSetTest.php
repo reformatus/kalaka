@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Ranking;
 
 use Kalaka\Assignments\Api\AssignmentSets;
-use Kalaka\Assignments\Api\LiveFormWouldBreak;
 use Kalaka\Events\Api\Events;
 use Kalaka\Events\PublishEvent;
 use Kalaka\Forms\Api\EventValues;
@@ -23,10 +22,10 @@ use Kalaka\Tests\Integration\Forms\FormsTestCase;
 
 /**
  * S44: the ranking names its assignment set (S44-1), its options are the set's, offered by their
- * eligibility condition on the track answer before it (S76), the field it declares is the set's one request
- * field, and outside the set's choice window it does not show and writes nothing (C3). The set and its
- * options are IVK's shape with invented modules: ifivezető modules A–C for everybody, "Iskolamisszió" and
- * "PRO" only for their track.
+ * condition on the track answer before it, held by the ranking block itself (`optionConditions`, S76), the
+ * field it declares is the set's one request field, and outside the set's choice window it does not show and
+ * writes nothing (C3). The set and its options are IVK's shape with invented modules: ifivezető modules A–C
+ * for everybody, "Iskolamisszió" and "PRO" only for their track.
  */
 final class RankingSetTest extends FormsTestCase
 {
@@ -91,32 +90,38 @@ final class RankingSetTest extends FormsTestCase
             'published' => false,
         ], new CliActor(null));
         foreach (['Modul A', 'Modul B', 'Modul C'] as $position => $label) {
-            $this->option($set, $label, null, $position);
+            $this->option($set, $label, $position);
         }
-        $this->option($set, 'Iskolamisszió', 'iskolamisszio', 7);
-        $this->option($set, 'PRO', 'pro', 8);
+        $this->option($set, 'Iskolamisszió', 7);
+        $this->option($set, 'PRO', 8);
 
         return $set;
     }
 
-    private function option(
-        int $set,
-        string $label,
-        ?string $track,
-        int $position,
-        string $on = 'szolgalati_terulet',
-    ): void {
+    private function option(int $set, string $label, int $position): void
+    {
         $this->sets->saveOption([
             'set_id' => $set,
             'label' => $label,
             'limit' => 30,
             'leaders' => '',
             'place' => '',
-            'condition' => $track === null ? null : ['match' => 'all', 'items' => [
-                ['key' => $on, 'operator' => 'equals', 'value' => $track],
-            ]],
             'position' => $position,
         ], new CliActor(null));
+    }
+
+    /**
+     * The ranking block's conditions: "Iskolamisszió" and "PRO" only for their track.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function trackConditions(): array
+    {
+        $on = static fn (string $track): array => ['match' => 'all', 'items' => [
+            ['key' => 'szolgalati_terulet', 'operator' => 'equals', 'value' => $track],
+        ]];
+
+        return ['iskolamisszio' => $on('iskolamisszio'), 'pro' => $on('pro')];
     }
 
     /** @param array<string, mixed> $attributes */
@@ -126,6 +131,7 @@ final class RankingSetTest extends FormsTestCase
             'key' => $key,
             'label' => 'Modulok',
             'set' => $set ?? $this->set,
+            'optionConditions' => self::trackConditions(),
             'min' => 1,
             'max' => 3,
         ]);
@@ -161,6 +167,7 @@ final class RankingSetTest extends FormsTestCase
         self::assertInstanceOf(\WP_Block_Type::class, $block);
         self::assertSame('integer', $block->attributes['set']['type'] ?? null);
         self::assertArrayHasKey('options', $block->attributes);
+        self::assertSame('object', $block->attributes['optionConditions']['type'] ?? null);
         self::assertSame(5, (new RankingFieldType())->requestSet(['set' => 5]));
         // 0 is a set, none chosen yet; no attribute (a block of the own-options days) is own options.
         self::assertSame(0, (new RankingFieldType())->requestSet(['set' => 0]));
@@ -334,8 +341,8 @@ final class RankingSetTest extends FormsTestCase
 
     public function testAConditionOnAFieldThatIsNotBeforeTheRankingMakesTheFormUnusable(): void
     {
-        // The set's conditions read the track: a form with the ranking but not the track before it cannot
-        // offer the set's options (Q2 to the owner: the re-ranking form's facts).
+        // The block's conditions read the track: a form with the ranking but not the track before it cannot
+        // offer the set's options.
         $content = $this->slotFields() . $this->ranking() . $this->track();
         self::assertSame(
             ['condition_key_not_earlier', 'szolgalati_terulet'],
@@ -343,47 +350,47 @@ final class RankingSetTest extends FormsTestCase
         );
     }
 
-    public function testAConditionThatWouldBreakALiveFormIsRefusedAndTheFormStaysAsItWas(): void
+    public function testTheSaveRefusesAConditionForAKeyTheSetHasNoOptionFor(): void
     {
-        // N11: the live form asks the note after the ranking, so the ranking cannot read it there.
-        $form = $this->insertChecked(
-            $this->slotFields() . $this->track() . $this->ranking() . $this->field('text', 'megjegyzes'),
-            $this->meta()
+        $content = $this->slotFields() . $this->track()
+            . $this->ranking('modulok', null, ['optionConditions' => self::trackConditions() + [
+                'modul_x' => self::trackConditions()['pro'],
+            ]]);
+
+        self::assertSame(
+            ['unknown_option', 'modulok'],
+            DefinitionCheck::problem($content, 0, FormPlacement::Registration, $this->event)
         );
+        // The same block with the keys of the set's options is fine.
+        self::assertNull(DefinitionCheck::problem(
+            $this->slotFields() . $this->track() . $this->ranking(),
+            0,
+            FormPlacement::Registration,
+            $this->event
+        ));
+    }
 
-        try {
-            $this->option($this->set, 'Modul G', 'igen', 9, 'megjegyzes');
-            self::fail('A condition that breaks the live form was saved.');
-        } catch (LiveFormWouldBreak $e) {
-            self::assertSame('kalaka_live_form_would_break', $e->errorCode());
-            self::assertSame(422, $e->status());
-        }
+    public function testAKeyWhoseOptionIsGoneIsIgnoredWhenTheFormIsRead(): void
+    {
+        $form = $this->form();
+        // Staff remove "PRO": the form must not close over its condition.
+        global $wpdb;
+        $wpdb->delete($wpdb->prefix . 'kalaka_assignment_options', ['set_id' => $this->set, 'option_key' => 'pro']);
 
-        self::assertNull($this->sets->find($this->set)?->option('modul_g'));
         $definition = $this->forms->definition($this->readForm($form));
-        self::assertNotNull($definition->field('modulok'));
+        self::assertSame(['iskolamisszio'], array_keys($definition->field('modulok')?->optionConditions ?? []));
+        self::assertSame(['modul_a', 'modul_b', 'modul_c'], $this->offered($form, 'pro'));
+        self::assertSame(['modul_a', 'modul_b', 'modul_c', 'iskolamisszio'], $this->offered($form, 'iskolamisszio'));
     }
 
-    public function testAConditionTheLiveFormCanReadSaves(): void
+    public function testAnOptionConditionThatIsNotAnObjectIsRefused(): void
     {
-        $this->form();
+        $content = $this->slotFields() . $this->track()
+            . $this->ranking('modulok', null, ['optionConditions' => 'pro']);
 
-        $this->option($this->set, 'Modul G', 'pro', 9);
-
-        self::assertNotNull($this->sets->find($this->set)?->option('modul_g'));
-    }
-
-    public function testADraftFormDoesNotBlockTheSave(): void
-    {
-        // A draft is checked when it is published.
-        $this->insertChecked(
-            $this->slotFields() . $this->ranking() . $this->field('text', 'megjegyzes'),
-            $this->meta(),
-            ['post_status' => 'draft']
+        self::assertSame(
+            ['invalid_option_conditions', 'modulok'],
+            DefinitionCheck::problem($content, 0, FormPlacement::Registration, $this->event)
         );
-
-        $this->option($this->set, 'Modul G', 'igen', 9, 'megjegyzes');
-
-        self::assertNotNull($this->sets->find($this->set)?->option('modul_g'));
     }
 }

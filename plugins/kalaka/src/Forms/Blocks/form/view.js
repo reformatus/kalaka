@@ -560,6 +560,20 @@ function sessionEnded(form, message, retry) {
 }
 
 /**
+ * The login address with the popup marker `popup=1`, for the window only: the return page then never goes
+ * to the form's page. The plain address stays the same-tab fallback, without it.
+ */
+function popupUrl(url) {
+	try {
+		const marked = new URL(url, window.location.href);
+		marked.searchParams.set('popup', '1');
+		return marked.toString();
+	} catch {
+		return url;
+	}
+}
+
+/**
  * Opens WordPress's login page for the form in a window of its own, from the account block or the ended
  * session's link. Never `noopener`: the return page tells this page through `window.opener`.
  *
@@ -573,7 +587,7 @@ function openLogin(form) {
 	}
 	started.awaiting = true;
 	const opened = window.open(
-		url,
+		popupUrl(url),
 		'kalaka-account',
 		'popup=yes,width=520,height=720'
 	);

@@ -14,6 +14,7 @@ use Kalaka\Forms\Api\FormField;
 use Kalaka\Forms\Api\FormHost;
 use Kalaka\Forms\Api\OptionsFieldType;
 use Kalaka\Forms\Api\RequestFieldType;
+use Kalaka\Forms\Api\RequestOptions;
 use Kalaka\Forms\Api\ValueType;
 use Kalaka\Forms\Api\PageDefinition;
 use Kalaka\Forms\Engine\Condition\Chain;
@@ -34,8 +35,9 @@ use Kalaka\Foundation\Api\UseCase\Runner;
  * Reads the field blocks of a form's block markup, in document order, whatever core blocks and condition branches
  * they sit in; each field carries the branches it sits in, and a choice field the availability conditions of its
  * options. A request field (`Api\RequestFieldType`) gets its options from the set it names, through the host
- * (`FormHost::requestOptions()`), with their conditions, which are then read like a choice field's (a stored earlier
- * version takes them without, S44); outside the set's choice window it is closed (S44). The chains are numbered in
+ * (`FormHost::requestOptions()`); each option's condition comes from the block's own `optionConditions` (option key
+ * to condition), which are then read like a choice field's. Outside the set's choice window it is closed (S44). The
+ * chains are numbered in
  * document order, and every key a condition reads is collected. The chain numbers are read from `Condition\ChainMarks`,
  * the marks the branch blocks render with. Any problem makes the form unusable (`SystemFailure`, naming the problem
  * and the field key, never a label or an option).
@@ -71,11 +73,8 @@ final class DefinitionParser
     /** The form being parsed. */
     private ?Form $form = null;
 
-    /**
-     * Whether the version being parsed is the form's current one: a stored earlier version takes a set's options
-     * without their conditions (S44).
-     */
-    private bool $current = true;
+    /** Whether the parse is the save check: a set's option condition for an option the set lacks is refused. */
+    private bool $saving = false;
 
     /** the page whose blocks are being collected; null outside pages */
     private ?int $page = null;
@@ -95,12 +94,13 @@ final class DefinitionParser
         int $version,
         string $content,
         Contributions $contributions,
-        FormHost $host
+        FormHost $host,
+        bool $saving = false
     ): FormDefinition {
-        $this->factTypes = $host->factTypes();
+        $this->factTypes = $host->factTypes($form);
         $this->host = $host;
         $this->form = $form;
-        $this->current = $version === $form->version;
+        $this->saving = $saving;
         $this->afterSubmitTypes = $host->afterSubmitTypes();
         $this->chains = [];
         $this->read = [];
@@ -136,7 +136,7 @@ final class DefinitionParser
             $this->pages = [];
             $this->host = null;
             $this->form = null;
-            $this->current = true;
+            $this->saving = false;
         }
     }
 
@@ -401,8 +401,9 @@ final class DefinitionParser
     /**
      * A request field's attributes with its set's options in `options`, and whether the set's choice window is
      * closed now (S44). A field naming a set the host does not have is a problem; one naming none keeps its own
-     * options. A stored earlier version takes the options without their conditions: the answers of a submission
-     * were given against that version, whose fields need not hold a key a condition reads now (S44).
+     * options. The block's `optionConditions` (option key → condition) become the options' `condition`, so every
+     * version reads its own block's conditions. A key the set has no option for is refused when the form is
+     * saved (`unknown_option`) and ignored when the definition is read, so a removed option never closes the form.
      *
      * @param array<string, mixed> $attributes
      * @return array{array<string, mixed>, bool}
@@ -422,14 +423,40 @@ final class DefinitionParser
             // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
             throw new SystemFailure('unknown_set ' . $key);
         }
-        $attributes['options'] = $this->current
-            ? $options->options
-            : array_map(
-                static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
-                $options->options
-            );
+        $attributes['options'] = $this->withConditions($key, $attributes['optionConditions'] ?? null, $options);
 
         return [$attributes, !$options->openAt(Runner::current()->clock()->now())];
+    }
+
+    /**
+     * The set's options, each with the block's condition for its key.
+     *
+     * @return list<array{value: string, label: string, condition?: array<array-key, mixed>}>
+     * @throws SystemFailure
+     */
+    private function withConditions(string $field, mixed $conditions, RequestOptions $options): array
+    {
+        if ($conditions === null) {
+            return $options->options;
+        }
+        if (!is_array($conditions)) {
+            // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
+            throw new SystemFailure('invalid_option_conditions ' . $field);
+        }
+        $values = array_column($options->options, 'value');
+        foreach (array_keys($conditions) as $optionKey) {
+            if ($this->saving && !in_array((string) $optionKey, $values, true)) {
+                // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- a problem code and a key
+                throw new SystemFailure('unknown_option ' . $field);
+            }
+        }
+        $withConditions = [];
+        foreach ($options->options as $option) {
+            $condition = $conditions[$option['value']] ?? null;
+            $withConditions[] = $condition === null ? $option : $option + ['condition' => $condition];
+        }
+
+        return $withConditions;
     }
 
     /**
@@ -468,7 +495,7 @@ final class DefinitionParser
     }
 
     /**
-     * The availability conditions of a choice field's options (S76): an option may carry a
+     * The availability conditions of a choice field's or a request field's options (S76): an option may carry a
      * `condition`, which reads the fields before the choice field and the event's keys.
      * Decision N4 (#156): the option attribute `condition`.
      *

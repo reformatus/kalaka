@@ -110,9 +110,13 @@ the waitlist and reference codes
   registration links, `registration_redirect` and `login_redirect`, each
   through the return page (`Account\SignUpPage::returnPage()`, on
   `login_form_kalaka_account`) to the form's page found on the server
-  (`Forms\Api\SignUp::page()`), never an address from the request. The
-  return page prints no text; it tells only a window opener of its own
-  origin, and otherwise goes to the form's page. The registration mail's
+  (`Forms\Api\SignUp::page()`), never an address from the request. Without
+  the popup marker the return page prints no text; it tells only a window opener of its own
+  origin, and otherwise goes to the form's page. With the marker
+  `popup=1` (`SignUp::POPUP`, exactly `1`; carried through every path
+  above, the password-reset login link included) it never goes anywhere:
+  it is drawn in WordPress's login frame, tries to close the window, and
+  after 300 ms shows a line and a close button if the window is still open. The registration mail's
   set-password link carries the marker, so logging in after the password is
   set returns to the form's page directly.
 - `kalaka_unverified` is cleared only on `password_reset` and
