@@ -211,8 +211,10 @@ title: Money
   on it like any state. Other statuses have no confirmation state.
 - **Withdrawal or removal closes the sequence:** a confirmed registration gets
   an `unconfirmed` record. Restore or admission writes a
-  new record if the registration qualifies; the old one is never revived. A
-  manual flag set before the withdrawal is kept and counts at the restore.
+  new record if the registration qualifies; the old one is never revived. The
+  withdrawal or removal also revokes the manual flag if set, in the same
+  transaction and audited; a restore does not bring it back, so the
+  registration is unconfirmed unless payments or nothing due confirm it.
 - **Deposit payment request:** max(0, threshold − payments so far), capped at
   the remaining balance. Waitlisted registrations get none.
 

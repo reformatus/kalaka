@@ -15,7 +15,7 @@ use Kalaka\Pricing\Api\RetentionRules;
  * Saves an event's retention rule (the ID of a registered `RetentionRule`; an unknown one is refused): a step of a
  * money settings apply (`Api\MoneySettings::apply()`), which then
  * re-evaluates every registration of the event, those that left included. Saving alone touches no registration.
- * Site-level: full access only, like the fixed price. [UNAPPROVED N526]
+ * Site-level: full access only, like the fixed price.
  */
 final class SetRetention implements AdminUseCase
 {

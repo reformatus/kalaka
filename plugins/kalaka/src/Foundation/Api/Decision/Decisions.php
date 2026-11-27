@@ -40,6 +40,7 @@ final class Decisions
                 $rule->label(),
                 $rule->states(),
                 $rule->defaultState(),
+                $rule->marks(),
             ),
             ($this->rules ?? DecisionRules::current())->all()
         );

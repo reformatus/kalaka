@@ -26,6 +26,7 @@ final class FieldEditInputTest extends StaffEditTestCase
         $this->declare('choice', 'kalaka/choice-field', 'form', $options);
         $this->declare('consent', 'kalaka/consent-field', 'staff');
         $this->declare('scale', 'kalaka/scale-field');
+        $this->declare('born', 'kalaka/date-field');
         $this->declare('decision', 'kalaka/text-field', 'system');
         $this->declare('award', 'kalaka/text-field', 'extension');
         $this->declare('extra', 'kalaka/text-field', 'extension', null, true);
@@ -84,6 +85,21 @@ final class FieldEditInputTest extends StaffEditTestCase
         self::assertSame('1', $this->stored('consent', true));
         self::assertSame('3', $this->stored('scale', '3'));
         self::assertSame('3', $this->stored('scale', 3));
+    }
+
+    public function testADateTakesTheStoredFormAndTheTypesOwnCheckRefusesTheRest(): void
+    {
+        self::assertSame('2010-05-17', $this->stored('born', '2010-05-17'));
+        self::assertSame('2010-05-17', $this->stored('born', ' 2010-05-17 '));
+        self::assertNull($this->stored('born', null));
+        foreach (['2010-02-30', '17/05/2010', '2010-5-17', 'tegnap'] as $bad) {
+            try {
+                $this->stored('born', $bad);
+                self::fail('A date that is not a real YYYY-MM-DD is refused: ' . $bad);
+            } catch (InvalidInput) {
+                self::assertTrue(true);
+            }
+        }
     }
 
     public function testABlankTextIsRefusedAndOnlyNullClears(): void

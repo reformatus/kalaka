@@ -175,14 +175,14 @@ SQL;
         );
         Abilities::register(
             new Status\WithdrawRegistration(),
-            // [UNAPPROVED T977, T978] Before: 'Jelentkezés visszavonása', 'Egy jelentkezés visszavont állapotba
+            // [UNAPPROVED T978] Before: 'Jelentkezés visszavonása', 'Egy jelentkezés visszavont állapotba
             // helyezése, mert a jelentkező visszalépett; a helyei felszabadulnak.'
             'Megjelölés lemondottként',
             'Egy jelentkezés megjelölése lemondottként, ha a jelentkező lemondta; a helyei felszabadulnak.'
         );
         Abilities::register(
             new Status\RemoveRegistration(),
-            // [UNAPPROVED T979, T980] Before: 'Jelentkezés törlése', 'Egy jelentkezés törölt állapotba helyezése
+            // [UNAPPROVED T980] Before: 'Jelentkezés törlése', 'Egy jelentkezés törölt állapotba helyezése
             // indoklással; a helyei felszabadulnak, az adatai megmaradnak.'
             'Megjelölés töröltként',
             'Egy jelentkezés megjelölése töröltként; a helyei felszabadulnak, az adatai megmaradnak.'

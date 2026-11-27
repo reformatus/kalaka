@@ -10,7 +10,7 @@ use Kalaka\Pricing\KeepNothing;
 
 /**
  * The retention rules registered now: core's two, then the ones extensions contribute
- * (`Contributions::retentionRule()`, read when asked, so after the boot). [UNAPPROVED N671]
+ * (`Contributions::retentionRule()`, read when asked, so after the boot).
  */
 final class RetentionRules
 {

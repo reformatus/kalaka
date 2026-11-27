@@ -238,6 +238,7 @@ final class RegistrationDetail
                 'label' => $declaredKind->label,
                 'state' => $current->state,
                 'state_label' => $declaredKind->states[$current->state] ?? $current->state,
+                'marks' => $declaredKind->marks,
                 'effective_at' => self::instant($current->effectiveAt),
             ];
         }

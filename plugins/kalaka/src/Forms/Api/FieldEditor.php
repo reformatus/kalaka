@@ -21,6 +21,8 @@ final readonly class FieldEditor
 
     public const NUMBER = 'number';
 
+    public const DATE = 'date';
+
     /**
      * @param list<array{value: string, label: string}>|null $options null for a type without options
      * @param bool $multiple a choice that takes several options

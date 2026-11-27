@@ -34,14 +34,16 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
     private function decisions(): Decisions
     {
         $rules = new DecisionRules();
-        $rules->add(
-            new TestRule(
-                'confirmation',
-                ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
-                label: 'Visszaigazolás'
-            ),
-            true
+        $confirmation = new TestRule(
+            'confirmation',
+            ['unconfirmed' => 'Nincs visszaigazolva', 'confirmed' => 'Visszaigazolva'],
+            label: 'Visszaigazolás'
         );
+        $confirmation->marks = [
+            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+        ];
+        $rules->add($confirmation, true);
         $rules->add(new TestRule('sample_kind', ['held' => 'Zárolva'], label: 'Minta döntés'), true);
 
         return new Decisions(rules: $rules);
@@ -110,6 +112,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Visszaigazolás',
                         'state' => 'unconfirmed',
                         'state_label' => 'Nincs visszaigazolva',
+                        'marks' => [
+                            'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                            'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                        ],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                     [
@@ -117,6 +123,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                         'label' => 'Minta döntés',
                         'state' => 'held',
                         'state_label' => 'Zárolva',
+                        'marks' => [],
                         'effective_at' => '2026-11-30T08:00:00Z',
                     ],
                 ],
@@ -164,7 +171,7 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'edit' => [
                         'answer' => ['kind' => 'kalaka/date-field', 'value' => '2009-04-17'],
                         'expected' => '2009-04-17',
-                        'control' => 'text',
+                        'control' => 'date',
                     ],
                 ],
             ],
@@ -364,6 +371,10 @@ final class RegistrationDetailTest extends RegistrationDetailTestCase
                     'label' => 'Visszaigazolás',
                     'state' => 'unconfirmed',
                     'state_label' => 'Nincs visszaigazolva',
+                    'marks' => [
+                        'confirmed' => ['icon' => 'yes-alt', 'tone' => 'ok'],
+                        'unconfirmed' => ['icon' => 'marker', 'tone' => ''],
+                    ],
                     'effective_at' => '2026-11-30T08:00:00Z',
                 ]],
                 'confirmed' => false,
