@@ -6,8 +6,9 @@
  * act every time (it is not idempotent, see `api.js`), so a double click must not send it twice. [UNAPPROVED N74 reboxed: the unconfirm gets a retry key on the server
  * (Backend's work); #213's unconfirm input takes none yet, so this guard stays and nothing is sent from here]
  * The unconfirm has no refusal. The dialog has no warning notice: when the rules would
- * confirm the registration again at once the unconfirm button is disabled instead, with the server's text as its
- * tooltip ([UNAPPROVED N71 reboxed] [UNAPPROVED N78 reboxed: moot] [UNAPPROVED N82 reboxed: moot]). It says nothing
+ * confirm the registration again at once the unconfirm button is disabled instead, with the server's text as
+ * visible help text under it ([UNAPPROVED N71 reboxed] [UNAPPROVED N78 reboxed: moot] [UNAPPROVED N82 reboxed:
+ * moot]). It says nothing
  * about what unconfirming does: that text needs a concept the owner has not worded. [UNAPPROVED N33 reboxed]
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
