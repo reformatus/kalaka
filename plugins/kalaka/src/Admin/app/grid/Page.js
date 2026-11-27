@@ -632,8 +632,9 @@ export default function Page( { config } ) {
 		return () => observer.disconnect();
 	}, [ host, actions.length, rowNames ] );
 
-	// The start columns that stay while the table scrolls sideways: the checkbox, Kód and the name. [UNAPPROVED N942]
-	useStickyColumns( host, stickyCount( tab.columns, v.fields, actions.length > 0 ) );
+	// The start columns that stay while the table scrolls sideways: the checkbox, Kód and the name, and the actions
+	// column at the end, as many as fit a quarter of the visible width, in that order. [UNAPPROVED N942] [UNAPPROVED N1035]
+	useStickyColumns( host, stickyCount( tab.columns, v.fields, actions.length > 0 ), actions.length > 0 );
 
 	const copyButton = (
 		<Button
