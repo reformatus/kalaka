@@ -47,7 +47,7 @@ const config = { rest: '', event: 7 };
 const FULL_TEXT = 'Ez a lehetőség már betelt. Ha ide sorolod a jelentkezőt, a létszám túllépi a keretet.';
 const NAME = { key: 'name', label: 'Név', type: 'kalaka/name-field', value: 'Próba', text: 'Próba', writable: true, edit: { answer: { kind: 'kalaka/name-field', value: 'Próba' }, expected: 'Próba', control: 'text' } };
 const AGE = { key: 'kor', label: 'Kor', text: '12', writable: true, edit: { answer: { kind: 'kalaka/number-field', value: '12' }, expected: '12', control: 'number' } };
-const DAY = { key: 'szul', label: 'Születés', text: '2014-05-01', writable: true, edit: { answer: { kind: 'kalaka/date-field', value: '2014-05-01' }, expected: '2014-05-01', control: 'text' } };
+const DAY = { key: 'szul', label: 'Születés', text: '2014-05-01', writable: true, edit: { answer: { kind: 'kalaka/date-field', value: '2014-05-01' }, expected: '2014-05-01', control: 'date' } };
 const TIER = {
 	key: 'price_tier',
 	label: 'Díjkategória',
@@ -112,7 +112,7 @@ describe( 'which fields get a control', () => {
 		expect( controlOf( TIER ) ).toBe( 'choice' );
 		expect( controlOf( OFFER ) ).toBe( 'consent' );
 		expect( controlOf( AGE ) ).toBe( 'number' );
-		expect( controlOf( DAY ) ).toBe( 'text' );
+		expect( controlOf( DAY ) ).toBe( 'date' );
 		// A choice taking several options: the read says so (`multi_choice`, or `multiple`), the stored value is not looked at.
 		const multi = { ...TIER, edit: { ...TIER.edit, control: 'multi_choice', multiple: true, answer: { kind: TIER.edit.answer.kind, value: null } } };
 		expect( controlOf( multi ) ).toBe( 'multi_choice' );
@@ -226,13 +226,31 @@ describe( 'the dialog', () => {
 		expect( done ).toHaveBeenCalled();
 	} );
 
-	test( 'a number control is a number input and a date is a plain text input', async () => {
+	test( 'a number control is a number input and a date is a date input', async () => {
 		await dialog( AGE );
 		expect( host.querySelector( 'input' ).getAttribute( 'type' ) ).toBe( 'number' );
 		await act( async () => root.unmount() );
 		host.remove();
 		await dialog( DAY );
-		expect( host.querySelector( 'input' ).getAttribute( 'type' ) ).toBe( 'text' );
+		expect( host.querySelector( 'input' ).getAttribute( 'type' ) ).toBe( 'date' );
+	} );
+
+	test( 'a date control opens on the stored day, sends YYYY-MM-DD and sends null when emptied [N1235]', async () => {
+		apiFetch.mockResolvedValue( { changed: true, over_limit: [] } );
+		await dialog( DAY );
+		const input = host.querySelector( 'input' );
+		expect( input.value ).toBe( '2014-05-01' );
+		await type( input, '2015-06-02' );
+		await submit();
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input.value ).toBe( '2015-06-02' );
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input.expected ).toBe( '2014-05-01' );
+		await act( async () => root.unmount() );
+		host.remove();
+		apiFetch.mockClear();
+		await dialog( DAY );
+		await type( host.querySelector( 'input' ), '' );
+		await submit();
+		expect( apiFetch.mock.calls[ 0 ][ 0 ].data.input.value ).toBeNull();
 	} );
 
 	test( 'a multiple choice shows checkboxes and sends a list, null when none is left', async () => {

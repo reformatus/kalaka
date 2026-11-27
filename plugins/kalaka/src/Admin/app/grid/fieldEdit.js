@@ -7,13 +7,14 @@
  */
 
 /** The controls the server names in `edit.control`; any other value, and null, is no control. [UNAPPROVED N234] */
-const CONTROLS = [ 'text', 'number', 'choice', 'multi_choice', 'consent' ];
+const CONTROLS = [ 'text', 'number', 'date', 'choice', 'multi_choice', 'consent' ];
 
 /**
  * The control a writable field gets, as the read's `edit.control` names it: `text`, `number`, `choice`,
  * `multi_choice` (`edit.multiple` on a choice) or `consent`; null when the field is not writable, the read names
  * no control (a ranking, the congregation picker, a type of an extension) or a choice has no options: no edit
- * button then. A date arrives as `text`. [UNAPPROVED N234] [UNAPPROVED N245] [UNAPPROVED N246]
+ * button then. A date field is `date` (the stored `YYYY-MM-DD`; an empty value clears). [UNAPPROVED N234]
+ * [UNAPPROVED N245] [UNAPPROVED N246] [UNAPPROVED N1235]
  *
  * @param {?Object} field one `fields[]` item of the read
  */

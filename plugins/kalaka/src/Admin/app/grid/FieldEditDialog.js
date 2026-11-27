@@ -6,7 +6,7 @@
  * shows the server's text (a stored value changed by someone else is the 409's own text). While it runs the
  * dialog does not close and a second submit is ignored. [UNAPPROVED N233] [UNAPPROVED N234] [UNAPPROVED N235]
  * [UNAPPROVED N236] [UNAPPROVED N239] [UNAPPROVED N241] [UNAPPROVED N242]
- * [UNAPPROVED N247] [UNAPPROVED N248]
+ * [UNAPPROVED N247] [UNAPPROVED N248] [UNAPPROVED N1235] (a date control is a date input; empty clears)
  */
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { Button, CheckboxControl, Modal, Notice, RadioControl, TextareaControl, TextControl } from '@wordpress/components';
@@ -113,13 +113,13 @@ export default function FieldEditDialog( { config, code, field, onClose, onDone,
 			shouldCloseOnClickOutside={ false }
 		>
 			<form onSubmit={ submit } noValidate ref={ form }>
-				{ ( control === 'text' || control === 'number' ) && (
+				{ ( control === 'text' || control === 'number' || control === 'date' ) && (
 					<TextControl
 						label={ field.label }
 						hideLabelFromVision
 						value={ picked }
 						onChange={ setPicked }
-						type={ control === 'number' ? 'number' : 'text' }
+						type={ control === 'number' || control === 'date' ? control : 'text' }
 						step={ control === 'number' ? 'any' : undefined }
 						__nextHasNoMarginBottom
 						__next40pxDefaultSize
