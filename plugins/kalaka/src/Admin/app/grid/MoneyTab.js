@@ -4,7 +4,7 @@
  * user's grants allow. Positive means what the column's name says and a real minus the opposite; „Tartozás” is
  * Fizetendő − Befizetett, positive still owed, and a negative value reads „−5 000 Ft (túlfizetés)” (topic 10).
  * One „Tétel rögzítése” action records a payment, a refund, a charge or a discount, the correction keeps its
- * own (G12). [UNAPPROVED N1203]
+ * own (G12).
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
@@ -56,7 +56,7 @@ export default function MoneyTab( { config, code, money, can, reload, stale, onS
 		return found && found.label ? found.label : key;
 	};
 	// After a save, or a cancel, focus returns to the control that opened the dialog; when that is gone, to the
-	// panel's close button. [UNAPPROVED N1202]
+	// panel's close button.
 	const focusOpener = () =>
 		window.requestAnimationFrame( () => returnFocus( opener.current, closeRef && closeRef.current ) );
 	// G12: the „Tétel rögzítése” dialog (a payment or a refund) and the correction's own.

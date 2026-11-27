@@ -38,13 +38,28 @@ final class EventValues
      *
      * @return array<string, Value>
      */
-    public static function form(Event $event, ?bool $loggedIn): array
+    public static function form(Event $event, ?bool $loggedIn, \DateTimeImmutable $at): array
     {
         $fact = $loggedIn === null
             ? Value::none(ValueType::Choice)
             : self::yesNo($loggedIn);
 
-        return self::of($event) + [SignUp::LOGGED_IN => $fact];
+        return self::of($event) + self::now($at) + [SignUp::LOGGED_IN => $fact];
+    }
+
+    /**
+     * The key a date reference to "now" reads (`Facts::NOW`): the clock's time, to the second, in the site's time
+     * zone (a datetime), of the moment `$at` the caller holds (the act's, never a clock read here: one read, one
+     * clock). A fact
+     * source whose conditions may use the reference adds it to the event's keys. The value side of a comparison
+     * may only use the reference (a `key` naming it there is refused); the left side may name it, as a datetime.
+     * It is in no `TYPES`.
+     *
+     * @return array<string, Value>
+     */
+    public static function now(\DateTimeImmutable $at): array
+    {
+        return [Facts::NOW => self::instant($at)];
     }
 
     /**
@@ -57,18 +72,18 @@ final class EventValues
         return Value::choice([$yes ? 'yes' : 'no'], $yes ? 'Igen' : 'Nem');
     }
 
-    /** Every event key and its type. */
+    /** Every event key and its type. Decision N649 (#222): the event's start and end stay dates. */
     public const TYPES = [
         self::NAME => ValueType::Text,
-        self::REGISTRATION_OPENS => ValueType::Date,
-        self::REGISTRATION_CLOSES => ValueType::Date,
+        self::REGISTRATION_OPENS => ValueType::Datetime,
+        self::REGISTRATION_CLOSES => ValueType::Datetime,
         self::START => ValueType::Date,
         self::END => ValueType::Date,
     ];
 
     /**
-     * Every key is declared; a date point that is not set is `Value::none()`. A point is a calendar day
-     * in the site's time zone.
+     * Every key is declared; a point that is not set is `Value::none()`. Registration opens and closes are
+     * instants in the site's time zone (datetimes); the event's start and end are calendar days there.
      *
      * @return array<string, Value> key → value, for `new ValueContext()`
      */
@@ -76,11 +91,26 @@ final class EventValues
     {
         return [
             self::NAME => Value::text($event->name, $event->name),
-            self::REGISTRATION_OPENS => self::day($event->registrationOpens),
-            self::REGISTRATION_CLOSES => self::day($event->registrationCloses),
+            self::REGISTRATION_OPENS => self::instant($event->registrationOpens),
+            self::REGISTRATION_CLOSES => self::instant($event->registrationCloses),
             self::START => self::day($event->start),
             self::END => self::day($event->end),
         ];
+    }
+
+    /**
+     * An instant in the site's time zone, to the second, as a datetime; its text is its day's date text (the one
+     * format of a date in a document).
+     */
+    private static function instant(?\DateTimeImmutable $point): Value
+    {
+        if ($point === null) {
+            return Value::none(ValueType::Datetime);
+        }
+        $zone = wp_timezone();
+        $local = $point->setTimezone($zone);
+
+        return Value::datetime($local->format('Y-m-d\TH:i:sP'), DateText::of($local->format('Y-m-d')), $zone);
     }
 
     private static function day(?\DateTimeImmutable $point): Value

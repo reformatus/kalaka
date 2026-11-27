@@ -138,7 +138,7 @@ final class MailPathValuesTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertStringContainsString('Budai gyülekezet.', $html);
         self::assertStringNotContainsString('Másutt.', $html);
@@ -154,7 +154,7 @@ final class MailPathValuesTest extends MailBodyTestCase
 
         self::assertStringContainsString(
             'Északi kerület.',
-            (new MailRenderer())->render($event, 'waitlisted', $key)->html
+            (new MailRenderer())->render($event, 'waitlisted', $key, self::now())->html
         );
     }
 
@@ -174,7 +174,7 @@ final class MailPathValuesTest extends MailBodyTestCase
         );
         $this->switchOn($event, 'registered', $body);
 
-        $html = (new MailRenderer())->render($event, 'registered', $key)->html;
+        $html = (new MailRenderer())->render($event, 'registered', $key, self::now())->html;
 
         self::assertStringContainsString('Másutt.', $html);
         self::assertStringNotContainsString('Déli gyülekezet.', $html);

@@ -340,7 +340,7 @@ export function validateEntry( entry, day ) {
 		errors.amount = MONEY.amountBad;
 	}
 	if ( correction ) {
-		// The reason is never required (owner 2026-11-26); the server keeps its 500-character limit. [UNAPPROVED N1204]
+		// The reason is never required (owner 2026-11-26); the server keeps its 500-character limit.
 		return errors;
 	}
 	if ( owedSide ) {
@@ -365,7 +365,7 @@ export function validateEntry( entry, day ) {
 
 /**
  * The payer column (Fizető) is shown only when the registration has more than one payer row; with one the column
- * says nothing and is hidden, in the summary table and the entries alike (owner 2026-11-19, 4.3). [UNAPPROVED N1203]
+ * says nothing and is hidden, in the summary table and the entries alike (owner 2026-11-19, 4.3).
  *
  * @param {Object} money the read's money part
  */

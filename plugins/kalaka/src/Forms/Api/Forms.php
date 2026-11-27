@@ -6,9 +6,9 @@ namespace Kalaka\Forms\Api;
 
 use Kalaka\Events\Api\AccountMode;
 use Kalaka\Events\Api\Event;
+use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\AccountBlock;
 use Kalaka\Forms\BrokenForms;
-use Kalaka\Forms\Engine\FieldType\ConsentFieldType;
 use Kalaka\Forms\Engine\FormEngine;
 use Kalaka\Forms\Engine\FormPosts;
 use Kalaka\Forms\EventFormHost;
@@ -16,13 +16,14 @@ use Kalaka\Forms\ParticipantField\FieldBlocks;
 use Kalaka\Foundation\Api\Error\InvalidInput;
 use Kalaka\Foundation\Api\Error\SystemFailure;
 use Kalaka\Foundation\Api\Module\Contributions;
+use Kalaka\Foundation\Api\UseCase\Runner;
 use Kalaka\ParticipantFields\Api\ParticipantField;
 use Kalaka\ParticipantFields\Api\ParticipantFields;
 
 /**
  * Reads forms and checks answers against them. It reads WordPress posts, so it runs before or
  * after a use case's transaction, never inside it: a submit reads the form and its definition
- * first and passes them in.
+ * first and passes them in. `participantValues()` is the one exception: it reads no post.
  */
 final class Forms
 {
@@ -231,12 +232,28 @@ final class Forms
      * `system` field (until decisions can be read here) and a field of a type no longer contributed read as
      * none too. A stored answer of a key the event does not have is left out.
      *
+     * Unlike the rest of this class it reads no post, only `ParticipantFields::of()` (its table and the block
+     * registry), and each stored answer is typed by its field type's `value()`, which fires no hook and writes
+     * nothing; so the evaluation calls it inside the transaction (`Registrations::factsOf()`).
+     *
      * @param array<string, string> $stored field key → the stored value
      * @return array<string, Value> field key → value
      */
     public function participantValues(int $eventId, array $stored): array
     {
-        return self::valuesOf($this->typedFields($eventId), $stored);
+        return $this->participantFacts($eventId, $stored)->values;
+    }
+
+    /**
+     * `participantValues()` with each field's kind beside its value (N19): the block type and the number
+     * field's decimals a money rule needs to tell a consent from a quantity. One walk, one read of
+     * `ParticipantFields::of()`, the same exception as `participantValues()`.
+     *
+     * @param array<string, string> $stored field key → the stored value
+     */
+    public function participantFacts(int $eventId, array $stored): ParticipantFacts
+    {
+        return self::factsOf($this->typedFields($eventId), $stored);
     }
 
     /**
@@ -250,7 +267,7 @@ final class Forms
     public function participantFieldValues(int $eventId, array $stored): array
     {
         $typed = $this->typedFields($eventId);
-        $values = self::valuesOf($typed, $stored);
+        $values = self::factsOf($typed, $stored)->values;
         $pairs = [];
         foreach ($typed as [$field]) {
             $pairs[] = ['field' => $field, 'value' => $values[$field->key]];
@@ -262,12 +279,13 @@ final class Forms
     /**
      * @param list<array{ParticipantField, FieldType|null}> $typed
      * @param array<string, string> $stored
-     * @return array<string, Value>
      */
-    private static function valuesOf(array $typed, array $stored): array
+    private static function factsOf(array $typed, array $stored): ParticipantFacts
     {
         $values = [];
+        $kinds = [];
         foreach ($typed as [$field, $type]) {
+            $kinds[$field->key] = new FieldKind($field->type, (int) ($field->settings['decimals'] ?? 0));
             if ($type === null) {
                 $values[$field->key] = Value::none(ValueType::Text);
                 continue;
@@ -278,7 +296,7 @@ final class Forms
                 : $type->value(new FieldTypeInput($answer, self::attributesOf($field, $answer)));
         }
 
-        return $values;
+        return new ParticipantFacts($values, $kinds);
     }
 
     /**
@@ -317,14 +335,16 @@ final class Forms
     }
 
     /**
-     * The block attributes a field type reads a stored answer with, from the participant field: the label,
-     * the options, and for a choice whether it is multiple, which its stored form shows (a JSON list).
+     * The block attributes a field type reads a stored answer with, from the participant field: its own
+     * settings (the number field's bounds, decimals and affixes), the label, the options, and for a choice
+     * whether it is multiple, which its stored form shows (a JSON list).
      *
      * @return array<string, mixed>
      */
     private static function attributesOf(ParticipantField $field, string $answer): array
     {
-        $attributes = ['label' => $field->title];
+        $attributes = $field->settings;
+        $attributes['label'] = $field->title;
         if ($field->options !== []) {
             $attributes['options'] = array_map(
                 static fn (array $option): array => ['value' => $option['value'], 'label' => $option['label']],
@@ -342,7 +362,8 @@ final class Forms
      *
      * @param array<array-key, mixed> $answers field key → the answer as sent
      * @param Facts|null $facts the facts besides the answers: the event's keys (`EventValues::of()`) for a
-     *     form whose conditions read them; none when null
+     *     form whose conditions read them; when null, only the runner's moment (`EventValues::now()`), so
+     *     every condition scope carries `now`
      * @throws InvalidInput an undeclared key or a value of the wrong JSON type
      * @throws InvalidAnswers missing or wrong answers
      * @throws FormTerminal a terminal page shows for the answers
@@ -350,7 +371,11 @@ final class Forms
      */
     public function validate(FormDefinition $definition, array $answers, ?Facts $facts = null): ValidatedAnswers
     {
-        return $this->engine->validate($definition, $answers, $facts);
+        return $this->engine->validate(
+            $definition,
+            $answers,
+            $facts ?? new ValueContext(EventValues::now(Runner::current()->clock()->now()))
+        );
     }
 
     /**

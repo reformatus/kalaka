@@ -9,3 +9,13 @@ At the module root: `FixedPrice` (core's fee component, at the tier stage), `Man
 Tables, created by the schema in `Module.php`: `kalaka_fixed_prices`, `kalaka_manual_confirmations`, `kalaka_unconfirmations`. There is no tariff snapshot.
 
 Entry points: the abilities `kalaka/set-manual-confirmation` and `kalaka/unconfirm`; the settings screen is S72's.
+
+Modules contribute fee components with `Contributions::feeComponent()`; `CoreFeeComponents` lists core's fixed
+price, then the contributed ones, core's Extras among them. A module's proposed settings reach `MoneySettings` as
+`Api\ProposedComponentSettings` (its component for the preview, and the `Api\SettingsSave` use case the apply runs
+first). The fixed price is the base only without a ladder: `FeeComposer` composes it last in the tier stage and
+skips it once another tier-stage component owes something.
+
+A component that owes several things apart (Extras: one item per charge) returns `FeeTargets::ofItems()`; each item is
+its own source `<component ID>:<item>` in the ledger, and the materializer reverses a recorded item the component
+no longer returns.

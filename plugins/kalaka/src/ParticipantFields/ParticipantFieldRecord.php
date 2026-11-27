@@ -30,6 +30,7 @@ final class ParticipantFieldRecord
     /**
      * @param ?list<array{value: string, label: string, retired_at: ?string}> $options null for a field without
      *     options; `retired_at` is the stored UTC instant or null
+     * @param ?array<string, mixed> $settings the type's settings that outlive the form (the number field's)
      */
     public function __construct(
         public readonly int $eventId,
@@ -44,6 +45,7 @@ final class ParticipantFieldRecord
         public int $position = 0,
         public bool $formWritable = false,
         public int $version = 0,
+        public ?array $settings = null,
     ) {
     }
 
@@ -73,6 +75,7 @@ final class ParticipantFieldRecord
             (int) $row['position'],
             $row['form_writable'] === '1',
             (int) $row['version'],
+            self::decodeSettings($row['settings'] ?? null),
         );
     }
 
@@ -92,7 +95,21 @@ final class ParticipantFieldRecord
             'updated_at' => Instant::toStorage($this->updatedAt),
             'position' => $this->position,
             'form_writable' => $this->formWritable ? 1 : 0,
+            'settings' => $this->settings === null || $this->settings === []
+                ? null
+                : (string) wp_json_encode($this->settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
+    }
+
+    /** @return ?array<string, mixed> */
+    private static function decodeSettings(mixed $json): ?array
+    {
+        if ($json === null || $json === '') {
+            return null;
+        }
+        $decoded = json_decode((string) $json, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 
     /** @param list<array{value: string, label: string, retired_at: ?string}> $options */

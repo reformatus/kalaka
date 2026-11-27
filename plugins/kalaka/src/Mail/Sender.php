@@ -132,7 +132,7 @@ final class Sender implements PeriodicStep
             // attempt and does not count toward pausing; any other failure is an error after the claim.
             [$message, $thrown] = [null, null];
             try {
-                $message = $composer->compose($delivery, $to);
+                $message = $composer->compose($delivery, $to, $now);
             } catch (BodyUnusable $e) {
                 if ($this->fail($runner, $delivery, DeliveryError::BODY, $e->problem)) {
                     $unusable++;
