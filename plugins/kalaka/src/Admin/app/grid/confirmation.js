@@ -10,7 +10,7 @@ export const REASON_MAX = 500;
 /**
  * The dialog's one check, on the text that is sent (trimmed): at most 500 characters (counted as the server counts
  * them, by character, not by UTF-16 unit); a message, or an empty string when it may be sent. The reason is never
- * required ([UNAPPROVED N1222], owner 2026-11-26). The field itself has no length limit: its own `maxLength` would
+ * required (owner 2026-11-26). The field itself has no length limit: its own `maxLength` would
  * count UTF-16 units, not characters.
  */
 export function validateReason( reason ) {
@@ -20,13 +20,12 @@ export function validateReason( reason ) {
 
 /**
  * The buttons of the manual confirmation block: `confirm` (the manual flag) with `can.confirm_manually` while the
- * flag is not set and the registration is not confirmed, so the two buttons never show together ([UNAPPROVED N34
- * reboxed] [UNAPPROVED N75 reboxed]); it shows also when the read does not carry the flag, which is only under the
- * money gate: the set is idempotent; `unconfirm` only with `can.unconfirm`, which the server makes true only on a confirmed registration,
- * whatever the flag says ([UNAPPROVED N33 reboxed: confirmed only, with no required reason]). No status logic here:
- * the server's `can` decides alone. A flag on a registration that is not confirmed has no button that revokes it
- * ([UNAPPROVED N70 reboxed: the server clears the manual flag when the registration is withdrawn or removed, which
- * is Backend's work, not built here]).
+ * flag is not set and the registration is not confirmed, so the two buttons never show together; it shows also when
+ * the read does not carry the flag, which is only under the money gate: the set is idempotent; `unconfirm` only with
+ * `can.unconfirm`, which the server makes true only on a confirmed registration, whatever the flag says, and with no
+ * required reason. No status logic here: the server's `can` decides alone. A flag on a registration that is not
+ * confirmed has no button that revokes it; the server clears the manual flag when the registration is withdrawn or
+ * removed, which is Backend's work, not built here.
  *
  * @param {?Object}  manual    the read's flag: null when not set, undefined when the read does not carry it
  * @param {Object}   can       the read's `can`
@@ -58,7 +57,7 @@ export function cancelled( status ) {
 /**
  * Whether the unconfirm is disabled: the rules would confirm the registration again at once, which the read says
  * in `registration.unconfirm_reconfirms` (`payments`, `nothing_due`, or `yes` for a viewer without the money
- * view); null when it would really take effect. [UNAPPROVED N33 reboxed] [UNAPPROVED N71 reboxed]
+ * view); null when it would really take effect. [UNAPPROVED N71 reboxed]
  */
 export function unconfirmBlocked( registration ) {
 	return typeof ( registration && registration.unconfirm_reconfirms ) === 'string';
@@ -71,9 +70,8 @@ export function unconfirmBlocked( registration ) {
  * the read's text as it comes and cuts nothing, so Backend must stop appending that sentence]
  * It is the visible help text under the disabled button, tied to it by `aria-describedby`, and it wraps as a
  * paragraph, so it reaches a touch screen too ([UNAPPROVED N1263]). The panel adds no wording and no rule of its
- * own. [UNAPPROVED N76 reboxed] The text is as old as the panel's last read ([UNAPPROVED N79 reboxed]), and a
- * holder without the money view gets the server's text for that case ([UNAPPROVED N81 reboxed: help text, not a
- * tooltip]).
+ * own. The text is as old as the panel's last read, and a holder without the money view gets the server's text for
+ * that case.
  */
 export function warningOf( registration, can ) {
 	const text = registration && registration.unconfirm_warning;
@@ -84,8 +82,8 @@ export function warningOf( registration, can ) {
  * The snackbar after a save, from what the server answered and the re-read detail (null when the re-read failed:
  * the panel's load-error message shows, and no snackbar claims a state that was not read). `changed: false` wrote
  * nothing, so the panel only shows what is now. A set says it is saved; an unconfirm always says it was revoked,
- * as it cannot be sent while the rules would confirm again at once. [UNAPPROVED N72 reboxed] The re-confirm
- * snackbar is gone with its string ([UNAPPROVED N80 struck], T46 struck).
+ * as it cannot be sent while the rules would confirm again at once. The re-confirm snackbar is gone with its
+ * string.
  *
  * @param {boolean}  unconfirm the act was the unconfirm (else the set)
  * @param {?Object}  result    the ability's answer: { changed }

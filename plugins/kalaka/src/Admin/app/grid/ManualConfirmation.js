@@ -4,9 +4,8 @@
  * why, the button that sets it (with `can.confirm_manually`, while it is not set) and the one „Visszaigazolás
  * visszavonása” (with `can.unconfirm`, on any confirmed registration). The flag itself is read under the money
  * gate, so a user who may confirm but not see money gets the row without the line: setting is idempotent (the
- * unconfirm is not, see `api.js`). The line „Indoklás: …” is left out when the reason is empty ([UNAPPROVED N1223]).
- * [UNAPPROVED N1220] [UNAPPROVED N32 reboxed: the buttons are the confirmation
- * row's children, under the state, not a block of their own] [UNAPPROVED N34]
+ * unconfirm is not, see `api.js`). The line „Indoklás: …” is left out when the reason is empty. The buttons are the
+ * confirmation row's children, under the state, not a block of their own.
  * The disabled unconfirm's reason is visible text under the button, tied to it by `aria-describedby`, not a
  * tooltip: a touch screen cannot open a tooltip on a disabled button ([UNAPPROVED N1263], [UNAPPROVED N71
  * reboxed: the reason is help text, not a notice in the dialog and not a tooltip; and no mail sentence (T6) in it,
@@ -84,14 +83,14 @@ export default function ManualConfirmation( {
 	);
 
 	// After a save focus goes back to the button that opened the dialog while it is still on screen, else to the
-	// panel's close button ([UNAPPROVED N77 reboxed]): a set removes the set button, an unconfirm its own.
+	// panel's close button: a set removes the set button, an unconfirm its own.
 	const focusOpener = () =>
 		window.requestAnimationFrame( () =>
 			returnFocus( opener.current, closeRef && closeRef.current )
 		);
 	// The act itself replaces the opener (the set gives way to the unconfirm, and back), so after one focus goes
-	// to the row's new button, else to the close button ([UNAPPROVED N1265] [UNAPPROVED N77 reboxed: the opener,
-	// else the close button, holds for a cancelled dialog and the money tab's dialogs]). It is done in an effect,
+	// to the row's new button, else to the close button ([UNAPPROVED N1265]; a cancelled dialog keeps the opener,
+	// else the close button, as the money tab's dialogs do). It is done in an effect,
 	// not in a frame: React must have drawn the new row first, or focus would sit on the button it replaced.
 	const wantRowFocus = useRef( false );
 	useEffect( () => {
