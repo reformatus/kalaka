@@ -74,7 +74,7 @@ Not a commitment: the owner drops requirements when needed. Candidates:
 ### Not in this release
 
 Presets; the participant blocks beyond the status block: the account's
-registration picker, "kilépés", field-value blocks and additional forms for
+registration picker, field-value blocks and additional forms for
 changing field values after submit (the module ranking's is needed
 before IVK registration closes, not at opening);
 the privacy tools: WordPress's privacy export and eraser, the audit-diff

@@ -13,6 +13,6 @@ interface Response
     /** The page is never cached. */
     public function noCache(): void;
 
-    /** A 302 to the URL; the request ends here. */
-    public function redirect(string $url): void;
+    /** A redirect (302 unless `$status` says otherwise) to the URL; the request ends here. */
+    public function redirect(string $url, int $status = 302): void;
 }
