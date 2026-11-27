@@ -16,6 +16,8 @@ parameters:
         - plugins/kalaka-woocommerce/src
         - plugins/kalaka-woocommerce/kalaka-woocommerce.php
         - plugins/kalaka-woocommerce/uninstall.php
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
     bootstrapFiles:
         - plugins/kalaka/vendor/autoload.php
         - plugins/kalaka-support/vendor/autoload.php

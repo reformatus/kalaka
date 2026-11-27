@@ -26,7 +26,7 @@ Kaláka is a WordPress plugin: an integrated registration system for events and 
 | Extension registration action `kalaka_register_modules` | `src/Foundation/Boot.php` |
 | Schema (`dbDelta`) | `src/Foundation/SchemaUpgrader.php`, option `kalaka_schema_<id>` |
 | REST routes | `<Module>/Rest/` (none yet) |
-| WP-CLI | `<Module>/Cli/` (none yet) |
+| WP-CLI | `<Module>/Cli/` (`wp kalaka event`, `assignment`, `full-access`, `periodic-run`, `seed`) |
 | Blocks | `<Module>/Blocks/<name>/`, built into `build/` by `npm run build` and registered from there (Forms') |
 
 ## Modules
@@ -34,10 +34,10 @@ Kaláka is a WordPress plugin: an integrated registration system for events and 
 | Module | Namespace | Entry points |
 |---|---|---|
 | Foundation | `Kalaka\Foundation` | `plugins_loaded` boot, `kalaka_register_modules` |
-| Events | `Kalaka\Events` | none yet |
+| Events | `Kalaka\Events` | `wp kalaka event` (create, update, show, list, publish, unpublish, archive) |
 | ParticipantFields | `Kalaka\ParticipantFields` | none (its route stays in Forms) |
 | Forms | `Kalaka\Forms` | `init` (blocks, form post type), `wp_loaded` (field block check), block `kalaka/form`, `wp kalaka seed` |
-| Assignments | `Kalaka\Assignments` | none yet |
+| Assignments | `Kalaka\Assignments` | `wp kalaka assignment` |
 | Registrations | `Kalaka\Registrations` | none yet |
 | Pricing | `Kalaka\Pricing` | none yet |
 | Ledger | `Kalaka\Ledger` | none yet |
