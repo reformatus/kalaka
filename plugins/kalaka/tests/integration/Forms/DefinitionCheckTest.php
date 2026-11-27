@@ -48,6 +48,11 @@ final class DefinitionCheckTest extends FormsTestCase
         return $this->block('kalaka/nope-field', ['key' => 'nope']);
     }
 
+    private function paragraph(string $text): string
+    {
+        return '<!-- wp:paragraph --><p>' . $text . '</p><!-- /wp:paragraph -->';
+    }
+
     public function testTheEditorCannotPublishABrokenFormAndIsToldWhy(): void
     {
         $response = $this->rest('/wp/v2/kalaka_form', [
@@ -75,7 +80,7 @@ final class DefinitionCheckTest extends FormsTestCase
      */
     public function testAPlaceholderTheFormPageCannotFillIsRefusedAndAKnownOnePasses(): void
     {
-        $help = '<!-- wp:paragraph --><p>Írd be: {{nincs_ilyen}}</p><!-- /wp:paragraph -->';
+        $help = $this->paragraph('Írd be: {{nincs_ilyen}}');
         $response = $this->rest('/wp/v2/kalaka_form', [
             'title' => 'Regisztráció',
             'status' => 'publish',
@@ -97,7 +102,7 @@ final class DefinitionCheckTest extends FormsTestCase
         self::assertSame([], get_posts(['post_type' => 'kalaka_form', 'post_status' => 'any']));
 
         // The keys a form page fills pass: the event's values and the account fact.
-        $known = '<!-- wp:paragraph --><p>{{event.name}} – {{account.logged_in}}</p><!-- /wp:paragraph -->';
+        $known = $this->paragraph('{{event.name}} – {{account.logged_in}}');
         $made = $this->rest('/wp/v2/kalaka_form', [
             'title' => 'Regisztráció',
             'status' => 'publish',
@@ -118,6 +123,64 @@ final class DefinitionCheckTest extends FormsTestCase
             . ' A mentéshez javítani vagy törölni kell.',
             get_transient(DefinitionCheck::NOTICE . get_current_user_id())
         );
+    }
+
+    /**
+     * The after-submit section has its own keys (`Api\AfterSubmit::TYPES`: the event's and the new registration's
+     * code and status), so `{{registration.code}}` passes there; the same key in the form's other blocks is the
+     * form page's, which does not declare it. [UNAPPROVED N1182]
+     */
+    public function testTheAfterSubmitSectionHasItsOwnPlaceholderKeys(): void
+    {
+        $after = '<!-- wp:kalaka/after-submit -->'
+            . $this->paragraph('Köszönjük! Kódod: {{registration.code}} ({{registration.status}}, {{event.name}})')
+            . '<!-- /wp:kalaka/after-submit -->';
+        $made = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $after,
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+        self::assertSame(201, $made->get_status());
+
+        $response = $this->rest('/wp/v2/kalaka_form', [
+            'title' => 'Regisztráció',
+            'status' => 'publish',
+            'content' => $this->slotFields() . $this->paragraph('Kódod: {{registration.code}}'),
+            'meta' => ['kalaka_event_id' => 7, 'kalaka_placement' => 'registration'],
+        ]);
+
+        self::assertSame(422, $response->get_status());
+        $error = $response->as_error();
+        self::assertInstanceOf(\WP_Error::class, $error);
+        self::assertSame('kalaka_unknown_placeholder', $error->get_error_code());
+        $data = $error->get_error_data();
+        self::assertIsArray($data);
+        self::assertSame(['{{registration.code}}'], $data['keys']);
+    }
+
+    /**
+     * The placeholder check is the definition check's own, so a stored form holding one is found by the
+     * broken-form pass, closed and named, like any other definition problem. [UNAPPROVED N1182]
+     */
+    public function testAFormWithATypedPlaceholderItsPagesCannotFillIsNamedBrokenAndClosed(): void
+    {
+        $broken = $this->insertForm(
+            $this->slotFields() . $this->paragraph('{{nincs_ilyen}}'),
+            [],
+            ['post_title' => 'Jelölős űrlap']
+        );
+
+        self::assertSame('publish', get_post_status($broken));
+        self::assertSame(
+            ['#' . $broken . ' Jelölős űrlap: unknown_placeholder {{nincs_ilyen}}'],
+            BrokenForms::stored()
+        );
+        $shown = (new BrokenFormsWarning())->check();
+        self::assertNotNull($shown);
+        self::assertStringContainsString('unknown_placeholder {{nincs_ilyen}}', (string) $shown->details);
+        $this->expectException(SystemFailure::class);
+        $this->forms->definition($this->readForm($broken));
     }
 
     public function testASlotFormWithoutItsContactEmailCannotBePublished(): void

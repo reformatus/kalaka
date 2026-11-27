@@ -6,11 +6,9 @@ namespace Kalaka\Forms;
 
 use Kalaka\Forms\Engine\DefinitionParser;
 use Kalaka\Forms\Engine\FormPosts;
-use Kalaka\Forms\Api\EventValues;
 use Kalaka\Forms\Api\Form;
 use Kalaka\Forms\Api\FormPlacement;
 use Kalaka\Forms\Api\UnknownPlaceholder;
-use Kalaka\Forms\Api\Values;
 use Kalaka\Forms\ParticipantField\SharedKeyCheck;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\Entry\SaveVeto;
@@ -26,11 +24,13 @@ use Kalaka\Foundation\Api\Module\Contributions;
  *   the event's participant fields a shared key has the same type (`type_clash`) and no form holds a
  *   `system` field's key (`system_field`). This runs on every save but an autosave, drafts included,
  *   because every form of the event declares its fields;
- * - when the form is saved as published or scheduled, a typed placeholder the form's page cannot fill is
- *   refused first (`unknown()`, `kalaka_unknown_placeholder`, T990's text, the keys as typed), as a mail
- *   body's save does, then the definition check `DefinitionParser` runs on the
- *   live form (keys, options, unknown blocks, the slot's markings, and whatever the parser checks later
- *   on), and the account block of a registration form whose event has accounts (`AccountBlock`). A draft
+ * - when the form is saved as published or scheduled, the definition check `DefinitionParser` runs on the
+ *   live form (keys, options, unknown blocks, the slot's markings, a typed placeholder the part it sits in
+ *   cannot fill, and whatever the parser checks later on), and the account block of a registration form whose
+ *   event has accounts (`AccountBlock`). A placeholder is refused first, with its own refusal
+ *   (`unknown()`, `kalaka_unknown_placeholder`, T990's text, the keys as typed), as a mail body's save
+ *   does, and the same problem is the definition check's own, so every other read of the current version
+ *   (`Forms::definition()`, the broken-form scan) agrees. A draft
  *   is not parsed: it can be half built. A form whose placement is not set yet is not parsed
  *   either: it cannot be used anyway. A scheduled form is checked again when WordPress publishes it
  *   (`onPublishFuture`), so it never publishes itself broken.
@@ -38,7 +38,7 @@ use Kalaka\Foundation\Api\Module\Contributions;
  * Each runs over the content as it will be stored (keys and option values derived first, across the event).
  *
  * The REST save (the block editor) is refused with a 400 before anything is written, or with a 422 for a
- * typed placeholder the form's page cannot fill (`kalaka_unknown_placeholder`), checked with the
+ * typed placeholder the part it sits in cannot fill (`kalaka_unknown_placeholder`), checked with the
  * placement and the event the request sets, if any; any other save path (code, WP-CLI, a revision restore)
  * is vetoed gracefully in `wp_insert_post_data`, checked with what it sets in `meta_input`, else the stored
  * settings: nothing ever throws out of a core filter. A veto writes a log line, and on WP-CLI a warning
@@ -76,18 +76,16 @@ final class DefinitionCheck
     }
 
     /**
-     * The placeholders typed as `{{key}}` in a form's content whose key the form page's own context does not
-     * declare, as the refusal of its save: every one of them, as typed, each once; null when there is none. The
-     * form page fills every block of the form, not only Kaláka blocks (`Engine\FormPage`), so the whole content
-     * is read, and its keys are the host's facts (`EventValues::FORM_TYPES`: the event's keys and
-     * `account.logged_in`). [UNAPPROVED N1182]
+     * The placeholders typed as `{{key}}` in a form's content that the part they sit in cannot fill, as the
+     * refusal of its save: every one of them, as typed, each once; null when there is none. The rule is the
+     * definition check's own (`DefinitionParser::unknownPlaceholders()`): the after-submit section's keys for what
+     * sits in it, the form page's own (`EventFormHost::factTypes()`: the event's keys and `account.logged_in`) for
+     * the rest. [UNAPPROVED N1182]
      */
     public static function unknown(string $content): ?UnknownPlaceholder
     {
-        if (!str_contains($content, '{{')) {
-            return null;
-        }
-        $keys = (new Values())->unknownPlaceholders($content, EventValues::FORM_TYPES);
+        $host = new EventFormHost();
+        $keys = DefinitionParser::unknownPlaceholders($content, $host->factTypes(), $host->afterSubmitTypes());
 
         return $keys === [] ? null : new UnknownPlaceholder($keys);
     }
@@ -163,16 +161,17 @@ final class DefinitionCheck
             : FormEvent::NOT_GIVEN;
         [$eventId, $fixed] = FormEvent::resolve($id, $requested, $content);
 
+        $live = in_array($status, self::LIVE, true);
+        // The placeholder's own refusal comes first, as a mail body's save gives it, and it is the definition
+        // check's problem too: the parse below would otherwise answer it as a generic definition error.
+        $unknown = !$fixed && $live && $placement !== null ? self::unknown($content) : null;
+        if ($unknown !== null) {
+            return $unknown->toWpError();
+        }
         $problem = $fixed
             ? [FormEvent::PROBLEM, FormPosts::META_EVENT_ID]
-            : self::problemOf($content, $id, $placement, $eventId, in_array($status, self::LIVE, true));
+            : self::problemOf($content, $id, $placement, $eventId, $live);
         if ($problem === null) {
-            if (in_array($status, self::LIVE, true) && $placement !== null) {
-                $unknown = self::unknown($content);
-                if ($unknown !== null) {
-                    return $unknown->toWpError();
-                }
-            }
             if ($placement !== null) {
                 self::$restPlacements[$id] = $placement;
             }
