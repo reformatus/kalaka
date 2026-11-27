@@ -115,7 +115,9 @@
 }
 
 /* The „Események” table's clear button: its long label wraps instead of pushing the column past the box, so the
-   table fits the width (no sideways scroll, no clipped button) at 1440 and below. [UNAPPROVED N927] */
+   table fits the width (no sideways scroll, no clipped button) at 1440 and below. [UNAPPROVED N927 reboxed: 9.4 b is
+   answered — text cells wrap — so the mail tables' long labels wrap too; the grid's own wrap is #204's N1260 and
+   arrives with the grid's merge, and the grid here still scrolls sideways inside its table] */
 .km-table .components-button {
 	white-space: normal;
 }
