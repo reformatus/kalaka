@@ -23,7 +23,7 @@ final class Texts
     /** The first submission's time and the moment the registration became registered. [UNAPPROVED T18, T19] lektored */
     public const SUBMITTED_AT = 'Jelentkezés ideje';
     public const REGISTERED_AT = 'Rögzítés ideje';
-    /** The title of the awaits-an-answer column: the panel's „Válaszra vár” ([UNAPPROVED T852], reused from #232 T4). */
+    /** The title of the awaits-an-answer column: the panel's „Válaszra vár” (reused from #232 T4). */
     public const AWAITS_ANSWER = 'Válaszra vár';
 
     /** A given consent in a cell and as the counted member; a shown but unticked one (stored '0'). */

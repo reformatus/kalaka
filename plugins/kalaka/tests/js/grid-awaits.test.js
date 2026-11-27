@@ -1,7 +1,7 @@
 import { cellText, sumParts } from '../../src/Admin/app/grid/format';
 import { filterSpec } from '../../src/Admin/app/grid/narrow';
 
-// The column as the server describes it ([UNAPPROVED N669], title [UNAPPROVED T852]): a consent-like yes/no
+// The column as the server describes it ([UNAPPROVED N669]): a consent-like yes/no
 // column that is always answered, so it carries no `empty` flag.
 const column = {
 	column: 'awaits_answer',
