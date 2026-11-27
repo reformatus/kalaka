@@ -39,7 +39,7 @@ use Kalaka\Registrations\Api\RequestState;
  *   required).
  *   For aid a "no" is an award of 0 Ft (B2) and a "yes" needs an amount above zero and no more than the full
  *   price the participant has to pay (`RequestSource::terms()`; a larger one is `AidAbovePrice`, nothing written);
- *   an offer takes no amount. [UNAPPROVED N1132]
+ *   an offer takes no amount.
  * - Writes one answer record per act (its id is the key the "answered" mail takes) and the answer as the
  *   source's own participant field value (B3: the source stays that field's only writer). Both are facts; the
  *   registration is then evaluated in the same run, so money, then confirmation, then mail, follow the answer.
@@ -147,7 +147,7 @@ final class AnswerRequest implements AdminUseCase
         }
 
         // An aid award is no more than what the participant has to pay: refused, nothing written. The same
-        // `terms()` is on the detail read, so the dialog can warn before the send. [UNAPPROVED N1132]
+        // `terms()` is on the detail read, so the dialog can warn before the send.
         if ($yes && $request->kind === RequestKind::Aid && $answer->amount !== null) {
             $terms = $state->source->terms($key, $request, $state->values, $context->now());
             if ($terms !== null && $answer->amount->isGreaterThan($terms->maxAmount())) {

@@ -44,7 +44,7 @@ interface RequestSource
      * What an aid request is measured against, now: the full price the participant has to pay before the aid and
      * what they stated they can pay, so the answer act can refuse an award above the price and the admin read can
      * show both. Null for a request that has no price to compare (an offer) or when none can be read. Reads only the
-     * registration's facts and the event's settings. [UNAPPROVED N1133]
+     * registration's facts and the event's settings.
      *
      * @param array<string, string> $values the registration's current field values, key → stored value
      */

@@ -11,7 +11,7 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * only for the listed statuses; there a registration with no record of the kind reads `$state`, effective when
  * it became `registered`, and in any other status it reads no state, whatever its records say. It is derived,
  * never written: every read of current decisions applies it, in PHP and in SQL (`DecisionTables::stateOf()`).
- * [UNAPPROVED N7]
+ *
  */
 final readonly class DecisionDefault
 {

@@ -2,7 +2,7 @@
  * The requests block of the detail panel (slice B, "answer a request"), under the manual confirmation block: each
  * request of the registration with its state, and with `can.answer_request` the button that opens the answer
  * dialog. It shows only what the read carries: nothing without `can.answer_request` and nothing while the last
- * read failed. [UNAPPROVED N7]
+ * read failed.
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';

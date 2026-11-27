@@ -27,20 +27,20 @@ use Kalaka\Registrations\Api\RegistrationStatus;
  * decision (never from charge lines); the payments come from the Ledger's payment facts. The composition
  * includes the manual charges and discounts (the `manual` fee component), so a payer's target is what it owes
  * now, a discount lowering it. Every payer counts,
- * the congregation too (the owner's ruling 2026-11-10). [UNAPPROVED N1]
+ * the congregation too (the owner's ruling 2026-11-10).
  *
  * - → `confirmed` when the payments reach every threshold, the manual flag is set, or nothing is due. Its
  *   effective time is the value date (paid time online) of the payment that reached the last required
  *   threshold, the flag's set time, or the moment of the check when nothing is due; with both payments and
- *   the flag, the earlier, and never before staff's latest unconfirm. [UNAPPROVED N15]
+ *   the flag, the earlier, and never before staff's latest unconfirm.
  * - → `unconfirmed` from `confirmed` only by staff's explicit unconfirm (`kalaka/unconfirm`, newer than the
  *   current `confirmed` record), effective at its time: a refund, a later charge or a higher threshold never
  *   unconfirms (the owner's ruling 2026-11-19); a lower threshold can confirm at the next evaluation. That
  *   transition is followed, in the same answer, by the rule's own second check: the flag is revoked by then, so
  *   payments that reach every threshold, or nothing due, confirm the registration again in the same pass. A
- *   later payment or correction that reaches the threshold confirms again too. [UNAPPROVED N9, N12, N16]
+ *   later payment or correction that reaches the threshold confirms again too.
  * - No record is the base state: a `registered` registration with none reads `unconfirmed`, derived, never
- *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state. [UNAPPROVED N7]
+ *   written (`defaultState()`, the owner's ruling 2026-11-19); other statuses read no state.
  * - Withdrawal or removal closes the sequence: a `confirmed` registration that is no longer `registered` gets
  *   `unconfirmed`, so a restore or admission writes a new `confirmed` record if it qualifies and the old one is
  *   never revived.
@@ -134,7 +134,7 @@ final class ConfirmationRule implements DecisionRule
         }
 
         // The second check, run in a row with the flag already revoked: payments that reach every threshold, or
-        // nothing due, confirm the registration again at once. [UNAPPROVED N16]
+        // nothing due, confirm the registration again at once.
         return [
             new Transition(
                 self::UNCONFIRMED,
@@ -238,7 +238,7 @@ final class ConfirmationRule implements DecisionRule
 
     /**
      * The `confirmed` transition when the payments or the flag qualify, else null. It is never effective before
-     * staff's latest unconfirm, read only when something qualifies. [UNAPPROVED N15]
+     * staff's latest unconfirm, read only when something qualifies.
      */
     private function confirmation(
         RegistrationKey $key,
