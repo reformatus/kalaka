@@ -16,7 +16,8 @@ use Kalaka\Mail\Api\MailHold;
 use Kalaka\Mail\Api\MailStats;
 use Kalaka\Mail\Api\ManualMails;
 use Kalaka\Mail\Api\TroubledDelivery;
-use Kalaka\Mail\Body\MailPosts;
+use Kalaka\Mail\ClearEventMail;
+use Kalaka\Mail\EventMailNotHeld;
 
 /**
  * The event's „Levelek” page, rendered in PHP (owner 2026-11-27, walkthrough 8; section 8 of the build list): no
@@ -137,7 +138,11 @@ final class EventPage
             /** @var TroubledDelivery $delivery */
             $html .= '<tr>';
             $html .= '<td><code>' . esc_html($delivery->code) . '</code></td>';
-            $label = $delivery->action !== null ? $delivery->action->label() : $delivery->mail;
+            $label = $delivery->action !== null
+                ? $delivery->action->label()
+                : ($delivery->batchId === null
+                    ? $delivery->mail
+                    : sprintf(Texts::BATCH_MANUAL, $delivery->batchId));
             $html .= '<td>' . esc_html($label) . '</td>';
             $html .= '<td>' . esc_html(self::deliveryStatus($delivery->status)) . '</td>';
             $html .= '<td>' . esc_html((string) $delivery->error) . '</td>';
@@ -200,17 +205,21 @@ final class EventPage
         $html .= '</tr></thead><tbody>';
         foreach ($data['mails'] as $mail) {
             /** @var ActionMailSetting $mail */
+            $point = $data['points'][$mail->action->value]
+                ?? ['template' => null, 'enable_unavailable' => null, 'wired' => false];
+            if (!$point['wired']) {
+                continue;
+            }
             $switch = $data['switches'][$mail->action->value] ?? [
-                'can' => ['switch_on' => false, 'switch_off' => false],
+                'can' => ['enable' => false, 'switch_off' => false],
                 'refusals' => ['switch_on' => null, 'switch_off' => null],
             ];
-            $body = $mail->bodyId === null ? null : ($data['bodiesById'][$mail->bodyId] ?? null);
             $refused = $mail->enabled ? $switch['refusals']['switch_off'] : $switch['refusals']['switch_on'];
-            $allowed = $mail->enabled ? $switch['can']['switch_off'] : $switch['can']['switch_on'];
+            $allowed = $mail->enabled ? $switch['can']['switch_off'] : $switch['can']['enable'];
 
             $html .= '<tr>';
             $html .= '<th scope="row">' . esc_html($mail->action->label()) . '</th>';
-            $html .= '<td>' . self::templateCell($mail, $body, $data) . '</td>';
+            $html .= '<td>' . self::templateCell($mail, $point['template'], $data) . '</td>';
             $html .= '<td>';
             $html .= '<input type="checkbox" data-kalaka-switch="' . esc_attr($mail->action->value) . '"'
                 . ' data-kalaka-on="' . ($mail->enabled ? '1' : '0') . '"'
@@ -237,7 +246,7 @@ final class EventPage
         if ($body === null) {
             $html = '<p>' . esc_html(Texts::NO_TEMPLATE) . '</p>';
             $html .= self::chooseButton($mail);
-            $html .= ' ' . self::newButton();
+            $html .= ' ' . self::newButton($mail);
 
             return $html;
         }
@@ -246,7 +255,7 @@ final class EventPage
         $html .= '<p><strong>' . esc_html($body->subject) . '</strong></p>';
         $html .= '<p>' . esc_html(Texts::TEMPLATE_STATUS) . ': ' . esc_html(self::statusWord($body->status)) . '</p>';
         $html .= '<p>' . esc_html(Texts::USES_FRAME) . ': '
-            . esc_html($data['usesFrame'][$body->id] ? Texts::YES : Texts::NO) . '</p>';
+            . esc_html($body->usesFrame ? Texts::YES : Texts::NO) . '</p>';
         $html .= '<p>' . esc_html(Texts::MODIFIED) . ': ' . esc_html(self::moment($body->modified)) . '</p>';
         $html .= '<p>';
         $html .= '<a href="' . esc_url($body->editUrl) . '">' . esc_html(Texts::EDIT) . '</a>';
@@ -265,12 +274,13 @@ final class EventPage
     }
 
     /**
-     * „Új sablon”: the route that creates a draft assigned to the point is not on this branch (section 8 plans
-     * `POST …/mail/points/{mail}/template`), so the button is rendered and disabled. [UNAPPROVED N1282]
+     * „Új sablon”: `POST …/mail/points/{mail}/template` makes a draft, assigns it and switches the point off; the
+     * client then opens the new template's editor. [UNAPPROVED N1282]
      */
-    private static function newButton(): string
+    private static function newButton(ActionMailSetting $mail): string
     {
-        return '<button type="button" class="button" disabled>' . esc_html(Texts::NEW_TEMPLATE) . '</button>';
+        return '<button type="button" class="button" data-kalaka-new="' . esc_attr($mail->action->value) . '">'
+            . esc_html(Texts::NEW_TEMPLATE) . '</button>';
     }
 
     /**
@@ -297,7 +307,7 @@ final class EventPage
             $html .= '<tr>';
             $html .= '<td>' . esc_html($body->subject) . '</td>';
             $html .= '<td>' . esc_html(self::statusWord($body->status)) . '</td>';
-            $html .= '<td>' . esc_html($data['usesFrame'][$body->id] ? Texts::YES : Texts::NO) . '</td>';
+            $html .= '<td>' . esc_html($body->usesFrame ? Texts::YES : Texts::NO) . '</td>';
             $html .= '<td>' . esc_html(self::moment($body->modified)) . '</td>';
             $html .= '<td><a href="' . esc_url($body->editUrl) . '">' . esc_html(Texts::EDIT) . '</a></td>';
             $html .= '</tr>';
@@ -330,7 +340,8 @@ final class EventPage
      * Every read the page lays out, one round: the settings, the bodies and their facts, the counts, the queues.
      *
      * @return array{mails: list<ActionMailSetting>, layoutHtml: string, bodies: list<MailBodyInfo>,
-     *     bodiesById: array<int, MailBodyInfo>, usesFrame: array<int, bool>,
+     *     bodiesById: array<int, MailBodyInfo>,
+     *     points: array<string, array{template: ?MailBodyInfo, enable_unavailable: ?string, wired: bool}>,
      *     switches: array<string, array{can: array{switch_on: bool, switch_off: bool},
      *         refusals: array{switch_on: ?array{code: string, message: string},
      *         switch_off: ?array{code: string, message: string}}}>,
@@ -344,12 +355,9 @@ final class EventPage
         $bodies = (new MailBodies())->ofEvent($event->id);
         $facts = [];
         $bodiesById = [];
-        $usesFrame = [];
-        $posts = new MailPosts();
         foreach ($bodies as $body) {
             $facts[$body->id] = $body->facts;
             $bodiesById[$body->id] = $body;
-            $usesFrame[$body->id] = $posts->usesFrame($body->id);
         }
         $stats = (new MailStats())->ofEvents([$event->id])[$event->id] ?? new EventMailStats();
 
@@ -358,16 +366,43 @@ final class EventPage
             'layoutHtml' => $settings->layoutHtml,
             'bodies' => $bodies,
             'bodiesById' => $bodiesById,
-            'usesFrame' => $usesFrame,
+            'points' => self::pointFacts($settings->mails, $bodiesById),
             'switches' => $actions->switchesOf($settings, $event, $facts),
             'stats' => $stats,
             'held' => MailHold::isHeld($event),
             'troubled' => (new Deliveries())->troubled($event->id),
             'batches' => (new ManualMails())->batches($event->id),
-            // The clear act's own refusal is the use case's; the page shows the button while the event is held and
-            // lets the server refuse, as the site page does. [UNAPPROVED N1284]
-            'canClear' => MailHold::isHeld($event),
+            // The clear act is offered only while `ClearEventMail` would run, the same check the route's `can` uses;
+            // the use case refuses again. [UNAPPROVED N1284]
+            'canClear' => self::mayClear($event),
         ];
+    }
+
+    /**
+     * The read's per-point facts, built from the same classes the route uses: the template, why a switch-on is not
+     * offered, and whether the point really sends (only `wired` ones are shown).
+     *
+     * @param list<ActionMailSetting> $mails
+     * @param array<int, MailBodyInfo> $bodies
+     * @return array<string, array{template: ?MailBodyInfo, enable_unavailable: ?string, wired: bool}>
+     */
+    private static function pointFacts(array $mails, array $bodies): array
+    {
+        $points = [];
+        foreach ($mails as $mail) {
+            $body = $mail->bodyId === null ? null : ($bodies[$mail->bodyId] ?? null);
+            $reason = null;
+            if (!$mail->enabled) {
+                $reason = $body === null ? 'no_template' : ($body->facts->published ? null : 'template_draft');
+            }
+            $points[$mail->action->value] = [
+                'template' => $body,
+                'enable_unavailable' => $reason,
+                'wired' => $mail->action->isWired(),
+            ];
+        }
+
+        return $points;
     }
 
     /** @param list<MailBodyInfo> $bodies every body of the event, so a repeated subject gets its number */
@@ -408,6 +443,18 @@ final class EventPage
         $text = $instant === null ? false : wp_date('Y. m. d. H:i', $instant->getTimestamp(), wp_timezone());
 
         return $text === false ? Texts::NONE : $text;
+    }
+
+    /** The route's own `can.clear_event` rule, asked of the use case rather than copied. */
+    private static function mayClear(Event $event): bool
+    {
+        try {
+            ClearEventMail::refuse($event);
+        } catch (EventMailNotHeld) {
+            return false;
+        }
+
+        return true;
     }
 
     private static function pageUrl(Event $event): string

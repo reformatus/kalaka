@@ -107,6 +107,30 @@ function bindChoose( button ) {
 	} );
 }
 
+/** „Új sablon”: the route makes a draft, assigns it and switches the point off; then its editor opens. */
+function bindNew( button ) {
+	button.addEventListener( 'click', async () => {
+		button.disabled = true;
+		try {
+			const answer = await apiFetch( {
+				path: `${ config.rest }/events/${ config.event }/mail/points/${ button.dataset.kalakaNew }/template`,
+				method: 'POST',
+			} );
+			if ( answer && answer.edit_url ) {
+				window.location.href = answer.edit_url;
+				return;
+			}
+		} catch ( error ) {
+			button.disabled = false;
+			const line = document.createElement( 'p' );
+			line.className = 'notice notice-error inline';
+			line.setAttribute( 'role', 'alert' );
+			line.textContent = ( error && error.message ) || config.texts.actFail;
+			button.parentElement.appendChild( line );
+		}
+	} );
+}
+
 /** The X: the same ability with `body_id: null`; the server switches the point off. */
 function bindRemove( button ) {
 	button.addEventListener( 'click', () => {
@@ -227,6 +251,7 @@ function bindLayout( area ) {
 if ( config ) {
 	document.querySelectorAll( '[data-kalaka-switch]' ).forEach( bindSwitch );
 	document.querySelectorAll( '[data-kalaka-choose]' ).forEach( bindChoose );
+	document.querySelectorAll( '[data-kalaka-new]' ).forEach( bindNew );
 	document.querySelectorAll( '[data-kalaka-remove]' ).forEach( bindRemove );
 	document.querySelectorAll( '[data-kalaka-batch]' ).forEach( bindBatch );
 	document.querySelectorAll( '[data-kalaka-clear-event]' ).forEach( bindClear );

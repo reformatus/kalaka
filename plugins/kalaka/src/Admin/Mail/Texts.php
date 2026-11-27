@@ -139,6 +139,7 @@ final class Texts
     public const BATCH_QUEUED = 'Sorba került';
     public const BATCH_SKIPPED = 'Kimaradt';
     public const BATCH_OPEN = '%d. csoportos levél részletei';
+    public const BATCH_MANUAL = '%d. csoportos levél';
     public const BATCH_DETAILS_LABEL = 'Részletek';
     public const NUMBERED = '%1$s (%2$d. számú levélsablon)';
     public const LAYOUT_LINK = 'Levélkeret';

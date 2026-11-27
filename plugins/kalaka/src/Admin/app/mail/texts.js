@@ -204,6 +204,8 @@ export const BATCHES = {
 	outcome_queued: 'sorba került',
 	outcome_skipped_withdrawn: 'kimaradt: lemondott', // the owner's rename (lektor 1, J11) [UNAPPROVED T932]
 	outcome_skipped_removed: 'kimaradt: törölt',
+	// 7.1: a waitlisted registration is skipped like the withdrawn and the removed ones. [UNAPPROVED T1274]
+	outcome_skipped_waitlisted: 'kimaradt: várólistás',
 	gone: '(törölt levélsablon)', // the subject of a batch whose body is trashed or missing [UNAPPROVED T294]
 };
 
