@@ -62,7 +62,7 @@ final class CardPopupTest extends PortalTestCase
     {
         $request = new \WP_REST_Request('POST', '/kalaka-portal/v1/card-payment');
         $request->set_header('Content-Type', $json ? 'application/json' : 'application/x-www-form-urlencoded');
-        $request->set_body_params($params);
+        $request->set_body_params($params + ['_wpnonce' => wp_create_nonce(CardPaymentRoute::NONCE_ACTION)]);
 
         return rest_do_request($request);
     }

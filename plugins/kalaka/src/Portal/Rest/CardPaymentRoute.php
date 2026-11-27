@@ -8,6 +8,7 @@ use Kalaka\Forms\Api\FormCaching;
 use Kalaka\Foundation\Api\Entry\Boundary;
 use Kalaka\Foundation\Api\LoadState;
 use Kalaka\Foundation\Api\Error\InvalidInput;
+use Kalaka\Payments\Api\CardNonceInvalid;
 use Kalaka\Payments\Api\CardPaymentUnavailable;
 use Kalaka\Payments\Api\CardPayments;
 use Kalaka\Portal\Api\ActiveRegistration;
@@ -16,7 +17,10 @@ use Kalaka\Portal\CardRefusalCookie;
 /**
  * `POST kalaka-portal/v1/card-payment` `{return_url?, amount?, popup?}`: starts a card payment for the active
  * registration (`Payments\Api\CardPayments::start()`). A JSON request gets `{url}`; any other (a plain form post, no
- * script) gets a 303 to the pay URL. Open to anyone who holds the active registration, which only a secret link
+ * script) gets a 303 to the pay URL. The request needs a WordPress nonce, `kalaka_card_payment` (the server-rendered
+ * form's hidden `_wpnonce`, or the `X-WP-Nonce` header or `_wpnonce` field of a script), checked before anything
+ * else: a missing or stale one is `CardNonceInvalid` (`kalaka_card_nonce_invalid`), so a cached page or a forged
+ * cross-site post starts nothing. Open to anyone who holds the active registration, which only a secret link
  * gives and the signed cookie remembers; with none it is `CardPaymentUnavailable` (the portal's text for it).
  * A refused plain form post is answered with a 303 back to the same-site return address (else the referrer, else
  * the home page), clean of any query, with the refusal's code in a flash cookie (`CardRefusalCookie`) that the next
@@ -38,6 +42,9 @@ final class CardPaymentRoute
     public const ROUTE = '/card-payment';
 
     public const RETURN_ROUTE = '/card-payment/return';
+
+    /** The nonce action of a card start: the form's hidden `_wpnonce`, or a script's `X-WP-Nonce`. */
+    public const NONCE_ACTION = 'kalaka_card_payment';
 
     public function __construct(private readonly CardPayments $payments = new CardPayments())
     {
@@ -93,6 +100,11 @@ final class CardPaymentRoute
         $returnTo = self::returnUrl($statusPage, $popup);
         $refusal = null;
         try {
+            // The page's own token, before anything else: a cached page whose nonce expired, or a forged
+            // cross-site post, starts no payment and makes no order. [UNAPPROVED N337]
+            if (!wp_verify_nonce($this->nonceOf($request), self::NONCE_ACTION)) {
+                throw new CardNonceInvalid();
+            }
             LoadState::current()->requireOpen();
             $key = ActiveRegistration::current();
             if ($key === null) {
@@ -142,6 +154,18 @@ final class CardPaymentRoute
         }
 
         return $amount;
+    }
+
+    /** The request's nonce: a script's `X-WP-Nonce` header, else the form's `_wpnonce` field, else empty. */
+    private function nonceOf(\WP_REST_Request $request): string
+    {
+        $header = $request->get_header('X-WP-Nonce');
+        if (is_string($header) && $header !== '') {
+            return $header;
+        }
+        $field = $request->get_param('_wpnonce');
+
+        return is_string($field) ? $field : '';
     }
 
     /**

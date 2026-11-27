@@ -53,7 +53,11 @@ page, and the account area
   so the page never breaks on it. The status block links to the card payment route only while `can.payCard`
   (a bare form, no look; the button is the owner's to approve).
 - `POST kalaka-portal/v1/card-payment` (`Rest\CardPaymentRoute`) starts a card payment for the active registration
-  through `Payments\Api\CardPayments::start()` and nothing else: JSON gets `{url}`, a plain form post a 303 to it; a refused plain form post gets a 303 back to the same-site
+  through `Payments\Api\CardPayments::start()` and nothing else. It needs a WordPress nonce, `kalaka_card_payment`
+  (the server-rendered form's hidden `_wpnonce`, or the `X-WP-Nonce` header or `_wpnonce` field of a script), checked
+  before anything else: a missing or stale one is `CardNonceInvalid` (`kalaka_card_nonce_invalid`, the generic text)
+  through the same refusal cookie, so a cached page or a forged cross-site post starts nothing. JSON gets `{url}`, a
+  plain form post a 303 to it; a refused plain form post gets a 303 back to the same-site
   return address (else the referrer, else home), clean of any query, with the refusal's code in the flash cookie
   `kalaka_card_refusal` (`CardRefusalCookie`: the code only, a known one or the generic; 120 seconds, `HttpOnly`,
   `SameSite=Lax`, `Secure` on https). On `template_redirect`, after canonical redirection, Portal reads it once

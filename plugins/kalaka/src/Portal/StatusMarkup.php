@@ -104,6 +104,8 @@ final class StatusMarkup
         $back = is_singular() ? get_permalink() : false;
 
         return '<form class="kalaka-pay-card" method="post" action="' . esc_url(CardPaymentRoute::url()) . '">'
+            . '<input type="hidden" name="_wpnonce" value="'
+            . esc_attr(wp_create_nonce(CardPaymentRoute::NONCE_ACTION)) . '">'
             . ($back === false ? '' : '<input type="hidden" name="return_url" value="' . esc_attr($back) . '">')
             . '<button type="submit" class="' . esc_attr(ThemeStyle::buttonClass()) . '">'
             . 'Fizetés bankkártyával</button></form>';
