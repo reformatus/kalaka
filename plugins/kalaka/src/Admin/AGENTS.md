@@ -24,9 +24,16 @@ settings ([Core modules](../../../../docs/architecture/modules-and-extensions.md
   `kalaka/revoke-full-access` (audited; the capability is written after the
   commit; the audit records the real old value), except that tests and the
   development seed's `kalaka_admin` add it directly. One holder rule,
-  `FullAccessQuery::holders()`: a user holds it by their own capability or
-  through a role that carries it. The last holder keeps it (use case, profile,
-  CLI and abilities alike). The profile screen checks a change after
+  `FullAccessQuery::holders()`: a user holds it by their own capability only,
+  never through a role, and `user_has_cap` makes every `user_can()` check
+  agree; `OwnCapability::owns()` is the same rule on a user object, for the
+  filter, the profile checkbox and the Users column. The last holder keeps it: the use case, the profile, the CLI and the
+  abilities refuse; WordPress's users screen and REST refuse deleting them
+  through `map_meta_cap`, and `wp user delete` stops on the `delete_user`
+  action; plain code calling `wp_delete_user()` past the check is logged and
+  the deletion proceeds. Not guarded: `wp user remove-cap`, `wp user delete
+  --network` (which fires `wpmu_delete_user`, not `delete_user`) and a direct
+  `remove_cap()`. The profile screen checks a change after
   WordPress has checked the rest of the form, and makes it only after
   WordPress has saved the user. Activation gives the activating user full
   access through `GrantFullAccess` (audited, as the system), only while
