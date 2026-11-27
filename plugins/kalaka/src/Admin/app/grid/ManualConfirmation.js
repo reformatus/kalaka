@@ -14,6 +14,7 @@ import ConfirmDialog from './ConfirmDialog';
 import { manualActions, snackbarAfter } from './confirmation';
 import { fmt } from './format';
 import { formatMoment } from './money';
+import { returnFocus } from './panel';
 import { ConfirmationRow } from './PanelRows';
 import { CONFIRM, PANEL } from './texts';
 
@@ -40,6 +41,7 @@ const moment = ( instant, zone ) =>
  * @param {Function} props.reload  re-reads the panel's detail; resolves with it once it is on screen, null if
  *                                 both reads failed
  * @param {Function} props.onSaved tells the grid the flag changed
+ * @param {Object}   props.closeRef ref to the panel's close button, where focus goes when the opener is gone
  */
 export default function ManualConfirmation( {
 	config,
@@ -52,11 +54,11 @@ export default function ManualConfirmation( {
 	stale,
 	reload,
 	onSaved,
+	closeRef,
 } ) {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
-	const block = useRef( null );
 	const timers = useRef( [] );
 	const actions = manualActions( manual, can, confirmed );
 
@@ -67,17 +69,12 @@ export default function ManualConfirmation( {
 		[]
 	);
 
-	// Focus goes back to the button that opened the dialog; when the act removed that button (a plain unconfirm
-	// removes its own, a set removes the set button), to the block itself, which is focusable by script only
-	// ([UNAPPROVED N77]). When the block is not there either (nothing left to show) focus stays where the browser puts it.
+	// After a save focus goes back to the button that opened the dialog while it is still on screen, else to the
+	// panel's close button ([UNAPPROVED N77 reboxed]): a set removes the set button, an unconfirm its own.
 	const focusOpener = () =>
-		window.requestAnimationFrame( () => {
-			if ( opener.current && opener.current.isConnected ) {
-				opener.current.focus();
-			} else if ( block.current && block.current.isConnected ) {
-				block.current.focus();
-			}
-		} );
+		window.requestAnimationFrame( () =>
+			returnFocus( opener.current, closeRef && closeRef.current )
+		);
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;
 		setDialog( kind );
@@ -126,7 +123,7 @@ export default function ManualConfirmation( {
 					text={ confirmed ? PANEL.confirmed : PANEL.unconfirmed }
 				>
 					{ shown && (
-				<div className="kg-manual" tabIndex={ -1 } ref={ block }>
+				<div className="kg-manual">
 					{ manual && (
 						<Fragment>
 							<p>

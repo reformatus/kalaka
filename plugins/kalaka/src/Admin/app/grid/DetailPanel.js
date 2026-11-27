@@ -141,6 +141,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								confirmed={ registration.confirmed }
 								reload={ reload }
 								onSaved={ onSaved }
+								closeRef={ closeRef }
 							/>
 						) }
 					</div>

@@ -1,5 +1,5 @@
 /**
- * The manual confirmation block (S20): where keyboard focus goes after an act. The real ManualConfirmation with
+ * The confirmation row (S20): where keyboard focus goes after an act, and what it shows. The real ManualConfirmation with
  * small stand-ins for wp-components and for the dialog (which has its own test): the stand-in's one button calls
  * `onDone` as the dialog does once it is saved.
  */
@@ -75,17 +75,27 @@ afterEach( async () => {
 } );
 
 describe( 'focus after the act', () => {
-	test( 'goes back to the button that opened the dialog while it is still there (the rules re-confirmed)', async () => {
-		await mount( props() );
+	let close;
+
+	beforeEach( () => {
+		close = document.createElement( 'button' );
+		close.textContent = 'close';
+		document.body.appendChild( close );
+	} );
+
+	afterEach( () => close.remove() );
+
+	test( 'goes back to the button that opened the dialog while it is still there', async () => {
+		await mount( props( { closeRef: { current: close } } ) );
 		await act( async () => button( CONFIRM.unconfirm ).click() );
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
 	} );
 
-	test( 'goes to the block when the act removed the button (a plain unconfirm: can.unconfirm turns false)', async () => {
-		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null, confirmed: false } );
-		await mount( props( { reload: async () => {
+	test( 'goes to the close button when the act removed the opener (an unconfirm: can.unconfirm turns false)', async () => {
+		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null, confirmed: false, closeRef: { current: close } } );
+		await mount( props( { closeRef: { current: close }, reload: async () => {
 			await mount( after );
 			return { registration: {}, can: after.can };
 		} } ) );
@@ -93,13 +103,12 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
-		expect( document.activeElement ).toBe( host.querySelector( '.kg-manual' ) );
-		expect( host.querySelector( '.kg-manual' ).getAttribute( 'tabindex' ) ).toBe( '-1' );
+		expect( document.activeElement ).toBe( close );
 	} );
 
-	test( 'goes to the block after a set, which removes the set button', async () => {
-		const after = props( { can: { confirm_manually: true, unconfirm: true } } );
-		await mount( props( { manual: null, confirmed: false, can: { confirm_manually: true, unconfirm: false }, reload: async () => {
+	test( 'goes to the close button after a set, which hides the set button', async () => {
+		const after = props( { can: { confirm_manually: true, unconfirm: true }, closeRef: { current: close } } );
+		await mount( props( { manual: null, confirmed: false, can: { confirm_manually: true, unconfirm: false }, closeRef: { current: close }, reload: async () => {
 			await mount( after );
 			return { registration: {}, can: after.can };
 		} } ) );
@@ -107,7 +116,7 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.set ) ).toBeUndefined();
-		expect( document.activeElement ).toBe( host.querySelector( '.kg-manual' ) );
+		expect( document.activeElement ).toBe( close );
 	} );
 } );
 
