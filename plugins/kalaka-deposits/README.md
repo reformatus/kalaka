@@ -1,17 +1,22 @@
 # Kaláka – Foglalók
 
 The deposits extension plugin (`kalaka-deposits`, module `deposits`): it stores the deposit amount of
-each event and shows it on the command line. It uses only core's public API
+each event for the money side's confirmation threshold, advance and retention rule, and carries it in the
+money settings. It uses only core's public API
 ([Packaging](../../docs/architecture/modules-and-extensions.md#packaging)).
 
-The amount is one option, `kalaka_deposits`: a map of event ID to a decimal text in the event's
-currency. An event without an entry has no deposit. `DepositSettings` reads and writes it.
+Table, created by the schema in `Module.php`: `kalaka_deposit_settings` (event, amount as decimal text in
+the event's currency); only `DepositSettingsRepository` writes it. An event without a row has no deposit.
 
-```
-wp kalaka deposit <event>            shows the deposit, or says there is none
-wp kalaka deposit <event> <amount>   sets it (greater than zero, at most two decimals)
-wp kalaka deposit <event> --off      removes it
-```
+At the module root: `DepositComponent` (the fee component `deposit`, contributed in `Module::contribute()`),
+`DepositSettings` and `DepositSettingsRepository`, `DepositInput` (the amount's checks) and the admin use
+case `SetDeposit` (`kalaka/set-deposit`; full access only). `Api/` holds `Deposits` (`amount()`, and
+`propose()`, which gives a `ProposedDeposit` for `Pricing\Api\MoneySettings::preview()` and `apply()`).
 
-There is no screen, route or table. The code is in `src/Deposits/` (see its `AGENTS.md`); tests are in
-`tests/integration/`.
+Entry points: none. The money settings file carries it as `"deposit": {"amount": "10000"}` (`{"amount": null}`
+turns it off), so `wp kalaka money-settings show`, `preview` and `apply` read, preview and save it, and the
+apply re-evaluates every open registration. The amount is greater than zero, with at most two decimals (N829).
+The component writes no fee line: the threshold, the advance and the retention rule are the money side's.
+
+There is no screen, route or participant text. The code is in `src/Deposits/` (see its `AGENTS.md`); tests
+are in `tests/integration/`.

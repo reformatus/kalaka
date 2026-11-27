@@ -9,7 +9,6 @@
  * Author: Benedek Fodor
  * Update URI: https://kalaka.dev
  * Requires Plugins: kalaka
- * [UNAPPROVED T1104] The plugin name, seen in the plugins list (lektor: approved as is).
  */
 
 declare(strict_types=1);
