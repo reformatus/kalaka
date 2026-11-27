@@ -122,7 +122,7 @@ final class ActionMailCommandTest extends MailBodyTestCase
         );
         self::assertSame(
             ['mail' => 'waitlisted', 'label' => 'Jelentkezés várólistára helyezve', 'enabled' => 'yes',
-                'body_id' => (string) $body, 'layout' => 'yes'],
+                'body_id' => (string) $body],
             $this->printed[0][1][1]
         );
         self::assertSame('no', $this->printed[0][1][0]['enabled']);

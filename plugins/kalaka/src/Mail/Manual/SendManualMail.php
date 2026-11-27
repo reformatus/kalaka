@@ -33,7 +33,7 @@ use Kalaka\Registrations\Api\Registrations;
  * WordPress data in its transaction: the body's facts (`MailBody`) are read before the run by
  * `Api\ManualMails::send()`; run without them it refuses.
  *
- * - A withdrawn or removed registration is skipped and listed; a waitlisted one is sent to.
+ * - A registration that is not registered (withdrawn, removed or waitlisted) is skipped and listed.
  * - A code that is no registration of the event refuses the whole batch (`UnknownRegistrationCode`).
  * - The optional `request_key` is the repeat guard: the same key in the same event returns the first batch and
  *   queues nothing; the same key with another body or other codes is refused, never merged.
@@ -70,7 +70,6 @@ final class SendManualMail implements AdminUseCase
                     'minItems' => 1,
                     'uniqueItems' => true,
                 ],
-                'layout' => ['type' => 'boolean'],
                 'request_key' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_-]{8,64}$'],
             ],
             'required' => ['event_id', 'body_id', 'codes'],
@@ -112,7 +111,6 @@ final class SendManualMail implements AdminUseCase
         $bodyId = (int) $input['body_id'];
         /** @var list<string> $codes */
         $codes = array_values(array_map('strval', (array) $input['codes']));
-        $layout = (bool) ($input['layout'] ?? true);
         $requestKey = isset($input['request_key']) ? (string) $input['request_key'] : null;
 
         $this->events->find($eventId) ?? throw new NotFound();
@@ -139,7 +137,6 @@ final class SendManualMail implements AdminUseCase
         $batch = $this->batches->insert(new MailBatch(
             $eventId,
             $bodyId,
-            $layout,
             $requestKey,
             $context->now(),
             self::userOf($context->actor()),

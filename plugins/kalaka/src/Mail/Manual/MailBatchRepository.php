@@ -59,7 +59,6 @@ final class MailBatchRepository extends EntityRepository
             'event_id' => $entity->eventId,
             'version' => $entity->version,
             'body_id' => $entity->bodyId,
-            'layout' => $entity->layout ? 1 : 0,
             'request_key' => $entity->requestKey,
             'created_at' => Instant::toStorage($entity->createdAt),
             'created_by' => $entity->createdBy,

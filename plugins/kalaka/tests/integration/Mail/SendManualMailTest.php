@@ -76,8 +76,8 @@ final class SendManualMailTest extends MailBodyTestCase
         self::assertSame(['00A0', '00A2'], array_column($rows, 'code'));
         $batch = (new MailBatchQuery())->find($event, $result['batch_id']);
         self::assertNotNull($batch);
-        self::assertSame([$body, true, 2, 0, null], [
-            $batch->bodyId, $batch->layout, $batch->queued, $batch->skipped, $batch->createdBy,
+        self::assertSame([$body, 2, 0, null], [
+            $batch->bodyId, $batch->queued, $batch->skipped, $batch->createdBy,
         ]);
         $members = (new MailBatchQuery())->members($result['batch_id']);
         self::assertSame(['00A0', '00A2'], array_map(static fn ($member): string => $member->code, $members));
@@ -94,7 +94,7 @@ final class SendManualMailTest extends MailBodyTestCase
         self::assertSame(['batch_id', 'code', 'event_id', 'outcome'], $columns);
     }
 
-    public function testWithdrawnAndRemovedAreSkippedAndListedAndAWaitlistedOneIsSentTo(): void
+    public function testWithdrawnRemovedAndWaitlistedAreSkippedAndListed(): void
     {
         $event = $this->published();
         $this->registration($event, '00A0', status: 'withdrawn');
@@ -105,18 +105,27 @@ final class SendManualMailTest extends MailBodyTestCase
 
         $result = $this->send($this->input($event, $body, ['00A0', '00A2', '00A5', '00A8']));
 
-        self::assertSame(2, $result['queued']);
+        self::assertSame(1, $result['queued']);
         self::assertSame(
-            [['code' => '00A0', 'reason' => 'withdrawn'], ['code' => '00A2', 'reason' => 'removed']],
+            [
+                ['code' => '00A0', 'reason' => 'withdrawn'],
+                ['code' => '00A2', 'reason' => 'removed'],
+                ['code' => '00A5', 'reason' => 'waitlisted'],
+            ],
             $result['skipped']
         );
-        self::assertSame(['00A5', '00A8'], array_column($this->deliveries(), 'code'));
+        self::assertSame(['00A8'], array_column($this->deliveries(), 'code'));
         $outcomes = [];
         foreach ((new MailBatchQuery())->members($result['batch_id']) as $member) {
             $outcomes[$member->code] = $member->outcome;
         }
         self::assertSame(
-            ['00A0' => 'skipped_withdrawn', '00A2' => 'skipped_removed', '00A5' => 'queued', '00A8' => 'queued'],
+            [
+                '00A0' => 'skipped_withdrawn',
+                '00A2' => 'skipped_removed',
+                '00A5' => 'skipped_waitlisted',
+                '00A8' => 'queued',
+            ],
             $outcomes
         );
     }
@@ -148,8 +157,12 @@ final class SendManualMailTest extends MailBodyTestCase
             ]
         );
 
-        self::assertSame(['00A5', '00A8'], $plan['queue']);
-        $skipped = [['code' => '00A0', 'reason' => 'withdrawn'], ['code' => '00A2', 'reason' => 'removed']];
+        self::assertSame(['00A8'], $plan['queue']);
+        $skipped = [
+            ['code' => '00A0', 'reason' => 'withdrawn'],
+            ['code' => '00A2', 'reason' => 'removed'],
+            ['code' => '00A5', 'reason' => 'waitlisted'],
+        ];
         self::assertSame($skipped, $plan['skipped']);
         self::assertSame(['00A9'], $plan['unknown']);
         $this->expectException(UnknownRegistrationCode::class);
@@ -263,7 +276,7 @@ final class SendManualMailTest extends MailBodyTestCase
                 $raced = true;
                 // The other run committed first: its batch and members are there when this insert runs.
                 $wpdb->insert($wpdb->prefix . 'kalaka_mail_batches', [
-                    'event_id' => $event, 'version' => 1, 'body_id' => $body, 'layout' => 1,
+                    'event_id' => $event, 'version' => 1, 'body_id' => $body,
                     'request_key' => 'abcdefgh-1', 'created_at' => '2026-11-30 09:00:00.000000',
                     'queued' => 1, 'skipped' => 0,
                 ]);

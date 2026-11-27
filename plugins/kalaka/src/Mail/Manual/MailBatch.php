@@ -8,7 +8,7 @@ use Kalaka\Foundation\Api\Time\Instant;
 
 /**
  * One send of a manual mail (mail.md, "Five kinds of mail", Manual: "keyed by the send batch"): the chosen
- * body, whether the event's layout wraps it, who sent it and when, and how many registrations it queued and
+ * body, who sent it and when, and how many registrations it queued and
  * skipped. Its members (`MailBatchMember`) are the audience, frozen at the send; the batch is the cause of
  * each of its deliveries (`CAUSE`, its ID).
  */
@@ -25,7 +25,6 @@ final class MailBatch
     public function __construct(
         public readonly int $eventId,
         public readonly int $bodyId,
-        public readonly bool $layout,
         public readonly ?string $requestKey,
         public readonly \DateTimeImmutable $createdAt,
         public readonly ?int $createdBy,
@@ -42,7 +41,6 @@ final class MailBatch
         return new self(
             (int) $row['event_id'],
             (int) $row['body_id'],
-            $row['layout'] === '1',
             $row['request_key'],
             Instant::fromStorage((string) $row['created_at']),
             $row['created_by'] === null ? null : (int) $row['created_by'],
