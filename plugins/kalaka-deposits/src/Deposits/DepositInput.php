@@ -13,13 +13,16 @@ use Kalaka\Foundation\Api\Error\InvalidInput;
  */
 final class DepositInput
 {
-    /** The JSON schema pattern of an amount as sent: decimal text, at most two decimals. */
-    public const SCHEMA_PATTERN = '^[0-9]+(\\.[0-9]{1,2})?$';
+    /**
+     * The JSON schema pattern of an amount as sent: decimal text of at most 18 whole digits (as core's fixed price)
+     * and at most two decimals, so it always fits the table's varchar(32).
+     */
+    public const SCHEMA_PATTERN = '^[0-9]{1,18}(\\.[0-9]{1,2})?$';
 
     /** The same shape as a PHP pattern; `0`, `0.00` and a negative are refused below. */
-    private const SHAPE = '/\A[0-9]+(\.[0-9]{1,2})?\z/';
+    private const SHAPE = '/\A[0-9]{1,18}(\.[0-9]{1,2})?\z/';
 
-    /** @throws InvalidInput when the text is not a positive decimal with at most two decimals */
+    /** @throws InvalidInput when the text is not a positive decimal of at most 18 whole digits and two decimals */
     public function amount(string $amount): string
     {
         if (preg_match(self::SHAPE, $amount) !== 1) {

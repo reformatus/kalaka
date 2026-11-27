@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kalaka\Tests\Integration\Deposits;
 
 use Kalaka\Deposits\Api\Deposits;
+use Kalaka\Deposits\DepositInput;
 use Kalaka\Events\EventRecord;
 use Kalaka\Events\EventRepository;
 use Kalaka\Foundation\Api\Actor\CliActor;
@@ -155,6 +156,18 @@ final class DepositSettingsTest extends PricingTestCase
         self::assertCount(1, $errors);
         self::assertStringContainsString('The settings of "deposit" are not valid.', $errors[0][1][0]);
         self::assertNull((new Deposits())->amount($this->event));
+    }
+
+    public function testAnOverLongAmountIsRefusedAndEighteenDigitsAreKept(): void
+    {
+        try {
+            (new Deposits())->propose($this->event, str_repeat('9', 19));
+            self::fail('A 19-digit amount was accepted.');
+        } catch (InvalidInput) {
+            self::assertNull((new Deposits())->amount($this->event));
+        }
+
+        self::assertSame(str_repeat('9', 18) . '.99', (new DepositInput())->amount(str_repeat('9', 18) . '.99'));
     }
 
     public function testAnotherEventKeepsItsOwnDeposit(): void
