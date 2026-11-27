@@ -6,7 +6,7 @@ namespace Kalaka\WooCommerce;
 
 /**
  * What an order's billing fields may carry besides the e-mail: the payer's name, country (ISO 3166-1 alpha-2),
- * postcode, city and address, each optional. An empty text is none. [UNAPPROVED N818]
+ * postcode, city and address, each optional. An empty text is none.
  */
 final readonly class BillingDetails
 {
