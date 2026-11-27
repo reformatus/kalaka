@@ -21,6 +21,18 @@ enum ActionMail: string
     case LinkRegenerated = 'link_regenerated';
 
     /**
+     * Whether an act queues this mail: the one declared list of the points that work (owner 2026-11-27,
+     * walkthrough 8.5). A point that is not wired can be set up and switched on, but nothing sends it yet.
+     */
+    public function isWired(): bool
+    {
+        return match ($this) {
+            self::Registered, self::Waitlisted, self::PaymentRecorded, self::Confirmed, self::Answered => true,
+            self::LinkRegenerated => false,
+        };
+    }
+
+    /**
      * The catalogue's name of the mail: what causes it. The label of `PaymentRecorded` changes the owner-approved
      * „Befizetés rögzítve” (#162's N20), because the mail now covers refunds. [UNAPPROVED T5]
      */

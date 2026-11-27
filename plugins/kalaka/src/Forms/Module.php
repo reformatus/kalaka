@@ -167,6 +167,12 @@ final class Module extends AbstractModule
         // A published form never goes from working to broken through an edit.
         add_filter('wp_insert_post_data', [DefinitionCheck::class, 'onInsert'], 20, 2);
         add_filter('rest_pre_insert_' . FormPosts::POST_TYPE, [DefinitionCheck::class, 'onRestInsert'], 10, 2);
+        // A page's typed placeholders: every `{{key}}` inside a Kaláka block is a key the participant side
+        // declares (owner 2026-11-27, walkthrough 8.11 a); plain text outside those blocks is left alone.
+        add_filter('rest_pre_insert_post', [PageCheck::class, 'onRestInsert'], 10, 2);
+        add_filter('rest_pre_insert_page', [PageCheck::class, 'onRestInsert'], 10, 2);
+        add_filter('wp_insert_post_data', [PageCheck::class, 'onInsert'], 20, 2);
+        add_action('admin_notices', [PageCheck::class, 'notice']);
         // A form with fields keeps its event (owner ruling 2026-11-13, B2(a)), whatever writes the setting.
         add_filter('add_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);
         add_filter('update_post_metadata', [FormEvent::class, 'onWrite'], 10, 4);

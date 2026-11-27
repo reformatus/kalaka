@@ -100,15 +100,33 @@ final class PlaceholdersRenderTest extends \WP_UnitTestCase
         $this->render('<!-- wp:paragraph --><p>{{foo}}</p><!-- /wp:paragraph -->');
     }
 
-    public function testOnAPageAnUnknownKeyRendersNothingAndIsLogged(): void
+    /**
+     * 8.11 a: on a page only a Kaláka block's placeholders are Kaláka's; a `{{key}}` in an ordinary paragraph is
+     * left as typed (the save check leaves it alone too).
+     */
+    public function testOnAPageOnlyAKalakaBlocksPlaceholderIsFilled(): void
     {
-        $html = (new Values())->renderPage(
-            '<!-- wp:paragraph --><p>[{{foo}}{{name}}]</p><!-- /wp:paragraph -->',
-            $this->context()
-        );
+        $content = '<!-- wp:paragraph --><p>kint {{name}}</p><!-- /wp:paragraph -->'
+            . '<!-- wp:kalaka/if {"condition":{"match":"all","items":[{"key":"nothing","operator":"empty"}]}} -->'
+            . '<!-- wp:paragraph --><p>bent {{name}}</p><!-- /wp:paragraph --><!-- /wp:kalaka/if -->';
 
-        self::assertStringContainsString('[Kovács &lt;Anna&gt;]', $html);
-        self::assertStringNotContainsString('{{', $html);
+        $html = (new Values())->renderPage($content, $this->context());
+        $html = str_replace(' class="wp-block-paragraph"', '', $html);
+
+        self::assertStringContainsString('<p>kint {{name}}</p>', $html);
+        self::assertStringContainsString('<p>bent Kovács &lt;Anna&gt;</p>', $html);
+    }
+
+    /** 8.11 a (N1150): an unknown key in a Kaláka block fails the page's whole render, never shows the raw key. */
+    public function testOnAPageAnUnknownKeyInAKalakaBlockFailsTheWholeRender(): void
+    {
+        $content = '<!-- wp:kalaka/if {"condition":{"match":"all","items":[{"key":"nothing","operator":"empty"}]}} -->'
+            . '<!-- wp:paragraph --><p>{{foo}}</p><!-- /wp:paragraph --><!-- /wp:kalaka/if -->';
+
+        $this->expectException(SystemFailure::class);
+        $this->expectExceptionMessage('unknown_value_key foo');
+
+        (new Values())->renderPage($content, $this->context());
     }
 
     public function testOnlyTheHeldBranchsPlaceholdersAreLookedAt(): void

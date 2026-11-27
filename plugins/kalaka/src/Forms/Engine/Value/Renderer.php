@@ -10,8 +10,10 @@ use Kalaka\Foundation\Api\Error\SystemFailure;
 /**
  * Renders block markup with a value context: the chains resolved, then the bindings and inline values
  * filled. The placeholders typed as `{{key}}` are filled in the blocks' own HTML before anything renders, so a
- * value's text is never read for one. A document (a mail body) stops at the first failure; a page renders the
- * failing chain or value as nothing and logs it.
+ * value's text is never read for one, and an unknown typed key is a failure everywhere: a document (a mail body)
+ * stops at the first failure, a page fails as a whole (owner 2026-11-27, walkthrough 8.11 a). A page renders
+ * only the placeholders inside Kaláka blocks, and a failing chain, binding or inline value as nothing, logged.
+ * [UNAPPROVED N1176]
  */
 final class Renderer
 {

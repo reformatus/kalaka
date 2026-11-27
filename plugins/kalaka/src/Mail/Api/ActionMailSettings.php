@@ -49,7 +49,7 @@ final class ActionMailSettings
      *
      * @param array<int, MailBody> $facts the facts of the bodies already read, by post ID; any other is read here
      * @return array<string, array{
-     *     can: array{switch_on: bool, switch_off: bool},
+     *     can: array{enable: bool, switch_off: bool},
      *     refusals: array{switch_on: ?array{code: string, message: string},
      *         switch_off: ?array{code: string, message: string}},
      * }> by the mail's key
@@ -81,7 +81,7 @@ final class ActionMailSettings
             }
             $switches[$mail->action->value] = [
                 'can' => [
-                    'switch_on' => !$mail->enabled && $refusals['switch_on'] === null,
+                    'enable' => !$mail->enabled && $refusals['switch_on'] === null,
                     'switch_off' => $mail->enabled && $refusals['switch_off'] === null,
                 ],
                 'refusals' => ['switch_on' => $refusals['switch_on'], 'switch_off' => $refusals['switch_off']],
