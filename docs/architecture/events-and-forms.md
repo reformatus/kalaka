@@ -298,7 +298,8 @@ flowchart TB
   - **extension:** written only by an extension's own use case, e.g. the
     award of adjudicated aid ([Money](money.md#core-money-scope)), unless
     the extension declares the field form-writable (off by default); only
-    then may a form hold its key;
+    then may a form hold its key, and only then may staff correct it
+    through views;
   - **system:** a read-only field that only **declares** a system decision
     (e.g. confirmation) so that mails, views and conditions can name it. The
     decision record stays the source of truth
@@ -361,7 +362,8 @@ flowchart TB
 - **Money-relevance is a type capability** supplied by plugins; core ships no
   money field types. Values are stored like any other, **locked after their
   first write by default** (an organizer can unlock per field), and changed
-  only through use cases that re-materialize the money.
+  only through use cases that re-materialize the money; a staff correction
+  through views is one and needs no unlock.
 
 ### Changing participant fields after submit
 
@@ -383,9 +385,11 @@ is no other participant-side edit.
   editable prefilled values ([Prefill from a link](#prefill-from-a-link)).
 - **Locked fields, money-relevant ones by default:** the first write is
   allowed (e.g. the staff form setting staff status); an overwrite is
-  refused unless an organizer unlocked the field.
+  refused unless an organizer unlocked the field; a staff correction through
+  views needs no unlock.
 - **Staff fields may appear in an additional form.**
-- **Admins can correct any field at any time,** through views. An admin
+- **Admins can correct a form or staff field at any time, and an extension
+  field only when it is form-writable,** through views. An admin
   edit and a later participant submit are both writes: the last one wins
   and both are audited. To freeze a field, an admin closes the form's open
   period and revokes the form's links that bypass it.

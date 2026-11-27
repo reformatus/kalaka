@@ -168,4 +168,14 @@ the waitlist and reference codes
 - `RegistrationStatus::showsDetails()` (true unless waitlisted) is the one read of what a waitlisted registrant
   sees (the registrant's page shows only that they are waitlisted: owner ruling 2026-11-25). It is not an action
   gate: additional forms and payments stay on `=== Registered`.
+- A staff correction of a field value (`Api\FieldCorrections`, used by Admin's `EditFieldValue`) writes the value
+  only through `FieldValueRepository` and moves seats only through the claim sources: the seats the old value
+  claimed and the new one does not are freed, the others taken, never through per-field code. The pools to take are
+  planned from a plain read and locked (`lockPools()`) before the registration row is, and the plan is checked
+  against the values re-read under the lock (else `VersionConflict`). Seats move only for a `registered`
+  registration, and the take is `Seats::retake()` (over the limit when the pool is full, reported as `over`; the
+  preview reads `wouldOverfill()`). The class returns no stored value (it answers booleans, option keys and field
+  keys, and compares the registration's state against a fingerprint inside, and only in `check()`, which takes
+  the run's `Context` and refuses a run that does not hold the registration), so Admin, which may not use the
+  "Registration data" layer, reaches registration data only through the view query still.
 - Only Registrations writes its tables.
