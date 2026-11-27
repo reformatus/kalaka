@@ -7,7 +7,6 @@ import { useBlockProps } from '@wordpress/block-editor';
 import { createElement } from '@wordpress/element';
 import metadata from './block.json';
 
-// [UNAPPROVED T1181]
 const PLACEHOLDER =
 	'Kijelentkezés: itt jelenik meg a „Kijelentkezés” gomb, ha a látogató be van jelentkezve a fiókjába, vagy van aktív jelentkezése.';
 
