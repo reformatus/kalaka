@@ -64,12 +64,15 @@ reached; the grant defines who holds the view.**
     variant is simply another view.
   - Admins define subset views; extensions define special-case views and
     contribute columns and filterable facts.
-  - Filters and sorts use only stored facts and decisions
+  - Stored view filters and sorts use only stored facts and decisions
     ([Facts and decisions](#facts-decisions-and-computed-values)), so they
-    stay per-event indexed queries under the `EXPLAIN` test. A map lookup is
-    expanded in SQL ("lunch option in the mapped options"); a congregation
-    level matches the answer's stored path snapshot. PHP computes only display
-    and export columns.
+    stay per-event indexed queries under the `EXPLAIN` test. A viewer's own
+    filters, search and sorting, which are never stored (ad hoc narrowing),
+    may also use the computed sorszám
+    ([Facts, decisions and computed values](#facts-decisions-and-computed-values)).
+    A map lookup is expanded in SQL ("lunch option in the mapped options"); a
+    congregation level matches the answer's stored path snapshot. PHP computes
+    only display and export columns.
   - A filter may take **one parameter bound at grant time** (e.g. "program
     roster, program = ?"), so twelve module leaders need one view.
   - View definitions are copied to the next event, optionally with their
@@ -142,6 +145,17 @@ flowchart LR
   deadlock, a lock-wait timeout, a version conflict hit by a system run, a
   reconnect detected inside a run) are retried, about three times, each
   attempt from scratch.
+- **An act's retry key.** A staff act outside the ledger takes an optional or
+  required `idempotency_key`, so a repeat of the same call (a double click, a
+  retry after a lost response) changes nothing. Inside the transaction, with
+  the registration locked, the use case asks `Api\ActKeys` first: a key held
+  with the same input returns the stored result and the act does nothing more;
+  a key held with other input is an `IdempotencyConflict` (409,
+  `kalaka_idempotency_conflict`, the generic refusal text); a key not held lets
+  the act run, and it stores its result under the key. The key is one
+  registration's (`kalaka_act_keys`, unique on event, registration and key),
+  and the input hash leaves out the key and `preview`: a preview never stores.
+  The ledger's manual entries keep their own key columns.
 - **Nested use cases** join the outer transaction and write their own audit
   entry, linked to the parent. Effects are released after the outermost
   commit.
@@ -626,4 +640,4 @@ registration through a preview and an apply, one transaction each
 | **Secret links** | Treated as secrets: our own code never writes one into a log line or an exception message, masked in exports ([Registrations](registrations-and-identity.md#access)) |
 | **Money** | `DECIMAL(26,8)`, a currency code on every record, brick/math arithmetic, never floats ([Money](money.md#amounts)) |
 | **Sorting** | `utf8mb4_hungarian_ci` on our text columns ([Engineering](engineering.md#database)) |
-| **Language** | Hungarian UI strings directly in code; English identifiers and comments |
+| **Language** | Hungarian UI strings directly in code; English identifiers and comments. The one exception: a plugin declares the names of its own fields and labels with their defaults (`DeclaredName`, read through `PluginNames`) and its settings screen may override them. One option per plugin, `kalaka_<module id>_names`, holds all of its names; an empty value is the default, and the text is read where it is shown. There is no table of overrides for other strings |
