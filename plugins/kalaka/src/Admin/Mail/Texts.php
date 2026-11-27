@@ -42,8 +42,12 @@ final class Texts
         'is now live.' => 'mostantól elérhető.',
     ];
 
-    /** The editor's back button's label, tooltip and name, when the template has an event. [UNAPPROVED T913] */
-    public const EDITOR_BACK = 'Vissza az esemény levélsablonjaihoz';
+    /**
+     * The editor's back button's label, tooltip and name, when the template has an event. [UNAPPROVED T913 reboxed:
+     * the label names the event's mail screen, „Vissza az esemény leveleihez”, since 8.9 made the „Levélsablonok” tab
+     * n/a — the event's „Levelek” page has no tabs any more; the link's target is unchanged]
+     */
+    public const EDITOR_BACK = 'Vissza az esemény leveleihez';
 
     /**
      * The back button's label when the template has no event (it lands on the site's „Levelezés” page). Proposed in

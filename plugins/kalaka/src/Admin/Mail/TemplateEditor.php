@@ -19,6 +19,9 @@ final class TemplateEditor
     /**
      * `load-edit.php` and `load-post-new.php`: the native list and the native „new” screen go to the event's „Levelek”
      * page: the event the visitor came from (the referring page), else the site's „Levelezés” page.
+     * [UNAPPROVED N923 reboxed: the redirect rule and its fallbacks stand as built (8.9 is n/a: the event's page has
+     * no „Levélsablonok” tab after section 8's restructure, and the redirect still lands on that page, so its own
+     * target needs no change)]
      */
     public static function redirectNativeScreens(): void
     {
@@ -55,7 +58,12 @@ final class TemplateEditor
         exit;
     }
 
-    /** `enqueue_block_editor_assets`: on the template's editor only. */
+    /**
+     * `enqueue_block_editor_assets`: on the template's editor only. The back button goes through core's experimental
+     * slot to the event's „Levelek” page, with the label T913 now gives it (the event's mails). [UNAPPROVED N925
+     * reboxed: 8.9 is n/a, so the link keeps its target and only its label follows the restructured page; the hole is
+     * the same: with fullscreen mode off there is no back button]
+     */
     public static function editorAssets(): void
     {
         $screen = function_exists('get_current_screen') ? get_current_screen() : null;
