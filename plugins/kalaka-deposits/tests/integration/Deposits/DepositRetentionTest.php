@@ -14,6 +14,7 @@ use Kalaka\Pricing\Api\RetentionInput;
 use Kalaka\Registrations\Api\RegistrationFacts;
 use Kalaka\Registrations\Api\RegistrationKey;
 use Kalaka\Registrations\Api\RegistrationStatus;
+use Kalaka\Registrations\ReferenceCode;
 use Kalaka\Tests\Integration\Events\EventsTestCase;
 
 /** The `deposit` retention rule: the deposit is shared by the payers, the participant first. */
@@ -53,7 +54,7 @@ final class DepositRetentionTest extends EventsTestCase
         $event = (new Events())->find($eventId);
         self::assertNotNull($event);
         $facts = new RegistrationFacts(
-            new RegistrationKey($eventId, '0001'),
+            new RegistrationKey($eventId, ReferenceCode::fourCharacterCodes()[0]),
             RegistrationStatus::Withdrawn,
             null,
             $event,
