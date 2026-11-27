@@ -50,7 +50,7 @@ final class PlacementWarnings
         $warnings = [];
         $pool = new OptionSeatPool($registration->eventId, $setId, $optionKey);
         if (
-            $this->registrations->find($registration)?->status->isActive() === true
+            $this->registrations->find($registration)?->status->isLive() === true
             && $this->seats->wouldOverfill($pool, $registration)
         ) {
             $warnings[] = self::FULL;

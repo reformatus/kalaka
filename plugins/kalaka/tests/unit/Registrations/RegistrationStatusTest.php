@@ -27,24 +27,24 @@ final class RegistrationStatusTest extends TestCase
         self::assertTrue(RegistrationStatus::Removed->showsDetails());
     }
 
-    /** Owner 2026-11-27: active means registered only; waitlisted, withdrawn and removed are inactive. */
-    public function testOnlyARegisteredRegistrationIsActive(): void
+    /** Owner 2026-11-27: live means registered only; waitlisted, withdrawn and removed are not. */
+    public function testOnlyARegisteredRegistrationIsLive(): void
     {
-        self::assertTrue(RegistrationStatus::Registered->isActive());
-        self::assertFalse(RegistrationStatus::Waitlisted->isActive());
-        self::assertFalse(RegistrationStatus::Withdrawn->isActive());
-        self::assertFalse(RegistrationStatus::Removed->isActive());
-        self::assertSame(['registered'], RegistrationStatus::activeValues());
+        self::assertTrue(RegistrationStatus::Registered->isLive());
+        self::assertFalse(RegistrationStatus::Waitlisted->isLive());
+        self::assertFalse(RegistrationStatus::Withdrawn->isLive());
+        self::assertFalse(RegistrationStatus::Removed->isLive());
+        self::assertSame(['registered'], RegistrationStatus::liveValues());
     }
 
-    public function testTheSqlConditionNamesTheActiveValues(): void
+    public function testTheSqlConditionNamesTheLiveValues(): void
     {
         $quoted = implode(', ', array_map(
             static fn (string $value): string => "'" . $value . "'",
-            RegistrationStatus::activeValues()
+            RegistrationStatus::liveValues()
         ));
 
-        self::assertSame("status IN ({$quoted})", RegistrationTables::isActive());
-        self::assertSame("r.status IN ({$quoted})", RegistrationTables::isActive('r'));
+        self::assertSame("status IN ({$quoted})", RegistrationTables::isLive());
+        self::assertSame("r.status IN ({$quoted})", RegistrationTables::isLive('r'));
     }
 }

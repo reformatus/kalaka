@@ -44,7 +44,7 @@ final class FeeComposer
         foreach ($components as $component) {
             $composed[$component->id()] = [];
         }
-        if (!$facts->status->isActive()) {
+        if (!$facts->status->isLive()) {
             return $composed;
         }
 

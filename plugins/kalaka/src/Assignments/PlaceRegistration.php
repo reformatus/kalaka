@@ -89,7 +89,7 @@ final class PlaceRegistration implements AdminUseCase
             $held = new OptionSeatPool($registration->eventId, $target->setId, $record->optionKey);
             $this->seats->release($held, $registration, $context);
         }
-        if ($this->registrations->find($registration)?->status->isActive() === true) {
+        if ($this->registrations->find($registration)?->status->isLive() === true) {
             $this->seats->retake(
                 new OptionSeatPool($registration->eventId, $target->setId, $target->option->key),
                 $registration,

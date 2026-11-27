@@ -110,7 +110,7 @@ final class Seats
     {
         if ($pool->key() === SeatPool::EVENT) {
             return $registration->eventId === $pool->eventId()
-                && $this->registrations->find($registration)?->status->isActive() === true;
+                && $this->registrations->find($registration)?->status->isLive() === true;
         }
 
         return $this->seats->find(self::key($registration, $pool)) !== null;
