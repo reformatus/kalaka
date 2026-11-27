@@ -75,6 +75,21 @@ describe('a number control with text the browser cannot parse', () => {
 
 		expect(firstBadNumber(form)).toBeNull();
 	});
+
+	it("counts bad input on a number control only, not on a half-typed date's", () => {
+		document.body.innerHTML =
+			'<form><div data-kalaka-field="d"><input type="date" name="d"></div>' +
+			'<div data-kalaka-field="n"><input type="number" name="n"></div></form>';
+		const form = document.querySelector('form');
+		const [date, number] = document.querySelectorAll('input');
+		Object.defineProperty(date, 'validity', { value: { badInput: true } });
+
+		expect(firstBadNumber(form)).toBeNull();
+
+		Object.defineProperty(number, 'validity', { value: { badInput: true } });
+
+		expect(firstBadNumber(form).control).toBe(number);
+	});
 });
 
 describe("the affixes' room", () => {

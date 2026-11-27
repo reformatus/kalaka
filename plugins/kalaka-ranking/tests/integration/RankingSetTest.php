@@ -103,7 +103,7 @@ final class RankingSetTest extends FormsTestCase
         $this->sets->saveOption([
             'set_id' => $set,
             'label' => $label,
-            'capacity' => 30,
+            'limit' => 30,
             'leaders' => '',
             'place' => '',
             'position' => $position,
