@@ -7,11 +7,11 @@ namespace Kalaka\Forms\Engine;
 use Kalaka\Forms\Api\DraftClaimChoice;
 
 /**
- * The texts of the claim popup (S74), approved by the owner on 2026-11-17 word for word, except the title and
- * the intro (T1100-T1103: lektored on Opus 2026-11-27, since the guest draft may hold the guest's own typing,
- * N965): the popup that asks the person's choice when a guest draft's answers meet their draft, its second
- * confirmation before keep_link, the button that reloads the page after a refused claim, and the one-line
- * notice on the load after the choice. The refused claim's own text is `Registrations\Api\DraftClaimRefused`'s
+ * The texts of the claim popup (S74), approved by the owner on 2026-11-17 word for word, and its title and
+ * intro also on 2026-11-27 (T1100-T1103, since the guest draft may hold the guest's own typing, N965): the
+ * popup that asks the person's choice when a guest draft's answers meet their draft, its second confirmation
+ * before keep_link, the button that reloads the page after a refused claim, and the one-line notice on the
+ * load after the choice. The refused claim's own text is `Registrations\Api\DraftClaimRefused`'s
  * message.
  */
 final class DraftClaimTexts
@@ -27,15 +27,11 @@ final class DraftClaimTexts
     {
         return [
             'title' => $guest
-                // [UNAPPROVED T1102] lektored on Opus 2026-11-27; the owner ticks it.
                 ? 'Mentett és előre kitöltött válaszok'
-                // [UNAPPROVED T1100] lektored and approved on Opus 2026-11-27; the owner ticks it.
                 : 'Bejelentkezés előtti válaszok',
             'intro' => $guest
-                // [UNAPPROVED T1103] lektored and approved on Opus 2026-11-27; the owner ticks it.
                 ? 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
                     . 'Most előre kitöltött válaszok is érkeztek: egy linkből vagy a kvízből. Hogyan folytassuk?'
-                // [UNAPPROVED T1101] lektored on Opus 2026-11-27; the owner ticks it.
                 : 'Ehhez az űrlaphoz már vannak mentett, még be nem küldött válaszaid. '
                     . 'Ezen az eszközön bejelentkezés előtt is érkeztek válaszok: amelyeket beírtál, '
                     . 'vagy amelyek egy előre kitöltött linkből vagy a kvízből jöttek. Hogyan folytassuk?',
