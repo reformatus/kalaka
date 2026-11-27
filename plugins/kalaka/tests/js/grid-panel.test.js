@@ -1,7 +1,7 @@
 /**
  * The detail panel's small rules: the remembered tab, and where focus goes after a save.
  */
-import { TAB_KEY, rememberedTab, rememberTab, returnFocus } from '../../src/Admin/app/grid/panel';
+import { TAB_KEY, rememberedTab, rememberTab, returnFocus, tabClicks } from '../../src/Admin/app/grid/panel';
 
 const memory = () => {
 	const data = {};
@@ -42,6 +42,44 @@ describe( 'the remembered tab', () => {
 		};
 		expect( () => rememberTab( 'money', broken ) ).not.toThrow();
 		expect( rememberedTab( [ 'money', 'data' ], broken ) ).toBe( 'money' );
+	} );
+} );
+
+describe( 'the remembered tab, written on a click', () => {
+	test( 'opening the panel on a tab writes nothing', () => {
+		const store = memory();
+		const clicks = tabClicks( [ 'data', 'money' ], store );
+		expect( clicks.initial ).toBe( 'data' );
+		clicks.onSelect( 'data' ); // TabPanel calls onSelect on mount.
+		expect( store.getItem( TAB_KEY ) ).toBeNull();
+	} );
+
+	test( 'a click on another tab is written', () => {
+		const store = memory();
+		const clicks = tabClicks( [ 'data', 'money' ], store );
+		clicks.onSelect( 'data' );
+		clicks.onSelect( 'money' );
+		expect( store.getItem( TAB_KEY ) ).toBe( 'money' );
+		expect( rememberedTab( [ 'data', 'money' ], store ) ).toBe( 'money' );
+	} );
+
+	test( 'a tab shown again (a remount) writes nothing', () => {
+		const store = memory();
+		const clicks = tabClicks( [ 'data', 'money' ], store );
+		clicks.onSelect( 'data' );
+		clicks.onSelect( 'money' );
+		clicks.onSelect( 'money' );
+		expect( store.getItem( TAB_KEY ) ).toBe( 'money' );
+	} );
+
+	test( 'a fallback for a tab this branch lacks never overwrites the memory', () => {
+		const store = memory();
+		rememberTab( 'requests', store );
+		const clicks = tabClicks( [ 'data', 'money' ], store );
+		expect( clicks.initial ).toBe( 'data' );
+		clicks.onSelect( 'data' );
+		clicks.onSelect( 'data' );
+		expect( store.getItem( TAB_KEY ) ).toBe( 'requests' );
 	} );
 } );
 

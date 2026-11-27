@@ -71,6 +71,25 @@ CREATE TABLE {prefix}kalaka_submissions (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
 SQL;
 
+    /**
+     * foundation.md, "Facts, decisions and computed values", the seat rule: one row per seat held, by event,
+     * registration and pool (`event` is never a pool here: the event's seats are its `registered` statuses).
+     * `pool` is `utf8mb4_nopad_bin`, compared exactly; `act` is the registration's own act that took the seat.
+     * `KEY pool` serves the count of a pool. A freed seat has no row.
+     */
+    private const SEATS = <<<'SQL'
+CREATE TABLE {prefix}kalaka_seats (
+  event_id bigint(20) unsigned NOT NULL,
+  code varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  pool varchar(160) CHARACTER SET utf8mb4 COLLATE utf8mb4_nopad_bin NOT NULL,
+  version int(10) unsigned NOT NULL,
+  taken_at datetime(6) NOT NULL,
+  act varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci NOT NULL,
+  PRIMARY KEY  (event_id,code,pool),
+  KEY pool (event_id,pool)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_hungarian_ci
+SQL;
+
     public function id(): string
     {
         return 'registrations';
@@ -83,7 +102,8 @@ SQL;
 
     public function schema(): Schema
     {
-        return new Schema(3, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS]);
+        // Version 4 is #194's (drafts). Whichever of the two merges second renumbers, if #194 lands later.
+        return new Schema(5, [self::REGISTRATIONS, self::FIELD_VALUES, self::SUBMISSIONS, self::SEATS]);
     }
 
     /**

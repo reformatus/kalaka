@@ -48,8 +48,8 @@ export const SUM = {
 export const SUM_AVERAGE = 'Átlag: %s';
 
 /**
- * The detail panel (S38). Every string is the prototype's text after the Opus lektor, and unapproved until the
- * owner ticks its box: [UNAPPROVED T6 reboxed: the tab names are Adatok, Kérelmek, Pénzügyek, of which this branch has Pénzügyek] the panel.
+ * The detail panel (S38). Every string is the prototype's text after the Opus lektor, approved by the owner; the tab
+ * names are Adatok, Kérelmek, Pénzügyek, of which this branch has Pénzügyek.
  */
 export const PANEL = {
 	panel: 'Jelentkező részletei',
@@ -57,7 +57,7 @@ export const PANEL = {
 	tabsLabel: 'Részletek',
 	tabMoney: 'Pénzügyek',
 	// The confirmation row's two words: the confirmation decision's own state labels, as `ConfirmationRule` declares
-	// them and the grid's cells already show. [UNAPPROVED T1200]
+	// them and the grid's cells already show.
 	confirmed: 'Visszaigazolva',
 	unconfirmed: 'Nincs visszaigazolva',
 	loading: 'Betöltés…',
@@ -75,7 +75,7 @@ export const PANEL = {
  * actions. The title field's label and hint and the „completed immediately” checkboxes with their help are #209's
  * lektor-approved texts, built verbatim by #217: [UNAPPROVED #209 T28] (#217's T32 follows it). Approved by the
  * owner: the title's empty-field message, the snackbars of a saved pair, the pair's save button, the empty list,
- * „Mentés” and „Mégse”, the preview's empty „–”; [UNAPPROVED T11] the messages (without the correction's reason message, which is gone), the
+ * „Mentés” and „Mégse”, the preview's empty „–”; the messages (without the correction's reason message, which is gone), the
  * screen-reader text; „0 Ft”.
  */
 export const MONEY = {
@@ -163,11 +163,11 @@ export const MONEY = {
 /**
  * The manual confirmation (S20): the button, its two dialogs, the line that says who set it and the snackbars.
  * The decision's own labels („Visszaigazolás”, „Visszaigazolva”, „Nincs visszaigazolva”) come from the server and
- * are approved. Every string here is unapproved until the owner ticks its box: [UNAPPROVED T20] the set button and
- * its dialog title (T3 of #213), [UNAPPROVED T21 reboxed: the field „Indoklás” only, its message „Add meg az indoklást.” is gone], the line under the tab,
- * [UNAPPROVED T23] the snackbars, the message for a reason over the limit. T46 (the snackbar after
- * an unconfirm the rules re-confirmed at once) is struck: that unconfirm is disabled now. The tooltip of the
- * disabled unconfirm is the server's text (#213's T5a, T5b, T5c, and T6 when that mail is on), not set here.
+ * are approved, and so are the rest: the set button and its dialog title (T3 of #213), the field „Indoklás” only
+ * (its message „Add meg az indoklást.” is gone), the line under the tab, the snackbars, the message for a reason
+ * over the limit. The re-confirm snackbar is gone: that unconfirm is disabled now. The help text of the disabled
+ * unconfirm is the server's text (#213's T5a or T5b with the money view, T5c without it; the owner dropped the mail
+ * sentence, T6, on 2026-11-27), not set here.
  */
 export const CONFIRM = {
 	set: 'Visszaigazolás befizetés nélkül',

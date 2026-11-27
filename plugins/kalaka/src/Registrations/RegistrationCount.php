@@ -6,7 +6,7 @@ namespace Kalaka\Registrations;
 
 use Kalaka\Foundation\Api\Query\Query;
 
-/** The places an event's registrations take, for the capacity check of a submit. */
+/** The seats held in the event's own pool: its `registered` registrations (read by `Seats::held()`). */
 final class RegistrationCount extends Query
 {
     /** The `registered` registrations of the event: one range read inside the event's primary key. */

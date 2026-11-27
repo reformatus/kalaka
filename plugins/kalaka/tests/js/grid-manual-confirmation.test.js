@@ -10,16 +10,14 @@ import { CONFIRM, PANEL } from '../../src/Admin/app/grid/texts';
 
 jest.mock( '@wordpress/components', () => {
 	const { createElement } = require( 'react' );
-	const Button = ( { children, onClick, disabled, accessibleWhenDisabled, label, showTooltip, description } ) =>
+	const Button = ( { children, onClick, disabled, accessibleWhenDisabled, 'aria-describedby': describedBy } ) =>
 		createElement(
 			'button',
 			{
 				onClick: disabled ? undefined : onClick,
 				disabled: disabled && ! accessibleWhenDisabled,
 				'aria-disabled': disabled && accessibleWhenDisabled ? 'true' : undefined,
-				'aria-label': label,
-				'data-tooltip': showTooltip && description ? description : undefined,
-				'aria-description': description,
+				'aria-describedby': describedBy,
 			},
 			children
 		);
@@ -49,6 +47,7 @@ const props = ( over ) => ( {
 	code: '92F7',
 	can: { confirm_manually: true, unconfirm: true },
 	manual,
+	status: 'registered',
 	warning: null,
 	confirmed: true,
 	stale: false,
@@ -85,7 +84,7 @@ describe( 'focus after the act', () => {
 
 	afterEach( () => close.remove() );
 
-	test( 'goes back to the button that opened the dialog while it is still there', async () => {
+	test( 'goes to the row\'s button, which is the one that opened the dialog while it stays', async () => {
 		await mount( props( { closeRef: { current: close } } ) );
 		await act( async () => button( CONFIRM.unconfirm ).click() );
 		await act( async () => host.querySelector( '#send' ).click() );
@@ -93,7 +92,7 @@ describe( 'focus after the act', () => {
 		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
 	} );
 
-	test( 'goes to the close button when the act removed the opener (an unconfirm: can.unconfirm turns false)', async () => {
+	test( 'goes to the new button of the row after an unconfirm replaces it with the set', async () => {
 		const after = props( { can: { confirm_manually: true, unconfirm: false }, manual: null, confirmed: false, closeRef: { current: close } } );
 		await mount( props( { closeRef: { current: close }, reload: async () => {
 			await mount( after );
@@ -103,10 +102,10 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
-		expect( document.activeElement ).toBe( close );
+		expect( document.activeElement ).toBe( button( CONFIRM.set ) );
 	} );
 
-	test( 'goes to the close button after a set, which hides the set button', async () => {
+	test( 'goes to the new button of the row after a set replaces it with the unconfirm', async () => {
 		const after = props( { can: { confirm_manually: true, unconfirm: true }, closeRef: { current: close } } );
 		await mount( props( { manual: null, confirmed: false, can: { confirm_manually: true, unconfirm: false }, closeRef: { current: close }, reload: async () => {
 			await mount( after );
@@ -116,6 +115,19 @@ describe( 'focus after the act', () => {
 		await act( async () => host.querySelector( '#send' ).click() );
 		await settle();
 		expect( button( CONFIRM.set ) ).toBeUndefined();
+		expect( document.activeElement ).toBe( button( CONFIRM.unconfirm ) );
+	} );
+
+	test( 'goes to the close button when the row has no button left', async () => {
+		const after = props( { can: {}, manual: null, confirmed: false, closeRef: { current: close } } );
+		await mount( props( { closeRef: { current: close }, reload: async () => {
+			await mount( after );
+			return { registration: {}, can: after.can };
+		} } ) );
+		await act( async () => button( CONFIRM.unconfirm ).click() );
+		await act( async () => host.querySelector( '#send' ).click() );
+		await settle();
+		expect( button( CONFIRM.unconfirm ) ).toBeUndefined();
 		expect( document.activeElement ).toBe( close );
 	} );
 } );
@@ -142,6 +154,17 @@ describe( 'the confirmation row', () => {
 		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
 	} );
 
+	test( 'is left out on a „Lemondott” or „Törölt” registration, and shown on the others', async () => {
+		await mount( props( { status: 'withdrawn' } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		await mount( props( { status: 'removed' } ) );
+		expect( host.querySelector( '.kg-panel-confirmation' ) ).toBeNull();
+		for ( const status of [ 'registered', 'waitlisted', undefined ] ) {
+			await mount( props( { status } ) );
+			expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
+		}
+	} );
+
 	test( 'a row with no buttons and no flag has no slot', async () => {
 		await mount( props( { manual: null, can: {} } ) );
 		expect( host.querySelector( '.kg-panel-confirmation' ) ).not.toBeNull();
@@ -152,13 +175,16 @@ describe( 'the confirmation row', () => {
 describe( 'the unconfirm the rules would undo at once', () => {
 	const reason = 'A befizetések már elérik a fizetendő összeget, ezért a jelentkezés a visszavonás után azonnal újra visszaigazolt lesz.';
 
-	test( 'is disabled but still focusable, with the server\'s text as tooltip and description', async () => {
+	test( 'is disabled but still focusable, with the server\'s text as visible help text and as its description', async () => {
 		await mount( props( { blocked: true, warning: reason } ) );
 		const unconfirm = button( CONFIRM.unconfirm );
 		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBe( 'true' );
 		expect( unconfirm.disabled ).toBe( false );
-		expect( unconfirm.getAttribute( 'data-tooltip' ) ).toBe( reason );
-		expect( unconfirm.getAttribute( 'aria-description' ) ).toBe( reason );
+		expect( unconfirm.getAttribute( 'aria-describedby' ) ).toBe( 'kalaka-unconfirm-help' );
+		const hint = host.querySelector( '#kalaka-unconfirm-help' );
+		expect( hint.textContent ).toBe( reason );
+		// Under the button, not over anything: the text is a paragraph in the row.
+		expect( unconfirm.compareDocumentPosition( hint ) & Node.DOCUMENT_POSITION_FOLLOWING ).toBeTruthy();
 		unconfirm.focus();
 		expect( document.activeElement ).toBe( unconfirm );
 	} );
@@ -169,11 +195,12 @@ describe( 'the unconfirm the rules would undo at once', () => {
 		expect( host.querySelector( '#send' ) ).toBeNull();
 	} );
 
-	test( 'a live unconfirm has no tooltip and is not disabled', async () => {
+	test( 'a live unconfirm has no help text and is not disabled', async () => {
 		await mount( props( { blocked: false, warning: null } ) );
 		const unconfirm = button( CONFIRM.unconfirm );
 		expect( unconfirm.getAttribute( 'aria-disabled' ) ).toBeNull();
-		expect( unconfirm.getAttribute( 'data-tooltip' ) ).toBeNull();
+		expect( unconfirm.getAttribute( 'aria-describedby' ) ).toBeNull();
+		expect( host.querySelector( '#kalaka-unconfirm-help' ) ).toBeNull();
 		await act( async () => unconfirm.click() );
 		expect( host.querySelector( '#send' ) ).not.toBeNull();
 	} );

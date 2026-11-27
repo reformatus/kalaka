@@ -2,16 +2,17 @@
  * The registration detail panel (S38): a non-modal side panel over the grid, with the identifying header and
  * the tabs. It reads `GET kalaka-admin/v1/events/{event}/registrations/{code}`, which already cuts every part to
  * the user's views and grants: a header field the views do not list is absent and leaves no gap, and the money
- * tab shows only with `can.view_money`. [UNAPPROVED N1200]
+ * tab shows only with `can.view_money`.
  * N4 reboxed: the header is the name, then code and e-mail, then the status row and the confirmation row with a
  * slot each, then the tabs (N1200). N12 reboxed: every tab always shown and the last-clicked one remembered
- * (N1201). T3 struck: the disabled „Hamarosan…” tab is gone.
+ * (N1201; written on a click only, see `tabClicks` and [UNAPPROVED N1264]). T3 struck: the disabled „Hamarosan…”
+ * tab is gone.
  *
  * S20: the confirmation state is its own line, the confirmation row, under the status row, and under it the
  * manual confirmation (who set the flag, when and why, and the button(s)); `ManualConfirmation` renders the row.
  * N30 reboxed: the state is no longer shown next to the status. When the re-read after a save fails twice, the
  * state and what hangs under it are not shown (the old ones would look current); the load-error message says so.
- * [UNAPPROVED N30]
+ * On a „Lemondott” or „Törölt” registration it is not shown either (owner 2026-11-27). [UNAPPROVED N30]
  */
 import { useCallback, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, TabPanel } from '@wordpress/components';
@@ -20,7 +21,7 @@ import { unconfirmBlocked, warningOf } from './confirmation';
 import ManualConfirmation from './ManualConfirmation';
 import MoneyTab from './MoneyTab';
 import { StatusRow } from './PanelRows';
-import { rememberedTab, rememberTab } from './panel';
+import { tabClicks } from './panel';
 import { PANEL } from './texts';
 
 /**
@@ -90,8 +91,12 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 
 	// Every tab is always shown, an empty one with its own empty text, and the last-clicked tab is kept for the
 	// browser session, so it stays open when another registration is selected; a tab the branch lacks falls
-	// back to the first. A tab the viewer has no right to is left out, as the code already did. [UNAPPROVED N1201]
+	// back to the first. A tab the viewer has no right to is left out, as the code already did.
 	const tabs = [ { name: 'money', title: PANEL.tabMoney } ];
+	const tabMemory = useRef();
+	if ( ! tabMemory.current ) {
+		tabMemory.current = tabClicks( tabs.map( ( t ) => t.name ) );
+	}
 	// The tab list's accessible name: wp-components' TabPanel has no prop for it.
 	// After a failed re-read the money data is stale: the tab list is hidden and the money tab shows nothing but
 	// its snackbar, so only the load-failure message remains.
@@ -125,7 +130,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								{ registration.email && <span className="kg-panel-email">{ registration.email }</span> }
 							</p>
 						) }
-						{ /* The two state rows: the confirmation row's slot holds the manual confirmation's buttons; the status row's stays empty here. [UNAPPROVED N1200] */ }
+						{ /* The two state rows: the confirmation row's slot holds the manual confirmation's buttons; the status row's stays empty here. */ }
 						{ registration.status_label && (
 							<StatusRow status={ registration.status } text={ registration.status_label } />
 						) }
@@ -136,6 +141,7 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 								code={ code }
 								can={ detail.can || {} }
 								manual={ registration.manual_confirmation }
+								status={ registration.status }
 								warning={ warningOf( registration, detail.can ) }
 								blocked={ unconfirmBlocked( registration ) }
 								confirmed={ registration.confirmed }
@@ -168,8 +174,8 @@ export default function DetailPanel( { config, code, again, onClose, onSaved } )
 				<TabPanel
 					className="kg-tabs-money"
 					tabs={ tabs }
-					initialTabName={ rememberedTab( tabs.map( ( t ) => t.name ) ) }
-					onSelect={ rememberTab }
+					initialTabName={ tabMemory.current.initial }
+					onSelect={ tabMemory.current.onSelect }
 					orientation="horizontal"
 				>
 					{ () => (

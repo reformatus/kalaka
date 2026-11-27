@@ -4,14 +4,17 @@
  * why, the button that sets it (with `can.confirm_manually`, while it is not set) and the one „Visszaigazolás
  * visszavonása” (with `can.unconfirm`, on any confirmed registration). The flag itself is read under the money
  * gate, so a user who may confirm but not see money gets the row without the line: setting is idempotent (the
- * unconfirm is not, see `api.js`). The line „Indoklás: …” is left out when the reason is empty ([UNAPPROVED N1223]).
- * [UNAPPROVED N1220] [UNAPPROVED N32 reboxed: the buttons are the confirmation
- * row's children, under the state, not a block of their own] [UNAPPROVED N34]
+ * unconfirm is not, see `api.js`). The line „Indoklás: …” is left out when the reason is empty. The buttons are the
+ * confirmation row's children, under the state, not a block of their own.
+ * The disabled unconfirm's reason is visible text under the button, tied to it by `aria-describedby`, not a
+ * tooltip: a touch screen cannot open a tooltip on a disabled button ([UNAPPROVED N1263], [UNAPPROVED N71
+ * reboxed: the reason is help text, not a notice in the dialog and not a tooltip; and no mail sentence (T6) in it,
+ * the owner dropped it on 2026-11-27 — Backend must stop appending it, the client cuts nothing]).
  */
 import { Fragment, useEffect, useRef, useState } from '@wordpress/element';
 import { Button, SnackbarList } from '@wordpress/components';
 import ConfirmDialog from './ConfirmDialog';
-import { manualActions, snackbarAfter } from './confirmation';
+import { cancelled, manualActions, snackbarAfter } from './confirmation';
 import { fmt } from './format';
 import { formatMoment } from './money';
 import { returnFocus } from './panel';
@@ -20,6 +23,12 @@ import { CONFIRM, PANEL } from './texts';
 
 /** How long the success snackbar stays, as the „Pénzügyek” tab's. */
 const SNACKBAR_MS = 5000;
+
+/**
+ * The id of the disabled unconfirm's help text: the button describes it, and a tap anywhere on the button does
+ * not have to open anything to reach it ([UNAPPROVED N1263]). There is one panel at a time.
+ */
+const HINT_ID = 'kalaka-unconfirm-help';
 
 /** The moment on one line: its spaces do not break. */
 const moment = ( instant, zone ) =>
@@ -34,8 +43,10 @@ const moment = ( instant, zone ) =>
  *                                 when it is not set, undefined when the read does not carry it
  * @param {?string}  props.warning the read's `registration.unconfirm_warning` (the server's text, only with
  *                                 `can.unconfirm`), null when the unconfirm would not confirm again at once; the
- *                                 tooltip and the description of the disabled unconfirm button
+ *                                 visible help text under the disabled unconfirm button and its description
+ *                                 ([UNAPPROVED N1263])
  * @param {boolean}  props.blocked the unconfirm is disabled: the rules would confirm again at once
+ * @param {?string}  props.status  the read's `registration.status`; the row is left out on „Lemondott” and „Törölt”
  * @param {?boolean} props.confirmed the read's `registration.confirmed`; the row is left out when it is not a boolean
  * @param {boolean}  props.stale   the last read failed: the row is left out, the snackbar stays
  * @param {Function} props.reload  re-reads the panel's detail; resolves with it once it is on screen, null if
@@ -50,6 +61,7 @@ export default function ManualConfirmation( {
 	manual,
 	warning,
 	blocked,
+	status,
 	confirmed,
 	stale,
 	reload,
@@ -59,6 +71,7 @@ export default function ManualConfirmation( {
 	const [ dialog, setDialog ] = useState( null );
 	const [ notices, setNotices ] = useState( [] );
 	const opener = useRef( null );
+	const actionsRef = useRef();
 	const timers = useRef( [] );
 	const actions = manualActions( manual, can, confirmed );
 
@@ -70,11 +83,27 @@ export default function ManualConfirmation( {
 	);
 
 	// After a save focus goes back to the button that opened the dialog while it is still on screen, else to the
-	// panel's close button ([UNAPPROVED N77 reboxed]): a set removes the set button, an unconfirm its own.
+	// panel's close button: a set removes the set button, an unconfirm its own.
 	const focusOpener = () =>
 		window.requestAnimationFrame( () =>
 			returnFocus( opener.current, closeRef && closeRef.current )
 		);
+	// The act itself replaces the opener (the set gives way to the unconfirm, and back), so after one focus goes
+	// to the row's new button, else to the close button ([UNAPPROVED N1265]; a cancelled dialog keeps the opener,
+	// else the close button, as the money tab's dialogs do). It is done in an effect,
+	// not in a frame: React must have drawn the new row first, or focus would sit on the button it replaced.
+	const wantRowFocus = useRef( false );
+	useEffect( () => {
+		if ( ! wantRowFocus.current ) {
+			return;
+		}
+		wantRowFocus.current = false;
+		const row = actionsRef.current;
+		returnFocus(
+			row ? row.querySelector( 'button' ) : null,
+			closeRef && closeRef.current
+		);
+	} );
 	const open = ( kind, event ) => {
 		opener.current = event.currentTarget;
 		setDialog( kind );
@@ -88,9 +117,9 @@ export default function ManualConfirmation( {
 		const detail = await reload();
 		const text = snackbarAfter( unconfirm, result, detail );
 		onSaved();
+		wantRowFocus.current = true;
 		setDialog( null );
 		if ( ! text ) {
-			focusOpener();
 			return;
 		}
 		const id = String( Date.now() );
@@ -111,13 +140,12 @@ export default function ManualConfirmation( {
 				SNACKBAR_MS
 			)
 		);
-		focusOpener();
 	};
 
 	const shown = !! manual || actions.length > 0;
 	return (
 		<Fragment>
-			{ typeof confirmed === 'boolean' && ! stale && (
+			{ typeof confirmed === 'boolean' && ! stale && ! cancelled( status ) && (
 				<ConfirmationRow
 					confirmed={ confirmed }
 					text={ confirmed ? PANEL.confirmed : PANEL.unconfirmed }
@@ -148,7 +176,7 @@ export default function ManualConfirmation( {
 						</Fragment>
 					) }
 					{ actions.length > 0 && (
-						<div className="kg-actions">
+						<div className="kg-actions" ref={ actionsRef }>
 							{ actions.map( ( kind ) => (
 								<Button
 									key={ kind }
@@ -158,9 +186,9 @@ export default function ManualConfirmation( {
 										? {
 												disabled: true,
 												accessibleWhenDisabled: true,
-												label: CONFIRM.unconfirm,
-												showTooltip: !! warning,
-												description: warning || undefined,
+												'aria-describedby': warning
+													? HINT_ID
+													: undefined,
 											}
 										: {} ) }
 								>
@@ -170,6 +198,9 @@ export default function ManualConfirmation( {
 								</Button>
 							) ) }
 						</div>
+					) }
+					{ blocked && warning && (
+						<p id={ HINT_ID }>{ warning }</p>
 					) }
 				</div>
 					) }
