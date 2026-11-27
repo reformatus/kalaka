@@ -70,7 +70,8 @@ final class Requests
                 $request,
                 $source,
                 $source->isAnswered($request, $values),
-                $latest[$id] ?? null
+                $latest[$id] ?? null,
+                $values
             );
         }
 
